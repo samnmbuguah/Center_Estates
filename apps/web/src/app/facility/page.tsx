@@ -4,15 +4,18 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
-type Tab = "overview" | "assets" | "work-orders" | "planned-maintenance" | "inspections" | "service-requests" | "meters" | "contractors";
+type Tab = "overview" | "assets" | "work-orders" | "work-order-events" | "work-order-cost-items" | "work-order-attachments" | "planned-maintenance" | "inspections" | "service-requests" | "meters" | "contractors";
 type Row = Record<string, string | number | boolean | null>;
 type Dashboard = { kpis: Record<string, string | number>; recentWorkOrders: Row[]; urgentWorkOrders: Row[]; requestSummary: {status:string;count:number}[]; assetCategories:{category:string;count:number}[]; dueMaintenance:Row[] };
-const labels: Record<Tab, string> = { overview: "Dashboard", assets: "Assets", "work-orders": "Work orders", "planned-maintenance": "Planned maintenance", inspections: "Inspections", "service-requests": "Service requests", meters: "Utilities", contractors: "Contractors" };
+const labels: Record<Tab, string> = { overview: "Dashboard", assets: "Assets", "work-orders": "Work orders", "work-order-events": "Work history", "work-order-cost-items": "Labor & parts", "work-order-attachments": "Work media", "planned-maintenance": "Planned maintenance", inspections: "Inspections", "service-requests": "Service requests", meters: "Utilities", contractors: "Contractors" };
 const money = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
 
 const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; format?: "money" | "status" }[]> = {
   assets: [{key:"code",label:"Asset ID"},{key:"name",label:"Asset"},{key:"category",label:"Category"},{key:"property_name",label:"Location"},{key:"condition",label:"Condition",format:"status"},{key:"purchase_value",label:"Value",format:"money"}],
   "work-orders": [{key:"number",label:"Work order"},{key:"title",label:"Issue"},{key:"property_name",label:"Property"},{key:"priority",label:"Priority",format:"status"},{key:"status",label:"Status",format:"status"},{key:"progress",label:"Progress"},{key:"total_cost",label:"Cost",format:"money"}],
+  "work-order-events": [{key:"created_at",label:"Time"},{key:"work_order",label:"Work order ID"},{key:"event_type",label:"Event",format:"status"},{key:"from_status",label:"From",format:"status"},{key:"to_status",label:"To",format:"status"},{key:"actor_name",label:"Actor"},{key:"notes",label:"Notes"}],
+  "work-order-cost-items": [{key:"work_order",label:"Work order ID"},{key:"kind",label:"Type",format:"status"},{key:"description",label:"Item"},{key:"quantity",label:"Quantity"},{key:"unit_cost",label:"Unit cost",format:"money"},{key:"total",label:"Total",format:"money"},{key:"supplier",label:"Supplier"}],
+  "work-order-attachments": [{key:"work_order",label:"Work order ID"},{key:"file_name",label:"File"},{key:"media_type",label:"Type"},{key:"caption",label:"Caption"},{key:"uploaded_by_name",label:"Uploaded by"},{key:"created_at",label:"Uploaded"}],
   "planned-maintenance": [{key:"code",label:"Schedule"},{key:"name",label:"Maintenance"},{key:"asset_name",label:"Asset"},{key:"frequency",label:"Frequency"},{key:"next_due_on",label:"Next due"},{key:"is_active",label:"Active"}],
   inspections: [{key:"reference",label:"Reference"},{key:"title",label:"Inspection"},{key:"property_name",label:"Property"},{key:"scheduled_on",label:"Scheduled"},{key:"score",label:"Score"},{key:"violations",label:"Findings"},{key:"status",label:"Status",format:"status"}],
   "service-requests": [{key:"reference",label:"Request"},{key:"subject",label:"Subject"},{key:"tenant_name",label:"Requester"},{key:"property_name",label:"Property"},{key:"priority",label:"Priority",format:"status"},{key:"status",label:"Status",format:"status"},{key:"submitted_at",label:"Submitted"}],
@@ -58,7 +61,7 @@ export default function FacilityPage() {
   const activeColumns = useMemo(() => tab === "overview" ? [] : columns[tab], [tab]);
   return <div className="page-wrap property-app">
     <section className="property-heading"><div><p className="eyebrow">Operations center</p><h1>Facility Management</h1><p>Assets, maintenance, compliance, services and utility performance.</p></div><button className="primary-action" onClick={() => setShowCreate(true)}>+ New work order</button></section>
-    <nav className="module-tabs" aria-label="Facility sections">{(Object.keys(labels) as Tab[]).map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => {setSearch("");setTab(item)}}>{labels[item]}</button>)}</nav>
+    <nav className="module-tabs" aria-label="Facility sections">{(Object.keys(labels) as Tab[]).map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => {setSearch("");setRows([]);setTab(item)}}>{labels[item]}</button>)}</nav>
     {error && <div className="form-error">{error}<button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading facility operations…</div> : tab === "overview" && kpi ? <>
       <section className="kpi-grid facility-kpis">

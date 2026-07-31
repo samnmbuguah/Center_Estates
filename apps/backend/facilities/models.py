@@ -114,6 +114,66 @@ class WorkOrder(OrganizationOwnedModel):
             raise ValidationError({'progress': 'Progress cannot exceed 100 percent.'})
 
 
+class WorkOrderEvent(OrganizationOwnedModel):
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='events')
+    event_type = models.CharField(max_length=40, default='status_change')
+    from_status = models.CharField(max_length=16, blank=True)
+    to_status = models.CharField(max_length=16, blank=True)
+    notes = models.TextField(blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='facility_work_order_events')
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def clean(self):
+        if self.work_order_id and self.work_order.organization_id != self.organization_id:
+            raise ValidationError('Work-order event must belong to the same organization.')
+
+
+class WorkOrderCostItem(OrganizationOwnedModel):
+    class Kind(models.TextChoices):
+        LABOR = 'labor', 'Labor'
+        PART = 'part', 'Part / material'
+        OTHER = 'other', 'Other'
+
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='cost_items')
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    description = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, default=1)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    supplier = models.CharField(max_length=160, blank=True)
+    reference = models.CharField(max_length=100, blank=True)
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='facility_cost_items')
+
+    class Meta:
+        ordering = ('created_at',)
+
+    def clean(self):
+        if self.work_order_id and self.work_order.organization_id != self.organization_id:
+            raise ValidationError('Cost item must belong to the same organization.')
+        if self.quantity <= 0 or self.unit_cost < 0:
+            raise ValidationError('Quantity must be positive and unit cost cannot be negative.')
+        if self.total != self.quantity * self.unit_cost:
+            raise ValidationError({'total': 'Total must equal quantity multiplied by unit cost.'})
+
+
+class WorkOrderAttachment(OrganizationOwnedModel):
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='attachments')
+    file_url = models.CharField(max_length=500)
+    file_name = models.CharField(max_length=200)
+    media_type = models.CharField(max_length=80, blank=True)
+    caption = models.CharField(max_length=250, blank=True)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='facility_work_order_attachments')
+
+    class Meta:
+        ordering = ('created_at',)
+
+    def clean(self):
+        if self.work_order_id and self.work_order.organization_id != self.organization_id:
+            raise ValidationError('Attachment must belong to the same organization.')
+
+
 class PreventiveSchedule(OrganizationOwnedModel):
     class Frequency(models.TextChoices):
         WEEKLY = 'weekly', 'Weekly'

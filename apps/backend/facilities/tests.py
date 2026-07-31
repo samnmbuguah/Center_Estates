@@ -11,7 +11,7 @@ from organizations.models import Membership, Organization
 from properties.models import Property
 from subscriptions.models import Subscription
 
-from .models import FacilityAsset, WorkOrder
+from .models import FacilityAsset, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -39,7 +39,7 @@ class FacilityApiTests(TestCase):
         )
         other_property = Property.objects.create(organization=self.other, code='P2', name='Other Building')
         FacilityAsset.objects.create(organization=self.other, property=other_property, code='A2', name='Hidden Asset', category='HVAC')
-        WorkOrder.objects.create(
+        self.work_order = WorkOrder.objects.create(
             organization=self.organization, number='WO-1', title='Lift repair', category='Mechanical',
             property=self.property, asset=self.asset, reported_by=self.user, priority=WorkOrder.Priority.HIGH,
             status=WorkOrder.Status.IN_PROGRESS, reported_at=timezone.now(),
@@ -76,3 +76,48 @@ class FacilityApiTests(TestCase):
         Subscription.objects.filter(organization=self.organization, module=Module.FACILITY).update(is_active=False)
         response = self.client.get('/api/v1/facility/dashboard/', **self.headers)
         self.assertEqual(response.status_code, 403)
+
+    def test_work_order_state_machine_is_audited(self):
+        direct = self.client.patch(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/',
+            {'status': WorkOrder.Status.COMPLETED}, format='json', **self.headers,
+        )
+        self.assertEqual(direct.status_code, 400)
+        completed = self.client.post(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/transition/',
+            {'status': WorkOrder.Status.COMPLETED, 'notes': 'Lift tested and returned to service.'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(completed.status_code, 200, completed.data)
+        self.work_order.refresh_from_db()
+        self.assertEqual(self.work_order.progress, 100)
+        self.assertIsNotNone(self.work_order.completed_at)
+        event = WorkOrderEvent.objects.get(work_order=self.work_order)
+        self.assertEqual((event.from_status, event.to_status), ('in_progress', 'completed'))
+        self.assertEqual(event.actor, self.user)
+
+    def test_invalid_or_unexplained_transition_is_rejected(self):
+        self.work_order.status = WorkOrder.Status.ASSIGNED
+        self.work_order.save()
+        invalid = self.client.post(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/transition/',
+            {'status': WorkOrder.Status.COMPLETED, 'notes': 'Skip execution'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(invalid.status_code, 400)
+        hold = self.client.post(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/transition/',
+            {'status': WorkOrder.Status.ON_HOLD}, format='json', **self.headers,
+        )
+        self.assertEqual(hold.status_code, 400)
+
+    def test_cost_item_recalculates_work_order_cost_and_logs_event(self):
+        response = self.client.post('/api/v1/facility/work-order-cost-items/', {
+            'work_order': str(self.work_order.id), 'kind': WorkOrderCostItem.Kind.PART,
+            'description': 'Lift door roller', 'quantity': '2.000',
+            'unit_cost': '3500.00', 'total': '7000.00', 'supplier': 'Lift Parts Kenya',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.work_order.refresh_from_db()
+        self.assertEqual(self.work_order.parts_cost, Decimal('7000.00'))
+        self.assertTrue(WorkOrderEvent.objects.filter(work_order=self.work_order, event_type='cost_added').exists())

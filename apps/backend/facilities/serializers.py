@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
-from .models import Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder
+from .models import (
+    Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule,
+    ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
+    WorkOrderCostItem, WorkOrderEvent,
+)
 
 
 class FacilityAssetSerializer(serializers.ModelSerializer):
@@ -74,3 +78,27 @@ class MeterReadingSerializer(serializers.ModelSerializer):
     class Meta:
         model = MeterReading
         exclude = ('organization',)
+
+
+class WorkOrderEventSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.username', read_only=True)
+
+    class Meta:
+        model = WorkOrderEvent
+        exclude = ('organization', 'actor')
+
+
+class WorkOrderCostItemSerializer(serializers.ModelSerializer):
+    added_by_name = serializers.CharField(source='added_by.username', read_only=True)
+
+    class Meta:
+        model = WorkOrderCostItem
+        exclude = ('organization', 'added_by')
+
+
+class WorkOrderAttachmentSerializer(serializers.ModelSerializer):
+    uploaded_by_name = serializers.CharField(source='uploaded_by.username', read_only=True)
+
+    class Meta:
+        model = WorkOrderAttachment
+        exclude = ('organization', 'uploaded_by')

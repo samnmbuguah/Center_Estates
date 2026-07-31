@@ -7,7 +7,11 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from core.models import Module
-from facilities.models import Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder
+from facilities.models import (
+    Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule,
+    ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
+    WorkOrderCostItem, WorkOrderEvent,
+)
 from organizations.models import Membership, Organization, Permission, Role
 from properties.models import (
     Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
@@ -235,6 +239,28 @@ class Command(BaseCommand):
                 'resolution_due_at': timezone.now() + timedelta(hours=5), 'scheduled_for': timezone.now(),
                 'labor_cost': Decimal('2500.00'), 'parts_cost': Decimal('2470.00'),
                 'other_cost': Decimal('300.00'), 'progress': 60,
+            },
+        )
+        WorkOrderEvent.objects.update_or_create(
+            organization=organization, work_order=work_order, event_type='status_change',
+            from_status=WorkOrder.Status.ASSIGNED, to_status=WorkOrder.Status.IN_PROGRESS,
+            defaults={'notes': 'Technician checked in and isolated the leaking joint.', 'actor': user},
+        )
+        WorkOrderCostItem.objects.update_or_create(
+            organization=organization, work_order=work_order, kind=WorkOrderCostItem.Kind.PART,
+            description='Compression fitting and pipe section',
+            defaults={
+                'quantity': Decimal('1.000'), 'unit_cost': Decimal('2470.00'),
+                'total': Decimal('2470.00'), 'supplier': 'AquaFix Stores',
+                'reference': 'AF-DEL-8102', 'added_by': user,
+            },
+        )
+        WorkOrderAttachment.objects.update_or_create(
+            organization=organization, work_order=work_order, file_name='leak-before-repair.jpg',
+            defaults={
+                'file_url': '/media/work-orders/WO-2026-1787/leak-before-repair.jpg',
+                'media_type': 'image/jpeg', 'caption': 'Leak location before isolation',
+                'uploaded_by': user,
             },
         )
         WorkOrder.objects.update_or_create(

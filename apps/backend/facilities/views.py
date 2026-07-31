@@ -1,5 +1,8 @@
+from django.db import transaction
 from django.db.models import Count, Sum
 from django.utils import timezone
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
@@ -8,8 +11,18 @@ from core.permissions import HasModuleSubscription
 from core.tenancy import get_active_organization
 from properties.models import Building, Property
 
-from .models import Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder
-from .serializers import ContractorSerializer, FacilityAssetSerializer, InspectionSerializer, MeterReadingSerializer, PreventiveScheduleSerializer, ServiceRequestSerializer, UtilityMeterSerializer, WorkOrderSerializer
+from .models import (
+    Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule,
+    ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
+    WorkOrderCostItem, WorkOrderEvent,
+)
+from .serializers import (
+    ContractorSerializer, FacilityAssetSerializer, InspectionSerializer,
+    MeterReadingSerializer, PreventiveScheduleSerializer,
+    ServiceRequestSerializer, UtilityMeterSerializer,
+    WorkOrderAttachmentSerializer, WorkOrderCostItemSerializer,
+    WorkOrderEventSerializer, WorkOrderSerializer,
+)
 
 
 class FacilityModelViewSet(ModelViewSet):
@@ -31,8 +44,19 @@ class FacilityModelViewSet(ModelViewSet):
             queryset = queryset.filter(status=status)
         return queryset
 
+    def _validate_organization(self, serializer):
+        organization = get_active_organization(self.request)
+        for name, value in serializer.validated_data.items():
+            if getattr(value, 'organization_id', organization.id) != organization.id:
+                raise ValidationError({name: 'The selected record belongs to another organization.'})
+        return organization
+
     def perform_create(self, serializer):
-        serializer.save(organization=get_active_organization(self.request))
+        serializer.save(organization=self._validate_organization(serializer))
+
+    def perform_update(self, serializer):
+        self._validate_organization(serializer)
+        serializer.save()
 
 
 class AssetViewSet(FacilityModelViewSet):
@@ -53,7 +77,92 @@ class WorkOrderViewSet(FacilityModelViewSet):
     search_fields = ('number', 'title', 'category', 'property__name', 'asset__name')
 
     def perform_create(self, serializer):
-        serializer.save(organization=get_active_organization(self.request), reported_by=self.request.user)
+        organization = self._validate_organization(serializer)
+        work_order = serializer.save(organization=organization, reported_by=self.request.user)
+        WorkOrderEvent.objects.create(
+            organization=organization, work_order=work_order, event_type='created',
+            to_status=work_order.status, notes='Work order created', actor=self.request.user,
+        )
+
+    def perform_update(self, serializer):
+        if 'status' in serializer.validated_data and serializer.validated_data['status'] != self.get_object().status:
+            raise ValidationError({'status': 'Use the transition action so the status change is audited.'})
+        super().perform_update(serializer)
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def transition(self, request, pk=None):
+        organization = get_active_organization(request)
+        work_order = WorkOrder.objects.select_for_update().filter(pk=pk, organization=organization).first()
+        if not work_order:
+            return Response({'detail': 'Work order not found.'}, status=404)
+        target = str(request.data.get('status', '')).strip()
+        transitions = {
+            WorkOrder.Status.OPEN: {WorkOrder.Status.ASSIGNED, WorkOrder.Status.CANCELLED},
+            WorkOrder.Status.ASSIGNED: {WorkOrder.Status.IN_PROGRESS, WorkOrder.Status.ON_HOLD, WorkOrder.Status.CANCELLED},
+            WorkOrder.Status.IN_PROGRESS: {WorkOrder.Status.ON_HOLD, WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED},
+            WorkOrder.Status.ON_HOLD: {WorkOrder.Status.IN_PROGRESS, WorkOrder.Status.CANCELLED},
+            WorkOrder.Status.COMPLETED: set(), WorkOrder.Status.CANCELLED: set(),
+        }
+        if target not in transitions[work_order.status]:
+            raise ValidationError({'status': f'Cannot transition from {work_order.status} to {target or "blank"}.'})
+        notes = str(request.data.get('notes', '')).strip()
+        if target in (WorkOrder.Status.ON_HOLD, WorkOrder.Status.CANCELLED) and not notes:
+            raise ValidationError({'notes': 'Notes are required when holding or cancelling work.'})
+        previous = work_order.status
+        work_order.status = target
+        if target == WorkOrder.Status.IN_PROGRESS and work_order.progress == 0:
+            work_order.progress = 1
+        if target == WorkOrder.Status.COMPLETED:
+            if not notes:
+                raise ValidationError({'notes': 'Resolution notes are required to complete work.'})
+            work_order.progress = 100
+            work_order.completed_at = timezone.now()
+            work_order.resolution_notes = notes
+        work_order.save()
+        WorkOrderEvent.objects.create(
+            organization=organization, work_order=work_order, event_type='status_change',
+            from_status=previous, to_status=target, notes=notes, actor=request.user,
+        )
+        return Response(WorkOrderSerializer(work_order).data)
+
+
+class WorkOrderEventViewSet(FacilityModelViewSet):
+    queryset = WorkOrderEvent.objects.select_related('work_order', 'actor')
+    serializer_class = WorkOrderEventSerializer
+    http_method_names = ('get', 'head', 'options')
+    search_fields = ('work_order__number', 'notes', 'event_type')
+
+
+class WorkOrderCostItemViewSet(FacilityModelViewSet):
+    queryset = WorkOrderCostItem.objects.select_related('work_order', 'added_by')
+    serializer_class = WorkOrderCostItemSerializer
+    search_fields = ('work_order__number', 'description', 'supplier', 'reference')
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        item = serializer.save(organization=organization, added_by=self.request.user)
+        totals = item.work_order.cost_items.values('kind').annotate(value=Sum('total'))
+        by_kind = {row['kind']: row['value'] for row in totals}
+        work_order = WorkOrder.objects.select_for_update().get(pk=item.work_order_id)
+        work_order.labor_cost = by_kind.get(WorkOrderCostItem.Kind.LABOR, 0)
+        work_order.parts_cost = by_kind.get(WorkOrderCostItem.Kind.PART, 0)
+        work_order.other_cost = by_kind.get(WorkOrderCostItem.Kind.OTHER, 0)
+        work_order.save(update_fields=('labor_cost', 'parts_cost', 'other_cost', 'updated_at'))
+        WorkOrderEvent.objects.create(
+            organization=organization, work_order=work_order, event_type='cost_added',
+            notes=f'{item.description}: {item.total}', actor=self.request.user,
+        )
+
+
+class WorkOrderAttachmentViewSet(FacilityModelViewSet):
+    queryset = WorkOrderAttachment.objects.select_related('work_order', 'uploaded_by')
+    serializer_class = WorkOrderAttachmentSerializer
+    search_fields = ('work_order__number', 'file_name', 'caption')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), uploaded_by=self.request.user)
 
 
 class PreventiveScheduleViewSet(FacilityModelViewSet):
