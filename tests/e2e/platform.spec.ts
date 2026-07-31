@@ -51,6 +51,17 @@ test("property rent ledger registers and receipt dialog are usable", async ({ pa
   await expect(dialog).toBeHidden();
 });
 
+test("facility work history, cost and media registers are connected", async ({ page }) => {
+  await page.goto("/facility");
+  await page.getByRole("button", { name: "Work history", exact: true }).click();
+  await expect(page.getByText("Technician checked in and isolated the leaking joint.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Labor & parts", exact: true }).click();
+  await expect(page.getByText("Compression fitting and pipe section", { exact: true })).toBeVisible();
+  await expect(page.getByText("AquaFix Stores", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Work media", exact: true }).click();
+  await expect(page.getByText("leak-before-repair.jpg", { exact: true })).toBeVisible();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });
