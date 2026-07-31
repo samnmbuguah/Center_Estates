@@ -20,7 +20,7 @@ from properties.models import (
 )
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 from subscriptions.models import Subscription
-from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
+from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderAuditEvent, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
 from valuations.models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
 
 
@@ -502,9 +502,24 @@ class Command(BaseCommand):
             organization=organization, reference='TND-2026-0039',
             defaults={'title': 'Property Valuation Framework', 'client': 'County Pension Fund', 'category': 'Professional services', 'source': 'Direct invitation', 'published_on': today - timedelta(days=40), 'submission_deadline': timezone.now() - timedelta(days=5), 'estimated_value': Decimal('24000000'), 'currency': 'KES', 'stage': Tender.Stage.SUBMITTED, 'owner': user, 'readiness_score': Decimal('100')},
         )
-        TenderSubmission.objects.update_or_create(
+        tender_submission, _ = TenderSubmission.objects.update_or_create(
             organization=organization, tender=submitted_tender,
             defaults={'channel': 'e-procurement portal', 'submitted_at': timezone.now() - timedelta(days=5, hours=2), 'submitted_by': user, 'package_version': 'FINAL-1.0', 'package_checksum': 'demo-tender-package-sha256', 'receipt_reference': 'PPIP-RCT-260726-1048', 'compliant': True},
+        )
+        TenderAuditEvent.objects.update_or_create(
+            organization=organization, tender=submitted_tender, event_type='submitted',
+            defaults={
+                'from_stage': Tender.Stage.PACKAGING, 'to_stage': Tender.Stage.SUBMITTED,
+                'details': {'receipt_reference': tender_submission.receipt_reference, 'package_checksum': tender_submission.package_checksum},
+                'actor': user,
+            },
+        )
+        TenderAuditEvent.objects.update_or_create(
+            organization=organization, tender=tender, event_type='stage_transition',
+            from_stage=Tender.Stage.PLANNING, to_stage=Tender.Stage.TECHNICAL,
+            defaults={
+                'notes': 'Bid plan assigned and approved for technical response production.', 'actor': user,
+            },
         )
         closed_tender, _ = Tender.objects.update_or_create(
             organization=organization, reference='TND-2026-0028',

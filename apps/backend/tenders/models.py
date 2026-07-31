@@ -56,3 +56,16 @@ class TenderSubmission(OrganizationOwnedModel):
 
 class TenderOutcome(OrganizationOwnedModel):
     tender=models.OneToOneField(Tender,on_delete=models.PROTECT,related_name='outcome'); result=models.CharField(max_length=16,choices=(('awarded','Awarded'),('regretted','Regretted'),('cancelled','Cancelled'))); notified_on=models.DateField(); awarded_value=models.DecimalField(max_digits=18,decimal_places=2,null=True,blank=True); winner=models.CharField(max_length=200,blank=True); feedback=models.TextField(blank=True); lessons_learned=models.TextField(blank=True)
+
+
+class TenderAuditEvent(OrganizationOwnedModel):
+    tender=models.ForeignKey(Tender,on_delete=models.CASCADE,related_name='audit_events')
+    event_type=models.CharField(max_length=50)
+    from_stage=models.CharField(max_length=16,blank=True)
+    to_stage=models.CharField(max_length=16,blank=True)
+    notes=models.TextField(blank=True)
+    details=models.JSONField(default=dict,blank=True)
+    actor=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='tender_audit_events')
+    class Meta: ordering=('-created_at',)
+    def clean(self):
+        if self.tender_id and self.tender.organization_id!=self.organization_id: raise ValidationError('Audit tender must belong to the same organization.')

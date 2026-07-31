@@ -9,7 +9,7 @@ from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 
-from .models import Tender, TenderRequirement, TenderTask
+from .models import Tender, TenderAuditEvent, TenderRequirement, TenderSubmission, TenderTask
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
@@ -51,3 +51,46 @@ class TenderApiTests(TestCase):
     def test_subscription_is_required(self):
         Subscription.objects.filter(organization=self.organization, module=Module.TENDER).update(is_active=False)
         self.assertEqual(self.client.get('/api/v1/tender/dashboard/', **self.headers).status_code, 403)
+
+    def test_stage_changes_require_transition_and_mandatory_requirement_clearance(self):
+        direct = self.client.patch(
+            f'/api/v1/tender/tenders/{self.tender.id}/', {'stage': Tender.Stage.ANALYSIS},
+            format='json', **self.headers,
+        )
+        self.assertEqual(direct.status_code, 400)
+        response = self.client.post(
+            f'/api/v1/tender/tenders/{self.tender.id}/transition/',
+            {'stage': Tender.Stage.ANALYSIS}, format='json', **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        requirement = TenderRequirement.objects.create(
+            organization=self.organization, tender=self.tender, category='Eligibility',
+            text='Current tax clearance', mandatory=True, status='gap',
+        )
+        blocked = self.client.post(
+            f'/api/v1/tender/tenders/{self.tender.id}/transition/',
+            {'stage': Tender.Stage.DECISION}, format='json', **self.headers,
+        )
+        self.assertEqual(blocked.status_code, 400)
+        requirement.status = 'met'; requirement.save()
+        accepted = self.client.post(
+            f'/api/v1/tender/tenders/{self.tender.id}/transition/',
+            {'stage': Tender.Stage.DECISION}, format='json', **self.headers,
+        )
+        self.assertEqual(accepted.status_code, 200, accepted.data)
+        self.assertEqual(TenderAuditEvent.objects.filter(tender=self.tender, event_type='stage_transition').count(), 2)
+
+    def test_submission_is_server_stamped_immutable_and_advances_tender(self):
+        self.tender.stage = Tender.Stage.PACKAGING; self.tender.save()
+        response = self.client.post('/api/v1/tender/submissions/', {
+            'tender': str(self.tender.id), 'channel': 'e-procurement portal',
+            'package_version': 'FINAL-1.0', 'package_checksum': 'sha256-package',
+            'receipt_reference': 'PORTAL-RCT-101', 'compliant': True,
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        submission = TenderSubmission.objects.get(tender=self.tender)
+        self.assertEqual(submission.submitted_by, self.user)
+        self.assertIsNotNone(submission.submitted_at)
+        self.tender.refresh_from_db(); self.assertEqual(self.tender.stage, Tender.Stage.SUBMITTED)
+        self.assertEqual(self.client.delete(f'/api/v1/tender/submissions/{submission.id}/', **self.headers).status_code, 400)
+        self.assertTrue(TenderAuditEvent.objects.filter(tender=self.tender, event_type='submitted').exists())

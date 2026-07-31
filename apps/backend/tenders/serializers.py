@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import BidDecision,CompanyDocument,FinancialItem,ProposalSection,Tender,TenderOutcome,TenderRequirement,TenderReview,TenderSubmission,TenderTask
+from .models import BidDecision,CompanyDocument,FinancialItem,ProposalSection,Tender,TenderAuditEvent,TenderOutcome,TenderRequirement,TenderReview,TenderSubmission,TenderTask
 
 class Base(serializers.ModelSerializer): pass
 class TenderSerializer(Base):
@@ -29,7 +29,12 @@ class ReviewSerializer(Base):
  class Meta: model=TenderReview; exclude=('organization',)
 class SubmissionSerializer(Base):
  tender_title=serializers.CharField(source='tender.title',read_only=True)
- class Meta: model=TenderSubmission; exclude=('organization',)
+ class Meta:
+  model=TenderSubmission; exclude=('organization',); read_only_fields=('submitted_by','submitted_at')
 class OutcomeSerializer(Base):
  tender_title=serializers.CharField(source='tender.title',read_only=True)
  class Meta: model=TenderOutcome; exclude=('organization',)
+class TenderAuditEventSerializer(Base):
+ tender_reference=serializers.CharField(source='tender.reference',read_only=True)
+ actor_name=serializers.CharField(source='actor.username',read_only=True)
+ class Meta: model=TenderAuditEvent; exclude=('organization','actor')

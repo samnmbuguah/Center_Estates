@@ -72,6 +72,15 @@ test("sales payment verification and audit controls are connected", async ({ pag
   await expect(page.getByText("payment verified", { exact: true })).toBeVisible();
 });
 
+test("tender submission evidence and audit trail are connected", async ({ page }) => {
+  await page.goto("/tender");
+  await page.getByRole("button", { name: "Submissions", exact: true }).click();
+  await expect(page.getByText("PPIP-RCT-260726-1048", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Audit trail", exact: true }).click();
+  await expect(page.getByText("TND-2026-0039", { exact: true })).toBeVisible();
+  await expect(page.getByText("submitted", { exact: true }).first()).toBeVisible();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });
