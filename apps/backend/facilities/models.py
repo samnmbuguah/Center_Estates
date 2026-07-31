@@ -1,3 +1,243 @@
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
-# Create your models here.
+from core.models import OrganizationOwnedModel
+
+
+class FacilityAsset(OrganizationOwnedModel):
+    class Condition(models.TextChoices):
+        EXCELLENT = 'excellent', 'Excellent'
+        GOOD = 'good', 'Good'
+        FAIR = 'fair', 'Fair'
+        POOR = 'poor', 'Poor'
+        OUT_OF_SERVICE = 'out_of_service', 'Out of service'
+
+    code = models.CharField(max_length=50)
+    name = models.CharField(max_length=180)
+    category = models.CharField(max_length=80)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_assets')
+    building = models.ForeignKey('properties.Building', on_delete=models.PROTECT, related_name='facility_assets', null=True, blank=True)
+    unit = models.ForeignKey('properties.Unit', on_delete=models.PROTECT, related_name='facility_assets', null=True, blank=True)
+    manufacturer = models.CharField(max_length=120, blank=True)
+    model_number = models.CharField(max_length=100, blank=True)
+    serial_number = models.CharField(max_length=100, blank=True)
+    installed_on = models.DateField(null=True, blank=True)
+    warranty_expires_on = models.DateField(null=True, blank=True)
+    purchase_value = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    condition = models.CharField(max_length=20, choices=Condition.choices, default=Condition.GOOD)
+    is_active = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('name',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_asset_code')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Asset property must belong to the same organization.')
+        if self.building_id and self.building.property_id != self.property_id:
+            raise ValidationError({'building': 'Building must belong to the selected property.'})
+        if self.unit_id and self.unit.property_id != self.property_id:
+            raise ValidationError({'unit': 'Unit must belong to the selected property.'})
+
+
+class Contractor(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        ACTIVE = 'active', 'Active'
+        REVIEW = 'review', 'Under review'
+        SUSPENDED = 'suspended', 'Suspended'
+        EXPIRED = 'expired', 'Compliance expired'
+
+    code = models.CharField(max_length=40)
+    name = models.CharField(max_length=180)
+    specialty = models.CharField(max_length=100)
+    contact_name = models.CharField(max_length=120, blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.REVIEW)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    insurance_expires_on = models.DateField(null=True, blank=True)
+    license_expires_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('name',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_contractor_code')]
+
+
+class WorkOrder(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        ASSIGNED = 'assigned', 'Assigned'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        ON_HOLD = 'on_hold', 'On hold'
+        COMPLETED = 'completed', 'Completed'
+        CANCELLED = 'cancelled', 'Cancelled'
+    class Priority(models.TextChoices):
+        LOW = 'low', 'Low'
+        MEDIUM = 'medium', 'Medium'
+        HIGH = 'high', 'High'
+        CRITICAL = 'critical', 'Critical'
+
+    number = models.CharField(max_length=60)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=80)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='work_orders')
+    asset = models.ForeignKey(FacilityAsset, on_delete=models.PROTECT, related_name='work_orders', null=True, blank=True)
+    contractor = models.ForeignKey(Contractor, on_delete=models.SET_NULL, related_name='work_orders', null=True, blank=True)
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='facility_work_orders', null=True, blank=True)
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='reported_facility_work_orders')
+    priority = models.CharField(max_length=12, choices=Priority.choices, default=Priority.MEDIUM)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    reported_at = models.DateTimeField()
+    response_due_at = models.DateTimeField(null=True, blank=True)
+    resolution_due_at = models.DateTimeField(null=True, blank=True)
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    labor_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    parts_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    other_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    progress = models.PositiveSmallIntegerField(default=0)
+    resolution_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-reported_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_work_order_number')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Work order property must belong to the same organization.')
+        if self.asset_id and self.asset.organization_id != self.organization_id:
+            raise ValidationError('Work order asset must belong to the same organization.')
+        if self.progress > 100:
+            raise ValidationError({'progress': 'Progress cannot exceed 100 percent.'})
+
+
+class PreventiveSchedule(OrganizationOwnedModel):
+    class Frequency(models.TextChoices):
+        WEEKLY = 'weekly', 'Weekly'
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        BIANNUAL = 'biannual', 'Biannual'
+        ANNUAL = 'annual', 'Annual'
+
+    code = models.CharField(max_length=50)
+    name = models.CharField(max_length=180)
+    asset = models.ForeignKey(FacilityAsset, on_delete=models.CASCADE, related_name='preventive_schedules')
+    frequency = models.CharField(max_length=16, choices=Frequency.choices)
+    last_completed_on = models.DateField(null=True, blank=True)
+    next_due_on = models.DateField()
+    estimated_hours = models.DecimalField(max_digits=7, decimal_places=2, default=1)
+    instructions = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('next_due_on',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_pm_code')]
+
+    def clean(self):
+        if self.asset_id and self.asset.organization_id != self.organization_id:
+            raise ValidationError('Schedule asset must belong to the same organization.')
+
+
+class Inspection(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        SCHEDULED = 'scheduled', 'Scheduled'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        PASSED = 'passed', 'Passed'
+        FAILED = 'failed', 'Failed'
+        FOLLOW_UP = 'follow_up', 'Follow-up required'
+
+    reference = models.CharField(max_length=60)
+    title = models.CharField(max_length=180)
+    inspection_type = models.CharField(max_length=80)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_inspections')
+    asset = models.ForeignKey(FacilityAsset, on_delete=models.SET_NULL, related_name='inspections', null=True, blank=True)
+    inspector = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='facility_inspections')
+    scheduled_on = models.DateField()
+    completed_on = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.SCHEDULED)
+    score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    findings = models.TextField(blank=True)
+    violations = models.PositiveSmallIntegerField(default=0)
+    follow_up_work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, related_name='source_inspections', null=True, blank=True)
+
+    class Meta:
+        ordering = ('-scheduled_on',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_inspection_ref')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Inspection property must belong to the same organization.')
+
+
+class ServiceRequest(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        NEW = 'new', 'New'
+        ASSIGNED = 'assigned', 'Assigned'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        RESOLVED = 'resolved', 'Resolved'
+        CLOSED = 'closed', 'Closed'
+
+    reference = models.CharField(max_length=60)
+    subject = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=80)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='service_requests')
+    unit = models.ForeignKey('properties.Unit', on_delete=models.SET_NULL, related_name='service_requests', null=True, blank=True)
+    tenant = models.ForeignKey('properties.Tenant', on_delete=models.SET_NULL, related_name='service_requests', null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.NEW)
+    priority = models.CharField(max_length=12, choices=WorkOrder.Priority.choices, default=WorkOrder.Priority.MEDIUM)
+    submitted_at = models.DateTimeField()
+    response_due_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    satisfaction_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, related_name='service_requests', null=True, blank=True)
+
+    class Meta:
+        ordering = ('-submitted_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_service_request_ref')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Service request property must belong to the same organization.')
+        if self.satisfaction_score is not None and self.satisfaction_score > 5:
+            raise ValidationError({'satisfaction_score': 'Satisfaction score must be between 0 and 5.'})
+
+
+class UtilityMeter(OrganizationOwnedModel):
+    class Utility(models.TextChoices):
+        ELECTRICITY = 'electricity', 'Electricity'
+        WATER = 'water', 'Water'
+        GAS = 'gas', 'Gas'
+
+    code = models.CharField(max_length=50)
+    name = models.CharField(max_length=160)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='utility_meters')
+    utility_type = models.CharField(max_length=16, choices=Utility.choices)
+    unit = models.CharField(max_length=20, default='kWh')
+    tariff = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('name',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_meter_code')]
+
+
+class MeterReading(OrganizationOwnedModel):
+    meter = models.ForeignKey(UtilityMeter, on_delete=models.CASCADE, related_name='readings')
+    read_at = models.DateTimeField()
+    value = models.DecimalField(max_digits=16, decimal_places=3)
+    consumption = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    is_anomaly = models.BooleanField(default=False)
+    notes = models.CharField(max_length=250, blank=True)
+
+    class Meta:
+        ordering = ('-read_at',)
+        constraints = [models.UniqueConstraint(fields=('meter', 'read_at'), name='unique_meter_read_time')]
+
+    def clean(self):
+        if self.meter_id and self.meter.organization_id != self.organization_id:
+            raise ValidationError('Meter reading must belong to the meter organization.')

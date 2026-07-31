@@ -7,6 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from core.models import Module
+from facilities.models import Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder
 from organizations.models import Membership, Organization, Permission, Role
 from properties.models import (
     Building, Budget, Expense, Invoice, Lease, Project, Property, Receipt,
@@ -154,6 +155,112 @@ class Command(BaseCommand):
             defaults={
                 'method': ServiceCharge.Method.AREA, 'annual_budget': Decimal('3600000.00'),
                 'starts_on': today.replace(month=1, day=1), 'is_active': True,
+            },
+        )
+        contractor, _ = Contractor.objects.update_or_create(
+            organization=organization, code='CTR-001',
+            defaults={
+                'name': 'AquaFix Services Ltd', 'specialty': 'Plumbing & drainage',
+                'contact_name': 'Miriam Wanjiku', 'email': 'service@aquafix.example',
+                'phone': '+254 722 555 100', 'status': Contractor.Status.ACTIVE,
+                'rating': Decimal('4.70'), 'insurance_expires_on': today + timedelta(days=240),
+                'license_expires_on': today + timedelta(days=150),
+            },
+        )
+        lift, _ = FacilityAsset.objects.update_or_create(
+            organization=organization, code='LFT-TA-01',
+            defaults={
+                'name': 'Tower A Passenger Lift 1', 'category': 'Mechanical', 'property': prop,
+                'building': building, 'manufacturer': 'KONE', 'model_number': 'MonoSpace 500',
+                'serial_number': 'KNE-22190', 'installed_on': today - timedelta(days=730),
+                'warranty_expires_on': today + timedelta(days=365), 'purchase_value': Decimal('8400000.00'),
+                'condition': FacilityAsset.Condition.GOOD, 'is_active': True,
+            },
+        )
+        generator, _ = FacilityAsset.objects.update_or_create(
+            organization=organization, code='GEN-TA-01',
+            defaults={
+                'name': 'Tower A Standby Generator', 'category': 'Electrical', 'property': prop,
+                'building': building, 'manufacturer': 'Cummins', 'model_number': 'C275D5',
+                'serial_number': 'CMN-77501', 'purchase_value': Decimal('5700000.00'),
+                'condition': FacilityAsset.Condition.FAIR, 'is_active': True,
+            },
+        )
+        work_order, _ = WorkOrder.objects.update_or_create(
+            organization=organization, number='WO-2026-1787',
+            defaults={
+                'title': 'Water leakage near lift lobby', 'description': 'Investigate and repair leaking cold-water pipe joint.',
+                'category': 'Plumbing & drainage', 'property': prop, 'asset': lift, 'contractor': contractor,
+                'assigned_to': user, 'reported_by': user, 'priority': WorkOrder.Priority.HIGH,
+                'status': WorkOrder.Status.IN_PROGRESS, 'reported_at': timezone.now() - timedelta(days=1),
+                'response_due_at': timezone.now() - timedelta(hours=18),
+                'resolution_due_at': timezone.now() + timedelta(hours=5), 'scheduled_for': timezone.now(),
+                'labor_cost': Decimal('2500.00'), 'parts_cost': Decimal('2470.00'),
+                'other_cost': Decimal('300.00'), 'progress': 60,
+            },
+        )
+        WorkOrder.objects.update_or_create(
+            organization=organization, number='WO-2026-1789',
+            defaults={
+                'title': 'Generator preventive service overdue', 'category': 'Electrical',
+                'property': prop, 'asset': generator, 'assigned_to': user, 'reported_by': user,
+                'priority': WorkOrder.Priority.CRITICAL, 'status': WorkOrder.Status.ASSIGNED,
+                'reported_at': timezone.now() - timedelta(days=3),
+                'response_due_at': timezone.now() - timedelta(days=2),
+                'resolution_due_at': timezone.now() - timedelta(hours=6), 'progress': 15,
+            },
+        )
+        PreventiveSchedule.objects.update_or_create(
+            organization=organization, code='PM-LIFT-MONTHLY',
+            defaults={
+                'name': 'Monthly lift safety service', 'asset': lift,
+                'frequency': PreventiveSchedule.Frequency.MONTHLY,
+                'last_completed_on': today - timedelta(days=32), 'next_due_on': today - timedelta(days=2),
+                'estimated_hours': Decimal('3.00'), 'instructions': 'Inspect brakes, doors, controls and emergency communication.',
+            },
+        )
+        PreventiveSchedule.objects.update_or_create(
+            organization=organization, code='PM-GEN-QUARTERLY',
+            defaults={
+                'name': 'Quarterly generator service', 'asset': generator,
+                'frequency': PreventiveSchedule.Frequency.QUARTERLY,
+                'last_completed_on': today - timedelta(days=55), 'next_due_on': today + timedelta(days=35),
+                'estimated_hours': Decimal('5.00'), 'instructions': 'Load test, change filters and inspect starter batteries.',
+            },
+        )
+        Inspection.objects.update_or_create(
+            organization=organization, reference='INS-2026-0081',
+            defaults={
+                'title': 'Monthly fire and life safety inspection', 'inspection_type': 'Safety',
+                'property': prop, 'inspector': user, 'scheduled_on': today - timedelta(days=5),
+                'completed_on': today - timedelta(days=5), 'status': Inspection.Status.FOLLOW_UP,
+                'score': Decimal('86.00'), 'findings': 'One fire extinguisher service tag has expired.',
+                'violations': 1, 'follow_up_work_order': work_order,
+            },
+        )
+        ServiceRequest.objects.update_or_create(
+            organization=organization, reference='SR-2026-00123',
+            defaults={
+                'subject': 'Water leakage reported', 'description': 'Water dripping near the basement lift lobby.',
+                'category': 'Plumbing', 'property': prop, 'unit': units[101], 'tenant': tenant_one,
+                'status': ServiceRequest.Status.IN_PROGRESS, 'priority': WorkOrder.Priority.HIGH,
+                'submitted_at': timezone.now() - timedelta(days=1),
+                'response_due_at': timezone.now() - timedelta(hours=18), 'work_order': work_order,
+            },
+        )
+        meter, _ = UtilityMeter.objects.update_or_create(
+            organization=organization, code='ELC-TA-MAIN',
+            defaults={
+                'name': 'Tower A Main Electricity Meter', 'property': prop,
+                'utility_type': UtilityMeter.Utility.ELECTRICITY, 'unit': 'kWh',
+                'tariff': Decimal('27.4500'), 'is_active': True,
+            },
+        )
+        MeterReading.objects.update_or_create(
+            organization=organization, meter=meter, read_at=timezone.now().replace(minute=0, second=0, microsecond=0),
+            defaults={
+                'value': Decimal('198420.000'), 'consumption': Decimal('1245.000'),
+                'cost': Decimal('34175.25'), 'is_anomaly': False,
             },
         )
         self.stdout.write(self.style.SUCCESS(f'Seeded platform data for {organization.name}.'))

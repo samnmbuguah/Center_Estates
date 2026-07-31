@@ -1,3 +1,5 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder
+
+admin.site.register((FacilityAsset, Contractor, WorkOrder, PreventiveSchedule, Inspection, ServiceRequest, UtilityMeter, MeterReading))
