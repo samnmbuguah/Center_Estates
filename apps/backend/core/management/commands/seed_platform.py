@@ -15,6 +15,7 @@ from properties.models import (
 )
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SiteVisit
 from subscriptions.models import Subscription
+from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
 
 
 class Command(BaseCommand):
@@ -354,6 +355,89 @@ class Command(BaseCommand):
             defaults={
                 'document_type': 'sale_agreement', 'title': 'Executed Agreement for Sale',
                 'file_url': '', 'signed_on': today - timedelta(days=14), 'is_final': True,
+            },
+        )
+        tender, _ = Tender.objects.update_or_create(
+            organization=organization, reference='TND-2026-0047',
+            defaults={
+                'title': 'Integrated Facilities Management Services', 'client': 'Nairobi Metropolitan Authority',
+                'description': 'Three-year facilities management framework for public office complexes.',
+                'category': 'Facilities management', 'source': 'Public Procurement Portal',
+                'published_on': today - timedelta(days=12),
+                'clarification_deadline': timezone.now() + timedelta(days=4),
+                'submission_deadline': timezone.now() + timedelta(days=12),
+                'estimated_value': Decimal('185000000.00'), 'currency': 'KES',
+                'stage': Tender.Stage.TECHNICAL, 'owner': user, 'readiness_score': Decimal('64.00'),
+            },
+        )
+        for category, text, status, confidence, citation in (
+            ('Eligibility', 'Valid tax compliance certificate', 'met', '98.00', 'Section 2.1, page 14'),
+            ('Technical', 'At least three comparable contracts completed in five years', 'confirmed', '94.00', 'Section 4.3, page 31'),
+            ('Financial', 'Bid security of KES 2,000,000', 'gap', '99.00', 'Tender Data Sheet, page 8'),
+        ):
+            TenderRequirement.objects.update_or_create(
+                organization=organization, tender=tender, category=category, text=text,
+                defaults={'mandatory': True, 'status': status, 'confidence': Decimal(confidence), 'citation': citation, 'model_version': 'extraction-v1', 'confirmed_by': user},
+            )
+        BidDecision.objects.update_or_create(
+            organization=organization, tender=tender,
+            defaults={
+                'eligibility_score': Decimal('92'), 'profitability_score': Decimal('78'),
+                'capacity_score': Decimal('84'), 'risk_score': Decimal('35'),
+                'recommendation': 'bid', 'decision': 'approved',
+                'rationale': 'Strong eligibility and delivery capacity with acceptable commercial risk.',
+                'decided_by': user, 'decided_at': timezone.now() - timedelta(days=7),
+            },
+        )
+        task_one, _ = TenderTask.objects.update_or_create(
+            organization=organization, tender=tender, title='Complete technical methodology',
+            defaults={'stage': Tender.Stage.TECHNICAL, 'owner': user, 'starts_on': today - timedelta(days=2), 'due_on': today + timedelta(days=3), 'status': 'in_progress', 'progress': 70},
+        )
+        TenderTask.objects.update_or_create(
+            organization=organization, tender=tender, title='Obtain bid security',
+            defaults={'stage': Tender.Stage.FINANCIAL, 'owner': user, 'starts_on': today, 'due_on': today + timedelta(days=5), 'status': 'pending', 'progress': 10, 'dependency': task_one},
+        )
+        CompanyDocument.objects.update_or_create(
+            organization=organization, checksum='tax-compliance-demo-2026',
+            defaults={'name': 'Tax Compliance Certificate', 'document_type': 'Tax compliance', 'version': '2026.1', 'issued_on': today - timedelta(days=120), 'expires_on': today + timedelta(days=22), 'status': 'expiring'},
+        )
+        ProposalSection.objects.update_or_create(
+            organization=organization, tender=tender, sequence=1,
+            defaults={'title': 'Technical approach and methodology', 'section_type': 'technical', 'owner': user, 'content': 'Mobilisation, preventive maintenance, helpdesk and SLA governance approach.', 'status': 'review', 'ai_assisted': True, 'version': 3},
+        )
+        FinancialItem.objects.update_or_create(
+            organization=organization, tender=tender, code='FM-001',
+            defaults={'description': 'Annual integrated facilities management fee', 'quantity': Decimal('3'), 'unit': 'year', 'unit_rate': Decimal('58500000'), 'amount': Decimal('175500000'), 'approved': False},
+        )
+        TenderReview.objects.update_or_create(
+            organization=organization, tender=tender, reviewer=user, gate='Technical proposal review',
+            defaults={'status': 'pending', 'comments': 'Awaiting final CV and mobilisation schedule.'},
+        )
+        submitted_tender, _ = Tender.objects.update_or_create(
+            organization=organization, reference='TND-2026-0039',
+            defaults={'title': 'Property Valuation Framework', 'client': 'County Pension Fund', 'category': 'Professional services', 'source': 'Direct invitation', 'published_on': today - timedelta(days=40), 'submission_deadline': timezone.now() - timedelta(days=5), 'estimated_value': Decimal('24000000'), 'currency': 'KES', 'stage': Tender.Stage.SUBMITTED, 'owner': user, 'readiness_score': Decimal('100')},
+        )
+        TenderSubmission.objects.update_or_create(
+            organization=organization, tender=submitted_tender,
+            defaults={'channel': 'e-procurement portal', 'submitted_at': timezone.now() - timedelta(days=5, hours=2), 'submitted_by': user, 'package_version': 'FINAL-1.0', 'package_checksum': 'demo-tender-package-sha256', 'receipt_reference': 'PPIP-RCT-260726-1048', 'compliant': True},
+        )
+        closed_tender, _ = Tender.objects.update_or_create(
+            organization=organization, reference='TND-2026-0028',
+            defaults={
+                'title': 'County Office Maintenance Contract', 'client': 'Kiambu County Government',
+                'category': 'Maintenance', 'source': 'Public Procurement Portal',
+                'published_on': today - timedelta(days=90), 'submission_deadline': timezone.now() - timedelta(days=50),
+                'estimated_value': Decimal('68000000'), 'currency': 'KES', 'stage': Tender.Stage.REGRETTED,
+                'owner': user, 'readiness_score': Decimal('100'),
+            },
+        )
+        TenderOutcome.objects.update_or_create(
+            organization=organization, tender=closed_tender,
+            defaults={
+                'result': 'regretted', 'notified_on': today - timedelta(days=25),
+                'winner': 'Benchmark Facilities Ltd',
+                'feedback': 'Strong technical response; competing price was lower.',
+                'lessons_learned': 'Validate supplier rate assumptions earlier and increase pricing review time.',
             },
         )
         self.stdout.write(self.style.SUCCESS(f'Seeded platform data for {organization.name}.'))
