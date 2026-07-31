@@ -21,7 +21,7 @@ Unified, subscription-aware estate and property ERP. The platform is a modular m
 - Sales Management
 - Tender Management
 - Valuation
-- Construction Monitoring (staged migration from `MonitoringERP`)
+- Construction Monitoring (integrated domain port from `MonitoringERP`)
 
 ## Local setup
 
@@ -45,6 +45,22 @@ Web: `http://localhost:3000`. API health: `http://localhost:8000/api/v1/health/`
 - Monitoring is migrated incrementally. Its offline sync, evidence integrity and mobile workflows must not be rewritten without a parity test.
 
 See [architecture](docs/architecture/PLATFORM_ARCHITECTURE.md) and [Monitoring migration](docs/migration/MONITORING_ERP.md).
+
+## VM deployment
+
+The production-like VM stack is defined in `docker-compose.yml`: PostgreSQL 17,
+one Django API and one route-split Next.js application. It joins the existing
+`caddy_default` network; shared Caddy terminates TLS for
+`https://erp.169-58-102-217.sslip.io`.
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+Container startup applies migrations, collects static assets, seeds every
+subscribed module idempotently, and then starts Gunicorn. Secrets are mounted
+from `infrastructure/docker/secrets` and must never be committed or printed.
 
 ## Dependency advisory note
 

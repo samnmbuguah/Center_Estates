@@ -1,41 +1,63 @@
-# MonitoringERP migration strategy
+# MonitoringERP to construction module migration
 
-## Principle
+## Final architecture decision
 
-Migrate working code; do not rebuild it. `MonitoringERP` remains runnable until the unified platform passes behavioral parity checks.
+MonitoringERP is a source implementation, not a second production service. Its
+construction domain is being copied into the modular monolith and adapted at
+the boundaries. Production remains one Next.js UI, one Django backend and one
+PostgreSQL database. The source baseline used for the port is nested-repository
+commit `b2fb952`.
 
-## Reuse map
+## Ownership mapping
 
-| Existing area | Treatment |
+| MonitoringERP concept | Unified platform concept |
 |---|---|
-| `apps/backend/sync` | Move into a monitoring domain package in slices; preserve migrations and API behavior |
-| `apps/backend/accounts` | Reconcile Tenant/Membership with shared organizations and identity; migrate data once |
-| `apps/backend/finance` | Retain monitoring-specific certification logic; promote truly shared payment primitives later |
-| `apps/backend/comms` | Adapt behind the platform notification interface |
-| `apps/backend/store` | Keep monitoring inventory behavior; evaluate later overlap with facilities |
-| `apps/backend/ai` | Keep gateway abstractions; centralize credentials and audit controls |
-| `apps/desktop` | Initially link from the command center; migrate Vite routes incrementally to Next.js |
-| `apps/mobile` | Keep as a separate Expo app and point it to the unified API when compatible |
-| `packages/shared-types` | Preserve sync contracts and expose them through a shared package |
+| `accounts.Tenant` | `organizations.Organization` |
+| `TenantMembership` | `organizations.Membership` and roles |
+| package/module plan | `subscriptions.Subscription(module="monitoring")` |
+| monitoring `Project` | `construction.Project`, anchored by `portfolio_project` to `properties.Project` |
+| desktop routes | `/monitoring` routes inside the Next.js platform shell |
+| mobile JWT tenant | active organization claim/header under the unified authentication contract |
 
-## Non-negotiable parity
+The first backend port retains 50 mature construction entities: projects,
+controlled documents and approvals, lifecycle records, devices, progress,
+immutable evidence, observations, daily logs, materials, safety, risks, issues,
+quality, programme, BoQ, variations, provisional sums, contingency, advances,
+subcontractors, BIM/drone/satellite records, RFIs, calendar, chat and audit data.
 
-- Offline mobile capture and conflict-safe sync.
-- Immutable submitted evidence.
-- Client-kind write gating.
-- Media hashing and idempotent upload.
-- Audit seals and signature verification.
-- Geofence classification.
-- Reports, issues, finance and role behavior.
-- Existing automated tests remain green before and after each slice.
+## Preserved invariants
 
-## Phases
+- Organization scoping and subscription checks are server-side.
+- Submitted milestone and evidence records are immutable.
+- Mobile-authoritative writes require the mobile client kind.
+- Evidence metadata retains hashes, signature/device provenance, geofence state
+  and immutable submission seals.
+- Construction workspaces link upward to the shared property project rather
+  than creating an unrelated platform hierarchy.
+- Seed data is idempotent and all dashboard cards/registers read API data.
 
-1. Freeze and document current APIs, models, migrations and tests.
-2. Introduce shared organization IDs and central authentication compatibility.
-3. Add the legacy web client to platform SSO/navigation without moving logic.
-4. Move backend services by bounded area with compatibility routes.
-5. Migrate desktop routes screen-by-screen to Next.js where worthwhile.
-6. Cut mobile clients to the unified API after sync contract tests pass.
-7. Archive the old deployable only after data reconciliation, rollback rehearsal and parity sign-off.
+## Migration sequence
 
+1. Freeze and verify the source implementation and its automated tests.
+2. Port models and organization ownership into `apps/backend/construction`.
+3. Expose subscription-scoped compatibility and platform APIs.
+4. Port desktop workflows into `/monitoring` in bounded, tested slices.
+5. Point the Expo offline client at the unified auth/sync API after contract
+   tests prove pull/push, idempotency, media hashing and conflict behavior.
+6. Reconcile production data, rehearse rollback, and archive the standalone
+   deployable only after parity sign-off.
+
+## Current verification
+
+- Unified backend: 45 tests passing, including organization isolation,
+  subscription denial, hierarchy validation and evidence immutability.
+- MonitoringERP desktop: 17 suites / 125 tests passing.
+- MonitoringERP mobile: 12 suites / 52 tests passing.
+- Next.js lint and production build pass.
+- Live HTTPS construction dashboard returns seeded project, issue, risk,
+  milestone and approved-variation metrics through shared Caddy.
+
+Remaining port work is tracked against the non-negotiable parity list: offline
+sync endpoints, media upload/hash idempotency, audit seal/signature verification,
+geofence classification, reporting/finance workflows, WebSockets, and mobile
+contract cutover. The standalone source is retained until those checks pass.

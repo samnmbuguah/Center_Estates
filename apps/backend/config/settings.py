@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'sales',
     'tenders',
     'valuations',
+    'construction',
     'documents',
     'audit',
     'notifications',

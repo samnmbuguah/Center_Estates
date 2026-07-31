@@ -22,7 +22,7 @@ Module subdomains should resolve to the same Next.js deployment. Hostname routin
 
 ## Backend boundaries
 
-`organizations` and `subscriptions` own tenant membership and entitlements. `core`, `documents`, and `audit` are shared services. `properties`, `facilities`, `sales`, `tenders`, and `valuations` own their respective workflows. Monitoring is introduced after its existing models have been mapped.
+`organizations` and `subscriptions` own tenant membership and entitlements. `core`, `documents`, and `audit` are shared services. `properties`, `facilities`, `sales`, `tenders`, `valuations`, and `construction` own their respective workflows. The construction domain is ported from MonitoringERP, with legacy tenant foreign keys mapped to the shared `Organization` and its specialized project workspace anchored to `properties.Project`.
 
 No module may query another module's private table as an undocumented shortcut. Cross-module references use explicit service functions, API contracts and stable foreign keys to shared property/project records.
 
@@ -40,11 +40,10 @@ All three are enforced by Django. Next.js mirrors the result for navigation and 
 
 ## Deployment
 
-- `erp.example.com`: command center.
+- `erp.169-58-102-217.sslip.io`: current command center and canonical module routes.
 - `property`, `facility`, `sales`, `tender`, `valuation`, `monitoring`: aliases/proxies to the same web app.
-- `api.example.com`: Django under Passenger/WSGI.
+- `/api/v1`: the same-domain Django API, proxied by shared Caddy.
 - Static and uploaded files: web-server paths or external object storage.
 - Scheduled work: cPanel cron initially; use a durable queue when the host supports a worker and Redis.
 
-Confirm cPanel Node, Python, database, wildcard TLS, proxy, process and cron capabilities before production configuration.
-
+The VM deployment uses Docker Compose, PostgreSQL and Gunicorn. The same images can later be hosted behind cPanel's proxy facilities if required; application architecture does not depend on separate module processes.
