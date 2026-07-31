@@ -97,7 +97,7 @@ export default function PropertyManagementPage() {
       <div className="heading-actions"><button onClick={() => setShowReceipt(true)}>Record receipt</button><button className="primary-action" onClick={() => setShowCreate(true)}>+ Add property</button></div>
     </section>
     <nav className="module-tabs" aria-label="Property management sections">
-      {(Object.keys(labels) as Tab[]).map((item) => <button className={tab === item ? "active" : ""} key={item} onClick={() => { setSearch(""); setTab(item); }}>{labels[item]}</button>)}
+      {(Object.keys(labels) as Tab[]).map((item) => <button className={tab === item ? "active" : ""} key={item} onClick={() => { setSearch(""); setRows([]); setTab(item); }}>{labels[item]}</button>)}
     </nav>
     {error && <div className="form-error">{error} <button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading live portfolio data…</div> : tab === "overview" && kpis ? <>
@@ -130,7 +130,7 @@ export default function PropertyManagementPage() {
 
 function Kpi({ label, value, note, onClick, warning = false }: { label: string; value: string; note: string; onClick: () => void; warning?: boolean }) { return <button className={`kpi-card ${warning ? "warning" : ""}`} onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{note}</small><i>View details →</i></button>; }
 function PanelTitle({ title, action, onClick }: { title: string; action: string; onClick: () => void }) { return <header className="panel-title"><h2>{title}</h2><button onClick={onClick}>{action} →</button></header>; }
-function Status({ value }: { value: string }) { return <span className={`data-status status-${value}`}>{value.replace("_", " ")}</span>; }
+function Status({ value }: { value?: string }) { const safe = value || "unknown"; return <span className={`data-status status-${safe}`}>{safe.replaceAll("_", " ")}</span>; }
 function Empty({ text }: { text: string }) { return <div className="empty-state">{text}</div>; }
 function DataTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) { return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table></div> : <Empty text="No matching records found." />; }
 

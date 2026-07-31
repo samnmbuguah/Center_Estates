@@ -11,6 +11,8 @@ dist/
 build/
 staticfiles/
 media/
+artifacts/
+playwright/.cache/
 .docker-secrets/
 infrastructure/docker/secrets/
 .DS_Store
