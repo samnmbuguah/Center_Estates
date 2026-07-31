@@ -9,20 +9,20 @@ from core.permissions import HasModuleSubscription
 from core.tenancy import get_active_organization
 
 from .models import (
-    AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent,
+    AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
-    MaterialDelivery, MilestoneEntry, Project, ProjectApproval, ProjectDocument,
+    MaterialDelivery, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
     ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
     SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
 from .serializers import (
-    AdvancePaymentSerializer, BimDiscrepancySerializer, BimModelSerializer,
+    AdminAuditLogSerializer, AdvancePaymentSerializer, BimDiscrepancySerializer, BimModelSerializer,
     BoQItemSerializer, CalendarEventSerializer, CertificateSerializer,
     ConsultantPaymentSerializer, ContingencyDrawdownSerializer,
-    DailyLogSerializer, DisbursementSerializer, DrawdownRequestSerializer,
+    ChatMessageSerializer, DailyLogSerializer, DisbursementSerializer, DrawdownRequestSerializer,
     DroneDatasetSerializer, EvidenceSerializer, LifecycleSerializer,
-    MaterialDeliverySerializer, MilestoneSerializer, ProjectApprovalSerializer,
+    MaterialDeliverySerializer, MilestoneSerializer, NotificationSerializer, ProjectApprovalSerializer,
     ProjectDocumentSerializer, ProjectSerializer, ProvisionalSumSerializer,
     QualityTestSerializer, RequisitionSerializer, RfiSerializer, RiskSerializer,
     SafetyIncidentSerializer, SatelliteDatasetSerializer,
@@ -185,6 +185,45 @@ class CertificateViewSet(CertificateBaseViewSet):
         raise ValidationError({"certificate": "Certificates cannot be deleted; void the record instead."})
 DisbursementViewSet = scoped_viewset("DisbursementViewSet", Disbursement, DisbursementSerializer)
 DrawdownRequestViewSet = scoped_viewset("DrawdownRequestViewSet", DrawdownRequest, DrawdownRequestSerializer, ("request_number", "purpose"))
+
+
+class ChatMessageViewSet(ConstructionScopedViewSet):
+    queryset = ChatMessage.objects.select_related("sender", "recipient", "project")
+    serializer_class = ChatMessageSerializer
+    search_fields = ("body", "channel", "attachment_name")
+
+    def get_queryset(self):
+        from django.db.models import Q
+        return super().get_queryset().filter(Q(sender=self.request.user) | Q(recipient=self.request.user))
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        project = serializer.validated_data.get("project")
+        if project and project.organization_id != organization.id:
+            raise ValidationError({"project": "The project belongs to another organization."})
+        serializer.save(organization=organization, sender=self.request.user, created_at=int(time() * 1000))
+
+
+class NotificationViewSet(ConstructionScopedViewSet):
+    queryset = Notification.objects.select_related("recipient")
+    serializer_class = NotificationSerializer
+    http_method_names = ("get", "patch", "head", "options")
+
+    def get_queryset(self):
+        return super().get_queryset().filter(recipient=self.request.user)
+
+    def perform_update(self, serializer):
+        allowed = set(serializer.validated_data) <= {"read_at"}
+        if not allowed:
+            raise ValidationError({"notification": "Only read status may be changed."})
+        serializer.save()
+
+
+class AdminAuditLogViewSet(ConstructionScopedViewSet):
+    queryset = AdminAuditLog.objects.select_related("user")
+    serializer_class = AdminAuditLogSerializer
+    search_fields = ("action", "category", "resource", "resource_id")
+    http_method_names = ("get", "head", "options")
 
 
 class DashboardViewSet(ViewSet):

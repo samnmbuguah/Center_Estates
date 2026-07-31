@@ -9,10 +9,10 @@ from organizations.models import Organization
 from properties.models import Project as PortfolioProject
 
 from construction.models import (
-    AdvancePayment, BimDiscrepancy, BimModel, BoQItem, Certificate,
+    AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, Certificate, ChatMessage,
     ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement,
     DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery,
-    MilestoneEntry, Project, ProvisionalSum, Requisition, Risk,
+    MilestoneEntry, Notification, Project, ProvisionalSum, Requisition, Risk,
     SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
 
@@ -204,5 +204,17 @@ class Command(BaseCommand):
         DrawdownRequest.objects.update_or_create(
             organization=organization, project_id=project.id, request_number="DD-009",
             defaults={"amount": Decimal("14862500"), "purpose": "IPC-011 certified construction works", "status": "disbursed", "valuation_amount": Decimal("14862500"), "reviewer_notes": "Documents and valuation verified", "requested_by": user, "reviewed_by": user, "created_at": now_ms - 259200000, "updated_at": now_ms, "approved_at": now_ms - 172800000, "disbursed_at": now_ms - 43200000},
+        )
+        ChatMessage.objects.update_or_create(
+            id="ce-chat-001",
+            defaults={"organization": organization, "project": project, "sender": user, "channel": "site-team", "body": "Level 6 fire-stopping inspection confirmed for 10:00 tomorrow.", "created_at": now_ms - 3600000},
+        )
+        Notification.objects.update_or_create(
+            id="ce-notification-001",
+            defaults={"organization": organization, "recipient": user, "title": "IPC-011 disbursed", "body": "The certified amount has been paid and posted to the project cost report.", "type": "system", "link": "/monitoring", "created_at": now_ms - 1800000},
+        )
+        AdminAuditLog.objects.update_or_create(
+            id="ce-audit-finance-001",
+            defaults={"organization": organization, "timestamp": now_ms - 172800000, "user": user, "user_role": "Administrator", "action": "Issued interim payment certificate IPC-011", "category": "certificates", "resource": "Certificate", "resource_id": str(certificate.id), "details": {"net_payable": "14862500.00"}, "outcome": "success"},
         )
         self.stdout.write(self.style.SUCCESS(f"Seeded construction data for {organization.name}."))

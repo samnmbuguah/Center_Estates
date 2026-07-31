@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
 type Row = Record<string, string | number | boolean | null | string[]>;
-type Tab = "overview" | "projects" | "milestones" | "daily-logs" | "risks" | "tickets" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "approvals" | "lifecycle" | "materials" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns";
+type Tab = "overview" | "projects" | "milestones" | "daily-logs" | "risks" | "tickets" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "approvals" | "lifecycle" | "materials" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
 type Dashboard = {
   kpis: Record<string, string | number>;
   projects: Row[];
@@ -25,6 +25,7 @@ const labels: Record<Tab, string> = {
   "contingency-drawdowns": "Contingency", "advance-payments": "Advances", subcontractors: "Subcontractors",
   "work-orders": "Work orders", "bim-models": "BIM models", "bim-discrepancies": "BIM issues",
   requisitions: "Requisitions", certificates: "Certificates", disbursements: "Payments", drawdowns: "Drawdowns",
+  reports: "Reports", chat: "Project chat", notifications: "Notifications", "audit-log": "Audit trail",
 };
 const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; kind?: "money" | "status" | "progress" }[]> = {
   projects: [{key:"code",label:"Project"},{key:"name",label:"Name"},{key:"client_name",label:"Client"},{key:"location",label:"Location"},{key:"stage",label:"Stage",kind:"status"},{key:"budget",label:"Budget",kind:"money"},{key:"planned_completion_date",label:"Completion"}],
@@ -57,6 +58,10 @@ const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; ki
   certificates: [{key:"number",label:"Certificate"},{key:"cert_type",label:"Type"},{key:"contractor_name",label:"Contractor"},{key:"current_gross",label:"Gross",kind:"money"},{key:"net_payable",label:"Net payable",kind:"money"},{key:"status",label:"Status",kind:"status"}],
   disbursements: [{key:"certificate",label:"Certificate ID"},{key:"amount",label:"Amount",kind:"money"},{key:"status",label:"Status",kind:"status"},{key:"paid_at",label:"Paid"}],
   drawdowns: [{key:"request_number",label:"Request"},{key:"purpose",label:"Purpose"},{key:"amount",label:"Requested",kind:"money"},{key:"valuation_amount",label:"Valuation",kind:"money"},{key:"status",label:"Status",kind:"status"}],
+  reports: [{key:"week",label:"ISO week"},{key:"submissions",label:"Submissions"},{key:"distinctMilestones",label:"Milestones"},{key:"averageProgress",label:"Average progress",kind:"progress"},{key:"issues",label:"Issues"},{key:"urgentIssues",label:"Urgent"},{key:"materialDeliveries",label:"Deliveries"},{key:"safetyIncidents",label:"H&S incidents"}],
+  chat: [{key:"created_at",label:"Sent"},{key:"channel",label:"Channel"},{key:"sender_name",label:"From"},{key:"body",label:"Message"},{key:"attachment_name",label:"Attachment"}],
+  notifications: [{key:"created_at",label:"Received"},{key:"type",label:"Type",kind:"status"},{key:"title",label:"Notification"},{key:"body",label:"Details"},{key:"read_at",label:"Read"}],
+  "audit-log": [{key:"timestamp",label:"Time"},{key:"user_name",label:"User"},{key:"category",label:"Category",kind:"status"},{key:"action",label:"Action"},{key:"resource",label:"Resource"},{key:"outcome",label:"Outcome",kind:"status"}],
 };
 const cash = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
 
@@ -71,17 +76,23 @@ export default function MonitoringPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(false);
+  const dashboardProjectId = dashboard?.projects[0]?.id;
 
   const load = useCallback(async () => {
     if (!organization) return;
     setLoading(true); setError("");
-    const path = tab === "overview" ? "/construction/dashboard/" : `/construction/${tab}/?search=${encodeURIComponent(search)}`;
+    let path = tab === "overview" ? "/construction/dashboard/" : `/construction/${tab}/?search=${encodeURIComponent(search)}`;
+    if (tab === "reports") {
+      const projectId = dashboardProjectId;
+      if (!projectId) { setRows([]); setLoading(false); return; }
+      path = `/construction/reports/${projectId}/`;
+    }
     const response = await apiFetch(path, {}, organization);
     if (!response.ok) { setError("Construction monitoring data could not be loaded."); setLoading(false); return; }
     const data = await response.json();
-    if (tab === "overview") setDashboard(data); else setRows(data);
+    if (tab === "overview") setDashboard(data); else setRows(tab === "reports" ? data.weekly : data);
     setLoading(false);
-  }, [organization, search, tab]);
+  }, [dashboardProjectId, organization, search, tab]);
   useEffect(() => { const timer = setTimeout(load, search ? 250 : 0); return () => clearTimeout(timer); }, [load, search]);
   useEffect(() => {
     if (modal && organization) apiFetch("/property/projects/", {}, organization).then(r => r.ok ? r.json() : []).then(setPortfolioProjects);

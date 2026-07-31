@@ -1,10 +1,10 @@
 from rest_framework import serializers
 
 from .models import (
-    AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent,
+    AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
-    MaterialDelivery, MilestoneEntry, Project, ProjectApproval, ProjectDocument,
+    MaterialDelivery, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
     ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
     SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
@@ -60,3 +60,12 @@ RequisitionSerializer = serializer_for(Requisition)
 CertificateSerializer = serializer_for(Certificate)
 DisbursementSerializer = serializer_for(Disbursement)
 DrawdownRequestSerializer = serializer_for(DrawdownRequest)
+ChatMessageSerializer = serializer_for(ChatMessage, {
+    "sender": serializers.PrimaryKeyRelatedField(read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+    "sender_name": serializers.CharField(source="sender.username", read_only=True),
+})
+NotificationSerializer = serializer_for(Notification)
+AdminAuditLogSerializer = serializer_for(AdminAuditLog, {
+    "user_name": serializers.CharField(source="user.username", read_only=True),
+})

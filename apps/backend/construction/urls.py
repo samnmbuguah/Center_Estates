@@ -2,12 +2,12 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    AdvancePaymentViewSet, BimDiscrepancyViewSet, BimModelViewSet,
+    AdminAuditLogViewSet, AdvancePaymentViewSet, BimDiscrepancyViewSet, BimModelViewSet,
     BoQItemViewSet, CalendarEventViewSet, CertificateViewSet,
-    ConsultantPaymentViewSet, ContingencyDrawdownViewSet, DailyLogViewSet,
+    ChatMessageViewSet, ConsultantPaymentViewSet, ContingencyDrawdownViewSet, DailyLogViewSet,
     DashboardViewSet, DisbursementViewSet, DrawdownRequestViewSet,
     DroneDatasetViewSet, EvidenceViewSet, LifecycleViewSet,
-    MaterialDeliveryViewSet, MilestoneViewSet, ProjectApprovalViewSet,
+    MaterialDeliveryViewSet, MilestoneViewSet, NotificationViewSet, ProjectApprovalViewSet,
     ProjectDocumentViewSet, ProjectViewSet, ProvisionalSumViewSet,
     QualityTestViewSet, RequisitionViewSet, RfiViewSet, RiskViewSet,
     SafetyIncidentViewSet, SatelliteDatasetViewSet, SubcontractorViewSet,
@@ -15,6 +15,7 @@ from .views import (
 )
 from core.views import MobileTokenView
 from .sync_views import media_upload, mobile_me, pull, push, register_device, verify_submission
+from .report_views import project_report
 
 router = DefaultRouter()
 router.register("dashboard", DashboardViewSet, basename="construction-dashboard")
@@ -49,6 +50,9 @@ router.register("requisitions", RequisitionViewSet, basename="construction-requi
 router.register("certificates", CertificateViewSet, basename="construction-certificate")
 router.register("disbursements", DisbursementViewSet, basename="construction-disbursement")
 router.register("drawdowns", DrawdownRequestViewSet, basename="construction-drawdown")
+router.register("chat", ChatMessageViewSet, basename="construction-chat")
+router.register("notifications", NotificationViewSet, basename="construction-notification")
+router.register("audit-log", AdminAuditLogViewSet, basename="construction-audit-log")
 
 urlpatterns = router.urls
 urlpatterns += [
@@ -59,4 +63,5 @@ urlpatterns += [
     path("media/upload", media_upload, name="construction-media-upload"),
     path("devices/register", register_device, name="construction-device-register"),
     path("audit/verify/<str:milestone_id>", verify_submission, name="construction-audit-verify"),
+    path("reports/<str:project_id>/", project_report, name="construction-project-report"),
 ]

@@ -14,7 +14,7 @@ from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
 from .models import (
-    Certificate, Disbursement, EvidenceFile, MilestoneEntry, Project, Risk,
+    Certificate, ChatMessage, Disbursement, EvidenceFile, MaterialDelivery, MilestoneEntry, Project, Risk,
     SubmissionRecord, Ticket, Variation,
 )
 
@@ -110,6 +110,33 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(self.certificate.voided_by, self.user)
         self.assertIsNotNone(self.certificate.voided_at)
         self.assertEqual(self.client.delete(url, **self.headers).status_code, 400)
+
+    def test_project_report_aggregates_scoped_field_and_finance_data(self):
+        MaterialDelivery.objects.create(
+            organization=self.organization, project_id=self.project.id,
+            delivery_date="2026-07-31", material="Cement", quantity=20,
+            received_by=self.user, created_at=int(time() * 1000),
+        )
+        response = self.client.get(
+            f"/api/v1/construction/reports/{self.project.id}/", **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["project"]["code"], "P1")
+        self.assertEqual(response.data["cost"]["paidToDate"], Decimal("900000"))
+        self.assertEqual(sum(row["materialDeliveries"] for row in response.data["weekly"]), 1)
+
+    def test_chat_is_scoped_to_participants_and_organization(self):
+        hidden_user = get_user_model().objects.create_user(username="hidden")
+        ChatMessage.objects.create(
+            organization=self.organization, project=self.project,
+            sender=hidden_user, body="Not addressed to monitor", created_at=1,
+        )
+        posted = self.client.post("/api/v1/construction/chat/", {
+            "project": self.project.id, "channel": "site-team", "body": "Inspection at 10:00",
+        }, format="json", **self.headers)
+        self.assertEqual(posted.status_code, 201, posted.data)
+        response = self.client.get("/api/v1/construction/chat/", **self.headers)
+        self.assertEqual([item["body"] for item in response.data], ["Inspection at 10:00"])
 
     def test_project_register_is_organization_scoped(self):
         Project.objects.create(
