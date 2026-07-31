@@ -13,6 +13,7 @@ from properties.models import (
     Building, Budget, Expense, Invoice, Lease, Project, Property, Receipt,
     ServiceCharge, Tenant, Unit,
 )
+from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SiteVisit
 from subscriptions.models import Subscription
 
 
@@ -65,6 +66,7 @@ class Command(BaseCommand):
             (101, 'Office', '125.00', Unit.Status.OCCUPIED),
             (102, 'Retail', '84.50', Unit.Status.OCCUPIED),
             (201, 'Office', '140.00', Unit.Status.AVAILABLE),
+            (301, 'Office', '155.00', Unit.Status.AVAILABLE),
         ):
             units[number], _ = Unit.objects.update_or_create(
                 organization=organization, property=prop, code=str(number),
@@ -73,7 +75,7 @@ class Command(BaseCommand):
                     'area': Decimal(area), 'status': status,
                 },
             )
-        Project.objects.update_or_create(
+        project, _ = Project.objects.update_or_create(
             organization=organization, code='CE-REFURB-01',
             defaults={'name': 'Tower A Refurbishment', 'property': prop, 'status': Project.Status.ACTIVE},
         )
@@ -261,6 +263,97 @@ class Command(BaseCommand):
             defaults={
                 'value': Decimal('198420.000'), 'consumption': Decimal('1245.000'),
                 'cost': Decimal('34175.25'), 'is_anomaly': False,
+            },
+        )
+        listing_one, _ = SaleListing.objects.update_or_create(
+            organization=organization, unit=units[201],
+            defaults={
+                'project': project, 'list_price': Decimal('28500000.00'),
+                'minimum_deposit_percent': Decimal('20.00'), 'status': SaleListing.Status.RESERVED,
+                'construction_progress': Decimal('72.00'), 'reservation_expires_at': timezone.now() + timedelta(days=14),
+            },
+        )
+        listing_two, _ = SaleListing.objects.update_or_create(
+            organization=organization, unit=units[301],
+            defaults={
+                'project': project, 'list_price': Decimal('19800000.00'),
+                'minimum_deposit_percent': Decimal('15.00'), 'status': SaleListing.Status.AVAILABLE,
+                'construction_progress': Decimal('72.00'),
+            },
+        )
+        buyer, _ = Buyer.objects.update_or_create(
+            organization=organization, reference='BUY-2026-0042',
+            defaults={
+                'full_name': 'Grace Wambui Njoroge', 'email': 'grace.wambui@example.com',
+                'phone': '+254 712 808 424', 'id_number': '28910422', 'tax_number': 'A009281042L',
+                'address': 'Kilimani, Nairobi', 'financing_type': 'bank', 'financier': 'Housing Finance Kenya',
+                'status': Buyer.Status.ACTIVE, 'assigned_agent': user, 'confirmed_at': timezone.now() - timedelta(days=28),
+            },
+        )
+        sale, _ = PropertySale.objects.update_or_create(
+            organization=organization, reference='SALE-2026-0031',
+            defaults={
+                'buyer': buyer, 'listing': listing_one, 'agent': user,
+                'agreed_price': Decimal('27800000.00'), 'reservation_fee': Decimal('250000.00'),
+                'reserved_at': timezone.now() - timedelta(days=25), 'contracted_on': today - timedelta(days=14),
+                'expected_completion_on': today + timedelta(days=250), 'status': PropertySale.Status.CONTRACTED,
+            },
+        )
+        deposit, _ = Installment.objects.update_or_create(
+            organization=organization, sale=sale, sequence=1,
+            defaults={
+                'description': '20% contract deposit', 'due_on': today - timedelta(days=10),
+                'amount': Decimal('5560000.00'), 'paid_amount': Decimal('5560000.00'),
+                'status': Installment.Status.PAID, 'milestone': 'Contract signing',
+            },
+        )
+        Installment.objects.update_or_create(
+            organization=organization, sale=sale, sequence=2,
+            defaults={
+                'description': 'Second construction installment', 'due_on': today + timedelta(days=45),
+                'amount': Decimal('4170000.00'), 'paid_amount': Decimal('0.00'),
+                'status': Installment.Status.UPCOMING, 'milestone': 'Roof slab completion',
+            },
+        )
+        SalePayment.objects.update_or_create(
+            organization=organization, reference='PAY-2026-0098',
+            defaults={
+                'sale': sale, 'installment': deposit, 'paid_on': today - timedelta(days=11),
+                'amount': Decimal('5560000.00'), 'method': 'bank', 'external_reference': 'FT26201GWAM',
+                'status': SalePayment.Status.VERIFIED, 'verified_by': user,
+                'verified_at': timezone.now() - timedelta(days=10),
+            },
+        )
+        SalePayment.objects.update_or_create(
+            organization=organization, reference='PAY-2026-0106',
+            defaults={
+                'sale': sale, 'installment': None, 'paid_on': today,
+                'amount': Decimal('250000.00'), 'method': 'paybill', 'external_reference': 'RGA4K8Z21P',
+                'status': SalePayment.Status.PENDING,
+            },
+        )
+        SiteVisit.objects.update_or_create(
+            organization=organization, reference='VIS-2026-0155',
+            defaults={
+                'visitor_name': 'Daniel Otieno', 'email': 'daniel.otieno@example.com',
+                'phone': '+254 723 515 515', 'project': project, 'interested_unit_type': 'Office',
+                'introducing_agent': user, 'visited_at': timezone.now() - timedelta(days=2),
+                'follow_up_on': today + timedelta(days=2), 'notes': 'Interested in upper-floor corner units.',
+            },
+        )
+        AgentCommission.objects.update_or_create(
+            organization=organization, reference='COM-2026-0029',
+            defaults={
+                'sale': sale, 'agent': user, 'rate_percent': Decimal('2.00'),
+                'amount': Decimal('556000.00'), 'required_paid_percent': Decimal('20.00'),
+                'status': AgentCommission.Status.ELIGIBLE,
+            },
+        )
+        SaleDocument.objects.update_or_create(
+            organization=organization, sale=sale, checksum='demo-sale-agreement-v1-sha256',
+            defaults={
+                'document_type': 'sale_agreement', 'title': 'Executed Agreement for Sale',
+                'file_url': '', 'signed_on': today - timedelta(days=14), 'is_final': True,
             },
         )
         self.stdout.write(self.style.SUCCESS(f'Seeded platform data for {organization.name}.'))

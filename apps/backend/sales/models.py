@@ -1,3 +1,201 @@
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
-# Create your models here.
+from core.models import OrganizationOwnedModel
+
+
+class SaleListing(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        AVAILABLE = 'available', 'Available'
+        RESERVED = 'reserved', 'Reserved'
+        SOLD = 'sold', 'Sold'
+        BLOCKED = 'blocked', 'Blocked'
+
+    unit = models.OneToOneField('properties.Unit', on_delete=models.PROTECT, related_name='sale_listing')
+    project = models.ForeignKey('properties.Project', on_delete=models.PROTECT, related_name='sale_listings')
+    list_price = models.DecimalField(max_digits=16, decimal_places=2)
+    minimum_deposit_percent = models.DecimalField(max_digits=6, decimal_places=2, default=10)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.AVAILABLE)
+    construction_progress = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    reservation_expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('project__name', 'unit__code')
+
+    def clean(self):
+        if self.unit_id and self.unit.organization_id != self.organization_id:
+            raise ValidationError('Sales unit must belong to the same organization.')
+        if self.project_id and self.project.organization_id != self.organization_id:
+            raise ValidationError('Sales project must belong to the same organization.')
+        if self.unit_id and self.project_id and self.project.property_id and self.unit.property_id != self.project.property_id:
+            raise ValidationError('The unit must belong to the project property.')
+
+
+class Buyer(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        LEAD = 'lead', 'Lead'
+        QUALIFIED = 'qualified', 'Qualified'
+        ACTIVE = 'active', 'Active buyer'
+        COMPLETED = 'completed', 'Completed'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    reference = models.CharField(max_length=50)
+    full_name = models.CharField(max_length=180)
+    email = models.EmailField()
+    phone = models.CharField(max_length=40)
+    id_number = models.CharField(max_length=60)
+    tax_number = models.CharField(max_length=60, blank=True)
+    address = models.TextField(blank=True)
+    financing_type = models.CharField(max_length=30, choices=(('self', 'Self-financed'), ('bank', 'Bank-financed')), default='self')
+    financier = models.CharField(max_length=150, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.LEAD)
+    assigned_agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='assigned_sales_buyers', null=True, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('full_name',)
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_buyer_ref'),
+            models.UniqueConstraint(fields=('organization', 'id_number'), name='unique_organization_buyer_id'),
+        ]
+
+
+class PropertySale(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        RESERVED = 'reserved', 'Reserved'
+        CONTRACTED = 'contracted', 'Contracted'
+        COMPLETED = 'completed', 'Completed'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    reference = models.CharField(max_length=60)
+    buyer = models.ForeignKey(Buyer, on_delete=models.PROTECT, related_name='sales')
+    listing = models.ForeignKey(SaleListing, on_delete=models.PROTECT, related_name='sales')
+    agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='property_sales', null=True, blank=True)
+    agreed_price = models.DecimalField(max_digits=16, decimal_places=2)
+    reservation_fee = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    reserved_at = models.DateTimeField(null=True, blank=True)
+    contracted_on = models.DateField(null=True, blank=True)
+    expected_completion_on = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    cancellation_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_sale_ref')]
+
+    def clean(self):
+        if self.buyer_id and self.buyer.organization_id != self.organization_id:
+            raise ValidationError('Buyer must belong to the same organization.')
+        if self.listing_id and self.listing.organization_id != self.organization_id:
+            raise ValidationError('Listing must belong to the same organization.')
+
+
+class Installment(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        UPCOMING = 'upcoming', 'Upcoming'
+        DUE = 'due', 'Due'
+        PARTIAL = 'partial', 'Partially paid'
+        PAID = 'paid', 'Paid'
+        OVERDUE = 'overdue', 'Overdue'
+
+    sale = models.ForeignKey(PropertySale, on_delete=models.CASCADE, related_name='installments')
+    sequence = models.PositiveSmallIntegerField()
+    description = models.CharField(max_length=180)
+    due_on = models.DateField()
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    paid_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.UPCOMING)
+    milestone = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        ordering = ('due_on',)
+        constraints = [models.UniqueConstraint(fields=('sale', 'sequence'), name='unique_sale_installment_sequence')]
+
+    def clean(self):
+        if self.sale_id and self.sale.organization_id != self.organization_id:
+            raise ValidationError('Installment must belong to the sale organization.')
+
+
+class SalePayment(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending verification'
+        VERIFIED = 'verified', 'Verified'
+        PARTIAL = 'partial', 'Partially allocated'
+        REJECTED = 'rejected', 'Rejected'
+        REVERSED = 'reversed', 'Reversed'
+
+    reference = models.CharField(max_length=80)
+    sale = models.ForeignKey(PropertySale, on_delete=models.PROTECT, related_name='payments')
+    installment = models.ForeignKey(Installment, on_delete=models.SET_NULL, related_name='payments', null=True, blank=True)
+    paid_on = models.DateField()
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    method = models.CharField(max_length=30, choices=(('online', 'Online'), ('bank', 'Bank transfer'), ('paybill', 'Paybill'), ('cheque', 'Cheque')))
+    external_reference = models.CharField(max_length=120)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='verified_sale_payments', null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-paid_on',)
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_sale_payment_ref'),
+            models.UniqueConstraint(fields=('organization', 'external_reference'), name='unique_organization_external_payment_ref'),
+        ]
+
+
+class SiteVisit(OrganizationOwnedModel):
+    reference = models.CharField(max_length=60)
+    visitor_name = models.CharField(max_length=180)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40)
+    project = models.ForeignKey('properties.Project', on_delete=models.PROTECT, related_name='site_visits')
+    interested_unit_type = models.CharField(max_length=80, blank=True)
+    introducing_agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='introduced_site_visits', null=True, blank=True)
+    visited_at = models.DateTimeField()
+    follow_up_on = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    converted_buyer = models.ForeignKey(Buyer, on_delete=models.SET_NULL, related_name='site_visits', null=True, blank=True)
+
+    class Meta:
+        ordering = ('-visited_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_visit_ref')]
+
+
+class AgentCommission(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending eligibility'
+        ELIGIBLE = 'eligible', 'Eligible'
+        APPROVED = 'approved', 'Approved'
+        PAID = 'paid', 'Paid'
+        HELD = 'held', 'Held'
+
+    reference = models.CharField(max_length=60)
+    sale = models.ForeignKey(PropertySale, on_delete=models.PROTECT, related_name='commissions')
+    agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='sales_commissions')
+    rate_percent = models.DecimalField(max_digits=6, decimal_places=2)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    required_paid_percent = models.DecimalField(max_digits=6, decimal_places=2, default=20)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    paid_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_commission_ref')]
+
+
+class SaleDocument(OrganizationOwnedModel):
+    sale = models.ForeignKey(PropertySale, on_delete=models.PROTECT, related_name='legal_documents')
+    document_type = models.CharField(max_length=80)
+    title = models.CharField(max_length=180)
+    file_url = models.URLField(blank=True)
+    checksum = models.CharField(max_length=128)
+    signed_on = models.DateField(null=True, blank=True)
+    is_final = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ('document_type', 'title')
+        constraints = [models.UniqueConstraint(fields=('sale', 'checksum'), name='unique_sale_document_checksum')]
