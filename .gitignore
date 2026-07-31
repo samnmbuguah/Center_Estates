@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.sqlite3
+.venv/
+node_modules/
+.next/
+dist/
+build/
+staticfiles/
+media/
+.docker-secrets/
+infrastructure/docker/secrets/
+.DS_Store
+
+# Retained standalone migration sources; do not absorb their histories/files yet.
+MonitoringERP/
+Visitor_Management/

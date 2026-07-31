@@ -1,0 +1,101 @@
+name: center-estates-erp
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: center_estates
+      POSTGRES_USER: center_estates
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U center_estates -d center_estates"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DJANGO_DEBUG: "false"
+      DJANGO_ALLOWED_HOSTS: erp.169-58-102-217.sslip.io,localhost,127.0.0.1
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: center_estates
+      DB_USER: center_estates
+      DB_HOST: db
+      DB_PORT: "5432"
+      CORS_ALLOWED_ORIGINS: https://erp.169-58-102-217.sslip.io
+      CSRF_TRUSTED_ORIGINS: https://erp.169-58-102-217.sslip.io
+      SEED_DEMO_DATA: "true"
+      SEED_ADMIN_USERNAME: admin
+      GUNICORN_WORKERS: "3"
+    secrets:
+      - django_secret
+      - db_password
+      - seed_admin_password
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4301:8000"
+    networks:
+      default:
+      caddy:
+        aliases:
+          - center-estates-backend
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; request=urllib.request.Request('http://127.0.0.1:8000/api/v1/health/', headers={'X-Forwarded-Proto':'https'}); urllib.request.urlopen(request, timeout=5)"]
+      interval: 20s
+      timeout: 8s
+      retries: 5
+      start_period: 40s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api/v1
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4300:3000"
+    networks:
+      default:
+      caddy:
+        aliases:
+          - center-estates-web
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 8s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  postgres_data:
+  media_data:
+
+secrets:
+  django_secret:
+    file: ./infrastructure/docker/secrets/django_secret
+  db_password:
+    file: ./infrastructure/docker/secrets/db_password
+  seed_admin_password:
+    file: ./infrastructure/docker/secrets/seed_admin_password
+
+networks:
+  caddy:
+    external: true
+    name: caddy_default

@@ -1,0 +1,14 @@
+{
+  "name": "center-estates-erp",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=20.9.0" },
+  "workspaces": ["apps/web", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "build": "npm run build --workspace=web",
+    "lint": "npm run lint --workspace=web",
+    "backend:check": "apps/backend/.venv/bin/python apps/backend/manage.py check",
+    "backend:test": "cd apps/backend && .venv/bin/python manage.py test"
+  }
+}

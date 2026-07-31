@@ -1,0 +1,44 @@
+@import "tailwindcss";
+:root { --ink: #172033; --muted: #687188; --line: #e5e9f0; --surface: #f5f7fb; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--surface); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+a { color: inherit; text-decoration: none; }
+.platform { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.sidebar { background: #101c30; color: #d7dfec; display: flex; flex-direction: column; padding: 22px 14px; }
+.brand { align-items: center; color: white; display: flex; font-weight: 700; gap: 11px; margin: 0 8px 28px; }
+.brand small { color: #8fa0b8; font-size: 11px; font-weight: 500; }
+.brand-mark { align-items: center; background: #e73c3c; border-radius: 9px; display: flex; height: 38px; justify-content: center; width: 38px; }
+.sidebar nav { display: grid; gap: 5px; }
+.nav-link { align-items: center; border-radius: 8px; display: flex; font-size: 14px; gap: 10px; padding: 11px 12px; }
+.nav-link:hover { background: #1b2a41; color: white; }
+.nav-dot { border-radius: 50%; height: 8px; width: 8px; }
+.sidebar-foot { border-top: 1px solid #26364d; color: #8292a9; font-size: 11px; line-height: 1.5; margin-top: auto; padding: 18px 10px 0; }
+.workspace { min-width: 0; }
+.topbar { align-items: center; background: white; border-bottom: 1px solid var(--line); display: flex; height: 70px; justify-content: space-between; padding: 0 34px; }
+.topbar strong, .topbar span { display: block; }
+.environment { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.profile { align-items: center; background: #edf1f6; border-radius: 50%; display: flex; font-size: 12px; height: 38px; justify-content: center; width: 38px; }
+.page-wrap { margin: 0 auto; max-width: 1440px; padding: 38px; }
+.hero { margin-bottom: 34px; }
+.hero h1, .module-hero h1 { font-size: 31px; margin: 7px 0 8px; }
+.hero p, .module-hero p { color: var(--muted); margin: 0; }
+.eyebrow { color: #e23b3b !important; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.section-heading { align-items: end; display: flex; justify-content: space-between; margin-bottom: 17px; }
+.section-heading h2 { font-size: 21px; margin: 4px 0 0; }
+.status-pill { background: #eaf7ef; border-radius: 99px; color: #22834b; font-size: 12px; padding: 7px 11px; }
+.module-grid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.module-card, .feature-card, .loading-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+.module-card { transition: transform .15s, box-shadow .15s; }
+.module-card:hover { box-shadow: 0 12px 30px rgba(27, 41, 67, .09); transform: translateY(-2px); }
+.module-icon { align-items: center; border-radius: 10px; display: flex; font-size: 18px; font-weight: 800; height: 43px; justify-content: center; width: 43px; }
+.module-icon.large { font-size: 26px; height: 62px; width: 62px; }
+.module-card h3, .feature-card h3 { font-size: 16px; margin: 17px 0 8px; }
+.module-card p, .feature-card p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; }
+.open-link { color: #d62f2f; display: block; font-size: 12px; font-weight: 700; margin-top: 20px; }
+.module-hero { align-items: center; background: white; border: 1px solid var(--line); border-left: 5px solid; border-radius: 12px; display: flex; justify-content: space-between; margin-bottom: 24px; padding: 27px; }
+.notice { background: #fff7e6; border: 1px solid #f4d89d; border-radius: 9px; color: #805b13; font-size: 13px; margin-bottom: 28px; padding: 13px 16px; }
+.feature-grid { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.feature-card > span { color: #a2aabc; font-size: 11px; font-weight: 800; }
+@media (max-width: 980px) { .module-grid, .feature-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px) { .platform { grid-template-columns: 1fr; } .sidebar { display: none; } .page-wrap { padding: 24px 18px; } .module-grid, .feature-grid { grid-template-columns: 1fr; } .topbar { padding: 0 18px; } }

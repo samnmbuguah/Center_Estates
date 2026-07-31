@@ -1,0 +1,158 @@
+CONSTRUCTION MONITORING SYSTEM
+USER REQUIREMENTS – PROPERTY SALES MODULE
+
+1. Introduction                                                                   Real-time dashboards for developers, sales agents, banks,
+                                                                                   and buyers
+The Sales Module is a core component of the ERP system designed                   Audit-ready records ensuring compliance and traceability
+to manage property sales for both completed projects and
+projects under construction. It provides a flexible, auditable, and
+transparent framework for handling sales transactions, whether
+units are fully constructed or still linked to ongoing construction         2. Scope
+milestones.
+                                                                            The module will handle:
+This module is built to support multiple financing models, including:
+                                                                                  Creation of projects and units
+      Self-financed buyers                                                       Registration of buyers and mapping to units
+      Bank-financed buyers                                                       Recording and tracking of payments (escrow or self-
+                                                                                   managed accounts)
+It ensures that every unit sale is properly mapped to construction                Tracking sales performance of agents
+progress, enabling integration with the Construction Progress and                 Site visitor registration, tracking, and presentation support
+Payment module to maintain a direct link between financial                        Integration with financing (bank/loan visibility)
+disbursements and project work.                                                   Marketing and reporting content generation
+                                                                                  Legal documentation management (advocate uploads)
+Key features include:                                                             Commission tracking and payout workflow
+
+      Centralized buyer and unit management                                Users include:
+      Multi-project and multi-agent coordination
+      Payment handling for online and offline channels, with auto-               Developer / Project Owner
+       reconciliation and verification                                            Sales Agents
+      On-site sales clerk functionality for visitor registration,                Sales Clerk (site-based)
+       presentations, and client engagement                                       Buyers
+      Agent attribution and commission tracking                                  Banks / Financiers
+      Integration with marketing, legal documentation, and                       Advocates / Legal team
+       financing processes                                                        Relationship Managers (for governance)
+
+                                                                        1
+                                                                                                                                 17th January 2025
+CONSTRUCTION MONITORING SYSTEM
+USER REQUIREMENTS – PROPERTY SALES MODULE
+
+                                                                          4. Functional Requirements
+
+3. User Roles & Permissions                                               4.1 Project and Unit Management
+
+     Role               Responsibilities             Access Level               Create multiple projects simultaneously
+                                                                                Create units within projects with metadata: code, floor, type,
+              Create projects, define units &
+Developer /                                                                      price, status (Available/Reserved/Sold/Pending)
+              pricing, approve agents, view Full (super-admin)
+Project Owner                                                                   Map units to projects and link to construction milestones
+              all sales & commissions
+                                                                                Immutable baseline data to prevent unauthorized changes
+                 Record sales, track assigned    Restricted to                  Multi-project dashboard for units, sales, and progress
+Sales Agent      units & clients, claim          assigned
+                 commissions                     projects/units           4.2 Buyer Management
+                 Record site visits, associate
+                                                 Site-specific with
+                 clients with agents, generate                                  Capture buyer biodata: Name, ID, KRA PIN, contact info,
+Sales Clerk                                      reporting to
+                 presentations, submit visitor &                                 photo
+                                                 PM/Developer
+                 client data                                                    Map buyers to units and projects
+                 View unit purchase details,                                    Generate unique buyer references for audit
+                                                 Read-only for own              Buyer confirmation via secure link (email/SMS/WhatsApp)
+Buyer / Client   payment status, confirm
+                                                 units                          Track all payments, balance, and schedule
+                 payment receipt
+                                                                                Record and flag discrepancies
+                 Track sales & payments, verify Read-only or
+Bank /
+                 escrow deposits, monitor       approval where            4.3 Payment Handling
+Financier
+                 project progress               required
+Advocate /       Upload and manage buyer         Document                 Payment Option A: ERP Payment Link (Online)
+Legal            documents, validate identity    management only
+Relationship                                 Approval access                    System generates unique payment link per
+                 Approve governance changes,                                     invoice/installment/buyer
+Manager                                      only for
+                 review compliance reports                                      Payment methods: M-Pesa, card, other channels
+(Bank)                                       governance items
+                                                                                Auto-reconciliation with buyer, unit, installment
+                                                                                Receipt generation and notifications to buyer & agent
+
+                                                                      2
+                                                                                                                               17th January 2025
+CONSTRUCTION MONITORING SYSTEM
+USER REQUIREMENTS – PROPERTY SALES MODULE
+
+Payment Option B: Direct Bank / Paybill (Offline)                             Presentations
+
+      Buyer submits payment details: method, amount, date,                         Generate on-site presentation content:
+       reference, proof upload (bank slip, screenshot)                                  o Project progress
+      Submission via buyer portal or token-based public page                           o Unit availability & pricing
+      Status marked as “Pending Verification” until approved by                        o Walk-through of sale process
+       authorized users                                                                 o Financing options
+      Approval actions: approve full/partial, reject with reason, edit                 o Contact details
+       amount if necessary
+      Post-approval: balance update, receipt, buyer notification             Agent Attribution & Commission Tracking
+      Full audit trail and duplicate detection
+                                                                                    Associate each client with the introducing agent
+4.4 Sales Performance & Agent Appraisal                                             Generate unique commission reference for the agent
+                                                                                    Commission approval workflow:
+      Track agent KPIs: units sold, value sold, conversion rates,                      o Verification of payment
+       time to close, cancellations                                                     o Sale confirmation
+      Dashboard for developer/manager to appraise agents                               o Construction milestone validation (if applicable)
+      Multi-project performance comparison                                         Dashboard for agents to view commission status: pending,
+                                                                                     approved, paid
+4.5 Sales Clerk – Site Visits, Presentations & Agent Attribution
+                                                                              4.6 Marketing Integration
+Site Visits                                                                        Generate dynamic marketing content from project progress
+                                                                                    (layouts, images, drone photos)
+      Clerk logs client visits manually or via QR code                            Visual representation of units sold/available
+      Captures client info, visit time, notes, and unit interests
+      Links client to the introducing agent                                  4.7 Legal / Documentation
+                                                                                   Advocate uploads: offer letters, agreements, buyer
+                                                                                     ID/KRA/photographs
+                                                                                   Link documents to unit and buyer
+                                                                                   Maintain immutable legal records
+
+                                                                          3
+                                                                                                                                17th January 2025
+CONSTRUCTION MONITORING SYSTEM
+USER REQUIREMENTS – PROPERTY SALES MODULE
+
+4.8 Audit & Compliance                                                       7. Integration Points
+
+      Full logs of changes, approvals, and access                                 Construction Progress Module: map unit sales to
+      Alerts for inconsistencies or duplicate entries                              milestones to trigger smart contract payments
+      Compliance reporting for banks, auditors, and regulators                    Payment Module: auto-reconciliation of online and manual
+                                                                                    payments
+                                                                                   Commission Module: link agent performance to verified
+                                                                                    sales
+5. Reporting & Dashboards                                                          Marketing/Presentation: content from live project data
+     Developer: multi-project sales, unit availability, agent                     Legal/Documentation: link all buyer documents to unit
+       performance, commission summary
+     Sales Agent: assigned units, clients introduced, commission
+       status
+     Sales Clerk: visitor registration, client follow-ups,                  8. Designed to be
+       presentations given
+     Buyer: payment status, unit progress, confirmations                          Transparent, auditable sales process
+     Bank/Financier: verified payments, project progress                          Accurate mapping of clients to units, agents, and milestones
+                                                                                   Full support for online/offline payments
+                                                                                   Ability to appraise agent performance
+                                                                                   Sales clerk empowered to record visits and give
+6. Non-Functional Requirements                                                      presentations
+     Scalability: support multiple projects, agents, and buyers                   Seamless linkage between sales, construction progress, and
+     Security: role-based access control, encryption, audit-ready                  commission payouts
+      logs
+     Availability: cloud-hosted, web and mobile access
+     User Interface: intuitive dashboards, offline support for clerks
+     Notifications: alerts for pending confirmations, payments,
+      and approvals
+
+
+
+
+                                                                         4
+                                                                                                                                17th January 2025
+

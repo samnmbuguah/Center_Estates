@@ -1,0 +1,22 @@
+# Copy this site block into the VM's shared Caddyfile.
+erp.169-58-102-217.sslip.io {
+	encode gzip zstd
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	@backend path /api/* /admin/* /static/* /media/*
+	handle @backend {
+		reverse_proxy center-estates-backend:8000
+	}
+
+	handle {
+		reverse_proxy center-estates-web:3000
+	}
+}

@@ -1,0 +1,301 @@
+                                                  CENTER ESTATES ERP
+                                               Tender Intelligence Module
+                                           Functional UI Mock-up Presentation
+
+
+
+Developer Presentation Document
+Version 1.0
+
+Instructions: Paste each UI screenshot into the large placeholder on every page. The sidebar provides the intended functionality and developer guidance.
+Home Dashboard
+
+
+                 Purpose
+                 Executive
+                 overview of
+                 all tenders.
+
+
+
+                 Key
+                 Features
+                 Tender KPIs,
+                 calendar,
+                 alerts, AI
+                 insights,
+                 quick
+                 actions.
+
+
+
+                 Developer
+                 Notes
+                 Design for
+                 executives;
+                 show live
+                 widgets.
+Step 1 - Tender Invitation
+
+
+                             Purpose
+                             Register and
+                             upload a new
+                             tender.
+
+
+
+                             Key Features
+                             Upload PDF,
+                             assign
+                             manager,
+                             deadlines,
+                             tender details.
+
+
+
+                             Developer
+                             Notes
+                             Support drag
+                             & drop and
+                             portal
+                             imports.
+Step 2 - AI Tender Analysis
+
+
+                              Purpose
+                              AI analyses
+                              the tender.
+
+
+
+                              Key Features
+                              Mandatory
+                              requirements
+                              , evaluation
+                              criteria,
+                              forms, risks.
+
+
+
+                              Developer
+                              Notes
+                              Allow user to
+                              confirm/edit
+                              AI output.
+Step 3 - Bid / No Bid
+
+
+                        Purpose
+                        Managemen
+                        t approval.
+
+
+
+                        Key
+                        Features
+                        Eligibility,
+                        profitability,
+                        risk score,
+                        approvals.
+
+
+
+                        Developer
+                        Notes
+                        Board
+                        approval
+                        workflow.
+Step 4 - Planning
+
+
+                    Purpose
+                    Allocate
+                    work.
+
+
+
+                    Key
+                    Features
+                    Tasks, Gantt
+                    chart,
+                    milestones,
+                    owners.
+
+
+
+                    Developer
+                    Notes
+                    Integrate
+                    notifications
+                    .
+Step 5 - Company Documents
+
+
+                             Purpose
+                             Knowledge
+                             vault.
+
+
+
+                             Key
+                             Features
+                             Expiry
+                             alerts,
+                             version
+                             control,
+                             reusable
+                             documents
+                             .
+
+
+
+                             Developer
+                             Notes
+                             Archive
+                             previous
+                             versions.
+Step 6 - Technical Proposal
+
+
+                              Purpose
+                              Proposal
+                              preparation.
+
+
+
+                              Key
+                              Features
+                              AI writer,
+                              templates,
+                              attachments
+                              , comments.
+
+
+
+                              Developer
+                              Notes
+                              Support all
+                              tender
+                              types.
+Step 7 - Financial Proposal
+
+
+                              Purpose
+                              Pricing
+                              workspace
+                              .
+
+
+
+                              Key
+                              Features
+                              Import
+                              BOQ,
+                              tender
+                              tables,
+                              approvals.
+
+
+
+                              Developer
+                              Notes
+                              Restricted
+                              access.
+Step 8 - Review & Approval
+
+
+                             Purpose
+                             Final
+                             review.
+
+
+
+                             Key
+                             Features
+                             Executive
+                             summary,
+                             readiness
+                             score,
+                             approval
+                             workflow.
+
+
+
+                             Develope
+                             r Notes
+                             Generate
+                             PDF
+                             reports.
+Step 9 - Packaging
+
+
+                     Purpose
+                     Prepare
+                     submission
+                     .
+
+
+
+                     Key
+                     Features
+                     Pagination,
+                     TOC,
+                     binders,
+                     labels, PDF
+                     package.
+
+
+
+                     Developer
+                     Notes
+                     Auto-
+                     generate
+                     final
+                     package.
+Step 10 - Submission
+
+
+                       Purpose
+                       Submit and record.
+
+
+
+                       Key Features
+                       Portal upload,
+                       acknowledgements
+                       , competitors,
+                       quotations.
+
+
+
+                       Developer Notes
+                       Store receipts and
+                       evidence.
+Step 11 - Award / Regret
+
+
+
+                           Purpose
+                           Close
+                           tender.
+
+
+
+                           Key
+                           Features
+                           Award,
+                           regret
+                           letters,
+                           rankings,
+                           lessons
+                           learnt.
+
+
+
+                           Develope
+                           r Notes
+                           Feed
+                           knowledge
+                           base.
+
