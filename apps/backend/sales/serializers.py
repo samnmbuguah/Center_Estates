@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SiteVisit
+from .models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 
 
 class SaleListingSerializer(serializers.ModelSerializer):
@@ -84,3 +84,13 @@ class SaleDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = SaleDocument
         exclude = ('organization',)
+
+
+class SalesAuditEventSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.username', read_only=True)
+    sale_reference = serializers.CharField(source='sale.reference', read_only=True, default='')
+    payment_reference = serializers.CharField(source='payment.reference', read_only=True, default='')
+
+    class Meta:
+        model = SalesAuditEvent
+        exclude = ('organization', 'actor')

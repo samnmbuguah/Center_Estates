@@ -18,7 +18,7 @@ from properties.models import (
     Receipt, ReceiptAllocation, RentSchedule, ServiceCharge, Tenant,
     TenantDocument, Unit,
 )
-from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SiteVisit
+from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 from subscriptions.models import Subscription
 from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
 from valuations.models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
@@ -369,7 +369,7 @@ class Command(BaseCommand):
                 'status': Installment.Status.PAID, 'milestone': 'Contract signing',
             },
         )
-        Installment.objects.update_or_create(
+        second_installment, _ = Installment.objects.update_or_create(
             organization=organization, sale=sale, sequence=2,
             defaults={
                 'description': 'Second construction installment', 'due_on': today + timedelta(days=45),
@@ -377,7 +377,7 @@ class Command(BaseCommand):
                 'status': Installment.Status.UPCOMING, 'milestone': 'Roof slab completion',
             },
         )
-        SalePayment.objects.update_or_create(
+        verified_payment, _ = SalePayment.objects.update_or_create(
             organization=organization, reference='PAY-2026-0098',
             defaults={
                 'sale': sale, 'installment': deposit, 'paid_on': today - timedelta(days=11),
@@ -386,10 +386,10 @@ class Command(BaseCommand):
                 'verified_at': timezone.now() - timedelta(days=10),
             },
         )
-        SalePayment.objects.update_or_create(
+        pending_payment, _ = SalePayment.objects.update_or_create(
             organization=organization, reference='PAY-2026-0106',
             defaults={
-                'sale': sale, 'installment': None, 'paid_on': today,
+                'sale': sale, 'installment': second_installment, 'paid_on': today,
                 'amount': Decimal('250000.00'), 'method': 'paybill', 'external_reference': 'RGA4K8Z21P',
                 'status': SalePayment.Status.PENDING,
             },
@@ -409,6 +409,30 @@ class Command(BaseCommand):
                 'sale': sale, 'agent': user, 'rate_percent': Decimal('2.00'),
                 'amount': Decimal('556000.00'), 'required_paid_percent': Decimal('20.00'),
                 'status': AgentCommission.Status.ELIGIBLE,
+            },
+        )
+        SalesAuditEvent.objects.update_or_create(
+            organization=organization, payment=verified_payment, event_type='payment_verified',
+            defaults={
+                'sale': sale, 'from_status': SalePayment.Status.PENDING,
+                'to_status': SalePayment.Status.VERIFIED,
+                'details': {'allocated': str(verified_payment.amount), 'installment': deposit.sequence},
+                'actor': user,
+            },
+        )
+        SalesAuditEvent.objects.update_or_create(
+            organization=organization, payment=pending_payment, event_type='payment_submitted',
+            defaults={
+                'sale': sale, 'to_status': SalePayment.Status.PENDING,
+                'details': {'source': 'seed demonstration'}, 'actor': user,
+            },
+        )
+        SalesAuditEvent.objects.update_or_create(
+            organization=organization, sale=sale, payment=None, event_type='sale_status_change',
+            defaults={
+                'from_status': PropertySale.Status.RESERVED,
+                'to_status': PropertySale.Status.CONTRACTED,
+                'notes': 'Agreement executed after deposit clearance.', 'actor': user,
             },
         )
         SaleDocument.objects.update_or_create(

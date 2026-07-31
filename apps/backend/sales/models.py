@@ -199,3 +199,25 @@ class SaleDocument(OrganizationOwnedModel):
     class Meta:
         ordering = ('document_type', 'title')
         constraints = [models.UniqueConstraint(fields=('sale', 'checksum'), name='unique_sale_document_checksum')]
+
+
+class SalesAuditEvent(OrganizationOwnedModel):
+    sale = models.ForeignKey(PropertySale, on_delete=models.CASCADE, related_name='audit_events', null=True, blank=True)
+    payment = models.ForeignKey(SalePayment, on_delete=models.CASCADE, related_name='audit_events', null=True, blank=True)
+    event_type = models.CharField(max_length=50)
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status = models.CharField(max_length=20, blank=True)
+    notes = models.TextField(blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='sales_audit_events')
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def clean(self):
+        if not self.sale_id and not self.payment_id:
+            raise ValidationError('An audit event must reference a sale or payment.')
+        if self.sale_id and self.sale.organization_id != self.organization_id:
+            raise ValidationError('Audit sale must belong to the same organization.')
+        if self.payment_id and self.payment.organization_id != self.organization_id:
+            raise ValidationError('Audit payment must belong to the same organization.')

@@ -62,6 +62,16 @@ test("facility work history, cost and media registers are connected", async ({ p
   await expect(page.getByText("leak-before-repair.jpg", { exact: true })).toBeVisible();
 });
 
+test("sales payment verification and audit controls are connected", async ({ page }) => {
+  await page.goto("/sales");
+  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await expect(page.getByText("PAY-2026-0106", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Verify", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Audit trail", exact: true }).click();
+  await expect(page.getByText("PAY-2026-0098", { exact: true })).toBeVisible();
+  await expect(page.getByText("payment verified", { exact: true })).toBeVisible();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });
