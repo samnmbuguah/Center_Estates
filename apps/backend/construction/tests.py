@@ -4,13 +4,16 @@ from time import time
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
+from django.core.files.uploadedfile import SimpleUploadedFile
+from tempfile import TemporaryDirectory
 
 from core.models import Module
 from organizations.models import Membership, Organization
 from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
-from .models import MilestoneEntry, Project, Risk, Ticket, Variation
+from .models import EvidenceFile, MilestoneEntry, Project, Risk, SubmissionRecord, Ticket, Variation
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"], DEBUG=True, SECURE_SSL_REDIRECT=False)
@@ -34,6 +37,7 @@ class ConstructionApiTests(TestCase):
             id="construction-project-1", organization=self.organization,
             portfolio_project=portfolio, name="Project One", code="P1", stage="active",
             created_at=int(time() * 1000), budget=Decimal("5000000"),
+            site_latitude=-1.2676, site_longitude=36.8108, geofence_radius_m=250,
         )
         now = int(time() * 1000)
         Risk.objects.create(
@@ -58,6 +62,13 @@ class ConstructionApiTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.user)
         self.headers = {"HTTP_X_ORGANIZATION_ID": str(self.organization.id)}
+
+    def mobile_client(self):
+        token = AccessToken.for_user(self.user)
+        token["client_kind"] = "mobile"
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        return client
 
     def test_dashboard_is_calculated_from_scoped_live_data(self):
         response = self.client.get("/api/v1/construction/dashboard/", **self.headers)
@@ -84,21 +95,84 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_submitted_mobile_evidence_is_immutable(self):
-        response = self.client.patch(
+        response = self.mobile_client().patch(
             f"/api/v1/construction/milestones/{self.milestone.id}/",
-            {"percent_complete": 90}, format="json", HTTP_X_CLIENT_KIND="mobile", **self.headers,
+            {"percent_complete": 90}, format="json", **self.headers,
         )
         self.assertEqual(response.status_code, 400)
         self.milestone.refresh_from_db()
         self.assertEqual(self.milestone.percent_complete, 80)
 
     def test_mobile_authoritative_record_rejects_desktop_write(self):
+        token = AccessToken.for_user(self.user)
+        token["client_kind"] = "desktop"
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         response = self.client.patch(
             f"/api/v1/construction/milestones/{self.milestone.id}/",
-            {"percent_complete": 90}, format="json", HTTP_X_CLIENT_KIND="desktop", **self.headers,
+            {"percent_complete": 90}, format="json", **self.headers,
         )
         self.assertEqual(response.status_code, 400)
 
     def test_subscription_is_required(self):
         Subscription.objects.filter(organization=self.organization, module=Module.MONITORING).update(is_active=False)
         self.assertEqual(self.client.get("/api/v1/construction/dashboard/", **self.headers).status_code, 403)
+
+    def test_mobile_sync_seals_and_geofences_submitted_evidence(self):
+        mobile = self.mobile_client()
+        timestamp = int(time() * 1000)
+        response = mobile.post("/api/v1/construction/sync/push", {"changes": {
+            "milestone_entries": {"created": [{
+                "id": "mobile-ms-1", "project_id": self.project.id,
+                "milestone_id": "MEP first fix", "percent_complete": 64,
+                "submitted_at": timestamp,
+            }]},
+            "evidence_files": {"created": [{
+                "id": "mobile-ev-1", "milestone_entry_id": "mobile-ms-1",
+                "media_type": "photo", "remote_url": "/media/evidence/demo.jpg",
+                "hash": "a" * 64, "latitude": -1.2676, "longitude": 36.8108,
+                "captured_at": timestamp, "submitted_at": timestamp,
+            }]},
+        }}, format="json", **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        evidence = EvidenceFile.objects.get(pk="mobile-ev-1")
+        self.assertEqual(evidence.geofence_status, "inside")
+        seal = SubmissionRecord.objects.get(milestone_entry_id="mobile-ms-1")
+        self.assertEqual(seal.evidence_count, 1)
+        verify = mobile.get("/api/v1/construction/audit/verify/mobile-ms-1", **self.headers)
+        self.assertTrue(verify.data["integrity_valid"])
+
+    def test_sync_pull_is_incremental_and_organization_scoped(self):
+        mobile = self.mobile_client()
+        response = mobile.get("/api/v1/construction/sync/pull?last_pulled_at=0", **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        milestone_ids = [row["id"] for row in response.data["changes"]["milestone_entries"]["created"]]
+        self.assertEqual(milestone_ids, ["milestone-1"])
+        self.assertGreater(response.data["timestamp"], 0)
+
+    def test_desktop_token_cannot_push_mobile_authoritative_data(self):
+        token = AccessToken.for_user(self.user)
+        token["client_kind"] = "desktop"
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        response = self.client.post("/api/v1/construction/sync/push", {"changes": {}}, format="json", **self.headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_media_upload_is_content_hashed_and_idempotent(self):
+        mobile = self.mobile_client()
+        with TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            first = mobile.post("/api/v1/construction/media/upload", {
+                "file": SimpleUploadedFile("site.jpg", b"verified-site-evidence", content_type="image/jpeg")
+            }, format="multipart", **self.headers)
+            second = mobile.post("/api/v1/construction/media/upload", {
+                "file": SimpleUploadedFile("retry.jpg", b"verified-site-evidence", content_type="image/jpeg")
+            }, format="multipart", **self.headers)
+        self.assertEqual(first.status_code, 200, first.data)
+        self.assertEqual(first.data["hash"], second.data["hash"])
+        self.assertEqual(first.data["remote_url"], second.data["remote_url"])
+
+    def test_mobile_token_contains_fail_closed_client_kind(self):
+        response = APIClient().post("/api/v1/auth/mobile-token/", {
+            "username": self.user.username, "password": "test"
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["client_kind"], "mobile")
+        self.assertEqual(AccessToken(response.data["access"])["client_kind"], "mobile")

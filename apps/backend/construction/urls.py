@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
@@ -7,6 +8,8 @@ from .views import (
     RiskViewSet, SafetyIncidentViewSet, TicketViewSet, VariationViewSet,
     WorkPlanTaskViewSet,
 )
+from core.views import MobileTokenView
+from .sync_views import media_upload, mobile_me, pull, push, register_device, verify_submission
 
 router = DefaultRouter()
 router.register("dashboard", DashboardViewSet, basename="construction-dashboard")
@@ -27,3 +30,12 @@ router.register("documents", ProjectDocumentViewSet, basename="construction-docu
 router.register("approvals", ProjectApprovalViewSet, basename="construction-approval")
 
 urlpatterns = router.urls
+urlpatterns += [
+    path("auth/token/", MobileTokenView.as_view(), name="construction-mobile-token"),
+    path("me", mobile_me, name="construction-mobile-me"),
+    path("sync/pull", pull, name="construction-sync-pull"),
+    path("sync/push", push, name="construction-sync-push"),
+    path("media/upload", media_upload, name="construction-media-upload"),
+    path("devices/register", register_device, name="construction-device-register"),
+    path("audit/verify/<str:milestone_id>", verify_submission, name="construction-audit-verify"),
+]

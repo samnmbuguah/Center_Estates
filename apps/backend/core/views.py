@@ -43,6 +43,29 @@ class LoginView(APIView):
         return response
 
 
+class MobileTokenSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["client_kind"] = "mobile"
+        return token
+
+
+class MobileTokenView(APIView):
+    """Bearer-token login for the offline Expo construction client."""
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        serializer = MobileTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({
+            "access": serializer.validated_data["access"],
+            "refresh": serializer.validated_data["refresh"],
+            "client_kind": "mobile",
+        })
+
+
 @method_decorator(csrf_protect, name='dispatch')
 class RefreshView(APIView):
     authentication_classes = ()

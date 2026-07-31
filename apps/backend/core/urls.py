@@ -1,11 +1,12 @@
 from django.urls import path
 
-from .views import LoginView, LogoutView, MeView, RefreshView, csrf, health
+from .views import LoginView, LogoutView, MeView, MobileTokenView, RefreshView, csrf, health
 
 urlpatterns = [
     path('health/', health, name='health'),
     path('auth/csrf/', csrf, name='csrf'),
     path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/mobile-token/', MobileTokenView.as_view(), name='mobile-token'),
     path('auth/refresh/', RefreshView.as_view(), name='refresh'),
     path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/me/', MeView.as_view(), name='me'),

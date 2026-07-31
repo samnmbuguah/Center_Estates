@@ -63,7 +63,12 @@ class MobileCaptureMixin:
     """Protect mobile-authoritative evidence from desktop/API impersonation."""
 
     def _require_mobile(self):
-        if self.request.headers.get("X-Client-Kind", "").lower() != "mobile":
+        token = getattr(self.request, "auth", None)
+        try:
+            is_mobile = token.get("client_kind") == "mobile"
+        except AttributeError:
+            is_mobile = False
+        if not is_mobile:
             raise ValidationError({"client_kind": "This record is writable only by an enrolled mobile client."})
 
     def perform_create(self, serializer):

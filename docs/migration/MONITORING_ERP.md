@@ -17,7 +17,7 @@ commit `b2fb952`.
 | package/module plan | `subscriptions.Subscription(module="monitoring")` |
 | monitoring `Project` | `construction.Project`, anchored by `portfolio_project` to `properties.Project` |
 | desktop routes | `/monitoring` routes inside the Next.js platform shell |
-| mobile JWT tenant | active organization claim/header under the unified authentication contract |
+| mobile JWT tenant | bearer JWT with `client_kind=mobile`; active membership resolves the organization |
 
 The first backend port retains 50 mature construction entities: projects,
 controlled documents and approvals, lifecycle records, devices, progress,
@@ -49,7 +49,7 @@ subcontractors, BIM/drone/satellite records, RFIs, calendar, chat and audit data
 
 ## Current verification
 
-- Unified backend: 45 tests passing, including organization isolation,
+- Unified backend: 50 tests passing, including organization isolation,
   subscription denial, hierarchy validation and evidence immutability.
 - MonitoringERP desktop: 17 suites / 125 tests passing.
 - MonitoringERP mobile: 12 suites / 52 tests passing.
@@ -57,7 +57,10 @@ subcontractors, BIM/drone/satellite records, RFIs, calendar, chat and audit data
 - Live HTTPS construction dashboard returns seeded project, issue, risk,
   milestone and approved-variation metrics through shared Caddy.
 
-Remaining port work is tracked against the non-negotiable parity list: offline
-sync endpoints, media upload/hash idempotency, audit seal/signature verification,
-geofence classification, reporting/finance workflows, WebSockets, and mobile
-contract cutover. The standalone source is retained until those checks pass.
+The unified API now includes incremental offline pull/push, mobile-authoritative
+write gates, content-hash/idempotent media upload, server geofence classification,
+audit seal recomputation and Ed25519 verification. The source Expo client now
+defaults to the unified construction API. Remaining parity work is reporting and
+finance depth, real-time notifications, broader mobile endpoint compatibility,
+and final data reconciliation/rollback rehearsal. The standalone source is
+retained until those checks pass.
