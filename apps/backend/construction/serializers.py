@@ -4,9 +4,10 @@ from .models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
-    MaterialDelivery, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
+    MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
+    PurchaseOrder, PurchaseOrderLine,
     ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
-    SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
+    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
 
 
@@ -68,4 +69,51 @@ ChatMessageSerializer = serializer_for(ChatMessage, {
 NotificationSerializer = serializer_for(Notification)
 AdminAuditLogSerializer = serializer_for(AdminAuditLog, {
     "user_name": serializers.CharField(source="user.username", read_only=True),
+})
+
+
+class RequisitionLineSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source="item.name", read_only=True)
+    class Meta:
+        model = MaterialRequisitionLine
+        fields = ("id", "item", "item_name", "quantity")
+
+
+class MaterialRequisitionSerializer(OrganizationScopedSerializer):
+    lines = RequisitionLineSerializer(many=True)
+    project_name = serializers.CharField(source="project.name", read_only=True)
+    raised_by_name = serializers.CharField(source="raised_by.username", read_only=True)
+    class Meta:
+        model = MaterialRequisition
+        fields = "__all__"
+        read_only_fields = ("raised_by", "created_at", "status")
+
+
+class PurchaseOrderLineSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source="item.name", read_only=True)
+    class Meta:
+        model = PurchaseOrderLine
+        fields = ("id", "item", "item_name", "quantity", "unit_price")
+
+
+class PurchaseOrderSerializer(OrganizationScopedSerializer):
+    lines = PurchaseOrderLineSerializer(many=True)
+    project_name = serializers.CharField(source="project.name", read_only=True)
+    supplier_name = serializers.CharField(source="supplier.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.username", read_only=True)
+    total = serializers.SerializerMethodField()
+    class Meta:
+        model = PurchaseOrder
+        fields = "__all__"
+        read_only_fields = ("created_by", "created_at", "received_at", "status")
+    def get_total(self, obj):
+        return sum(line.quantity * line.unit_price for line in obj.lines.all())
+
+
+StoreItemSerializer = serializer_for(StoreItem)
+StoreSupplierSerializer = serializer_for(StoreSupplier)
+StockMovementSerializer = serializer_for(StockMovement, {
+    "item_name": serializers.CharField(source="item.name", read_only=True),
+    "project_name": serializers.CharField(source="project.name", read_only=True),
+    "created_by_name": serializers.CharField(source="created_by.username", read_only=True),
 })

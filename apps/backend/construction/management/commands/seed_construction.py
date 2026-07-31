@@ -11,9 +11,9 @@ from properties.models import Project as PortfolioProject
 from construction.models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, Certificate, ChatMessage,
     ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement,
-    DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery,
-    MilestoneEntry, Notification, Project, ProvisionalSum, Requisition, Risk,
-    SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
+    DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery, MaterialRequisition, MaterialRequisitionLine,
+    MilestoneEntry, Notification, Project, ProvisionalSum, PurchaseOrder, PurchaseOrderLine, Requisition, Risk,
+    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
 
 
@@ -216,5 +216,36 @@ class Command(BaseCommand):
         AdminAuditLog.objects.update_or_create(
             id="ce-audit-finance-001",
             defaults={"organization": organization, "timestamp": now_ms - 172800000, "user": user, "user_role": "Administrator", "action": "Issued interim payment certificate IPC-011", "category": "certificates", "resource": "Certificate", "resource_id": str(certificate.id), "details": {"net_payable": "14862500.00"}, "outcome": "success"},
+        )
+        store_item, _ = StoreItem.objects.update_or_create(
+            organization=organization, code="MAT-SEAL-01",
+            defaults={"name":"Fire-rated sealant","unit":"cartridge","category":"Fire protection","quantity_on_hand":Decimal("180"),"created_at":now_ms-1209600000},
+        )
+        store_supplier, _ = StoreSupplier.objects.update_or_create(
+            organization=organization, name="Nairobi Fire Systems",
+            defaults={"contact":"procurement@nfs.example · +254 700 400 400"},
+        )
+        material_requisition, _ = MaterialRequisition.objects.update_or_create(
+            organization=organization, reference="MR-2026-0041",
+            defaults={"project":project,"status":"approved","raised_by":user,"created_at":now_ms-259200000},
+        )
+        MaterialRequisitionLine.objects.update_or_create(
+            requisition=material_requisition, item=store_item, defaults={"quantity":Decimal("240")},
+        )
+        purchase_order, _ = PurchaseOrder.objects.update_or_create(
+            organization=organization, number="PO-2026-0038",
+            defaults={"project":project,"supplier":store_supplier,"status":"received","created_by":user,"created_at":now_ms-172800000,"received_at":now_ms-86400000},
+        )
+        PurchaseOrderLine.objects.update_or_create(
+            purchase_order=purchase_order, item=store_item,
+            defaults={"quantity":Decimal("240"),"unit_price":Decimal("1480")},
+        )
+        StockMovement.objects.update_or_create(
+            organization=organization, item=store_item, movement_type="grn", reference=purchase_order.number,
+            defaults={"project":project,"quantity":Decimal("240"),"created_by":user,"created_at":now_ms-86400000},
+        )
+        StockMovement.objects.update_or_create(
+            organization=organization, item=store_item, movement_type="issue", reference="WO-019 / Level 6",
+            defaults={"project":project,"quantity":Decimal("-60"),"created_by":user,"created_at":now_ms-43200000},
         )
         self.stdout.write(self.style.SUCCESS(f"Seeded construction data for {organization.name}."))

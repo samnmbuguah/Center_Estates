@@ -7,10 +7,10 @@ from .views import (
     ChatMessageViewSet, ConsultantPaymentViewSet, ContingencyDrawdownViewSet, DailyLogViewSet,
     DashboardViewSet, DisbursementViewSet, DrawdownRequestViewSet,
     DroneDatasetViewSet, EvidenceViewSet, LifecycleViewSet,
-    MaterialDeliveryViewSet, MilestoneViewSet, NotificationViewSet, ProjectApprovalViewSet,
+    MaterialDeliveryViewSet, MaterialRequisitionViewSet, MilestoneViewSet, NotificationViewSet, ProjectApprovalViewSet,
     ProjectDocumentViewSet, ProjectViewSet, ProvisionalSumViewSet,
     QualityTestViewSet, RequisitionViewSet, RfiViewSet, RiskViewSet,
-    SafetyIncidentViewSet, SatelliteDatasetViewSet, SubcontractorViewSet,
+    PurchaseOrderViewSet, SafetyIncidentViewSet, SatelliteDatasetViewSet, StockMovementViewSet, StoreItemViewSet, StoreSupplierViewSet, SubcontractorViewSet,
     TicketViewSet, VariationViewSet, WorkOrderViewSet, WorkPlanTaskViewSet,
 )
 from core.views import MobileTokenView
@@ -53,6 +53,11 @@ router.register("drawdowns", DrawdownRequestViewSet, basename="construction-draw
 router.register("chat", ChatMessageViewSet, basename="construction-chat")
 router.register("notifications", NotificationViewSet, basename="construction-notification")
 router.register("audit-log", AdminAuditLogViewSet, basename="construction-audit-log")
+router.register("store-items", StoreItemViewSet, basename="construction-store-item")
+router.register("store-suppliers", StoreSupplierViewSet, basename="construction-store-supplier")
+router.register("material-requisitions", MaterialRequisitionViewSet, basename="construction-material-requisition")
+router.register("purchase-orders", PurchaseOrderViewSet, basename="construction-purchase-order")
+router.register("stock-movements", StockMovementViewSet, basename="construction-stock-movement")
 
 urlpatterns = router.urls
 urlpatterns += [

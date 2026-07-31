@@ -170,14 +170,14 @@ class Command(BaseCommand):
             },
         )
         RentSchedule.objects.update_or_create(
-            organization=organization, lease=lease_two,
-            period_start=today.replace(day=1),
+            organization=organization, invoice=invoice_two,
             defaults={
+                'lease': lease_two, 'period_start': today.replace(day=1),
                 'period_end': (today.replace(day=28) + timedelta(days=4)).replace(day=1),
                 'due_on': today.replace(day=lease_two.billing_day),
                 'base_rent': Decimal('120000.00'), 'escalation_amount': Decimal('0.00'),
                 'service_charge': Decimal('0.00'), 'total': Decimal('120000.00'),
-                'status': RentSchedule.Status.INVOICED, 'invoice': invoice_two,
+                'status': RentSchedule.Status.INVOICED,
             },
         )
         Expense.objects.update_or_create(

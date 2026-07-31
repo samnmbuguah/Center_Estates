@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
 type Row = Record<string, string | number | boolean | null | string[]>;
-type Tab = "overview" | "projects" | "milestones" | "daily-logs" | "risks" | "tickets" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "approvals" | "lifecycle" | "materials" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
+type Tab = "overview" | "projects" | "milestones" | "daily-logs" | "risks" | "tickets" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
 type Dashboard = {
   kpis: Record<string, string | number>;
   projects: Row[];
@@ -20,7 +20,8 @@ const labels: Record<Tab, string> = {
   "work-plan": "Programme", boq: "BoQ & cost", variations: "Variations",
   "quality-tests": "Quality", rfis: "RFIs", "safety-incidents": "Safety",
   calendar: "Calendar", documents: "Documents", approvals: "Approvals",
-  lifecycle: "Lifecycle", materials: "Materials", "consultant-payments": "Consultants",
+  lifecycle: "Lifecycle", materials: "Deliveries", "store-items": "Inventory", "store-suppliers": "Suppliers",
+  "material-requisitions": "Material requests", "purchase-orders": "Purchase orders", "stock-movements": "Stock ledger", "consultant-payments": "Consultants",
   "drone-datasets": "Drone", "satellite-datasets": "Satellite", "provisional-sums": "Provisional sums",
   "contingency-drawdowns": "Contingency", "advance-payments": "Advances", subcontractors: "Subcontractors",
   "work-orders": "Work orders", "bim-models": "BIM models", "bim-discrepancies": "BIM issues",
@@ -44,6 +45,11 @@ const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; ki
   approvals: [{key:"approval_type",label:"Approval"},{key:"authority",label:"Authority"},{key:"reference",label:"Reference"},{key:"issue_date",label:"Issued"},{key:"status",label:"Status",kind:"status"}],
   lifecycle: [{key:"stage",label:"Stage",kind:"status"},{key:"record_type",label:"Record"},{key:"title",label:"Title"},{key:"reference",label:"Reference"},{key:"responsible_party",label:"Owner"},{key:"due_date",label:"Due"},{key:"status",label:"Status",kind:"status"}],
   materials: [{key:"delivery_date",label:"Delivered"},{key:"material",label:"Material"},{key:"quantity",label:"Quantity"},{key:"unit",label:"Unit"},{key:"supplier",label:"Supplier"},{key:"remarks",label:"Verification"}],
+  "store-items": [{key:"code",label:"Item code"},{key:"name",label:"Material"},{key:"category",label:"Category"},{key:"unit",label:"Unit"},{key:"quantity_on_hand",label:"On hand"}],
+  "store-suppliers": [{key:"name",label:"Supplier"},{key:"contact",label:"Contact"}],
+  "material-requisitions": [{key:"reference",label:"Request"},{key:"project_name",label:"Project"},{key:"raised_by_name",label:"Raised by"},{key:"created_at",label:"Raised"},{key:"status",label:"Status",kind:"status"}],
+  "purchase-orders": [{key:"number",label:"Purchase order"},{key:"project_name",label:"Project"},{key:"supplier_name",label:"Supplier"},{key:"total",label:"Total",kind:"money"},{key:"created_by_name",label:"Created by"},{key:"status",label:"Status",kind:"status"},{key:"received_at",label:"Received"}],
+  "stock-movements": [{key:"created_at",label:"Posted"},{key:"item_name",label:"Material"},{key:"project_name",label:"Project"},{key:"movement_type",label:"Movement",kind:"status"},{key:"quantity",label:"Quantity"},{key:"reference",label:"Reference"},{key:"created_by_name",label:"Posted by"}],
   "consultant-payments": [{key:"certificate_number",label:"Certificate"},{key:"consultant_name",label:"Consultant"},{key:"consultant_role",label:"Role"},{key:"amount",label:"Amount",kind:"money"},{key:"retention_percent",label:"Retention %"},{key:"status",label:"Status",kind:"status"}],
   "drone-datasets": [{key:"flight_date",label:"Flight"},{key:"data_type",label:"Dataset"},{key:"operator_id",label:"Operator"},{key:"classification",label:"Use"},{key:"compliance_declared",label:"Compliant"},{key:"review_status",label:"Review",kind:"status"}],
   "satellite-datasets": [{key:"capture_date",label:"Captured"},{key:"sat_type",label:"Type"},{key:"source_provider",label:"Provider"},{key:"resolution_cm",label:"Resolution (cm)"},{key:"cloud_cover_pct",label:"Cloud %"},{key:"notes",label:"Purpose"}],
@@ -110,7 +116,7 @@ export default function MonitoringPage() {
   const kpis = dashboard?.kpis;
   return <div className="page-wrap property-app monitoring-app">
     <section className="property-heading"><div><p className="eyebrow">Construction management</p><h1>Project monitoring</h1><p>Verified field evidence, programme, quality, commercial control and close-out.</p></div><button className="primary-action" onClick={() => setModal(true)}>+ Project workspace</button></section>
-    <nav className="module-tabs" aria-label="Construction sections">{(Object.keys(labels) as Tab[]).map(item => <button className={tab === item ? "active" : ""} key={item} onClick={() => { setSearch(""); setTab(item); }}>{labels[item]}</button>)}</nav>
+    <nav className="module-tabs" aria-label="Construction sections">{(Object.keys(labels) as Tab[]).map(item => <button className={tab === item ? "active" : ""} key={item} onClick={() => { setRows([]); setSearch(""); setTab(item); }}>{labels[item]}</button>)}</nav>
     {error && <div className="form-error">{error}<button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading verified construction records…</div> : tab === "overview" && dashboard && kpis ? <>
       <section className="kpi-grid"><Kpi label="Active projects" value={String(kpis.activeProjects)} note={`${kpis.portfolioProjects} workspaces`} onClick={() => setTab("projects")}/><Kpi label="Open site issues" value={String(kpis.openTickets)} note="Tracked through resolution" onClick={() => setTab("tickets")}/><Kpi label="High exposure risks" value={String(kpis.highRisks)} note="Likelihood × impact ≥ 16" onClick={() => setTab("risks")}/><Kpi label="Approved variations" value={cash.format(Number(kpis.approvedVariations))} note={`${kpis.submittedMilestones} progress submissions`} onClick={() => setTab("variations")}/><Kpi label="Certified value" value={cash.format(Number(kpis.certifiedValue))} note="Current non-void certificates" onClick={() => setTab("certificates")}/><Kpi label="Paid to date" value={cash.format(Number(kpis.paidValue))} note={`${kpis.budgetUtilization}% budget utilized`} onClick={() => setTab("disbursements")}/></section>

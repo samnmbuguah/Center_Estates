@@ -14,8 +14,8 @@ from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
 from .models import (
-    Certificate, ChatMessage, Disbursement, EvidenceFile, MaterialDelivery, MilestoneEntry, Project, Risk,
-    SubmissionRecord, Ticket, Variation,
+    Certificate, ChatMessage, Disbursement, EvidenceFile, MaterialDelivery, MilestoneEntry, Project, PurchaseOrder, Risk,
+    StockMovement, StoreItem, StoreSupplier, SubmissionRecord, Ticket, Variation,
 )
 
 
@@ -236,3 +236,32 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["client_kind"], "mobile")
         self.assertEqual(AccessToken(response.data["access"])["client_kind"], "mobile")
+
+    def test_purchase_order_receipt_posts_append_only_stock_ledger(self):
+        item = StoreItem.objects.create(organization=self.organization, code="CEM-001", name="Cement", unit="bag", created_at=1)
+        supplier = StoreSupplier.objects.create(organization=self.organization, name="Build Supply Ltd")
+        created = self.client.post("/api/v1/construction/purchase-orders/", {
+            "project": self.project.id, "supplier": supplier.id, "number": "PO-001",
+            "lines": [{"item": item.id, "quantity": "50", "unit_price": "850"}],
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        order = PurchaseOrder.objects.get(number="PO-001")
+        received = self.client.post(f"/api/v1/construction/purchase-orders/{order.id}/receive/", {}, format="json", **self.headers)
+        self.assertEqual(received.status_code, 200, received.data)
+        item.refresh_from_db(); order.refresh_from_db()
+        self.assertEqual(item.quantity_on_hand, Decimal("50")); self.assertEqual(order.status, "received")
+        movement = StockMovement.objects.get(item=item)
+        self.assertEqual(movement.quantity, Decimal("50")); self.assertEqual(movement.reference, "PO-001")
+        self.assertEqual(self.client.post(f"/api/v1/construction/purchase-orders/{order.id}/receive/", {}, format="json", **self.headers).status_code, 400)
+
+    def test_stock_issue_prevents_negative_inventory_and_is_tenant_scoped(self):
+        item = StoreItem.objects.create(organization=self.organization, code="REB-001", name="Rebar", unit="tonne", quantity_on_hand=Decimal("10"), created_at=1)
+        hidden = StoreItem.objects.create(organization=self.other, code="HIDDEN", name="Hidden stock", created_at=1)
+        rejected = self.client.post(f"/api/v1/construction/store-items/{item.id}/issue/", {"quantity":"11","project":self.project.id}, format="json", **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+        accepted = self.client.post(f"/api/v1/construction/store-items/{item.id}/issue/", {"quantity":"4","project":self.project.id,"reference":"SITE-ISSUE-01"}, format="json", **self.headers)
+        self.assertEqual(accepted.status_code, 200, accepted.data)
+        item.refresh_from_db(); self.assertEqual(item.quantity_on_hand, Decimal("6"))
+        listed = self.client.get("/api/v1/construction/store-items/", **self.headers)
+        self.assertEqual([row["code"] for row in listed.data], ["REB-001"])
+        self.assertFalse(StockMovement.objects.filter(item=hidden).exists())

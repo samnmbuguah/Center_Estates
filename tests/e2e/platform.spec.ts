@@ -92,6 +92,17 @@ test("valuation final report, payment and audit evidence are connected", async (
   await expect(page.getByText("payment allocated", { exact: true })).toBeVisible();
 });
 
+test("construction procurement inventory and stock ledger are connected", async ({ page }) => {
+  await page.goto("/monitoring");
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await expect(page.getByText("MAT-SEAL-01", { exact: true })).toBeVisible();
+  await expect(page.getByText("Fire-rated sealant", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Purchase orders", exact: true }).click();
+  await expect(page.getByText("PO-2026-0038", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Stock ledger", exact: true }).click();
+  await expect(page.getByText("WO-019 / Level 6", { exact: true })).toBeVisible();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });

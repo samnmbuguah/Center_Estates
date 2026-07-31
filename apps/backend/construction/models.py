@@ -1595,3 +1595,83 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{self.type}] {self.title[:60]}"
+
+
+# ── Store and procurement ────────────────────────────────────────────────
+class StoreItem(models.Model):
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="store_items")
+    code = models.CharField(max_length=40)
+    name = models.CharField(max_length=200)
+    unit = models.CharField(max_length=20, default="unit")
+    category = models.CharField(max_length=60, blank=True, default="")
+    quantity_on_hand = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    created_at = models.BigIntegerField()
+
+    class Meta:
+        ordering = ("code",)
+        constraints = [models.UniqueConstraint(fields=("organization", "code"), name="unique_construction_store_item")]
+
+
+class StoreSupplier(models.Model):
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="store_suppliers")
+    name = models.CharField(max_length=200)
+    contact = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta:
+        ordering = ("name",)
+        constraints = [models.UniqueConstraint(fields=("organization", "name"), name="unique_construction_store_supplier")]
+
+
+class MaterialRequisition(models.Model):
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="material_requisitions")
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="material_requisitions")
+    reference = models.CharField(max_length=40)
+    status = models.CharField(max_length=12, choices=(("submitted","Submitted"),("approved","Approved"),("fulfilled","Fulfilled"),("rejected","Rejected")), default="submitted")
+    raised_by = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="construction_material_requisitions")
+    created_at = models.BigIntegerField()
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [models.UniqueConstraint(fields=("organization", "reference"), name="unique_construction_material_requisition")]
+
+
+class MaterialRequisitionLine(models.Model):
+    requisition = models.ForeignKey(MaterialRequisition, on_delete=models.CASCADE, related_name="lines")
+    item = models.ForeignKey(StoreItem, on_delete=models.PROTECT, related_name="requisition_lines")
+    quantity = models.DecimalField(max_digits=14, decimal_places=2)
+
+
+class PurchaseOrder(models.Model):
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="construction_purchase_orders")
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="purchase_orders")
+    supplier = models.ForeignKey(StoreSupplier, on_delete=models.PROTECT, related_name="orders")
+    number = models.CharField(max_length=40)
+    status = models.CharField(max_length=12, choices=(("draft","Draft"),("sent","Sent"),("received","Received"),("closed","Closed"),("cancelled","Cancelled")), default="draft")
+    created_by = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="construction_purchase_orders")
+    created_at = models.BigIntegerField()
+    received_at = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [models.UniqueConstraint(fields=("organization", "number"), name="unique_construction_purchase_order")]
+
+
+class PurchaseOrderLine(models.Model):
+    purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="lines")
+    item = models.ForeignKey(StoreItem, on_delete=models.PROTECT, related_name="purchase_order_lines")
+    quantity = models.DecimalField(max_digits=14, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+
+class StockMovement(models.Model):
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="construction_stock_movements")
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="stock_movements", null=True, blank=True)
+    item = models.ForeignKey(StoreItem, on_delete=models.PROTECT, related_name="movements")
+    movement_type = models.CharField(max_length=12, choices=(("grn","Goods receipt"),("issue","Issue"),("return","Return"),("adjustment","Adjustment")))
+    quantity = models.DecimalField(max_digits=14, decimal_places=2)
+    reference = models.CharField(max_length=120, blank=True, default="")
+    created_by = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="construction_stock_movements")
+    created_at = models.BigIntegerField()
+
+    class Meta:
+        ordering = ("-created_at",)
