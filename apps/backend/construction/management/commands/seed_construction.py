@@ -10,10 +10,10 @@ from properties.models import Project as PortfolioProject
 
 from construction.models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, Certificate, ChatMessage,
-    ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement,
+    ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement, DocumentVersion,
     DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery, MaterialRequisition, MaterialRequisitionLine,
-    MilestoneEntry, Notification, Project, ProvisionalSum, PurchaseOrder, PurchaseOrderLine, Requisition, Risk,
-    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
+    MilestoneEntry, Notification, Project, ProjectDocument, ProvisionalSum, PurchaseOrder, PurchaseOrderLine, Requisition, Risk,
+    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
 )
 
 
@@ -89,7 +89,7 @@ class Command(BaseCommand):
                 "created_by": user, "created_at": now_ms - 172800000, "updated_at": now_ms,
             },
         )
-        Ticket.objects.update_or_create(
+        ticket, _ = Ticket.objects.update_or_create(
             organization=organization, project_id=project.id,
             title="Fire stopping incomplete at Level 6 riser",
             defaults={
@@ -99,6 +99,18 @@ class Command(BaseCommand):
                 "raised_by": user, "assigned_to": user, "created_at": now_ms - 43200000,
                 "updated_at": now_ms,
             },
+        )
+        TicketComment.objects.update_or_create(
+            ticket=ticket, author=user, body="Main contractor acknowledged the issue; corrective works are scheduled before inspection.",
+            defaults={"attachment_name":"level-6-corrective-plan.pdf","attachment_url":"/media/construction/level-6-corrective-plan.pdf","created_at":now_ms-21600000},
+        )
+        controlled_document, _ = ProjectDocument.objects.update_or_create(
+            organization=organization, project=project, title="Level 6 coordinated structural drawings",
+            defaults={"doc_type":"drawing","discipline":"Structural","created_at":now_ms-604800000},
+        )
+        DocumentVersion.objects.update_or_create(
+            document=controlled_document, version=2,
+            defaults={"remote_url":"/media/construction/structural-level-6-rev-b.pdf","file_format":"pdf","uploaded_by":user,"uploaded_at":now_ms-259200000,"revision_number":"Rev B"},
         )
         WorkPlanTask.objects.update_or_create(
             project=project, task_id="WP-4.2.1",

@@ -2,12 +2,12 @@ from rest_framework import serializers
 
 from .models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
-    Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog,
+    Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog, DocumentVersion,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
     MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
     PurchaseOrder, PurchaseOrderLine,
     ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
-    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
+    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
 )
 
 
@@ -36,6 +36,12 @@ EvidenceSerializer = serializer_for(EvidenceFile)
 DailyLogSerializer = serializer_for(DailyLog)
 RiskSerializer = serializer_for(Risk)
 TicketSerializer = serializer_for(Ticket)
+TicketCommentSerializer = serializer_for(TicketComment, {
+    "ticket_title": serializers.CharField(source="ticket.title", read_only=True),
+    "author_name": serializers.CharField(source="author.username", read_only=True),
+    "author": serializers.PrimaryKeyRelatedField(read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+})
 WorkPlanTaskSerializer = serializer_for(WorkPlanTask)
 BoQItemSerializer = serializer_for(BoQItem)
 VariationSerializer = serializer_for(Variation)
@@ -44,6 +50,13 @@ RfiSerializer = serializer_for(Rfi)
 SafetyIncidentSerializer = serializer_for(SafetyIncident)
 CalendarEventSerializer = serializer_for(CalendarEvent)
 ProjectDocumentSerializer = serializer_for(ProjectDocument)
+DocumentVersionSerializer = serializer_for(DocumentVersion, {
+    "document_title": serializers.CharField(source="document.title", read_only=True),
+    "project_name": serializers.CharField(source="document.project.name", read_only=True),
+    "uploaded_by_name": serializers.CharField(source="uploaded_by.username", read_only=True),
+    "uploaded_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "uploaded_at": serializers.IntegerField(read_only=True),
+})
 ProjectApprovalSerializer = serializer_for(ProjectApproval)
 LifecycleSerializer = serializer_for(LifecycleRecord)
 MaterialDeliverySerializer = serializer_for(MaterialDelivery)

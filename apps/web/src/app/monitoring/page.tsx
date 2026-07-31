@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
 type Row = Record<string, string | number | boolean | null | string[]>;
-type Tab = "overview" | "projects" | "milestones" | "daily-logs" | "risks" | "tickets" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
+type Tab = "overview" | "projects" | "milestones" | "daily-logs" | "risks" | "tickets" | "ticket-comments" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "document-versions" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
 type Dashboard = {
   kpis: Record<string, string | number>;
   projects: Row[];
@@ -16,10 +16,10 @@ type Dashboard = {
 
 const labels: Record<Tab, string> = {
   overview: "Command center", projects: "Projects", milestones: "Progress",
-  "daily-logs": "Daily logs", risks: "Risks", tickets: "Issues",
+  "daily-logs": "Daily logs", risks: "Risks", tickets: "Issues", "ticket-comments": "Issue discussion",
   "work-plan": "Programme", boq: "BoQ & cost", variations: "Variations",
   "quality-tests": "Quality", rfis: "RFIs", "safety-incidents": "Safety",
-  calendar: "Calendar", documents: "Documents", approvals: "Approvals",
+  calendar: "Calendar", documents: "Documents", "document-versions": "Document revisions", approvals: "Approvals",
   lifecycle: "Lifecycle", materials: "Deliveries", "store-items": "Inventory", "store-suppliers": "Suppliers",
   "material-requisitions": "Material requests", "purchase-orders": "Purchase orders", "stock-movements": "Stock ledger", "consultant-payments": "Consultants",
   "drone-datasets": "Drone", "satellite-datasets": "Satellite", "provisional-sums": "Provisional sums",
@@ -34,6 +34,7 @@ const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; ki
   "daily-logs": [{key:"log_date",label:"Date"},{key:"project_id",label:"Project"},{key:"weather",label:"Weather"},{key:"labour_count",label:"Labour"},{key:"notes",label:"Site notes"},{key:"verified_at",label:"Verified"}],
   risks: [{key:"reference",label:"Risk"},{key:"description",label:"Description"},{key:"category",label:"Category"},{key:"likelihood",label:"Likelihood"},{key:"impact",label:"Impact"},{key:"mitigation",label:"Mitigation"},{key:"status",label:"Status",kind:"status"}],
   tickets: [{key:"title",label:"Issue"},{key:"priority",label:"Priority",kind:"status"},{key:"risk_level",label:"Risk",kind:"status"},{key:"due_date",label:"Due"},{key:"escalation_level",label:"Escalation"},{key:"status",label:"Status",kind:"status"}],
+  "ticket-comments": [{key:"created_at",label:"Posted"},{key:"ticket_title",label:"Issue"},{key:"author_name",label:"Author"},{key:"body",label:"Comment"},{key:"attachment_name",label:"Attachment"}],
   "work-plan": [{key:"task_id",label:"WBS"},{key:"task_name",label:"Task"},{key:"responsible_party",label:"Owner"},{key:"start_date",label:"Start"},{key:"end_date",label:"Finish"},{key:"percent_complete",label:"Progress",kind:"progress"},{key:"status",label:"Status",kind:"status"}],
   boq: [{key:"section",label:"Section"},{key:"item_number",label:"Item"},{key:"description",label:"Description"},{key:"unit",label:"Unit"},{key:"quantity",label:"Qty"},{key:"rate",label:"Rate",kind:"money"},{key:"amount",label:"Amount",kind:"money"},{key:"cost_state",label:"State",kind:"status"}],
   variations: [{key:"variation_number",label:"Variation"},{key:"description",label:"Description"},{key:"variation_type",label:"Type"},{key:"amount",label:"Amount",kind:"money"},{key:"justification",label:"Justification"},{key:"status",label:"Status",kind:"status"}],
@@ -42,6 +43,7 @@ const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; ki
   "safety-incidents": [{key:"incident_date",label:"Date"},{key:"severity",label:"Severity",kind:"status"},{key:"description",label:"Incident"},{key:"action_taken",label:"Action taken"},{key:"verified_at",label:"Verified"}],
   calendar: [{key:"title",label:"Event"},{key:"event_type",label:"Type",kind:"status"},{key:"location",label:"Location"},{key:"start",label:"Start"},{key:"end",label:"End"},{key:"status",label:"Status",kind:"status"}],
   documents: [{key:"title",label:"Document"},{key:"doc_type",label:"Type",kind:"status"},{key:"discipline",label:"Discipline"},{key:"created_at",label:"Added"}],
+  "document-versions": [{key:"document_title",label:"Document"},{key:"project_name",label:"Project"},{key:"version",label:"Version"},{key:"revision_number",label:"Revision"},{key:"file_format",label:"Format",kind:"status"},{key:"uploaded_by_name",label:"Uploaded by"},{key:"uploaded_at",label:"Uploaded"}],
   approvals: [{key:"approval_type",label:"Approval"},{key:"authority",label:"Authority"},{key:"reference",label:"Reference"},{key:"issue_date",label:"Issued"},{key:"status",label:"Status",kind:"status"}],
   lifecycle: [{key:"stage",label:"Stage",kind:"status"},{key:"record_type",label:"Record"},{key:"title",label:"Title"},{key:"reference",label:"Reference"},{key:"responsible_party",label:"Owner"},{key:"due_date",label:"Due"},{key:"status",label:"Status",kind:"status"}],
   materials: [{key:"delivery_date",label:"Delivered"},{key:"material",label:"Material"},{key:"quantity",label:"Quantity"},{key:"unit",label:"Unit"},{key:"supplier",label:"Supplier"},{key:"remarks",label:"Verification"}],

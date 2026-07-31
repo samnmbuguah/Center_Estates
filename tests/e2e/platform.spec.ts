@@ -103,6 +103,15 @@ test("construction procurement inventory and stock ledger are connected", async 
   await expect(page.getByText("WO-019 / Level 6", { exact: true })).toBeVisible();
 });
 
+test("construction controlled documents and issue discussion are connected", async ({ page }) => {
+  await page.goto("/monitoring");
+  await page.getByRole("button", { name: "Document revisions", exact: true }).click();
+  await expect(page.getByText("Level 6 coordinated structural drawings", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rev B", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Issue discussion", exact: true }).click();
+  await expect(page.getByText("level-6-corrective-plan.pdf", { exact: true })).toBeVisible();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });

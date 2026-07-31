@@ -5,13 +5,13 @@ from .views import (
     AdminAuditLogViewSet, AdvancePaymentViewSet, BimDiscrepancyViewSet, BimModelViewSet,
     BoQItemViewSet, CalendarEventViewSet, CertificateViewSet,
     ChatMessageViewSet, ConsultantPaymentViewSet, ContingencyDrawdownViewSet, DailyLogViewSet,
-    DashboardViewSet, DisbursementViewSet, DrawdownRequestViewSet,
+    DashboardViewSet, DisbursementViewSet, DocumentVersionViewSet, DrawdownRequestViewSet,
     DroneDatasetViewSet, EvidenceViewSet, LifecycleViewSet,
     MaterialDeliveryViewSet, MaterialRequisitionViewSet, MilestoneViewSet, NotificationViewSet, ProjectApprovalViewSet,
     ProjectDocumentViewSet, ProjectViewSet, ProvisionalSumViewSet,
     QualityTestViewSet, RequisitionViewSet, RfiViewSet, RiskViewSet,
     PurchaseOrderViewSet, SafetyIncidentViewSet, SatelliteDatasetViewSet, StockMovementViewSet, StoreItemViewSet, StoreSupplierViewSet, SubcontractorViewSet,
-    TicketViewSet, VariationViewSet, WorkOrderViewSet, WorkPlanTaskViewSet,
+    TicketCommentViewSet, TicketViewSet, VariationViewSet, WorkOrderViewSet, WorkPlanTaskViewSet,
 )
 from core.views import MobileTokenView
 from .sync_views import media_upload, mobile_me, pull, push, register_device, verify_submission
@@ -33,6 +33,7 @@ router.register("rfis", RfiViewSet, basename="construction-rfi")
 router.register("safety-incidents", SafetyIncidentViewSet, basename="construction-safety")
 router.register("calendar", CalendarEventViewSet, basename="construction-calendar")
 router.register("documents", ProjectDocumentViewSet, basename="construction-document")
+router.register("document-versions", DocumentVersionViewSet, basename="construction-document-version")
 router.register("approvals", ProjectApprovalViewSet, basename="construction-approval")
 router.register("lifecycle", LifecycleViewSet, basename="construction-lifecycle")
 router.register("materials", MaterialDeliveryViewSet, basename="construction-material")
@@ -53,6 +54,7 @@ router.register("drawdowns", DrawdownRequestViewSet, basename="construction-draw
 router.register("chat", ChatMessageViewSet, basename="construction-chat")
 router.register("notifications", NotificationViewSet, basename="construction-notification")
 router.register("audit-log", AdminAuditLogViewSet, basename="construction-audit-log")
+router.register("ticket-comments", TicketCommentViewSet, basename="construction-ticket-comment")
 router.register("store-items", StoreItemViewSet, basename="construction-store-item")
 router.register("store-suppliers", StoreSupplierViewSet, basename="construction-store-supplier")
 router.register("material-requisitions", MaterialRequisitionViewSet, basename="construction-material-requisition")

@@ -13,24 +13,24 @@ from core.tenancy import get_active_organization
 
 from .models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
-    Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog,
+    Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog, DocumentVersion,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
     MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
     PurchaseOrder, PurchaseOrderLine,
     ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
-    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
+    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
 )
 from .serializers import (
     AdminAuditLogSerializer, AdvancePaymentSerializer, BimDiscrepancySerializer, BimModelSerializer,
     BoQItemSerializer, CalendarEventSerializer, CertificateSerializer,
     ConsultantPaymentSerializer, ContingencyDrawdownSerializer,
-    ChatMessageSerializer, DailyLogSerializer, DisbursementSerializer, DrawdownRequestSerializer,
+    ChatMessageSerializer, DailyLogSerializer, DisbursementSerializer, DocumentVersionSerializer, DrawdownRequestSerializer,
     DroneDatasetSerializer, EvidenceSerializer, LifecycleSerializer,
     MaterialDeliverySerializer, MaterialRequisitionSerializer, MilestoneSerializer, NotificationSerializer, ProjectApprovalSerializer,
     ProjectDocumentSerializer, ProjectSerializer, ProvisionalSumSerializer,
     QualityTestSerializer, RequisitionSerializer, RfiSerializer, RiskSerializer,
     PurchaseOrderSerializer, SafetyIncidentSerializer, SatelliteDatasetSerializer, StockMovementSerializer,
-    StoreItemSerializer, StoreSupplierSerializer, SubcontractorSerializer, TicketSerializer, VariationSerializer,
+    StoreItemSerializer, StoreSupplierSerializer, SubcontractorSerializer, TicketCommentSerializer, TicketSerializer, VariationSerializer,
     WorkOrderSerializer, WorkPlanTaskSerializer,
 )
 
@@ -146,6 +146,28 @@ class EvidenceViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, EvidenceBaseV
 DailyLogViewSet = scoped_viewset("DailyLogViewSet", DailyLog, DailyLogSerializer, ("notes", "weather"))
 RiskViewSet = scoped_viewset("RiskViewSet", Risk, RiskSerializer, ("reference", "description"))
 TicketViewSet = scoped_viewset("TicketViewSet", Ticket, TicketSerializer, ("title", "body"))
+
+
+class TicketCommentViewSet(ConstructionScopedViewSet):
+    queryset = TicketComment.objects.select_related("ticket", "author")
+    serializer_class = TicketCommentSerializer
+    organization_field = "ticket__organization"
+    search_fields = ("ticket__title", "body", "author__username")
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        ticket = serializer.validated_data["ticket"]
+        if ticket.organization_id != organization.id:
+            raise ValidationError({"ticket": "The ticket belongs to another organization."})
+        serializer.save(author=self.request.user, created_at=int(time() * 1000))
+
+    def perform_update(self, serializer):
+        raise ValidationError({"comment": "Issue comments are immutable."})
+
+    def perform_destroy(self, instance):
+        if instance.author_id != self.request.user.id:
+            raise ValidationError({"comment": "Only the author can delete this comment."})
+        instance.delete()
 WorkPlanTaskViewSet = scoped_viewset("WorkPlanTaskViewSet", WorkPlanTask, WorkPlanTaskSerializer, ("task_name", "task_id"))
 BoQItemViewSet = scoped_viewset("BoQItemViewSet", BoQItem, BoQItemSerializer, ("description", "item_number"))
 VariationViewSet = scoped_viewset("VariationViewSet", Variation, VariationSerializer, ("description", "variation_number"))
@@ -154,6 +176,26 @@ RfiViewSet = scoped_viewset("RfiViewSet", Rfi, RfiSerializer, ("title", "questio
 SafetyIncidentViewSet = scoped_viewset("SafetyIncidentViewSet", SafetyIncident, SafetyIncidentSerializer, ("description", "action_taken"))
 CalendarEventViewSet = scoped_viewset("CalendarEventViewSet", CalendarEvent, CalendarEventSerializer, ("title", "description"))
 ProjectDocumentViewSet = scoped_viewset("ProjectDocumentViewSet", ProjectDocument, ProjectDocumentSerializer, ("title", "discipline"))
+
+
+class DocumentVersionViewSet(ConstructionScopedViewSet):
+    queryset = DocumentVersion.objects.select_related("document__project", "uploaded_by")
+    serializer_class = DocumentVersionSerializer
+    organization_field = "document__organization"
+    search_fields = ("document__title", "revision_number", "file_format")
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        document = serializer.validated_data["document"]
+        if document.organization_id != organization.id:
+            raise ValidationError({"document": "The document belongs to another organization."})
+        serializer.save(uploaded_by=self.request.user, uploaded_at=int(time() * 1000))
+
+    def perform_update(self, serializer):
+        raise ValidationError({"version": "Controlled document versions are immutable."})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"version": "Controlled document versions cannot be deleted."})
 ProjectApprovalViewSet = scoped_viewset("ProjectApprovalViewSet", ProjectApproval, ProjectApprovalSerializer, ("approval_type", "authority", "reference"))
 LifecycleViewSet = scoped_viewset("LifecycleViewSet", LifecycleRecord, LifecycleSerializer, ("title", "reference", "record_type"))
 MaterialDeliveryViewSet = scoped_viewset("MaterialDeliveryViewSet", MaterialDelivery, MaterialDeliverySerializer, ("material", "supplier"))

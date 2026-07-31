@@ -14,8 +14,8 @@ from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
 from .models import (
-    Certificate, ChatMessage, Disbursement, EvidenceFile, MaterialDelivery, MilestoneEntry, Project, PurchaseOrder, Risk,
-    StockMovement, StoreItem, StoreSupplier, SubmissionRecord, Ticket, Variation,
+    Certificate, ChatMessage, Disbursement, DocumentVersion, EvidenceFile, MaterialDelivery, MilestoneEntry, Project, ProjectDocument, PurchaseOrder, Risk,
+    StockMovement, StoreItem, StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation,
 )
 
 
@@ -265,3 +265,25 @@ class ConstructionApiTests(TestCase):
         listed = self.client.get("/api/v1/construction/store-items/", **self.headers)
         self.assertEqual([row["code"] for row in listed.data], ["REB-001"])
         self.assertFalse(StockMovement.objects.filter(item=hidden).exists())
+
+    def test_document_versions_are_append_only_and_tenant_scoped(self):
+        document = ProjectDocument.objects.create(organization=self.organization, project=self.project, title="Structural drawings", discipline="Structural", created_at=1)
+        created = self.client.post("/api/v1/construction/document-versions/", {
+            "document": document.id, "version": 1, "revision_number": "Rev A",
+            "remote_url": "/media/docs/structural-rev-a.pdf", "file_format": "pdf",
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        version = DocumentVersion.objects.get(document=document)
+        self.assertEqual(version.uploaded_by, self.user)
+        self.assertEqual(self.client.patch(f"/api/v1/construction/document-versions/{version.id}/", {"revision_number":"Rev B"}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.delete(f"/api/v1/construction/document-versions/{version.id}/", **self.headers).status_code, 400)
+
+    def test_ticket_comment_thread_assigns_author_and_is_immutable(self):
+        ticket = Ticket.objects.filter(organization=self.organization).first()
+        created = self.client.post("/api/v1/construction/ticket-comments/", {
+            "ticket": ticket.id, "body": "Contractor has acknowledged the defect.",
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        comment = TicketComment.objects.get(ticket=ticket)
+        self.assertEqual(comment.author, self.user)
+        self.assertEqual(self.client.patch(f"/api/v1/construction/ticket-comments/{comment.id}/", {"body":"Changed"}, format="json", **self.headers).status_code, 400)
