@@ -10,8 +10,9 @@ from core.models import Module
 from facilities.models import Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder
 from organizations.models import Membership, Organization, Permission, Role
 from properties.models import (
-    Building, Budget, Expense, Invoice, Lease, Project, Property, Receipt,
-    ServiceCharge, Tenant, Unit,
+    Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
+    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge, Tenant,
+    TenantDocument, Unit,
 )
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SiteVisit
 from subscriptions.models import Subscription
@@ -126,20 +127,53 @@ class Command(BaseCommand):
                 'balance': Decimal('0.00'), 'status': Invoice.Status.PAID,
             },
         )
-        Invoice.objects.update_or_create(
+        invoice_two, _ = Invoice.objects.update_or_create(
             organization=organization, number='INV-2026-0702',
             defaults={
                 'lease': lease_two, 'invoice_type': 'rent', 'issued_on': today - timedelta(days=30),
                 'due_on': today - timedelta(days=20), 'amount': Decimal('120000.00'),
-                'balance': Decimal('120000.00'), 'status': Invoice.Status.OVERDUE,
+                'balance': Decimal('100000.00'), 'status': Invoice.Status.OVERDUE,
             },
         )
-        Receipt.objects.update_or_create(
+        receipt, _ = Receipt.objects.update_or_create(
             organization=organization, number='RCT-2026-0418',
             defaults={
                 'tenant': tenant_one, 'invoice': invoice_one, 'received_on': today - timedelta(days=25),
                 'amount': Decimal('185000.00'), 'payment_method': 'bank_transfer',
                 'external_reference': 'FT260418ACACIA', 'received_by': user,
+            },
+        )
+        ReceiptAllocation.objects.update_or_create(
+            organization=organization, receipt=receipt, invoice=invoice_one,
+            defaults={'amount': Decimal('185000.00'), 'allocated_by': user},
+        )
+        CreditNote.objects.update_or_create(
+            organization=organization, number='CN-2026-0021',
+            defaults={
+                'invoice': invoice_two, 'issued_on': today - timedelta(days=8),
+                'amount': Decimal('20000.00'), 'reason': 'Approved service interruption abatement',
+                'status': CreditNote.Status.ISSUED, 'issued_by': user,
+            },
+        )
+        TenantDocument.objects.update_or_create(
+            organization=organization, tenant=tenant_one,
+            document_type='tax_compliance', document_number='TCC-ACACIA-2026',
+            defaults={
+                'file_url': '/media/tenant-documents/acacia-tax-compliance.pdf',
+                'issued_on': today - timedelta(days=90), 'expires_on': today + timedelta(days=275),
+                'status': TenantDocument.Status.VERIFIED, 'verified_by': user,
+                'verified_at': timezone.now() - timedelta(days=89),
+            },
+        )
+        RentSchedule.objects.update_or_create(
+            organization=organization, lease=lease_two,
+            period_start=today.replace(day=1),
+            defaults={
+                'period_end': (today.replace(day=28) + timedelta(days=4)).replace(day=1),
+                'due_on': today.replace(day=lease_two.billing_day),
+                'base_rent': Decimal('120000.00'), 'escalation_amount': Decimal('0.00'),
+                'service_charge': Decimal('0.00'), 'total': Decimal('120000.00'),
+                'status': RentSchedule.Status.INVOICED, 'invoice': invoice_two,
             },
         )
         Expense.objects.update_or_create(

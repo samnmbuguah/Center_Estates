@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
-from .models import Building, Budget, Expense, Invoice, Lease, Project, Property, Receipt, ServiceCharge, Tenant, Unit
+from .models import (
+    Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
+    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge, Tenant,
+    TenantDocument, Unit,
+)
 
 
 class PropertySerializer(serializers.ModelSerializer):
@@ -49,6 +53,7 @@ class LeaseSerializer(serializers.ModelSerializer):
 
 class InvoiceSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
+    tenant_id = serializers.UUIDField(source='lease.tenant.id', read_only=True)
     class Meta:
         model = Invoice
         exclude = ('organization',)
@@ -78,3 +83,39 @@ class ServiceChargeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceCharge
         exclude = ('organization',)
+
+
+class TenantDocumentSerializer(serializers.ModelSerializer):
+    tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+
+    class Meta:
+        model = TenantDocument
+        exclude = ('organization', 'verified_by', 'verified_at')
+
+
+class RentScheduleSerializer(serializers.ModelSerializer):
+    lease_reference = serializers.CharField(source='lease.reference', read_only=True)
+    tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
+
+    class Meta:
+        model = RentSchedule
+        exclude = ('organization',)
+
+
+class ReceiptAllocationSerializer(serializers.ModelSerializer):
+    receipt_number = serializers.CharField(source='receipt.number', read_only=True)
+    invoice_number = serializers.CharField(source='invoice.number', read_only=True)
+    tenant_name = serializers.CharField(source='receipt.tenant.name', read_only=True)
+
+    class Meta:
+        model = ReceiptAllocation
+        exclude = ('organization', 'allocated_by')
+
+
+class CreditNoteSerializer(serializers.ModelSerializer):
+    invoice_number = serializers.CharField(source='invoice.number', read_only=True)
+    tenant_name = serializers.CharField(source='invoice.lease.tenant.name', read_only=True)
+
+    class Meta:
+        model = CreditNote
+        exclude = ('organization', 'issued_by')

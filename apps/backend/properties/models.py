@@ -286,3 +286,110 @@ class ServiceCharge(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Service charge property must belong to the same organization.')
+
+
+class TenantDocument(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending review'
+        VERIFIED = 'verified', 'Verified'
+        REJECTED = 'rejected', 'Rejected'
+        EXPIRED = 'expired', 'Expired'
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='documents')
+    document_type = models.CharField(max_length=60)
+    document_number = models.CharField(max_length=100, blank=True)
+    file_url = models.CharField(max_length=500)
+    issued_on = models.DateField(null=True, blank=True)
+    expires_on = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_tenant_documents')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('tenant__name', 'document_type')
+        constraints = [models.UniqueConstraint(fields=('tenant', 'document_type', 'document_number'), name='unique_tenant_document_identity')]
+
+    def clean(self):
+        if self.tenant_id and self.tenant.organization_id != self.organization_id:
+            raise ValidationError('Tenant document must belong to the same organization.')
+        if self.expires_on and self.issued_on and self.expires_on <= self.issued_on:
+            raise ValidationError({'expires_on': 'Expiry must be after the issue date.'})
+
+
+class RentSchedule(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        UPCOMING = 'upcoming', 'Upcoming'
+        INVOICED = 'invoiced', 'Invoiced'
+        PAID = 'paid', 'Paid'
+        WAIVED = 'waived', 'Waived'
+
+    lease = models.ForeignKey(Lease, on_delete=models.CASCADE, related_name='rent_schedule')
+    period_start = models.DateField()
+    period_end = models.DateField()
+    due_on = models.DateField()
+    base_rent = models.DecimalField(max_digits=14, decimal_places=2)
+    escalation_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    service_charge = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.UPCOMING)
+    invoice = models.OneToOneField(Invoice, on_delete=models.SET_NULL, null=True, blank=True, related_name='rent_schedule_item')
+
+    class Meta:
+        ordering = ('period_start',)
+        constraints = [models.UniqueConstraint(fields=('lease', 'period_start'), name='unique_lease_rent_period')]
+
+    def clean(self):
+        if self.lease_id and self.lease.organization_id != self.organization_id:
+            raise ValidationError('Rent schedule lease must belong to the same organization.')
+        if self.period_end <= self.period_start:
+            raise ValidationError({'period_end': 'Period end must be after period start.'})
+        expected = self.base_rent + self.escalation_amount + self.service_charge
+        if self.total != expected:
+            raise ValidationError({'total': 'Total must equal rent, escalation and service charge.'})
+
+
+class ReceiptAllocation(OrganizationOwnedModel):
+    receipt = models.ForeignKey(Receipt, on_delete=models.PROTECT, related_name='allocations')
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='receipt_allocations')
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    allocated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='property_receipt_allocations')
+
+    class Meta:
+        ordering = ('created_at',)
+        constraints = [models.UniqueConstraint(fields=('receipt', 'invoice'), name='unique_receipt_invoice_allocation')]
+
+    def clean(self):
+        if self.receipt_id and self.receipt.organization_id != self.organization_id:
+            raise ValidationError('Receipt allocation must belong to the same organization.')
+        if self.invoice_id and self.invoice.organization_id != self.organization_id:
+            raise ValidationError('Allocated invoice must belong to the same organization.')
+        if self.receipt_id and self.invoice_id and self.receipt.tenant_id != self.invoice.lease.tenant_id:
+            raise ValidationError({'invoice': 'Receipt and invoice must belong to the same tenant.'})
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Allocation must be greater than zero.'})
+
+
+class CreditNote(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        ISSUED = 'issued', 'Issued'
+        VOID = 'void', 'Void'
+
+    number = models.CharField(max_length=60)
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='credit_notes')
+    issued_on = models.DateField()
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    reason = models.TextField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.ISSUED)
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='property_credit_notes')
+    void_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-issued_on',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_credit_note_number')]
+
+    def clean(self):
+        if self.invoice_id and self.invoice.organization_id != self.organization_id:
+            raise ValidationError('Credit note invoice must belong to the same organization.')
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Credit amount must be greater than zero.'})

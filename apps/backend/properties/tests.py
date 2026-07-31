@@ -9,7 +9,7 @@ from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 
-from .models import Building, Lease, Property, Tenant, Unit
+from .models import Building, CreditNote, Invoice, Lease, Property, ReceiptAllocation, Tenant, TenantDocument, Unit
 
 
 class PropertyHierarchyTests(TestCase):
@@ -51,10 +51,15 @@ class PropertyApiTests(TestCase):
         self.tenant = Tenant.objects.create(
             organization=self.organization, code='TEN-1', name='A Tenant', status=Tenant.Status.ACTIVE,
         )
-        Lease.objects.create(
+        self.lease = Lease.objects.create(
             organization=self.organization, reference='LEASE-1', unit=self.unit, tenant=self.tenant,
             starts_on='2026-01-01', ends_on='2027-01-01', monthly_rent=Decimal('1000'),
             status=Lease.Status.ACTIVE,
+        )
+        self.invoice = Invoice.objects.create(
+            organization=self.organization, number='INV-1', lease=self.lease,
+            issued_on='2026-07-01', due_on='2026-07-07', amount=Decimal('1000'),
+            balance=Decimal('1000'), status=Invoice.Status.OVERDUE,
         )
         Property.objects.create(organization=self.other, code='OTHER', name='Never Visible')
         self.client = APIClient()
@@ -86,3 +91,61 @@ class PropertyApiTests(TestCase):
         Subscription.objects.filter(organization=self.organization, module=Module.PROPERTY).update(is_active=False)
         response = self.client.get('/api/v1/property/properties/', **self.headers)
         self.assertEqual(response.status_code, 403)
+
+    def test_receipt_is_atomically_allocated_and_updates_invoice(self):
+        response = self.client.post('/api/v1/property/receipts/', {
+            'number': 'RCT-1', 'tenant': str(self.tenant.id),
+            'invoice': str(self.invoice.id), 'received_on': '2026-07-31',
+            'amount': '400.00', 'payment_method': 'bank_transfer',
+            'external_reference': 'BANK-001',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('600.00'))
+        self.assertEqual(self.invoice.status, Invoice.Status.PARTIAL)
+        allocation = ReceiptAllocation.objects.get(invoice=self.invoice)
+        self.assertEqual(allocation.amount, Decimal('400.00'))
+        self.assertEqual(allocation.allocated_by, self.user)
+
+    def test_receipt_overpayment_is_rejected_without_partial_records(self):
+        response = self.client.post('/api/v1/property/receipts/', {
+            'number': 'RCT-BAD', 'tenant': str(self.tenant.id),
+            'invoice': str(self.invoice.id), 'received_on': '2026-07-31',
+            'amount': '1000.01', 'payment_method': 'cash',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertFalse(ReceiptAllocation.objects.filter(invoice=self.invoice).exists())
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('1000.00'))
+
+    def test_credit_note_reduces_balance_and_is_immutable(self):
+        response = self.client.post('/api/v1/property/credit-notes/', {
+            'number': 'CN-001', 'invoice': str(self.invoice.id),
+            'issued_on': '2026-07-31', 'amount': '250.00',
+            'reason': 'Approved rent abatement', 'status': 'issued',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('750.00'))
+        note = CreditNote.objects.get(number='CN-001')
+        self.assertEqual(note.issued_by, self.user)
+        self.assertEqual(self.client.patch(
+            f'/api/v1/property/credit-notes/{note.id}/', {'amount': '100'},
+            format='json', **self.headers,
+        ).status_code, 400)
+
+    def test_tenant_document_verification_is_scoped_and_audited(self):
+        response = self.client.post('/api/v1/property/tenant-documents/', {
+            'tenant': str(self.tenant.id), 'document_type': 'tax_certificate',
+            'document_number': 'P0001', 'file_url': '/media/tenants/P0001.pdf',
+            'issued_on': '2026-01-01', 'expires_on': '2027-01-01',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        verified = self.client.post(
+            f"/api/v1/property/tenant-documents/{response.data['id']}/verify/",
+            {}, format='json', **self.headers,
+        )
+        self.assertEqual(verified.status_code, 200, verified.data)
+        document = TenantDocument.objects.get(pk=response.data['id'])
+        self.assertEqual(document.status, TenantDocument.Status.VERIFIED)
+        self.assertEqual(document.verified_by, self.user)
