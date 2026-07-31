@@ -16,6 +16,7 @@ from properties.models import (
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SiteVisit
 from subscriptions.models import Subscription
 from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
+from valuations.models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
 
 
 class Command(BaseCommand):
@@ -439,5 +440,84 @@ class Command(BaseCommand):
                 'feedback': 'Strong technical response; competing price was lower.',
                 'lessons_learned': 'Validate supplier rate assumptions earlier and increase pricing review time.',
             },
+        )
+        valuation_client, _ = ValuationClient.objects.update_or_create(
+            organization=organization, code='VAL-CLI-001',
+            defaults={
+                'name': 'Equity Commercial Bank', 'client_type': 'bank',
+                'contact_name': 'Jane Njeri', 'email': 'securities@equity.example',
+                'phone': '+254 763 000 111', 'tax_number': 'P000112233Q', 'payment_terms_days': 30,
+            },
+        )
+        instruction, _ = ValuationInstruction.objects.update_or_create(
+            organization=organization, reference='VAL-2026-0184',
+            defaults={
+                'client': valuation_client, 'property': prop,
+                'property_description': 'Westlands Business Centre, Tower A',
+                'address': 'Waiyaki Way, Westlands, Nairobi', 'valuation_type': 'Commercial property',
+                'purpose': 'Mortgage security', 'priority': 'high', 'valuer': user,
+                'instructed_on': today - timedelta(days=12), 'due_on': today + timedelta(days=4),
+                'quoted_fee': Decimal('185000.00'), 'status': ValuationInstruction.Status.REVIEW,
+                'instructions': 'Provide market and forced-sale values with comparable evidence.',
+            },
+        )
+        ValuationInspection.objects.update_or_create(
+            organization=organization, reference='VINS-2026-0112',
+            defaults={
+                'instruction': instruction, 'inspector': user,
+                'scheduled_at': timezone.now() - timedelta(days=7), 'completed_at': timezone.now() - timedelta(days=7, hours=-3),
+                'contact_person': 'Peter Kamau', 'contact_phone': '+254 720 111 432',
+                'latitude': Decimal('-1.267600'), 'longitude': Decimal('36.810800'),
+                'status': ValuationInspection.Status.COMPLETED,
+                'checklist': {'access': True, 'measurements': True, 'photographs': True, 'title_documents': True},
+                'findings': 'Well-maintained Grade A commercial tower with strong occupancy and access.',
+                'issues': 'Minor deferred maintenance to basement ventilation.', 'evidence_count': 28,
+            },
+        )
+        ComparableEvidence.objects.update_or_create(
+            organization=organization, instruction=instruction, reference='COMP-001',
+            defaults={
+                'address': 'Riverside Drive, Nairobi', 'property_type': 'Commercial office',
+                'transaction_date': today - timedelta(days=95), 'transaction_price': Decimal('520000000.00'),
+                'area': Decimal('4650.00'), 'rate_per_area': Decimal('111827.96'),
+                'source': 'Registered transfer and market verification', 'adjustment_percent': Decimal('4.50'),
+                'adjusted_value': Decimal('543400000.00'),
+            },
+        )
+        draft, _ = DraftValuationReport.objects.update_or_create(
+            organization=organization, instruction=instruction, version=2,
+            defaults={
+                'template': 'Commercial Mortgage Security', 'valuation_method': 'Investment and comparable methods',
+                'assessed_value': Decimal('610000000.00'), 'market_value': Decimal('585000000.00'),
+                'forced_sale_value': Decimal('438750000.00'), 'prepared_by': user, 'reviewer': user,
+                'status': DraftValuationReport.Status.REVIEW,
+                'review_notes': 'Confirm current passing rent and capitalization rate before approval.',
+            },
+        )
+        final_instruction, _ = ValuationInstruction.objects.update_or_create(
+            organization=organization, reference='VAL-2026-0161',
+            defaults={
+                'client': valuation_client, 'property': prop, 'property_description': 'Tower A Retail Unit 102',
+                'address': 'Waiyaki Way, Westlands, Nairobi', 'valuation_type': 'Retail unit',
+                'purpose': 'Financial reporting', 'priority': 'normal', 'valuer': user,
+                'instructed_on': today - timedelta(days=35), 'due_on': today - timedelta(days=18),
+                'quoted_fee': Decimal('95000.00'), 'status': ValuationInstruction.Status.DELIVERED,
+            },
+        )
+        final_draft, _ = DraftValuationReport.objects.update_or_create(
+            organization=organization, instruction=final_instruction, version=1,
+            defaults={'template': 'Retail Unit Standard', 'valuation_method': 'Comparable method', 'assessed_value': Decimal('22500000'), 'market_value': Decimal('21800000'), 'forced_sale_value': Decimal('16350000'), 'prepared_by': user, 'reviewer': user, 'status': DraftValuationReport.Status.APPROVED},
+        )
+        FinalValuationReport.objects.update_or_create(
+            organization=organization, instruction=final_instruction,
+            defaults={'draft': final_draft, 'report_number': 'VR-2026-0161-F', 'issued_on': today - timedelta(days=20), 'signed_by': user, 'market_value': Decimal('21800000'), 'checksum': 'valuation-final-report-demo-sha256', 'delivered_at': timezone.now() - timedelta(days=19), 'delivery_method': 'Secure client portal'},
+        )
+        valuation_invoice, _ = ValuationInvoice.objects.update_or_create(
+            organization=organization, number='VINV-2026-0068',
+            defaults={'instruction': final_instruction, 'issued_on': today - timedelta(days=20), 'due_on': today + timedelta(days=10), 'subtotal': Decimal('95000'), 'tax': Decimal('15200'), 'total': Decimal('110200'), 'balance': Decimal('55200'), 'status': ValuationInvoice.Status.PARTIAL},
+        )
+        ValuationPayment.objects.update_or_create(
+            organization=organization, reference='VPAY-2026-0032',
+            defaults={'invoice': valuation_invoice, 'paid_on': today - timedelta(days=4), 'amount': Decimal('55000'), 'method': 'bank_transfer', 'external_reference': 'EFT-VAL-260727', 'received_by': user},
         )
         self.stdout.write(self.style.SUCCESS(f'Seeded platform data for {organization.name}.'))

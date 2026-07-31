@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import ComparableEvidence,DraftValuationReport,FinalValuationReport,ValuationClient,ValuationInspection,ValuationInstruction,ValuationInvoice,ValuationPayment
+admin.site.register((ValuationClient,ValuationInstruction,ValuationInspection,ComparableEvidence,DraftValuationReport,FinalValuationReport,ValuationInvoice,ValuationPayment))
 
 # Register your models here.
