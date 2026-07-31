@@ -13,7 +13,10 @@ from organizations.models import Membership, Organization
 from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
-from .models import EvidenceFile, MilestoneEntry, Project, Risk, SubmissionRecord, Ticket, Variation
+from .models import (
+    Certificate, Disbursement, EvidenceFile, MilestoneEntry, Project, Risk,
+    SubmissionRecord, Ticket, Variation,
+)
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"], DEBUG=True, SECURE_SSL_REDIRECT=False)
@@ -59,6 +62,17 @@ class ConstructionApiTests(TestCase):
             milestone_id="Structure", percent_complete=80, submitted_at=now,
             created_at=now, updated_at=now,
         )
+        self.certificate = Certificate.objects.create(
+            organization=self.organization, project_id=self.project.id,
+            number="IPC-001", contractor_name="Main Contractor",
+            amount=Decimal("1000000"), net_payable=Decimal("900000"),
+            issued_by=self.user, issued_at=now,
+        )
+        Disbursement.objects.create(
+            organization=self.organization, project_id=self.project.id,
+            certificate=self.certificate, amount=Decimal("900000"), status="paid",
+            managed_by=self.user, created_at=now, paid_at=now,
+        )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
         self.headers = {"HTTP_X_ORGANIZATION_ID": str(self.organization.id)}
@@ -77,6 +91,25 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(response.data["kpis"]["openTickets"], 1)
         self.assertEqual(response.data["kpis"]["highRisks"], 1)
         self.assertEqual(Decimal(response.data["kpis"]["approvedVariations"]), Decimal("250000"))
+        self.assertEqual(Decimal(response.data["kpis"]["certifiedValue"]), Decimal("900000"))
+        self.assertEqual(Decimal(response.data["kpis"]["paidValue"]), Decimal("900000"))
+        self.assertEqual(response.data["kpis"]["budgetUtilization"], 18.0)
+
+    def test_issued_certificate_can_only_be_voided_with_a_reason(self):
+        url = f"/api/v1/construction/certificates/{self.certificate.id}/"
+        edit = self.client.patch(url, {"amount": "2000000"}, format="json", **self.headers)
+        self.assertEqual(edit.status_code, 400)
+        missing_reason = self.client.patch(url, {"status": "void"}, format="json", **self.headers)
+        self.assertEqual(missing_reason.status_code, 400)
+        voided = self.client.patch(
+            url, {"status": "void", "void_reason": "Superseded by corrected IPC"},
+            format="json", **self.headers,
+        )
+        self.assertEqual(voided.status_code, 200, voided.data)
+        self.certificate.refresh_from_db()
+        self.assertEqual(self.certificate.voided_by, self.user)
+        self.assertIsNotNone(self.certificate.voided_at)
+        self.assertEqual(self.client.delete(url, **self.headers).status_code, 400)
 
     def test_project_register_is_organization_scoped(self):
         Project.objects.create(

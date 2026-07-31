@@ -1,9 +1,12 @@
 from rest_framework import serializers
 
 from .models import (
-    BoQItem, CalendarEvent, DailyLog, EvidenceFile, MilestoneEntry,
-    Project, ProjectApproval, ProjectDocument, QualityTest, Rfi, Risk,
-    SafetyIncident, Ticket, Variation, WorkPlanTask,
+    AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent,
+    Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog,
+    Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
+    MaterialDelivery, MilestoneEntry, Project, ProjectApproval, ProjectDocument,
+    ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
+    SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
 
 
@@ -41,3 +44,19 @@ SafetyIncidentSerializer = serializer_for(SafetyIncident)
 CalendarEventSerializer = serializer_for(CalendarEvent)
 ProjectDocumentSerializer = serializer_for(ProjectDocument)
 ProjectApprovalSerializer = serializer_for(ProjectApproval)
+LifecycleSerializer = serializer_for(LifecycleRecord)
+MaterialDeliverySerializer = serializer_for(MaterialDelivery)
+ConsultantPaymentSerializer = serializer_for(ConsultantPayment)
+DroneDatasetSerializer = serializer_for(DroneDataset)
+SatelliteDatasetSerializer = serializer_for(SatelliteDataset)
+ProvisionalSumSerializer = serializer_for(ProvisionalSum)
+ContingencyDrawdownSerializer = serializer_for(ContingencyDrawdown)
+AdvancePaymentSerializer = serializer_for(AdvancePayment)
+SubcontractorSerializer = serializer_for(Subcontractor)
+WorkOrderSerializer = serializer_for(WorkOrder)
+BimModelSerializer = serializer_for(BimModel)
+BimDiscrepancySerializer = serializer_for(BimDiscrepancy)
+RequisitionSerializer = serializer_for(Requisition)
+CertificateSerializer = serializer_for(Certificate)
+DisbursementSerializer = serializer_for(Disbursement)
+DrawdownRequestSerializer = serializer_for(DrawdownRequest)

@@ -9,16 +9,25 @@ from core.permissions import HasModuleSubscription
 from core.tenancy import get_active_organization
 
 from .models import (
-    BoQItem, CalendarEvent, DailyLog, EvidenceFile, MilestoneEntry,
-    Project, ProjectApproval, ProjectDocument, QualityTest, Rfi, Risk,
-    SafetyIncident, Ticket, Variation, WorkPlanTask,
+    AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent,
+    Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog,
+    Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
+    MaterialDelivery, MilestoneEntry, Project, ProjectApproval, ProjectDocument,
+    ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
+    SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
 from .serializers import (
-    BoQItemSerializer, CalendarEventSerializer, DailyLogSerializer,
-    EvidenceSerializer, MilestoneSerializer, ProjectApprovalSerializer,
-    ProjectDocumentSerializer, ProjectSerializer, QualityTestSerializer,
-    RfiSerializer, RiskSerializer, SafetyIncidentSerializer,
-    TicketSerializer, VariationSerializer, WorkPlanTaskSerializer,
+    AdvancePaymentSerializer, BimDiscrepancySerializer, BimModelSerializer,
+    BoQItemSerializer, CalendarEventSerializer, CertificateSerializer,
+    ConsultantPaymentSerializer, ContingencyDrawdownSerializer,
+    DailyLogSerializer, DisbursementSerializer, DrawdownRequestSerializer,
+    DroneDatasetSerializer, EvidenceSerializer, LifecycleSerializer,
+    MaterialDeliverySerializer, MilestoneSerializer, ProjectApprovalSerializer,
+    ProjectDocumentSerializer, ProjectSerializer, ProvisionalSumSerializer,
+    QualityTestSerializer, RequisitionSerializer, RfiSerializer, RiskSerializer,
+    SafetyIncidentSerializer, SatelliteDatasetSerializer,
+    SubcontractorSerializer, TicketSerializer, VariationSerializer,
+    WorkOrderSerializer, WorkPlanTaskSerializer,
 )
 
 
@@ -142,6 +151,40 @@ SafetyIncidentViewSet = scoped_viewset("SafetyIncidentViewSet", SafetyIncident, 
 CalendarEventViewSet = scoped_viewset("CalendarEventViewSet", CalendarEvent, CalendarEventSerializer, ("title", "description"))
 ProjectDocumentViewSet = scoped_viewset("ProjectDocumentViewSet", ProjectDocument, ProjectDocumentSerializer, ("title", "discipline"))
 ProjectApprovalViewSet = scoped_viewset("ProjectApprovalViewSet", ProjectApproval, ProjectApprovalSerializer, ("approval_type", "authority", "reference"))
+LifecycleViewSet = scoped_viewset("LifecycleViewSet", LifecycleRecord, LifecycleSerializer, ("title", "reference", "record_type"))
+MaterialDeliveryViewSet = scoped_viewset("MaterialDeliveryViewSet", MaterialDelivery, MaterialDeliverySerializer, ("material", "supplier"))
+ConsultantPaymentViewSet = scoped_viewset("ConsultantPaymentViewSet", ConsultantPayment, ConsultantPaymentSerializer, ("consultant_name", "certificate_number"))
+DroneDatasetViewSet = scoped_viewset("DroneDatasetViewSet", DroneDataset, DroneDatasetSerializer, ("data_type", "operator_id", "milestone_id"))
+SatelliteDatasetViewSet = scoped_viewset("SatelliteDatasetViewSet", SatelliteDataset, SatelliteDatasetSerializer, ("sat_type", "source_provider", "milestone_id"))
+ProvisionalSumViewSet = scoped_viewset("ProvisionalSumViewSet", ProvisionalSum, ProvisionalSumSerializer, ("item_number", "description"))
+ContingencyDrawdownViewSet = scoped_viewset("ContingencyDrawdownViewSet", ContingencyDrawdown, ContingencyDrawdownSerializer, ("drawdown_number", "reason"))
+AdvancePaymentViewSet = scoped_viewset("AdvancePaymentViewSet", AdvancePayment, AdvancePaymentSerializer, ("contractor_name", "notes"))
+SubcontractorViewSet = scoped_viewset("SubcontractorViewSet", Subcontractor, SubcontractorSerializer, ("name", "contact_person", "email"))
+WorkOrderViewSet = scoped_viewset("ConstructionWorkOrderViewSet", WorkOrder, WorkOrderSerializer, ("order_number", "description", "boq_section"))
+BimModelViewSet = scoped_viewset("BimModelViewSet", BimModel, BimModelSerializer, ("name", "discipline", "version"))
+BimDiscrepancyViewSet = scoped_viewset("BimDiscrepancyViewSet", BimDiscrepancy, BimDiscrepancySerializer, ("milestone_ref", "description"))
+RequisitionViewSet = scoped_viewset("RequisitionViewSet", Requisition, RequisitionSerializer, ("title", "description"))
+CertificateBaseViewSet = scoped_viewset("CertificateBaseViewSet", Certificate, CertificateSerializer, ("number", "contractor_name"))
+
+
+class CertificateViewSet(CertificateBaseViewSet):
+    """Financial certificates are permanent audit records; they may only be voided."""
+
+    def perform_update(self, serializer):
+        current = self.get_object()
+        requested_status = serializer.validated_data.get("status", current.status)
+        if current.status == "void":
+            raise ValidationError({"status": "A void certificate is immutable."})
+        if requested_status != "void":
+            raise ValidationError({"status": "Issued certificates may only be voided."})
+        if not serializer.validated_data.get("void_reason", current.void_reason):
+            raise ValidationError({"void_reason": "A reason is required to void a certificate."})
+        serializer.save(voided_by=self.request.user, voided_at=int(time() * 1000))
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"certificate": "Certificates cannot be deleted; void the record instead."})
+DisbursementViewSet = scoped_viewset("DisbursementViewSet", Disbursement, DisbursementSerializer)
+DrawdownRequestViewSet = scoped_viewset("DrawdownRequestViewSet", DrawdownRequest, DrawdownRequestSerializer, ("request_number", "purpose"))
 
 
 class DashboardViewSet(ViewSet):
@@ -155,6 +198,10 @@ class DashboardViewSet(ViewSet):
         tickets = Ticket.objects.filter(organization=organization)
         risks = Risk.objects.filter(organization=organization)
         variations = Variation.objects.filter(organization=organization)
+        certificates = Certificate.objects.filter(organization=organization).exclude(status="void")
+        disbursements = Disbursement.objects.filter(organization=organization, status="paid")
+        total_budget = projects.aggregate(value=Sum("budget"))["value"] or 0
+        spent = disbursements.aggregate(value=Sum("amount"))["value"] or 0
         return Response({
             "kpis": {
                 "activeProjects": projects.filter(stage="active").count(),
@@ -163,6 +210,9 @@ class DashboardViewSet(ViewSet):
                 "highRisks": risks.filter(likelihood__gte=4, impact__gte=4).exclude(status="closed").count(),
                 "submittedMilestones": milestones.filter(submitted_at__isnull=False).count(),
                 "approvedVariations": variations.filter(status="approved").aggregate(value=Sum("amount"))["value"] or 0,
+                "certifiedValue": certificates.aggregate(value=Sum("net_payable"))["value"] or 0,
+                "paidValue": spent,
+                "budgetUtilization": round(float(spent / total_budget * 100), 1) if total_budget else 0,
             },
             "projects": ProjectSerializer(projects[:8], many=True).data,
             "projectStages": list(projects.values("stage").annotate(count=Count("id")).order_by("stage")),

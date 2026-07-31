@@ -2,11 +2,16 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    BoQItemViewSet, CalendarEventViewSet, DailyLogViewSet, DashboardViewSet,
-    EvidenceViewSet, MilestoneViewSet, ProjectApprovalViewSet,
-    ProjectDocumentViewSet, ProjectViewSet, QualityTestViewSet, RfiViewSet,
-    RiskViewSet, SafetyIncidentViewSet, TicketViewSet, VariationViewSet,
-    WorkPlanTaskViewSet,
+    AdvancePaymentViewSet, BimDiscrepancyViewSet, BimModelViewSet,
+    BoQItemViewSet, CalendarEventViewSet, CertificateViewSet,
+    ConsultantPaymentViewSet, ContingencyDrawdownViewSet, DailyLogViewSet,
+    DashboardViewSet, DisbursementViewSet, DrawdownRequestViewSet,
+    DroneDatasetViewSet, EvidenceViewSet, LifecycleViewSet,
+    MaterialDeliveryViewSet, MilestoneViewSet, ProjectApprovalViewSet,
+    ProjectDocumentViewSet, ProjectViewSet, ProvisionalSumViewSet,
+    QualityTestViewSet, RequisitionViewSet, RfiViewSet, RiskViewSet,
+    SafetyIncidentViewSet, SatelliteDatasetViewSet, SubcontractorViewSet,
+    TicketViewSet, VariationViewSet, WorkOrderViewSet, WorkPlanTaskViewSet,
 )
 from core.views import MobileTokenView
 from .sync_views import media_upload, mobile_me, pull, push, register_device, verify_submission
@@ -28,6 +33,22 @@ router.register("safety-incidents", SafetyIncidentViewSet, basename="constructio
 router.register("calendar", CalendarEventViewSet, basename="construction-calendar")
 router.register("documents", ProjectDocumentViewSet, basename="construction-document")
 router.register("approvals", ProjectApprovalViewSet, basename="construction-approval")
+router.register("lifecycle", LifecycleViewSet, basename="construction-lifecycle")
+router.register("materials", MaterialDeliveryViewSet, basename="construction-material")
+router.register("consultant-payments", ConsultantPaymentViewSet, basename="construction-consultant-payment")
+router.register("drone-datasets", DroneDatasetViewSet, basename="construction-drone")
+router.register("satellite-datasets", SatelliteDatasetViewSet, basename="construction-satellite")
+router.register("provisional-sums", ProvisionalSumViewSet, basename="construction-provisional-sum")
+router.register("contingency-drawdowns", ContingencyDrawdownViewSet, basename="construction-contingency")
+router.register("advance-payments", AdvancePaymentViewSet, basename="construction-advance")
+router.register("subcontractors", SubcontractorViewSet, basename="construction-subcontractor")
+router.register("work-orders", WorkOrderViewSet, basename="construction-work-order")
+router.register("bim-models", BimModelViewSet, basename="construction-bim")
+router.register("bim-discrepancies", BimDiscrepancyViewSet, basename="construction-bim-discrepancy")
+router.register("requisitions", RequisitionViewSet, basename="construction-requisition")
+router.register("certificates", CertificateViewSet, basename="construction-certificate")
+router.register("disbursements", DisbursementViewSet, basename="construction-disbursement")
+router.register("drawdowns", DrawdownRequestViewSet, basename="construction-drawdown")
 
 urlpatterns = router.urls
 urlpatterns += [

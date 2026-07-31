@@ -9,8 +9,11 @@ from organizations.models import Organization
 from properties.models import Project as PortfolioProject
 
 from construction.models import (
-    BoQItem, DailyLog, MilestoneEntry, Project, Risk, Ticket, Variation,
-    WorkPlanTask,
+    AdvancePayment, BimDiscrepancy, BimModel, BoQItem, Certificate,
+    ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement,
+    DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery,
+    MilestoneEntry, Project, ProvisionalSum, Requisition, Risk,
+    SatelliteDataset, Subcontractor, Ticket, Variation, WorkOrder, WorkPlanTask,
 )
 
 
@@ -130,5 +133,76 @@ class Command(BaseCommand):
                 "approved_by": user, "approved_at": now_ms - 259200000,
                 "created_at": now_ms - 604800000, "updated_at": now_ms,
             },
+        )
+        LifecycleRecord.objects.update_or_create(
+            project=project, reference="PC-INS-014",
+            defaults={
+                "organization": organization, "stage": "practical_completion",
+                "record_type": "inspection", "title": "Practical completion inspection",
+                "description": "Joint inspection and close-out of the outstanding snag list.",
+                "status": "under_review", "responsible_party": "Project manager",
+                "authority": "Lead consultant", "due_date": timezone.localdate() + timezone.timedelta(days=21),
+                "created_by": user, "created_at": now_ms - 86400000, "updated_at": now_ms,
+            },
+        )
+        MaterialDelivery.objects.update_or_create(
+            organization=organization, project_id=project.id, delivery_date=str(timezone.localdate()), material="Fire-rated sealant",
+            defaults={"quantity": Decimal("240"), "unit": "cartridges", "supplier": "Nairobi Fire Systems", "remarks": "Batch certificates verified", "received_by": user, "created_at": now_ms},
+        )
+        ConsultantPayment.objects.update_or_create(
+            project=project, certificate_number="CONS-IPC-006",
+            defaults={"organization": organization, "consultant_name": "Vertex Cost Consultants", "consultant_role": "qs", "approved_fee": Decimal("12500000"), "amount": Decimal("875000"), "retention_percent": Decimal("0"), "status": "approved", "approved_by": user, "created_at": now_ms - 172800000, "updated_at": now_ms},
+        )
+        DroneDataset.objects.update_or_create(
+            project=project, flight_date=str(timezone.localdate() - timezone.timedelta(days=2)), data_type="orthomosaic",
+            defaults={"organization": organization, "operator_id": "KCAA-OPS-118", "classification": "verification", "external_url": "https://example.invalid/construction/drone/orthomosaic", "compliance_declared": True, "milestone_id": "ce-ms-foundations-001", "uploaded_by": user, "uploaded_at": now_ms - 172800000, "review_status": "reviewed", "reviewed_by": user, "reviewed_at": now_ms - 86400000},
+        )
+        SatelliteDataset.objects.update_or_create(
+            project=project, capture_date=str(timezone.localdate() - timezone.timedelta(days=7)), sat_type="optical",
+            defaults={"organization": organization, "resolution_cm": 30, "cloud_cover_pct": 4.5, "source_provider": "Commercial imagery provider", "license_type": "project", "milestone_id": "ce-ms-foundations-001", "notes": "Independent progress verification", "uploaded_by": user, "uploaded_at": now_ms - 604800000},
+        )
+        ProvisionalSum.objects.update_or_create(
+            project=project, item_number="PS-04",
+            defaults={"organization": organization, "description": "Tenant wayfinding and statutory signage", "budgeted_amount": Decimal("4500000"), "ascertained_amount": Decimal("3850000"), "status": "ascertained", "created_at": now_ms - 604800000, "updated_at": now_ms},
+        )
+        ContingencyDrawdown.objects.update_or_create(
+            project=project, drawdown_number="CD-003",
+            defaults={"organization": organization, "reason": "Uncharted services discovered above Level 6 ceiling", "category": "unforeseen", "amount": Decimal("1200000"), "status": "approved", "approved_by": user, "approved_at": now_ms - 86400000, "created_at": now_ms - 259200000, "updated_at": now_ms},
+        )
+        AdvancePayment.objects.update_or_create(
+            project=project, contractor_name="Apex Refurbishment Ltd",
+            defaults={"organization": organization, "amount": Decimal("18500000"), "recovery_rate": Decimal("10"), "recovered_amount": Decimal("9250000"), "status": "active", "notes": "Mobilisation advance secured by guarantee", "created_at": now_ms - 10368000000, "updated_at": now_ms},
+        )
+        subcontractor, _ = Subcontractor.objects.update_or_create(
+            project=project, name="SafeSeal Contractors",
+            defaults={"organization": organization, "contact_person": "M. Kamau", "email": "projects@safeseal.example", "phone": "+254700000000", "created_at": now_ms - 604800000},
+        )
+        WorkOrder.objects.update_or_create(
+            project=project, order_number="WO-019",
+            defaults={"organization": organization, "subcontractor": subcontractor, "boq_section": "Fire protection", "description": "Fire stopping to refurbished service risers", "unit_rate": Decimal("4250"), "quantity_cap": Decimal("640"), "total_value": Decimal("2720000"), "status": "issued", "issued_date": str(timezone.localdate() - timezone.timedelta(days=14)), "certified_quantity": Decimal("220"), "certified_value": Decimal("935000"), "created_by": user, "created_at": now_ms - 1209600000, "updated_at": now_ms},
+        )
+        bim, _ = BimModel.objects.update_or_create(
+            id="ce-bim-model-001",
+            defaults={"organization": organization, "project": project, "name": "Tower A coordinated services", "discipline": "mep", "file_format": "ifc", "version": "C07", "is_current": True, "uploaded_by": user, "uploaded_at": now_ms - 259200000, "processing_status": "completed", "element_count": 18420, "created_at": now_ms - 259200000, "updated_at": now_ms},
+        )
+        BimDiscrepancy.objects.update_or_create(
+            id="ce-bim-disc-001",
+            defaults={"organization": organization, "project": project, "bim_model": bim, "milestone_entry_id": "ce-ms-foundations-001", "milestone_ref": "Structural strengthening", "description": "Smoke extract duct conflicts with strengthened transfer beam zone.", "severity": "high", "status": "open", "confidence_score": 94, "created_at": now_ms - 86400000, "updated_at": now_ms},
+        )
+        Requisition.objects.update_or_create(
+            organization=organization, project_id=project.id, title="Level 6 fire stopping materials",
+            defaults={"description": "Procurement against approved work order WO-019", "amount": Decimal("1450000"), "status": "approved", "raised_by": user, "reviewed_by": user, "approved_by": user, "created_at": now_ms - 259200000, "updated_at": now_ms},
+        )
+        certificate, _ = Certificate.objects.update_or_create(
+            organization=organization, project_id=project.id, number="IPC-011",
+            defaults={"cert_type": "interim", "contractor_name": "Apex Refurbishment Ltd", "amount": Decimal("14250000"), "retention_percent": Decimal("5"), "milestone_entry_id": "ce-ms-foundations-001", "issued_by": user, "issued_at": now_ms - 172800000, "status": "issued", "previous_certified": Decimal("72600000"), "current_gross": Decimal("14250000"), "variations_amount": Decimal("2750000"), "advance_recovery": Decimal("1425000"), "retention_amount": Decimal("712500"), "net_payable": Decimal("14862500")},
+        )
+        Disbursement.objects.update_or_create(
+            organization=organization, project_id=project.id, certificate=certificate,
+            defaults={"amount": Decimal("14862500"), "status": "paid", "managed_by": user, "created_at": now_ms - 86400000, "paid_at": now_ms - 43200000},
+        )
+        DrawdownRequest.objects.update_or_create(
+            organization=organization, project_id=project.id, request_number="DD-009",
+            defaults={"amount": Decimal("14862500"), "purpose": "IPC-011 certified construction works", "status": "disbursed", "valuation_amount": Decimal("14862500"), "reviewer_notes": "Documents and valuation verified", "requested_by": user, "reviewed_by": user, "created_at": now_ms - 259200000, "updated_at": now_ms, "approved_at": now_ms - 172800000, "disbursed_at": now_ms - 43200000},
         )
         self.stdout.write(self.style.SUCCESS(f"Seeded construction data for {organization.name}."))

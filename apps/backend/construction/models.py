@@ -1459,7 +1459,113 @@ class Rfi(models.Model):
         return f"{self.number or 'RFI'} — {self.title[:40]}"
 
 
-# ── In-App Notifications ─────────────────────────────────────────────────
+# ── Construction finance ──────────────────────────────────────────────────
+
+class Requisition(models.Model):
+    STATUSES = ["submitted", "reviewed", "approved", "rejected", "paid"]
+
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="+", null=True, blank=True)
+    project_id = models.CharField(max_length=36, db_index=True)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=12, default="submitted")
+    raised_by = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="raised_requisitions")
+    reviewed_by = models.ForeignKey(
+        "auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_requisitions"
+    )
+    approved_by = models.ForeignKey(
+        "auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_requisitions"
+    )
+    created_at = models.BigIntegerField()
+    updated_at = models.BigIntegerField()
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class Certificate(models.Model):
+    """Interim/final payment certificate (distinct from the evidence integrity
+    certificate in sync — this is the financial instrument issued by the QS)."""
+
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="+", null=True, blank=True)
+    project_id = models.CharField(max_length=36, db_index=True)
+    cert_type = models.CharField(max_length=12, default="interim")  # interim | final
+    number = models.CharField(max_length=40)
+    contractor_name = models.CharField(max_length=200, blank=True, default="")
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    # Retention held back (construction norm): net payable = amount * (1 - pct/100).
+    retention_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    milestone_entry_id = models.CharField(max_length=36, blank=True, default="")
+    issued_by = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="issued_certificates")
+    issued_at = models.BigIntegerField()
+    # Immutable record: never deleted, only voided (with an audit trail).
+    status = models.CharField(max_length=12, default="issued")  # issued | void
+    void_reason = models.TextField(blank=True, default="")
+    voided_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="voided_certificates")
+    voided_at = models.BigIntegerField(null=True, blank=True)
+
+    # IPC Breakdown fields (Task 2)
+    previous_certified = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    current_gross = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    variations_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    advance_recovery = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    retention_amount = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    net_payable = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    boq_snapshot = models.JSONField(default=list)
+    valuation_metadata = models.JSONField(default=dict, blank=True)
+    supporting_documents = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["-issued_at"]
+
+
+class Disbursement(models.Model):
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="+", null=True, blank=True)
+    project_id = models.CharField(max_length=36, db_index=True)
+    certificate = models.ForeignKey(
+        Certificate, on_delete=models.SET_NULL, null=True, blank=True, related_name="disbursements"
+    )
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=12, default="pending")  # pending | paid | void
+    managed_by = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="disbursements")
+    created_at = models.BigIntegerField()
+    paid_at = models.BigIntegerField(null=True, blank=True)
+    void_reason = models.TextField(blank=True, default="")
+    voided_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="voided_disbursements")
+    voided_at = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class DrawdownRequest(models.Model):
+    """Funding drawdown workflow: request → document/valuation review → approval → disbursement."""
+    STATUSES = [
+        ("submitted", "Submitted"), ("document_review", "Document review"),
+        ("valuation_review", "Valuation review"), ("approved", "Approved"),
+        ("rejected", "Rejected"), ("disbursed", "Disbursed"),
+    ]
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="drawdown_requests", null=True, blank=True)
+    project_id = models.CharField(max_length=36, db_index=True)
+    request_number = models.CharField(max_length=40)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    purpose = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUSES, default="submitted")
+    supporting_documents = models.JSONField(default=list, blank=True)
+    valuation_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    reviewer_notes = models.TextField(blank=True, default="")
+    requested_by = models.ForeignKey("auth.User", on_delete=models.PROTECT, related_name="drawdown_requests")
+    reviewed_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_drawdowns")
+    created_at = models.BigIntegerField()
+    updated_at = models.BigIntegerField()
+    approved_at = models.BigIntegerField(null=True, blank=True)
+    disbursed_at = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = [("project_id", "request_number")]
+
 
 class Notification(models.Model):
     TYPE_CHOICES = [
