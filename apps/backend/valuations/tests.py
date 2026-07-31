@@ -9,7 +9,7 @@ from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 
-from .models import ValuationClient, ValuationInstruction, ValuationInvoice, ValuationPayment
+from .models import DraftValuationReport, FinalValuationReport, ValuationAuditEvent, ValuationClient, ValuationInstruction, ValuationInvoice, ValuationPayment
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
@@ -46,6 +46,43 @@ class ValuationApiTests(TestCase):
         response = self.client.post('/api/v1/valuation/payments/', {'reference':'P1','invoice':str(self.invoice.id),'paid_on':str(timezone.localdate()),'amount':'500','method':'bank','external_reference':'EXT'}, format='json', **self.headers)
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(ValuationPayment.objects.get(reference='P1').received_by, self.user)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('660'))
+        self.assertEqual(self.invoice.status, ValuationInvoice.Status.PARTIAL)
+        self.assertTrue(ValuationAuditEvent.objects.filter(instruction=self.instruction, event_type='payment_allocated').exists())
+
+    def test_payment_cannot_overallocate_or_be_deleted(self):
+        rejected = self.client.post('/api/v1/valuation/payments/', {
+            'reference':'P-OVER','invoice':str(self.invoice.id),'paid_on':str(timezone.localdate()),
+            'amount':'1161','method':'bank','external_reference':'OVER',
+        }, format='json', **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+        accepted = self.client.post('/api/v1/valuation/payments/', {
+            'reference':'P-FULL','invoice':str(self.invoice.id),'paid_on':str(timezone.localdate()),
+            'amount':'1160','method':'bank','external_reference':'FULL',
+        }, format='json', **self.headers)
+        self.assertEqual(accepted.status_code, 201, accepted.data)
+        payment = ValuationPayment.objects.get(reference='P-FULL')
+        self.assertEqual(self.client.delete(f'/api/v1/valuation/payments/{payment.id}/', **self.headers).status_code, 400)
+        self.invoice.refresh_from_db(); self.assertEqual(self.invoice.status, ValuationInvoice.Status.PAID)
+
+    def test_final_report_requires_approved_matching_draft_and_is_immutable(self):
+        draft = DraftValuationReport.objects.create(
+            organization=self.organization, instruction=self.instruction, version=1,
+            template='Commercial', valuation_method='Comparable', assessed_value=Decimal('1000000'),
+            market_value=Decimal('900000'), prepared_by=self.user, reviewer=self.user,
+            status=DraftValuationReport.Status.REVIEW,
+        )
+        payload = {'instruction':str(self.instruction.id),'draft':str(draft.id),'report_number':'VR-001','issued_on':str(timezone.localdate()),'checksum':'sha256-final'}
+        blocked = self.client.post('/api/v1/valuation/final-reports/', payload, format='json', **self.headers)
+        self.assertEqual(blocked.status_code, 400)
+        approve = self.client.post(f'/api/v1/valuation/draft-reports/{draft.id}/approve/', {'notes':'Reviewed'}, format='json', **self.headers)
+        self.assertEqual(approve.status_code, 200, approve.data)
+        issued = self.client.post('/api/v1/valuation/final-reports/', payload, format='json', **self.headers)
+        self.assertEqual(issued.status_code, 201, issued.data)
+        report = FinalValuationReport.objects.get(report_number='VR-001')
+        self.assertEqual(report.market_value, draft.market_value)
+        self.assertEqual(self.client.delete(f'/api/v1/valuation/final-reports/{report.id}/', **self.headers).status_code, 400)
 
     def test_subscription_is_required(self):
         Subscription.objects.filter(organization=self.organization, module=Module.VALUATION).update(is_active=False)

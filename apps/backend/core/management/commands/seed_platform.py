@@ -21,7 +21,7 @@ from properties.models import (
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 from subscriptions.models import Subscription
 from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderAuditEvent, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
-from valuations.models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
+from valuations.models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationAuditEvent, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
 
 
 class Command(BaseCommand):
@@ -607,7 +607,7 @@ class Command(BaseCommand):
             organization=organization, instruction=final_instruction, version=1,
             defaults={'template': 'Retail Unit Standard', 'valuation_method': 'Comparable method', 'assessed_value': Decimal('22500000'), 'market_value': Decimal('21800000'), 'forced_sale_value': Decimal('16350000'), 'prepared_by': user, 'reviewer': user, 'status': DraftValuationReport.Status.APPROVED},
         )
-        FinalValuationReport.objects.update_or_create(
+        final_report, _ = FinalValuationReport.objects.update_or_create(
             organization=organization, instruction=final_instruction,
             defaults={'draft': final_draft, 'report_number': 'VR-2026-0161-F', 'issued_on': today - timedelta(days=20), 'signed_by': user, 'market_value': Decimal('21800000'), 'checksum': 'valuation-final-report-demo-sha256', 'delivered_at': timezone.now() - timedelta(days=19), 'delivery_method': 'Secure client portal'},
         )
@@ -615,8 +615,21 @@ class Command(BaseCommand):
             organization=organization, number='VINV-2026-0068',
             defaults={'instruction': final_instruction, 'issued_on': today - timedelta(days=20), 'due_on': today + timedelta(days=10), 'subtotal': Decimal('95000'), 'tax': Decimal('15200'), 'total': Decimal('110200'), 'balance': Decimal('55200'), 'status': ValuationInvoice.Status.PARTIAL},
         )
-        ValuationPayment.objects.update_or_create(
+        valuation_payment, _ = ValuationPayment.objects.update_or_create(
             organization=organization, reference='VPAY-2026-0032',
             defaults={'invoice': valuation_invoice, 'paid_on': today - timedelta(days=4), 'amount': Decimal('55000'), 'method': 'bank_transfer', 'external_reference': 'EFT-VAL-260727', 'received_by': user},
+        )
+        ValuationAuditEvent.objects.update_or_create(
+            organization=organization, instruction=final_instruction, event_type='final_report_issued',
+            defaults={'from_status': ValuationInstruction.Status.REVIEW, 'to_status': ValuationInstruction.Status.FINAL, 'details': {'report_number': final_report.report_number, 'checksum': final_report.checksum}, 'actor': user},
+        )
+        ValuationAuditEvent.objects.update_or_create(
+            organization=organization, instruction=final_instruction, event_type='delivered',
+            defaults={'from_status': ValuationInstruction.Status.FINAL, 'to_status': ValuationInstruction.Status.DELIVERED, 'details': {'delivery_method': final_report.delivery_method}, 'actor': user},
+        )
+        ValuationAuditEvent.objects.update_or_create(
+            organization=organization, instruction=final_instruction, event_type='payment_allocated',
+            details={'payment_reference': valuation_payment.reference, 'invoice': valuation_invoice.number, 'amount': str(valuation_payment.amount)},
+            defaults={'actor': user},
         )
         self.stdout.write(self.style.SUCCESS(f'Seeded platform data for {organization.name}.'))

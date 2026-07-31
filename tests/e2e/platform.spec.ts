@@ -81,6 +81,17 @@ test("tender submission evidence and audit trail are connected", async ({ page }
   await expect(page.getByText("submitted", { exact: true }).first()).toBeVisible();
 });
 
+test("valuation final report, payment and audit evidence are connected", async ({ page }) => {
+  await page.goto("/valuation");
+  await page.getByRole("button", { name: "Final reports", exact: true }).click();
+  await expect(page.getByText("VR-2026-0161-F", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await expect(page.getByText("VPAY-2026-0032", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Audit trail", exact: true }).click();
+  await expect(page.getByText("final report issued", { exact: true })).toBeVisible();
+  await expect(page.getByText("payment allocated", { exact: true })).toBeVisible();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });

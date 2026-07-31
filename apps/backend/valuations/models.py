@@ -185,4 +185,24 @@ class ValuationPayment(OrganizationOwnedModel):
 
     class Meta:
         ordering = ('-paid_on',)
-        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_valuation_payment')]
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_valuation_payment'),
+            models.UniqueConstraint(fields=('organization', 'external_reference'), condition=~models.Q(external_reference=''), name='unique_organization_valuation_external_payment'),
+        ]
+
+
+class ValuationAuditEvent(OrganizationOwnedModel):
+    instruction = models.ForeignKey(ValuationInstruction, on_delete=models.CASCADE, related_name='audit_events')
+    event_type = models.CharField(max_length=50)
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status = models.CharField(max_length=20, blank=True)
+    notes = models.TextField(blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='valuation_audit_events')
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def clean(self):
+        if self.instruction_id and self.instruction.organization_id != self.organization_id:
+            raise ValidationError('Audit instruction must belong to the same organization.')
