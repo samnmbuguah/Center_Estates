@@ -22,6 +22,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       <nav aria-label="Platform modules">
         <Link className={`nav-link ${pathname === "/" ? "active" : ""}`} href="/" onClick={() => setMenuOpen(false)}>Command Center</Link>
         {modules.filter((module) => allowed.has(module.slug)).map((module) => <Link className={`nav-link ${pathname.startsWith(`/${module.slug}`) ? "active" : ""}`} href={`/${module.slug}`} key={module.slug} onClick={() => setMenuOpen(false)}><span className="nav-dot" style={{ background: module.accent }} />{module.name.replace(" Management", "")}</Link>)}
+        {allowed.has("property") && <Link className={`nav-link ${pathname.startsWith("/tenant-portal") ? "active" : ""}`} href="/tenant-portal" onClick={() => setMenuOpen(false)}><span className="nav-dot" style={{ background: "#7c3aed" }} />Tenant Portal</Link>}
       </nav>
       <button className="logout-button" onClick={() => logout()}>Sign out</button>
     </aside>

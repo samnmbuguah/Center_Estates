@@ -8,11 +8,13 @@ from rest_framework.test import APIClient
 from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
+from facilities.models import ServiceRequest
 
 from .models import (
     Budget, Building, CreditNote, Expense, Invoice, Lease, Property,
     ReceiptAllocation, RentSchedule, ServiceCharge, ServiceChargeAllocation,
-    ServiceChargeReconciliation, Tenant, TenantDocument, Unit,
+    ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
+    Unit,
 )
 
 
@@ -306,3 +308,40 @@ class PropertyApiTests(TestCase):
         self.assertEqual(exported.status_code, 200)
         self.assertIn('text/csv', exported['Content-Type'])
         self.assertIn('INV-1', exported.content.decode())
+
+    def test_bulk_unit_generation_is_bounded_and_idempotent(self):
+        generated = self.client.post(f'/api/v1/property/properties/{self.property.id}/bulk-units/', {
+            'count': 3, 'start': 10, 'prefix': 'A-', 'unit_type': 'Office', 'area': '75.00',
+        }, format='json', **self.headers)
+        self.assertEqual(generated.status_code, 201, generated.data)
+        self.assertEqual(generated.data['created'], 3)
+        repeated = self.client.post(f'/api/v1/property/properties/{self.property.id}/bulk-units/', {
+            'count': 3, 'start': 10, 'prefix': 'A-', 'unit_type': 'Office', 'area': '75.00',
+        }, format='json', **self.headers)
+        self.assertEqual(repeated.status_code, 201, repeated.data)
+        self.assertEqual(repeated.data['created'], 0)
+        self.assertEqual(Unit.objects.filter(property=self.property, code__startswith='A-').count(), 3)
+        rejected = self.client.post(f'/api/v1/property/properties/{self.property.id}/bulk-units/', {
+            'count': 501, 'start': 1,
+        }, format='json', **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+
+    def test_tenant_portal_is_user_linked_and_creates_scoped_service_request(self):
+        TenantPortalAccess.objects.create(
+            organization=self.organization, user=self.user, tenant=self.tenant,
+        )
+        portal = self.client.get('/api/v1/property/portal/', **self.headers)
+        self.assertEqual(portal.status_code, 200, portal.data)
+        self.assertEqual(portal.data['tenant']['id'], str(self.tenant.id))
+        self.assertEqual(portal.data['currentLease']['id'], str(self.lease.id))
+        self.assertEqual(len(portal.data['invoices']), 1)
+        created = self.client.post('/api/v1/property/portal/service-requests/', {
+            'subject': 'Leaking tap', 'category': 'Plumbing',
+            'description': 'Kitchen tap is leaking.', 'priority': 'high',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        request_record = ServiceRequest.objects.get(pk=created.data['id'])
+        self.assertEqual(request_record.tenant, self.tenant)
+        self.assertEqual(request_record.unit, self.unit)
+        TenantPortalAccess.objects.filter(user=self.user).update(is_active=False)
+        self.assertEqual(self.client.get('/api/v1/property/portal/', **self.headers).status_code, 403)

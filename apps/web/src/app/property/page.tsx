@@ -11,6 +11,9 @@ type Dashboard = {
   propertyMix: { property_type: string; count: number }[];
 };
 type Property = { id: string; code: string; name: string; property_type: string; city: string; status: string; units_count: number };
+type Building = { id: string; code: string; name: string; property_name: string; floors: number };
+type Unit = { id: string; code: string; property_name: string; building_name: string; floor: string; unit_type: string; area: string; status: string };
+type Project = { id: string; code: string; name: string; status: string; starts_on: string; ends_on: string };
 type Tenant = { id: string; code: string; name: string; email: string; phone: string; status: string };
 type Lease = { id: string; reference: string; tenant_name: string; unit_code: string; property_name: string; starts_on: string; ends_on: string; monthly_rent: string; status: string };
 type Invoice = { id: string; number: string; tenant_id: string; tenant_name: string; due_on: string; amount: string; balance: string; status: string };
@@ -26,11 +29,11 @@ type ServiceChargeAllocation = { id: string; service_charge_name: string; proper
 type Reconciliation = { id: string; service_charge_name: string; property_name: string; period_start: string; period_end: string; budgeted_amount: string; actual_amount: string; variance: string; status: string };
 type Arrears = { tenant: string; property: string; unit: string; outstanding: string; oldest_days: number; invoice_count: number };
 type Report = { key: string; name: string; category: string };
-type CollectionRow = Property | Tenant | Lease | Invoice | Expense | Receipt | Allocation | CreditNote | TenantDocument | RentSchedule | Budget | ServiceCharge | ServiceChargeAllocation | Reconciliation | Arrears | Report;
-type Tab = "overview" | "properties" | "tenants" | "tenant-documents" | "leases" | "rent-schedules" | "rent" | "arrears" | "receipts" | "receipt-allocations" | "credit-notes" | "service-charges" | "service-charge-allocations" | "service-charge-reconciliations" | "budgets" | "expenses" | "reports";
+type CollectionRow = Property | Building | Unit | Project | Tenant | Lease | Invoice | Expense | Receipt | Allocation | CreditNote | TenantDocument | RentSchedule | Budget | ServiceCharge | ServiceChargeAllocation | Reconciliation | Arrears | Report;
+type Tab = "overview" | "properties" | "buildings" | "units" | "projects" | "tenants" | "tenant-documents" | "leases" | "rent-schedules" | "rent" | "arrears" | "receipts" | "receipt-allocations" | "credit-notes" | "service-charges" | "service-charge-allocations" | "service-charge-reconciliations" | "budgets" | "expenses" | "reports";
 
 const money = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
-const labels: Record<Tab, string> = { overview: "Overview", properties: "Properties", tenants: "Tenants", "tenant-documents": "Tenant documents", leases: "Leases", "rent-schedules": "Rent schedules", rent: "Rent & invoices", arrears: "Arrears", receipts: "Receipts", "receipt-allocations": "Receipt allocations", "credit-notes": "Credit notes", "service-charges": "Service charge", "service-charge-allocations": "Charge allocations", "service-charge-reconciliations": "Reconciliations", budgets: "Budgets", expenses: "Expenses", reports: "Reports" };
+const labels: Record<Tab, string> = { overview: "Overview", properties: "Properties", buildings: "Buildings", units: "Units", projects: "Projects", tenants: "Tenants", "tenant-documents": "Tenant documents", leases: "Leases", "rent-schedules": "Rent schedules", rent: "Rent & invoices", arrears: "Arrears", receipts: "Receipts", "receipt-allocations": "Receipt allocations", "credit-notes": "Credit notes", "service-charges": "Service charge", "service-charge-allocations": "Charge allocations", "service-charge-reconciliations": "Reconciliations", budgets: "Budgets", expenses: "Expenses", reports: "Reports" };
 
 export default function PropertyManagementPage() {
   const { session } = useAuth();
@@ -46,7 +49,7 @@ export default function PropertyManagementPage() {
   const [openInvoices, setOpenInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState("");
 
-  const endpoint = useMemo(() => ({ properties: "properties", tenants: "tenants", "tenant-documents": "tenant-documents", leases: "leases", "rent-schedules": "rent-schedules", rent: "invoices", arrears: "analytics/aging", receipts: "receipts", "receipt-allocations": "receipt-allocations", "credit-notes": "credit-notes", "service-charges": "service-charges", "service-charge-allocations": "service-charge-allocations", "service-charge-reconciliations": "service-charge-reconciliations", budgets: "budgets", expenses: "expenses", reports: "analytics" } as Partial<Record<Tab, string>>)[tab], [tab]);
+  const endpoint = useMemo(() => ({ properties: "properties", buildings: "buildings", units: "units", projects: "projects", tenants: "tenants", "tenant-documents": "tenant-documents", leases: "leases", "rent-schedules": "rent-schedules", rent: "invoices", arrears: "analytics/aging", receipts: "receipts", "receipt-allocations": "receipt-allocations", "credit-notes": "credit-notes", "service-charges": "service-charges", "service-charge-allocations": "service-charge-allocations", "service-charge-reconciliations": "service-charge-reconciliations", budgets: "budgets", expenses: "expenses", reports: "analytics" } as Partial<Record<Tab, string>>)[tab], [tab]);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -74,12 +77,21 @@ export default function PropertyManagementPage() {
   async function createProperty(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(form.entries());
+    const unitCount = Number(payload.unit_count || 0);
+    const unitPayload = { count: unitCount, start: Number(payload.unit_start || 1), prefix: payload.unit_prefix, floor: payload.unit_floor, unit_type: payload.unit_type, area: payload.unit_area };
+    for (const key of ["unit_count", "unit_start", "unit_prefix", "unit_floor", "unit_type", "unit_area"]) delete payload[key];
     await apiFetch("/auth/csrf/");
     const response = await apiFetch("/property/properties/", {
       method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
-      body: JSON.stringify(Object.fromEntries(form.entries())),
+      body: JSON.stringify(payload),
     }, organizationId);
     if (!response.ok) { setError("The property could not be saved. Check the required fields and unique code."); return; }
+    const property = await response.json();
+    if (unitCount > 0) {
+      const unitsResponse = await apiFetch(`/property/properties/${property.id}/bulk-units/`, { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(unitPayload) }, organizationId);
+      if (!unitsResponse.ok) { setError("The property was saved, but its unit mix could not be generated."); setShowCreate(false); setTab("properties"); await load(); return; }
+    }
     setShowCreate(false); setTab("properties"); await load();
   }
 
@@ -150,7 +162,7 @@ export default function PropertyManagementPage() {
     </> : <Collection tab={tab} rows={rows} search={search} onSearch={setSearch} onAction={runAction} onDownload={downloadReport} />}
     {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowCreate(false)}><div className="form-modal" role="dialog" aria-modal="true" aria-labelledby="new-property" onMouseDown={(event) => event.stopPropagation()}>
       <div className="modal-title"><div><p className="eyebrow">New portfolio record</p><h2 id="new-property">Add property</h2></div><button aria-label="Close" onClick={() => setShowCreate(false)}>×</button></div>
-      <form onSubmit={createProperty}><label>Property code<input name="code" required placeholder="CE-NRB-002" /></label><label>Property name<input name="name" required placeholder="Riverside Apartments" /></label><div className="form-row"><label>Type<input name="property_type" placeholder="Residential" /></label><label>City<input name="city" placeholder="Nairobi" /></label></div><label>Status<select name="status" defaultValue="active"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label><label>Address<textarea name="address" rows={3} /></label><div className="form-actions"><button type="button" onClick={() => setShowCreate(false)}>Cancel</button><button className="primary-action" type="submit">Save property</button></div></form>
+      <form onSubmit={createProperty}><label>Property code<input name="code" required placeholder="CE-NRB-002" /></label><label>Property name<input name="name" required placeholder="Riverside Apartments" /></label><div className="form-row"><label>Type<input name="property_type" placeholder="Residential" /></label><label>City<input name="city" placeholder="Nairobi" /></label></div><label>Status<select name="status" defaultValue="active"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label><label>Address<textarea name="address" rows={2} /></label><p className="eyebrow">Optional unit mix</p><div className="form-row"><label>Number of units<input name="unit_count" type="number" min="0" max="500" defaultValue="0" /></label><label>Starting number<input name="unit_start" type="number" min="1" defaultValue="1" /></label></div><div className="form-row"><label>Unit prefix<input name="unit_prefix" placeholder="A-" /></label><label>Unit type<input name="unit_type" placeholder="Apartment" /></label></div><div className="form-row"><label>Floor<input name="unit_floor" placeholder="1" /></label><label>Area per unit (m²)<input name="unit_area" type="number" min="0.01" step="0.01" /></label></div><div className="form-actions"><button type="button" onClick={() => setShowCreate(false)}>Cancel</button><button className="primary-action" type="submit">Save property</button></div></form>
     </div></div>}
     {showReceipt && <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowReceipt(false)}><div className="form-modal" role="dialog" aria-modal="true" aria-labelledby="record-receipt" onMouseDown={(event) => event.stopPropagation()}>
       <div className="modal-title"><div><p className="eyebrow">Rent collection</p><h2 id="record-receipt">Record and allocate receipt</h2></div><button aria-label="Close" onClick={() => setShowReceipt(false)}>×</button></div>
@@ -168,6 +180,9 @@ function DataTable({ headers, rows }: { headers: string[]; rows: React.ReactNode
 function Collection({ tab, rows, search, onSearch, onAction, onDownload }: { tab: Tab; rows: CollectionRow[]; search: string; onSearch: (value: string) => void; onAction: (path: string) => Promise<void>; onDownload: (kind: string) => Promise<void> }) {
   let headers: string[] = [], values: React.ReactNode[][] = [];
   if (tab === "properties") { headers = ["Code", "Property", "Type", "City", "Units", "Status"]; values = (rows as Property[]).map((r) => [r.code, r.name, r.property_type || "—", r.city || "—", r.units_count, <Status key={r.id} value={r.status} />]); }
+  if (tab === "buildings") { headers = ["Code", "Building", "Property", "Floors"]; values = (rows as Building[]).map((r) => [r.code, r.name, r.property_name, r.floors]); }
+  if (tab === "units") { headers = ["Unit", "Property", "Building", "Floor", "Type", "Area", "Status"]; values = (rows as Unit[]).map((r) => [r.code, r.property_name, r.building_name || "—", r.floor || "—", r.unit_type || "—", r.area || "—", <Status key={r.id} value={r.status} />]); }
+  if (tab === "projects") { headers = ["Code", "Project", "Starts", "Ends", "Status"]; values = (rows as Project[]).map((r) => [r.code, r.name, r.starts_on || "—", r.ends_on || "—", <Status key={r.id} value={r.status} />]); }
   if (tab === "tenants") { headers = ["Code", "Tenant", "Email", "Phone", "Status"]; values = (rows as Tenant[]).map((r) => [r.code, r.name, r.email || "—", r.phone || "—", <Status key={r.id} value={r.status} />]); }
   if (tab === "leases") { headers = ["Reference", "Tenant", "Property / unit", "Start", "End", "Rent", "Status", "Actions"]; values = (rows as Lease[]).map((r) => [r.reference, r.tenant_name, `${r.property_name} · ${r.unit_code}`, r.starts_on, r.ends_on, money.format(Number(r.monthly_rent)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Activate", `leases/${r.id}/activate/`]] : ["active", "expiring"].includes(r.status) ? [["Terminate", `leases/${r.id}/terminate/`]] : []} run={onAction} />]); }
   if (tab === "rent") { headers = ["Invoice", "Tenant", "Due date", "Amount", "Balance", "Status", "Actions"]; values = (rows as Invoice[]).map((r) => [r.number, r.tenant_name, r.due_on, money.format(Number(r.amount)), money.format(Number(r.balance)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Issue", `invoices/${r.id}/issue/`]] : ["issued", "overdue"].includes(r.status) ? [["Void", `invoices/${r.id}/void/`]] : []} run={onAction} />]); }

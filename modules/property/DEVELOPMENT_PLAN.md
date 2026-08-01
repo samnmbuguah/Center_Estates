@@ -20,5 +20,7 @@ Implemented workflow evidence:
 - Area/equal service-charge apportionment is server-calculated with exact annual totals, persistent unit schedules and YTD reconciliation evidence.
 - Budget lines follow draft/pending/approved/rejected controls and expose live approved-expense actuals and variance.
 - Arrears aging, income/expense analytics and six organization-scoped CSV report families are generated from live ledger data.
+- Property intake can generate a bounded, idempotent unit mix; building, unit and project registers are exposed in the shared UI.
+- User-to-tenant portal access is organization-scoped and serves the same leases, invoices, receipts, documents, notices and Facility service requests as staff workflows.
 
 All 17 references in [UI_REFERENCE.md](docs/UI_REFERENCE.md) are acceptance checkpoints.

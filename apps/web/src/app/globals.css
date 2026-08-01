@@ -96,6 +96,14 @@ a { color: inherit; text-decoration: none; }
 .invoice-alert span, .invoice-alert small { display: block; }
 .invoice-alert small { color: var(--muted); margin-top: 5px; }
 .invoice-alert b { color: #b52929; }
+.portal-lease { display: grid; gap: 10px; padding: 22px; }
+.portal-lease strong { font-size: 1.1rem; }
+.portal-lease span { color: var(--muted); }
+.portal-lease b { color: #5b21b6; }
+.portal-profile { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); padding: 22px; }
+.portal-profile span, .portal-profile small, .portal-profile strong { display: block; }
+.portal-profile span { border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.portal-profile small { color: var(--muted); margin-bottom: 6px; }
 .cost-summary { background: #f7f8fb; display: grid; margin: 18px; padding: 16px; }
 .cost-summary span { color: var(--muted); font-size: 12px; }
 .cost-summary strong { font-size: 20px; margin: 8px 0; }

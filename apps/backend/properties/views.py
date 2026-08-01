@@ -1,4 +1,5 @@
 import csv
+import uuid
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -8,7 +9,7 @@ from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
@@ -20,14 +21,15 @@ from .models import (
     Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
     Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    Unit,
+    TenantPortalAccess, Unit,
 )
 from .serializers import (
     BuildingSerializer, BudgetSerializer, CreditNoteSerializer, ExpenseSerializer,
     InvoiceSerializer, LeaseSerializer, ProjectSerializer, PropertySerializer,
     ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer,
     ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer,
-    ServiceChargeSerializer, TenantDocumentSerializer, TenantSerializer, UnitSerializer,
+    ServiceChargeSerializer, TenantDocumentSerializer, TenantPortalAccessSerializer,
+    TenantSerializer, UnitSerializer,
 )
 
 
@@ -70,6 +72,43 @@ class PropertyViewSet(OrganizationModelViewSet):
     serializer_class = PropertySerializer
     search_fields = ('name', 'code', 'city')
 
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='bulk-units')
+    def bulk_units(self, request, pk=None):
+        property_record = self.get_object()
+        try:
+            count = int(request.data.get('count', 0))
+            start = int(request.data.get('start', 1))
+        except (TypeError, ValueError):
+            raise ValidationError({'count': 'Count and start must be whole numbers.'})
+        if not 1 <= count <= 500:
+            raise ValidationError({'count': 'Generate between 1 and 500 units at a time.'})
+        prefix = str(request.data.get('prefix', '')).strip().upper()
+        if len(prefix) > 20:
+            raise ValidationError({'prefix': 'Prefix cannot exceed 20 characters.'})
+        building = None
+        building_id = request.data.get('building')
+        if building_id:
+            building = Building.objects.for_organization(property_record.organization).filter(
+                pk=building_id, property=property_record,
+            ).first()
+            if not building:
+                raise ValidationError({'building': 'Building must belong to this property.'})
+        created = []
+        for number in range(start, start + count):
+            code = f'{prefix}{number}'
+            unit, was_created = Unit.objects.get_or_create(
+                organization=property_record.organization, property=property_record, code=code,
+                defaults={
+                    'building': building, 'floor': str(request.data.get('floor', '')).strip(),
+                    'unit_type': str(request.data.get('unit_type', '')).strip(),
+                    'area': request.data.get('area') or None, 'status': Unit.Status.AVAILABLE,
+                },
+            )
+            if was_created:
+                created.append(unit)
+        return Response({'created': len(created), 'units': UnitSerializer(created, many=True).data}, status=201)
+
 
 class BuildingViewSet(OrganizationModelViewSet):
     queryset = Building.objects.select_related('property')
@@ -93,6 +132,12 @@ class TenantViewSet(OrganizationModelViewSet):
     queryset = Tenant.objects.all()
     serializer_class = TenantSerializer
     search_fields = ('name', 'code', 'email', 'phone')
+
+
+class TenantPortalAccessViewSet(OrganizationModelViewSet):
+    queryset = TenantPortalAccess.objects.select_related('user', 'tenant')
+    serializer_class = TenantPortalAccessSerializer
+    search_fields = ('user__username', 'tenant__name', 'tenant__code')
 
 
 class LeaseViewSet(OrganizationModelViewSet):
@@ -675,3 +720,81 @@ class PropertyAnalyticsViewSet(ViewSet):
         else:
             raise ValidationError({'report': 'Unknown property report.'})
         return response
+
+
+class TenantPortalViewSet(ViewSet):
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.PROPERTY
+
+    def _access(self):
+        organization = get_active_organization(self.request)
+        access = TenantPortalAccess.objects.for_organization(organization).filter(
+            user=self.request.user, is_active=True,
+        ).select_related('tenant').first()
+        if not access:
+            raise PermissionDenied('No active tenant portal profile is linked to this account.')
+        return access
+
+    def list(self, request):
+        from facilities.models import ServiceRequest
+        from notifications.models import Notification
+
+        access = self._access()
+        tenant = access.tenant
+        leases = Lease.objects.for_organization(tenant.organization).filter(tenant=tenant).select_related(
+            'unit__property',
+        ).order_by('-starts_on')
+        current_lease = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).first()
+        invoices = Invoice.objects.for_organization(tenant.organization).filter(
+            lease__tenant=tenant,
+        ).select_related('lease').order_by('-issued_on')
+        receipts = Receipt.objects.for_organization(tenant.organization).filter(tenant=tenant).order_by('-received_on')
+        outstanding = invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).aggregate(
+            total=Sum('balance'),
+        )['total'] or Decimal('0')
+        return Response({
+            'tenant': TenantSerializer(tenant).data,
+            'currentLease': LeaseSerializer(current_lease).data if current_lease else None,
+            'balance': outstanding,
+            'invoices': InvoiceSerializer(invoices[:12], many=True).data,
+            'receipts': ReceiptSerializer(receipts[:12], many=True).data,
+            'documents': TenantDocumentSerializer(
+                TenantDocument.objects.for_organization(tenant.organization).filter(tenant=tenant)[:12], many=True,
+            ).data,
+            'serviceRequests': list(ServiceRequest.objects.for_organization(tenant.organization).filter(
+                tenant=tenant,
+            ).values('id', 'reference', 'subject', 'category', 'priority', 'status', 'submitted_at', 'resolved_at')[:12]),
+            'notices': list(Notification.objects.for_organization(tenant.organization).filter(
+                recipient=request.user,
+            ).values('id', 'title', 'message', 'level', 'created_at', 'read_at')[:12]),
+        })
+
+    @action(detail=False, methods=('post',), url_path='service-requests')
+    def service_request(self, request):
+        from facilities.models import ServiceRequest, WorkOrder
+
+        access = self._access()
+        lease = Lease.objects.for_organization(access.organization).filter(
+            tenant=access.tenant, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
+        ).select_related('unit__property').first()
+        if not lease:
+            raise ValidationError({'lease': 'An active lease is required to report a maintenance issue.'})
+        subject = str(request.data.get('subject', '')).strip()
+        category = str(request.data.get('category', '')).strip()
+        if not subject or not category:
+            raise ValidationError({'request': 'Subject and category are required.'})
+        priority = str(request.data.get('priority', WorkOrder.Priority.MEDIUM))
+        if priority not in WorkOrder.Priority.values:
+            raise ValidationError({'priority': 'Select a valid priority.'})
+        service_request = ServiceRequest.objects.create(
+            organization=access.organization,
+            reference=f'REQ-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}',
+            subject=subject, description=str(request.data.get('description', '')).strip(),
+            category=category, property=lease.unit.property, unit=lease.unit,
+            tenant=access.tenant, priority=priority, status=ServiceRequest.Status.NEW,
+            submitted_at=timezone.now(),
+        )
+        return Response({
+            'id': service_request.id, 'reference': service_request.reference,
+            'subject': service_request.subject, 'status': service_request.status,
+        }, status=201)

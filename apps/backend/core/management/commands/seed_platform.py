@@ -13,11 +13,12 @@ from facilities.models import (
     WorkOrderCostItem, WorkOrderEvent,
 )
 from organizations.models import Membership, Organization, Permission, Role
+from notifications.models import Notification
 from properties.models import (
     Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
     Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    Unit,
+    TenantPortalAccess, Unit,
 )
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 from subscriptions.models import Subscription
@@ -104,6 +105,18 @@ class Command(BaseCommand):
                 'name': 'Bluebird Retail Kenya', 'tenant_type': 'company',
                 'email': 'finance@bluebird.example', 'phone': '+254 711 333 444',
                 'status': Tenant.Status.ACTIVE, 'billing_address': 'Parklands, Nairobi',
+            },
+        )
+        TenantPortalAccess.objects.update_or_create(
+            organization=organization, user=user,
+            defaults={'tenant': tenant_one, 'is_active': True},
+        )
+        Notification.objects.update_or_create(
+            organization=organization, recipient=user, title='Water shutdown notice',
+            defaults={
+                'message': 'Tower A water service will pause from 10:00 to 12:00 for planned maintenance.',
+                'level': Notification.Level.INFO, 'action_url': '/tenant-portal',
+                'metadata': {'audience': 'tenant'},
             },
         )
         lease_one, _ = Lease.objects.update_or_create(

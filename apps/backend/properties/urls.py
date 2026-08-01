@@ -6,7 +6,8 @@ from .views import (
     PropertyViewSet, ReceiptAllocationViewSet, ReceiptViewSet,
     RentScheduleViewSet, ServiceChargeAllocationViewSet,
     ServiceChargeReconciliationViewSet, ServiceChargeViewSet,
-    TenantDocumentViewSet, TenantViewSet, UnitViewSet,
+    TenantDocumentViewSet, TenantPortalAccessViewSet, TenantPortalViewSet,
+    TenantViewSet, UnitViewSet,
 )
 
 router = DefaultRouter()
@@ -16,6 +17,8 @@ router.register('buildings', BuildingViewSet)
 router.register('units', UnitViewSet)
 router.register('projects', ProjectViewSet)
 router.register('tenants', TenantViewSet)
+router.register('tenant-portal-access', TenantPortalAccessViewSet)
+router.register('portal', TenantPortalViewSet, basename='tenant-portal')
 router.register('leases', LeaseViewSet)
 router.register('invoices', InvoiceViewSet)
 router.register('receipts', ReceiptViewSet)

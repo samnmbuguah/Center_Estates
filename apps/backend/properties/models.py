@@ -142,6 +142,26 @@ class Tenant(OrganizationOwnedModel):
         return f'{self.code} — {self.name}'
 
 
+class TenantPortalAccess(OrganizationOwnedModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tenant_portal_accesses')
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='portal_accesses')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('tenant__name', 'user__username')
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'user'), name='unique_organization_tenant_portal_user'),
+        ]
+
+    def clean(self):
+        if self.tenant_id and self.tenant.organization_id != self.organization_id:
+            raise ValidationError('Portal tenant must belong to the same organization.')
+        if self.user_id and self.organization_id:
+            from organizations.models import Membership
+            if not Membership.objects.active().filter(user_id=self.user_id, organization_id=self.organization_id).exists():
+                raise ValidationError('Portal user must be an active organization member.')
+
+
 class Lease(OrganizationOwnedModel):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'

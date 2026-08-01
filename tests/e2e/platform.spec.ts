@@ -83,6 +83,30 @@ test("property arrears, service-charge and report data are connected", async ({ 
   expect(download.suggestedFilename()).toBe("property-aging.csv");
 });
 
+test("tenant self-service uses the shared lease and billing ledger", async ({ page }) => {
+  await page.goto("/tenant-portal");
+  await expect(page.getByRole("heading", { name: /Good morning, Acacia Consulting Ltd/ })).toBeVisible();
+  await expect(page.getByText("Westlands Business Centre · 101", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Invoices", exact: true }).click();
+  await expect(page.getByText("INV-2026-0701", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Payments & receipts", exact: true }).click();
+  await expect(page.getByText("RCT-2026-0418", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Messages & notices", exact: true }).click();
+  await expect(page.getByText("Water shutdown notice", { exact: true })).toBeVisible();
+});
+
+test("tenant can submit a scoped maintenance request", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant request races");
+  await page.goto("/tenant-portal");
+  await page.getByRole("button", { name: "Report an issue", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Report an issue" });
+  await dialog.getByLabel("Subject").fill("E2E corridor light fault");
+  await dialog.getByLabel("Category").fill("Electrical");
+  await dialog.getByLabel("Description").fill("The corridor light outside the unit is not working.");
+  await dialog.getByRole("button", { name: "Submit request" }).click();
+  await expect(page.getByText("E2E corridor light fault", { exact: true })).toBeVisible();
+});
+
 test("facility work history, cost and media registers are connected", async ({ page }) => {
   await page.goto("/facility");
   await page.getByRole("button", { name: "Work history", exact: true }).click();

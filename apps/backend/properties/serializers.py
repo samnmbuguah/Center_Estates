@@ -3,8 +3,8 @@ from rest_framework import serializers
 from .models import (
     Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
     Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
-    ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    Unit,
+    ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
+    TenantDocument, TenantPortalAccess, Unit,
 )
 
 
@@ -40,6 +40,15 @@ class ProjectSerializer(serializers.ModelSerializer):
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tenant
+        exclude = ('organization',)
+
+
+class TenantPortalAccessSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+
+    class Meta:
+        model = TenantPortalAccess
         exclude = ('organization',)
 
 
