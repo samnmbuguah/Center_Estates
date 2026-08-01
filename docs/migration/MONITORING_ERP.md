@@ -34,6 +34,9 @@ and document/valuation-controlled funding drawdowns.
 Provisional sums, contingency drawdowns, and advance recovery now use the same
 controlled cost lifecycle: ascertain before close, enforce the remaining
 contingency allowance, and retain append-only recovery events.
+Reporting compatibility includes dynamic weekly/monthly summaries and
+tenant-scoped BoQ, cost, and milestone CSV exports. Chat and notification APIs
+also expose recipient-scoped unread counters and server-authored read actions.
 
 ## Preserved invariants
 
@@ -59,7 +62,7 @@ contingency allowance, and retain append-only recovery events.
 
 ## Current verification
 
-- Unified backend: 84 tests passing, including organization isolation,
+- Unified backend: 86 tests passing, including organization isolation,
   subscription denial, hierarchy validation, evidence immutability, controlled
   approval/verification decisions, procurement controls and append-only audit
   records.

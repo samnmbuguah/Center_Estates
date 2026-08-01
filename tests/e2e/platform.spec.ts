@@ -150,6 +150,18 @@ test("construction finance workflow actions are interactive", async ({ page }, t
   await expect(page.getByText("IPC-011", { exact: true })).toBeVisible();
 });
 
+test("construction reports export tenant-scoped CSV files", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
+  await page.goto("/monitoring");
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await expect(page.getByText(/W\d{2}/).first()).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export BoQ", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^boq-.*\.csv$/);
+  expect(await download.failure()).toBeNull();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });

@@ -612,6 +612,29 @@ class ChatMessageViewSet(ConstructionScopedViewSet):
             raise ValidationError({"project": "The project belongs to another organization."})
         serializer.save(organization=organization, sender=self.request.user, created_at=int(time() * 1000))
 
+    def perform_update(self, serializer):
+        raise ValidationError({"message": "Messages are immutable; use the read action."})
+
+    def perform_destroy(self, instance):
+        if instance.sender_id != self.request.user.id:
+            raise ValidationError({"message": "Only the sender can delete an unread message."})
+        if instance.read_at is not None:
+            raise ValidationError({"message": "Read messages are retained in the conversation history."})
+        instance.delete()
+
+    @action(detail=True, methods=("post",), url_path="mark-read")
+    def mark_read(self, request, pk=None):
+        message = self.get_object()
+        if message.recipient_id != request.user.id:
+            raise ValidationError({"message": "Only the recipient can mark this message read."})
+        if message.read_at is None:
+            message.read_at = int(time() * 1000); message.save(update_fields=("read_at",))
+        return Response(self.get_serializer(message).data)
+
+    @action(detail=False, methods=("get",), url_path="unread-count")
+    def unread_count(self, request):
+        return Response({"count": self.get_queryset().filter(recipient=request.user, read_at__isnull=True).count()})
+
 
 class NotificationViewSet(ConstructionScopedViewSet):
     queryset = Notification.objects.select_related("recipient")
@@ -640,6 +663,10 @@ class NotificationViewSet(ConstructionScopedViewSet):
         read_at = int(time() * 1000)
         count = self.get_queryset().filter(read_at__isnull=True).update(read_at=read_at)
         return Response({"updated": count, "read_at": read_at})
+
+    @action(detail=False, methods=("get",), url_path="unread-count")
+    def unread_count(self, request):
+        return Response({"count": self.get_queryset().filter(read_at__isnull=True).count()})
 
 
 class AdminAuditLogViewSet(ConstructionScopedViewSet):

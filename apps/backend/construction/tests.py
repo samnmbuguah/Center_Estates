@@ -14,7 +14,7 @@ from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
 from .models import (
-    AdvancePayment, AdvanceRecovery, Certificate, ChatMessage, ContingencyDrawdown, Disbursement,
+    AdvancePayment, AdvanceRecovery, BoQItem, Certificate, ChatMessage, ContingencyDrawdown, Disbursement,
     DocumentVersion, DrawdownRequest, EvidenceFile, MaterialDelivery,
     MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
     ProjectMembership, ProvisionalSum, PurchaseOrder, RequirementWaiver, Requisition, Risk, StockMovement, StoreItem,
@@ -128,6 +128,28 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(response.data["cost"]["paidToDate"], Decimal("900000"))
         self.assertEqual(sum(row["materialDeliveries"] for row in response.data["weekly"]), 1)
 
+    def test_weekly_monthly_and_csv_reports_are_dynamic_and_tenant_scoped(self):
+        BoQItem.objects.create(
+            organization=self.organization, project=self.project, section="Electrical",
+            item_number="E-01", description="Access control", quantity=2, rate=Decimal("50000"),
+            amount=Decimal("100000"),
+        )
+        weekly = self.client.get(f"/api/v1/construction/reports/weekly/?project={self.project.id}", **self.headers)
+        self.assertEqual(weekly.status_code, 200, weekly.data)
+        self.assertEqual(weekly.data["project"]["code"], "P1")
+        monthly = self.client.get(f"/api/v1/construction/reports/monthly/?project={self.project.id}&year=2026&month=8", **self.headers)
+        self.assertEqual(monthly.status_code, 200, monthly.data)
+        self.assertEqual(monthly.data["period"], {"year": 2026, "month": 8})
+        boq = self.client.get(f"/api/v1/construction/exports/boq/{self.project.id}.csv", **self.headers)
+        self.assertEqual(boq.status_code, 200)
+        self.assertIn(b"Access control", boq.content)
+        self.assertIn("attachment", boq["Content-Disposition"])
+        cost = self.client.get(f"/api/v1/construction/exports/cost/{self.project.id}.csv", **self.headers)
+        self.assertIn(b"Approved variations", cost.content)
+        milestones = self.client.get(f"/api/v1/construction/exports/milestones/{self.project.id}.csv", **self.headers)
+        self.assertIn(b"Structure", milestones.content)
+        self.assertEqual(self.client.get(f"/api/v1/construction/exports/boq/construction-project-2.csv", **self.headers).status_code, 404)
+
     def test_chat_is_scoped_to_participants_and_organization(self):
         hidden_user = get_user_model().objects.create_user(username="hidden")
         ChatMessage.objects.create(
@@ -140,6 +162,20 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(posted.status_code, 201, posted.data)
         response = self.client.get("/api/v1/construction/chat/", **self.headers)
         self.assertEqual([item["body"] for item in response.data], ["Inspection at 10:00"])
+
+    def test_chat_and_notification_unread_counters_are_recipient_scoped(self):
+        sender = get_user_model().objects.create_user(username="engineer")
+        message = ChatMessage.objects.create(
+            organization=self.organization, project=self.project, sender=sender,
+            recipient=self.user, body="Please review RFI 12", created_at=2,
+        )
+        Notification.objects.create(organization=self.organization, recipient=self.user, title="RFI review", created_at=2)
+        chat_count = self.client.get("/api/v1/construction/chat/unread-count/", **self.headers)
+        self.assertEqual(chat_count.data["count"], 1)
+        marked = self.client.post(f"/api/v1/construction/chat/{message.id}/mark-read/", {}, format="json", **self.headers)
+        self.assertEqual(marked.status_code, 200, marked.data)
+        self.assertEqual(self.client.get("/api/v1/construction/chat/unread-count/", **self.headers).data["count"], 0)
+        self.assertEqual(self.client.get("/api/v1/construction/notifications/unread-count/", **self.headers).data["count"], 1)
 
     def test_project_register_is_organization_scoped(self):
         Project.objects.create(
