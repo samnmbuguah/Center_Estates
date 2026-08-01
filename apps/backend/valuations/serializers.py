@@ -5,13 +5,13 @@ class ClientSerializer(serializers.ModelSerializer):
  class Meta: model=ValuationClient; exclude=('organization',)
 class InstructionSerializer(serializers.ModelSerializer):
  client_name=serializers.CharField(source='client.name',read_only=True); valuer_name=serializers.CharField(source='valuer.get_full_name',read_only=True)
- class Meta: model=ValuationInstruction; exclude=('organization',)
+ class Meta: model=ValuationInstruction; exclude=('organization',); read_only_fields=('status',)
 class InspectionSerializer(serializers.ModelSerializer):
  instruction_reference=serializers.CharField(source='instruction.reference',read_only=True); property_description=serializers.CharField(source='instruction.property_description',read_only=True); inspector_name=serializers.CharField(source='inspector.get_full_name',read_only=True)
- class Meta: model=ValuationInspection; exclude=('organization',)
+ class Meta: model=ValuationInspection; exclude=('organization',); read_only_fields=('status','completed_at','evidence_count')
 class ComparableSerializer(serializers.ModelSerializer):
  instruction_reference=serializers.CharField(source='instruction.reference',read_only=True)
- class Meta: model=ComparableEvidence; exclude=('organization',)
+ class Meta: model=ComparableEvidence; exclude=('organization',); read_only_fields=('rate_per_area','adjusted_value')
 class DraftSerializer(serializers.ModelSerializer):
  instruction_reference=serializers.CharField(source='instruction.reference',read_only=True); property_description=serializers.CharField(source='instruction.property_description',read_only=True); prepared_by_name=serializers.CharField(source='prepared_by.get_full_name',read_only=True)
  class Meta: model=DraftValuationReport; exclude=('organization',); read_only_fields=('prepared_by','status')
@@ -20,7 +20,7 @@ class FinalSerializer(serializers.ModelSerializer):
  class Meta: model=FinalValuationReport; exclude=('organization',); read_only_fields=('signed_by','market_value','delivered_at','delivery_method')
 class InvoiceSerializer(serializers.ModelSerializer):
  instruction_reference=serializers.CharField(source='instruction.reference',read_only=True); client_name=serializers.CharField(source='instruction.client.name',read_only=True)
- class Meta: model=ValuationInvoice; exclude=('organization',)
+ class Meta: model=ValuationInvoice; exclude=('organization',); read_only_fields=('total','balance','status')
 class PaymentSerializer(serializers.ModelSerializer):
  invoice_number=serializers.CharField(source='invoice.number',read_only=True); client_name=serializers.CharField(source='invoice.instruction.client.name',read_only=True)
  class Meta: model=ValuationPayment; exclude=('organization','received_by')

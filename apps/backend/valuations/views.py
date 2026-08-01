@@ -1,5 +1,9 @@
+import csv
+from decimal import Decimal
+
 from django.db import transaction
-from django.db.models import Count,Sum
+from django.db.models import Avg,Count,Q,Sum
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
@@ -53,12 +57,45 @@ class InstructionViewSet(Scoped):
   instruction.status=target;instruction.save(update_fields=('status','updated_at'))
   ValuationAuditEvent.objects.create(organization=org,instruction=instruction,event_type='status_transition',from_status=previous,to_status=target,notes=notes,actor=request.user)
   return Response(InstructionSerializer(instruction).data)
-class InspectionViewSet(Scoped):queryset=ValuationInspection.objects.select_related('instruction','inspector');serializer_class=InspectionSerializer;search_fields=('reference','instruction__reference','instruction__property_description','findings')
-class ComparableViewSet(Scoped):queryset=ComparableEvidence.objects.select_related('instruction');serializer_class=ComparableSerializer;search_fields=('reference','address','property_type','source')
+class InspectionViewSet(Scoped):
+ queryset=ValuationInspection.objects.select_related('instruction','inspector');serializer_class=InspectionSerializer;search_fields=('reference','instruction__reference','instruction__property_description','findings')
+ def perform_create(self,s):s.save(organization=self._org(s),status=ValuationInspection.Status.SCHEDULED,completed_at=None,evidence_count=0)
+ def perform_update(self,s):
+  if self.get_object().status==ValuationInspection.Status.COMPLETED:raise ValidationError({'inspection':'Completed inspection evidence is immutable.'})
+  super().perform_update(s)
+ @action(detail=True,methods=('post',))
+ def start(self,request,pk=None):
+  inspection=self.get_object()
+  if inspection.status not in (ValuationInspection.Status.SCHEDULED,ValuationInspection.Status.RESCHEDULED):raise ValidationError({'status':'Only a scheduled inspection can start.'})
+  inspection.status=ValuationInspection.Status.IN_PROGRESS;inspection.save(update_fields=('status','updated_at'))
+  return Response(self.get_serializer(inspection).data)
+ @action(detail=True,methods=('post',))
+ @transaction.atomic
+ def complete(self,request,pk=None):
+  inspection=self.get_object()
+  if inspection.status!=ValuationInspection.Status.IN_PROGRESS:raise ValidationError({'status':'Start the inspection before completion.'})
+  checklist=request.data.get('checklist',inspection.checklist);findings=str(request.data.get('findings',inspection.findings)).strip();evidence=int(request.data.get('evidence_count',0))
+  if not isinstance(checklist,dict) or not checklist or not findings or evidence<1:raise ValidationError({'evidence':'Checklist, findings and at least one evidence item are required.'})
+  inspection.checklist=checklist;inspection.findings=findings;inspection.issues=str(request.data.get('issues',inspection.issues)).strip();inspection.evidence_count=evidence;inspection.completed_at=timezone.now();inspection.status=ValuationInspection.Status.COMPLETED;inspection.save()
+  instruction=inspection.instruction;previous=instruction.status
+  if instruction.status in (ValuationInstruction.Status.ASSIGNED,ValuationInstruction.Status.INSPECTION):instruction.status=ValuationInstruction.Status.INSPECTION;instruction.save(update_fields=('status','updated_at'))
+  ValuationAuditEvent.objects.create(organization=inspection.organization,instruction=instruction,event_type='inspection_completed',from_status=previous,to_status=instruction.status,details={'inspection':inspection.reference,'evidence_count':evidence},actor=request.user)
+  return Response(self.get_serializer(inspection).data)
+class ComparableViewSet(Scoped):
+ queryset=ComparableEvidence.objects.select_related('instruction');serializer_class=ComparableSerializer;search_fields=('reference','address','property_type','source')
+ def _calculated(self,s):
+  price=s.validated_data.get('transaction_price',getattr(s.instance,'transaction_price',None));area=s.validated_data.get('area',getattr(s.instance,'area',None));adjustment=s.validated_data.get('adjustment_percent',getattr(s.instance,'adjustment_percent',Decimal(0)))
+  if not price or not area or price<=0 or area<=0:raise ValidationError({'comparable':'Price and area must be greater than zero.'})
+  return (price/area).quantize(Decimal('0.01')),(price*(Decimal(1)+adjustment/Decimal(100))).quantize(Decimal('0.01'))
+ def perform_create(self,s):
+  rate,adjusted=self._calculated(s);s.save(organization=self._org(s),rate_per_area=rate,adjusted_value=adjusted)
+ def perform_update(self,s):
+  self._org(s);rate,adjusted=self._calculated(s);s.save(rate_per_area=rate,adjusted_value=adjusted)
 class DraftViewSet(Scoped):
  queryset=DraftValuationReport.objects.select_related('instruction','prepared_by','reviewer');serializer_class=DraftSerializer;search_fields=('instruction__reference','instruction__property_description','valuation_method','template')
  def perform_create(self,s):s.save(organization=self._org(s),prepared_by=self.request.user,status=DraftValuationReport.Status.DRAFT)
  def perform_update(self,s):
+  if self.get_object().status==DraftValuationReport.Status.APPROVED:raise ValidationError({'report':'Approved drafts are immutable.'})
   if 'status' in s.validated_data and s.validated_data['status']!=self.get_object().status:raise ValidationError({'status':'Use report review actions.'})
   super().perform_update(s)
  @action(detail=True,methods=('post',),url_path='submit-review')
@@ -76,6 +113,14 @@ class DraftViewSet(Scoped):
   if draft.reviewer_id!=request.user.id:raise ValidationError({'reviewer':'Only the assigned reviewer can approve this report.'})
   draft.status=DraftValuationReport.Status.APPROVED;draft.review_notes=str(request.data.get('notes','')).strip();draft.save(update_fields=('status','review_notes','updated_at'))
   ValuationAuditEvent.objects.create(organization=draft.organization,instruction=draft.instruction,event_type='draft_approved',from_status='review',to_status='approved',details={'version':draft.version},notes=draft.review_notes,actor=request.user)
+  return Response(DraftSerializer(draft).data)
+ @action(detail=True,methods=('post',),url_path='request-changes')
+ def request_changes(self,request,pk=None):
+  draft=self.get_object();notes=str(request.data.get('notes','')).strip()
+  if draft.status!=DraftValuationReport.Status.REVIEW or draft.reviewer_id!=request.user.id:raise ValidationError({'status':'Only the assigned reviewer can return a report in review.'})
+  if not notes:raise ValidationError({'notes':'Required changes must be described.'})
+  draft.status=DraftValuationReport.Status.CHANGES;draft.review_notes=notes;draft.save(update_fields=('status','review_notes','updated_at'))
+  ValuationAuditEvent.objects.create(organization=draft.organization,instruction=draft.instruction,event_type='draft_changes_requested',from_status='review',to_status='changes',notes=notes,details={'version':draft.version},actor=request.user)
   return Response(DraftSerializer(draft).data)
 class FinalViewSet(Scoped):
  queryset=FinalValuationReport.objects.select_related('instruction__client','draft','signed_by');serializer_class=FinalSerializer;search_fields=('report_number','instruction__reference','instruction__property_description','instruction__client__name')
@@ -101,7 +146,25 @@ class FinalViewSet(Scoped):
   report.instruction.status=ValuationInstruction.Status.DELIVERED;report.instruction.save(update_fields=('status','updated_at'))
   ValuationAuditEvent.objects.create(organization=report.organization,instruction=report.instruction,event_type='delivered',from_status='final',to_status='delivered',details={'delivery_method':method},actor=request.user)
   return Response(FinalSerializer(report).data)
-class InvoiceViewSet(Scoped):queryset=ValuationInvoice.objects.select_related('instruction__client');serializer_class=InvoiceSerializer;search_fields=('number','instruction__reference','instruction__client__name')
+class InvoiceViewSet(Scoped):
+ queryset=ValuationInvoice.objects.select_related('instruction__client');serializer_class=InvoiceSerializer;search_fields=('number','instruction__reference','instruction__client__name')
+ def perform_create(self,s):
+  subtotal=s.validated_data['subtotal'];tax=s.validated_data.get('tax',Decimal(0));total=(subtotal+tax).quantize(Decimal('0.01'));s.save(organization=self._org(s),total=total,balance=total,status=ValuationInvoice.Status.DRAFT)
+ def perform_update(self,s):
+  if self.get_object().status!=ValuationInvoice.Status.DRAFT:raise ValidationError({'invoice':'Only draft invoices can be edited.'})
+  self._org(s);subtotal=s.validated_data.get('subtotal',s.instance.subtotal);tax=s.validated_data.get('tax',s.instance.tax);total=(subtotal+tax).quantize(Decimal('0.01'));s.save(total=total,balance=total)
+ def perform_destroy(self,instance):raise ValidationError({'invoice':'Invoices are permanent; void an issued invoice instead.'})
+ @action(detail=True,methods=('post',))
+ def issue(self,request,pk=None):
+  invoice=self.get_object()
+  if invoice.status!=ValuationInvoice.Status.DRAFT:raise ValidationError({'status':'Only a draft invoice can be issued.'})
+  invoice.status=ValuationInvoice.Status.ISSUED;invoice.save(update_fields=('status','updated_at'));ValuationAuditEvent.objects.create(organization=invoice.organization,instruction=invoice.instruction,event_type='invoice_issued',details={'invoice':invoice.number,'total':str(invoice.total)},actor=request.user);return Response(self.get_serializer(invoice).data)
+ @action(detail=True,methods=('post',))
+ def void(self,request,pk=None):
+  invoice=self.get_object();reason=str(request.data.get('reason','')).strip()
+  if invoice.status!=ValuationInvoice.Status.ISSUED or invoice.balance!=invoice.total:raise ValidationError({'status':'Only an unpaid issued invoice can be voided.'})
+  if not reason:raise ValidationError({'reason':'A void reason is required.'})
+  invoice.status=ValuationInvoice.Status.VOID;invoice.balance=Decimal(0);invoice.save(update_fields=('status','balance','updated_at'));ValuationAuditEvent.objects.create(organization=invoice.organization,instruction=invoice.instruction,event_type='invoice_voided',notes=reason,details={'invoice':invoice.number},actor=request.user);return Response(self.get_serializer(invoice).data)
 class PaymentViewSet(Scoped):
  queryset=ValuationPayment.objects.select_related('invoice__instruction__client');serializer_class=PaymentSerializer;search_fields=('reference','external_reference','invoice__number')
  @transaction.atomic
@@ -123,3 +186,29 @@ class DashboardViewSet(ViewSet):
   org=get_active_organization(request);today=timezone.localdate();ins=ValuationInstruction.objects.for_organization(org);inv=ValuationInvoice.objects.for_organization(org);pay=ValuationPayment.objects.for_organization(org)
   active=ins.exclude(status__in=(ValuationInstruction.Status.DELIVERED,ValuationInstruction.Status.CANCELLED))
   return Response({'kpis':{'activeInstructions':active.count(),'dueThisWeek':active.filter(due_on__lte=today+timezone.timedelta(days=7)).count(),'inspectionsPending':ValuationInspection.objects.for_organization(org).exclude(status=ValuationInspection.Status.COMPLETED).count(),'draftsInReview':DraftValuationReport.objects.for_organization(org).filter(status=DraftValuationReport.Status.REVIEW).count(),'finalReports':FinalValuationReport.objects.for_organization(org).count(),'revenue':pay.aggregate(v=Sum('amount'))['v'] or 0,'outstanding':inv.exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID)).aggregate(v=Sum('balance'))['v'] or 0},'recentInstructions':InstructionSerializer(ins[:6],many=True).data,'upcomingInspections':InspectionSerializer(ValuationInspection.objects.for_organization(org).exclude(status=ValuationInspection.Status.COMPLETED)[:5],many=True).data,'pipeline':list(ins.values('status').annotate(count=Count('id')).order_by('status')),'valuationMix':list(ins.values('valuation_type').annotate(count=Count('id')).order_by('-count'))})
+
+class ValuationAnalyticsViewSet(ViewSet):
+ permission_classes=(HasModuleSubscription,);required_module=Module.VALUATION
+ def list(self,request):
+  org=get_active_organization(request);instructions=ValuationInstruction.objects.for_organization(org);invoices=ValuationInvoice.objects.for_organization(org);today=timezone.localdate();overdue=invoices.filter(due_on__lt=today).exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID))
+  return Response({'teamPerformance':list(instructions.values('valuer__username','valuer__first_name','valuer__last_name').annotate(instructions=Count('id'),averageFee=Avg('quoted_fee'),delivered=Count('id',filter=Q(status=ValuationInstruction.Status.DELIVERED))).order_by('-instructions')),'aging':{'overdueInvoices':overdue.count(),'overdueBalance':overdue.aggregate(v=Sum('balance'))['v'] or 0},'reports':[{'key':'instructions','name':'Instruction pipeline and SLA'},{'key':'inspections','name':'Inspection evidence register'},{'key':'comparables','name':'Comparable evidence analysis'},{'key':'reports','name':'Final valuation reports'},{'key':'fees','name':'Fees, payments and aging'}]})
+ @action(detail=False,methods=('get',),url_path=r'exports/(?P<report_kind>[^/.]+)')
+ def export(self,request,report_kind=None):
+  org=get_active_organization(request);response=HttpResponse(content_type='text/csv');response['Content-Disposition']=f'attachment; filename="valuation-{report_kind}.csv"';writer=csv.writer(response)
+  if report_kind=='instructions':
+   writer.writerow(('Reference','Client','Property','Type','Purpose','Valuer','Instruction date','Due date','Fee','Priority','Status'))
+   for x in ValuationInstruction.objects.for_organization(org).select_related('client','valuer'):writer.writerow((x.reference,x.client.name,x.property_description,x.valuation_type,x.purpose,x.valuer.username,x.instructed_on,x.due_on,x.quoted_fee,x.priority,x.status))
+  elif report_kind=='inspections':
+   writer.writerow(('Reference','Instruction','Inspector','Scheduled','Completed','GPS','Evidence','Status','Findings','Issues'))
+   for x in ValuationInspection.objects.for_organization(org).select_related('instruction','inspector'):writer.writerow((x.reference,x.instruction.reference,x.inspector.username,x.scheduled_at,x.completed_at or '',f'{x.latitude or ""},{x.longitude or ""}',x.evidence_count,x.status,x.findings,x.issues))
+  elif report_kind=='comparables':
+   writer.writerow(('Instruction','Reference','Address','Type','Date','Price','Area','Rate','Adjustment','Adjusted value','Source'))
+   for x in ComparableEvidence.objects.for_organization(org).select_related('instruction'):writer.writerow((x.instruction.reference,x.reference,x.address,x.property_type,x.transaction_date,x.transaction_price,x.area,x.rate_per_area,x.adjustment_percent,x.adjusted_value,x.source))
+  elif report_kind=='reports':
+   writer.writerow(('Report','Instruction','Client','Issued','Market value','Signed by','Delivered','Method','Checksum'))
+   for x in FinalValuationReport.objects.for_organization(org).select_related('instruction__client','signed_by'):writer.writerow((x.report_number,x.instruction.reference,x.instruction.client.name,x.issued_on,x.market_value,x.signed_by.username,x.delivered_at or '',x.delivery_method,x.checksum))
+  elif report_kind=='fees':
+   writer.writerow(('Invoice','Instruction','Client','Issued','Due','Subtotal','Tax','Total','Balance','Status'))
+   for x in ValuationInvoice.objects.for_organization(org).select_related('instruction__client'):writer.writerow((x.number,x.instruction.reference,x.instruction.client.name,x.issued_on,x.due_on,x.subtotal,x.tax,x.total,x.balance,x.status))
+  else:raise ValidationError({'report':'Unknown valuation report.'})
+  return response

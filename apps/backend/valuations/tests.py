@@ -9,7 +9,7 @@ from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 
-from .models import DraftValuationReport, FinalValuationReport, ValuationAuditEvent, ValuationClient, ValuationInstruction, ValuationInvoice, ValuationPayment
+from .models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationAuditEvent, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
@@ -87,3 +87,53 @@ class ValuationApiTests(TestCase):
     def test_subscription_is_required(self):
         Subscription.objects.filter(organization=self.organization, module=Module.VALUATION).update(is_active=False)
         self.assertEqual(self.client.get('/api/v1/valuation/dashboard/', **self.headers).status_code, 403)
+
+    def test_inspection_completion_requires_evidence_and_is_audited(self):
+        self.instruction.status = ValuationInstruction.Status.ASSIGNED; self.instruction.save()
+        inspection = ValuationInspection.objects.create(
+            organization=self.organization, reference='INSP-1', instruction=self.instruction,
+            inspector=self.user, scheduled_at=timezone.now(),
+        )
+        started = self.client.post(f'/api/v1/valuation/inspections/{inspection.id}/start/', {}, format='json', **self.headers)
+        self.assertEqual(started.status_code, 200, started.data)
+        blocked = self.client.post(f'/api/v1/valuation/inspections/{inspection.id}/complete/', {'findings': 'Sound'}, format='json', **self.headers)
+        self.assertEqual(blocked.status_code, 400)
+        completed = self.client.post(f'/api/v1/valuation/inspections/{inspection.id}/complete/', {
+            'checklist': {'access': True, 'condition': 'good'}, 'findings': 'Sound condition',
+            'evidence_count': 4, 'issues': 'None',
+        }, format='json', **self.headers)
+        self.assertEqual(completed.status_code, 200, completed.data)
+        inspection.refresh_from_db(); self.assertIsNotNone(inspection.completed_at)
+        self.assertTrue(ValuationAuditEvent.objects.filter(instruction=self.instruction, event_type='inspection_completed').exists())
+
+    def test_comparable_rates_are_calculated_server_side(self):
+        response = self.client.post('/api/v1/valuation/comparables/', {
+            'instruction': str(self.instruction.id), 'reference': 'COMP-1', 'address': 'Westlands',
+            'property_type': 'Office', 'transaction_date': str(timezone.localdate()),
+            'transaction_price': '10000000', 'area': '200', 'rate_per_area': '1',
+            'source': 'Registered transfer', 'adjustment_percent': '10', 'adjusted_value': '1',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        comparable = ComparableEvidence.objects.get(reference='COMP-1')
+        self.assertEqual(comparable.rate_per_area, Decimal('50000'))
+        self.assertEqual(comparable.adjusted_value, Decimal('11000000'))
+
+    def test_invoice_totals_and_lifecycle_are_controlled(self):
+        response = self.client.post('/api/v1/valuation/invoices/', {
+            'number': 'I2', 'instruction': str(self.instruction.id),
+            'issued_on': str(timezone.localdate()), 'due_on': str(timezone.localdate() + timezone.timedelta(days=30)),
+            'subtotal': '2000', 'tax': '320', 'total': '1', 'balance': '1', 'status': 'paid',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        invoice = ValuationInvoice.objects.get(number='I2')
+        self.assertEqual(invoice.total, Decimal('2320')); self.assertEqual(invoice.balance, Decimal('2320')); self.assertEqual(invoice.status, ValuationInvoice.Status.DRAFT)
+        issued = self.client.post(f'/api/v1/valuation/invoices/{invoice.id}/issue/', {}, format='json', **self.headers)
+        self.assertEqual(issued.status_code, 200, issued.data)
+        self.assertTrue(ValuationAuditEvent.objects.filter(instruction=self.instruction, event_type='invoice_issued').exists())
+
+    def test_analytics_and_fee_export_are_tenant_scoped(self):
+        response = self.client.get('/api/v1/valuation/analytics/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['teamPerformance'][0]['valuer__username'], self.user.username)
+        export = self.client.get('/api/v1/valuation/analytics/exports/fees/', **self.headers)
+        self.assertEqual(export.status_code, 200); self.assertIn('I1', export.content.decode()); self.assertNotIn('Hidden Bank', export.content.decode())

@@ -209,6 +209,19 @@ test("valuation final report, payment and audit evidence are connected", async (
   await expect(page.getByText("payment allocated", { exact: true })).toBeVisible();
 });
 
+test("valuation analytics and evidence exports use live records", async ({ page }, testInfo) => {
+  await page.goto("/valuation");
+  await page.getByRole("button", { name: "Analytics", exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "Average fee" })).toBeVisible();
+  await expect(page.getByText("admin", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await expect(page.getByText("Comparable evidence analysis", { exact: true })).toBeVisible();
+  test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("row").filter({ hasText: "Fees, payments and aging" }).getByRole("button", { name: "Download CSV" }).click();
+  expect((await downloadPromise).suggestedFilename()).toBe("valuation-fees.csv");
+});
+
 test("construction procurement inventory and stock ledger are connected", async ({ page }) => {
   await page.goto("/monitoring");
   await page.getByRole("button", { name: "Inventory", exact: true }).click();

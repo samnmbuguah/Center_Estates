@@ -57,6 +57,8 @@ class ValuationInstruction(OrganizationOwnedModel):
             raise ValidationError('Property must belong to the same organization.')
         if self.due_on and self.instructed_on and self.due_on < self.instructed_on:
             raise ValidationError({'due_on': 'Due date cannot precede the instruction date.'})
+        if self.quoted_fee < 0:
+            raise ValidationError({'quoted_fee': 'Quoted fee cannot be negative.'})
 
 
 class ValuationInspection(OrganizationOwnedModel):
@@ -88,6 +90,10 @@ class ValuationInspection(OrganizationOwnedModel):
     def clean(self):
         if self.instruction_id and self.instruction.organization_id != self.organization_id:
             raise ValidationError('Inspection must belong to the instruction organization.')
+        if self.latitude is not None and not -90 <= self.latitude <= 90:
+            raise ValidationError({'latitude': 'Latitude is outside the valid range.'})
+        if self.longitude is not None and not -180 <= self.longitude <= 180:
+            raise ValidationError({'longitude': 'Longitude is outside the valid range.'})
 
 
 class ComparableEvidence(OrganizationOwnedModel):
@@ -106,6 +112,12 @@ class ComparableEvidence(OrganizationOwnedModel):
     class Meta:
         ordering = ('-transaction_date',)
         constraints = [models.UniqueConstraint(fields=('instruction', 'reference'), name='unique_instruction_comparable')]
+
+    def clean(self):
+        if self.instruction_id and self.instruction.organization_id != self.organization_id:
+            raise ValidationError('Comparable must belong to the instruction organization.')
+        if self.transaction_price <= 0 or self.area <= 0:
+            raise ValidationError('Comparable price and area must be greater than zero.')
 
 
 class DraftValuationReport(OrganizationOwnedModel):
@@ -132,6 +144,12 @@ class DraftValuationReport(OrganizationOwnedModel):
         ordering = ('-version',)
         constraints = [models.UniqueConstraint(fields=('instruction', 'version'), name='unique_instruction_draft_version')]
 
+    def clean(self):
+        if self.instruction_id and self.instruction.organization_id != self.organization_id:
+            raise ValidationError('Draft must belong to the instruction organization.')
+        if self.assessed_value < 0 or self.market_value < 0 or (self.forced_sale_value is not None and self.forced_sale_value < 0):
+            raise ValidationError('Valuation amounts cannot be negative.')
+
 
 class FinalValuationReport(OrganizationOwnedModel):
     instruction = models.OneToOneField(ValuationInstruction, on_delete=models.PROTECT, related_name='final_report')
@@ -148,6 +166,14 @@ class FinalValuationReport(OrganizationOwnedModel):
     class Meta:
         ordering = ('-issued_on',)
         constraints = [models.UniqueConstraint(fields=('organization', 'report_number'), name='unique_organization_final_report')]
+
+    def clean(self):
+        if self.instruction_id and self.instruction.organization_id != self.organization_id:
+            raise ValidationError('Final report must belong to the instruction organization.')
+        if self.draft_id and self.instruction_id and self.draft.instruction_id != self.instruction_id:
+            raise ValidationError({'draft': 'Draft must belong to this instruction.'})
+        if not self.checksum.strip():
+            raise ValidationError({'checksum': 'An integrity checksum is required.'})
 
 
 class ValuationInvoice(OrganizationOwnedModel):
@@ -173,6 +199,14 @@ class ValuationInvoice(OrganizationOwnedModel):
         ordering = ('-issued_on',)
         constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_valuation_invoice')]
 
+    def clean(self):
+        if self.instruction_id and self.instruction.organization_id != self.organization_id:
+            raise ValidationError('Invoice must belong to the instruction organization.')
+        if self.subtotal < 0 or self.tax < 0 or self.total < 0 or self.balance < 0 or self.balance > self.total:
+            raise ValidationError('Invoice amounts are invalid.')
+        if self.due_on < self.issued_on:
+            raise ValidationError({'due_on': 'Invoice due date cannot precede issue date.'})
+
 
 class ValuationPayment(OrganizationOwnedModel):
     reference = models.CharField(max_length=80)
@@ -189,6 +223,12 @@ class ValuationPayment(OrganizationOwnedModel):
             models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_valuation_payment'),
             models.UniqueConstraint(fields=('organization', 'external_reference'), condition=~models.Q(external_reference=''), name='unique_organization_valuation_external_payment'),
         ]
+
+    def clean(self):
+        if self.invoice_id and self.invoice.organization_id != self.organization_id:
+            raise ValidationError('Payment invoice must belong to the same organization.')
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Payment amount must be greater than zero.'})
 
 
 class ValuationAuditEvent(OrganizationOwnedModel):
