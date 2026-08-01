@@ -2,8 +2,9 @@ from rest_framework import serializers
 
 from .models import (
     Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
-    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge, Tenant,
-    TenantDocument, Unit,
+    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
+    ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
+    Unit,
 )
 
 
@@ -97,9 +98,13 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 
 class BudgetSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    actual_amount = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True, default=0)
+    variance = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True, default=0)
     class Meta:
         model = Budget
-        exclude = ('organization',)
+        exclude = ('organization', 'approved_by', 'approved_at')
+        read_only_fields = ('status',)
 
     def validate_amount(self, value):
         if value < 0:
@@ -108,6 +113,8 @@ class BudgetSerializer(serializers.ModelSerializer):
 
 
 class ServiceChargeSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    allocation_count = serializers.IntegerField(read_only=True, default=0)
     class Meta:
         model = ServiceCharge
         exclude = ('organization',)
@@ -116,6 +123,27 @@ class ServiceChargeSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError('Annual budget cannot be negative.')
         return value
+
+
+class ServiceChargeAllocationSerializer(serializers.ModelSerializer):
+    service_charge_name = serializers.CharField(source='service_charge.name', read_only=True)
+    property_name = serializers.CharField(source='service_charge.property.name', read_only=True)
+    unit_code = serializers.CharField(source='unit.code', read_only=True)
+
+    class Meta:
+        model = ServiceChargeAllocation
+        exclude = ('organization',)
+        read_only_fields = ('service_charge', 'unit', 'ratio', 'annual_amount', 'monthly_amount')
+
+
+class ServiceChargeReconciliationSerializer(serializers.ModelSerializer):
+    service_charge_name = serializers.CharField(source='service_charge.name', read_only=True)
+    property_name = serializers.CharField(source='service_charge.property.name', read_only=True)
+
+    class Meta:
+        model = ServiceChargeReconciliation
+        exclude = ('organization', 'prepared_by', 'reviewed_by', 'reviewed_at')
+        read_only_fields = ('budgeted_amount', 'actual_amount', 'variance', 'status')
 
 
 class TenantDocumentSerializer(serializers.ModelSerializer):

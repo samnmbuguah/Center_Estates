@@ -17,5 +17,8 @@ Implemented workflow evidence:
 - Expenses follow draft → pending → approved/rejected → paid controls; non-draft financial records are locked from generic edits.
 - Receipt allocations and credit notes update invoice balances atomically; tenant documents retain audited verification controls.
 - Seed data includes actionable lease, invoice, schedule, expense and arrears examples; API and browser tests exercise the workflows.
+- Area/equal service-charge apportionment is server-calculated with exact annual totals, persistent unit schedules and YTD reconciliation evidence.
+- Budget lines follow draft/pending/approved/rejected controls and expose live approved-expense actuals and variance.
+- Arrears aging, income/expense analytics and six organization-scoped CSV report families are generated from live ledger data.
 
 All 17 references in [UI_REFERENCE.md](docs/UI_REFERENCE.md) are acceptance checkpoints.

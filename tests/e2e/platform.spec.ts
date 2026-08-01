@@ -38,7 +38,7 @@ test("property rent ledger registers and receipt dialog are usable", async ({ pa
   await expect(page.getByText("Outstanding rent", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Receipts", exact: true }).click();
   await expect(page.getByText("RCT-2026-0418", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Allocations", exact: true }).click();
+  await page.getByRole("button", { name: "Receipt allocations", exact: true }).click();
   await expect(page.getByText("INV-2026-0701", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Credit notes", exact: true }).click();
   await expect(page.getByText("CN-2026-0021", { exact: true })).toBeVisible();
@@ -63,6 +63,24 @@ test("property approval and billing workflows are interactive", async ({ page },
   await expect(page.getByRole("button", { name: "Generate invoice", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Leases", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: "LS-2026-DRAFT" }).getByRole("button", { name: "Activate", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Budgets", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Utilities" }).getByRole("button", { name: "Approve", exact: true })).toBeVisible();
+});
+
+test("property arrears, service-charge and report data are connected", async ({ page }) => {
+  await page.goto("/property");
+  await page.getByRole("button", { name: "Arrears", exact: true }).click();
+  await expect(page.getByText("Bluebird Retail Kenya", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Charge allocations", exact: true }).click();
+  await expect(page.getByText(`${new Date().getFullYear()} Commercial Service Charge`, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Westlands Business Centre", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Reconciliations", exact: true }).click();
+  await expect(page.getByText("draft", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("row").filter({ hasText: "Outstanding aging" }).getByRole("button", { name: "Download CSV" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("property-aging.csv");
 });
 
 test("facility work history, cost and media registers are connected", async ({ page }) => {

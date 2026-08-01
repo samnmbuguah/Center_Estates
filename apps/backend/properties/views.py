@@ -1,7 +1,11 @@
-from decimal import Decimal
+import csv
+from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -14,15 +18,16 @@ from core.tenancy import get_active_organization
 
 from .models import (
     Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
-    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge, Tenant,
-    TenantDocument, Unit,
+    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
+    ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
+    Unit,
 )
 from .serializers import (
     BuildingSerializer, BudgetSerializer, CreditNoteSerializer, ExpenseSerializer,
     InvoiceSerializer, LeaseSerializer, ProjectSerializer, PropertySerializer,
     ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer,
-    ServiceChargeSerializer, TenantDocumentSerializer, TenantSerializer,
-    UnitSerializer,
+    ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer,
+    ServiceChargeSerializer, TenantDocumentSerializer, TenantSerializer, UnitSerializer,
 )
 
 
@@ -280,13 +285,138 @@ class ExpenseViewSet(OrganizationModelViewSet):
 
 
 class BudgetViewSet(OrganizationModelViewSet):
-    queryset = Budget.objects.select_related('property')
+    actual_expenses = Expense.objects.filter(
+        organization=OuterRef('organization'), property=OuterRef('property'),
+        category=OuterRef('category'), incurred_on__year=OuterRef('year'),
+        status__in=(Expense.Status.APPROVED, Expense.Status.PAID),
+    ).values('property').annotate(total=Sum('amount')).values('total')
+    queryset = Budget.objects.select_related('property').annotate(
+        actual_amount=Coalesce(Subquery(actual_expenses), Value(Decimal('0')), output_field=DecimalField()),
+    ).annotate(variance=F('amount') - F('actual_amount'))
     serializer_class = BudgetSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), status=Budget.Status.DRAFT)
+
+    def perform_update(self, serializer):
+        if serializer.instance.status not in (Budget.Status.DRAFT, Budget.Status.REJECTED):
+            raise ValidationError({'budget': 'Only draft or rejected budgets can be edited.'})
+        super().perform_update(serializer)
+
+    def _transition(self, budget, allowed, status):
+        if budget.status not in allowed:
+            raise ValidationError({'status': f'Budget cannot move from {budget.status} to {status}.'})
+        budget.status = status
+        if status == Budget.Status.APPROVED:
+            budget.approved_by = self.request.user
+            budget.approved_at = timezone.now()
+        else:
+            budget.approved_by = None
+            budget.approved_at = None
+        budget.save(update_fields=('status', 'approved_by', 'approved_at', 'updated_at'))
+        return Response(self.get_serializer(budget).data)
+
+    @action(detail=True, methods=('post',))
+    def submit(self, request, pk=None):
+        return self._transition(self.get_object(), (Budget.Status.DRAFT, Budget.Status.REJECTED), Budget.Status.PENDING)
+
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        return self._transition(self.get_object(), (Budget.Status.PENDING,), Budget.Status.APPROVED)
+
+    @action(detail=True, methods=('post',))
+    def reject(self, request, pk=None):
+        return self._transition(self.get_object(), (Budget.Status.PENDING,), Budget.Status.REJECTED)
 
 
 class ServiceChargeViewSet(OrganizationModelViewSet):
-    queryset = ServiceCharge.objects.select_related('property')
+    queryset = ServiceCharge.objects.select_related('property').annotate(allocation_count=Count('allocations'))
     serializer_class = ServiceChargeSerializer
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='generate-allocations')
+    def generate_allocations(self, request, pk=None):
+        charge = ServiceCharge.objects.select_for_update().get(pk=self.get_object().pk)
+        units = list(Unit.objects.for_organization(charge.organization).filter(property=charge.property).order_by('code'))
+        if not units:
+            raise ValidationError({'property': 'The property has no units to allocate.'})
+        if charge.method == ServiceCharge.Method.AREA:
+            if any(unit.area is None or unit.area <= 0 for unit in units):
+                raise ValidationError({'units': 'Every unit requires a positive floor area for area-based allocation.'})
+            weights = [unit.area for unit in units]
+        else:
+            weights = [Decimal('1') for _unit in units]
+        weight_total = sum(weights, Decimal('0'))
+        allocated = Decimal('0')
+        records = []
+        for index, (unit, weight) in enumerate(zip(units, weights)):
+            ratio = (weight / weight_total).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP)
+            annual = (charge.annual_budget * weight / weight_total).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            if index == len(units) - 1:
+                annual = charge.annual_budget - allocated
+                ratio = Decimal('1') - sum((row.ratio for row in records), Decimal('0'))
+            record, _ = ServiceChargeAllocation.objects.update_or_create(
+                organization=charge.organization, service_charge=charge, unit=unit,
+                defaults={
+                    'ratio': ratio, 'annual_amount': annual,
+                    'monthly_amount': (annual / Decimal('12')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                },
+            )
+            allocated += annual
+            records.append(record)
+        ServiceChargeAllocation.objects.filter(service_charge=charge).exclude(unit__in=units).delete()
+        return Response(ServiceChargeAllocationSerializer(records, many=True).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def reconcile(self, request, pk=None):
+        charge = ServiceCharge.objects.select_for_update().get(pk=self.get_object().pk)
+        try:
+            period_start = date.fromisoformat(str(request.data.get('period_start', '')))
+            period_end = date.fromisoformat(str(request.data.get('period_end', '')))
+        except ValueError:
+            raise ValidationError({'period': 'Valid period_start and period_end dates are required.'})
+        if period_end < period_start:
+            raise ValidationError({'period_end': 'Period end cannot be before period start.'})
+        year_days = Decimal('366' if period_start.year % 4 == 0 else '365')
+        days = Decimal((period_end - period_start).days + 1)
+        budgeted = (charge.annual_budget * days / year_days).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        actual = Expense.objects.for_organization(charge.organization).filter(
+            property=charge.property, incurred_on__range=(period_start, period_end),
+            status__in=(Expense.Status.APPROVED, Expense.Status.PAID),
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        reconciliation, _ = ServiceChargeReconciliation.objects.update_or_create(
+            organization=charge.organization, service_charge=charge,
+            period_start=period_start, period_end=period_end,
+            defaults={
+                'budgeted_amount': budgeted, 'actual_amount': actual,
+                'variance': budgeted - actual, 'status': ServiceChargeReconciliation.Status.DRAFT,
+                'prepared_by': request.user, 'reviewed_by': None, 'reviewed_at': None,
+            },
+        )
+        return Response(ServiceChargeReconciliationSerializer(reconciliation).data)
+
+
+class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.PROPERTY
+    serializer_class = ServiceChargeAllocationSerializer
+
+    def get_queryset(self):
+        return ServiceChargeAllocation.objects.for_organization(
+            get_active_organization(self.request),
+        ).select_related('service_charge__property', 'unit')
+
+
+class ServiceChargeReconciliationViewSet(ReadOnlyModelViewSet):
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.PROPERTY
+    serializer_class = ServiceChargeReconciliationSerializer
+
+    def get_queryset(self):
+        return ServiceChargeReconciliation.objects.for_organization(
+            get_active_organization(self.request),
+        ).select_related('service_charge__property')
 
 
 class TenantDocumentViewSet(OrganizationModelViewSet):
@@ -430,3 +560,118 @@ class PropertyDashboardViewSet(ViewSet):
             'overdueInvoices': InvoiceSerializer(invoices.filter(status=Invoice.Status.OVERDUE)[:5], many=True).data,
             'propertyMix': list(properties.values('property_type').annotate(count=Count('id')).order_by('-count')),
         })
+
+
+class PropertyAnalyticsViewSet(ViewSet):
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.PROPERTY
+
+    def _organization(self):
+        return get_active_organization(self.request)
+
+    @action(detail=False, methods=('get',))
+    def aging(self, request):
+        today = timezone.localdate()
+        invoices = Invoice.objects.for_organization(self._organization()).exclude(
+            status__in=(Invoice.Status.PAID, Invoice.Status.VOID),
+        ).filter(balance__gt=0).select_related('lease__tenant', 'lease__unit__property')
+        bucket_names = ('current', '31_60', '61_90', '91_120', 'over_120')
+        summary = {name: Decimal('0') for name in bucket_names}
+        tenants = {}
+        for invoice in invoices:
+            days = max((today - invoice.due_on).days, 0)
+            bucket = 'current' if days <= 30 else '31_60' if days <= 60 else '61_90' if days <= 90 else '91_120' if days <= 120 else 'over_120'
+            summary[bucket] += invoice.balance
+            tenant = invoice.lease.tenant
+            row = tenants.setdefault(str(tenant.id), {
+                'tenant': tenant.name, 'property': invoice.lease.unit.property.name,
+                'unit': invoice.lease.unit.code, 'outstanding': Decimal('0'),
+                'oldest_days': 0, 'invoice_count': 0,
+            })
+            row['outstanding'] += invoice.balance
+            row['oldest_days'] = max(row['oldest_days'], days)
+            row['invoice_count'] += 1
+        return Response({
+            'as_of': today, 'summary': summary, 'total': sum(summary.values(), Decimal('0')),
+            'tenants': sorted(tenants.values(), key=lambda row: row['outstanding'], reverse=True),
+        })
+
+    @action(detail=False, methods=('get',), url_path='income-expenses')
+    def income_expenses(self, request):
+        organization = self._organization()
+        today = timezone.localdate()
+        year_start = today.replace(month=1, day=1)
+        receipts = Receipt.objects.for_organization(organization).filter(received_on__gte=year_start)
+        expenses = Expense.objects.for_organization(organization).filter(
+            incurred_on__gte=year_start, status__in=(Expense.Status.APPROVED, Expense.Status.PAID),
+        )
+        income = receipts.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        spent = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        income_by_method = list(receipts.values('payment_method').annotate(total=Sum('amount')).order_by('-total'))
+        expense_by_category = list(expenses.values('category').annotate(total=Sum('amount')).order_by('-total'))
+        return Response({
+            'period': {'start': year_start, 'end': today},
+            'kpis': {'income': income, 'expenses': spent, 'net': income - spent},
+            'incomeByMethod': income_by_method, 'expensesByCategory': expense_by_category,
+        })
+
+    def list(self, request):
+        return Response({'reports': [
+            {'key': 'aging', 'name': 'Outstanding aging', 'category': 'Financial'},
+            {'key': 'income-expense', 'name': 'Income and expenses', 'category': 'Financial'},
+            {'key': 'occupancy', 'name': 'Portfolio occupancy', 'category': 'Property'},
+            {'key': 'lease-expiry', 'name': 'Lease expiry', 'category': 'Tenant'},
+            {'key': 'budget-actual', 'name': 'Budget versus actual', 'category': 'Executive'},
+            {'key': 'service-charge', 'name': 'Service charge allocations', 'category': 'Service charge'},
+        ]})
+
+    @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
+    def export(self, request, report_kind=None):
+        organization = self._organization()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="property-{report_kind}.csv"'
+        writer = csv.writer(response)
+        if report_kind == 'aging':
+            writer.writerow(('Invoice', 'Tenant', 'Property', 'Unit', 'Due date', 'Balance', 'Days outstanding'))
+            today = timezone.localdate()
+            rows = Invoice.objects.for_organization(organization).exclude(
+                status__in=(Invoice.Status.PAID, Invoice.Status.VOID),
+            ).filter(balance__gt=0).select_related('lease__tenant', 'lease__unit__property')
+            for invoice in rows:
+                writer.writerow((invoice.number, invoice.lease.tenant.name, invoice.lease.unit.property.name,
+                                 invoice.lease.unit.code, invoice.due_on, invoice.balance,
+                                 max((today - invoice.due_on).days, 0)))
+        elif report_kind == 'income-expense':
+            writer.writerow(('Type', 'Date', 'Property / tenant', 'Category / method', 'Reference', 'Amount'))
+            for receipt in Receipt.objects.for_organization(organization).select_related('tenant'):
+                writer.writerow(('Income', receipt.received_on, receipt.tenant.name, receipt.payment_method, receipt.number, receipt.amount))
+            for expense in Expense.objects.for_organization(organization).select_related('property'):
+                writer.writerow(('Expense', expense.incurred_on, expense.property.name, expense.category, expense.invoice_number, expense.amount))
+        elif report_kind == 'occupancy':
+            writer.writerow(('Property', 'Unit', 'Type', 'Area', 'Status'))
+            for unit in Unit.objects.for_organization(organization).select_related('property'):
+                writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
+        elif report_kind == 'lease-expiry':
+            writer.writerow(('Lease', 'Tenant', 'Property', 'Unit', 'End date', 'Status', 'Monthly rent'))
+            for lease in Lease.objects.for_organization(organization).select_related('tenant', 'unit__property'):
+                writer.writerow((lease.reference, lease.tenant.name, lease.unit.property.name, lease.unit.code,
+                                 lease.ends_on, lease.status, lease.monthly_rent))
+        elif report_kind == 'budget-actual':
+            writer.writerow(('Property', 'Year', 'Category', 'Budget', 'Actual', 'Variance', 'Status'))
+            budgets = BudgetViewSet.actual_expenses
+            rows = Budget.objects.for_organization(organization).select_related('property').annotate(
+                actual_amount=Coalesce(Subquery(budgets), Value(Decimal('0')), output_field=DecimalField()),
+            ).annotate(variance=F('amount') - F('actual_amount'))
+            for budget in rows:
+                writer.writerow((budget.property.name, budget.year, budget.category, budget.amount,
+                                 budget.actual_amount, budget.variance, budget.status))
+        elif report_kind == 'service-charge':
+            writer.writerow(('Scheme', 'Property', 'Unit', 'Ratio', 'Annual amount', 'Monthly amount'))
+            rows = ServiceChargeAllocation.objects.for_organization(organization).select_related('service_charge__property', 'unit')
+            for allocation in rows:
+                writer.writerow((allocation.service_charge.name, allocation.service_charge.property.name,
+                                 allocation.unit.code, allocation.ratio, allocation.annual_amount,
+                                 allocation.monthly_amount))
+        else:
+            raise ValidationError({'report': 'Unknown property report.'})
+        return response

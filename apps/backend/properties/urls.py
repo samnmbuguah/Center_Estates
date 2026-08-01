@@ -2,10 +2,11 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     BuildingViewSet, BudgetViewSet, CreditNoteViewSet, ExpenseViewSet,
-    InvoiceViewSet, LeaseViewSet, ProjectViewSet, PropertyDashboardViewSet,
+    InvoiceViewSet, LeaseViewSet, ProjectViewSet, PropertyAnalyticsViewSet, PropertyDashboardViewSet,
     PropertyViewSet, ReceiptAllocationViewSet, ReceiptViewSet,
-    RentScheduleViewSet, ServiceChargeViewSet, TenantDocumentViewSet,
-    TenantViewSet, UnitViewSet,
+    RentScheduleViewSet, ServiceChargeAllocationViewSet,
+    ServiceChargeReconciliationViewSet, ServiceChargeViewSet,
+    TenantDocumentViewSet, TenantViewSet, UnitViewSet,
 )
 
 router = DefaultRouter()
@@ -21,6 +22,9 @@ router.register('receipts', ReceiptViewSet)
 router.register('expenses', ExpenseViewSet)
 router.register('budgets', BudgetViewSet)
 router.register('service-charges', ServiceChargeViewSet)
+router.register('service-charge-allocations', ServiceChargeAllocationViewSet, basename='service-charge-allocation')
+router.register('service-charge-reconciliations', ServiceChargeReconciliationViewSet, basename='service-charge-reconciliation')
+router.register('analytics', PropertyAnalyticsViewSet, basename='property-analytics')
 router.register('tenant-documents', TenantDocumentViewSet)
 router.register('rent-schedules', RentScheduleViewSet)
 router.register('receipt-allocations', ReceiptAllocationViewSet)

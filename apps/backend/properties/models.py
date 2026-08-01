@@ -269,10 +269,19 @@ class Expense(OrganizationOwnedModel):
 
 
 class Budget(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PENDING = 'pending', 'Pending approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='budgets')
     year = models.PositiveSmallIntegerField()
     category = models.CharField(max_length=80)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_property_budgets')
+    approved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ('-year', 'category')
@@ -306,6 +315,62 @@ class ServiceCharge(OrganizationOwnedModel):
             raise ValidationError('Service charge property must belong to the same organization.')
         if self.annual_budget < 0:
             raise ValidationError({'annual_budget': 'Annual budget cannot be negative.'})
+
+
+class ServiceChargeAllocation(OrganizationOwnedModel):
+    service_charge = models.ForeignKey(ServiceCharge, on_delete=models.CASCADE, related_name='allocations')
+    unit = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name='service_charge_allocations')
+    ratio = models.DecimalField(max_digits=9, decimal_places=6)
+    annual_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    monthly_amount = models.DecimalField(max_digits=14, decimal_places=2)
+
+    class Meta:
+        ordering = ('service_charge__name', 'unit__code')
+        constraints = [models.UniqueConstraint(
+            fields=('service_charge', 'unit'), name='unique_service_charge_unit_allocation',
+        )]
+
+    def clean(self):
+        if self.service_charge_id and self.service_charge.organization_id != self.organization_id:
+            raise ValidationError('Service charge allocation must belong to the same organization.')
+        if self.unit_id and self.unit.organization_id != self.organization_id:
+            raise ValidationError('Allocated unit must belong to the same organization.')
+        if self.service_charge_id and self.unit_id and self.service_charge.property_id != self.unit.property_id:
+            raise ValidationError({'unit': 'Unit must belong to the service charge property.'})
+        if not 0 <= self.ratio <= 1:
+            raise ValidationError({'ratio': 'Allocation ratio must be between zero and one.'})
+
+
+class ServiceChargeReconciliation(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        REVIEWED = 'reviewed', 'Reviewed'
+        APPROVED = 'approved', 'Approved'
+
+    service_charge = models.ForeignKey(ServiceCharge, on_delete=models.PROTECT, related_name='reconciliations')
+    period_start = models.DateField()
+    period_end = models.DateField()
+    budgeted_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    actual_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    variance = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    prepared_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='prepared_service_charge_reconciliations')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_service_charge_reconciliations')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-period_end',)
+        constraints = [models.UniqueConstraint(
+            fields=('service_charge', 'period_start', 'period_end'), name='unique_service_charge_reconciliation_period',
+        )]
+
+    def clean(self):
+        if self.service_charge_id and self.service_charge.organization_id != self.organization_id:
+            raise ValidationError('Service charge reconciliation must belong to the same organization.')
+        if self.period_end < self.period_start:
+            raise ValidationError({'period_end': 'Period end cannot be before period start.'})
+        if self.variance != self.budgeted_amount - self.actual_amount:
+            raise ValidationError({'variance': 'Variance must equal budget less actual expenditure.'})
 
 
 class TenantDocument(OrganizationOwnedModel):

@@ -15,8 +15,9 @@ from facilities.models import (
 from organizations.models import Membership, Organization, Permission, Role
 from properties.models import (
     Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
-    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge, Tenant,
-    TenantDocument, Unit,
+    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
+    ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
+    Unit,
 )
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 from subscriptions.models import Subscription
@@ -234,13 +235,48 @@ class Command(BaseCommand):
         )
         Budget.objects.update_or_create(
             organization=organization, property=prop, year=today.year, category='Repairs & maintenance',
-            defaults={'amount': Decimal('2400000.00')},
+            defaults={
+                'amount': Decimal('2400000.00'), 'status': Budget.Status.APPROVED,
+                'approved_by': user, 'approved_at': timezone.now() - timedelta(days=90),
+            },
         )
-        ServiceCharge.objects.update_or_create(
+        Budget.objects.update_or_create(
+            organization=organization, property=prop, year=today.year, category='Utilities',
+            defaults={'amount': Decimal('1800000.00'), 'status': Budget.Status.PENDING},
+        )
+        service_charge, _ = ServiceCharge.objects.update_or_create(
             organization=organization, property=prop, name=f'{today.year} Commercial Service Charge',
             defaults={
                 'method': ServiceCharge.Method.AREA, 'annual_budget': Decimal('3600000.00'),
                 'starts_on': today.replace(month=1, day=1), 'is_active': True,
+            },
+        )
+        total_area = sum((unit.area or Decimal('0') for unit in units.values()), Decimal('0'))
+        allocated_amount = Decimal('0')
+        allocation_rows = []
+        for index, unit in enumerate(units.values()):
+            ratio = ((unit.area or Decimal('0')) / total_area).quantize(Decimal('0.000001'))
+            annual_amount = (service_charge.annual_budget * ratio).quantize(Decimal('0.01'))
+            if index == len(units) - 1:
+                annual_amount = service_charge.annual_budget - allocated_amount
+                ratio = Decimal('1') - sum((row.ratio for row in allocation_rows), Decimal('0'))
+            allocation, _ = ServiceChargeAllocation.objects.update_or_create(
+                organization=organization, service_charge=service_charge, unit=unit,
+                defaults={
+                    'ratio': ratio, 'annual_amount': annual_amount,
+                    'monthly_amount': (annual_amount / Decimal('12')).quantize(Decimal('0.01')),
+                },
+            )
+            allocation_rows.append(allocation)
+            allocated_amount += annual_amount
+        ytd_budget = (service_charge.annual_budget * Decimal(today.timetuple().tm_yday) / Decimal('366' if today.year % 4 == 0 else '365')).quantize(Decimal('0.01'))
+        ServiceChargeReconciliation.objects.update_or_create(
+            organization=organization, service_charge=service_charge,
+            period_start=today.replace(month=1, day=1), period_end=today,
+            defaults={
+                'budgeted_amount': ytd_budget, 'actual_amount': Decimal('68500.00'),
+                'variance': ytd_budget - Decimal('68500.00'),
+                'status': ServiceChargeReconciliation.Status.DRAFT, 'prepared_by': user,
             },
         )
         contractor, _ = Contractor.objects.update_or_create(

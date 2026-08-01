@@ -10,8 +10,9 @@ from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 
 from .models import (
-    Building, CreditNote, Expense, Invoice, Lease, Property, ReceiptAllocation,
-    RentSchedule, Tenant, TenantDocument, Unit,
+    Budget, Building, CreditNote, Expense, Invoice, Lease, Property,
+    ReceiptAllocation, RentSchedule, ServiceCharge, ServiceChargeAllocation,
+    ServiceChargeReconciliation, Tenant, TenantDocument, Unit,
 )
 
 
@@ -239,3 +240,69 @@ class PropertyApiTests(TestCase):
         schedule.refresh_from_db()
         self.assertEqual(schedule.status, RentSchedule.Status.INVOICED)
         self.assertEqual(Invoice.objects.filter(rent_schedule_item=schedule).count(), 1)
+
+    def test_service_charge_allocations_and_reconciliation_are_calculated_server_side(self):
+        self.unit.area = Decimal('100')
+        self.unit.save()
+        Unit.objects.create(
+            organization=self.organization, property=self.property, code='202',
+            area=Decimal('300'), status=Unit.Status.AVAILABLE,
+        )
+        charge = ServiceCharge.objects.create(
+            organization=self.organization, property=self.property, name='2026 Service Charge',
+            method=ServiceCharge.Method.AREA, annual_budget=Decimal('4800'),
+            starts_on='2026-01-01',
+        )
+        allocated = self.client.post(
+            f'/api/v1/property/service-charges/{charge.id}/generate-allocations/',
+            {}, format='json', **self.headers,
+        )
+        self.assertEqual(allocated.status_code, 200, allocated.data)
+        self.assertEqual(len(allocated.data), 2)
+        self.assertEqual(
+            sum(ServiceChargeAllocation.objects.filter(service_charge=charge).values_list('annual_amount', flat=True)),
+            Decimal('4800.00'),
+        )
+        Expense.objects.create(
+            organization=self.organization, property=self.property, supplier='Caretaker Ltd',
+            category='service charge', incurred_on='2026-07-15', amount=Decimal('300'),
+            status=Expense.Status.APPROVED,
+        )
+        reconciled = self.client.post(f'/api/v1/property/service-charges/{charge.id}/reconcile/', {
+            'period_start': '2026-07-01', 'period_end': '2026-07-31',
+        }, format='json', **self.headers)
+        self.assertEqual(reconciled.status_code, 200, reconciled.data)
+        self.assertEqual(Decimal(reconciled.data['actual_amount']), Decimal('300.00'))
+        record = ServiceChargeReconciliation.objects.get(service_charge=charge)
+        self.assertEqual(record.variance, record.budgeted_amount - record.actual_amount)
+
+    def test_budget_approval_and_actual_variance_are_dynamic(self):
+        budget = Budget.objects.create(
+            organization=self.organization, property=self.property, year=2026,
+            category='Utilities', amount=Decimal('1000'),
+        )
+        Expense.objects.create(
+            organization=self.organization, property=self.property, supplier='Power Co',
+            category='Utilities', incurred_on='2026-05-01', amount=Decimal('250'),
+            status=Expense.Status.PAID,
+        )
+        for action, expected in (('submit', Budget.Status.PENDING), ('approve', Budget.Status.APPROVED)):
+            response = self.client.post(
+                f'/api/v1/property/budgets/{budget.id}/{action}/', {}, format='json', **self.headers,
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data['status'], expected)
+        listed = self.client.get('/api/v1/property/budgets/', **self.headers)
+        row = next(item for item in listed.data if item['id'] == str(budget.id))
+        self.assertEqual(Decimal(row['actual_amount']), Decimal('250.00'))
+        self.assertEqual(Decimal(row['variance']), Decimal('750.00'))
+
+    def test_aging_analytics_and_csv_export_use_live_tenant_data(self):
+        aging = self.client.get('/api/v1/property/analytics/aging/', **self.headers)
+        self.assertEqual(aging.status_code, 200, aging.data)
+        self.assertEqual(Decimal(aging.data['total']), Decimal('1000.00'))
+        self.assertEqual(aging.data['tenants'][0]['tenant'], self.tenant.name)
+        exported = self.client.get('/api/v1/property/analytics/exports/aging/', **self.headers)
+        self.assertEqual(exported.status_code, 200)
+        self.assertIn('text/csv', exported['Content-Type'])
+        self.assertIn('INV-1', exported.content.decode())
