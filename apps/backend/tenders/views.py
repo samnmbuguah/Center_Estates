@@ -10,13 +10,13 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.viewsets import ModelViewSet,ViewSet
 from core.models import Module
-from core.permissions import HasModuleSubscription
+from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
 from .models import BidDecision,CompanyDocument,FinancialItem,ProposalSection,Tender,TenderAuditEvent,TenderOutcome,TenderRequirement,TenderReview,TenderSubmission,TenderTask
 from .serializers import CompanyDocumentSerializer,DecisionSerializer,FinancialItemSerializer,OutcomeSerializer,ProposalSectionSerializer,RequirementSerializer,ReviewSerializer,SubmissionSerializer,TaskSerializer,TenderAuditEventSerializer,TenderSerializer
 
 class Scoped(ModelViewSet):
- permission_classes=(HasModuleSubscription,); required_module=Module.TENDER; search_fields=()
+ permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER; search_fields=()
  def get_queryset(self):
   q=self.queryset.for_organization(get_active_organization(self.request)); s=self.request.query_params.get('search','').strip()
   if s:
@@ -159,14 +159,14 @@ class OutcomeViewSet(Scoped):
 class TenderAuditEventViewSet(Scoped):
  queryset=TenderAuditEvent.objects.select_related('tender','actor'); serializer_class=TenderAuditEventSerializer; http_method_names=('get','head','options'); search_fields=('tender__reference','event_type','notes')
 class DashboardViewSet(ViewSet):
- permission_classes=(HasModuleSubscription,); required_module=Module.TENDER
+ permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER
  def list(self,request):
   org=get_active_organization(request); now=timezone.now(); tenders=Tender.objects.for_organization(org); tasks=TenderTask.objects.for_organization(org); docs=CompanyDocument.objects.for_organization(org)
   active=tenders.exclude(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
   return Response({'kpis':{'activeTenders':active.count(),'dueThisWeek':active.filter(submission_deadline__lte=now+timezone.timedelta(days=7)).count(),'pipelineValue':active.aggregate(v=Sum('estimated_value'))['v'] or 0,'pendingTasks':tasks.exclude(status='completed').count(),'expiringDocuments':docs.filter(expires_on__lte=timezone.localdate()+timezone.timedelta(days=30)).count(),'submitted':tenders.filter(stage=Tender.Stage.SUBMITTED).count()},'recentTenders':TenderSerializer(tenders[:6],many=True).data,'urgentTasks':TaskSerializer(tasks.exclude(status='completed').order_by('due_on')[:6],many=True).data,'stageFunnel':list(tenders.values('stage').annotate(count=Count('id')).order_by('stage'))})
 
 class TenderAnalyticsViewSet(ViewSet):
- permission_classes=(HasModuleSubscription,); required_module=Module.TENDER
+ permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER
  def list(self,request):
   org=get_active_organization(request); tenders=Tender.objects.for_organization(org); submitted=tenders.filter(stage__in=(Tender.Stage.SUBMITTED,Tender.Stage.AWARDED,Tender.Stage.REGRETTED)); closed=tenders.filter(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
   return Response({'outcomes':list(closed.values('stage').annotate(count=Count('id'),value=Sum('estimated_value')).order_by('stage')),'metrics':{'submitted':submitted.count(),'awarded':closed.filter(stage=Tender.Stage.AWARDED).count(),'regretted':closed.filter(stage=Tender.Stage.REGRETTED).count(),'winRate':round(closed.filter(stage=Tender.Stage.AWARDED).count()/closed.count()*100,2) if closed.exists() else 0},'reports':[{'key':'pipeline','name':'Tender pipeline and deadlines'},{'key':'requirements','name':'Requirement compliance matrix'},{'key':'tasks','name':'Bid plan and workload'},{'key':'pricing','name':'Financial proposal'},{'key':'outcomes','name':'Awards, regrets and lessons'}]})

@@ -46,7 +46,7 @@ class PropertyApiTests(TestCase):
         self.user = get_user_model().objects.create_user(username='property-user', password='test-password')
         self.organization = Organization.objects.create(name='Property Client', slug='property-client')
         self.other = Organization.objects.create(name='Other Client', slug='other-client')
-        Membership.objects.create(user=self.user, organization=self.organization, is_default=True)
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(
             organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE,
         )

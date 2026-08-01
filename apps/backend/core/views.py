@@ -112,6 +112,12 @@ class MeView(APIView):
     def get(self, request):
         memberships = Membership.objects.active().filter(user=request.user).select_related('organization')
         organization = get_active_organization(request, required=False)
+        membership = memberships.filter(organization=organization).prefetch_related('roles__permissions').first() if organization else None
+        permissions = [] if not membership else (
+            ['*'] if membership.is_organization_admin else list(
+                membership.roles.values_list('permissions__key', flat=True).distinct().order_by('permissions__key')
+            )
+        )
         return Response({
             'user': {
                 'id': request.user.pk,
@@ -122,7 +128,9 @@ class MeView(APIView):
             },
             'organizations': MembershipSerializer(memberships, many=True).data,
             'activeOrganizationId': str(organization.id) if organization else None,
-            'modules': serialize_modules(organization) if organization else [],
+            'modules': serialize_modules(organization, membership) if organization else [],
+            'roles': [] if not membership else list(membership.roles.values_list('slug', flat=True).order_by('slug')),
+            'permissions': permissions,
         })
 
 # Create your views here.

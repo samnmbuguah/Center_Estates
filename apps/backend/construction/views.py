@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
-from core.permissions import HasModuleSubscription
+from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
 from organizations.models import Membership
 
@@ -37,7 +37,7 @@ from .serializers import (
 
 
 class ConstructionScopedViewSet(ModelViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.MONITORING
     organization_field = "organization"
     search_fields = ()
@@ -794,7 +794,7 @@ class StockMovementViewSet(ConstructionScopedViewSet):
 
 
 class DashboardViewSet(ViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.MONITORING
 
     def list(self, request):

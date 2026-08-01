@@ -1,0 +1,11 @@
+D Leas Month Escalation Esalatio New
+Floor oor © lease Monthly Y Escalation "sclation a Lease
+Number / Tenant Name Commencement Service Effective nRate — Monthly
+
+Numbe 5 Dat Rent [KES] No. « Stat
+UMDer Unit Date xpiry Date Rent (KES) Charze (KES) Date (39 Rent (KES) ats
+
+14-101 ABC Traders Ltd 120 01/01/2025 31/12/2029 (262,500.00 Active First annual escalation
+14-101 ABC Traders Ltd 120 01/01/2025 31/12/2029 275,625.00 Active Second annual escalation
+1101 ABC Traders Ltd 120 01/01/2025 31/12/2029 289,406.00 Active Third annual escalation
+

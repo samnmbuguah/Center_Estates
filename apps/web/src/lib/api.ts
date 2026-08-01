@@ -5,6 +5,8 @@ export type Session = {
   organizations: Organization[];
   activeOrganizationId: string | null;
   modules: ModuleEntitlement[];
+  roles: string[];
+  permissions: string[];
 };
 
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {

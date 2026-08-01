@@ -62,7 +62,7 @@ also expose recipient-scoped unread counters and server-authored read actions.
 
 ## Current verification
 
-- Unified backend: 117 tests passing, including organization isolation,
+- Unified backend: 120 tests passing, including organization isolation and cross-module role boundaries,
   subscription denial, hierarchy validation, evidence immutability, controlled
   approval/verification decisions, procurement controls and append-only audit
   records.

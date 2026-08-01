@@ -10,13 +10,13 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet,ViewSet
 from core.models import Module
-from core.permissions import HasModuleSubscription
+from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
 from .models import ComparableEvidence,DraftValuationReport,FinalValuationReport,ValuationAuditEvent,ValuationClient,ValuationInspection,ValuationInstruction,ValuationInvoice,ValuationPayment
 from .serializers import AuditEventSerializer,ClientSerializer,ComparableSerializer,DraftSerializer,FinalSerializer,InspectionSerializer,InstructionSerializer,InvoiceSerializer,PaymentSerializer
 
 class Scoped(ModelViewSet):
- permission_classes=(HasModuleSubscription,); required_module=Module.VALUATION; search_fields=()
+ permission_classes=(HasModuleActionPermission,); required_module=Module.VALUATION; search_fields=()
  def get_queryset(self):
   q=self.queryset.for_organization(get_active_organization(self.request)); s=self.request.query_params.get('search','').strip()
   if s:
@@ -181,14 +181,14 @@ class PaymentViewSet(Scoped):
 class AuditEventViewSet(Scoped):
  queryset=ValuationAuditEvent.objects.select_related('instruction','actor');serializer_class=AuditEventSerializer;http_method_names=('get','head','options');search_fields=('instruction__reference','event_type','notes')
 class DashboardViewSet(ViewSet):
- permission_classes=(HasModuleSubscription,);required_module=Module.VALUATION
+ permission_classes=(HasModuleActionPermission,);required_module=Module.VALUATION
  def list(self,request):
   org=get_active_organization(request);today=timezone.localdate();ins=ValuationInstruction.objects.for_organization(org);inv=ValuationInvoice.objects.for_organization(org);pay=ValuationPayment.objects.for_organization(org)
   active=ins.exclude(status__in=(ValuationInstruction.Status.DELIVERED,ValuationInstruction.Status.CANCELLED))
   return Response({'kpis':{'activeInstructions':active.count(),'dueThisWeek':active.filter(due_on__lte=today+timezone.timedelta(days=7)).count(),'inspectionsPending':ValuationInspection.objects.for_organization(org).exclude(status=ValuationInspection.Status.COMPLETED).count(),'draftsInReview':DraftValuationReport.objects.for_organization(org).filter(status=DraftValuationReport.Status.REVIEW).count(),'finalReports':FinalValuationReport.objects.for_organization(org).count(),'revenue':pay.aggregate(v=Sum('amount'))['v'] or 0,'outstanding':inv.exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID)).aggregate(v=Sum('balance'))['v'] or 0},'recentInstructions':InstructionSerializer(ins[:6],many=True).data,'upcomingInspections':InspectionSerializer(ValuationInspection.objects.for_organization(org).exclude(status=ValuationInspection.Status.COMPLETED)[:5],many=True).data,'pipeline':list(ins.values('status').annotate(count=Count('id')).order_by('status')),'valuationMix':list(ins.values('valuation_type').annotate(count=Count('id')).order_by('-count'))})
 
 class ValuationAnalyticsViewSet(ViewSet):
- permission_classes=(HasModuleSubscription,);required_module=Module.VALUATION
+ permission_classes=(HasModuleActionPermission,);required_module=Module.VALUATION
  def list(self,request):
   org=get_active_organization(request);instructions=ValuationInstruction.objects.for_organization(org);invoices=ValuationInvoice.objects.for_organization(org);today=timezone.localdate();overdue=invoices.filter(due_on__lt=today).exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID))
   return Response({'teamPerformance':list(instructions.values('valuer__username','valuer__first_name','valuer__last_name').annotate(instructions=Count('id'),averageFee=Avg('quoted_fee'),delivered=Count('id',filter=Q(status=ValuationInstruction.Status.DELIVERED))).order_by('-instructions')),'aging':{'overdueInvoices':overdue.count(),'overdueBalance':overdue.aggregate(v=Sum('balance'))['v'] or 0},'reports':[{'key':'instructions','name':'Instruction pipeline and SLA'},{'key':'inspections','name':'Inspection evidence register'},{'key':'comparables','name':'Comparable evidence analysis'},{'key':'reports','name':'Final valuation reports'},{'key':'fees','name':'Fees, payments and aging'}]})

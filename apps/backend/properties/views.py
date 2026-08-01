@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
 from core.models import Module
-from core.permissions import HasModuleSubscription
+from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
 
 from .models import (
@@ -36,7 +36,7 @@ from .serializers import (
 
 
 class OrganizationModelViewSet(ModelViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     search_fields = ()
 
@@ -345,7 +345,7 @@ class ReceiptViewSet(OrganizationModelViewSet):
 
 
 class InvoiceReminderViewSet(ReadOnlyModelViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = InvoiceReminderSerializer
 
@@ -554,7 +554,7 @@ class ServiceChargeViewSet(OrganizationModelViewSet):
 
 
 class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = ServiceChargeAllocationSerializer
 
@@ -565,7 +565,7 @@ class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
 
 
 class ServiceChargeReconciliationViewSet(ReadOnlyModelViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = ServiceChargeReconciliationSerializer
 
@@ -688,7 +688,7 @@ class CreditNoteViewSet(OrganizationModelViewSet):
 
 
 class PropertyDashboardViewSet(ViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
 
     def list(self, request):
@@ -719,7 +719,7 @@ class PropertyDashboardViewSet(ViewSet):
 
 
 class PropertyAnalyticsViewSet(ViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
 
     def _organization(self):
@@ -834,7 +834,7 @@ class PropertyAnalyticsViewSet(ViewSet):
 
 
 class TenantPortalViewSet(ViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
 
     def _access(self):

@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
-from core.permissions import HasModuleSubscription
+from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
 
 from .models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
@@ -19,7 +19,7 @@ from .serializers import AgentCommissionSerializer, BuyerSerializer, Installment
 
 
 class SalesModelViewSet(ModelViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.SALES
     search_fields = ()
 
@@ -252,7 +252,10 @@ class PaymentViewSet(SalesModelViewSet):
     @transaction.atomic
     def verify(self, request, pk=None):
         organization = get_active_organization(request)
-        payment = SalePayment.objects.select_for_update().select_related('installment', 'sale').filter(pk=pk, organization=organization).first()
+        # Lock only the payment row. ``installment`` is nullable, so asking
+        # PostgreSQL to lock a select_related outer join raises
+        # "FOR UPDATE cannot be applied to the nullable side of an outer join".
+        payment = SalePayment.objects.select_for_update().filter(pk=pk, organization=organization).first()
         if not payment:
             return Response({'detail': 'Payment not found.'}, status=404)
         if payment.status != SalePayment.Status.PENDING:
@@ -291,7 +294,7 @@ class PaymentViewSet(SalesModelViewSet):
     @action(detail=True, methods=('post',))
     @transaction.atomic
     def reverse(self, request, pk=None):
-        payment = SalePayment.objects.select_for_update().select_related('installment', 'sale').filter(pk=pk, organization=get_active_organization(request)).first()
+        payment = SalePayment.objects.select_for_update().filter(pk=pk, organization=get_active_organization(request)).first()
         reason = str(request.data.get('reason', '')).strip()
         if not payment or payment.status != SalePayment.Status.VERIFIED:
             raise ValidationError({'status': 'Only verified payments can be reversed.'})
@@ -389,7 +392,7 @@ class SalesAuditEventViewSet(SalesModelViewSet):
 
 
 class SalesDashboardViewSet(ViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.SALES
 
     def list(self, request):
@@ -421,7 +424,7 @@ class SalesDashboardViewSet(ViewSet):
 
 
 class SalesAnalyticsViewSet(ViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.SALES
 
     def _organization(self):

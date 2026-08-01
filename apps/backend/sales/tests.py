@@ -35,7 +35,7 @@ class SalesApiTests(TestCase):
         self.user = get_user_model().objects.create_user(username='sales-user', password='test')
         self.organization = Organization.objects.create(name='Sales Client', slug='sales-client')
         self.other = Organization.objects.create(name='Other Sales Client', slug='other-sales-client')
-        Membership.objects.create(user=self.user, organization=self.organization, is_default=True)
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(organization=self.organization, module=Module.SALES, status=Subscription.Status.ACTIVE)
         prop = Property.objects.create(organization=self.organization, code='P1', name='Development')
         unit = Unit.objects.create(organization=self.organization, property=prop, code='A-01')

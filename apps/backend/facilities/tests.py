@@ -30,7 +30,7 @@ class FacilityApiTests(TestCase):
         self.user = get_user_model().objects.create_user(username='facility-user', password='test')
         self.organization = Organization.objects.create(name='Facility Client', slug='facility-client')
         self.other = Organization.objects.create(name='Other Facility Client', slug='other-facility-client')
-        Membership.objects.create(user=self.user, organization=self.organization, is_default=True)
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(organization=self.organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE)
         self.property = Property.objects.create(organization=self.organization, code='P1', name='Main Building')
         self.asset = FacilityAsset.objects.create(

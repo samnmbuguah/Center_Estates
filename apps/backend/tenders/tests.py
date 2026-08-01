@@ -18,7 +18,7 @@ class TenderApiTests(TestCase):
         self.user = get_user_model().objects.create_user(username='tender-user', password='test')
         self.organization = Organization.objects.create(name='Tender Client', slug='tender-client')
         self.other = Organization.objects.create(name='Other Tender Client', slug='other-tender-client')
-        Membership.objects.create(user=self.user, organization=self.organization, is_default=True)
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(organization=self.organization, module=Module.TENDER, status=Subscription.Status.ACTIVE)
         self.tender = Tender.objects.create(organization=self.organization, reference='T1', title='Main Tender', client='Client', submission_deadline=timezone.now() + timezone.timedelta(days=5), estimated_value=Decimal('5000'), owner=self.user)
         self.other_tender = Tender.objects.create(organization=self.other, reference='T2', title='Hidden Tender', client='Other', submission_deadline=timezone.now(), owner=self.user)

@@ -12,7 +12,7 @@ from facilities.models import (
     ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
     WorkOrderCostItem, WorkOrderEvent,
 )
-from organizations.models import Membership, Organization, Permission, Role
+from organizations.models import Membership, MembershipRole, Organization, Permission, Role
 from notifications.models import Notification
 from properties.models import (
     BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
@@ -55,13 +55,41 @@ class Command(BaseCommand):
                 defaults={'is_active': True, 'status': Subscription.Status.ACTIVE},
             )
 
-        permission, _ = Permission.objects.get_or_create(
-            key='property.manage', defaults={'label': 'Manage properties', 'module': Module.PROPERTY}
-        )
+        permission_catalog = {}
+        for module, module_label in Module.choices:
+            for suffix, action_label in (
+                ('view', 'View'), ('manage', 'Manage'), ('approve', 'Approve'), ('report', 'Export reports'),
+            ):
+                key = f'{module}.{suffix}'
+                permission_catalog[key], _ = Permission.objects.update_or_create(
+                    key=key, defaults={'label': f'{action_label} {module_label}', 'module': module},
+                )
         role, _ = Role.objects.get_or_create(
             organization=organization, slug='platform-admin', defaults={'name': 'Platform Administrator', 'is_system': True}
         )
-        role.permissions.add(permission)
+        role.permissions.set(permission_catalog.values())
+
+        role_password = os.environ.get('SEED_ROLE_PASSWORD', password)
+        for module, module_label in Module.choices:
+            role_definitions = (
+                ('viewer', f'{module_label} Viewer', ('view', 'report')),
+                ('operator', f'{module_label} Operator', ('view', 'manage', 'report')),
+                ('approver', f'{module_label} Approver', ('view', 'approve', 'report')),
+            )
+            for role_suffix, role_name, granted in role_definitions:
+                role_slug = f'{module}-{role_suffix}'
+                module_role, _ = Role.objects.update_or_create(
+                    organization=organization, slug=role_slug,
+                    defaults={'name': role_name, 'is_system': True},
+                )
+                module_role.permissions.set(permission_catalog[f'{module}.{suffix}'] for suffix in granted)
+                role_user, _ = get_user_model().objects.get_or_create(username=f'role-{role_slug}')
+                role_user.set_password(role_password); role_user.save(update_fields=('password',))
+                membership, _ = Membership.objects.update_or_create(
+                    organization=organization, user=role_user,
+                    defaults={'is_default': True, 'is_organization_admin': False, 'status': Membership.Status.ACTIVE},
+                )
+                MembershipRole.objects.update_or_create(membership=membership, role=module_role)
 
         prop, _ = Property.objects.update_or_create(
             organization=organization, code='CE-NRB-001',

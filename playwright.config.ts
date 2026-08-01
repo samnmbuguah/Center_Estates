@@ -6,7 +6,11 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
-  reporter: [["list"], ["html", { outputFolder: "artifacts/playwright-report", open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "artifacts/playwright-report", open: "never" }],
+    ["junit", { outputFile: "artifacts/playwright-results.xml" }],
+  ],
   outputDir: "artifacts/test-results",
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "https://erp.169-58-102-217.sslip.io",

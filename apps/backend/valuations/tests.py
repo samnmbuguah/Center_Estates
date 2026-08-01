@@ -18,7 +18,7 @@ class ValuationApiTests(TestCase):
         self.user = get_user_model().objects.create_user(username='valuer', password='test')
         self.organization = Organization.objects.create(name='Valuation Client', slug='valuation-client')
         self.other = Organization.objects.create(name='Other Valuation Client', slug='other-valuation-client')
-        Membership.objects.create(user=self.user, organization=self.organization, is_default=True)
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(organization=self.organization, module=Module.VALUATION, status=Subscription.Status.ACTIVE)
         self.client_record = ValuationClient.objects.create(organization=self.organization, code='C1', name='Bank One', client_type='bank')
         self.other_client = ValuationClient.objects.create(organization=self.other, code='C2', name='Hidden Bank', client_type='bank')

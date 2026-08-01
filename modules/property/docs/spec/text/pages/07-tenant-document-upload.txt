@@ -1,0 +1,131 @@
+Property Management
+
+hh CeEst
+
+TASK TRACKER
+
+Home > PropertyManagement > Tenants
+
+Add New Tenants
+
+F¥ Dashboard
+2
+
+ingle Tenan 22 Bulk Uplo
+Operations Center A Single Tenant PR Bulk Upload
+
+%
+CA My Tosts
+&
+
+Q vain
+
+Approvals
+
+ coendar
+
+Jb, Property Management
+
+~ overiew 1, Download Template
+
+= [BD Dovid Ea Toate
+
+~ Leases
+
+Reports
+
+2. Upload Completed File
+Fality Management Upload the completed Excel ile to add tenants
+
+Visiter Management
+
+Help Desk
+
+Precerement
+Tender Management
+
+Valuation Tracker
+
+Reports & BI
+R Clonts & CRM
+
+Documents ‘Tenants Buk Upload _Completed.xisk
+
+28.6 KB
+
+&
+
+Auiek Support
+0722 574 400
+
+support@coast.coke
+
+Mon Fri 8:00AM - 6:00PM
+
+Cancel
+@® coltapse menu.
+
+Starch tenon, pore, ema... Q
+
+2 Validate Data
+
+© _ Bulk upload allows you to add multiple tenants at once using an Excel file,
+
+Template Information
+
+G File format: xlsx or als
+
+© Moximum file sie: 10M
+© Date format: ODIMMIYYYY
+
+© First row should contain column headers
+
+View required columns
+
+Drag & drop your file here
+
+Choose File
+
+xcel files (xls, xlsx) up to 10MB
+
+B Pomove
+
+Albin Sige
+Stam Administrator
+
+fer ge
+
+3 Review & Confirm
+
+Upload Guidelines
+
+© Donat roname or remove ary columns in the template
+© Ensure all required felds are filed.
+
+@ Date format should be DD/MM/YYYY.
+
+© Phone numbers shouid include country code (e.g. +254...)
+
+Q Save the file in Excel format (xls or xlsx only
+
+Data Validation Summary (afer validation)
+
+© Total Records
+© Vaid Records
+© valid Records
+© Duplicates Found
+.
+
+Ready to import
+
+Need Help?
+
+Ifyou face any issues withthe template or upload process,
+
+contact suppor
+0722 $74 400
+suppor@cvert.coke
+
+Mon Fri 00AM - &c0PM
+
+Save as Draft

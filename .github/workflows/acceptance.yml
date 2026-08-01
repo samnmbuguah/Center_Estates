@@ -1,0 +1,47 @@
+name: Live acceptance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1-5"
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_ROLE_PASSWORD: ${{ secrets.E2E_ROLE_PASSWORD }}
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Require acceptance configuration
+        run: test -n "$E2E_BASE_URL" && test -n "$E2E_ADMIN_PASSWORD"
+      - name: Wait for deployment readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error "$E2E_BASE_URL/api/v1/health/" >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - run: npx playwright test
+      - name: Publish acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-acceptance-${{ github.run_id }}
+          path: |
+            artifacts/playwright-report
+            artifacts/playwright-results.xml
+            artifacts/test-results
+          if-no-files-found: warn
+          retention-days: 30

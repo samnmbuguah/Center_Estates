@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
-from core.permissions import HasModuleSubscription
+from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
 from properties.models import Building, Property
 
@@ -28,7 +28,7 @@ from .serializers import (
 
 
 class FacilityModelViewSet(ModelViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY
     search_fields = ()
 
@@ -318,7 +318,7 @@ class MeterReadingViewSet(FacilityModelViewSet):
 
 
 class FacilityDashboardViewSet(ViewSet):
-    permission_classes = (HasModuleSubscription,)
+    permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY
 
     def list(self, request):

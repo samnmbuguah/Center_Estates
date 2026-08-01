@@ -28,7 +28,7 @@ class ConstructionApiTests(TestCase):
         self.user = get_user_model().objects.create_user(username="monitor", password="test")
         self.organization = Organization.objects.create(name="Builder", slug="builder")
         self.other = Organization.objects.create(name="Other Builder", slug="other-builder")
-        Membership.objects.create(user=self.user, organization=self.organization, is_default=True)
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(
             organization=self.organization, module=Module.MONITORING,
             status=Subscription.Status.ACTIVE,

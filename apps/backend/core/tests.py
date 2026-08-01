@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase, override_settings
 from rest_framework.test import APIClient
 
-from organizations.models import Membership, Organization
+from organizations.models import Membership, MembershipRole, Organization, Permission, Role
 
 from .tenancy import get_active_organization, scope_to_request
 from properties.models import Property
@@ -50,7 +50,7 @@ class AuthenticationApiTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username='api-user', password='correct-password')
         self.organization = Organization.objects.create(name='API Organization', slug='api-organization')
-        Membership.objects.create(user=self.user, organization=self.organization, is_default=True)
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(
             organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE
         )
@@ -92,3 +92,53 @@ class AuthenticationApiTests(TestCase):
         self.assertEqual(responses[-1].status_code, 429)
 
 # Create your tests here.
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class ModuleRolePermissionApiTests(TestCase):
+    routes = {
+        Module.PROPERTY: ('/api/v1/property/dashboard/', '/api/v1/property/properties/'),
+        Module.FACILITY: ('/api/v1/facility/dashboard/', '/api/v1/facility/assets/'),
+        Module.SALES: ('/api/v1/sales/dashboard/', '/api/v1/sales/buyers/'),
+        Module.TENDER: ('/api/v1/tender/dashboard/', '/api/v1/tender/tenders/'),
+        Module.VALUATION: ('/api/v1/valuation/dashboard/', '/api/v1/valuation/clients/'),
+        Module.MONITORING: ('/api/v1/construction/dashboard/', '/api/v1/construction/projects/'),
+    }
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='role-viewer', password='test')
+        self.organization = Organization.objects.create(name='Role Client', slug='role-client')
+        self.membership = Membership.objects.create(
+            user=self.user, organization=self.organization, is_default=True,
+        )
+        self.roles = {}
+        for module, label in Module.choices:
+            Subscription.objects.create(organization=self.organization, module=module, status=Subscription.Status.ACTIVE)
+            role = Role.objects.create(organization=self.organization, name=f'{label} role', slug=f'{module}-role')
+            view = Permission.objects.create(key=f'{module}.view', label=f'View {label}', module=module)
+            role.permissions.add(view); MembershipRole.objects.create(membership=self.membership, role=role)
+            self.roles[module] = role
+        self.client = APIClient(); self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_viewer_can_read_each_module_but_cannot_mutate(self):
+        for module, (dashboard, collection) in self.routes.items():
+            with self.subTest(module=module):
+                self.assertEqual(self.client.get(dashboard, **self.headers).status_code, 200)
+                self.assertEqual(self.client.post(collection, {}, format='json', **self.headers).status_code, 403)
+
+    def test_manage_permission_allows_request_to_reach_domain_validation(self):
+        for module, (_dashboard, collection) in self.routes.items():
+            permission = Permission.objects.create(key=f'{module}.manage', label=f'Manage {module}', module=module)
+            self.roles[module].permissions.add(permission)
+            with self.subTest(module=module):
+                self.assertEqual(self.client.post(collection, {}, format='json', **self.headers).status_code, 400)
+
+    def test_approval_action_requires_separate_approval_permission(self):
+        manage = Permission.objects.create(key='sales.manage', label='Manage sales', module=Module.SALES)
+        self.roles[Module.SALES].permissions.add(manage)
+        url = '/api/v1/sales/payments/00000000-0000-0000-0000-000000000001/verify/'
+        self.assertEqual(self.client.post(url, {}, format='json', **self.headers).status_code, 403)
+        approve = Permission.objects.create(key='sales.approve', label='Approve sales', module=Module.SALES)
+        self.roles[Module.SALES].permissions.add(approve)
+        self.assertEqual(self.client.post(url, {}, format='json', **self.headers).status_code, 404)

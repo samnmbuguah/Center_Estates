@@ -16,8 +16,13 @@ class MembershipSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'slug', 'is_default', 'is_admin')
 
 
-def serialize_modules(organization):
+def serialize_modules(organization, membership=None):
     subscriptions = Subscription.objects.available().filter(organization=organization)
+    if membership and not membership.is_organization_admin:
+        allowed_modules = membership.roles.filter(
+            permissions__key__endswith='.view'
+        ).values_list('permissions__module', flat=True).distinct()
+        subscriptions = subscriptions.filter(module__in=allowed_modules)
     by_key = dict(Module.choices)
     return [
         {'slug': subscription.module, 'name': by_key[subscription.module], 'limits': subscription.limits}
