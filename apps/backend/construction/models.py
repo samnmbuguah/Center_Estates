@@ -190,6 +190,7 @@ class ProjectApproval(models.Model):
     issued_at = models.BigIntegerField(null=True, blank=True)
     expiry_at = models.BigIntegerField(null=True, blank=True)
     issue_date = models.DateField(null=True, blank=True)
+    review_notes = models.TextField(blank=True, default="")
 
 
 class LifecycleRecord(models.Model):

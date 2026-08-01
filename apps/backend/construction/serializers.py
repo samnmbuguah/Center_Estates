@@ -4,9 +4,9 @@ from .models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog, DocumentVersion,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
-    MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
+    MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument, ProjectMembership,
     PurchaseOrder, PurchaseOrderLine,
-    ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
+    ProvisionalSum, QualityTest, RequirementWaiver, Requisition, Rfi, Risk, SafetyIncident,
     SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
 )
 
@@ -32,6 +32,12 @@ ProjectSerializer = serializer_for(Project, {
     "portfolio_project_name": serializers.CharField(source="portfolio_project.name", read_only=True),
 })
 MilestoneSerializer = serializer_for(MilestoneEntry)
+MilestoneVerificationSerializer = serializer_for(MilestoneVerification, {
+    "milestone_name": serializers.CharField(source="milestone_entry.milestone_id", read_only=True),
+    "verifier_name": serializers.CharField(source="verifier.username", read_only=True),
+    "verifier": serializers.PrimaryKeyRelatedField(read_only=True),
+    "verified_at": serializers.IntegerField(read_only=True),
+})
 EvidenceSerializer = serializer_for(EvidenceFile)
 DailyLogSerializer = serializer_for(DailyLog)
 RiskSerializer = serializer_for(Risk)
@@ -58,6 +64,18 @@ DocumentVersionSerializer = serializer_for(DocumentVersion, {
     "uploaded_at": serializers.IntegerField(read_only=True),
 })
 ProjectApprovalSerializer = serializer_for(ProjectApproval)
+RequirementWaiverSerializer = serializer_for(RequirementWaiver, {
+    "project_name": serializers.CharField(source="project.name", read_only=True),
+    "waived_by_name": serializers.CharField(source="waived_by.username", read_only=True),
+    "waived_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "waived_at": serializers.IntegerField(read_only=True),
+})
+ProjectMembershipSerializer = serializer_for(ProjectMembership, {
+    "project_name": serializers.CharField(source="project.name", read_only=True),
+    "user_name": serializers.CharField(source="user.username", read_only=True),
+    "role_name": serializers.CharField(source="role.name", read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+})
 LifecycleSerializer = serializer_for(LifecycleRecord)
 MaterialDeliverySerializer = serializer_for(MaterialDelivery)
 ConsultantPaymentSerializer = serializer_for(ConsultantPayment)

@@ -9,13 +9,15 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from tempfile import TemporaryDirectory
 
 from core.models import Module
-from organizations.models import Membership, Organization
+from organizations.models import Membership, Organization, Role
 from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
 from .models import (
-    Certificate, ChatMessage, Disbursement, DocumentVersion, EvidenceFile, MaterialDelivery, MilestoneEntry, Project, ProjectDocument, PurchaseOrder, Risk,
-    StockMovement, StoreItem, StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation,
+    Certificate, ChatMessage, Disbursement, DocumentVersion, EvidenceFile, MaterialDelivery,
+    MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
+    ProjectMembership, PurchaseOrder, RequirementWaiver, Risk, StockMovement, StoreItem,
+    StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation,
 )
 
 
@@ -287,3 +289,75 @@ class ConstructionApiTests(TestCase):
         comment = TicketComment.objects.get(ticket=ticket)
         self.assertEqual(comment.author, self.user)
         self.assertEqual(self.client.patch(f"/api/v1/construction/ticket-comments/{comment.id}/", {"body":"Changed"}, format="json", **self.headers).status_code, 400)
+
+    def test_milestone_verification_requires_seal_and_is_immutable(self):
+        url = "/api/v1/construction/milestone-verifications/"
+        unsealed = self.client.post(url, {"milestone_entry": self.milestone.id, "decision": "verified"}, format="json", **self.headers)
+        self.assertEqual(unsealed.status_code, 400)
+        SubmissionRecord.objects.create(
+            milestone_entry=self.milestone, integrity_hash="a" * 64,
+            evidence_count=0, sealed_at=self.milestone.submitted_at,
+        )
+        missing_reason = self.client.post(url, {"milestone_entry": self.milestone.id, "decision": "rejected"}, format="json", **self.headers)
+        self.assertEqual(missing_reason.status_code, 400)
+        created = self.client.post(url, {"milestone_entry": self.milestone.id, "decision": "verified", "signature": "engineer-signature"}, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        verification = MilestoneVerification.objects.get(milestone_entry=self.milestone)
+        self.assertEqual(verification.verifier, self.user)
+        self.assertEqual(self.client.patch(f"{url}{verification.id}/", {"note": "Changed"}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.delete(f"{url}{verification.id}/", **self.headers).status_code, 400)
+
+    def test_project_membership_requires_active_organization_member_and_role(self):
+        candidate = get_user_model().objects.create_user(username="site-engineer")
+        role = Role.objects.create(organization=self.organization, name="Site Engineer", slug="site-engineer")
+        url = "/api/v1/construction/project-memberships/"
+        rejected = self.client.post(url, {"project": self.project.id, "user": candidate.id, "role": role.id}, format="json", **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+        Membership.objects.create(user=candidate, organization=self.organization)
+        created = self.client.post(url, {"project": self.project.id, "user": candidate.id, "role": role.id, "label": "Resident engineer"}, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        assignment = ProjectMembership.objects.get(project=self.project, user=candidate)
+        self.assertEqual(assignment.role, role)
+        self.assertGreater(assignment.created_at, 0)
+
+    def test_requirement_waiver_is_server_authored_and_immutable(self):
+        url = "/api/v1/construction/requirement-waivers/"
+        created = self.client.post(url, {
+            "project": self.project.id, "requirement_key": "TITLE_DEED",
+            "requirement_type": "DOC", "reason": "Client-approved phased submission",
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        waiver = RequirementWaiver.objects.get(project=self.project)
+        self.assertEqual(waiver.waived_by, self.user)
+        self.assertGreater(waiver.waived_at, 0)
+        self.assertEqual(self.client.patch(f"{url}{waiver.id}/", {"reason": "Changed"}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.delete(f"{url}{waiver.id}/", **self.headers).status_code, 400)
+
+    def test_approval_decisions_use_controlled_actions(self):
+        approval = ProjectApproval.objects.create(
+            organization=self.organization, project=self.project,
+            approval_type="NCA", authority="National Construction Authority",
+        )
+        url = f"/api/v1/construction/approvals/{approval.id}/"
+        self.assertEqual(self.client.patch(url, {"status": "approved"}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.post(f"{url}reject/", {}, format="json", **self.headers).status_code, 400)
+        rejected = self.client.post(f"{url}reject/", {"review_notes": "Permit drawing revision required"}, format="json", **self.headers)
+        self.assertEqual(rejected.status_code, 200, rejected.data)
+        approval.refresh_from_db()
+        self.assertEqual(approval.status, "rejected")
+        self.assertEqual(approval.review_notes, "Permit drawing revision required")
+        self.assertIsNotNone(approval.issued_at)
+        self.assertEqual(self.client.delete(url, **self.headers).status_code, 400)
+
+    def test_notifications_can_only_be_read_by_the_recipient(self):
+        notification = Notification.objects.create(
+            organization=self.organization, recipient=self.user, title="Review required", created_at=1,
+        )
+        marked = self.client.post(f"/api/v1/construction/notifications/{notification.id}/mark-read/", {}, format="json", **self.headers)
+        self.assertEqual(marked.status_code, 200, marked.data)
+        notification.refresh_from_db()
+        self.assertIsNotNone(notification.read_at)
+        Notification.objects.create(organization=self.organization, recipient=self.user, title="Second", created_at=2)
+        read_all = self.client.post("/api/v1/construction/notifications/read-all/", {}, format="json", **self.headers)
+        self.assertEqual(read_all.status_code, 200, read_all.data)
+        self.assertEqual(read_all.data["updated"], 1)

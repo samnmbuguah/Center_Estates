@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
 type Row = Record<string, string | number | boolean | null | string[]>;
-type Tab = "overview" | "projects" | "milestones" | "daily-logs" | "risks" | "tickets" | "ticket-comments" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "document-versions" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
+type Tab = "overview" | "projects" | "project-memberships" | "milestones" | "milestone-verifications" | "requirement-waivers" | "daily-logs" | "risks" | "tickets" | "ticket-comments" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "document-versions" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
 type Dashboard = {
   kpis: Record<string, string | number>;
   projects: Row[];
@@ -15,7 +15,7 @@ type Dashboard = {
 };
 
 const labels: Record<Tab, string> = {
-  overview: "Command center", projects: "Projects", milestones: "Progress",
+  overview: "Command center", projects: "Projects", "project-memberships": "Project team", milestones: "Progress", "milestone-verifications": "Progress verification", "requirement-waivers": "Requirement waivers",
   "daily-logs": "Daily logs", risks: "Risks", tickets: "Issues", "ticket-comments": "Issue discussion",
   "work-plan": "Programme", boq: "BoQ & cost", variations: "Variations",
   "quality-tests": "Quality", rfis: "RFIs", "safety-incidents": "Safety",
@@ -30,7 +30,10 @@ const labels: Record<Tab, string> = {
 };
 const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; kind?: "money" | "status" | "progress" }[]> = {
   projects: [{key:"code",label:"Project"},{key:"name",label:"Name"},{key:"client_name",label:"Client"},{key:"location",label:"Location"},{key:"stage",label:"Stage",kind:"status"},{key:"budget",label:"Budget",kind:"money"},{key:"planned_completion_date",label:"Completion"}],
+  "project-memberships": [{key:"project_name",label:"Project"},{key:"user_name",label:"Team member"},{key:"role_name",label:"Access role"},{key:"label",label:"Project responsibility"},{key:"created_at",label:"Assigned"}],
   milestones: [{key:"milestone_id",label:"Milestone"},{key:"project_id",label:"Project"},{key:"percent_complete",label:"Progress",kind:"progress"},{key:"required_certifying_role",label:"Certifier"},{key:"payment_value",label:"Value",kind:"money"},{key:"submitted_at",label:"Submitted"}],
+  "milestone-verifications": [{key:"milestone_name",label:"Milestone"},{key:"decision",label:"Decision",kind:"status"},{key:"verifier_name",label:"Verified by"},{key:"note",label:"Review note"},{key:"verified_at",label:"Verified"}],
+  "requirement-waivers": [{key:"project_name",label:"Project"},{key:"requirement_key",label:"Requirement"},{key:"requirement_type",label:"Type",kind:"status"},{key:"reason",label:"Approved reason"},{key:"waived_by_name",label:"Waived by"},{key:"waived_at",label:"Waived"}],
   "daily-logs": [{key:"log_date",label:"Date"},{key:"project_id",label:"Project"},{key:"weather",label:"Weather"},{key:"labour_count",label:"Labour"},{key:"notes",label:"Site notes"},{key:"verified_at",label:"Verified"}],
   risks: [{key:"reference",label:"Risk"},{key:"description",label:"Description"},{key:"category",label:"Category"},{key:"likelihood",label:"Likelihood"},{key:"impact",label:"Impact"},{key:"mitigation",label:"Mitigation"},{key:"status",label:"Status",kind:"status"}],
   tickets: [{key:"title",label:"Issue"},{key:"priority",label:"Priority",kind:"status"},{key:"risk_level",label:"Risk",kind:"status"},{key:"due_date",label:"Due"},{key:"escalation_level",label:"Escalation"},{key:"status",label:"Status",kind:"status"}],
@@ -114,6 +117,13 @@ export default function MonitoringPage() {
     setModal(false); setTab("projects"); await load();
   }
 
+  async function markAllNotificationsRead() {
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/construction/notifications/read-all/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: "{}" }, organization);
+    if (!response.ok) { setError("Notifications could not be marked as read."); return; }
+    await load();
+  }
+
   const selectedColumns = useMemo(() => tab === "overview" ? [] : columns[tab], [tab]);
   const kpis = dashboard?.kpis;
   return <div className="page-wrap property-app monitoring-app">
@@ -124,7 +134,7 @@ export default function MonitoringPage() {
       <section className="kpi-grid"><Kpi label="Active projects" value={String(kpis.activeProjects)} note={`${kpis.portfolioProjects} workspaces`} onClick={() => setTab("projects")}/><Kpi label="Open site issues" value={String(kpis.openTickets)} note="Tracked through resolution" onClick={() => setTab("tickets")}/><Kpi label="High exposure risks" value={String(kpis.highRisks)} note="Likelihood × impact ≥ 16" onClick={() => setTab("risks")}/><Kpi label="Approved variations" value={cash.format(Number(kpis.approvedVariations))} note={`${kpis.submittedMilestones} progress submissions`} onClick={() => setTab("variations")}/><Kpi label="Certified value" value={cash.format(Number(kpis.certifiedValue))} note="Current non-void certificates" onClick={() => setTab("certificates")}/><Kpi label="Paid to date" value={cash.format(Number(kpis.paidValue))} note={`${kpis.budgetUtilization}% budget utilized`} onClick={() => setTab("disbursements")}/></section>
       <section className="dashboard-columns"><article className="data-panel"><PanelTitle title="Active construction portfolio" onClick={() => setTab("projects")}/><Table cols={columns.projects} rows={dashboard.projects}/></article><div className="facility-side-stack"><article className="data-panel"><PanelTitle title="Issues requiring action" onClick={() => setTab("tickets")}/>{dashboard.recentTickets.length ? dashboard.recentTickets.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("tickets")}><span><strong>{String(row.title)}</strong><small>{String(row.due_date || "No due date")} · escalation {String(row.escalation_level)}</small></span><Status value={String(row.priority)}/></button>) : <Empty/>}</article><article className="data-panel"><PanelTitle title="Risk watchlist" onClick={() => setTab("risks")}/>{dashboard.topRisks.length ? dashboard.topRisks.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("risks")}><span><strong>{String(row.reference || "Risk")}</strong><small>{String(row.description)}</small></span><b>{Number(row.likelihood) * Number(row.impact)}</b></button>) : <Empty/>}</article></div></section>
       <section className="summary-strip">{dashboard.projectStages.map(item => <button key={item.stage} onClick={() => setTab("projects")}><b>{item.count}</b>{item.stage.replaceAll("_", " ")}</button>)}</section>
-    </> : <article className="data-panel"><header className="collection-title"><div><p className="eyebrow">Organization-scoped live register</p><h2>{labels[tab]}</h2></div><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search records…"/></header><Table cols={selectedColumns} rows={rows}/></article>}
+    </> : <article className="data-panel"><header className="collection-title"><div><p className="eyebrow">Organization-scoped live register</p><h2>{labels[tab]}</h2></div><div className="collection-actions">{tab === "notifications" && <button className="secondary-action" onClick={markAllNotificationsRead}>Mark all read</button>}<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search records…"/></div></header><Table cols={selectedColumns} rows={rows}/></article>}
     {modal && <div className="modal-backdrop" onMouseDown={() => setModal(false)}><div className="form-modal" onMouseDown={event => event.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Unified hierarchy</p><h2>Create construction workspace</h2></div><button onClick={() => setModal(false)}>×</button></div><form onSubmit={createProject}><label>Shared portfolio project<select required name="portfolio_project" defaultValue=""><option disabled value="">Select project</option>{portfolioProjects.map(project => <option key={String(project.id)} value={String(project.id)}>{project.code} — {project.name}</option>)}</select></label><div className="form-row"><label>Construction code<input required name="code"/></label><label>Stage<select name="stage" defaultValue="planning"><option value="planning">Planning</option><option value="active">Active</option><option value="on_hold">On hold</option><option value="complete">Complete</option></select></label></div><label>Workspace name<input required name="name"/></label><div className="form-row"><label>Client<input name="client_name"/></label><label>Location<input name="location"/></label></div><label>Description<textarea name="description" rows={3}/></label><div className="form-actions"><button type="button" onClick={() => setModal(false)}>Cancel</button><button className="primary-action">Create workspace</button></div></form></div></div>}
   </div>;
 }

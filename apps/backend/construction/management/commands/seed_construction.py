@@ -12,8 +12,10 @@ from construction.models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, Certificate, ChatMessage,
     ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement, DocumentVersion,
     DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery, MaterialRequisition, MaterialRequisitionLine,
-    MilestoneEntry, Notification, Project, ProjectDocument, ProvisionalSum, PurchaseOrder, PurchaseOrderLine, Requisition, Risk,
-    SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
+    MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
+    ProjectMembership, ProvisionalSum, PurchaseOrder, PurchaseOrderLine, RequirementWaiver,
+    Requisition, Risk, SatelliteDataset, StockMovement, StoreItem, StoreSupplier, SubmissionRecord,
+    Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
 )
 
 
@@ -59,7 +61,7 @@ class Command(BaseCommand):
                 "geofence_radius_m": 250,
             },
         )
-        MilestoneEntry.objects.update_or_create(
+        milestone, _ = MilestoneEntry.objects.update_or_create(
             id="ce-ms-foundations-001",
             defaults={
                 "organization": organization, "project_id": project.id,
@@ -67,6 +69,41 @@ class Command(BaseCommand):
                 "submitted_at": now_ms - 86400000, "created_at": now_ms - 86400000,
                 "updated_at": now_ms, "required_evidence_types": ["photo", "document"],
                 "required_certifying_role": "project_manager", "payment_value": Decimal("18500000"),
+            },
+        )
+        SubmissionRecord.objects.update_or_create(
+            milestone_entry=milestone,
+            defaults={"integrity_hash": "0" * 64, "evidence_count": 0, "sealed_at": now_ms - 86400000},
+        )
+        MilestoneVerification.objects.update_or_create(
+            milestone_entry=milestone,
+            defaults={
+                "verifier": user, "decision": "verified",
+                "note": "Progress evidence reviewed against the approved programme.",
+                "verified_at": now_ms - 43200000, "signature": "seeded-review-signature",
+            },
+        )
+        role = organization.roles.filter(slug="project-manager").first() or organization.roles.first()
+        ProjectMembership.objects.update_or_create(
+            user=user, project=project,
+            defaults={"role": role, "label": "Project administrator", "created_at": now_ms - 1209600000},
+        )
+        RequirementWaiver.objects.update_or_create(
+            project=project, requirement_key="LEGACY_CONTRACT_IMPORT",
+            defaults={
+                "requirement_type": "DOC",
+                "reason": "Client approval recorded for phased migration of the legacy contract archive.",
+                "waived_by": user, "waived_at": now_ms - 604800000,
+            },
+        )
+        ProjectApproval.objects.update_or_create(
+            project=project, approval_type="NCA", authority="National Construction Authority",
+            defaults={
+                "organization": organization, "reference": "NCA-CE-2026-041",
+                "document_url": "/media/construction/approvals/nca-ce-2026-041.pdf",
+                "status": "approved", "issued_at": now_ms - 7776000000,
+                "issue_date": timezone.localdate() - timezone.timedelta(days=90),
+                "review_notes": "Permit validated against the statutory approval register.",
             },
         )
         DailyLog.objects.update_or_create(

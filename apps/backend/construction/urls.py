@@ -7,8 +7,8 @@ from .views import (
     ChatMessageViewSet, ConsultantPaymentViewSet, ContingencyDrawdownViewSet, DailyLogViewSet,
     DashboardViewSet, DisbursementViewSet, DocumentVersionViewSet, DrawdownRequestViewSet,
     DroneDatasetViewSet, EvidenceViewSet, LifecycleViewSet,
-    MaterialDeliveryViewSet, MaterialRequisitionViewSet, MilestoneViewSet, NotificationViewSet, ProjectApprovalViewSet,
-    ProjectDocumentViewSet, ProjectViewSet, ProvisionalSumViewSet,
+    MaterialDeliveryViewSet, MaterialRequisitionViewSet, MilestoneVerificationViewSet, MilestoneViewSet, NotificationViewSet, ProjectApprovalViewSet,
+    ProjectDocumentViewSet, ProjectMembershipViewSet, ProjectViewSet, ProvisionalSumViewSet, RequirementWaiverViewSet,
     QualityTestViewSet, RequisitionViewSet, RfiViewSet, RiskViewSet,
     PurchaseOrderViewSet, SafetyIncidentViewSet, SatelliteDatasetViewSet, StockMovementViewSet, StoreItemViewSet, StoreSupplierViewSet, SubcontractorViewSet,
     TicketCommentViewSet, TicketViewSet, VariationViewSet, WorkOrderViewSet, WorkPlanTaskViewSet,
@@ -21,6 +21,7 @@ router = DefaultRouter()
 router.register("dashboard", DashboardViewSet, basename="construction-dashboard")
 router.register("projects", ProjectViewSet, basename="construction-project")
 router.register("milestones", MilestoneViewSet, basename="construction-milestone")
+router.register("milestone-verifications", MilestoneVerificationViewSet, basename="construction-milestone-verification")
 router.register("evidence", EvidenceViewSet, basename="construction-evidence")
 router.register("daily-logs", DailyLogViewSet, basename="construction-daily-log")
 router.register("risks", RiskViewSet, basename="construction-risk")
@@ -35,6 +36,8 @@ router.register("calendar", CalendarEventViewSet, basename="construction-calenda
 router.register("documents", ProjectDocumentViewSet, basename="construction-document")
 router.register("document-versions", DocumentVersionViewSet, basename="construction-document-version")
 router.register("approvals", ProjectApprovalViewSet, basename="construction-approval")
+router.register("requirement-waivers", RequirementWaiverViewSet, basename="construction-requirement-waiver")
+router.register("project-memberships", ProjectMembershipViewSet, basename="construction-project-membership")
 router.register("lifecycle", LifecycleViewSet, basename="construction-lifecycle")
 router.register("materials", MaterialDeliveryViewSet, basename="construction-material")
 router.register("consultant-payments", ConsultantPaymentViewSet, basename="construction-consultant-payment")

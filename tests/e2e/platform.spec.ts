@@ -112,6 +112,22 @@ test("construction controlled documents and issue discussion are connected", asy
   await expect(page.getByText("level-6-corrective-plan.pdf", { exact: true })).toBeVisible();
 });
 
+test("construction governance registers and notification controls are connected", async ({ page }) => {
+  await page.goto("/monitoring");
+  await page.getByRole("button", { name: "Project team", exact: true }).click();
+  await expect(page.getByText("Project administrator", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Requirement waivers", exact: true }).click();
+  await expect(page.getByText("LEGACY_CONTRACT_IMPORT", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Progress verification", exact: true }).click();
+  await expect(page.getByText("Progress evidence reviewed against the approved programme.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Approvals", exact: true }).click();
+  await expect(page.getByText("NCA-CE-2026-041", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Notifications", exact: true }).click();
+  await expect(page.getByText("IPC-011 disbursed", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Mark all read", exact: true }).click();
+  await expect(page.locator(".form-error")).toHaveCount(0);
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });

@@ -10,14 +10,15 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleSubscription
 from core.tenancy import get_active_organization
+from organizations.models import Membership
 
 from .models import (
     AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog, DocumentVersion,
-    Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
-    MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, Notification, Project, ProjectApproval, ProjectDocument,
+    Device, Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
+    MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument, ProjectMembership,
     PurchaseOrder, PurchaseOrderLine,
-    ProvisionalSum, QualityTest, Requisition, Rfi, Risk, SafetyIncident,
+    ProvisionalSum, QualityTest, RequirementWaiver, Requisition, Rfi, Risk, SafetyIncident,
     SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
 )
 from .serializers import (
@@ -26,9 +27,9 @@ from .serializers import (
     ConsultantPaymentSerializer, ContingencyDrawdownSerializer,
     ChatMessageSerializer, DailyLogSerializer, DisbursementSerializer, DocumentVersionSerializer, DrawdownRequestSerializer,
     DroneDatasetSerializer, EvidenceSerializer, LifecycleSerializer,
-    MaterialDeliverySerializer, MaterialRequisitionSerializer, MilestoneSerializer, NotificationSerializer, ProjectApprovalSerializer,
-    ProjectDocumentSerializer, ProjectSerializer, ProvisionalSumSerializer,
-    QualityTestSerializer, RequisitionSerializer, RfiSerializer, RiskSerializer,
+    MaterialDeliverySerializer, MaterialRequisitionSerializer, MilestoneSerializer, MilestoneVerificationSerializer, NotificationSerializer, ProjectApprovalSerializer,
+    ProjectDocumentSerializer, ProjectMembershipSerializer, ProjectSerializer, ProvisionalSumSerializer,
+    QualityTestSerializer, RequirementWaiverSerializer, RequisitionSerializer, RfiSerializer, RiskSerializer,
     PurchaseOrderSerializer, SafetyIncidentSerializer, SatelliteDatasetSerializer, StockMovementSerializer,
     StoreItemSerializer, StoreSupplierSerializer, SubcontractorSerializer, TicketCommentSerializer, TicketSerializer, VariationSerializer,
     WorkOrderSerializer, WorkPlanTaskSerializer,
@@ -141,6 +142,38 @@ class MilestoneViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, MilestoneBas
     pass
 
 
+class MilestoneVerificationViewSet(ConstructionScopedViewSet):
+    queryset = MilestoneVerification.objects.select_related("milestone_entry", "verifier")
+    serializer_class = MilestoneVerificationSerializer
+    organization_field = "milestone_entry__organization"
+    search_fields = ("milestone_entry__milestone_id", "decision", "note", "verifier__username")
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        entry = MilestoneEntry.objects.select_for_update().filter(
+            pk=serializer.validated_data["milestone_entry"].pk, organization=organization,
+        ).first()
+        if not entry or entry.submitted_at is None or not hasattr(entry, "seal"):
+            raise ValidationError({"milestone_entry": "Only a sealed submitted milestone can be verified."})
+        if hasattr(entry, "verification"):
+            raise ValidationError({"milestone_entry": "This milestone already has a verification decision."})
+        if entry.signing_device_id and Device.objects.filter(
+            pk=entry.signing_device_id, organization=organization, user=self.request.user,
+        ).exists():
+            raise ValidationError({"verifier": "The submitting device owner cannot verify the same milestone."})
+        note = serializer.validated_data.get("note", "").strip()
+        if serializer.validated_data["decision"] != "verified" and not note:
+            raise ValidationError({"note": "A reason is required for rejection or clarification."})
+        serializer.save(verifier=self.request.user, verified_at=int(time() * 1000))
+
+    def perform_update(self, serializer):
+        raise ValidationError({"verification": "Verification decisions are immutable."})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"verification": "Verification decisions cannot be deleted."})
+
+
 class EvidenceViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, EvidenceBaseViewSet):
     pass
 DailyLogViewSet = scoped_viewset("DailyLogViewSet", DailyLog, DailyLogSerializer, ("notes", "weather"))
@@ -196,7 +229,90 @@ class DocumentVersionViewSet(ConstructionScopedViewSet):
 
     def perform_destroy(self, instance):
         raise ValidationError({"version": "Controlled document versions cannot be deleted."})
-ProjectApprovalViewSet = scoped_viewset("ProjectApprovalViewSet", ProjectApproval, ProjectApprovalSerializer, ("approval_type", "authority", "reference"))
+ProjectApprovalBaseViewSet = scoped_viewset("ProjectApprovalBaseViewSet", ProjectApproval, ProjectApprovalSerializer, ("approval_type", "authority", "reference", "review_notes"))
+
+
+class ProjectApprovalViewSet(ProjectApprovalBaseViewSet):
+    def perform_create(self, serializer):
+        if serializer.validated_data.get("status", "pending") != "pending":
+            raise ValidationError({"status": "New approvals must enter the pending review queue."})
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        if "status" in serializer.validated_data:
+            raise ValidationError({"status": "Use the controlled approve or reject action."})
+        if self.get_object().status != "pending":
+            raise ValidationError({"approval": "Completed approval decisions are immutable."})
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"approval": "Approval records cannot be deleted."})
+
+    @action(detail=True, methods=("post",))
+    def approve(self, request, pk=None):
+        approval = self.get_object()
+        if approval.status != "pending":
+            raise ValidationError({"status": "Only pending approvals can be approved."})
+        approval.status = "approved"
+        approval.issued_at = int(time() * 1000)
+        approval.review_notes = str(request.data.get("review_notes", "")).strip()
+        approval.save(update_fields=("status", "issued_at", "review_notes"))
+        return Response(self.get_serializer(approval).data)
+
+    @action(detail=True, methods=("post",))
+    def reject(self, request, pk=None):
+        approval = self.get_object()
+        reason = str(request.data.get("review_notes", "")).strip()
+        if approval.status != "pending":
+            raise ValidationError({"status": "Only pending approvals can be rejected."})
+        if not reason:
+            raise ValidationError({"review_notes": "A rejection reason is required."})
+        approval.status = "rejected"
+        approval.review_notes = reason
+        approval.issued_at = int(time() * 1000)
+        approval.save(update_fields=("status", "review_notes", "issued_at"))
+        return Response(self.get_serializer(approval).data)
+
+
+class RequirementWaiverViewSet(ConstructionScopedViewSet):
+    queryset = RequirementWaiver.objects.select_related("project", "waived_by")
+    serializer_class = RequirementWaiverSerializer
+    organization_field = "project__organization"
+    search_fields = ("project__name", "requirement_key", "requirement_type", "reason", "waived_by__username")
+
+    def perform_create(self, serializer):
+        self._validate_organization(serializer)
+        serializer.save(waived_by=self.request.user, waived_at=int(time() * 1000))
+
+    def perform_update(self, serializer):
+        raise ValidationError({"waiver": "Requirement waivers are immutable audit records."})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"waiver": "Requirement waivers cannot be deleted."})
+
+
+class ProjectMembershipViewSet(ConstructionScopedViewSet):
+    queryset = ProjectMembership.objects.select_related("project", "user", "role")
+    serializer_class = ProjectMembershipSerializer
+    organization_field = "project__organization"
+    search_fields = ("project__name", "user__username", "role__name", "label")
+
+    def _validate_member(self, serializer):
+        organization = self._validate_organization(serializer)
+        user = serializer.validated_data.get("user", getattr(self.get_object() if self.kwargs.get("pk") else None, "user", None))
+        role = serializer.validated_data.get("role", getattr(self.get_object() if self.kwargs.get("pk") else None, "role", None))
+        if not Membership.objects.active().filter(organization=organization, user=user).exists():
+            raise ValidationError({"user": "The user must be an active organization member."})
+        if role and role.organization_id != organization.id:
+            raise ValidationError({"role": "The role belongs to another organization."})
+
+    def perform_create(self, serializer):
+        self._validate_member(serializer)
+        serializer.save(created_at=int(time() * 1000))
+
+    def perform_update(self, serializer):
+        self._validate_member(serializer)
+        serializer.save()
 LifecycleViewSet = scoped_viewset("LifecycleViewSet", LifecycleRecord, LifecycleSerializer, ("title", "reference", "record_type"))
 MaterialDeliveryViewSet = scoped_viewset("MaterialDeliveryViewSet", MaterialDelivery, MaterialDeliverySerializer, ("material", "supplier"))
 ConsultantPaymentViewSet = scoped_viewset("ConsultantPaymentViewSet", ConsultantPayment, ConsultantPaymentSerializer, ("consultant_name", "certificate_number"))
@@ -253,7 +369,7 @@ class ChatMessageViewSet(ConstructionScopedViewSet):
 class NotificationViewSet(ConstructionScopedViewSet):
     queryset = Notification.objects.select_related("recipient")
     serializer_class = NotificationSerializer
-    http_method_names = ("get", "patch", "head", "options")
+    http_method_names = ("get", "post", "patch", "head", "options")
 
     def get_queryset(self):
         return super().get_queryset().filter(recipient=self.request.user)
@@ -262,7 +378,21 @@ class NotificationViewSet(ConstructionScopedViewSet):
         allowed = set(serializer.validated_data) <= {"read_at"}
         if not allowed:
             raise ValidationError({"notification": "Only read status may be changed."})
-        serializer.save()
+        serializer.save(read_at=int(time() * 1000))
+
+    @action(detail=True, methods=("post",), url_path="mark-read")
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        if notification.read_at is None:
+            notification.read_at = int(time() * 1000)
+            notification.save(update_fields=("read_at",))
+        return Response(self.get_serializer(notification).data)
+
+    @action(detail=False, methods=("post",), url_path="read-all")
+    def read_all(self, request):
+        read_at = int(time() * 1000)
+        count = self.get_queryset().filter(read_at__isnull=True).update(read_at=read_at)
+        return Response({"updated": count, "read_at": read_at})
 
 
 class AdminAuditLogViewSet(ConstructionScopedViewSet):
