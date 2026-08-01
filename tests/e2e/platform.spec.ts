@@ -241,6 +241,19 @@ test("construction procurement inventory and stock ledger are connected", async 
   await expect(page.getByText("WO-019 / Level 6", { exact: true })).toBeVisible();
 });
 
+test("construction portfolio programme and risk workspaces are visual and connected", async ({ page }, testInfo) => {
+  await page.goto("/monitoring");
+  await openConstructionSection(page, testInfo, "Projects");
+  await expect(page.locator(".construction-project-card").first()).toBeVisible();
+  await expect(page.getByText("Open project workspace →", { exact: true }).first()).toBeVisible();
+  await openConstructionSection(page, testInfo, "Programme");
+  await expect(page.locator(".programme-row").first()).toBeVisible();
+  await expect(page.getByText("Programme activities", { exact: true })).toBeVisible();
+  await openConstructionSection(page, testInfo, "Risks");
+  await expect(page.getByRole("heading", { name: "Exposure matrix", exact: true })).toBeVisible();
+  await expect(page.locator(".risk-register-card").first()).toBeVisible();
+});
+
 test("construction controlled documents and issue discussion are connected", async ({ page }, testInfo) => {
   await page.goto("/monitoring");
   await openConstructionSection(page, testInfo, "Document revisions");
