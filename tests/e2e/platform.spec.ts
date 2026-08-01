@@ -65,6 +65,11 @@ test("property approval and billing workflows are interactive", async ({ page },
   await expect(page.getByRole("row").filter({ hasText: "LS-2026-DRAFT" }).getByRole("button", { name: "Activate", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Budgets", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: "Utilities" }).getByRole("button", { name: "Approve", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Rent & invoices", exact: true }).click();
+  const overdueInvoice = page.getByRole("row").filter({ hasText: "INV-2026-0702" });
+  await overdueInvoice.getByRole("button", { name: "Send reminder", exact: true }).click();
+  await page.getByRole("button", { name: "Reminders", exact: true }).click();
+  await expect(page.getByText("INV-2026-0702", { exact: true }).first()).toBeVisible();
 });
 
 test("property arrears, service-charge and report data are connected", async ({ page }) => {
@@ -76,6 +81,9 @@ test("property arrears, service-charge and report data are connected", async ({ 
   await expect(page.getByText("Westlands Business Centre", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Reconciliations", exact: true }).click();
   await expect(page.getByText("draft", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Bank reconciliation", exact: true }).click();
+  await expect(page.getByText("FT260418ACACIA", { exact: true })).toBeVisible();
+  await expect(page.getByText("matched", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Reports", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("row").filter({ hasText: "Outstanding aging" }).getByRole("button", { name: "Download CSV" }).click();

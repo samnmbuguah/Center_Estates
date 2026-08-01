@@ -18,13 +18,15 @@ from core.permissions import HasModuleSubscription
 from core.tenancy import get_active_organization
 
 from .models import (
-    Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
-    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
+    BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
+    InvoiceReminder, Lease, Project, Property, Receipt, ReceiptAllocation,
+    RentSchedule, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, Unit,
 )
 from .serializers import (
-    BuildingSerializer, BudgetSerializer, CreditNoteSerializer, ExpenseSerializer,
+    BankTransactionSerializer, BuildingSerializer, BudgetSerializer,
+    CreditNoteSerializer, ExpenseSerializer, InvoiceReminderSerializer,
     InvoiceSerializer, LeaseSerializer, ProjectSerializer, PropertySerializer,
     ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer,
     ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer,
@@ -192,6 +194,36 @@ class LeaseViewSet(OrganizationModelViewSet):
         lease = Lease.objects.select_for_update().get(pk=self.get_object().pk)
         return self._close(lease, Lease.Status.EXPIRED)
 
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def renew(self, request, pk=None):
+        lease = Lease.objects.select_for_update().get(pk=self.get_object().pk)
+        if hasattr(lease, 'renewal'):
+            return Response(self.get_serializer(lease.renewal).data)
+        if lease.status not in (Lease.Status.ACTIVE, Lease.Status.EXPIRING):
+            raise ValidationError({'status': 'Only active or expiring leases can be renewed.'})
+        reference = str(request.data.get('reference', '')).strip()
+        try:
+            ends_on = date.fromisoformat(str(request.data.get('ends_on', '')))
+            monthly_rent = Decimal(str(request.data.get('monthly_rent', '')))
+        except (ValueError, ArithmeticError):
+            raise ValidationError({'renewal': 'Reference, end date and monthly rent are required.'})
+        if not reference:
+            raise ValidationError({'reference': 'A renewal reference is required.'})
+        if ends_on <= lease.ends_on or monthly_rent <= 0:
+            raise ValidationError({'renewal': 'Renewal must extend the term and use a positive rent.'})
+        renewed = Lease.objects.create(
+            organization=lease.organization, reference=reference, unit=lease.unit,
+            tenant=lease.tenant, starts_on=lease.ends_on, ends_on=ends_on,
+            monthly_rent=monthly_rent, deposit=lease.deposit,
+            escalation_percent=request.data.get('escalation_percent', lease.escalation_percent),
+            billing_day=lease.billing_day, status=Lease.Status.ACTIVE,
+            renewed_from=lease, metadata={'renewed_from': lease.reference},
+        )
+        lease.status = Lease.Status.EXPIRED
+        lease.save(update_fields=('status', 'updated_at'))
+        return Response(self.get_serializer(renewed).data, status=201)
+
     def perform_destroy(self, instance):
         if instance.status != Lease.Status.DRAFT:
             raise ValidationError({'lease': 'Only draft leases can be deleted.'})
@@ -236,6 +268,38 @@ class InvoiceViewSet(OrganizationModelViewSet):
         invoice.save(update_fields=('status', 'updated_at'))
         return Response(self.get_serializer(invoice).data)
 
+    @action(detail=True, methods=('post',), url_path='send-reminder')
+    def send_reminder(self, request, pk=None):
+        from notifications.models import Notification
+
+        invoice = self.get_object()
+        if invoice.status in (Invoice.Status.DRAFT, Invoice.Status.PAID, Invoice.Status.VOID) or invoice.balance <= 0:
+            raise ValidationError({'invoice': 'Only outstanding issued invoices can receive reminders.'})
+        channel = str(request.data.get('channel', InvoiceReminder.Channel.PORTAL))
+        if channel not in InvoiceReminder.Channel.values:
+            raise ValidationError({'channel': 'Select email, SMS or tenant portal.'})
+        tenant = invoice.lease.tenant
+        recipient = tenant.email if channel == InvoiceReminder.Channel.EMAIL else tenant.phone if channel == InvoiceReminder.Channel.SMS else tenant.name
+        if not recipient:
+            raise ValidationError({'recipient': f'Tenant has no {channel} contact.'})
+        message = str(request.data.get('message', '')).strip() or f'Invoice {invoice.number} has an outstanding balance of {invoice.balance} due {invoice.due_on}.'
+        reminder = InvoiceReminder.objects.create(
+            organization=invoice.organization, invoice=invoice, channel=channel,
+            recipient=recipient, message=message, sent_at=timezone.now(), sent_by=request.user,
+        )
+        if channel == InvoiceReminder.Channel.PORTAL:
+            access = TenantPortalAccess.objects.for_organization(invoice.organization).filter(
+                tenant=tenant, is_active=True,
+            ).select_related('user').first()
+            if access:
+                Notification.objects.create(
+                    organization=invoice.organization, recipient=access.user,
+                    title=f'Payment reminder: {invoice.number}', message=message,
+                    level=Notification.Level.WARNING, action_url='/tenant-portal',
+                    metadata={'invoice_id': str(invoice.id)},
+                )
+        return Response(InvoiceReminderSerializer(reminder).data, status=201)
+
     def perform_destroy(self, instance):
         if instance.status != Invoice.Status.DRAFT:
             raise ValidationError({'invoice': 'Only draft invoices can be deleted.'})
@@ -278,6 +342,53 @@ class ReceiptViewSet(OrganizationModelViewSet):
 
     def perform_destroy(self, instance):
         raise ValidationError({'receipt': 'Posted receipts cannot be deleted.'})
+
+
+class InvoiceReminderViewSet(ReadOnlyModelViewSet):
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.PROPERTY
+    serializer_class = InvoiceReminderSerializer
+
+    def get_queryset(self):
+        return InvoiceReminder.objects.for_organization(
+            get_active_organization(self.request),
+        ).select_related('invoice__lease__tenant')
+
+
+class BankTransactionViewSet(OrganizationModelViewSet):
+    queryset = BankTransaction.objects.select_related('receipt')
+    serializer_class = BankTransactionSerializer
+    search_fields = ('reference', 'description', 'receipt__number')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), status=BankTransaction.Status.UNMATCHED)
+
+    def perform_update(self, serializer):
+        if serializer.instance.status != BankTransaction.Status.UNMATCHED:
+            raise ValidationError({'transaction': 'Matched bank transactions are immutable.'})
+        super().perform_update(serializer)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def match(self, request, pk=None):
+        transaction_record = BankTransaction.objects.select_for_update().get(pk=self.get_object().pk)
+        if transaction_record.status != BankTransaction.Status.UNMATCHED:
+            raise ValidationError({'status': 'Only unmatched transactions can be reconciled.'})
+        receipt = Receipt.objects.select_for_update().filter(
+            pk=request.data.get('receipt'), organization=transaction_record.organization,
+        ).first()
+        if not receipt:
+            raise ValidationError({'receipt': 'Select an organization receipt.'})
+        if receipt.amount != transaction_record.amount:
+            raise ValidationError({'receipt': 'Receipt and bank transaction amounts must match.'})
+        if BankTransaction.objects.filter(receipt=receipt).exclude(pk=transaction_record.pk).exists():
+            raise ValidationError({'receipt': 'Receipt is already matched.'})
+        transaction_record.receipt = receipt
+        transaction_record.status = BankTransaction.Status.MATCHED
+        transaction_record.matched_by = request.user
+        transaction_record.matched_at = timezone.now()
+        transaction_record.save()
+        return Response(self.get_serializer(transaction_record).data)
 
 
 class ExpenseViewSet(OrganizationModelViewSet):

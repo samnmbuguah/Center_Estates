@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
 from .models import (
-    Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
+    BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
+    InvoiceReminder, Lease, Project, Property,
     Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit,
@@ -59,7 +60,7 @@ class LeaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lease
         exclude = ('organization',)
-        read_only_fields = ('status',)
+        read_only_fields = ('status', 'renewed_from')
 
     def validate_monthly_rent(self, value):
         if value <= 0:
@@ -90,6 +91,30 @@ class ReceiptSerializer(serializers.ModelSerializer):
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError('Receipt amount must be greater than zero.')
+        return value
+
+
+class InvoiceReminderSerializer(serializers.ModelSerializer):
+    invoice_number = serializers.CharField(source='invoice.number', read_only=True)
+    tenant_name = serializers.CharField(source='invoice.lease.tenant.name', read_only=True)
+
+    class Meta:
+        model = InvoiceReminder
+        exclude = ('organization', 'sent_by')
+        read_only_fields = ('invoice', 'channel', 'recipient', 'message', 'sent_at')
+
+
+class BankTransactionSerializer(serializers.ModelSerializer):
+    receipt_number = serializers.CharField(source='receipt.number', read_only=True, default='')
+
+    class Meta:
+        model = BankTransaction
+        exclude = ('organization', 'matched_by', 'matched_at')
+        read_only_fields = ('status', 'receipt')
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Transaction amount must be greater than zero.')
         return value
 
 

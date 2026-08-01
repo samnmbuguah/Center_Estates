@@ -9,10 +9,12 @@ from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 from facilities.models import ServiceRequest
+from notifications.models import Notification
 
 from .models import (
-    Budget, Building, CreditNote, Expense, Invoice, Lease, Property,
-    ReceiptAllocation, RentSchedule, ServiceCharge, ServiceChargeAllocation,
+    BankTransaction, Budget, Building, CreditNote, Expense, Invoice,
+    InvoiceReminder, Lease, Property, Receipt, ReceiptAllocation, RentSchedule,
+    ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
     Unit,
 )
@@ -345,3 +347,54 @@ class PropertyApiTests(TestCase):
         self.assertEqual(request_record.unit, self.unit)
         TenantPortalAccess.objects.filter(user=self.user).update(is_active=False)
         self.assertEqual(self.client.get('/api/v1/property/portal/', **self.headers).status_code, 403)
+
+    def test_lease_renewal_preserves_continuity_and_is_idempotent(self):
+        renewed = self.client.post(f'/api/v1/property/leases/{self.lease.id}/renew/', {
+            'reference': 'LEASE-1-R1', 'ends_on': '2028-01-01', 'monthly_rent': '1100.00',
+        }, format='json', **self.headers)
+        self.assertEqual(renewed.status_code, 201, renewed.data)
+        self.lease.refresh_from_db(); self.unit.refresh_from_db()
+        self.assertEqual(self.lease.status, Lease.Status.EXPIRED)
+        self.assertEqual(self.unit.status, Unit.Status.OCCUPIED)
+        renewal = Lease.objects.get(renewed_from=self.lease)
+        self.assertEqual(renewal.status, Lease.Status.ACTIVE)
+        self.assertEqual(renewal.starts_on, self.lease.ends_on)
+        repeated = self.client.post(f'/api/v1/property/leases/{self.lease.id}/renew/', {
+            'reference': 'SHOULD-NOT-CREATE', 'ends_on': '2029-01-01', 'monthly_rent': '1200.00',
+        }, format='json', **self.headers)
+        self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(Lease.objects.filter(renewed_from=self.lease).count(), 1)
+
+    def test_invoice_reminder_creates_portal_notice(self):
+        TenantPortalAccess.objects.create(
+            organization=self.organization, user=self.user, tenant=self.tenant,
+        )
+        response = self.client.post(f'/api/v1/property/invoices/{self.invoice.id}/send-reminder/', {
+            'channel': InvoiceReminder.Channel.PORTAL,
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(InvoiceReminder.objects.filter(invoice=self.invoice, sent_by=self.user).exists())
+        notice = Notification.objects.get(metadata__invoice_id=str(self.invoice.id))
+        self.assertEqual(notice.recipient, self.user)
+
+    def test_bank_transaction_matches_one_equal_receipt_and_locks_record(self):
+        receipt = Receipt.objects.create(
+            organization=self.organization, number='RCT-BANK', tenant=self.tenant,
+            received_on='2026-08-01', amount=Decimal('300'), payment_method='bank_transfer',
+            external_reference='BANK-TXN-001', received_by=self.user,
+        )
+        created = self.client.post('/api/v1/property/bank-transactions/', {
+            'reference': 'BANK-TXN-001', 'transacted_on': '2026-08-01',
+            'description': 'Acacia rent', 'amount': '300.00', 'status': 'matched',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data['status'], BankTransaction.Status.UNMATCHED)
+        matched = self.client.post(f"/api/v1/property/bank-transactions/{created.data['id']}/match/", {
+            'receipt': str(receipt.id),
+        }, format='json', **self.headers)
+        self.assertEqual(matched.status_code, 200, matched.data)
+        self.assertEqual(matched.data['status'], BankTransaction.Status.MATCHED)
+        self.assertEqual(self.client.patch(
+            f"/api/v1/property/bank-transactions/{created.data['id']}/", {'amount': '200'},
+            format='json', **self.headers,
+        ).status_code, 400)

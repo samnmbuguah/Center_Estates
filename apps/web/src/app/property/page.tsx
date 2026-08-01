@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
@@ -29,11 +29,13 @@ type ServiceChargeAllocation = { id: string; service_charge_name: string; proper
 type Reconciliation = { id: string; service_charge_name: string; property_name: string; period_start: string; period_end: string; budgeted_amount: string; actual_amount: string; variance: string; status: string };
 type Arrears = { tenant: string; property: string; unit: string; outstanding: string; oldest_days: number; invoice_count: number };
 type Report = { key: string; name: string; category: string };
-type CollectionRow = Property | Building | Unit | Project | Tenant | Lease | Invoice | Expense | Receipt | Allocation | CreditNote | TenantDocument | RentSchedule | Budget | ServiceCharge | ServiceChargeAllocation | Reconciliation | Arrears | Report;
-type Tab = "overview" | "properties" | "buildings" | "units" | "projects" | "tenants" | "tenant-documents" | "leases" | "rent-schedules" | "rent" | "arrears" | "receipts" | "receipt-allocations" | "credit-notes" | "service-charges" | "service-charge-allocations" | "service-charge-reconciliations" | "budgets" | "expenses" | "reports";
+type Reminder = { id: string; invoice_number: string; tenant_name: string; channel: string; recipient: string; message: string; sent_at: string };
+type BankTransaction = { id: string; reference: string; transacted_on: string; description: string; amount: string; status: string; receipt_number: string };
+type CollectionRow = Property | Building | Unit | Project | Tenant | Lease | Invoice | Expense | Receipt | Allocation | CreditNote | TenantDocument | RentSchedule | Budget | ServiceCharge | ServiceChargeAllocation | Reconciliation | Arrears | Report | Reminder | BankTransaction;
+type Tab = "overview" | "properties" | "buildings" | "units" | "projects" | "tenants" | "tenant-documents" | "leases" | "rent-schedules" | "rent" | "arrears" | "reminders" | "receipts" | "receipt-allocations" | "bank-reconciliation" | "credit-notes" | "service-charges" | "service-charge-allocations" | "service-charge-reconciliations" | "budgets" | "expenses" | "reports";
 
 const money = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
-const labels: Record<Tab, string> = { overview: "Overview", properties: "Properties", buildings: "Buildings", units: "Units", projects: "Projects", tenants: "Tenants", "tenant-documents": "Tenant documents", leases: "Leases", "rent-schedules": "Rent schedules", rent: "Rent & invoices", arrears: "Arrears", receipts: "Receipts", "receipt-allocations": "Receipt allocations", "credit-notes": "Credit notes", "service-charges": "Service charge", "service-charge-allocations": "Charge allocations", "service-charge-reconciliations": "Reconciliations", budgets: "Budgets", expenses: "Expenses", reports: "Reports" };
+const labels: Record<Tab, string> = { overview: "Overview", properties: "Properties", buildings: "Buildings", units: "Units", projects: "Projects", tenants: "Tenants", "tenant-documents": "Tenant documents", leases: "Leases", "rent-schedules": "Rent schedules", rent: "Rent & invoices", arrears: "Arrears", reminders: "Reminders", receipts: "Receipts", "receipt-allocations": "Receipt allocations", "bank-reconciliation": "Bank reconciliation", "credit-notes": "Credit notes", "service-charges": "Service charge", "service-charge-allocations": "Charge allocations", "service-charge-reconciliations": "Reconciliations", budgets: "Budgets", expenses: "Expenses", reports: "Reports" };
 
 export default function PropertyManagementPage() {
   const { session } = useAuth();
@@ -48,16 +50,20 @@ export default function PropertyManagementPage() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [openInvoices, setOpenInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState("");
+  const loadVersion = useRef(0);
+  const tabRef = useRef(tab);
 
-  const endpoint = useMemo(() => ({ properties: "properties", buildings: "buildings", units: "units", projects: "projects", tenants: "tenants", "tenant-documents": "tenant-documents", leases: "leases", "rent-schedules": "rent-schedules", rent: "invoices", arrears: "analytics/aging", receipts: "receipts", "receipt-allocations": "receipt-allocations", "credit-notes": "credit-notes", "service-charges": "service-charges", "service-charge-allocations": "service-charge-allocations", "service-charge-reconciliations": "service-charge-reconciliations", budgets: "budgets", expenses: "expenses", reports: "analytics" } as Partial<Record<Tab, string>>)[tab], [tab]);
+  const endpoint = useMemo(() => ({ properties: "properties", buildings: "buildings", units: "units", projects: "projects", tenants: "tenants", "tenant-documents": "tenant-documents", leases: "leases", "rent-schedules": "rent-schedules", rent: "invoices", arrears: "analytics/aging", reminders: "invoice-reminders", receipts: "receipts", "receipt-allocations": "receipt-allocations", "bank-reconciliation": "bank-transactions", "credit-notes": "credit-notes", "service-charges": "service-charges", "service-charge-allocations": "service-charge-allocations", "service-charge-reconciliations": "service-charge-reconciliations", budgets: "budgets", expenses: "expenses", reports: "analytics" } as Partial<Record<Tab, string>>)[tab], [tab]);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
+    const version = ++loadVersion.current;
     setLoading(true); setError("");
     const path = tab === "overview" ? "/property/dashboard/" : `/property/${endpoint}/?search=${encodeURIComponent(search)}`;
     const response = await apiFetch(path, {}, organizationId);
     if (!response.ok) { setError("Property data could not be loaded. Please try again."); setLoading(false); return; }
     const data = await response.json();
+    if (version !== loadVersion.current) return;
     if (tab === "overview") setDashboard(data as Dashboard);
     else if (tab === "arrears") setRows(data.tenants ?? []);
     else if (tab === "reports") setRows(data.reports ?? []);
@@ -66,6 +72,7 @@ export default function PropertyManagementPage() {
   }, [endpoint, organizationId, search, tab]);
 
   useEffect(() => { const delay = setTimeout(load, search ? 250 : 0); return () => clearTimeout(delay); }, [load, search]);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
   useEffect(() => {
     if (!showReceipt || !organizationId) return;
     apiFetch("/property/invoices/", {}, organizationId).then((response) => response.ok ? response.json() : []).then((items: Invoice[]) => {
@@ -110,9 +117,20 @@ export default function PropertyManagementPage() {
   }
 
   async function runAction(path: string) {
+    const actionTab = tab;
     setError("");
     await apiFetch("/auth/csrf/");
-    const payload = path.endsWith("/reconcile/") ? { period_start: `${new Date().getFullYear()}-01-01`, period_end: new Date().toISOString().slice(0, 10) } : {};
+    let payload: Record<string, string> = path.endsWith("/reconcile/") ? { period_start: `${new Date().getFullYear()}-01-01`, period_end: new Date().toISOString().slice(0, 10) } : {};
+    if (path.endsWith("/send-reminder/")) payload = { channel: "portal" };
+    if (path.endsWith("/renew/")) {
+      const lease = (rows as Lease[]).find((row) => path.includes(row.id));
+      if (!lease) return;
+      const reference = window.prompt("Renewal reference", `${lease.reference}-R1`); if (!reference) return;
+      const suggestedEnd = new Date(lease.ends_on); suggestedEnd.setFullYear(suggestedEnd.getFullYear() + 1);
+      const endsOn = window.prompt("New lease end date", suggestedEnd.toISOString().slice(0, 10)); if (!endsOn) return;
+      const monthlyRent = window.prompt("New monthly rent", lease.monthly_rent); if (!monthlyRent) return;
+      payload = { reference, ends_on: endsOn, monthly_rent: monthlyRent };
+    }
     const response = await apiFetch(`/property/${path}`, {
       method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload),
     }, organizationId);
@@ -122,7 +140,7 @@ export default function PropertyManagementPage() {
       setError(detail || "The workflow action could not be completed.");
       return;
     }
-    await load();
+    if (tabRef.current === actionTab) await load();
   }
 
   async function downloadReport(kind: string) {
@@ -184,8 +202,8 @@ function Collection({ tab, rows, search, onSearch, onAction, onDownload }: { tab
   if (tab === "units") { headers = ["Unit", "Property", "Building", "Floor", "Type", "Area", "Status"]; values = (rows as Unit[]).map((r) => [r.code, r.property_name, r.building_name || "—", r.floor || "—", r.unit_type || "—", r.area || "—", <Status key={r.id} value={r.status} />]); }
   if (tab === "projects") { headers = ["Code", "Project", "Starts", "Ends", "Status"]; values = (rows as Project[]).map((r) => [r.code, r.name, r.starts_on || "—", r.ends_on || "—", <Status key={r.id} value={r.status} />]); }
   if (tab === "tenants") { headers = ["Code", "Tenant", "Email", "Phone", "Status"]; values = (rows as Tenant[]).map((r) => [r.code, r.name, r.email || "—", r.phone || "—", <Status key={r.id} value={r.status} />]); }
-  if (tab === "leases") { headers = ["Reference", "Tenant", "Property / unit", "Start", "End", "Rent", "Status", "Actions"]; values = (rows as Lease[]).map((r) => [r.reference, r.tenant_name, `${r.property_name} · ${r.unit_code}`, r.starts_on, r.ends_on, money.format(Number(r.monthly_rent)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Activate", `leases/${r.id}/activate/`]] : ["active", "expiring"].includes(r.status) ? [["Terminate", `leases/${r.id}/terminate/`]] : []} run={onAction} />]); }
-  if (tab === "rent") { headers = ["Invoice", "Tenant", "Due date", "Amount", "Balance", "Status", "Actions"]; values = (rows as Invoice[]).map((r) => [r.number, r.tenant_name, r.due_on, money.format(Number(r.amount)), money.format(Number(r.balance)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Issue", `invoices/${r.id}/issue/`]] : ["issued", "overdue"].includes(r.status) ? [["Void", `invoices/${r.id}/void/`]] : []} run={onAction} />]); }
+  if (tab === "leases") { headers = ["Reference", "Tenant", "Property / unit", "Start", "End", "Rent", "Status", "Actions"]; values = (rows as Lease[]).map((r) => [r.reference, r.tenant_name, `${r.property_name} · ${r.unit_code}`, r.starts_on, r.ends_on, money.format(Number(r.monthly_rent)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Activate", `leases/${r.id}/activate/`]] : ["active", "expiring"].includes(r.status) ? [["Renew", `leases/${r.id}/renew/`], ["Terminate", `leases/${r.id}/terminate/`]] : []} run={onAction} />]); }
+  if (tab === "rent") { headers = ["Invoice", "Tenant", "Due date", "Amount", "Balance", "Status", "Actions"]; values = (rows as Invoice[]).map((r) => [r.number, r.tenant_name, r.due_on, money.format(Number(r.amount)), money.format(Number(r.balance)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Issue", `invoices/${r.id}/issue/`]] : ["issued", "overdue", "partial"].includes(r.status) ? [["Send reminder", `invoices/${r.id}/send-reminder/`], ...(["issued", "overdue"].includes(r.status) ? [["Void", `invoices/${r.id}/void/`]] : [])] : []} run={onAction} />]); }
   if (tab === "expenses") { headers = ["Date", "Invoice", "Supplier", "Property", "Category", "Amount", "Status", "Actions"]; values = (rows as Expense[]).map((r) => [r.incurred_on, r.invoice_number || "—", r.supplier, r.property_name, r.category, money.format(Number(r.amount)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={["draft", "rejected"].includes(r.status) ? [["Submit", `expenses/${r.id}/submit/`]] : r.status === "pending" ? [["Approve", `expenses/${r.id}/approve/`], ["Reject", `expenses/${r.id}/reject/`]] : r.status === "approved" ? [["Mark paid", `expenses/${r.id}/mark-paid/`]] : []} run={onAction} />]); }
   if (tab === "receipts") { headers = ["Receipt", "Tenant", "Received", "Amount", "Method", "Reference"]; values = (rows as Receipt[]).map((r) => [r.number, r.tenant_name, r.received_on, money.format(Number(r.amount)), r.payment_method.replaceAll("_", " "), r.external_reference || "—"]); }
   if (tab === "receipt-allocations") { headers = ["Receipt", "Invoice", "Tenant", "Allocated"]; values = (rows as Allocation[]).map((r) => [r.receipt_number, r.invoice_number, r.tenant_name, money.format(Number(r.amount))]); }
@@ -199,6 +217,8 @@ function Collection({ tab, rows, search, onSearch, onAction, onDownload }: { tab
   if (tab === "service-charge-reconciliations") { headers = ["Scheme", "Property", "Period start", "Period end", "Budget", "Actual", "Variance", "Status"]; values = (rows as Reconciliation[]).map((r) => [r.service_charge_name, r.property_name, r.period_start, r.period_end, money.format(Number(r.budgeted_amount)), money.format(Number(r.actual_amount)), money.format(Number(r.variance)), <Status key={r.id} value={r.status} />]); }
   if (tab === "arrears") { headers = ["Tenant", "Property", "Unit", "Invoices", "Outstanding", "Oldest debt"]; values = (rows as Arrears[]).map((r) => [r.tenant, r.property, r.unit, r.invoice_count, money.format(Number(r.outstanding)), `${r.oldest_days} days`]); }
   if (tab === "reports") { headers = ["Report", "Category", "Export"]; values = (rows as Report[]).map((r) => [r.name, r.category, <button className="secondary-action" key={r.key} onClick={() => void onDownload(r.key)}>Download CSV</button>]); }
+  if (tab === "reminders") { headers = ["Invoice", "Tenant", "Channel", "Recipient", "Message", "Sent"]; values = (rows as Reminder[]).map((r) => [r.invoice_number, r.tenant_name, r.channel, r.recipient, r.message, r.sent_at.slice(0, 16).replace("T", " ")]); }
+  if (tab === "bank-reconciliation") { headers = ["Bank reference", "Date", "Description", "Amount", "Receipt", "Status"]; values = (rows as BankTransaction[]).map((r) => [r.reference, r.transacted_on, r.description || "—", money.format(Number(r.amount)), r.receipt_number || "—", <Status key={r.id} value={r.status} />]); }
   return <article className="data-panel collection-panel"><header className="collection-title"><div><p className="eyebrow">Live records</p><h2>{labels[tab]}</h2></div><input aria-label={`Search ${labels[tab]}`} value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search records…" /></header><DataTable headers={headers} rows={values} /></article>;
 }
 

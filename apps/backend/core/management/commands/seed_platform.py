@@ -15,8 +15,9 @@ from facilities.models import (
 from organizations.models import Membership, Organization, Permission, Role
 from notifications.models import Notification
 from properties.models import (
-    Building, Budget, CreditNote, Expense, Invoice, Lease, Project, Property,
-    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
+    BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
+    InvoiceReminder, Lease, Project, Property, Receipt, ReceiptAllocation,
+    RentSchedule, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, Unit,
 )
@@ -189,6 +190,22 @@ class Command(BaseCommand):
         ReceiptAllocation.objects.update_or_create(
             organization=organization, receipt=receipt, invoice=invoice_one,
             defaults={'amount': Decimal('185000.00'), 'allocated_by': user},
+        )
+        BankTransaction.objects.update_or_create(
+            organization=organization, reference='FT260418ACACIA',
+            defaults={
+                'transacted_on': receipt.received_on, 'description': 'Acacia Consulting rent payment',
+                'amount': receipt.amount, 'status': BankTransaction.Status.MATCHED,
+                'receipt': receipt, 'matched_by': user, 'matched_at': timezone.now() - timedelta(days=25),
+            },
+        )
+        reminder_message = f'Invoice {invoice_two.number} has an outstanding balance of {invoice_two.balance}.'
+        InvoiceReminder.objects.update_or_create(
+            organization=organization, invoice=invoice_two, channel=InvoiceReminder.Channel.PORTAL,
+            recipient=tenant_two.name, message=reminder_message,
+            defaults={
+                'sent_at': timezone.now() - timedelta(days=2), 'sent_by': user,
+            },
         )
         CreditNote.objects.update_or_create(
             organization=organization, number='CN-2026-0021',

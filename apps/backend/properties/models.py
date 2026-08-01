@@ -181,6 +181,7 @@ class Lease(OrganizationOwnedModel):
     billing_day = models.PositiveSmallIntegerField(default=1)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     metadata = models.JSONField(default=dict, blank=True)
+    renewed_from = models.OneToOneField('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='renewal')
 
     class Meta:
         ordering = ('-starts_on',)
@@ -193,6 +194,8 @@ class Lease(OrganizationOwnedModel):
             raise ValidationError('Lease unit must belong to the same organization.')
         if self.tenant_id and self.tenant.organization_id != self.organization_id:
             raise ValidationError('Lease tenant must belong to the same organization.')
+        if self.renewed_from_id and self.renewed_from.organization_id != self.organization_id:
+            raise ValidationError('Renewed lease must belong to the same organization.')
         if self.monthly_rent <= 0:
             raise ValidationError({'monthly_rent': 'Monthly rent must be greater than zero.'})
         if self.deposit < 0 or self.escalation_percent < 0:
@@ -259,6 +262,55 @@ class Receipt(OrganizationOwnedModel):
             raise ValidationError('Receipt invoice must belong to the same organization.')
         if self.amount <= 0:
             raise ValidationError({'amount': 'Receipt amount must be greater than zero.'})
+
+
+class InvoiceReminder(OrganizationOwnedModel):
+    class Channel(models.TextChoices):
+        EMAIL = 'email', 'Email'
+        SMS = 'sms', 'SMS'
+        PORTAL = 'portal', 'Tenant portal'
+
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='reminders')
+    channel = models.CharField(max_length=12, choices=Channel.choices)
+    recipient = models.CharField(max_length=200)
+    message = models.TextField()
+    sent_at = models.DateTimeField()
+    sent_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='sent_property_reminders')
+
+    class Meta:
+        ordering = ('-sent_at',)
+
+    def clean(self):
+        if self.invoice_id and self.invoice.organization_id != self.organization_id:
+            raise ValidationError('Reminder invoice must belong to the same organization.')
+
+
+class BankTransaction(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        UNMATCHED = 'unmatched', 'Unmatched'
+        MATCHED = 'matched', 'Matched'
+        IGNORED = 'ignored', 'Ignored'
+
+    reference = models.CharField(max_length=120)
+    transacted_on = models.DateField()
+    description = models.CharField(max_length=250, blank=True)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.UNMATCHED)
+    receipt = models.OneToOneField(Receipt, on_delete=models.PROTECT, null=True, blank=True, related_name='bank_transaction')
+    matched_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='matched_property_bank_transactions')
+    matched_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-transacted_on',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_bank_reference')]
+
+    def clean(self):
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Transaction amount must be greater than zero.'})
+        if self.receipt_id and self.receipt.organization_id != self.organization_id:
+            raise ValidationError('Matched receipt must belong to the same organization.')
+        if self.receipt_id and self.receipt.amount != self.amount:
+            raise ValidationError({'receipt': 'Receipt amount must equal the bank transaction amount.'})
 
 
 class Expense(OrganizationOwnedModel):

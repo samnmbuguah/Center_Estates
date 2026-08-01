@@ -22,5 +22,6 @@ Implemented workflow evidence:
 - Arrears aging, income/expense analytics and six organization-scoped CSV report families are generated from live ledger data.
 - Property intake can generate a bounded, idempotent unit mix; building, unit and project registers are exposed in the shared UI.
 - User-to-tenant portal access is organization-scoped and serves the same leases, invoices, receipts, documents, notices and Facility service requests as staff workflows.
+- Renewals preserve lease lineage and occupancy, reminders persist delivery evidence and portal notices, and bank transactions enforce one-to-one equal-amount receipt matching.
 
 All 17 references in [UI_REFERENCE.md](docs/UI_REFERENCE.md) are acceptance checkpoints.

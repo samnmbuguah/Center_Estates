@@ -1,8 +1,9 @@
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    BuildingViewSet, BudgetViewSet, CreditNoteViewSet, ExpenseViewSet,
-    InvoiceViewSet, LeaseViewSet, ProjectViewSet, PropertyAnalyticsViewSet, PropertyDashboardViewSet,
+    BankTransactionViewSet, BuildingViewSet, BudgetViewSet, CreditNoteViewSet,
+    ExpenseViewSet, InvoiceReminderViewSet, InvoiceViewSet, LeaseViewSet,
+    ProjectViewSet, PropertyAnalyticsViewSet, PropertyDashboardViewSet,
     PropertyViewSet, ReceiptAllocationViewSet, ReceiptViewSet,
     RentScheduleViewSet, ServiceChargeAllocationViewSet,
     ServiceChargeReconciliationViewSet, ServiceChargeViewSet,
@@ -21,7 +22,9 @@ router.register('tenant-portal-access', TenantPortalAccessViewSet)
 router.register('portal', TenantPortalViewSet, basename='tenant-portal')
 router.register('leases', LeaseViewSet)
 router.register('invoices', InvoiceViewSet)
+router.register('invoice-reminders', InvoiceReminderViewSet, basename='invoice-reminder')
 router.register('receipts', ReceiptViewSet)
+router.register('bank-transactions', BankTransactionViewSet)
 router.register('expenses', ExpenseViewSet)
 router.register('budgets', BudgetViewSet)
 router.register('service-charges', ServiceChargeViewSet)
