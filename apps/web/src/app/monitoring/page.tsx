@@ -89,8 +89,10 @@ const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; ki
 const cash = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
 
 export default function MonitoringPage() {
-  const { session } = useAuth();
+  const { session, can } = useAuth();
   const organization = session?.activeOrganizationId ?? null;
+  const canAdminister = can("monitoring.project_admin") || can("monitoring.manage");
+  const canReport = can("monitoring.report");
   const [tab, setTab] = useState<Tab>("overview");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -204,7 +206,7 @@ export default function MonitoringPage() {
     <div className="monitoring-content">
     <header className="monitoring-context-bar"><button className="monitoring-menu" aria-label="Open construction navigation" onClick={() => setNavigationOpen(true)}>☰</button><div className="monitoring-breadcrumb"><span>Construction monitoring</span><b>/</b><strong>{labels[tab]}</strong></div><div className="project-context"><span className="context-health" />{activeProject ? <><small>Active workspace</small><strong>{String(activeProject.name)}</strong></> : <strong>Portfolio view</strong>}</div></header>
     <div className="page-wrap property-app monitoring-app">
-    <section className="monitoring-page-heading"><div><p className="eyebrow">Construction management</p><h1>{tab === "overview" ? "Project monitoring" : labels[tab]}</h1><p>{tab === "overview" ? "Verified field evidence, programme, quality, commercial control and close-out." : `Review and manage ${labels[tab].toLowerCase()} across the active organization.`}</p></div><div className="monitoring-heading-actions"><button className="secondary-action" onClick={() => selectTab("reports")}>Export & reports</button><button className="primary-action" onClick={() => setModal(true)}>+ Project workspace</button></div></section>
+    <section className="monitoring-page-heading"><div><p className="eyebrow">Construction management</p><h1>{tab === "overview" ? "Project monitoring" : labels[tab]}</h1><p>{tab === "overview" ? "Verified field evidence, programme, quality, commercial control and close-out." : `Review and manage ${labels[tab].toLowerCase()} across the active organization.`}</p></div><div className="monitoring-heading-actions">{canReport && <button className="secondary-action" onClick={() => selectTab("reports")}>Export & reports</button>}{canAdminister && <button className="primary-action" onClick={() => setModal(true)}>+ Project workspace</button>}</div></section>
     {error && <div className="form-error">{error}<button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading verified construction records…</div> : tab === "overview" && dashboard && kpis ? <>
       <section className="monitoring-brief"><div><span className="brief-pulse"/><p>Portfolio control room</p><strong>{String(kpis.activeProjects)} active projects</strong></div><div><small>Progress submissions</small><strong>{Number(kpis.submittedMilestones)}</strong><span className="brief-stat-line">Verified milestone evidence</span></div><div><small>Budget utilization</small><strong>{Number(kpis.budgetUtilization)}%</strong><span className="brief-progress warning"><i style={{width:`${Math.min(100, Number(kpis.budgetUtilization))}%`}} /></span></div><button onClick={() => selectTab("notifications")}><small>Attention queue</small><strong>{Number(kpis.openTickets) + Number(kpis.highRisks)}</strong><span>Open issues and high risks →</span></button></section>

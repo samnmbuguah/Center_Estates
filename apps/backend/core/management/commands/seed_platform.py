@@ -56,6 +56,14 @@ class Command(BaseCommand):
             )
 
         permission_catalog = {}
+        domain_permissions = {
+            Module.PROPERTY: ('operations', 'leasing', 'finance'),
+            Module.FACILITY: ('work', 'inspect', 'administer'),
+            Module.SALES: ('selling', 'visits', 'payments', 'legal'),
+            Module.TENDER: ('intake', 'compliance', 'proposal', 'pricing', 'decision'),
+            Module.VALUATION: ('coordinate', 'field', 'review', 'finance'),
+            Module.MONITORING: ('project_admin', 'site', 'commercial', 'procurement', 'finance', 'certify'),
+        }
         for module, module_label in Module.choices:
             for suffix, action_label in (
                 ('view', 'View'), ('manage', 'Manage'), ('approve', 'Approve'), ('report', 'Export reports'),
@@ -63,6 +71,12 @@ class Command(BaseCommand):
                 key = f'{module}.{suffix}'
                 permission_catalog[key], _ = Permission.objects.update_or_create(
                     key=key, defaults={'label': f'{action_label} {module_label}', 'module': module},
+                )
+            for suffix in domain_permissions[module]:
+                key = f'{module}.{suffix}'
+                permission_catalog[key], _ = Permission.objects.update_or_create(
+                    key=key,
+                    defaults={'label': f'{module_label}: {suffix.replace("_", " ").title()}', 'module': module},
                 )
         role, _ = Role.objects.get_or_create(
             organization=organization, slug='platform-admin', defaults={'name': 'Platform Administrator', 'is_system': True}
@@ -90,6 +104,47 @@ class Command(BaseCommand):
                     defaults={'is_default': True, 'is_organization_admin': False, 'status': Membership.Status.ACTIVE},
                 )
                 MembershipRole.objects.update_or_create(membership=membership, role=module_role)
+
+        business_roles = {
+            'property-manager': ('Property Manager', Module.PROPERTY, ('view', 'operations', 'leasing', 'finance', 'approve', 'report')),
+            'leasing-officer': ('Leasing Officer', Module.PROPERTY, ('view', 'leasing', 'report')),
+            'property-accountant': ('Property Accountant', Module.PROPERTY, ('view', 'finance', 'approve', 'report')),
+            'facility-manager': ('Facility Manager', Module.FACILITY, ('view', 'work', 'inspect', 'administer', 'approve', 'report')),
+            'facility-technician': ('Facility Technician', Module.FACILITY, ('view', 'work')),
+            'facility-inspector': ('Facility Inspector', Module.FACILITY, ('view', 'inspect', 'work')),
+            'sales-agent': ('Sales Agent', Module.SALES, ('view', 'selling', 'visits', 'report')),
+            'site-clerk': ('Site Clerk', Module.SALES, ('view', 'visits')),
+            'sales-financier': ('Sales Financier', Module.SALES, ('view', 'payments', 'approve', 'report')),
+            'sales-advocate': ('Sales Advocate', Module.SALES, ('view', 'legal')),
+            'tender-manager': ('Tender Manager', Module.TENDER, ('view', 'intake', 'compliance', 'proposal', 'pricing', 'approve', 'report')),
+            'tender-analyst': ('Tender Analyst', Module.TENDER, ('view', 'compliance')),
+            'technical-author': ('Technical Author', Module.TENDER, ('view', 'proposal')),
+            'pricing-officer': ('Pricing Officer', Module.TENDER, ('view', 'pricing')),
+            'tender-board-reviewer': ('Tender Board Reviewer', Module.TENDER, ('view', 'decision', 'approve', 'report')),
+            'valuation-coordinator': ('Valuation Coordinator', Module.VALUATION, ('view', 'coordinate', 'report')),
+            'valuer-inspector': ('Valuer and Inspector', Module.VALUATION, ('view', 'field', 'report')),
+            'valuation-reviewer': ('Valuation Reviewer', Module.VALUATION, ('view', 'review', 'approve', 'report')),
+            'valuation-finance': ('Valuation Finance Officer', Module.VALUATION, ('view', 'finance', 'report')),
+            'construction-admin': ('Construction Project Administrator', Module.MONITORING, ('view', 'project_admin', 'site', 'commercial', 'procurement', 'finance', 'approve', 'certify', 'report')),
+            'clerk-of-works': ('Clerk of Works', Module.MONITORING, ('view', 'site', 'report')),
+            'quantity-surveyor': ('Quantity Surveyor', Module.MONITORING, ('view', 'commercial', 'procurement', 'report')),
+            'construction-certifier': ('Construction Certifier', Module.MONITORING, ('view', 'certify', 'approve', 'report')),
+            'construction-finance': ('Construction Finance Officer', Module.MONITORING, ('view', 'finance', 'report')),
+            'construction-auditor': ('Construction Auditor', Module.MONITORING, ('view', 'report')),
+        }
+        for role_slug, (role_name, module, granted) in business_roles.items():
+            business_role, _ = Role.objects.update_or_create(
+                organization=organization, slug=role_slug,
+                defaults={'name': role_name, 'is_system': True},
+            )
+            business_role.permissions.set(permission_catalog[f'{module}.{suffix}'] for suffix in granted)
+            role_user, _ = get_user_model().objects.get_or_create(username=f'role-{role_slug}')
+            role_user.set_password(role_password); role_user.save(update_fields=('password',))
+            membership, _ = Membership.objects.update_or_create(
+                organization=organization, user=role_user,
+                defaults={'is_default': True, 'is_organization_admin': False, 'status': Membership.Status.ACTIVE},
+            )
+            MembershipRole.objects.get_or_create(membership=membership, role=business_role)
 
         prop, _ = Property.objects.update_or_create(
             organization=organization, code='CE-NRB-001',

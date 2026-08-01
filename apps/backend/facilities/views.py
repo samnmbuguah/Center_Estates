@@ -62,18 +62,22 @@ class FacilityModelViewSet(ModelViewSet):
 
 
 class AssetViewSet(FacilityModelViewSet):
+    write_permission = 'facility.administer'
     queryset = FacilityAsset.objects.select_related('property', 'building', 'unit')
     serializer_class = FacilityAssetSerializer
     search_fields = ('code', 'name', 'category', 'serial_number', 'property__name')
 
 
 class ContractorViewSet(FacilityModelViewSet):
+    write_permission = 'facility.administer'
     queryset = Contractor.objects.all()
     serializer_class = ContractorSerializer
     search_fields = ('code', 'name', 'specialty', 'contact_name')
 
 
 class WorkOrderViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'transition': 'facility.work'}
     queryset = WorkOrder.objects.select_related('property', 'asset', 'contractor', 'assigned_to')
     serializer_class = WorkOrderSerializer
     search_fields = ('number', 'title', 'category', 'property__name', 'asset__name')
@@ -130,6 +134,7 @@ class WorkOrderViewSet(FacilityModelViewSet):
 
 
 class WorkOrderEventViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
     queryset = WorkOrderEvent.objects.select_related('work_order', 'actor')
     serializer_class = WorkOrderEventSerializer
     http_method_names = ('get', 'head', 'options')
@@ -137,6 +142,7 @@ class WorkOrderEventViewSet(FacilityModelViewSet):
 
 
 class WorkOrderCostItemViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
     queryset = WorkOrderCostItem.objects.select_related('work_order', 'added_by')
     serializer_class = WorkOrderCostItemSerializer
     search_fields = ('work_order__number', 'description', 'supplier', 'reference')
@@ -159,6 +165,7 @@ class WorkOrderCostItemViewSet(FacilityModelViewSet):
 
 
 class WorkOrderAttachmentViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
     queryset = WorkOrderAttachment.objects.select_related('work_order', 'uploaded_by')
     serializer_class = WorkOrderAttachmentSerializer
     search_fields = ('work_order__number', 'file_name', 'caption')
@@ -168,6 +175,7 @@ class WorkOrderAttachmentViewSet(FacilityModelViewSet):
 
 
 class PreventiveScheduleViewSet(FacilityModelViewSet):
+    write_permission = 'facility.administer'
     queryset = PreventiveSchedule.objects.select_related('asset__property')
     serializer_class = PreventiveScheduleSerializer
     search_fields = ('code', 'name', 'asset__name')
@@ -218,6 +226,7 @@ class PreventiveScheduleViewSet(FacilityModelViewSet):
 
 
 class InspectionViewSet(FacilityModelViewSet):
+    write_permission = 'facility.inspect'
     queryset = Inspection.objects.select_related('property', 'asset', 'inspector')
     serializer_class = InspectionSerializer
     search_fields = ('reference', 'title', 'inspection_type', 'property__name')
@@ -255,6 +264,7 @@ class InspectionViewSet(FacilityModelViewSet):
 
 
 class ServiceRequestViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
     queryset = ServiceRequest.objects.select_related('property', 'unit', 'tenant', 'work_order')
     serializer_class = ServiceRequestSerializer
     search_fields = ('reference', 'subject', 'category', 'property__name', 'tenant__name')
@@ -293,12 +303,14 @@ class ServiceRequestViewSet(FacilityModelViewSet):
 
 
 class UtilityMeterViewSet(FacilityModelViewSet):
+    write_permission = 'facility.administer'
     queryset = UtilityMeter.objects.select_related('property').prefetch_related('readings')
     serializer_class = UtilityMeterSerializer
     search_fields = ('code', 'name', 'property__name')
 
 
 class MeterReadingViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
     queryset = MeterReading.objects.select_related('meter')
     serializer_class = MeterReadingSerializer
     search_fields = ('meter__name', 'notes')

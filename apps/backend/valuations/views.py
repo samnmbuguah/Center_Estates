@@ -32,8 +32,10 @@ class Scoped(ModelViewSet):
   return org
  def perform_create(self,s):s.save(organization=self._org(s))
  def perform_update(self,s):self._org(s);s.save()
-class ClientViewSet(Scoped):queryset=ValuationClient.objects.all();serializer_class=ClientSerializer;search_fields=('code','name','contact_name','email')
+class ClientViewSet(Scoped):
+ write_permission='valuation.coordinate';queryset=ValuationClient.objects.all();serializer_class=ClientSerializer;search_fields=('code','name','contact_name','email')
 class InstructionViewSet(Scoped):
+ write_permission='valuation.coordinate'
  queryset=ValuationInstruction.objects.select_related('client','property','valuer');serializer_class=InstructionSerializer;search_fields=('reference','client__name','property_description','purpose','valuation_type')
  def perform_create(self,s):
   org=self._org(s); instruction=s.save(organization=org,status=ValuationInstruction.Status.NEW)
@@ -58,6 +60,7 @@ class InstructionViewSet(Scoped):
   ValuationAuditEvent.objects.create(organization=org,instruction=instruction,event_type='status_transition',from_status=previous,to_status=target,notes=notes,actor=request.user)
   return Response(InstructionSerializer(instruction).data)
 class InspectionViewSet(Scoped):
+ write_permission='valuation.field'
  queryset=ValuationInspection.objects.select_related('instruction','inspector');serializer_class=InspectionSerializer;search_fields=('reference','instruction__reference','instruction__property_description','findings')
  def perform_create(self,s):s.save(organization=self._org(s),status=ValuationInspection.Status.SCHEDULED,completed_at=None,evidence_count=0)
  def perform_update(self,s):
@@ -82,6 +85,7 @@ class InspectionViewSet(Scoped):
   ValuationAuditEvent.objects.create(organization=inspection.organization,instruction=instruction,event_type='inspection_completed',from_status=previous,to_status=instruction.status,details={'inspection':inspection.reference,'evidence_count':evidence},actor=request.user)
   return Response(self.get_serializer(inspection).data)
 class ComparableViewSet(Scoped):
+ write_permission='valuation.field'
  queryset=ComparableEvidence.objects.select_related('instruction');serializer_class=ComparableSerializer;search_fields=('reference','address','property_type','source')
  def _calculated(self,s):
   price=s.validated_data.get('transaction_price',getattr(s.instance,'transaction_price',None));area=s.validated_data.get('area',getattr(s.instance,'area',None));adjustment=s.validated_data.get('adjustment_percent',getattr(s.instance,'adjustment_percent',Decimal(0)))
@@ -92,6 +96,7 @@ class ComparableViewSet(Scoped):
  def perform_update(self,s):
   self._org(s);rate,adjusted=self._calculated(s);s.save(rate_per_area=rate,adjusted_value=adjusted)
 class DraftViewSet(Scoped):
+ write_permission='valuation.field'
  queryset=DraftValuationReport.objects.select_related('instruction','prepared_by','reviewer');serializer_class=DraftSerializer;search_fields=('instruction__reference','instruction__property_description','valuation_method','template')
  def perform_create(self,s):s.save(organization=self._org(s),prepared_by=self.request.user,status=DraftValuationReport.Status.DRAFT)
  def perform_update(self,s):
@@ -123,6 +128,7 @@ class DraftViewSet(Scoped):
   ValuationAuditEvent.objects.create(organization=draft.organization,instruction=draft.instruction,event_type='draft_changes_requested',from_status='review',to_status='changes',notes=notes,details={'version':draft.version},actor=request.user)
   return Response(DraftSerializer(draft).data)
 class FinalViewSet(Scoped):
+ write_permission='valuation.review'
  queryset=FinalValuationReport.objects.select_related('instruction__client','draft','signed_by');serializer_class=FinalSerializer;search_fields=('report_number','instruction__reference','instruction__property_description','instruction__client__name')
  @transaction.atomic
  def perform_create(self,s):
@@ -147,6 +153,7 @@ class FinalViewSet(Scoped):
   ValuationAuditEvent.objects.create(organization=report.organization,instruction=report.instruction,event_type='delivered',from_status='final',to_status='delivered',details={'delivery_method':method},actor=request.user)
   return Response(FinalSerializer(report).data)
 class InvoiceViewSet(Scoped):
+ write_permission='valuation.finance'
  queryset=ValuationInvoice.objects.select_related('instruction__client');serializer_class=InvoiceSerializer;search_fields=('number','instruction__reference','instruction__client__name')
  def perform_create(self,s):
   subtotal=s.validated_data['subtotal'];tax=s.validated_data.get('tax',Decimal(0));total=(subtotal+tax).quantize(Decimal('0.01'));s.save(organization=self._org(s),total=total,balance=total,status=ValuationInvoice.Status.DRAFT)
@@ -166,6 +173,7 @@ class InvoiceViewSet(Scoped):
   if not reason:raise ValidationError({'reason':'A void reason is required.'})
   invoice.status=ValuationInvoice.Status.VOID;invoice.balance=Decimal(0);invoice.save(update_fields=('status','balance','updated_at'));ValuationAuditEvent.objects.create(organization=invoice.organization,instruction=invoice.instruction,event_type='invoice_voided',notes=reason,details={'invoice':invoice.number},actor=request.user);return Response(self.get_serializer(invoice).data)
 class PaymentViewSet(Scoped):
+ write_permission='valuation.finance'
  queryset=ValuationPayment.objects.select_related('invoice__instruction__client');serializer_class=PaymentSerializer;search_fields=('reference','external_reference','invoice__number')
  @transaction.atomic
  def perform_create(self,s):

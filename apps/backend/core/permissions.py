@@ -69,7 +69,8 @@ class HasModuleActionPermission(HasModuleSubscription):
         module = getattr(view, 'required_module', self.module)
         action = getattr(view, 'action', '') or ''
         permission_map = getattr(view, 'permission_map', {})
-        key = permission_map.get(action)
+        resolver = getattr(view, 'get_action_permission', None)
+        key = resolver(request, action) if resolver else permission_map.get(action)
         if not key:
             if request.method in SAFE_METHODS and action not in self.report_actions:
                 suffix = 'view'
@@ -78,6 +79,8 @@ class HasModuleActionPermission(HasModuleSubscription):
             elif action in self.report_actions:
                 suffix = 'report'
             else:
+                key = getattr(view, 'write_permission', None)
                 suffix = 'manage'
-            key = f'{module}.{suffix}'
+            if not key:
+                key = f'{module}.{suffix}'
         return membership.has_permission(key)

@@ -50,10 +50,32 @@ test("@role:operator @module:sales @story:ROLE-SALES-MANAGE operator can manage 
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
 
-test("@role:approver @module:sales @story:ROLE-SALES-APPROVE approver can approve but cannot create", async ({ page }) => {
-  await signInAs(page, "role-sales-approver");
+test("@role:sales-financier @module:sales @story:ROLE-SALES-FINANCE financier can verify but cannot create", async ({ page }) => {
+  await signInAs(page, "role-sales-financier");
   await page.goto("/sales");
   await expect(page.getByRole("button", { name: "+ Register buyer" })).toHaveCount(0);
   await page.getByRole("button", { name: "Payments", exact: true }).click();
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toBeVisible();
 });
+
+const businessControlCases = [
+  ["leasing-officer", "/property", "+ Add property", false, "Record receipt", false],
+  ["property-accountant", "/property", "+ Add property", false, "Record receipt", true],
+  ["facility-technician", "/facility", "+ New work order", true, "", false],
+  ["facility-inspector", "/facility", "+ New work order", true, "", false],
+  ["technical-author", "/tender", "+ Register invitation", false, "", false],
+  ["valuation-coordinator", "/valuation", "+ New instruction", true, "", false],
+  ["valuer-inspector", "/valuation", "+ New instruction", false, "", false],
+  ["construction-auditor", "/monitoring", "+ Project workspace", false, "Export & reports", true],
+] as const;
+
+for (const [role, path, primary, primaryVisible, secondary, secondaryVisible] of businessControlCases) {
+  test(`@role:${role} @story:ROLE-${role.toUpperCase()} business controls follow least privilege`, async ({ page }) => {
+    await signInAs(page, `role-${role}`);
+    await page.goto(path);
+    await expect(page.getByRole("button", { name: primary, exact: true })).toHaveCount(primaryVisible ? 1 : 0);
+    if (secondary) {
+      await expect(page.getByRole("button", { name: secondary, exact: true })).toHaveCount(secondaryVisible ? 1 : 0);
+    }
+  });
+}

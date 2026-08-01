@@ -70,6 +70,7 @@ class OrganizationModelViewSet(ModelViewSet):
 
 
 class PropertyViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
     queryset = Property.objects.annotate(buildings_count=Count('buildings'), units_count=Count('units'))
     serializer_class = PropertySerializer
     search_fields = ('name', 'code', 'city')
@@ -113,36 +114,42 @@ class PropertyViewSet(OrganizationModelViewSet):
 
 
 class BuildingViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
     queryset = Building.objects.select_related('property')
     serializer_class = BuildingSerializer
     search_fields = ('name', 'code', 'property__name')
 
 
 class UnitViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
     queryset = Unit.objects.select_related('property', 'building')
     serializer_class = UnitSerializer
     search_fields = ('code', 'unit_type', 'property__name')
 
 
 class ProjectViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
     queryset = Project.objects.select_related('property')
     serializer_class = ProjectSerializer
     search_fields = ('name', 'code')
 
 
 class TenantViewSet(OrganizationModelViewSet):
+    write_permission = 'property.leasing'
     queryset = Tenant.objects.all()
     serializer_class = TenantSerializer
     search_fields = ('name', 'code', 'email', 'phone')
 
 
 class TenantPortalAccessViewSet(OrganizationModelViewSet):
+    write_permission = 'property.leasing'
     queryset = TenantPortalAccess.objects.select_related('user', 'tenant')
     serializer_class = TenantPortalAccessSerializer
     search_fields = ('user__username', 'tenant__name', 'tenant__code')
 
 
 class LeaseViewSet(OrganizationModelViewSet):
+    write_permission = 'property.leasing'
     queryset = Lease.objects.select_related('tenant', 'unit__property')
     serializer_class = LeaseSerializer
     search_fields = ('reference', 'tenant__name', 'unit__code')
@@ -231,6 +238,7 @@ class LeaseViewSet(OrganizationModelViewSet):
 
 
 class InvoiceViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = Invoice.objects.select_related('lease__tenant')
     serializer_class = InvoiceSerializer
     search_fields = ('number', 'lease__tenant__name')
@@ -307,6 +315,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
 
 
 class ReceiptViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = Receipt.objects.select_related('tenant', 'invoice')
     serializer_class = ReceiptSerializer
     search_fields = ('number', 'tenant__name', 'external_reference')
@@ -356,6 +365,7 @@ class InvoiceReminderViewSet(ReadOnlyModelViewSet):
 
 
 class BankTransactionViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = BankTransaction.objects.select_related('receipt')
     serializer_class = BankTransactionSerializer
     search_fields = ('reference', 'description', 'receipt__number')
@@ -392,6 +402,7 @@ class BankTransactionViewSet(OrganizationModelViewSet):
 
 
 class ExpenseViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = Expense.objects.select_related('property')
     serializer_class = ExpenseSerializer
     search_fields = ('supplier', 'category', 'invoice_number', 'property__name')
@@ -441,6 +452,7 @@ class ExpenseViewSet(OrganizationModelViewSet):
 
 
 class BudgetViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     actual_expenses = Expense.objects.filter(
         organization=OuterRef('organization'), property=OuterRef('property'),
         category=OuterRef('category'), incurred_on__year=OuterRef('year'),
@@ -486,6 +498,7 @@ class BudgetViewSet(OrganizationModelViewSet):
 
 
 class ServiceChargeViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = ServiceCharge.objects.select_related('property').annotate(allocation_count=Count('allocations'))
     serializer_class = ServiceChargeSerializer
 
@@ -576,6 +589,7 @@ class ServiceChargeReconciliationViewSet(ReadOnlyModelViewSet):
 
 
 class TenantDocumentViewSet(OrganizationModelViewSet):
+    write_permission = 'property.leasing'
     queryset = TenantDocument.objects.select_related('tenant', 'verified_by')
     serializer_class = TenantDocumentSerializer
     search_fields = ('tenant__name', 'document_type', 'document_number')
@@ -614,6 +628,7 @@ class TenantDocumentViewSet(OrganizationModelViewSet):
 
 
 class RentScheduleViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = RentSchedule.objects.select_related('lease__tenant', 'invoice')
     serializer_class = RentScheduleSerializer
     search_fields = ('lease__reference', 'lease__tenant__name')
@@ -654,6 +669,7 @@ class RentScheduleViewSet(OrganizationModelViewSet):
 
 
 class ReceiptAllocationViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = ReceiptAllocation.objects.select_related('receipt__tenant', 'invoice')
     serializer_class = ReceiptAllocationSerializer
     http_method_names = ('get', 'head', 'options')
@@ -661,6 +677,7 @@ class ReceiptAllocationViewSet(OrganizationModelViewSet):
 
 
 class CreditNoteViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
     queryset = CreditNote.objects.select_related('invoice__lease__tenant', 'issued_by')
     serializer_class = CreditNoteSerializer
     search_fields = ('number', 'invoice__number', 'invoice__lease__tenant__name', 'reason')

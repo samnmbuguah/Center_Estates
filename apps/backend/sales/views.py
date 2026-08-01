@@ -53,6 +53,7 @@ class SalesModelViewSet(ModelViewSet):
 
 
 class ListingViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
     queryset = SaleListing.objects.select_related('unit', 'project')
     serializer_class = SaleListingSerializer
     search_fields = ('unit__code', 'unit__unit_type', 'project__name')
@@ -91,6 +92,8 @@ class ListingViewSet(SalesModelViewSet):
 
 
 class BuyerViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    permission_map = {'transition': 'sales.selling'}
     queryset = Buyer.objects.select_related('assigned_agent')
     serializer_class = BuyerSerializer
     search_fields = ('reference', 'full_name', 'email', 'phone', 'id_number')
@@ -126,6 +129,8 @@ class BuyerViewSet(SalesModelViewSet):
 
 
 class SaleViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    permission_map = {'transition': 'sales.selling'}
     queryset = PropertySale.objects.select_related('buyer', 'listing__unit', 'listing__project', 'agent').prefetch_related('payments')
     serializer_class = PropertySaleSerializer
     search_fields = ('reference', 'buyer__full_name', 'listing__unit__code', 'listing__project__name')
@@ -196,6 +201,7 @@ class SaleViewSet(SalesModelViewSet):
 
 
 class InstallmentViewSet(SalesModelViewSet):
+    write_permission = 'sales.payments'
     queryset = Installment.objects.select_related('sale__buyer')
     serializer_class = InstallmentSerializer
     search_fields = ('sale__reference', 'sale__buyer__full_name', 'description', 'milestone')
@@ -214,6 +220,7 @@ class InstallmentViewSet(SalesModelViewSet):
 
 
 class PaymentViewSet(SalesModelViewSet):
+    write_permission = 'sales.payments'
     queryset = SalePayment.objects.select_related('sale__buyer', 'installment', 'verified_by')
     serializer_class = SalePaymentSerializer
     search_fields = ('reference', 'external_reference', 'sale__reference', 'sale__buyer__full_name')
@@ -317,12 +324,14 @@ class PaymentViewSet(SalesModelViewSet):
 
 
 class SiteVisitViewSet(SalesModelViewSet):
+    write_permission = 'sales.visits'
     queryset = SiteVisit.objects.select_related('project', 'introducing_agent', 'converted_buyer')
     serializer_class = SiteVisitSerializer
     search_fields = ('reference', 'visitor_name', 'email', 'phone', 'project__name')
 
 
 class CommissionViewSet(SalesModelViewSet):
+    write_permission = 'sales.payments'
     queryset = AgentCommission.objects.select_related('sale__buyer', 'agent')
     serializer_class = AgentCommissionSerializer
     search_fields = ('reference', 'sale__reference', 'sale__buyer__full_name', 'agent__username')
@@ -373,6 +382,7 @@ class CommissionViewSet(SalesModelViewSet):
 
 
 class SaleDocumentViewSet(SalesModelViewSet):
+    write_permission = 'sales.legal'
     queryset = SaleDocument.objects.select_related('sale')
     serializer_class = SaleDocumentSerializer
     search_fields = ('title', 'document_type', 'sale__reference')

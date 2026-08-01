@@ -34,6 +34,7 @@ class Scoped(ModelViewSet):
  def perform_create(self,serializer): serializer.save(organization=self._validate_relations(serializer))
  def perform_update(self,serializer): self._validate_relations(serializer); serializer.save()
 class TenderViewSet(Scoped):
+ write_permission = 'tender.intake'
  queryset=Tender.objects.select_related('owner'); serializer_class=TenderSerializer; search_fields=('reference','title','client','category')
  def perform_create(self,serializer): serializer.save(organization=self._validate_relations(serializer),owner=self.request.user)
  def perform_update(self,serializer):
@@ -60,6 +61,7 @@ class TenderViewSet(Scoped):
   TenderAuditEvent.objects.create(organization=org,tender=tender,event_type='stage_transition',from_stage=previous,to_stage=target,notes=str(request.data.get('notes','')).strip(),actor=request.user)
   return Response(TenderSerializer(tender).data)
 class RequirementViewSet(Scoped):
+ write_permission = 'tender.compliance'
  queryset=TenderRequirement.objects.select_related('tender'); serializer_class=RequirementSerializer; search_fields=('text','category','tender__title')
  @action(detail=True,methods=('post',))
  def confirm(self,request,pk=None):
@@ -70,6 +72,7 @@ class RequirementViewSet(Scoped):
   TenderAuditEvent.objects.create(organization=requirement.organization,tender=requirement.tender,event_type='requirement_confirmed',details={'requirement':str(requirement.id),'status':target,'citation':requirement.citation},actor=request.user)
   return Response(self.get_serializer(requirement).data)
 class DecisionViewSet(Scoped):
+ write_permission = 'tender.decision'
  queryset=BidDecision.objects.select_related('tender'); serializer_class=DecisionSerializer; search_fields=('tender__title','rationale')
  @action(detail=True,methods=('post',))
  def decide(self,request,pk=None):
@@ -81,6 +84,8 @@ class DecisionViewSet(Scoped):
   TenderAuditEvent.objects.create(organization=decision.organization,tender=decision.tender,event_type='bid_decision',notes=decision.rationale,details={'decision':target},actor=request.user)
   return Response(self.get_serializer(decision).data)
 class TaskViewSet(Scoped):
+ write_permission = 'tender.intake'
+ permission_map = {'transition': 'tender.intake'}
  queryset=TenderTask.objects.select_related('tender','owner','dependency'); serializer_class=TaskSerializer; search_fields=('title','tender__title','owner__username')
  @action(detail=True,methods=('post',))
  def transition(self,request,pk=None):
@@ -91,11 +96,17 @@ class TaskViewSet(Scoped):
   TenderAuditEvent.objects.create(organization=task.organization,tender=task.tender,event_type='task_status_change',details={'task':str(task.id),'status':target},actor=request.user)
   return Response(self.get_serializer(task).data)
 class DocumentViewSet(Scoped):
+ write_permission = 'tender.compliance'
  queryset=CompanyDocument.objects.all(); serializer_class=CompanyDocumentSerializer; search_fields=('name','document_type','version')
  def perform_update(self,serializer): raise ValidationError({'document':'Vault evidence is immutable; upload a new checksum version.'})
  def perform_destroy(self,instance): raise ValidationError({'document':'Vault evidence cannot be deleted.'})
 class ProposalViewSet(Scoped):
+ write_permission = 'tender.proposal'
  queryset=ProposalSection.objects.select_related('tender','owner'); serializer_class=ProposalSectionSerializer; search_fields=('title','content','tender__title')
+ def get_action_permission(self,request,action):
+  if action=='transition' and str(request.data.get('status',''))=='approved': return 'tender.approve'
+  if action=='transition': return 'tender.proposal'
+  return self.permission_map.get(action) if hasattr(self,'permission_map') else None
  def perform_update(self,serializer):
   section=self.get_object()
   if section.status=='approved': raise ValidationError({'proposal':'Approved proposal sections are immutable.'})
@@ -109,6 +120,7 @@ class ProposalViewSet(Scoped):
   TenderAuditEvent.objects.create(organization=section.organization,tender=section.tender,event_type='proposal_status_change',details={'section':str(section.id),'status':target,'version':section.version},actor=request.user)
   return Response(self.get_serializer(section).data)
 class FinancialViewSet(Scoped):
+ write_permission = 'tender.pricing'
  queryset=FinancialItem.objects.select_related('tender'); serializer_class=FinancialItemSerializer; search_fields=('code','description','tender__title')
  def perform_create(self,serializer):
   amount=(serializer.validated_data['quantity']*serializer.validated_data['unit_rate']).quantize(Decimal('0.01'))
@@ -126,6 +138,7 @@ class FinancialViewSet(Scoped):
   TenderAuditEvent.objects.create(organization=item.organization,tender=item.tender,event_type='financial_item_approved',details={'item':str(item.id),'amount':str(item.amount)},actor=request.user)
   return Response(self.get_serializer(item).data)
 class ReviewViewSet(Scoped):
+ write_permission = 'tender.decision'
  queryset=TenderReview.objects.select_related('tender','reviewer'); serializer_class=ReviewSerializer; search_fields=('gate','tender__title','comments')
  @action(detail=True,methods=('post',))
  def decide(self,request,pk=None):
@@ -137,6 +150,7 @@ class ReviewViewSet(Scoped):
   TenderAuditEvent.objects.create(organization=review.organization,tender=review.tender,event_type='review_decision',notes=comments,details={'gate':review.gate,'status':target},actor=request.user)
   return Response(self.get_serializer(review).data)
 class SubmissionViewSet(Scoped):
+ write_permission = 'tender.decision'
  queryset=TenderSubmission.objects.select_related('tender','submitted_by'); serializer_class=SubmissionSerializer; search_fields=('tender__title','receipt_reference')
  @transaction.atomic
  def perform_create(self,serializer):
@@ -148,6 +162,7 @@ class SubmissionViewSet(Scoped):
  def perform_update(self,serializer): raise ValidationError({'submission':'Submission receipts are immutable.'})
  def perform_destroy(self,instance): raise ValidationError({'submission':'Submission receipts are immutable.'})
 class OutcomeViewSet(Scoped):
+ write_permission = 'tender.decision'
  queryset=TenderOutcome.objects.select_related('tender'); serializer_class=OutcomeSerializer; search_fields=('tender__title','winner','feedback')
  @transaction.atomic
  def perform_create(self,serializer):

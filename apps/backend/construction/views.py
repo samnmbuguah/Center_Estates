@@ -113,6 +113,7 @@ class ImmutableSubmittedMixin:
 
 
 class ProjectViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.project_admin'
     queryset = Project.objects.select_related("portfolio_project")
     serializer_class = ProjectSerializer
     search_fields = ("name", "code", "client_name", "location")
@@ -139,10 +140,11 @@ EvidenceBaseViewSet = scoped_viewset("EvidenceBaseViewSet", EvidenceFile, Eviden
 
 
 class MilestoneViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, MilestoneBaseViewSet):
-    pass
+    write_permission = 'monitoring.site'
 
 
 class MilestoneVerificationViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.certify'
     queryset = MilestoneVerification.objects.select_related("milestone_entry", "verifier")
     serializer_class = MilestoneVerificationSerializer
     organization_field = "milestone_entry__organization"
@@ -175,13 +177,18 @@ class MilestoneVerificationViewSet(ConstructionScopedViewSet):
 
 
 class EvidenceViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, EvidenceBaseViewSet):
+    write_permission = 'monitoring.site'
     pass
 DailyLogViewSet = scoped_viewset("DailyLogViewSet", DailyLog, DailyLogSerializer, ("notes", "weather"))
 RiskViewSet = scoped_viewset("RiskViewSet", Risk, RiskSerializer, ("reference", "description"))
 TicketViewSet = scoped_viewset("TicketViewSet", Ticket, TicketSerializer, ("title", "body"))
+DailyLogViewSet.write_permission = 'monitoring.site'
+RiskViewSet.write_permission = 'monitoring.site'
+TicketViewSet.write_permission = 'monitoring.site'
 
 
 class TicketCommentViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.site'
     queryset = TicketComment.objects.select_related("ticket", "author")
     serializer_class = TicketCommentSerializer
     organization_field = "ticket__organization"
@@ -204,9 +211,19 @@ class TicketCommentViewSet(ConstructionScopedViewSet):
 WorkPlanTaskViewSet = scoped_viewset("WorkPlanTaskViewSet", WorkPlanTask, WorkPlanTaskSerializer, ("task_name", "task_id"))
 BoQItemViewSet = scoped_viewset("BoQItemViewSet", BoQItem, BoQItemSerializer, ("description", "item_number"))
 VariationBaseViewSet = scoped_viewset("VariationBaseViewSet", Variation, VariationSerializer, ("description", "variation_number"))
+WorkPlanTaskViewSet.write_permission = 'monitoring.site'
+BoQItemViewSet.write_permission = 'monitoring.commercial'
 
 
 class VariationViewSet(VariationBaseViewSet):
+    write_permission = 'monitoring.commercial'
+    def get_action_permission(self, request, action):
+        if action == "transition" and str(request.data.get("status", "")) in {"approved", "rejected"}:
+            return "monitoring.approve"
+        if action == "transition":
+            return "monitoring.commercial"
+        return self.permission_map.get(action) if hasattr(self, "permission_map") else None
+
     def perform_create(self, serializer):
         now = int(time() * 1000)
         serializer.save(organization=self._validate_organization(serializer), status="draft", created_at=now, updated_at=now)
@@ -257,9 +274,15 @@ RfiViewSet = scoped_viewset("RfiViewSet", Rfi, RfiSerializer, ("title", "questio
 SafetyIncidentViewSet = scoped_viewset("SafetyIncidentViewSet", SafetyIncident, SafetyIncidentSerializer, ("description", "action_taken"))
 CalendarEventViewSet = scoped_viewset("CalendarEventViewSet", CalendarEvent, CalendarEventSerializer, ("title", "description"))
 ProjectDocumentViewSet = scoped_viewset("ProjectDocumentViewSet", ProjectDocument, ProjectDocumentSerializer, ("title", "discipline"))
+QualityTestViewSet.write_permission = 'monitoring.site'
+RfiViewSet.write_permission = 'monitoring.site'
+SafetyIncidentViewSet.write_permission = 'monitoring.site'
+CalendarEventViewSet.write_permission = 'monitoring.site'
+ProjectDocumentViewSet.write_permission = 'monitoring.site'
 
 
 class DocumentVersionViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.site'
     queryset = DocumentVersion.objects.select_related("document__project", "uploaded_by")
     serializer_class = DocumentVersionSerializer
     organization_field = "document__organization"
@@ -281,6 +304,7 @@ ProjectApprovalBaseViewSet = scoped_viewset("ProjectApprovalBaseViewSet", Projec
 
 
 class ProjectApprovalViewSet(ProjectApprovalBaseViewSet):
+    write_permission = 'monitoring.project_admin'
     def perform_create(self, serializer):
         if serializer.validated_data.get("status", "pending") != "pending":
             raise ValidationError({"status": "New approvals must enter the pending review queue."})
@@ -323,6 +347,7 @@ class ProjectApprovalViewSet(ProjectApprovalBaseViewSet):
 
 
 class RequirementWaiverViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.project_admin'
     queryset = RequirementWaiver.objects.select_related("project", "waived_by")
     serializer_class = RequirementWaiverSerializer
     organization_field = "project__organization"
@@ -340,6 +365,7 @@ class RequirementWaiverViewSet(ConstructionScopedViewSet):
 
 
 class ProjectMembershipViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.project_admin'
     queryset = ProjectMembership.objects.select_related("project", "user", "role")
     serializer_class = ProjectMembershipSerializer
     organization_field = "project__organization"
@@ -367,9 +393,15 @@ ConsultantPaymentViewSet = scoped_viewset("ConsultantPaymentViewSet", Consultant
 DroneDatasetViewSet = scoped_viewset("DroneDatasetViewSet", DroneDataset, DroneDatasetSerializer, ("data_type", "operator_id", "milestone_id"))
 SatelliteDatasetViewSet = scoped_viewset("SatelliteDatasetViewSet", SatelliteDataset, SatelliteDatasetSerializer, ("sat_type", "source_provider", "milestone_id"))
 ProvisionalSumBaseViewSet = scoped_viewset("ProvisionalSumBaseViewSet", ProvisionalSum, ProvisionalSumSerializer, ("item_number", "description"))
+LifecycleViewSet.write_permission = 'monitoring.project_admin'
+MaterialDeliveryViewSet.write_permission = 'monitoring.procurement'
+ConsultantPaymentViewSet.write_permission = 'monitoring.commercial'
+DroneDatasetViewSet.write_permission = 'monitoring.site'
+SatelliteDatasetViewSet.write_permission = 'monitoring.site'
 
 
 class ProvisionalSumViewSet(ProvisionalSumBaseViewSet):
+    write_permission = 'monitoring.commercial'
     def perform_create(self, serializer):
         now = int(time() * 1000)
         serializer.save(organization=self._validate_organization(serializer), status="pending", ascertained_amount=0, created_at=now, updated_at=now)
@@ -406,6 +438,7 @@ ContingencyDrawdownBaseViewSet = scoped_viewset("ContingencyDrawdownBaseViewSet"
 
 
 class ContingencyDrawdownViewSet(ContingencyDrawdownBaseViewSet):
+    write_permission = 'monitoring.commercial'
     def perform_create(self, serializer):
         now = int(time() * 1000)
         serializer.save(organization=self._validate_organization(serializer), status="requested", created_at=now, updated_at=now)
@@ -437,6 +470,7 @@ AdvancePaymentBaseViewSet = scoped_viewset("AdvancePaymentBaseViewSet", AdvanceP
 
 
 class AdvancePaymentViewSet(AdvancePaymentBaseViewSet):
+    write_permission = 'monitoring.commercial'
     def perform_create(self, serializer):
         now = int(time() * 1000)
         serializer.save(organization=self._validate_organization(serializer), status="active", recovered_amount=0, created_at=now, updated_at=now)
@@ -463,6 +497,7 @@ class AdvancePaymentViewSet(AdvancePaymentBaseViewSet):
 
 
 class AdvanceRecoveryViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.finance'
     queryset = AdvanceRecovery.objects.select_related("advance_payment__project")
     serializer_class = AdvanceRecoverySerializer
     organization_field = "advance_payment__organization"
@@ -473,9 +508,14 @@ WorkOrderViewSet = scoped_viewset("ConstructionWorkOrderViewSet", WorkOrder, Wor
 BimModelViewSet = scoped_viewset("BimModelViewSet", BimModel, BimModelSerializer, ("name", "discipline", "version"))
 BimDiscrepancyViewSet = scoped_viewset("BimDiscrepancyViewSet", BimDiscrepancy, BimDiscrepancySerializer, ("milestone_ref", "description"))
 RequisitionBaseViewSet = scoped_viewset("RequisitionBaseViewSet", Requisition, RequisitionSerializer, ("title", "description"))
+SubcontractorViewSet.write_permission = 'monitoring.procurement'
+WorkOrderViewSet.write_permission = 'monitoring.procurement'
+BimModelViewSet.write_permission = 'monitoring.site'
+BimDiscrepancyViewSet.write_permission = 'monitoring.site'
 
 
 class RequisitionViewSet(RequisitionBaseViewSet):
+    write_permission = 'monitoring.finance'
     def perform_create(self, serializer):
         now = int(time() * 1000)
         serializer.save(organization=self._validate_organization(serializer), status="submitted", raised_by=self.request.user, created_at=now, updated_at=now)
@@ -507,6 +547,7 @@ CertificateBaseViewSet = scoped_viewset("CertificateBaseViewSet", Certificate, C
 
 
 class CertificateViewSet(CertificateBaseViewSet):
+    write_permission = 'monitoring.finance'
     """Financial certificates are permanent audit records; they may only be voided."""
 
     def perform_update(self, serializer):
@@ -526,6 +567,7 @@ DisbursementBaseViewSet = scoped_viewset("DisbursementBaseViewSet", Disbursement
 
 
 class DisbursementViewSet(DisbursementBaseViewSet):
+    write_permission = 'monitoring.finance'
     def perform_create(self, serializer):
         certificate = serializer.validated_data.get("certificate")
         organization = self._validate_organization(serializer)
@@ -562,6 +604,7 @@ DrawdownRequestBaseViewSet = scoped_viewset("DrawdownRequestBaseViewSet", Drawdo
 
 
 class DrawdownRequestViewSet(DrawdownRequestBaseViewSet):
+    write_permission = 'monitoring.finance'
     def perform_create(self, serializer):
         now = int(time() * 1000)
         serializer.save(organization=self._validate_organization(serializer), status="submitted", requested_by=self.request.user, created_at=now, updated_at=now)
@@ -597,6 +640,7 @@ class DrawdownRequestViewSet(DrawdownRequestBaseViewSet):
 
 
 class ChatMessageViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.site'
     queryset = ChatMessage.objects.select_related("sender", "recipient", "project")
     serializer_class = ChatMessageSerializer
     search_fields = ("body", "channel", "attachment_name")
@@ -677,6 +721,7 @@ class AdminAuditLogViewSet(ConstructionScopedViewSet):
 
 
 class StoreItemViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.procurement'
     queryset = StoreItem.objects.all()
     serializer_class = StoreItemSerializer
     search_fields = ("code", "name", "category")
@@ -729,10 +774,12 @@ class StoreItemViewSet(ConstructionScopedViewSet):
 
 
 class StoreSupplierViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.procurement'
     queryset = StoreSupplier.objects.all(); serializer_class = StoreSupplierSerializer; search_fields = ("name", "contact")
 
 
 class MaterialRequisitionViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.procurement'
     queryset = MaterialRequisition.objects.select_related("project", "raised_by").prefetch_related("lines__item")
     serializer_class = MaterialRequisitionSerializer; search_fields = ("reference", "project__name")
 
@@ -751,6 +798,7 @@ class MaterialRequisitionViewSet(ConstructionScopedViewSet):
 
 
 class PurchaseOrderViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.procurement'
     queryset = PurchaseOrder.objects.select_related("project", "supplier", "created_by").prefetch_related("lines__item")
     serializer_class = PurchaseOrderSerializer; search_fields = ("number", "project__name", "supplier__name")
 
@@ -789,6 +837,7 @@ class PurchaseOrderViewSet(ConstructionScopedViewSet):
 
 
 class StockMovementViewSet(ConstructionScopedViewSet):
+    write_permission = 'monitoring.procurement'
     queryset = StockMovement.objects.select_related("project", "item", "created_by")
     serializer_class = StockMovementSerializer; http_method_names = ("get", "head", "options"); search_fields = ("item__code", "item__name", "reference", "movement_type")
 

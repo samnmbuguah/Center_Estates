@@ -97,12 +97,12 @@ class AuthenticationApiTests(TestCase):
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class ModuleRolePermissionApiTests(TestCase):
     routes = {
-        Module.PROPERTY: ('/api/v1/property/dashboard/', '/api/v1/property/properties/'),
-        Module.FACILITY: ('/api/v1/facility/dashboard/', '/api/v1/facility/assets/'),
-        Module.SALES: ('/api/v1/sales/dashboard/', '/api/v1/sales/buyers/'),
-        Module.TENDER: ('/api/v1/tender/dashboard/', '/api/v1/tender/tenders/'),
-        Module.VALUATION: ('/api/v1/valuation/dashboard/', '/api/v1/valuation/clients/'),
-        Module.MONITORING: ('/api/v1/construction/dashboard/', '/api/v1/construction/projects/'),
+        Module.PROPERTY: ('/api/v1/property/dashboard/', '/api/v1/property/properties/', 'operations'),
+        Module.FACILITY: ('/api/v1/facility/dashboard/', '/api/v1/facility/assets/', 'administer'),
+        Module.SALES: ('/api/v1/sales/dashboard/', '/api/v1/sales/buyers/', 'selling'),
+        Module.TENDER: ('/api/v1/tender/dashboard/', '/api/v1/tender/tenders/', 'intake'),
+        Module.VALUATION: ('/api/v1/valuation/dashboard/', '/api/v1/valuation/clients/', 'coordinate'),
+        Module.MONITORING: ('/api/v1/construction/dashboard/', '/api/v1/construction/projects/', 'project_admin'),
     }
 
     def setUp(self):
@@ -122,17 +122,25 @@ class ModuleRolePermissionApiTests(TestCase):
         self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
 
     def test_viewer_can_read_each_module_but_cannot_mutate(self):
-        for module, (dashboard, collection) in self.routes.items():
+        for module, (dashboard, collection, _domain) in self.routes.items():
             with self.subTest(module=module):
                 self.assertEqual(self.client.get(dashboard, **self.headers).status_code, 200)
                 self.assertEqual(self.client.post(collection, {}, format='json', **self.headers).status_code, 403)
 
-    def test_manage_permission_allows_request_to_reach_domain_validation(self):
-        for module, (_dashboard, collection) in self.routes.items():
-            permission = Permission.objects.create(key=f'{module}.manage', label=f'Manage {module}', module=module)
+    def test_resource_permission_allows_request_to_reach_domain_validation(self):
+        for module, (_dashboard, collection, domain) in self.routes.items():
+            permission = Permission.objects.create(key=f'{module}.{domain}', label=f'{domain} {module}', module=module)
             self.roles[module].permissions.add(permission)
             with self.subTest(module=module):
                 self.assertEqual(self.client.post(collection, {}, format='json', **self.headers).status_code, 400)
+
+    def test_unrelated_domain_permission_does_not_authorize_mutation(self):
+        leasing = Permission.objects.create(key='property.leasing', label='Leasing', module=Module.PROPERTY)
+        self.roles[Module.PROPERTY].permissions.add(leasing)
+        self.assertEqual(
+            self.client.post('/api/v1/property/properties/', {}, format='json', **self.headers).status_code,
+            403,
+        )
 
     def test_approval_action_requires_separate_approval_permission(self):
         manage = Permission.objects.create(key='sales.manage', label='Manage sales', module=Module.SALES)
