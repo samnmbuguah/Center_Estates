@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
 type Row = Record<string, string | number | boolean | null | string[]>;
-type Tab = "overview" | "projects" | "project-memberships" | "milestones" | "milestone-verifications" | "requirement-waivers" | "daily-logs" | "risks" | "tickets" | "ticket-comments" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "document-versions" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
+type Tab = "overview" | "projects" | "project-memberships" | "milestones" | "milestone-verifications" | "requirement-waivers" | "daily-logs" | "risks" | "tickets" | "ticket-comments" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "document-versions" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "advance-recoveries" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
 type Dashboard = {
   kpis: Record<string, string | number>;
   projects: Row[];
@@ -23,7 +23,7 @@ const labels: Record<Tab, string> = {
   lifecycle: "Lifecycle", materials: "Deliveries", "store-items": "Inventory", "store-suppliers": "Suppliers",
   "material-requisitions": "Material requests", "purchase-orders": "Purchase orders", "stock-movements": "Stock ledger", "consultant-payments": "Consultants",
   "drone-datasets": "Drone", "satellite-datasets": "Satellite", "provisional-sums": "Provisional sums",
-  "contingency-drawdowns": "Contingency", "advance-payments": "Advances", subcontractors: "Subcontractors",
+  "contingency-drawdowns": "Contingency", "advance-payments": "Advances", "advance-recoveries": "Advance recoveries", subcontractors: "Subcontractors",
   "work-orders": "Work orders", "bim-models": "BIM models", "bim-discrepancies": "BIM issues",
   requisitions: "Requisitions", certificates: "Certificates", disbursements: "Payments", drawdowns: "Drawdowns",
   reports: "Reports", chat: "Project chat", notifications: "Notifications", "audit-log": "Audit trail",
@@ -61,6 +61,7 @@ const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; ki
   "provisional-sums": [{key:"item_number",label:"Item"},{key:"description",label:"Description"},{key:"budgeted_amount",label:"Budget",kind:"money"},{key:"ascertained_amount",label:"Ascertained",kind:"money"},{key:"status",label:"Status",kind:"status"}],
   "contingency-drawdowns": [{key:"drawdown_number",label:"Drawdown"},{key:"reason",label:"Reason"},{key:"category",label:"Category"},{key:"amount",label:"Amount",kind:"money"},{key:"status",label:"Status",kind:"status"}],
   "advance-payments": [{key:"contractor_name",label:"Contractor"},{key:"amount",label:"Advance",kind:"money"},{key:"recovery_rate",label:"Recovery %"},{key:"recovered_amount",label:"Recovered",kind:"money"},{key:"status",label:"Status",kind:"status"}],
+  "advance-recoveries": [{key:"created_at",label:"Posted"},{key:"project_name",label:"Project"},{key:"contractor_name",label:"Contractor"},{key:"certificate_number",label:"Certificate"},{key:"amount_recovered",label:"Recovered",kind:"money"}],
   subcontractors: [{key:"name",label:"Subcontractor"},{key:"contact_person",label:"Contact"},{key:"email",label:"Email"},{key:"phone",label:"Phone"}],
   "work-orders": [{key:"order_number",label:"Order"},{key:"boq_section",label:"BoQ section"},{key:"description",label:"Scope"},{key:"total_value",label:"Value",kind:"money"},{key:"certified_value",label:"Certified",kind:"money"},{key:"status",label:"Status",kind:"status"}],
   "bim-models": [{key:"name",label:"Model"},{key:"discipline",label:"Discipline"},{key:"version",label:"Version"},{key:"file_format",label:"Format"},{key:"element_count",label:"Elements"},{key:"processing_status",label:"Processing",kind:"status"}],
@@ -137,6 +138,19 @@ export default function MonitoringPage() {
       endpoint = `/construction/disbursements/${row.id}/${actionName}/`;
     } else if (tab === "drawdowns") {
       endpoint = `/construction/drawdowns/${row.id}/transition/`; payload = { action: actionName };
+    } else if (tab === "provisional-sums") {
+      endpoint = `/construction/provisional-sums/${row.id}/${actionName}/`;
+      if (actionName === "ascertain") {
+        const amount = window.prompt("Enter the ascertained amount:")?.trim(); if (!amount) return;
+        payload = { ascertained_amount: amount };
+      }
+    } else if (tab === "contingency-drawdowns") {
+      endpoint = `/construction/contingency-drawdowns/${row.id}/decide/`; payload = { decision: actionName };
+    } else if (tab === "advance-payments") {
+      endpoint = `/construction/advance-payments/${row.id}/recover/`;
+      const amount = window.prompt("Enter the recovery amount:")?.trim(); if (!amount) return;
+      const certificate = window.prompt("Certificate reference (optional):")?.trim() ?? "";
+      payload = { amount_recovered: amount, certificate_number: certificate };
     }
     if (["rejected", "reject", "void"].includes(actionName)) {
       const reason = window.prompt("Record the reason for this decision:")?.trim();
@@ -168,7 +182,7 @@ function PanelTitle({ title, onClick }: { title: string; onClick: () => void }) 
 function Status({ value }: { value: string }) { return <span className={`data-status status-${value}`}>{value.replaceAll("_", " ")}</span>; }
 function Empty() { return <div className="empty-state">No records requiring attention.</div>; }
 function Table({ cols, rows, tab, onAction }: { cols: { key: string; label: string; kind?: "money" | "status" | "progress" }[]; rows: Row[]; tab?: Tab; onAction?: (row: Row, action: string) => void }) {
-  const controlled = tab && ["variations", "requisitions", "disbursements", "drawdowns"].includes(tab);
+  const controlled = tab && ["variations", "requisitions", "disbursements", "drawdowns", "provisional-sums", "contingency-drawdowns", "advance-payments"].includes(tab);
   return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{cols.map(col => <th key={col.key}>{col.label}</th>)}{controlled && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id ?? index)}>{cols.map(col => <td key={col.key}>{col.kind === "money" ? cash.format(Number(row[col.key] ?? 0)) : col.kind === "status" ? <Status value={String(row[col.key] ?? "unknown")}/> : col.kind === "progress" ? <span className="progress-cell"><i style={{width:`${Math.min(100, Number(row[col.key] ?? 0))}%`}}/><b>{Number(row[col.key] ?? 0)}%</b></span> : typeof row[col.key] === "boolean" ? (row[col.key] ? "Yes" : "No") : Array.isArray(row[col.key]) ? (row[col.key] as string[]).join(", ") : String(row[col.key] ?? "—")}</td>)}{controlled && <td><WorkflowButtons tab={tab} row={row} act={actionName => onAction?.(row, actionName)}/></td>}</tr>)}</tbody></table></div> : <Empty/>;
 }
 
@@ -179,5 +193,8 @@ function WorkflowButtons({ tab, row, act }: { tab: Tab; row: Row; act: (action: 
   if (tab === "requisitions") actions = status === "submitted" ? [["review", "Review"]] : status === "reviewed" ? [["approved", "Approve"], ["rejected", "Reject"]] : [];
   if (tab === "disbursements") actions = status === "pending" ? [["pay", "Mark paid"], ["void", "Void"]] : status === "paid" ? [["void", "Void"]] : [];
   if (tab === "drawdowns") actions = status === "submitted" ? [["review_documents", "Review documents"], ["reject", "Reject"]] : status === "document_review" ? [["review_valuation", "Review valuation"], ["reject", "Reject"]] : status === "valuation_review" ? [["approve", "Approve"], ["reject", "Reject"]] : status === "approved" ? [["disburse", "Disburse"]] : [];
+  if (tab === "provisional-sums") actions = status === "pending" ? [["ascertain", "Ascertain"]] : status === "ascertained" ? [["close", "Close"]] : [];
+  if (tab === "contingency-drawdowns") actions = status === "requested" ? [["approved", "Approve"], ["rejected", "Reject"]] : [];
+  if (tab === "advance-payments") actions = status === "active" ? [["recover", "Record recovery"]] : [];
   return actions.length ? <div className="table-actions">{actions.map(([key, label]) => <button key={key} onClick={() => act(key)}>{label}</button>)}</div> : <span>Complete</span>;
 }

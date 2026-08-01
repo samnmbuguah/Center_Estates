@@ -14,9 +14,10 @@ from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
 from .models import (
-    Certificate, ChatMessage, Disbursement, DocumentVersion, DrawdownRequest, EvidenceFile, MaterialDelivery,
+    AdvancePayment, AdvanceRecovery, Certificate, ChatMessage, ContingencyDrawdown, Disbursement,
+    DocumentVersion, DrawdownRequest, EvidenceFile, MaterialDelivery,
     MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
-    ProjectMembership, PurchaseOrder, RequirementWaiver, Requisition, Risk, StockMovement, StoreItem,
+    ProjectMembership, ProvisionalSum, PurchaseOrder, RequirementWaiver, Requisition, Risk, StockMovement, StoreItem,
     StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation,
 )
 
@@ -435,3 +436,46 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(drawdown.reviewed_by, self.user)
         self.assertIsNotNone(drawdown.approved_at)
         self.assertIsNotNone(drawdown.disbursed_at)
+
+    def test_provisional_sum_requires_ascertainment_before_close(self):
+        created = self.client.post("/api/v1/construction/provisional-sums/", {
+            "project": self.project.id, "item_number": "PS-TEST", "description": "Specialist signage",
+            "budgeted_amount": "1000000",
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        item = ProvisionalSum.objects.get(item_number="PS-TEST")
+        url = f"/api/v1/construction/provisional-sums/{item.id}/"
+        self.assertEqual(self.client.post(f"{url}close/", {}, format="json", **self.headers).status_code, 400)
+        ascertained = self.client.post(f"{url}ascertain/", {"ascertained_amount": "920000", "notes": "Competitive quotation"}, format="json", **self.headers)
+        self.assertEqual(ascertained.status_code, 200, ascertained.data)
+        closed = self.client.post(f"{url}close/", {}, format="json", **self.headers)
+        self.assertEqual(closed.status_code, 200, closed.data)
+        self.assertEqual(closed.data["status"], "closed")
+        self.assertEqual(self.client.delete(url, **self.headers).status_code, 400)
+
+    def test_contingency_approval_enforces_remaining_allowance(self):
+        item = ContingencyDrawdown.objects.create(
+            organization=self.organization, project=self.project, drawdown_number="CD-TEST",
+            reason="Unforeseen services", amount=Decimal("260000"), status="requested", created_at=1, updated_at=1,
+        )
+        url = f"/api/v1/construction/contingency-drawdowns/{item.id}/decide/"
+        rejected = self.client.post(url, {"decision": "approved"}, format="json", **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+        item.amount = Decimal("200000"); item.save(update_fields=("amount",))
+        approved = self.client.post(url, {"decision": "approved"}, format="json", **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        item.refresh_from_db(); self.assertEqual(item.approved_by, self.user)
+
+    def test_advance_recovery_is_append_only_and_capped_at_outstanding(self):
+        advance = AdvancePayment.objects.create(
+            organization=self.organization, project=self.project, contractor_name="BuildCo",
+            amount=Decimal("1000000"), recovered_amount=Decimal("250000"), status="active", created_at=1, updated_at=1,
+        )
+        url = f"/api/v1/construction/advance-payments/{advance.id}/recover/"
+        self.assertEqual(self.client.post(url, {"amount_recovered": "800000"}, format="json", **self.headers).status_code, 400)
+        recovered = self.client.post(url, {"amount_recovered": "750000", "certificate_number": "IPC-009"}, format="json", **self.headers)
+        self.assertEqual(recovered.status_code, 200, recovered.data)
+        advance.refresh_from_db(); self.assertEqual(advance.status, "fully_recovered")
+        event = AdvanceRecovery.objects.get(advance_payment=advance)
+        self.assertEqual(event.amount_recovered, Decimal("750000"))
+        self.assertEqual(self.client.delete(f"/api/v1/construction/advance-recoveries/{event.id}/", **self.headers).status_code, 405)

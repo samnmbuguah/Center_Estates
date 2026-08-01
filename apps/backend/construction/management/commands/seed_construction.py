@@ -9,7 +9,7 @@ from organizations.models import Organization
 from properties.models import Project as PortfolioProject
 
 from construction.models import (
-    AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, Certificate, ChatMessage,
+    AdminAuditLog, AdvancePayment, AdvanceRecovery, BimDiscrepancy, BimModel, BoQItem, Certificate, ChatMessage,
     ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement, DocumentVersion,
     DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery, MaterialRequisition, MaterialRequisitionLine,
     MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
@@ -218,9 +218,13 @@ class Command(BaseCommand):
             project=project, drawdown_number="CD-003",
             defaults={"organization": organization, "reason": "Uncharted services discovered above Level 6 ceiling", "category": "unforeseen", "amount": Decimal("1200000"), "status": "approved", "approved_by": user, "approved_at": now_ms - 86400000, "created_at": now_ms - 259200000, "updated_at": now_ms},
         )
-        AdvancePayment.objects.update_or_create(
+        advance_payment, _ = AdvancePayment.objects.update_or_create(
             project=project, contractor_name="Apex Refurbishment Ltd",
             defaults={"organization": organization, "amount": Decimal("18500000"), "recovery_rate": Decimal("10"), "recovered_amount": Decimal("9250000"), "status": "active", "notes": "Mobilisation advance secured by guarantee", "created_at": now_ms - 10368000000, "updated_at": now_ms},
+        )
+        AdvanceRecovery.objects.update_or_create(
+            advance_payment=advance_payment, certificate_number="IPC-011",
+            defaults={"amount_recovered": Decimal("1425000"), "created_at": now_ms - 172800000},
         )
         subcontractor, _ = Subcontractor.objects.update_or_create(
             project=project, name="SafeSeal Contractors",
@@ -247,8 +251,8 @@ class Command(BaseCommand):
             defaults={"cert_type": "interim", "contractor_name": "Apex Refurbishment Ltd", "amount": Decimal("14250000"), "retention_percent": Decimal("5"), "milestone_entry_id": "ce-ms-foundations-001", "issued_by": user, "issued_at": now_ms - 172800000, "status": "issued", "previous_certified": Decimal("72600000"), "current_gross": Decimal("14250000"), "variations_amount": Decimal("2750000"), "advance_recovery": Decimal("1425000"), "retention_amount": Decimal("712500"), "net_payable": Decimal("14862500")},
         )
         Disbursement.objects.update_or_create(
-            organization=organization, project_id=project.id, certificate=certificate,
-            defaults={"amount": Decimal("14862500"), "status": "paid", "managed_by": user, "created_at": now_ms - 86400000, "paid_at": now_ms - 43200000},
+            organization=organization, project_id=project.id, certificate=certificate, amount=Decimal("14862500"),
+            defaults={"status": "paid", "managed_by": user, "created_at": now_ms - 86400000, "paid_at": now_ms - 43200000},
         )
         DrawdownRequest.objects.update_or_create(
             organization=organization, project_id=project.id, request_number="DD-009",

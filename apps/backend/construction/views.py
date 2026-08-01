@@ -13,7 +13,7 @@ from core.tenancy import get_active_organization
 from organizations.models import Membership
 
 from .models import (
-    AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
+    AdminAuditLog, AdvancePayment, AdvanceRecovery, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog, DocumentVersion,
     Device, Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
     MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument, ProjectMembership,
@@ -22,7 +22,7 @@ from .models import (
     SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
 )
 from .serializers import (
-    AdminAuditLogSerializer, AdvancePaymentSerializer, BimDiscrepancySerializer, BimModelSerializer,
+    AdminAuditLogSerializer, AdvancePaymentSerializer, AdvanceRecoverySerializer, BimDiscrepancySerializer, BimModelSerializer,
     BoQItemSerializer, CalendarEventSerializer, CertificateSerializer,
     ConsultantPaymentSerializer, ContingencyDrawdownSerializer,
     ChatMessageSerializer, DailyLogSerializer, DisbursementSerializer, DocumentVersionSerializer, DrawdownRequestSerializer,
@@ -366,9 +366,108 @@ MaterialDeliveryViewSet = scoped_viewset("MaterialDeliveryViewSet", MaterialDeli
 ConsultantPaymentViewSet = scoped_viewset("ConsultantPaymentViewSet", ConsultantPayment, ConsultantPaymentSerializer, ("consultant_name", "certificate_number"))
 DroneDatasetViewSet = scoped_viewset("DroneDatasetViewSet", DroneDataset, DroneDatasetSerializer, ("data_type", "operator_id", "milestone_id"))
 SatelliteDatasetViewSet = scoped_viewset("SatelliteDatasetViewSet", SatelliteDataset, SatelliteDatasetSerializer, ("sat_type", "source_provider", "milestone_id"))
-ProvisionalSumViewSet = scoped_viewset("ProvisionalSumViewSet", ProvisionalSum, ProvisionalSumSerializer, ("item_number", "description"))
-ContingencyDrawdownViewSet = scoped_viewset("ContingencyDrawdownViewSet", ContingencyDrawdown, ContingencyDrawdownSerializer, ("drawdown_number", "reason"))
-AdvancePaymentViewSet = scoped_viewset("AdvancePaymentViewSet", AdvancePayment, AdvancePaymentSerializer, ("contractor_name", "notes"))
+ProvisionalSumBaseViewSet = scoped_viewset("ProvisionalSumBaseViewSet", ProvisionalSum, ProvisionalSumSerializer, ("item_number", "description"))
+
+
+class ProvisionalSumViewSet(ProvisionalSumBaseViewSet):
+    def perform_create(self, serializer):
+        now = int(time() * 1000)
+        serializer.save(organization=self._validate_organization(serializer), status="pending", ascertained_amount=0, created_at=now, updated_at=now)
+
+    def perform_update(self, serializer):
+        raise ValidationError({"provisional_sum": "Use the controlled ascertain or close action."})
+
+    def perform_destroy(self, instance):
+        if instance.status != "pending":
+            raise ValidationError({"provisional_sum": "Only pending provisional sums can be deleted."})
+        instance.delete()
+
+    @action(detail=True, methods=("post",))
+    def ascertain(self, request, pk=None):
+        item = self.get_object()
+        if item.status != "pending":
+            raise ValidationError({"status": "Only pending provisional sums can be ascertained."})
+        try: amount = Decimal(str(request.data.get("ascertained_amount", "")))
+        except Exception: raise ValidationError({"ascertained_amount": "Enter a valid amount."})
+        if amount < 0: raise ValidationError({"ascertained_amount": "The amount cannot be negative."})
+        item.ascertained_amount = amount; item.status = "ascertained"; item.notes = str(request.data.get("notes", item.notes)); item.updated_at = int(time() * 1000)
+        item.save(update_fields=("ascertained_amount", "status", "notes", "updated_at"))
+        return Response(self.get_serializer(item).data)
+
+    @action(detail=True, methods=("post",))
+    def close(self, request, pk=None):
+        item = self.get_object()
+        if item.status != "ascertained": raise ValidationError({"status": "Ascertain the provisional sum before closing it."})
+        item.status = "closed"; item.updated_at = int(time() * 1000); item.save(update_fields=("status", "updated_at"))
+        return Response(self.get_serializer(item).data)
+
+
+ContingencyDrawdownBaseViewSet = scoped_viewset("ContingencyDrawdownBaseViewSet", ContingencyDrawdown, ContingencyDrawdownSerializer, ("drawdown_number", "reason"))
+
+
+class ContingencyDrawdownViewSet(ContingencyDrawdownBaseViewSet):
+    def perform_create(self, serializer):
+        now = int(time() * 1000)
+        serializer.save(organization=self._validate_organization(serializer), status="requested", created_at=now, updated_at=now)
+
+    def perform_update(self, serializer): raise ValidationError({"drawdown": "Use the controlled decision action."})
+    def perform_destroy(self, instance): raise ValidationError({"drawdown": "Contingency requests cannot be deleted."})
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def decide(self, request, pk=None):
+        item = ContingencyDrawdown.objects.select_for_update().select_related("project").filter(pk=pk, organization=get_active_organization(request)).first()
+        if not item: return Response({"detail": "Contingency request not found."}, status=404)
+        decision = str(request.data.get("decision", "")); reason = str(request.data.get("reason", "")).strip()
+        if item.status != "requested" or decision not in ("approved", "rejected"):
+            raise ValidationError({"decision": "A requested drawdown may be approved or rejected."})
+        if decision == "rejected" and not reason: raise ValidationError({"reason": "A rejection reason is required."})
+        if decision == "approved":
+            allowance = (item.project.budget or Decimal(0)) * Decimal("0.05")
+            approved = ContingencyDrawdown.objects.filter(project=item.project, status="approved").aggregate(total=Sum("amount"))["total"] or Decimal(0)
+            if item.amount > allowance - approved:
+                raise ValidationError({"amount": "The request exceeds the remaining 5% contingency allowance."})
+            item.approved_by = request.user; item.approved_at = int(time() * 1000)
+        elif reason: item.reason = f"{item.reason}\nRejection: {reason}"
+        item.status = decision; item.updated_at = int(time() * 1000); item.save()
+        return Response(self.get_serializer(item).data)
+
+
+AdvancePaymentBaseViewSet = scoped_viewset("AdvancePaymentBaseViewSet", AdvancePayment, AdvancePaymentSerializer, ("contractor_name", "notes"))
+
+
+class AdvancePaymentViewSet(AdvancePaymentBaseViewSet):
+    def perform_create(self, serializer):
+        now = int(time() * 1000)
+        serializer.save(organization=self._validate_organization(serializer), status="active", recovered_amount=0, created_at=now, updated_at=now)
+
+    def perform_update(self, serializer): raise ValidationError({"advance": "Post an append-only recovery event."})
+    def perform_destroy(self, instance): raise ValidationError({"advance": "Advance payment history cannot be deleted."})
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def recover(self, request, pk=None):
+        advance = AdvancePayment.objects.select_for_update().filter(pk=pk, organization=get_active_organization(request)).first()
+        if not advance: return Response({"detail": "Advance payment not found."}, status=404)
+        if advance.status != "active": raise ValidationError({"status": "Only active advances accept recoveries."})
+        try: amount = Decimal(str(request.data.get("amount_recovered", "")))
+        except Exception: raise ValidationError({"amount_recovered": "Enter a valid recovery amount."})
+        outstanding = advance.amount - advance.recovered_amount
+        if amount <= 0 or amount > outstanding: raise ValidationError({"amount_recovered": "Recovery must be positive and cannot exceed the outstanding balance."})
+        now = int(time() * 1000)
+        AdvanceRecovery.objects.create(advance_payment=advance, certificate_number=str(request.data.get("certificate_number", "")), amount_recovered=amount, created_at=now)
+        advance.recovered_amount += amount; advance.updated_at = now
+        if advance.recovered_amount == advance.amount: advance.status = "fully_recovered"
+        advance.save(update_fields=("recovered_amount", "updated_at", "status"))
+        return Response(self.get_serializer(advance).data)
+
+
+class AdvanceRecoveryViewSet(ConstructionScopedViewSet):
+    queryset = AdvanceRecovery.objects.select_related("advance_payment__project")
+    serializer_class = AdvanceRecoverySerializer
+    organization_field = "advance_payment__organization"
+    search_fields = ("advance_payment__contractor_name", "certificate_number")
+    http_method_names = ("get", "head", "options")
 SubcontractorViewSet = scoped_viewset("SubcontractorViewSet", Subcontractor, SubcontractorSerializer, ("name", "contact_person", "email"))
 WorkOrderViewSet = scoped_viewset("ConstructionWorkOrderViewSet", WorkOrder, WorkOrderSerializer, ("order_number", "description", "boq_section"))
 BimModelViewSet = scoped_viewset("BimModelViewSet", BimModel, BimModelSerializer, ("name", "discipline", "version"))

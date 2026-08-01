@@ -142,6 +142,12 @@ test("construction finance workflow actions are interactive", async ({ page }, t
   await expect(page.getByRole("row").filter({ hasText: "425,000" }).getByRole("button", { name: "Mark paid", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Drawdowns", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: "DD-010" }).getByRole("button", { name: "Review documents", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Provisional sums", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "PS-04" }).getByRole("button", { name: "Close", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Advances", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Apex Refurbishment Ltd" }).getByRole("button", { name: "Record recovery", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Advance recoveries", exact: true }).click();
+  await expect(page.getByText("IPC-011", { exact: true })).toBeVisible();
 });
 
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {

@@ -31,6 +31,9 @@ purchase orders and an append-only stock ledger.
 Construction finance now also preserves the source workflow state machines for
 variation approval, requisition review/decision, disbursement payment/voiding,
 and document/valuation-controlled funding drawdowns.
+Provisional sums, contingency drawdowns, and advance recovery now use the same
+controlled cost lifecycle: ascertain before close, enforce the remaining
+contingency allowance, and retain append-only recovery events.
 
 ## Preserved invariants
 
@@ -56,7 +59,7 @@ and document/valuation-controlled funding drawdowns.
 
 ## Current verification
 
-- Unified backend: 81 tests passing, including organization isolation,
+- Unified backend: 84 tests passing, including organization isolation,
   subscription denial, hierarchy validation, evidence immutability, controlled
   approval/verification decisions, procurement controls and append-only audit
   records.

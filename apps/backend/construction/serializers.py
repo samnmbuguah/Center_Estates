@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import (
-    AdminAuditLog, AdvancePayment, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
+    AdminAuditLog, AdvancePayment, AdvanceRecovery, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog, DocumentVersion,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
     MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument, ProjectMembership,
@@ -86,9 +86,26 @@ MaterialDeliverySerializer = serializer_for(MaterialDelivery)
 ConsultantPaymentSerializer = serializer_for(ConsultantPayment)
 DroneDatasetSerializer = serializer_for(DroneDataset)
 SatelliteDatasetSerializer = serializer_for(SatelliteDataset)
-ProvisionalSumSerializer = serializer_for(ProvisionalSum)
-ContingencyDrawdownSerializer = serializer_for(ContingencyDrawdown)
-AdvancePaymentSerializer = serializer_for(AdvancePayment)
+ProvisionalSumSerializer = serializer_for(ProvisionalSum, {
+    "created_at": serializers.IntegerField(read_only=True),
+    "updated_at": serializers.IntegerField(read_only=True),
+})
+ContingencyDrawdownSerializer = serializer_for(ContingencyDrawdown, {
+    "approved_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "approved_at": serializers.IntegerField(read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+    "updated_at": serializers.IntegerField(read_only=True),
+})
+AdvancePaymentSerializer = serializer_for(AdvancePayment, {
+    "recovered_amount": serializers.DecimalField(max_digits=16, decimal_places=2, read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+    "updated_at": serializers.IntegerField(read_only=True),
+})
+AdvanceRecoverySerializer = serializer_for(AdvanceRecovery, {
+    "contractor_name": serializers.CharField(source="advance_payment.contractor_name", read_only=True),
+    "project_name": serializers.CharField(source="advance_payment.project.name", read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+})
 SubcontractorSerializer = serializer_for(Subcontractor)
 WorkOrderSerializer = serializer_for(WorkOrder)
 BimModelSerializer = serializer_for(BimModel)

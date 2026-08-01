@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    AdminAuditLogViewSet, AdvancePaymentViewSet, BimDiscrepancyViewSet, BimModelViewSet,
+    AdminAuditLogViewSet, AdvancePaymentViewSet, AdvanceRecoveryViewSet, BimDiscrepancyViewSet, BimModelViewSet,
     BoQItemViewSet, CalendarEventViewSet, CertificateViewSet,
     ChatMessageViewSet, ConsultantPaymentViewSet, ContingencyDrawdownViewSet, DailyLogViewSet,
     DashboardViewSet, DisbursementViewSet, DocumentVersionViewSet, DrawdownRequestViewSet,
@@ -46,6 +46,7 @@ router.register("satellite-datasets", SatelliteDatasetViewSet, basename="constru
 router.register("provisional-sums", ProvisionalSumViewSet, basename="construction-provisional-sum")
 router.register("contingency-drawdowns", ContingencyDrawdownViewSet, basename="construction-contingency")
 router.register("advance-payments", AdvancePaymentViewSet, basename="construction-advance")
+router.register("advance-recoveries", AdvanceRecoveryViewSet, basename="construction-advance-recovery")
 router.register("subcontractors", SubcontractorViewSet, basename="construction-subcontractor")
 router.register("work-orders", WorkOrderViewSet, basename="construction-work-order")
 router.register("bim-models", BimModelViewSet, basename="construction-bim")
