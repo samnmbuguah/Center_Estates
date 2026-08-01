@@ -58,6 +58,16 @@ test("property rent ledger registers and receipt dialog are usable", async ({ pa
   await expect(dialog).toBeHidden();
 });
 
+test("property command center renders live portfolio intelligence", async ({ page }) => {
+  await page.goto("/property");
+  await expect(page.getByRole("heading", { name: "Monthly rent collection trend" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lease expiry overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Property portfolio summary" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Rent ageing summary" })).toBeVisible();
+  await expect(page.getByText("Westlands Business Centre", { exact: true })).toBeVisible();
+  await expect(page.locator(".chart-month")).toHaveCount(new Date().getMonth() + 1);
+});
+
 test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
   await page.goto("/property");

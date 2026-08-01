@@ -85,6 +85,10 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['kpis']['properties'], 1)
         self.assertEqual(response.data['kpis']['occupancyRate'], 100.0)
         self.assertEqual(response.data['kpis']['activeTenants'], 1)
+        self.assertEqual(response.data['portfolio'][0]['name'], 'Owned Property')
+        self.assertEqual(response.data['portfolio'][0]['occupied'], 1)
+        self.assertEqual(len(response.data['aging']), 4)
+        self.assertTrue(response.data['collectionTrend'])
 
     def test_create_assigns_organization_server_side(self):
         response = self.client.post(

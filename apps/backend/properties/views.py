@@ -1,6 +1,6 @@
 import csv
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
@@ -721,6 +721,38 @@ class PropertyDashboardViewSet(ViewSet):
         outstanding = invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).aggregate(total=Sum('balance'))['total'] or 0
         collected = receipts.filter(received_on__year=timezone.localdate().year).aggregate(total=Sum('amount'))['total'] or 0
         spent = expenses.filter(incurred_on__year=timezone.localdate().year).aggregate(total=Sum('amount'))['total'] or 0
+        today = timezone.localdate()
+        collection_trend = []
+        for month in range(1, today.month + 1):
+            billed = invoices.filter(issued_on__year=today.year, issued_on__month=month).exclude(
+                status=Invoice.Status.VOID,
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            month_collected = receipts.filter(received_on__year=today.year, received_on__month=month).aggregate(
+                total=Sum('amount'),
+            )['total'] or Decimal('0')
+            collection_trend.append({'month': date(today.year, month, 1).strftime('%b'), 'billed': billed, 'collected': month_collected})
+        expiry_ranges = ((0, 30, '0–30 days'), (31, 60, '31–60 days'), (61, 90, '61–90 days'))
+        lease_expiry = [
+            {'label': label, 'count': leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING), ends_on__range=(today + timedelta(days=start), today + timedelta(days=end))).count()}
+            for start, end, label in expiry_ranges
+        ]
+        lease_expiry.append({'label': '90+ days', 'count': leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING), ends_on__gt=today + timedelta(days=90)).count()})
+        aging = {'current': Decimal('0'), '31–60': Decimal('0'), '61–90': Decimal('0'), '90+': Decimal('0')}
+        for invoice in invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).filter(balance__gt=0):
+            days = max((today - invoice.due_on).days, 0)
+            bucket = 'current' if days <= 30 else '31–60' if days <= 60 else '61–90' if days <= 90 else '90+'
+            aging[bucket] += invoice.balance
+        portfolio = []
+        for property_record in properties:
+            property_units = units.filter(property=property_record)
+            property_invoices = invoices.filter(lease__unit__property=property_record).exclude(status=Invoice.Status.VOID)
+            count = property_units.count(); occupied_count = property_units.filter(status=Unit.Status.OCCUPIED).count()
+            portfolio.append({
+                'id': property_record.id, 'name': property_record.name, 'units': count, 'occupied': occupied_count,
+                'vacant': max(count - occupied_count, 0), 'occupancy': round(occupied_count / count * 100, 1) if count else 0,
+                'monthlyRent': leases.filter(unit__property=property_record, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).aggregate(total=Sum('monthly_rent'))['total'] or Decimal('0'),
+                'outstanding': property_invoices.aggregate(total=Sum('balance'))['total'] or Decimal('0'),
+            })
         return Response({
             'kpis': {
                 'properties': properties.count(), 'units': total_units, 'occupiedUnits': occupied,
@@ -732,6 +764,10 @@ class PropertyDashboardViewSet(ViewSet):
             'recentLeases': LeaseSerializer(leases[:5], many=True).data,
             'overdueInvoices': InvoiceSerializer(invoices.filter(status=Invoice.Status.OVERDUE)[:5], many=True).data,
             'propertyMix': list(properties.values('property_type').annotate(count=Count('id')).order_by('-count')),
+            'collectionTrend': collection_trend,
+            'leaseExpiry': lease_expiry,
+            'aging': [{'label': label, 'amount': amount} for label, amount in aging.items()],
+            'portfolio': portfolio,
         })
 
 

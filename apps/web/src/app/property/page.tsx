@@ -9,6 +9,10 @@ type Dashboard = {
   recentLeases: Lease[];
   overdueInvoices: Invoice[];
   propertyMix: { property_type: string; count: number }[];
+  collectionTrend: { month: string; billed: string; collected: string }[];
+  leaseExpiry: { label: string; count: number }[];
+  aging: { label: string; amount: string }[];
+  portfolio: { id: string; name: string; units: number; occupied: number; vacant: number; occupancy: number; monthlyRent: string; outstanding: string }[];
 };
 type Property = { id: string; code: string; name: string; property_type: string; city: string; status: string; units_count: number };
 type Building = { id: string; code: string; name: string; property_name: string; floors: number };
@@ -167,21 +171,33 @@ export default function PropertyManagementPage() {
     </nav>
     {error && <div className="form-error">{error} <button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading live portfolio data…</div> : tab === "overview" && kpis ? <>
-      <section className="kpi-grid">
+      <section className="kpi-grid property-kpis">
         <Kpi label="Properties" value={String(kpis.properties)} note={`${kpis.units} total units`} onClick={() => setTab("properties")} />
         <Kpi label="Occupancy" value={`${kpis.occupancyRate}%`} note={`${kpis.occupiedUnits} occupied units`} onClick={() => setTab("leases")} />
         <Kpi label="Active tenants" value={String(kpis.activeTenants)} note={`${kpis.activeLeases} active leases`} onClick={() => setTab("tenants")} />
+        <Kpi label="Collected YTD" value={money.format(Number(kpis.collectedYtd))} note="Posted tenant receipts" onClick={() => setTab("receipts")} />
         <Kpi label="Outstanding rent" value={money.format(Number(kpis.outstanding))} note={`${money.format(Number(kpis.collectedYtd))} collected YTD`} warning onClick={() => setTab("arrears")} />
       </section>
-      <section className="dashboard-columns">
-        <article className="data-panel"><PanelTitle title="Recent leases" action="View leases" onClick={() => setTab("leases")} />
-          <DataTable headers={["Reference", "Tenant", "Property / unit", "Monthly rent", "Status"]} rows={dashboard.recentLeases.map((item) => [item.reference, item.tenant_name, `${item.property_name} · ${item.unit_code}`, money.format(Number(item.monthly_rent)), <Status key={item.id} value={item.status} />])} />
+      <section className="property-insight-grid">
+        <article className="data-panel"><PanelTitle title="Monthly rent collection trend" action="Rent collection" onClick={() => setTab("rent")} />
+          <CollectionTrend rows={dashboard.collectionTrend} />
         </article>
-        <article className="data-panel"><PanelTitle title="Overdue invoices" action="View invoices" onClick={() => setTab("rent")} />
+        <article className="data-panel"><PanelTitle title="Lease expiry overview" action="View leases" onClick={() => setTab("leases")} />
+          <div className="expiry-list">{dashboard.leaseExpiry.map(item => <button key={item.label} onClick={() => setTab("leases")}><span>Expiring in {item.label}</span><b>{item.count}</b></button>)}</div>
+        </article>
+        <article className="data-panel property-alert-panel"><PanelTitle title="Collection watchlist" action="View arrears" onClick={() => setTab("arrears")} />
           {dashboard.overdueInvoices.length ? dashboard.overdueInvoices.map((item) => <button className="invoice-alert" key={item.id} onClick={() => setTab("rent")}><span><strong>{item.tenant_name}</strong><small>{item.number} · due {item.due_on}</small></span><b>{money.format(Number(item.balance))}</b></button>) : <Empty text="No overdue invoices." />}
-          <div className="cost-summary"><span>Operating expenses YTD</span><strong>{money.format(Number(kpis.expensesYtd))}</strong><button onClick={() => setTab("expenses")}>Review expenses →</button></div>
+          {canFinance && <button className="collection-cta" onClick={() => setShowReceipt(true)}>＋ Record rent payment</button>}
         </article>
       </section>
+      <section className="property-lower-grid">
+        <article className="data-panel"><PanelTitle title="Property portfolio summary" action="View properties" onClick={() => setTab("properties")} />
+          <DataTable headers={["Property", "Units", "Occupied", "Vacant", "Occupancy", "Monthly rent", "Outstanding"]} rows={dashboard.portfolio.map(item => [item.name,item.units,item.occupied,item.vacant,`${item.occupancy}%`,money.format(Number(item.monthlyRent)),money.format(Number(item.outstanding))])}/>
+        </article>
+        <article className="data-panel"><PanelTitle title="Rent ageing summary" action="Ageing report" onClick={() => setTab("arrears")} /><AgingSummary rows={dashboard.aging}/></article>
+        <article className="data-panel"><PanelTitle title="Quick actions" action="Reports" onClick={() => setTab("reports")} /><div className="property-quick-actions">{canOperate&&<button onClick={()=>setShowCreate(true)}>＋ Add new property</button>}{canLease&&<button onClick={()=>setTab("leases")}>⌁ Manage leases</button>}{canLease&&<button onClick={()=>setTab("tenants")}>♙ Tenant register</button>}{canFinance&&<button onClick={()=>setShowReceipt(true)}>◎ Record payment</button>}{canFinance&&<button onClick={()=>setTab("expenses")}>▣ Income & expenses</button>}{canReport&&<button onClick={()=>setTab("reports")}>⇩ Export reports</button>}</div></article>
+      </section>
+      <section className="summary-strip"><span><b>{money.format(Number(kpis.expensesYtd))}</b>Operating expenses YTD</span>{dashboard.propertyMix.map(item=><span key={item.property_type}><b>{item.count}</b>{item.property_type || "Unclassified"} properties</span>)}</section>
     </> : <Collection tab={tab} rows={rows} search={search} onSearch={setSearch} onAction={runAction} onDownload={downloadReport} permissions={{canLease, canFinance, canApprove, canReport}} />}
     {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowCreate(false)}><div className="form-modal" role="dialog" aria-modal="true" aria-labelledby="new-property" onMouseDown={(event) => event.stopPropagation()}>
       <div className="modal-title"><div><p className="eyebrow">New portfolio record</p><h2 id="new-property">Add property</h2></div><button aria-label="Close" onClick={() => setShowCreate(false)}>×</button></div>
@@ -199,6 +215,8 @@ function PanelTitle({ title, action, onClick }: { title: string; action: string;
 function Status({ value }: { value?: string }) { const safe = value || "unknown"; return <span className={`data-status status-${safe}`}>{safe.replaceAll("_", " ")}</span>; }
 function Empty({ text }: { text: string }) { return <div className="empty-state">{text}</div>; }
 function DataTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) { return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table></div> : <Empty text="No matching records found." />; }
+function CollectionTrend({rows}:{rows:Dashboard["collectionTrend"]}) { const max=Math.max(1,...rows.flatMap(row=>[Number(row.billed),Number(row.collected)])); return rows.length?<div className="collection-chart" aria-label="Monthly billed and collected rent"><div className="chart-plot">{rows.map(row=><div className="chart-month" key={row.month}><div className="chart-bars"><i className="billed" style={{height:`${Math.max(3,Number(row.billed)/max*100)}%`}} title={`Billed ${money.format(Number(row.billed))}`}/><i className="collected" style={{height:`${Math.max(3,Number(row.collected)/max*100)}%`}} title={`Collected ${money.format(Number(row.collected))}`}/></div><span>{row.month}</span></div>)}</div><div className="chart-legend"><span><i className="collected"/>Collected</span><span><i className="billed"/>Billed</span></div></div>:<Empty text="Collection data will appear after invoices and receipts are posted."/> }
+function AgingSummary({rows}:{rows:Dashboard["aging"]}) { const total=rows.reduce((sum,row)=>sum+Number(row.amount),0); return <div className="aging-summary"><div className="aging-total"><span>Total outstanding</span><strong>{money.format(total)}</strong></div>{rows.map(row=><button key={row.label}><span><i style={{width:`${total?Number(row.amount)/total*100:0}%`}}/></span><b>{row.label}</b><small>{money.format(Number(row.amount))}</small></button>)}</div> }
 
 function Collection({ tab, rows, search, onSearch, onAction, onDownload, permissions }: { tab: Tab; rows: CollectionRow[]; search: string; onSearch: (value: string) => void; onAction: (path: string) => Promise<void>; onDownload: (kind: string) => Promise<void>; permissions: {canLease:boolean;canFinance:boolean;canApprove:boolean;canReport:boolean} }) {
   const {canLease, canFinance, canApprove, canReport} = permissions;
