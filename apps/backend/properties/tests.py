@@ -9,7 +9,10 @@ from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 
-from .models import Building, CreditNote, Invoice, Lease, Property, ReceiptAllocation, Tenant, TenantDocument, Unit
+from .models import (
+    Building, CreditNote, Expense, Invoice, Lease, Property, ReceiptAllocation,
+    RentSchedule, Tenant, TenantDocument, Unit,
+)
 
 
 class PropertyHierarchyTests(TestCase):
@@ -106,6 +109,14 @@ class PropertyApiTests(TestCase):
         allocation = ReceiptAllocation.objects.get(invoice=self.invoice)
         self.assertEqual(allocation.amount, Decimal('400.00'))
         self.assertEqual(allocation.allocated_by, self.user)
+        changed = self.client.patch(
+            f"/api/v1/property/receipts/{response.data['id']}/", {'amount': '1.00'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(changed.status_code, 400)
+        self.assertEqual(self.client.delete(
+            f"/api/v1/property/receipts/{response.data['id']}/", **self.headers,
+        ).status_code, 400)
 
     def test_receipt_overpayment_is_rejected_without_partial_records(self):
         response = self.client.post('/api/v1/property/receipts/', {
@@ -138,9 +149,10 @@ class PropertyApiTests(TestCase):
         response = self.client.post('/api/v1/property/tenant-documents/', {
             'tenant': str(self.tenant.id), 'document_type': 'tax_certificate',
             'document_number': 'P0001', 'file_url': '/media/tenants/P0001.pdf',
-            'issued_on': '2026-01-01', 'expires_on': '2027-01-01',
+            'issued_on': '2026-01-01', 'expires_on': '2027-01-01', 'status': TenantDocument.Status.VERIFIED,
         }, format='json', **self.headers)
         self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['status'], TenantDocument.Status.PENDING)
         verified = self.client.post(
             f"/api/v1/property/tenant-documents/{response.data['id']}/verify/",
             {}, format='json', **self.headers,
@@ -149,3 +161,81 @@ class PropertyApiTests(TestCase):
         document = TenantDocument.objects.get(pk=response.data['id'])
         self.assertEqual(document.status, TenantDocument.Status.VERIFIED)
         self.assertEqual(document.verified_by, self.user)
+        self.assertEqual(self.client.post(
+            f"/api/v1/property/tenant-documents/{document.id}/verify/", {}, format='json', **self.headers,
+        ).status_code, 400)
+
+    def test_lease_activation_and_termination_control_unit_occupancy(self):
+        available = Unit.objects.create(
+            organization=self.organization, property=self.property, code='102', status=Unit.Status.AVAILABLE,
+        )
+        prospect = Tenant.objects.create(
+            organization=self.organization, code='TEN-2', name='Prospect', status=Tenant.Status.PROSPECT,
+        )
+        lease = Lease.objects.create(
+            organization=self.organization, reference='LEASE-2', unit=available, tenant=prospect,
+            starts_on='2026-08-01', ends_on='2027-08-01', monthly_rent=Decimal('1200'),
+        )
+        activated = self.client.post(f'/api/v1/property/leases/{lease.id}/activate/', {}, format='json', **self.headers)
+        self.assertEqual(activated.status_code, 200, activated.data)
+        lease.refresh_from_db(); available.refresh_from_db(); prospect.refresh_from_db()
+        self.assertEqual(lease.status, Lease.Status.ACTIVE)
+        self.assertEqual(available.status, Unit.Status.OCCUPIED)
+        self.assertEqual(prospect.status, Tenant.Status.ACTIVE)
+        self.assertEqual(self.client.patch(
+            f'/api/v1/property/leases/{lease.id}/', {'status': Lease.Status.TERMINATED},
+            format='json', **self.headers,
+        ).data['status'], Lease.Status.ACTIVE)
+        terminated = self.client.post(f'/api/v1/property/leases/{lease.id}/terminate/', {}, format='json', **self.headers)
+        self.assertEqual(terminated.status_code, 200, terminated.data)
+        available.refresh_from_db()
+        self.assertEqual(available.status, Unit.Status.AVAILABLE)
+
+    def test_invoice_lifecycle_and_receipts_require_issued_invoice(self):
+        created = self.client.post('/api/v1/property/invoices/', {
+            'number': 'INV-DRAFT', 'lease': str(self.lease.id), 'invoice_type': 'rent',
+            'issued_on': '2026-08-01', 'due_on': '2026-08-31', 'amount': '500.00',
+            'balance': '1.00', 'status': Invoice.Status.PAID,
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data['status'], Invoice.Status.DRAFT)
+        self.assertEqual(Decimal(created.data['balance']), Decimal('500.00'))
+        rejected = self.client.post('/api/v1/property/receipts/', {
+            'number': 'RCT-DRAFT', 'tenant': str(self.tenant.id), 'invoice': created.data['id'],
+            'received_on': '2026-08-01', 'amount': '100.00', 'payment_method': 'cash',
+        }, format='json', **self.headers)
+        self.assertEqual(rejected.status_code, 400)
+        issued = self.client.post(f"/api/v1/property/invoices/{created.data['id']}/issue/", {}, format='json', **self.headers)
+        self.assertEqual(issued.status_code, 200, issued.data)
+        self.assertIn(issued.data['status'], (Invoice.Status.ISSUED, Invoice.Status.OVERDUE))
+
+    def test_expense_requires_submit_approval_before_payment(self):
+        created = self.client.post('/api/v1/property/expenses/', {
+            'property': str(self.property.id), 'supplier': 'Lift Services Ltd',
+            'category': 'maintenance', 'incurred_on': '2026-08-01', 'amount': '800.00',
+            'status': Expense.Status.PAID,
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        expense_id = created.data['id']
+        self.assertEqual(created.data['status'], Expense.Status.DRAFT)
+        premature = self.client.post(f'/api/v1/property/expenses/{expense_id}/mark-paid/', {}, format='json', **self.headers)
+        self.assertEqual(premature.status_code, 400)
+        for action, expected in (('submit', Expense.Status.PENDING), ('approve', Expense.Status.APPROVED), ('mark-paid', Expense.Status.PAID)):
+            response = self.client.post(f'/api/v1/property/expenses/{expense_id}/{action}/', {}, format='json', **self.headers)
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data['status'], expected)
+
+    def test_rent_schedule_generates_one_invoice_idempotently(self):
+        schedule = RentSchedule.objects.create(
+            organization=self.organization, lease=self.lease,
+            period_start='2026-08-01', period_end='2026-09-01', due_on='2026-08-05',
+            base_rent=Decimal('1000'), escalation_amount=Decimal('0'),
+            service_charge=Decimal('100'), total=Decimal('1100'),
+        )
+        first = self.client.post(f'/api/v1/property/rent-schedules/{schedule.id}/generate-invoice/', {}, format='json', **self.headers)
+        self.assertEqual(first.status_code, 201, first.data)
+        second = self.client.post(f'/api/v1/property/rent-schedules/{schedule.id}/generate-invoice/', {}, format='json', **self.headers)
+        self.assertEqual(second.status_code, 200, second.data)
+        schedule.refresh_from_db()
+        self.assertEqual(schedule.status, RentSchedule.Status.INVOICED)
+        self.assertEqual(Invoice.objects.filter(rent_schedule_item=schedule).count(), 1)

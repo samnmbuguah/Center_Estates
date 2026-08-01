@@ -123,6 +123,23 @@ class Command(BaseCommand):
                 'escalation_percent': Decimal('5.00'), 'billing_day': 5, 'status': Lease.Status.EXPIRING,
             },
         )
+        tenant_prospect, _ = Tenant.objects.update_or_create(
+            organization=organization, code='TEN-003',
+            defaults={
+                'name': 'Cedar Design Studio', 'tenant_type': 'company',
+                'email': 'admin@cedar.example', 'phone': '+254 722 456 789',
+                'status': Tenant.Status.PROSPECT, 'billing_address': 'Kilimani, Nairobi',
+            },
+        )
+        Lease.objects.update_or_create(
+            organization=organization, reference='LS-2026-DRAFT',
+            defaults={
+                'unit': units[201], 'tenant': tenant_prospect,
+                'starts_on': today + timedelta(days=14), 'ends_on': today + timedelta(days=744),
+                'monthly_rent': Decimal('210000.00'), 'deposit': Decimal('420000.00'),
+                'escalation_percent': Decimal('7.50'), 'billing_day': 1, 'status': Lease.Status.DRAFT,
+            },
+        )
         invoice_one, _ = Invoice.objects.update_or_create(
             organization=organization, number='INV-2026-0701',
             defaults={
@@ -137,6 +154,14 @@ class Command(BaseCommand):
                 'lease': lease_two, 'invoice_type': 'rent', 'issued_on': today - timedelta(days=30),
                 'due_on': today - timedelta(days=20), 'amount': Decimal('120000.00'),
                 'balance': Decimal('100000.00'), 'status': Invoice.Status.OVERDUE,
+            },
+        )
+        Invoice.objects.update_or_create(
+            organization=organization, number='INV-2026-DRAFT',
+            defaults={
+                'lease': lease_one, 'invoice_type': 'service_charge', 'issued_on': today,
+                'due_on': today + timedelta(days=14), 'amount': Decimal('25000.00'),
+                'balance': Decimal('25000.00'), 'status': Invoice.Status.DRAFT,
             },
         )
         receipt, _ = Receipt.objects.update_or_create(
@@ -180,12 +205,31 @@ class Command(BaseCommand):
                 'status': RentSchedule.Status.INVOICED,
             },
         )
+        next_period = (today.replace(day=28) + timedelta(days=4)).replace(day=1)
+        following_period = (next_period.replace(day=28) + timedelta(days=4)).replace(day=1)
+        RentSchedule.objects.update_or_create(
+            organization=organization, lease=lease_one, period_start=next_period,
+            defaults={
+                'period_end': following_period, 'due_on': next_period,
+                'base_rent': lease_one.monthly_rent, 'escalation_amount': Decimal('0.00'),
+                'service_charge': Decimal('25000.00'), 'total': lease_one.monthly_rent + Decimal('25000.00'),
+                'status': RentSchedule.Status.UPCOMING, 'invoice': None,
+            },
+        )
         Expense.objects.update_or_create(
             organization=organization, property=prop, invoice_number='EXP-POWER-0726',
             defaults={
                 'supplier': 'Nairobi Power Services', 'category': 'Utilities',
                 'incurred_on': today - timedelta(days=12), 'amount': Decimal('68500.00'),
                 'status': Expense.Status.APPROVED, 'description': 'Common-area electricity and generator service.',
+            },
+        )
+        Expense.objects.update_or_create(
+            organization=organization, property=prop, invoice_number='EXP-LIFT-PENDING',
+            defaults={
+                'supplier': 'Vertical Transport Services', 'category': 'Repairs & maintenance',
+                'incurred_on': today - timedelta(days=2), 'amount': Decimal('145000.00'),
+                'status': Expense.Status.PENDING, 'description': 'Quarterly lift maintenance awaiting approval.',
             },
         )
         Budget.objects.update_or_create(

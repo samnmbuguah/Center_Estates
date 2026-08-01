@@ -173,6 +173,12 @@ class Lease(OrganizationOwnedModel):
             raise ValidationError('Lease unit must belong to the same organization.')
         if self.tenant_id and self.tenant.organization_id != self.organization_id:
             raise ValidationError('Lease tenant must belong to the same organization.')
+        if self.monthly_rent <= 0:
+            raise ValidationError({'monthly_rent': 'Monthly rent must be greater than zero.'})
+        if self.deposit < 0 or self.escalation_percent < 0:
+            raise ValidationError('Deposit and escalation cannot be negative.')
+        if not 1 <= self.billing_day <= 28:
+            raise ValidationError({'billing_day': 'Billing day must be between 1 and 28.'})
 
     def __str__(self):
         return self.reference
@@ -204,6 +210,12 @@ class Invoice(OrganizationOwnedModel):
     def clean(self):
         if self.lease_id and self.lease.organization_id != self.organization_id:
             raise ValidationError('Invoice lease must belong to the same organization.')
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Invoice amount must be greater than zero.'})
+        if self.balance < 0 or self.balance > self.amount:
+            raise ValidationError({'balance': 'Invoice balance must be between zero and the invoice amount.'})
+        if self.due_on < self.issued_on:
+            raise ValidationError({'due_on': 'Due date cannot be before the issue date.'})
 
 
 class Receipt(OrganizationOwnedModel):
@@ -225,6 +237,8 @@ class Receipt(OrganizationOwnedModel):
             raise ValidationError('Receipt tenant must belong to the same organization.')
         if self.invoice_id and self.invoice.organization_id != self.organization_id:
             raise ValidationError('Receipt invoice must belong to the same organization.')
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Receipt amount must be greater than zero.'})
 
 
 class Expense(OrganizationOwnedModel):
@@ -250,6 +264,8 @@ class Expense(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Expense property must belong to the same organization.')
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Expense amount must be greater than zero.'})
 
 
 class Budget(OrganizationOwnedModel):
@@ -265,6 +281,8 @@ class Budget(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Budget property must belong to the same organization.')
+        if self.amount < 0:
+            raise ValidationError({'amount': 'Budget amount cannot be negative.'})
 
 
 class ServiceCharge(OrganizationOwnedModel):
@@ -286,6 +304,8 @@ class ServiceCharge(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Service charge property must belong to the same organization.')
+        if self.annual_budget < 0:
+            raise ValidationError({'annual_budget': 'Annual budget cannot be negative.'})
 
 
 class TenantDocument(OrganizationOwnedModel):
@@ -347,6 +367,8 @@ class RentSchedule(OrganizationOwnedModel):
         expected = self.base_rent + self.escalation_amount + self.service_charge
         if self.total != expected:
             raise ValidationError({'total': 'Total must equal rent, escalation and service charge.'})
+        if min(self.base_rent, self.escalation_amount, self.service_charge, self.total) < 0:
+            raise ValidationError('Rent schedule amounts cannot be negative.')
 
 
 class ReceiptAllocation(OrganizationOwnedModel):

@@ -51,6 +51,20 @@ test("property rent ledger registers and receipt dialog are usable", async ({ pa
   await expect(dialog).toBeHidden();
 });
 
+test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
+  await page.goto("/property");
+  await page.getByRole("button", { name: "Expenses", exact: true }).click();
+  const expense = page.getByRole("row").filter({ hasText: "EXP-LIFT-PENDING" });
+  await expect(expense.getByRole("button", { name: "Approve", exact: true })).toBeVisible();
+  await expense.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(expense.getByText("approved", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Rent schedules", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Generate invoice", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Leases", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "LS-2026-DRAFT" }).getByRole("button", { name: "Activate", exact: true })).toBeVisible();
+});
+
 test("facility work history, cost and media registers are connected", async ({ page }) => {
   await page.goto("/facility");
   await page.getByRole("button", { name: "Work history", exact: true }).click();

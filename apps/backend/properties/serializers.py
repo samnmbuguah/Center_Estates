@@ -49,6 +49,12 @@ class LeaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lease
         exclude = ('organization',)
+        read_only_fields = ('status',)
+
+    def validate_monthly_rent(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Monthly rent must be greater than zero.')
+        return value
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
@@ -57,6 +63,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         exclude = ('organization',)
+        read_only_fields = ('balance', 'status')
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Invoice amount must be greater than zero.')
+        return value
 
 
 class ReceiptSerializer(serializers.ModelSerializer):
@@ -65,12 +77,23 @@ class ReceiptSerializer(serializers.ModelSerializer):
         model = Receipt
         exclude = ('organization', 'received_by')
 
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Receipt amount must be greater than zero.')
+        return value
+
 
 class ExpenseSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
     class Meta:
         model = Expense
         exclude = ('organization',)
+        read_only_fields = ('status',)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Expense amount must be greater than zero.')
+        return value
 
 
 class BudgetSerializer(serializers.ModelSerializer):
@@ -78,11 +101,21 @@ class BudgetSerializer(serializers.ModelSerializer):
         model = Budget
         exclude = ('organization',)
 
+    def validate_amount(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Budget amount cannot be negative.')
+        return value
+
 
 class ServiceChargeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceCharge
         exclude = ('organization',)
+
+    def validate_annual_budget(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Annual budget cannot be negative.')
+        return value
 
 
 class TenantDocumentSerializer(serializers.ModelSerializer):
@@ -91,6 +124,7 @@ class TenantDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TenantDocument
         exclude = ('organization', 'verified_by', 'verified_at')
+        read_only_fields = ('status', 'rejection_reason')
 
 
 class RentScheduleSerializer(serializers.ModelSerializer):
@@ -100,6 +134,7 @@ class RentScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = RentSchedule
         exclude = ('organization',)
+        read_only_fields = ('status', 'invoice')
 
 
 class ReceiptAllocationSerializer(serializers.ModelSerializer):
@@ -119,3 +154,9 @@ class CreditNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = CreditNote
         exclude = ('organization', 'issued_by')
+        read_only_fields = ('status', 'void_reason')
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Credit amount must be greater than zero.')
+        return value

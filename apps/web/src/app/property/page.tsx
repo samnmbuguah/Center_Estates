@@ -14,7 +14,7 @@ type Property = { id: string; code: string; name: string; property_type: string;
 type Tenant = { id: string; code: string; name: string; email: string; phone: string; status: string };
 type Lease = { id: string; reference: string; tenant_name: string; unit_code: string; property_name: string; starts_on: string; ends_on: string; monthly_rent: string; status: string };
 type Invoice = { id: string; number: string; tenant_id: string; tenant_name: string; due_on: string; amount: string; balance: string; status: string };
-type Expense = { id: string; supplier: string; property_name: string; category: string; incurred_on: string; amount: string; status: string };
+type Expense = { id: string; supplier: string; property_name: string; category: string; invoice_number: string; incurred_on: string; amount: string; status: string };
 type Receipt = { id: string; number: string; tenant_name: string; received_on: string; amount: string; payment_method: string; external_reference: string };
 type Allocation = { id: string; receipt_number: string; invoice_number: string; tenant_name: string; amount: string };
 type CreditNote = { id: string; number: string; invoice_number: string; tenant_name: string; issued_on: string; amount: string; reason: string; status: string };
@@ -59,7 +59,7 @@ export default function PropertyManagementPage() {
   useEffect(() => {
     if (!showReceipt || !organizationId) return;
     apiFetch("/property/invoices/", {}, organizationId).then((response) => response.ok ? response.json() : []).then((items: Invoice[]) => {
-      const open = items.filter((item) => Number(item.balance) > 0 && item.status !== "void");
+      const open = items.filter((item) => Number(item.balance) > 0 && ["issued", "partial", "overdue"].includes(item.status));
       setOpenInvoices(open); setSelectedInvoice(open[0]?.id ?? "");
     });
   }, [organizationId, showReceipt]);
@@ -90,6 +90,21 @@ export default function PropertyManagementPage() {
     setShowReceipt(false); setTab("receipt-allocations"); await load();
   }
 
+  async function runAction(path: string) {
+    setError("");
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(`/property/${path}`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const detail = Object.values(body).flat().join(" ");
+      setError(detail || "The workflow action could not be completed.");
+      return;
+    }
+    await load();
+  }
+
   const kpis = dashboard?.kpis;
   return <div className="page-wrap property-app">
     <section className="property-heading">
@@ -116,7 +131,7 @@ export default function PropertyManagementPage() {
           <div className="cost-summary"><span>Operating expenses YTD</span><strong>{money.format(Number(kpis.expensesYtd))}</strong><button onClick={() => setTab("expenses")}>Review expenses →</button></div>
         </article>
       </section>
-    </> : <Collection tab={tab} rows={rows} search={search} onSearch={setSearch} />}
+    </> : <Collection tab={tab} rows={rows} search={search} onSearch={setSearch} onAction={runAction} />}
     {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowCreate(false)}><div className="form-modal" role="dialog" aria-modal="true" aria-labelledby="new-property" onMouseDown={(event) => event.stopPropagation()}>
       <div className="modal-title"><div><p className="eyebrow">New portfolio record</p><h2 id="new-property">Add property</h2></div><button aria-label="Close" onClick={() => setShowCreate(false)}>×</button></div>
       <form onSubmit={createProperty}><label>Property code<input name="code" required placeholder="CE-NRB-002" /></label><label>Property name<input name="name" required placeholder="Riverside Apartments" /></label><div className="form-row"><label>Type<input name="property_type" placeholder="Residential" /></label><label>City<input name="city" placeholder="Nairobi" /></label></div><label>Status<select name="status" defaultValue="active"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label><label>Address<textarea name="address" rows={3} /></label><div className="form-actions"><button type="button" onClick={() => setShowCreate(false)}>Cancel</button><button className="primary-action" type="submit">Save property</button></div></form>
@@ -134,19 +149,24 @@ function Status({ value }: { value?: string }) { const safe = value || "unknown"
 function Empty({ text }: { text: string }) { return <div className="empty-state">{text}</div>; }
 function DataTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) { return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table></div> : <Empty text="No matching records found." />; }
 
-function Collection({ tab, rows, search, onSearch }: { tab: Tab; rows: CollectionRow[]; search: string; onSearch: (value: string) => void }) {
+function Collection({ tab, rows, search, onSearch, onAction }: { tab: Tab; rows: CollectionRow[]; search: string; onSearch: (value: string) => void; onAction: (path: string) => Promise<void> }) {
   let headers: string[] = [], values: React.ReactNode[][] = [];
   if (tab === "properties") { headers = ["Code", "Property", "Type", "City", "Units", "Status"]; values = (rows as Property[]).map((r) => [r.code, r.name, r.property_type || "—", r.city || "—", r.units_count, <Status key={r.id} value={r.status} />]); }
   if (tab === "tenants") { headers = ["Code", "Tenant", "Email", "Phone", "Status"]; values = (rows as Tenant[]).map((r) => [r.code, r.name, r.email || "—", r.phone || "—", <Status key={r.id} value={r.status} />]); }
-  if (tab === "leases") { headers = ["Reference", "Tenant", "Property / unit", "Start", "End", "Rent", "Status"]; values = (rows as Lease[]).map((r) => [r.reference, r.tenant_name, `${r.property_name} · ${r.unit_code}`, r.starts_on, r.ends_on, money.format(Number(r.monthly_rent)), <Status key={r.id} value={r.status} />]); }
-  if (tab === "rent") { headers = ["Invoice", "Tenant", "Due date", "Amount", "Balance", "Status"]; values = (rows as Invoice[]).map((r) => [r.number, r.tenant_name, r.due_on, money.format(Number(r.amount)), money.format(Number(r.balance)), <Status key={r.id} value={r.status} />]); }
-  if (tab === "expenses") { headers = ["Date", "Supplier", "Property", "Category", "Amount", "Status"]; values = (rows as Expense[]).map((r) => [r.incurred_on, r.supplier, r.property_name, r.category, money.format(Number(r.amount)), <Status key={r.id} value={r.status} />]); }
+  if (tab === "leases") { headers = ["Reference", "Tenant", "Property / unit", "Start", "End", "Rent", "Status", "Actions"]; values = (rows as Lease[]).map((r) => [r.reference, r.tenant_name, `${r.property_name} · ${r.unit_code}`, r.starts_on, r.ends_on, money.format(Number(r.monthly_rent)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Activate", `leases/${r.id}/activate/`]] : ["active", "expiring"].includes(r.status) ? [["Terminate", `leases/${r.id}/terminate/`]] : []} run={onAction} />]); }
+  if (tab === "rent") { headers = ["Invoice", "Tenant", "Due date", "Amount", "Balance", "Status", "Actions"]; values = (rows as Invoice[]).map((r) => [r.number, r.tenant_name, r.due_on, money.format(Number(r.amount)), money.format(Number(r.balance)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "draft" ? [["Issue", `invoices/${r.id}/issue/`]] : ["issued", "overdue"].includes(r.status) ? [["Void", `invoices/${r.id}/void/`]] : []} run={onAction} />]); }
+  if (tab === "expenses") { headers = ["Date", "Invoice", "Supplier", "Property", "Category", "Amount", "Status", "Actions"]; values = (rows as Expense[]).map((r) => [r.incurred_on, r.invoice_number || "—", r.supplier, r.property_name, r.category, money.format(Number(r.amount)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={["draft", "rejected"].includes(r.status) ? [["Submit", `expenses/${r.id}/submit/`]] : r.status === "pending" ? [["Approve", `expenses/${r.id}/approve/`], ["Reject", `expenses/${r.id}/reject/`]] : r.status === "approved" ? [["Mark paid", `expenses/${r.id}/mark-paid/`]] : []} run={onAction} />]); }
   if (tab === "receipts") { headers = ["Receipt", "Tenant", "Received", "Amount", "Method", "Reference"]; values = (rows as Receipt[]).map((r) => [r.number, r.tenant_name, r.received_on, money.format(Number(r.amount)), r.payment_method.replaceAll("_", " "), r.external_reference || "—"]); }
   if (tab === "receipt-allocations") { headers = ["Receipt", "Invoice", "Tenant", "Allocated"]; values = (rows as Allocation[]).map((r) => [r.receipt_number, r.invoice_number, r.tenant_name, money.format(Number(r.amount))]); }
   if (tab === "credit-notes") { headers = ["Credit note", "Invoice", "Tenant", "Issued", "Amount", "Reason", "Status"]; values = (rows as CreditNote[]).map((r) => [r.number, r.invoice_number, r.tenant_name, r.issued_on, money.format(Number(r.amount)), r.reason, <Status key={r.id} value={r.status} />]); }
-  if (tab === "tenant-documents") { headers = ["Tenant", "Document", "Number", "Expires", "Status"]; values = (rows as TenantDocument[]).map((r) => [r.tenant_name, r.document_type.replaceAll("_", " "), r.document_number || "—", r.expires_on || "—", <Status key={r.id} value={r.status} />]); }
-  if (tab === "rent-schedules") { headers = ["Lease", "Tenant", "Period start", "Period end", "Due", "Total", "Status"]; values = (rows as RentSchedule[]).map((r) => [r.lease_reference, r.tenant_name, r.period_start, r.period_end, r.due_on, money.format(Number(r.total)), <Status key={r.id} value={r.status} />]); }
+  if (tab === "tenant-documents") { headers = ["Tenant", "Document", "Number", "Expires", "Status", "Actions"]; values = (rows as TenantDocument[]).map((r) => [r.tenant_name, r.document_type.replaceAll("_", " "), r.document_number || "—", r.expires_on || "—", <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "pending" ? [["Verify", `tenant-documents/${r.id}/verify/`]] : []} run={onAction} />]); }
+  if (tab === "rent-schedules") { headers = ["Lease", "Tenant", "Period start", "Period end", "Due", "Total", "Status", "Actions"]; values = (rows as RentSchedule[]).map((r) => [r.lease_reference, r.tenant_name, r.period_start, r.period_end, r.due_on, money.format(Number(r.total)), <Status key={r.id} value={r.status} />, <ActionButtons key={`a-${r.id}`} actions={r.status === "upcoming" ? [["Generate invoice", `rent-schedules/${r.id}/generate-invoice/`]] : []} run={onAction} />]); }
   if (tab === "budgets") { headers = ["Year", "Property ID", "Category", "Budget"]; values = (rows as Budget[]).map((r) => [r.year, r.property, r.category, money.format(Number(r.amount))]); }
   if (tab === "service-charges") { headers = ["Scheme", "Property ID", "Method", "Annual budget", "Starts", "Active"]; values = (rows as ServiceCharge[]).map((r) => [r.name, r.property, r.method, money.format(Number(r.annual_budget)), r.starts_on, r.is_active ? "Yes" : "No"]); }
   return <article className="data-panel collection-panel"><header className="collection-title"><div><p className="eyebrow">Live records</p><h2>{labels[tab]}</h2></div><input aria-label={`Search ${labels[tab]}`} value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search records…" /></header><DataTable headers={headers} rows={values} /></article>;
+}
+
+function ActionButtons({ actions, run }: { actions: string[][]; run: (path: string) => Promise<void> }) {
+  if (!actions.length) return <span>—</span>;
+  return <div className="table-actions">{actions.map(([label, path]) => <button key={path} onClick={() => void run(path)}>{label}</button>)}</div>;
 }
