@@ -203,7 +203,55 @@ class TicketCommentViewSet(ConstructionScopedViewSet):
         instance.delete()
 WorkPlanTaskViewSet = scoped_viewset("WorkPlanTaskViewSet", WorkPlanTask, WorkPlanTaskSerializer, ("task_name", "task_id"))
 BoQItemViewSet = scoped_viewset("BoQItemViewSet", BoQItem, BoQItemSerializer, ("description", "item_number"))
-VariationViewSet = scoped_viewset("VariationViewSet", Variation, VariationSerializer, ("description", "variation_number"))
+VariationBaseViewSet = scoped_viewset("VariationBaseViewSet", Variation, VariationSerializer, ("description", "variation_number"))
+
+
+class VariationViewSet(VariationBaseViewSet):
+    def perform_create(self, serializer):
+        now = int(time() * 1000)
+        serializer.save(organization=self._validate_organization(serializer), status="draft", created_at=now, updated_at=now)
+
+    def perform_update(self, serializer):
+        if "status" in serializer.validated_data:
+            raise ValidationError({"status": "Use the controlled transition action."})
+        if self.get_object().status != "draft":
+            raise ValidationError({"variation": "Only draft variations can be edited."})
+        serializer.save(updated_at=int(time() * 1000))
+
+    def perform_destroy(self, instance):
+        if instance.status != "draft":
+            raise ValidationError({"variation": "Only draft variations can be deleted."})
+        instance.delete()
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def transition(self, request, pk=None):
+        variation = Variation.objects.select_for_update().select_related("project").filter(
+            pk=pk, organization=get_active_organization(request),
+        ).first()
+        if not variation:
+            return Response({"detail": "Variation not found."}, status=404)
+        target = str(request.data.get("status", ""))
+        allowed = {"draft": {"submitted"}, "submitted": {"approved", "rejected"}}
+        if target not in allowed.get(variation.status, set()):
+            raise ValidationError({"status": f"Cannot move a {variation.status} variation to {target}."})
+        if target == "rejected" and not str(request.data.get("reason", "")).strip():
+            raise ValidationError({"reason": "A rejection reason is required."})
+        now = int(time() * 1000)
+        variation.status = target
+        variation.updated_at = now
+        if target == "approved":
+            variation.approved_by = request.user
+            variation.approved_at = now
+        if target == "rejected":
+            variation.justification = str(request.data["reason"]).strip()
+        variation.save()
+        approved = Variation.objects.filter(project=variation.project, status="approved")
+        additions = approved.exclude(variation_type="omission").aggregate(total=Sum("amount"))["total"] or Decimal(0)
+        omissions = approved.filter(variation_type="omission").aggregate(total=Sum("amount"))["total"] or Decimal(0)
+        variation.project.approved_variations = additions - omissions
+        variation.project.save(update_fields=("approved_variations",))
+        return Response(self.get_serializer(variation).data)
 QualityTestViewSet = scoped_viewset("QualityTestViewSet", QualityTest, QualityTestSerializer, ("test_type", "result"))
 RfiViewSet = scoped_viewset("RfiViewSet", Rfi, RfiSerializer, ("title", "question", "number"))
 SafetyIncidentViewSet = scoped_viewset("SafetyIncidentViewSet", SafetyIncident, SafetyIncidentSerializer, ("description", "action_taken"))
@@ -325,7 +373,37 @@ SubcontractorViewSet = scoped_viewset("SubcontractorViewSet", Subcontractor, Sub
 WorkOrderViewSet = scoped_viewset("ConstructionWorkOrderViewSet", WorkOrder, WorkOrderSerializer, ("order_number", "description", "boq_section"))
 BimModelViewSet = scoped_viewset("BimModelViewSet", BimModel, BimModelSerializer, ("name", "discipline", "version"))
 BimDiscrepancyViewSet = scoped_viewset("BimDiscrepancyViewSet", BimDiscrepancy, BimDiscrepancySerializer, ("milestone_ref", "description"))
-RequisitionViewSet = scoped_viewset("RequisitionViewSet", Requisition, RequisitionSerializer, ("title", "description"))
+RequisitionBaseViewSet = scoped_viewset("RequisitionBaseViewSet", Requisition, RequisitionSerializer, ("title", "description"))
+
+
+class RequisitionViewSet(RequisitionBaseViewSet):
+    def perform_create(self, serializer):
+        now = int(time() * 1000)
+        serializer.save(organization=self._validate_organization(serializer), status="submitted", raised_by=self.request.user, created_at=now, updated_at=now)
+
+    def perform_update(self, serializer):
+        raise ValidationError({"requisition": "Use the controlled workflow actions."})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"requisition": "Finance requisitions cannot be deleted."})
+
+    @action(detail=True, methods=("post",))
+    def review(self, request, pk=None):
+        requisition = self.get_object()
+        if requisition.status != "submitted":
+            raise ValidationError({"status": "Only submitted requisitions can be reviewed."})
+        requisition.status = "reviewed"; requisition.reviewed_by = request.user; requisition.updated_at = int(time() * 1000)
+        requisition.save(update_fields=("status", "reviewed_by", "updated_at"))
+        return Response(self.get_serializer(requisition).data)
+
+    @action(detail=True, methods=("post",))
+    def decide(self, request, pk=None):
+        requisition = self.get_object(); decision = str(request.data.get("decision", ""))
+        if requisition.status != "reviewed" or decision not in ("approved", "rejected"):
+            raise ValidationError({"decision": "A reviewed requisition may be approved or rejected."})
+        requisition.status = decision; requisition.approved_by = request.user; requisition.updated_at = int(time() * 1000)
+        requisition.save(update_fields=("status", "approved_by", "updated_at"))
+        return Response(self.get_serializer(requisition).data)
 CertificateBaseViewSet = scoped_viewset("CertificateBaseViewSet", Certificate, CertificateSerializer, ("number", "contractor_name"))
 
 
@@ -345,8 +423,78 @@ class CertificateViewSet(CertificateBaseViewSet):
 
     def perform_destroy(self, instance):
         raise ValidationError({"certificate": "Certificates cannot be deleted; void the record instead."})
-DisbursementViewSet = scoped_viewset("DisbursementViewSet", Disbursement, DisbursementSerializer)
-DrawdownRequestViewSet = scoped_viewset("DrawdownRequestViewSet", DrawdownRequest, DrawdownRequestSerializer, ("request_number", "purpose"))
+DisbursementBaseViewSet = scoped_viewset("DisbursementBaseViewSet", Disbursement, DisbursementSerializer)
+
+
+class DisbursementViewSet(DisbursementBaseViewSet):
+    def perform_create(self, serializer):
+        certificate = serializer.validated_data.get("certificate")
+        organization = self._validate_organization(serializer)
+        if certificate and (certificate.organization_id != organization.id or certificate.status == "void"):
+            raise ValidationError({"certificate": "Select a current certificate from this organization."})
+        serializer.save(organization=organization, status="pending", managed_by=self.request.user, created_at=int(time() * 1000))
+
+    def perform_update(self, serializer):
+        raise ValidationError({"disbursement": "Use the pay or void action."})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"disbursement": "Disbursements cannot be deleted; void the record instead."})
+
+    @action(detail=True, methods=("post",))
+    def pay(self, request, pk=None):
+        disbursement = self.get_object()
+        if disbursement.status != "pending":
+            raise ValidationError({"status": "Only pending disbursements can be paid."})
+        disbursement.status = "paid"; disbursement.paid_at = int(time() * 1000)
+        disbursement.save(update_fields=("status", "paid_at"))
+        return Response(self.get_serializer(disbursement).data)
+
+    @action(detail=True, methods=("post",))
+    def void(self, request, pk=None):
+        disbursement = self.get_object(); reason = str(request.data.get("reason", "")).strip()
+        if disbursement.status == "void" or not reason:
+            raise ValidationError({"reason": "A non-void disbursement requires a void reason."})
+        disbursement.status = "void"; disbursement.void_reason = reason; disbursement.voided_by = request.user; disbursement.voided_at = int(time() * 1000)
+        disbursement.save(update_fields=("status", "void_reason", "voided_by", "voided_at"))
+        return Response(self.get_serializer(disbursement).data)
+
+
+DrawdownRequestBaseViewSet = scoped_viewset("DrawdownRequestBaseViewSet", DrawdownRequest, DrawdownRequestSerializer, ("request_number", "purpose"))
+
+
+class DrawdownRequestViewSet(DrawdownRequestBaseViewSet):
+    def perform_create(self, serializer):
+        now = int(time() * 1000)
+        serializer.save(organization=self._validate_organization(serializer), status="submitted", requested_by=self.request.user, created_at=now, updated_at=now)
+
+    def perform_update(self, serializer):
+        raise ValidationError({"drawdown": "Use the controlled workflow action."})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({"drawdown": "Drawdown requests cannot be deleted."})
+
+    @action(detail=True, methods=("post",))
+    def transition(self, request, pk=None):
+        drawdown = self.get_object(); action_name = str(request.data.get("action", ""))
+        transitions = {
+            "submitted": {"review_documents": "document_review", "reject": "rejected"},
+            "document_review": {"review_valuation": "valuation_review", "reject": "rejected"},
+            "valuation_review": {"approve": "approved", "reject": "rejected"},
+            "approved": {"disburse": "disbursed"},
+        }
+        target = transitions.get(drawdown.status, {}).get(action_name)
+        if not target:
+            raise ValidationError({"action": f"Action {action_name or '(missing)'} is not valid from {drawdown.status}."})
+        notes = str(request.data.get("notes", "")).strip()
+        if target == "rejected" and not notes:
+            raise ValidationError({"notes": "A rejection reason is required."})
+        now = int(time() * 1000); drawdown.status = target; drawdown.reviewed_by = request.user; drawdown.updated_at = now
+        if notes: drawdown.reviewer_notes = notes
+        if "valuation_amount" in request.data: drawdown.valuation_amount = request.data["valuation_amount"] or None
+        if target == "approved": drawdown.approved_at = now
+        if target == "disbursed": drawdown.disbursed_at = now
+        drawdown.save()
+        return Response(self.get_serializer(drawdown).data)
 
 
 class ChatMessageViewSet(ConstructionScopedViewSet):

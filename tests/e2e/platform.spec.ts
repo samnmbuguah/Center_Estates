@@ -128,6 +128,22 @@ test("construction governance registers and notification controls are connected"
   await expect(page.locator(".form-error")).toHaveCount(0);
 });
 
+test("construction finance workflow actions are interactive", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel workflow races");
+  await page.goto("/monitoring");
+  await page.getByRole("button", { name: "Variations", exact: true }).click();
+  const proposal = page.getByRole("row").filter({ hasText: "VAR-2026-0028" });
+  await expect(proposal.getByRole("button", { name: "Submit", exact: true })).toBeVisible();
+  await proposal.getByRole("button", { name: "Submit", exact: true }).click();
+  await expect(proposal.getByText("submitted", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Requisitions", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Generator fuel float" }).getByRole("button", { name: "Review", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "425,000" }).getByRole("button", { name: "Mark paid", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Drawdowns", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "DD-010" }).getByRole("button", { name: "Review documents", exact: true })).toBeVisible();
+});
+
 test("mobile navigation opens, changes module and closes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile navigation behavior");
   const menu = page.getByRole("button", { name: "Open navigation" });

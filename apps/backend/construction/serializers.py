@@ -50,7 +50,12 @@ TicketCommentSerializer = serializer_for(TicketComment, {
 })
 WorkPlanTaskSerializer = serializer_for(WorkPlanTask)
 BoQItemSerializer = serializer_for(BoQItem)
-VariationSerializer = serializer_for(Variation)
+VariationSerializer = serializer_for(Variation, {
+    "approved_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "approved_at": serializers.IntegerField(read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+    "updated_at": serializers.IntegerField(read_only=True),
+})
 QualityTestSerializer = serializer_for(QualityTest)
 RfiSerializer = serializer_for(Rfi)
 SafetyIncidentSerializer = serializer_for(SafetyIncident)
@@ -88,10 +93,29 @@ SubcontractorSerializer = serializer_for(Subcontractor)
 WorkOrderSerializer = serializer_for(WorkOrder)
 BimModelSerializer = serializer_for(BimModel)
 BimDiscrepancySerializer = serializer_for(BimDiscrepancy)
-RequisitionSerializer = serializer_for(Requisition)
+RequisitionSerializer = serializer_for(Requisition, {
+    "raised_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "reviewed_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "approved_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+    "updated_at": serializers.IntegerField(read_only=True),
+})
 CertificateSerializer = serializer_for(Certificate)
-DisbursementSerializer = serializer_for(Disbursement)
-DrawdownRequestSerializer = serializer_for(DrawdownRequest)
+DisbursementSerializer = serializer_for(Disbursement, {
+    "managed_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "paid_at": serializers.IntegerField(read_only=True),
+    "voided_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "voided_at": serializers.IntegerField(read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+})
+DrawdownRequestSerializer = serializer_for(DrawdownRequest, {
+    "requested_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "reviewed_by": serializers.PrimaryKeyRelatedField(read_only=True),
+    "created_at": serializers.IntegerField(read_only=True),
+    "updated_at": serializers.IntegerField(read_only=True),
+    "approved_at": serializers.IntegerField(read_only=True),
+    "disbursed_at": serializers.IntegerField(read_only=True),
+})
 ChatMessageSerializer = serializer_for(ChatMessage, {
     "sender": serializers.PrimaryKeyRelatedField(read_only=True),
     "created_at": serializers.IntegerField(read_only=True),

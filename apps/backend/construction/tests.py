@@ -14,9 +14,9 @@ from properties.models import Project as PortfolioProject
 from subscriptions.models import Subscription
 
 from .models import (
-    Certificate, ChatMessage, Disbursement, DocumentVersion, EvidenceFile, MaterialDelivery,
+    Certificate, ChatMessage, Disbursement, DocumentVersion, DrawdownRequest, EvidenceFile, MaterialDelivery,
     MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
-    ProjectMembership, PurchaseOrder, RequirementWaiver, Risk, StockMovement, StoreItem,
+    ProjectMembership, PurchaseOrder, RequirementWaiver, Requisition, Risk, StockMovement, StoreItem,
     StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation,
 )
 
@@ -361,3 +361,77 @@ class ConstructionApiTests(TestCase):
         read_all = self.client.post("/api/v1/construction/notifications/read-all/", {}, format="json", **self.headers)
         self.assertEqual(read_all.status_code, 200, read_all.data)
         self.assertEqual(read_all.data["updated"], 1)
+
+    def test_variation_uses_ordered_approval_transitions_and_recalculates_project(self):
+        variation = Variation.objects.create(
+            organization=self.organization, project=self.project, variation_number="V2",
+            description="Additional access control", amount=Decimal("150000"), status="draft",
+            created_at=1, updated_at=1,
+        )
+        url = f"/api/v1/construction/variations/{variation.id}/"
+        self.assertEqual(self.client.patch(url, {"status": "approved"}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.post(f"{url}transition/", {"status": "approved"}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.post(f"{url}transition/", {"status": "submitted"}, format="json", **self.headers).status_code, 200)
+        approved = self.client.post(f"{url}transition/", {"status": "approved"}, format="json", **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        variation.refresh_from_db(); self.project.refresh_from_db()
+        self.assertEqual(variation.approved_by, self.user)
+        self.assertEqual(self.project.approved_variations, Decimal("400000"))
+        self.assertEqual(self.client.delete(url, **self.headers).status_code, 400)
+
+    def test_requisition_requires_review_before_decision(self):
+        created = self.client.post("/api/v1/construction/requisitions/", {
+            "project_id": self.project.id, "title": "Site generator fuel", "amount": "75000",
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        requisition = Requisition.objects.get(title="Site generator fuel")
+        url = f"/api/v1/construction/requisitions/{requisition.id}/"
+        self.assertEqual(self.client.post(f"{url}decide/", {"decision": "approved"}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.post(f"{url}review/", {}, format="json", **self.headers).status_code, 200)
+        decided = self.client.post(f"{url}decide/", {"decision": "approved"}, format="json", **self.headers)
+        self.assertEqual(decided.status_code, 200, decided.data)
+        requisition.refresh_from_db()
+        self.assertEqual(requisition.reviewed_by, self.user)
+        self.assertEqual(requisition.approved_by, self.user)
+        self.assertEqual(self.client.delete(url, **self.headers).status_code, 400)
+
+    def test_disbursement_pay_and_void_are_server_controlled(self):
+        created = self.client.post("/api/v1/construction/disbursements/", {
+            "project_id": self.project.id, "certificate": self.certificate.id, "amount": "100000",
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        disbursement = Disbursement.objects.get(amount=Decimal("100000"))
+        url = f"/api/v1/construction/disbursements/{disbursement.id}/"
+        self.assertEqual(self.client.patch(url, {"status": "paid"}, format="json", **self.headers).status_code, 400)
+        paid = self.client.post(f"{url}pay/", {}, format="json", **self.headers)
+        self.assertEqual(paid.status_code, 200, paid.data)
+        self.assertEqual(self.client.post(f"{url}pay/", {}, format="json", **self.headers).status_code, 400)
+        self.assertEqual(self.client.post(f"{url}void/", {}, format="json", **self.headers).status_code, 400)
+        voided = self.client.post(f"{url}void/", {"reason": "Bank transfer reversed"}, format="json", **self.headers)
+        self.assertEqual(voided.status_code, 200, voided.data)
+        disbursement.refresh_from_db()
+        self.assertEqual(disbursement.voided_by, self.user)
+        self.assertEqual(self.client.delete(url, **self.headers).status_code, 400)
+
+    def test_drawdown_follows_document_valuation_approval_and_disbursement_sequence(self):
+        created = self.client.post("/api/v1/construction/drawdowns/", {
+            "project_id": self.project.id, "request_number": "DD-TEST-01",
+            "amount": "500000", "purpose": "Certified works",
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        drawdown = DrawdownRequest.objects.get(request_number="DD-TEST-01")
+        url = f"/api/v1/construction/drawdowns/{drawdown.id}/transition/"
+        self.assertEqual(self.client.post(url, {"action": "disburse"}, format="json", **self.headers).status_code, 400)
+        for payload, expected in [
+            ({"action": "review_documents"}, "document_review"),
+            ({"action": "review_valuation", "valuation_amount": "490000"}, "valuation_review"),
+            ({"action": "approve", "notes": "Valuation checked"}, "approved"),
+            ({"action": "disburse"}, "disbursed"),
+        ]:
+            response = self.client.post(url, payload, format="json", **self.headers)
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data["status"], expected)
+        drawdown.refresh_from_db()
+        self.assertEqual(drawdown.reviewed_by, self.user)
+        self.assertIsNotNone(drawdown.approved_at)
+        self.assertIsNotNone(drawdown.disbursed_at)

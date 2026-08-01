@@ -297,4 +297,35 @@ class Command(BaseCommand):
             organization=organization, item=store_item, movement_type="issue", reference="WO-019 / Level 6",
             defaults={"project":project,"quantity":Decimal("-60"),"created_by":user,"created_at":now_ms-43200000},
         )
+        Variation.objects.update_or_create(
+            project=project, variation_number="VAR-2026-0028",
+            defaults={
+                "organization": organization, "description": "Proposed access-control extension",
+                "variation_type": "addition", "target": "boq", "amount": Decimal("680000"),
+                "status": "draft", "justification": "Awaiting consultant review",
+                "created_at": now_ms - 3600000, "updated_at": now_ms - 3600000,
+            },
+        )
+        Requisition.objects.update_or_create(
+            organization=organization, project_id=project.id, title="Generator fuel float",
+            defaults={
+                "description": "Working float for planned shutdown and commissioning.",
+                "amount": Decimal("75000"), "status": "submitted", "raised_by": user,
+                "reviewed_by": None, "approved_by": None,
+                "created_at": now_ms - 1800000, "updated_at": now_ms - 1800000,
+            },
+        )
+        Disbursement.objects.update_or_create(
+            organization=organization, project_id=project.id, certificate=certificate, amount=Decimal("425000"),
+            defaults={"status": "pending", "managed_by": user, "created_at": now_ms - 900000, "paid_at": None},
+        )
+        DrawdownRequest.objects.update_or_create(
+            organization=organization, project_id=project.id, request_number="DD-010",
+            defaults={
+                "amount": Decimal("425000"), "purpose": "Commissioning and statutory inspection costs",
+                "status": "submitted", "supporting_documents": ["commissioning-cost-plan.pdf"],
+                "requested_by": user, "reviewed_by": None,
+                "created_at": now_ms - 600000, "updated_at": now_ms - 600000,
+            },
+        )
         self.stdout.write(self.style.SUCCESS(f"Seeded construction data for {organization.name}."))

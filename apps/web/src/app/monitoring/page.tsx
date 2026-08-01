@@ -124,6 +124,30 @@ export default function MonitoringPage() {
     await load();
   }
 
+  async function runFinanceAction(row: Row, actionName: string) {
+    await apiFetch("/auth/csrf/");
+    let endpoint = "";
+    let payload: Record<string, string> = {};
+    if (tab === "variations") {
+      endpoint = `/construction/variations/${row.id}/transition/`; payload = { status: actionName };
+    } else if (tab === "requisitions") {
+      endpoint = `/construction/requisitions/${row.id}/${actionName === "review" ? "review" : "decide"}/`;
+      if (actionName !== "review") payload = { decision: actionName };
+    } else if (tab === "disbursements") {
+      endpoint = `/construction/disbursements/${row.id}/${actionName}/`;
+    } else if (tab === "drawdowns") {
+      endpoint = `/construction/drawdowns/${row.id}/transition/`; payload = { action: actionName };
+    }
+    if (["rejected", "reject", "void"].includes(actionName)) {
+      const reason = window.prompt("Record the reason for this decision:")?.trim();
+      if (!reason) return;
+      payload[actionName === "void" ? "reason" : tab === "drawdowns" ? "notes" : "reason"] = reason;
+    }
+    const response = await apiFetch(endpoint, { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload) }, organization);
+    if (!response.ok) { const detail = await response.json().catch(() => ({})); setError(String(detail.detail ?? "The finance workflow action was rejected.")); return; }
+    await load();
+  }
+
   const selectedColumns = useMemo(() => tab === "overview" ? [] : columns[tab], [tab]);
   const kpis = dashboard?.kpis;
   return <div className="page-wrap property-app monitoring-app">
@@ -134,7 +158,7 @@ export default function MonitoringPage() {
       <section className="kpi-grid"><Kpi label="Active projects" value={String(kpis.activeProjects)} note={`${kpis.portfolioProjects} workspaces`} onClick={() => setTab("projects")}/><Kpi label="Open site issues" value={String(kpis.openTickets)} note="Tracked through resolution" onClick={() => setTab("tickets")}/><Kpi label="High exposure risks" value={String(kpis.highRisks)} note="Likelihood × impact ≥ 16" onClick={() => setTab("risks")}/><Kpi label="Approved variations" value={cash.format(Number(kpis.approvedVariations))} note={`${kpis.submittedMilestones} progress submissions`} onClick={() => setTab("variations")}/><Kpi label="Certified value" value={cash.format(Number(kpis.certifiedValue))} note="Current non-void certificates" onClick={() => setTab("certificates")}/><Kpi label="Paid to date" value={cash.format(Number(kpis.paidValue))} note={`${kpis.budgetUtilization}% budget utilized`} onClick={() => setTab("disbursements")}/></section>
       <section className="dashboard-columns"><article className="data-panel"><PanelTitle title="Active construction portfolio" onClick={() => setTab("projects")}/><Table cols={columns.projects} rows={dashboard.projects}/></article><div className="facility-side-stack"><article className="data-panel"><PanelTitle title="Issues requiring action" onClick={() => setTab("tickets")}/>{dashboard.recentTickets.length ? dashboard.recentTickets.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("tickets")}><span><strong>{String(row.title)}</strong><small>{String(row.due_date || "No due date")} · escalation {String(row.escalation_level)}</small></span><Status value={String(row.priority)}/></button>) : <Empty/>}</article><article className="data-panel"><PanelTitle title="Risk watchlist" onClick={() => setTab("risks")}/>{dashboard.topRisks.length ? dashboard.topRisks.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("risks")}><span><strong>{String(row.reference || "Risk")}</strong><small>{String(row.description)}</small></span><b>{Number(row.likelihood) * Number(row.impact)}</b></button>) : <Empty/>}</article></div></section>
       <section className="summary-strip">{dashboard.projectStages.map(item => <button key={item.stage} onClick={() => setTab("projects")}><b>{item.count}</b>{item.stage.replaceAll("_", " ")}</button>)}</section>
-    </> : <article className="data-panel"><header className="collection-title"><div><p className="eyebrow">Organization-scoped live register</p><h2>{labels[tab]}</h2></div><div className="collection-actions">{tab === "notifications" && <button className="secondary-action" onClick={markAllNotificationsRead}>Mark all read</button>}<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search records…"/></div></header><Table cols={selectedColumns} rows={rows}/></article>}
+    </> : <article className="data-panel"><header className="collection-title"><div><p className="eyebrow">Organization-scoped live register</p><h2>{labels[tab]}</h2></div><div className="collection-actions">{tab === "notifications" && <button className="secondary-action" onClick={markAllNotificationsRead}>Mark all read</button>}<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search records…"/></div></header><Table cols={selectedColumns} rows={rows} tab={tab} onAction={runFinanceAction}/></article>}
     {modal && <div className="modal-backdrop" onMouseDown={() => setModal(false)}><div className="form-modal" onMouseDown={event => event.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Unified hierarchy</p><h2>Create construction workspace</h2></div><button onClick={() => setModal(false)}>×</button></div><form onSubmit={createProject}><label>Shared portfolio project<select required name="portfolio_project" defaultValue=""><option disabled value="">Select project</option>{portfolioProjects.map(project => <option key={String(project.id)} value={String(project.id)}>{project.code} — {project.name}</option>)}</select></label><div className="form-row"><label>Construction code<input required name="code"/></label><label>Stage<select name="stage" defaultValue="planning"><option value="planning">Planning</option><option value="active">Active</option><option value="on_hold">On hold</option><option value="complete">Complete</option></select></label></div><label>Workspace name<input required name="name"/></label><div className="form-row"><label>Client<input name="client_name"/></label><label>Location<input name="location"/></label></div><label>Description<textarea name="description" rows={3}/></label><div className="form-actions"><button type="button" onClick={() => setModal(false)}>Cancel</button><button className="primary-action">Create workspace</button></div></form></div></div>}
   </div>;
 }
@@ -143,6 +167,17 @@ function Kpi({ label, value, note, onClick }: { label: string; value: string; no
 function PanelTitle({ title, onClick }: { title: string; onClick: () => void }) { return <header className="panel-title"><h2>{title}</h2><button onClick={onClick}>View all →</button></header>; }
 function Status({ value }: { value: string }) { return <span className={`data-status status-${value}`}>{value.replaceAll("_", " ")}</span>; }
 function Empty() { return <div className="empty-state">No records requiring attention.</div>; }
-function Table({ cols, rows }: { cols: { key: string; label: string; kind?: "money" | "status" | "progress" }[]; rows: Row[] }) {
-  return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{cols.map(col => <th key={col.key}>{col.label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id ?? index)}>{cols.map(col => <td key={col.key}>{col.kind === "money" ? cash.format(Number(row[col.key] ?? 0)) : col.kind === "status" ? <Status value={String(row[col.key] ?? "unknown")}/> : col.kind === "progress" ? <span className="progress-cell"><i style={{width:`${Math.min(100, Number(row[col.key] ?? 0))}%`}}/><b>{Number(row[col.key] ?? 0)}%</b></span> : typeof row[col.key] === "boolean" ? (row[col.key] ? "Yes" : "No") : Array.isArray(row[col.key]) ? (row[col.key] as string[]).join(", ") : String(row[col.key] ?? "—")}</td>)}</tr>)}</tbody></table></div> : <Empty/>;
+function Table({ cols, rows, tab, onAction }: { cols: { key: string; label: string; kind?: "money" | "status" | "progress" }[]; rows: Row[]; tab?: Tab; onAction?: (row: Row, action: string) => void }) {
+  const controlled = tab && ["variations", "requisitions", "disbursements", "drawdowns"].includes(tab);
+  return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{cols.map(col => <th key={col.key}>{col.label}</th>)}{controlled && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id ?? index)}>{cols.map(col => <td key={col.key}>{col.kind === "money" ? cash.format(Number(row[col.key] ?? 0)) : col.kind === "status" ? <Status value={String(row[col.key] ?? "unknown")}/> : col.kind === "progress" ? <span className="progress-cell"><i style={{width:`${Math.min(100, Number(row[col.key] ?? 0))}%`}}/><b>{Number(row[col.key] ?? 0)}%</b></span> : typeof row[col.key] === "boolean" ? (row[col.key] ? "Yes" : "No") : Array.isArray(row[col.key]) ? (row[col.key] as string[]).join(", ") : String(row[col.key] ?? "—")}</td>)}{controlled && <td><WorkflowButtons tab={tab} row={row} act={actionName => onAction?.(row, actionName)}/></td>}</tr>)}</tbody></table></div> : <Empty/>;
+}
+
+function WorkflowButtons({ tab, row, act }: { tab: Tab; row: Row; act: (action: string) => void }) {
+  const status = String(row.status);
+  let actions: [string, string][] = [];
+  if (tab === "variations") actions = status === "draft" ? [["submitted", "Submit"]] : status === "submitted" ? [["approved", "Approve"], ["rejected", "Reject"]] : [];
+  if (tab === "requisitions") actions = status === "submitted" ? [["review", "Review"]] : status === "reviewed" ? [["approved", "Approve"], ["rejected", "Reject"]] : [];
+  if (tab === "disbursements") actions = status === "pending" ? [["pay", "Mark paid"], ["void", "Void"]] : status === "paid" ? [["void", "Void"]] : [];
+  if (tab === "drawdowns") actions = status === "submitted" ? [["review_documents", "Review documents"], ["reject", "Reject"]] : status === "document_review" ? [["review_valuation", "Review valuation"], ["reject", "Reject"]] : status === "valuation_review" ? [["approve", "Approve"], ["reject", "Reject"]] : status === "approved" ? [["disburse", "Disburse"]] : [];
+  return actions.length ? <div className="table-actions">{actions.map(([key, label]) => <button key={key} onClick={() => act(key)}>{label}</button>)}</div> : <span>Complete</span>;
 }

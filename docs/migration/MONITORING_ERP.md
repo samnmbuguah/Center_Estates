@@ -28,6 +28,9 @@ Later parity slices add document revision history, issue discussions, project
 team assignments, audited requirement waivers, second-party progress
 verification, statutory approval decisions, inventory, material requisitions,
 purchase orders and an append-only stock ledger.
+Construction finance now also preserves the source workflow state machines for
+variation approval, requisition review/decision, disbursement payment/voiding,
+and document/valuation-controlled funding drawdowns.
 
 ## Preserved invariants
 
@@ -53,7 +56,7 @@ purchase orders and an append-only stock ledger.
 
 ## Current verification
 
-- Unified backend: 77 tests passing, including organization isolation,
+- Unified backend: 81 tests passing, including organization isolation,
   subscription denial, hierarchy validation, evidence immutability, controlled
   approval/verification decisions, procurement controls and append-only audit
   records.
