@@ -9,7 +9,7 @@ from core.models import Module
 from organizations.models import Membership, Organization
 from subscriptions.models import Subscription
 
-from .models import Tender, TenderAuditEvent, TenderRequirement, TenderSubmission, TenderTask
+from .models import BidDecision, CompanyDocument, FinancialItem, Tender, TenderAuditEvent, TenderRequirement, TenderSubmission, TenderTask
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
@@ -94,3 +94,64 @@ class TenderApiTests(TestCase):
         self.tender.refresh_from_db(); self.assertEqual(self.tender.stage, Tender.Stage.SUBMITTED)
         self.assertEqual(self.client.delete(f'/api/v1/tender/submissions/{submission.id}/', **self.headers).status_code, 400)
         self.assertTrue(TenderAuditEvent.objects.filter(tender=self.tender, event_type='submitted').exists())
+
+    def test_ai_requirement_requires_controlled_human_confirmation(self):
+        response = self.client.post('/api/v1/tender/requirements/', {
+            'tender': str(self.tender.id), 'category': 'Eligibility', 'text': 'Audited accounts',
+            'mandatory': True, 'status': 'met', 'confidence': '91', 'citation': 'Page 12',
+            'model_version': 'extract-v2',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        requirement = TenderRequirement.objects.get(text='Audited accounts')
+        self.assertEqual(requirement.status, 'pending')
+        confirmed = self.client.post(
+            f'/api/v1/tender/requirements/{requirement.id}/confirm/', {'status': 'met'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        requirement.refresh_from_db(); self.assertEqual(requirement.confirmed_by, self.user)
+        self.assertTrue(TenderAuditEvent.objects.filter(tender=self.tender, event_type='requirement_confirmed').exists())
+
+    def test_bid_decision_is_server_stamped_and_audited(self):
+        self.tender.stage = Tender.Stage.DECISION; self.tender.save()
+        response = self.client.post('/api/v1/tender/decisions/', {
+            'tender': str(self.tender.id), 'eligibility_score': '90', 'profitability_score': '75',
+            'capacity_score': '80', 'risk_score': '35', 'recommendation': 'bid',
+            'decision': 'approved', 'rationale': 'Capacity confirmed',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        decision = BidDecision.objects.get(tender=self.tender); self.assertEqual(decision.decision, 'pending')
+        decided = self.client.post(
+            f'/api/v1/tender/decisions/{decision.id}/decide/',
+            {'decision': 'approved', 'rationale': 'Board approval recorded'}, format='json', **self.headers,
+        )
+        self.assertEqual(decided.status_code, 200, decided.data)
+        decision.refresh_from_db(); self.assertEqual(decision.decided_by, self.user)
+        self.assertTrue(TenderAuditEvent.objects.filter(tender=self.tender, event_type='bid_decision').exists())
+
+    def test_financial_amount_is_calculated_and_approval_locks_pricing(self):
+        response = self.client.post('/api/v1/tender/financial-items/', {
+            'tender': str(self.tender.id), 'code': 'B1', 'description': 'Mobilisation',
+            'quantity': '3', 'unit': 'month', 'unit_rate': '2500', 'amount': '1', 'approved': True,
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        item = FinancialItem.objects.get(code='B1'); self.assertEqual(item.amount, Decimal('7500')); self.assertFalse(item.approved)
+        approved = self.client.post(f'/api/v1/tender/financial-items/{item.id}/approve/', {}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(self.client.patch(
+            f'/api/v1/tender/financial-items/{item.id}/', {'unit_rate': '1'}, format='json', **self.headers,
+        ).status_code, 400)
+
+    def test_company_vault_is_append_only_and_reports_are_exportable(self):
+        document = CompanyDocument.objects.create(
+            organization=self.organization, name='Tax compliance', document_type='tax',
+            version='1', checksum='sha256-tax',
+        )
+        self.assertEqual(self.client.patch(
+            f'/api/v1/tender/company-documents/{document.id}/', {'name': 'Changed'}, format='json', **self.headers,
+        ).status_code, 400)
+        analytics = self.client.get('/api/v1/tender/analytics/', **self.headers)
+        self.assertEqual(analytics.status_code, 200, analytics.data)
+        export = self.client.get('/api/v1/tender/analytics/exports/pipeline/', **self.headers)
+        self.assertEqual(export.status_code, 200)
+        self.assertIn('T1', export.content.decode()); self.assertNotIn('Hidden Tender', export.content.decode())

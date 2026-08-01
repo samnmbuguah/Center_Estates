@@ -11,3 +11,10 @@
 9. Capture submissions, acknowledgements, amendments, outcome and lessons learned.
 10. Add dashboards, notifications, exports, permission/security tests and complete workflow tests.
 
+## Implemented control evidence
+
+- AI-extracted requirements preserve confidence, citation and model evidence and require an explicit, audited human confirmation action.
+- Bid decisions, task progress, proposal review, BOQ approval and final review gates use server-enforced transitions with organization-scoped audit events.
+- BOQ totals are calculated server-side; approved pricing, approved proposal sections, company-vault evidence and submission receipts cannot be overwritten.
+- Packaging is blocked until proposal, pricing and review gates pass; submission and outcome records advance the tender atomically.
+- Dashboard analytics and five downloadable CSV registers cover the live tenant-scoped pipeline, compliance, workload, pricing and outcomes.

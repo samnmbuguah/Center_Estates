@@ -185,6 +185,19 @@ test("tender submission evidence and audit trail are connected", async ({ page }
   await expect(page.getByText("submitted", { exact: true }).first()).toBeVisible();
 });
 
+test("tender approval controls and reports are interactive", async ({ page }, testInfo) => {
+  await page.goto("/tender");
+  await page.getByRole("button", { name: "Financial BOQ", exact: true }).click();
+  await expect(page.getByText("FM-001", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await expect(page.getByText("Requirement compliance matrix", { exact: true })).toBeVisible();
+  test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("row").filter({ hasText: "Tender pipeline and deadlines" }).getByRole("button", { name: "Download CSV" }).click();
+  expect((await downloadPromise).suggestedFilename()).toBe("tender-pipeline.csv");
+});
+
 test("valuation final report, payment and audit evidence are connected", async ({ page }) => {
   await page.goto("/valuation");
   await page.getByRole("button", { name: "Final reports", exact: true }).click();
