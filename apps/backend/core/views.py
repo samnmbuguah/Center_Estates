@@ -1,11 +1,13 @@
 from django.conf import settings
 from django.http import JsonResponse
+from django.db import connection
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 
 from core.serializers import MembershipSerializer, serialize_modules
@@ -21,7 +23,13 @@ def _set_token_cookie(response, name, value, max_age, path):
 
 
 def health(request):
-    return JsonResponse({'status': 'ok', 'service': 'center-estates-erp'})
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            cursor.fetchone()
+    except Exception:
+        return JsonResponse({'status': 'unavailable', 'service': 'center-estates-erp', 'database': 'down'}, status=503)
+    return JsonResponse({'status': 'ok', 'service': 'center-estates-erp', 'database': 'ok'})
 
 
 @ensure_csrf_cookie
@@ -33,6 +41,8 @@ def csrf(request):
 class LoginView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'login'
 
     def post(self, request):
         serializer = TokenObtainPairSerializer(data=request.data)
@@ -55,6 +65,8 @@ class MobileTokenView(APIView):
     """Bearer-token login for the offline Expo construction client."""
     authentication_classes = ()
     permission_classes = (AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'login'
 
     def post(self, request):
         serializer = MobileTokenSerializer(data=request.data)
@@ -70,6 +82,8 @@ class MobileTokenView(APIView):
 class RefreshView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'token_refresh'
 
     def post(self, request):
         serializer = TokenRefreshSerializer(data={'refresh': request.COOKIES.get(settings.JWT_REFRESH_COOKIE)})

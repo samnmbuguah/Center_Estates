@@ -12,6 +12,7 @@ build/
 staticfiles/
 media/
 artifacts/
+backups/
 playwright/.cache/
 .docker-secrets/
 infrastructure/docker/secrets/

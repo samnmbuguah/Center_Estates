@@ -53,6 +53,8 @@ one Django API and one route-split Next.js application. It joins the existing
 `caddy_default` network; shared Caddy terminates TLS for
 `https://erp.169-58-102-217.sslip.io`.
 
+Production deployment, verification, backup, restore and rollback procedures are documented in [the production runbook](docs/operations/PRODUCTION_RUNBOOK.md) and [Docker deployment guide](infrastructure/docker/README.md).
+
 ```bash
 docker compose up -d --build
 docker compose ps

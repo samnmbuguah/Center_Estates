@@ -82,4 +82,13 @@ class AuthenticationApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_login_attempts_are_rate_limited(self):
+        csrf_token = self._csrf()
+        responses = [self.client.post(
+            '/api/v1/auth/login/', {'username': 'api-user', 'password': 'wrong-password'},
+            format='json', HTTP_X_CSRFTOKEN=csrf_token, REMOTE_ADDR='198.51.100.24',
+        ) for _ in range(11)]
+        self.assertTrue(all(response.status_code != 429 for response in responses[:10]))
+        self.assertEqual(responses[-1].status_code, 429)
+
 # Create your tests here.

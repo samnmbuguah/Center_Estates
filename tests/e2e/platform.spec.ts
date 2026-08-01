@@ -105,14 +105,15 @@ test("tenant self-service uses the shared lease and billing ledger", async ({ pa
 
 test("tenant can submit a scoped maintenance request", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant request races");
+  const requestTitle = `E2E corridor light fault ${Date.now()}`;
   await page.goto("/tenant-portal");
   await page.getByRole("button", { name: "Report an issue", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Report an issue" });
-  await dialog.getByLabel("Subject").fill("E2E corridor light fault");
+  await dialog.getByLabel("Subject").fill(requestTitle);
   await dialog.getByLabel("Category").fill("Electrical");
   await dialog.getByLabel("Description").fill("The corridor light outside the unit is not working.");
   await dialog.getByRole("button", { name: "Submit request" }).click();
-  await expect(page.getByText("E2E corridor light fault", { exact: true })).toBeVisible();
+  await expect(page.getByText(requestTitle, { exact: true })).toBeVisible();
 });
 
 test("facility work history, cost and media registers are connected", async ({ page }) => {

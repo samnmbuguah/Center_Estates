@@ -20,11 +20,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 
+def secret_setting(name, default='', default_file=''):
+    value = os.environ.get(name)
+    if value:
+        return value
+    secret_file = os.environ.get(f'{name}_FILE', default_file)
+    if secret_file and Path(secret_file).is_file():
+        return Path(secret_file).read_text(encoding='utf-8').strip()
+    return default
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-insecure-change-me-use-at-least-32-bytes')
+SECRET_KEY = secret_setting(
+    'DJANGO_SECRET_KEY', 'dev-insecure-change-me-use-at-least-32-bytes',
+    '/run/secrets/django_secret',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() in {'1', 'true', 'yes'}
@@ -108,7 +121,7 @@ else:
             'ENGINE': database_engine,
             'NAME': os.environ.get('DB_NAME', ''),
             'USER': os.environ.get('DB_USER', ''),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'PASSWORD': secret_setting('DB_PASSWORD', default_file='/run/secrets/db_password'),
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '3306'),
         }
@@ -190,6 +203,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_THROTTLE_RATES': {
+        'login': os.environ.get('AUTH_LOGIN_RATE', '10/minute'),
+        'token_refresh': os.environ.get('AUTH_REFRESH_RATE', '30/minute'),
+    },
 }
 
 JWT_ACCESS_COOKIE = 'ce_access'
