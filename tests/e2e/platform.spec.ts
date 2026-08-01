@@ -62,6 +62,19 @@ test("facility work history, cost and media registers are connected", async ({ p
   await expect(page.getByText("leak-before-repair.jpg", { exact: true })).toBeVisible();
 });
 
+test("facility preventive and service workflows are interactive", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel maintenance races");
+  await page.goto("/facility");
+  await page.getByRole("button", { name: "Planned maintenance", exact: true }).click();
+  const schedule = page.getByRole("row").filter({ hasText: "PM-LIFT-MONTHLY" });
+  await expect(schedule.getByRole("button", { name: "Generate work order", exact: true })).toBeVisible();
+  await schedule.getByRole("button", { name: "Generate work order", exact: true }).click();
+  await page.getByRole("button", { name: "Work orders", exact: true }).click();
+  await expect(page.getByText(/PM-PM-LIFT-MONTHLY/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Service requests", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "SR-2026-00123" }).getByRole("button", { name: "Resolve", exact: true })).toBeVisible();
+});
+
 test("sales payment verification and audit controls are connected", async ({ page }) => {
   await page.goto("/sales");
   await page.getByRole("button", { name: "Payments", exact: true }).click();

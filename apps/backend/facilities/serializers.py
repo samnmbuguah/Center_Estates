@@ -42,6 +42,7 @@ class PreventiveScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = PreventiveSchedule
         exclude = ('organization',)
+        read_only_fields = ('last_completed_on',)
 
 
 class InspectionSerializer(serializers.ModelSerializer):
@@ -49,7 +50,8 @@ class InspectionSerializer(serializers.ModelSerializer):
     inspector_name = serializers.CharField(source='inspector.get_full_name', read_only=True)
     class Meta:
         model = Inspection
-        exclude = ('organization',)
+        exclude = ('organization', 'inspector')
+        read_only_fields = ('completed_on', 'status', 'score', 'findings', 'violations', 'follow_up_work_order')
 
 
 class ServiceRequestSerializer(serializers.ModelSerializer):
@@ -59,6 +61,7 @@ class ServiceRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceRequest
         exclude = ('organization',)
+        read_only_fields = ('status', 'submitted_at', 'resolved_at', 'work_order')
 
 
 class UtilityMeterSerializer(serializers.ModelSerializer):
@@ -78,6 +81,7 @@ class MeterReadingSerializer(serializers.ModelSerializer):
     class Meta:
         model = MeterReading
         exclude = ('organization',)
+        read_only_fields = ('consumption', 'cost', 'is_anomaly')
 
 
 class WorkOrderEventSerializer(serializers.ModelSerializer):

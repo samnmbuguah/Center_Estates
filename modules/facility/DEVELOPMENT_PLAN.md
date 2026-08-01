@@ -11,3 +11,10 @@
 
 Acceptance is traced to all 12 screens in [UI_REFERENCE.md](docs/UI_REFERENCE.md). Maps, charts and calendars are dynamically loaded.
 
+## Implemented control evidence
+
+- Preventive schedules generate idempotent work orders and advance recurrence only through a completion action.
+- Failed inspections retain score/findings evidence and can create an audited corrective work order.
+- Service requests convert once to maintenance work and retain resolution and satisfaction state.
+- Utility readings are immutable; consumption, tariff cost, and anomaly state are calculated server-side.
+- These workflows are organization/subscription scoped, backend tested, and exercised in the live desktop UI.

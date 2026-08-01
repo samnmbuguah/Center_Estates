@@ -57,6 +57,26 @@ export default function FacilityPage() {
     setShowCreate(false); setTab("work-orders");
   }
 
+  async function runAction(row: Row, action: string) {
+    await apiFetch("/auth/csrf/"); let path = ""; let payload: Record<string, string | number | boolean> = {};
+    if (tab === "planned-maintenance") path = `/facility/planned-maintenance/${row.id}/${action}/`;
+    if (tab === "service-requests") {
+      path = `/facility/service-requests/${row.id}/${action}/`;
+      if (action === "resolve") payload.satisfaction_score = Number(window.prompt("Satisfaction score (1-5):") ?? 0);
+    }
+    if (tab === "inspections") {
+      path = `/facility/inspections/${row.id}/complete/`;
+      const score = window.prompt("Inspection score (0-100):")?.trim(); if (!score) return;
+      const violations = Number(window.prompt("Number of violations:") ?? 0);
+      const findings = violations ? window.prompt("Record the inspection findings:")?.trim() : "";
+      if (violations && !findings) return;
+      payload = { score, violations, findings: findings ?? "", create_work_order: true };
+    }
+    const response = await apiFetch(path, { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload) }, organizationId);
+    if (!response.ok) { setError("The facility workflow action could not be completed."); return; }
+    await load();
+  }
+
   const kpi = dashboard?.kpis;
   const activeColumns = useMemo(() => tab === "overview" ? [] : columns[tab], [tab]);
   return <div className="page-wrap property-app">
@@ -80,7 +100,7 @@ export default function FacilityPage() {
         </div>
       </section>
       <section className="summary-strip"><span><b>{kpi.buildings}</b> Buildings</span><span><b>{kpi.openRequests}</b> Open service requests</span><span><b>{kpi.contractors}</b> Active contractors</span>{dashboard.assetCategories.slice(0,3).map((item) => <span key={item.category}><b>{item.count}</b> {item.category} assets</span>)}</section>
-    </> : <article className="data-panel collection-panel"><header className="collection-title"><div><p className="eyebrow">Operations register</p><h2>{labels[tab]}</h2></div><input value={search} onChange={(e) => setSearch(e.target.value)} aria-label={`Search ${labels[tab]}`} placeholder="Search records…" /></header><SimpleTable columns={activeColumns} rows={rows} /></article>}
+    </> : <article className="data-panel collection-panel"><header className="collection-title"><div><p className="eyebrow">Operations register</p><h2>{labels[tab]}</h2></div><input value={search} onChange={(e) => setSearch(e.target.value)} aria-label={`Search ${labels[tab]}`} placeholder="Search records…" /></header><SimpleTable columns={activeColumns} rows={rows} tab={tab} onAction={runAction} /></article>}
     {showCreate && <div className="modal-backdrop" onMouseDown={() => setShowCreate(false)}><div className="form-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Corrective maintenance</p><h2>New work order</h2></div><button onClick={() => setShowCreate(false)}>×</button></div><form onSubmit={createWorkOrder}><div className="form-row"><label>Work order number<input name="number" required placeholder="WO-2026-1790" /></label><label>Priority<select name="priority" defaultValue="medium"><option>low</option><option>medium</option><option>high</option><option>critical</option></select></label></div><label>Issue title<input name="title" required placeholder="Describe the maintenance issue" /></label><div className="form-row"><label>Category<input name="category" required placeholder="Mechanical" /></label><label>Property<select name="property" required defaultValue=""><option value="" disabled>Select property</option>{properties.map((row) => <option key={String(row.id)} value={String(row.id)}>{row.name}</option>)}</select></label></div><label>Description<textarea name="description" rows={4} /></label><input type="hidden" name="status" value="open" /><div className="form-actions"><button type="button" onClick={() => setShowCreate(false)}>Cancel</button><button className="primary-action">Create work order</button></div></form></div></div>}
   </div>;
 }
@@ -89,4 +109,5 @@ function Kpi({label,value,note,action,warning=false}:{label:string;value:string;
 function PanelTitle({title,action}:{title:string;action:()=>void}) { return <header className="panel-title"><h2>{title}</h2><button onClick={action}>View all →</button></header> }
 function Status({value}:{value:string}) { return <span className={`data-status status-${value}`}>{value.replaceAll("_"," ")}</span> }
 function Empty() { return <div className="empty-state">Nothing requiring attention.</div> }
-function SimpleTable({columns,rows}:{columns:{key:string;label:string;format?:"money"|"status"}[];rows:Row[]}) { return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{columns.map((c)=><th key={c.key}>{c.label}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr key={String(row.id??index)}>{columns.map((c)=><td key={c.key}>{c.format === "money" ? money.format(Number(row[c.key])) : c.format === "status" ? <Status value={String(row[c.key])} /> : typeof row[c.key] === "boolean" ? (row[c.key] ? "Yes" : "No") : String(row[c.key] ?? "—")}{c.key === "progress" ? "%" : ""}</td>)}</tr>)}</tbody></table></div> : <Empty/> }
+function SimpleTable({columns,rows,tab,onAction}:{columns:{key:string;label:string;format?:"money"|"status"}[];rows:Row[];tab?:Tab;onAction?:(row:Row,action:string)=>void}) { const controlled=tab&&["planned-maintenance","inspections","service-requests"].includes(tab); return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{columns.map((c)=><th key={c.key}>{c.label}</th>)}{controlled&&<th>Actions</th>}</tr></thead><tbody>{rows.map((row,index)=><tr key={String(row.id??index)}>{columns.map((c)=><td key={c.key}>{c.format === "money" ? money.format(Number(row[c.key])) : c.format === "status" ? <Status value={String(row[c.key])} /> : typeof row[c.key] === "boolean" ? (row[c.key] ? "Yes" : "No") : String(row[c.key] ?? "—")}{c.key === "progress" ? "%" : ""}</td>)}{controlled&&<td><FacilityActions tab={tab} row={row} act={(action)=>onAction?.(row,action)}/></td>}</tr>)}</tbody></table></div> : <Empty/> }
+function FacilityActions({tab,row,act}:{tab:Tab;row:Row;act:(action:string)=>void}) { let actions:[string,string][]=[]; if(tab==="planned-maintenance"&&row.is_active)actions=[["generate-work-order","Generate work order"],["complete","Mark complete"]]; if(tab==="inspections"&&["scheduled","in_progress"].includes(String(row.status)))actions=[["complete","Complete inspection"]]; if(tab==="service-requests"&&!row.work_order)actions=[["convert","Create work order"]]; else if(tab==="service-requests"&&["assigned","in_progress"].includes(String(row.status)))actions=[["resolve","Resolve"]]; return actions.length?<div className="table-actions">{actions.map(([key,label])=><button key={key} onClick={()=>act(key)}>{label}</button>)}</div>:<span>Complete</span> }

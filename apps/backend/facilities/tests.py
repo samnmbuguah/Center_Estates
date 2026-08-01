@@ -11,7 +11,7 @@ from organizations.models import Membership, Organization
 from properties.models import Property
 from subscriptions.models import Subscription
 
-from .models import FacilityAsset, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -121,3 +121,68 @@ class FacilityApiTests(TestCase):
         self.work_order.refresh_from_db()
         self.assertEqual(self.work_order.parts_cost, Decimal('7000.00'))
         self.assertTrue(WorkOrderEvent.objects.filter(work_order=self.work_order, event_type='cost_added').exists())
+
+    def test_preventive_schedule_generates_idempotent_work_order_and_advances_recurrence(self):
+        schedule = PreventiveSchedule.objects.create(
+            organization=self.organization, code='PM-LIFT', name='Monthly lift service', asset=self.asset,
+            frequency=PreventiveSchedule.Frequency.MONTHLY, next_due_on=timezone.localdate(), instructions='Service and safety test.',
+        )
+        url = f'/api/v1/facility/planned-maintenance/{schedule.id}/'
+        first = self.client.post(f'{url}generate-work-order/', {}, format='json', **self.headers)
+        second = self.client.post(f'{url}generate-work-order/', {}, format='json', **self.headers)
+        self.assertEqual(first.status_code, 201, first.data); self.assertEqual(second.status_code, 200, second.data)
+        self.assertEqual(WorkOrder.objects.filter(number__startswith='PM-PM-LIFT').count(), 1)
+        completed = self.client.post(f'{url}complete/', {}, format='json', **self.headers)
+        self.assertEqual(completed.status_code, 200, completed.data)
+        schedule.refresh_from_db()
+        self.assertEqual(schedule.last_completed_on, timezone.localdate())
+        self.assertGreater(schedule.next_due_on, schedule.last_completed_on)
+
+    def test_failed_inspection_creates_audited_corrective_work_order(self):
+        inspection = Inspection.objects.create(
+            organization=self.organization, reference='INS-01', title='Lift safety inspection',
+            inspection_type='Safety', property=self.property, asset=self.asset, inspector=self.user,
+            scheduled_on=timezone.localdate(),
+        )
+        completed = self.client.post(f'/api/v1/facility/inspections/{inspection.id}/complete/', {
+            'score': '62', 'violations': 2, 'findings': 'Door interlock response outside tolerance.',
+        }, format='json', **self.headers)
+        self.assertEqual(completed.status_code, 200, completed.data)
+        inspection.refresh_from_db()
+        self.assertEqual(inspection.status, Inspection.Status.FOLLOW_UP)
+        self.assertIsNotNone(inspection.follow_up_work_order)
+        self.assertTrue(WorkOrderEvent.objects.filter(work_order=inspection.follow_up_work_order, event_type='inspection_finding').exists())
+
+    def test_service_request_converts_once_and_records_resolution_score(self):
+        service_request = ServiceRequest.objects.create(
+            organization=self.organization, reference='SR-01', subject='Lift noise', category='Mechanical',
+            property=self.property, status=ServiceRequest.Status.NEW, priority=WorkOrder.Priority.HIGH,
+            submitted_at=timezone.now(),
+        )
+        url = f'/api/v1/facility/service-requests/{service_request.id}/'
+        converted = self.client.post(f'{url}convert/', {}, format='json', **self.headers)
+        self.assertEqual(converted.status_code, 200, converted.data)
+        self.assertEqual(self.client.post(f'{url}convert/', {}, format='json', **self.headers).status_code, 400)
+        resolved = self.client.post(f'{url}resolve/', {'satisfaction_score': 5}, format='json', **self.headers)
+        self.assertEqual(resolved.status_code, 200, resolved.data)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.status, ServiceRequest.Status.RESOLVED)
+        self.assertEqual(service_request.satisfaction_score, 5)
+
+    def test_meter_readings_compute_consumption_cost_and_anomaly_server_side(self):
+        meter = UtilityMeter.objects.create(
+            organization=self.organization, code='ELEC-01', name='Main electricity meter',
+            property=self.property, utility_type=UtilityMeter.Utility.ELECTRICITY, tariff=Decimal('25.0000'),
+        )
+        MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=2), value=Decimal('1000'), consumption=Decimal('100'), cost=Decimal('2500'))
+        MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=1), value=Decimal('1100'), consumption=Decimal('100'), cost=Decimal('2500'))
+        created = self.client.post('/api/v1/facility/meter-readings/', {
+            'meter': str(meter.id), 'read_at': timezone.now().isoformat(), 'value': '1300',
+            'consumption': '1', 'cost': '1', 'is_anomaly': False,
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        reading = MeterReading.objects.order_by('-read_at').first()
+        self.assertEqual(reading.consumption, Decimal('200'))
+        self.assertEqual(reading.cost, Decimal('5000'))
+        self.assertTrue(reading.is_anomaly)
+        self.assertEqual(self.client.delete(f'/api/v1/facility/meter-readings/{reading.id}/', **self.headers).status_code, 400)
