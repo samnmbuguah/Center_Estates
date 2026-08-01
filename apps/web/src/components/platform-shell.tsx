@@ -31,10 +31,10 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     <div className="workspace">
       <header className="topbar">
         <button className="mobile-menu-button" aria-label="Open navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}><span /><span /><span /></button>
-        <select aria-label="Active organization" value={activeOrganization?.id ?? ""} onChange={(event) => selectOrganization(event.target.value)}>
+        <div className="topbar-workspace"><small>Active organization</small><select aria-label="Active organization" value={activeOrganization?.id ?? ""} onChange={(event) => selectOrganization(event.target.value)}>
           {session.organizations.map((organization) => <option value={organization.id} key={organization.id}>{organization.name}</option>)}
-        </select>
-        <div className="profile" title={session.user.username}>{session.user.username.slice(0, 2).toUpperCase()}</div>
+        </select></div>
+        <div className="topbar-actions"><span className="system-live"><i/>Systems operational</span><div className="profile-copy"><strong>{session.user.firstName || session.user.username}</strong><small>{session.permissions.includes("*") ? "Platform administrator" : session.roles[0] || "Organization member"}</small></div><div className="profile" title={session.user.username}>{session.user.username.slice(0, 2).toUpperCase()}</div></div>
       </header>
       <main>{isKnownModule && !allowed.has(requestedModule)
         ? <div className="page-wrap"><div className="notice"><strong>Module unavailable.</strong> Your active organization is not subscribed to this module. <Link href="/">Return to the command center.</Link></div></div>

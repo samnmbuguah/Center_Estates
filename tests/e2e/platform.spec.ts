@@ -254,6 +254,24 @@ test("construction portfolio programme and risk workspaces are visual and connec
   await expect(page.locator(".risk-register-card").first()).toBeVisible();
 });
 
+test("construction operational commercial finance and evidence workspaces are connected", async ({ page }, testInfo) => {
+  await page.goto("/monitoring");
+  await openConstructionSection(page, testInfo, "Issues");
+  await expect(page.locator(".issue-card").first()).toBeVisible();
+  await openConstructionSection(page, testInfo, "Daily logs");
+  await expect(page.locator(".site-diary-list article").first()).toBeVisible();
+  await openConstructionSection(page, testInfo, "Variations");
+  await expect(page.getByText("Register value", { exact: true })).toBeVisible();
+  await openConstructionSection(page, testInfo, "Certificates");
+  await expect(page.getByText("Financial control", { exact: true })).toBeVisible();
+  await openConstructionSection(page, testInfo, "Documents");
+  await expect(page.locator(".document-card").first()).toBeVisible();
+  await openConstructionSection(page, testInfo, "Reports");
+  await expect(page.getByRole("heading", { name: "Progress and control reporting", exact: true })).toBeVisible();
+  await openConstructionSection(page, testInfo, "Notifications");
+  await expect(page.locator(".collaboration-feed article").first()).toBeVisible();
+});
+
 test("construction controlled documents and issue discussion are connected", async ({ page }, testInfo) => {
   await page.goto("/monitoring");
   await openConstructionSection(page, testInfo, "Document revisions");
