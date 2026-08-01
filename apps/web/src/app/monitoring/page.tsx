@@ -28,6 +28,17 @@ const labels: Record<Tab, string> = {
   requisitions: "Requisitions", certificates: "Certificates", disbursements: "Payments", drawdowns: "Drawdowns",
   reports: "Reports", chat: "Project chat", notifications: "Notifications", "audit-log": "Audit trail",
 };
+
+const navigationGroups: { label: string; icon: string; tabs: Tab[] }[] = [
+  { label: "Portfolio", icon: "⌂", tabs: ["overview", "projects", "project-memberships", "lifecycle", "calendar"] },
+  { label: "Site operations", icon: "◫", tabs: ["milestones", "daily-logs", "tickets", "ticket-comments", "risks", "safety-incidents", "quality-tests", "rfis"] },
+  { label: "Programme & controls", icon: "◷", tabs: ["work-plan", "milestone-verifications", "requirement-waivers", "approvals"] },
+  { label: "Commercial", icon: "◈", tabs: ["boq", "variations", "provisional-sums", "contingency-drawdowns", "advance-payments", "advance-recoveries", "consultant-payments", "work-orders", "subcontractors"] },
+  { label: "Procurement & stores", icon: "▣", tabs: ["materials", "store-items", "store-suppliers", "material-requisitions", "purchase-orders", "stock-movements"] },
+  { label: "Finance", icon: "◎", tabs: ["requisitions", "certificates", "disbursements", "drawdowns"] },
+  { label: "Documents & digital", icon: "◇", tabs: ["documents", "document-versions", "bim-models", "bim-discrepancies", "drone-datasets", "satellite-datasets"] },
+  { label: "Insights & collaboration", icon: "◌", tabs: ["reports", "chat", "notifications", "audit-log"] },
+];
 const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; kind?: "money" | "status" | "progress" }[]> = {
   projects: [{key:"code",label:"Project"},{key:"name",label:"Name"},{key:"client_name",label:"Client"},{key:"location",label:"Location"},{key:"stage",label:"Stage",kind:"status"},{key:"budget",label:"Budget",kind:"money"},{key:"planned_completion_date",label:"Completion"}],
   "project-memberships": [{key:"project_name",label:"Project"},{key:"user_name",label:"Team member"},{key:"role_name",label:"Access role"},{key:"label",label:"Project responsibility"},{key:"created_at",label:"Assigned"}],
@@ -88,6 +99,8 @@ export default function MonitoringPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [navigationSearch, setNavigationSearch] = useState("");
   const dashboardProjectId = dashboard?.projects[0]?.id;
 
   const load = useCallback(async () => {
@@ -172,17 +185,35 @@ export default function MonitoringPage() {
   }
 
   const selectedColumns = useMemo(() => tab === "overview" ? [] : columns[tab], [tab]);
+  const visibleNavigation = useMemo(() => {
+    const query = navigationSearch.trim().toLowerCase();
+    if (!query) return navigationGroups;
+    return navigationGroups.map(group => ({ ...group, tabs: group.tabs.filter(item => labels[item].toLowerCase().includes(query)) })).filter(group => group.tabs.length);
+  }, [navigationSearch]);
+  const selectTab = (item: Tab) => { setRows([]); setSearch(""); setTab(item); setNavigationOpen(false); };
   const kpis = dashboard?.kpis;
-  return <div className="page-wrap property-app monitoring-app">
-    <section className="property-heading"><div><p className="eyebrow">Construction management</p><h1>Project monitoring</h1><p>Verified field evidence, programme, quality, commercial control and close-out.</p></div><button className="primary-action" onClick={() => setModal(true)}>+ Project workspace</button></section>
-    <nav className="module-tabs" aria-label="Construction sections">{(Object.keys(labels) as Tab[]).map(item => <button className={tab === item ? "active" : ""} key={item} onClick={() => { setRows([]); setSearch(""); setTab(item); }}>{labels[item]}</button>)}</nav>
+  const activeProject = dashboard?.projects[0];
+  return <div className="monitoring-shell">
+    <button className={`monitoring-nav-scrim ${navigationOpen ? "visible" : ""}`} aria-label="Close construction navigation" onClick={() => setNavigationOpen(false)} />
+    <aside className={`monitoring-navigation ${navigationOpen ? "open" : ""}`} aria-label="Construction sections">
+      <div className="monitoring-nav-title"><span className="construction-mark">M</span><div><strong>Construction</strong><small>Monitoring workspace</small></div><button aria-label="Close construction navigation" onClick={() => setNavigationOpen(false)}>×</button></div>
+      <label className="monitoring-nav-search"><span aria-hidden="true">⌕</span><input value={navigationSearch} onChange={event => setNavigationSearch(event.target.value)} placeholder="Find a workspace" aria-label="Find a construction workspace" /></label>
+      <div className="monitoring-nav-scroll">{visibleNavigation.map(group => <section className="monitoring-nav-group" key={group.label}><p><span aria-hidden="true">{group.icon}</span>{group.label}</p>{group.tabs.map(item => <button aria-label={labels[item]} className={tab === item ? "active" : ""} key={item} onClick={() => selectTab(item)}><span>{labels[item]}</span>{item === "notifications" && <i aria-hidden="true">●</i>}</button>)}</section>)}</div>
+      <div className="monitoring-nav-footer"><span className="sync-dot" />Live organization data<small>Role and tenant scoped</small></div>
+    </aside>
+    <div className="monitoring-content">
+    <header className="monitoring-context-bar"><button className="monitoring-menu" aria-label="Open construction navigation" onClick={() => setNavigationOpen(true)}>☰</button><div className="monitoring-breadcrumb"><span>Construction monitoring</span><b>/</b><strong>{labels[tab]}</strong></div><div className="project-context"><span className="context-health" />{activeProject ? <><small>Active workspace</small><strong>{String(activeProject.name)}</strong></> : <strong>Portfolio view</strong>}</div></header>
+    <div className="page-wrap property-app monitoring-app">
+    <section className="monitoring-page-heading"><div><p className="eyebrow">Construction management</p><h1>{tab === "overview" ? "Project monitoring" : labels[tab]}</h1><p>{tab === "overview" ? "Verified field evidence, programme, quality, commercial control and close-out." : `Review and manage ${labels[tab].toLowerCase()} across the active organization.`}</p></div><div className="monitoring-heading-actions"><button className="secondary-action" onClick={() => selectTab("reports")}>Export & reports</button><button className="primary-action" onClick={() => setModal(true)}>+ Project workspace</button></div></section>
     {error && <div className="form-error">{error}<button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading verified construction records…</div> : tab === "overview" && dashboard && kpis ? <>
-      <section className="kpi-grid"><Kpi label="Active projects" value={String(kpis.activeProjects)} note={`${kpis.portfolioProjects} workspaces`} onClick={() => setTab("projects")}/><Kpi label="Open site issues" value={String(kpis.openTickets)} note="Tracked through resolution" onClick={() => setTab("tickets")}/><Kpi label="High exposure risks" value={String(kpis.highRisks)} note="Likelihood × impact ≥ 16" onClick={() => setTab("risks")}/><Kpi label="Approved variations" value={cash.format(Number(kpis.approvedVariations))} note={`${kpis.submittedMilestones} progress submissions`} onClick={() => setTab("variations")}/><Kpi label="Certified value" value={cash.format(Number(kpis.certifiedValue))} note="Current non-void certificates" onClick={() => setTab("certificates")}/><Kpi label="Paid to date" value={cash.format(Number(kpis.paidValue))} note={`${kpis.budgetUtilization}% budget utilized`} onClick={() => setTab("disbursements")}/></section>
+      <section className="monitoring-brief"><div><span className="brief-pulse"/><p>Portfolio control room</p><strong>{String(kpis.activeProjects)} active projects</strong></div><div><small>Progress submissions</small><strong>{Number(kpis.submittedMilestones)}</strong><span className="brief-stat-line">Verified milestone evidence</span></div><div><small>Budget utilization</small><strong>{Number(kpis.budgetUtilization)}%</strong><span className="brief-progress warning"><i style={{width:`${Math.min(100, Number(kpis.budgetUtilization))}%`}} /></span></div><button onClick={() => selectTab("notifications")}><small>Attention queue</small><strong>{Number(kpis.openTickets) + Number(kpis.highRisks)}</strong><span>Open issues and high risks →</span></button></section>
+      <section className="kpi-grid monitoring-kpis"><Kpi label="Active projects" value={String(kpis.activeProjects)} note={`${kpis.portfolioProjects} workspaces`} onClick={() => selectTab("projects")}/><Kpi label="Open site issues" value={String(kpis.openTickets)} note="Tracked through resolution" onClick={() => selectTab("tickets")}/><Kpi label="High exposure risks" value={String(kpis.highRisks)} note="Likelihood × impact ≥ 16" onClick={() => selectTab("risks")}/><Kpi label="Approved variations" value={cash.format(Number(kpis.approvedVariations))} note={`${kpis.submittedMilestones} progress submissions`} onClick={() => selectTab("variations")}/><Kpi label="Certified value" value={cash.format(Number(kpis.certifiedValue))} note="Current non-void certificates" onClick={() => selectTab("certificates")}/><Kpi label="Paid to date" value={cash.format(Number(kpis.paidValue))} note={`${kpis.budgetUtilization}% budget utilized`} onClick={() => selectTab("disbursements")}/></section>
       <section className="dashboard-columns"><article className="data-panel"><PanelTitle title="Active construction portfolio" onClick={() => setTab("projects")}/><Table cols={columns.projects} rows={dashboard.projects}/></article><div className="facility-side-stack"><article className="data-panel"><PanelTitle title="Issues requiring action" onClick={() => setTab("tickets")}/>{dashboard.recentTickets.length ? dashboard.recentTickets.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("tickets")}><span><strong>{String(row.title)}</strong><small>{String(row.due_date || "No due date")} · escalation {String(row.escalation_level)}</small></span><Status value={String(row.priority)}/></button>) : <Empty/>}</article><article className="data-panel"><PanelTitle title="Risk watchlist" onClick={() => setTab("risks")}/>{dashboard.topRisks.length ? dashboard.topRisks.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("risks")}><span><strong>{String(row.reference || "Risk")}</strong><small>{String(row.description)}</small></span><b>{Number(row.likelihood) * Number(row.impact)}</b></button>) : <Empty/>}</article></div></section>
       <section className="summary-strip">{dashboard.projectStages.map(item => <button key={item.stage} onClick={() => setTab("projects")}><b>{item.count}</b>{item.stage.replaceAll("_", " ")}</button>)}</section>
     </> : <article className="data-panel"><header className="collection-title"><div><p className="eyebrow">Organization-scoped live register</p><h2>{labels[tab]}</h2></div><div className="collection-actions">{tab === "notifications" && <button className="secondary-action" onClick={markAllNotificationsRead}>Mark all read</button>}{tab === "reports" && <><button className="secondary-action" onClick={() => downloadReport("boq")}>Export BoQ</button><button className="secondary-action" onClick={() => downloadReport("cost")}>Export cost</button><button className="secondary-action" onClick={() => downloadReport("milestones")}>Export progress</button></>}<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search records…"/></div></header><Table cols={selectedColumns} rows={rows} tab={tab} onAction={runFinanceAction}/></article>}
     {modal && <div className="modal-backdrop" onMouseDown={() => setModal(false)}><div className="form-modal" onMouseDown={event => event.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Unified hierarchy</p><h2>Create construction workspace</h2></div><button onClick={() => setModal(false)}>×</button></div><form onSubmit={createProject}><label>Shared portfolio project<select required name="portfolio_project" defaultValue=""><option disabled value="">Select project</option>{portfolioProjects.map(project => <option key={String(project.id)} value={String(project.id)}>{project.code} — {project.name}</option>)}</select></label><div className="form-row"><label>Construction code<input required name="code"/></label><label>Stage<select name="stage" defaultValue="planning"><option value="planning">Planning</option><option value="active">Active</option><option value="on_hold">On hold</option><option value="complete">Complete</option></select></label></div><label>Workspace name<input required name="name"/></label><div className="form-row"><label>Client<input name="client_name"/></label><label>Location<input name="location"/></label></div><label>Description<textarea name="description" rows={3}/></label><div className="form-actions"><button type="button" onClick={() => setModal(false)}>Cancel</button><button className="primary-action">Create workspace</button></div></form></div></div>}
+    </div></div>
   </div>;
 }
 

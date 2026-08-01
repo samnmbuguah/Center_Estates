@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const password = process.env.E2E_ADMIN_PASSWORD;
 
@@ -13,6 +13,13 @@ async function signIn(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => signIn(page));
+
+async function openConstructionSection(page: Page, testInfo: TestInfo, name: string) {
+  if (testInfo.project.name.startsWith("mobile")) {
+    await page.getByRole("button", { name: "Open construction navigation" }).click();
+  }
+  await page.getByRole("button", { name, exact: true }).click();
+}
 
 test("subscribed modules navigate through the unified shell", async ({ page }, testInfo) => {
   const modules = [
@@ -223,37 +230,37 @@ test("valuation analytics and evidence exports use live records", async ({ page 
   expect((await downloadPromise).suggestedFilename()).toBe("valuation-fees.csv");
 });
 
-test("construction procurement inventory and stock ledger are connected", async ({ page }) => {
+test("construction procurement inventory and stock ledger are connected", async ({ page }, testInfo) => {
   await page.goto("/monitoring");
-  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Inventory");
   await expect(page.getByText("MAT-SEAL-01", { exact: true })).toBeVisible();
   await expect(page.getByText("Fire-rated sealant", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Purchase orders", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Purchase orders");
   await expect(page.getByText("PO-2026-0038", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Stock ledger", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Stock ledger");
   await expect(page.getByText("WO-019 / Level 6", { exact: true })).toBeVisible();
 });
 
-test("construction controlled documents and issue discussion are connected", async ({ page }) => {
+test("construction controlled documents and issue discussion are connected", async ({ page }, testInfo) => {
   await page.goto("/monitoring");
-  await page.getByRole("button", { name: "Document revisions", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Document revisions");
   await expect(page.getByText("Level 6 coordinated structural drawings", { exact: true })).toBeVisible();
   await expect(page.getByText("Rev B", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Issue discussion", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Issue discussion");
   await expect(page.getByText("level-6-corrective-plan.pdf", { exact: true })).toBeVisible();
 });
 
-test("construction governance registers and notification controls are connected", async ({ page }) => {
+test("construction governance registers and notification controls are connected", async ({ page }, testInfo) => {
   await page.goto("/monitoring");
-  await page.getByRole("button", { name: "Project team", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Project team");
   await expect(page.getByText("Project administrator", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Requirement waivers", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Requirement waivers");
   await expect(page.getByText("LEGACY_CONTRACT_IMPORT", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Progress verification", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Progress verification");
   await expect(page.getByText("Progress evidence reviewed against the approved programme.", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Approvals", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Approvals");
   await expect(page.getByText("NCA-CE-2026-041", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Notifications", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Notifications");
   await expect(page.getByText("IPC-011 disbursed", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Mark all read", exact: true }).click();
   await expect(page.locator(".form-error")).toHaveCount(0);
@@ -262,29 +269,29 @@ test("construction governance registers and notification controls are connected"
 test("construction finance workflow actions are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel workflow races");
   await page.goto("/monitoring");
-  await page.getByRole("button", { name: "Variations", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Variations");
   const proposal = page.getByRole("row").filter({ hasText: "VAR-2026-0028" });
   await expect(proposal.getByRole("button", { name: "Submit", exact: true })).toBeVisible();
   await proposal.getByRole("button", { name: "Submit", exact: true }).click();
   await expect(proposal.getByText("submitted", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Requisitions", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Requisitions");
   await expect(page.getByRole("row").filter({ hasText: "Generator fuel float" }).getByRole("button", { name: "Review", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Payments");
   await expect(page.getByRole("row").filter({ hasText: "425,000" }).getByRole("button", { name: "Mark paid", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Drawdowns", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Drawdowns");
   await expect(page.getByRole("row").filter({ hasText: "DD-010" }).getByRole("button", { name: "Review documents", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Provisional sums", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Provisional sums");
   await expect(page.getByRole("row").filter({ hasText: "PS-04" }).getByRole("button", { name: "Close", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Advances", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Advances");
   await expect(page.getByRole("row").filter({ hasText: "Apex Refurbishment Ltd" }).getByRole("button", { name: "Record recovery", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Advance recoveries", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Advance recoveries");
   await expect(page.getByText("IPC-011", { exact: true })).toBeVisible();
 });
 
 test("construction reports export tenant-scoped CSV files", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
   await page.goto("/monitoring");
-  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await openConstructionSection(page, testInfo, "Reports");
   await expect(page.getByText(/W\d{2}/).first()).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export BoQ", exact: true }).click();

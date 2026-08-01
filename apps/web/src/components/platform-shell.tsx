@@ -16,13 +16,14 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const requestedModule = pathname.split("/")[1];
   const isKnownModule = modules.some((module) => module.slug === requestedModule);
   const activeOrganization = session.organizations.find((item) => item.id === session.activeOrganizationId);
-  return <div className="platform">
+  const constructionWorkspace = pathname.startsWith("/monitoring");
+  return <div className={`platform ${constructionWorkspace ? "construction-workspace" : ""}`}>
     <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
       <Link className="brand" href="/" onClick={() => setMenuOpen(false)}><span className="brand-mark">CE</span><span>Center Estates<br /><small>ERP Platform</small></span></Link>
       <nav aria-label="Platform modules">
-        <Link className={`nav-link ${pathname === "/" ? "active" : ""}`} href="/" onClick={() => setMenuOpen(false)}>Command Center</Link>
-        {modules.filter((module) => allowed.has(module.slug)).map((module) => <Link className={`nav-link ${pathname.startsWith(`/${module.slug}`) ? "active" : ""}`} href={`/${module.slug}`} key={module.slug} onClick={() => setMenuOpen(false)}><span className="nav-dot" style={{ background: module.accent }} />{module.name.replace(" Management", "")}</Link>)}
-        {allowed.has("property") && <Link className={`nav-link ${pathname.startsWith("/tenant-portal") ? "active" : ""}`} href="/tenant-portal" onClick={() => setMenuOpen(false)}><span className="nav-dot" style={{ background: "#7c3aed" }} />Tenant Portal</Link>}
+        <Link className={`nav-link ${pathname === "/" ? "active" : ""}`} href="/" title="Command Center" onClick={() => setMenuOpen(false)}><span className="platform-nav-icon">⌂</span><span className="nav-label">Command Center</span></Link>
+        {modules.filter((module) => allowed.has(module.slug)).map((module) => <Link className={`nav-link ${pathname.startsWith(`/${module.slug}`) ? "active" : ""}`} href={`/${module.slug}`} title={module.name} key={module.slug} onClick={() => setMenuOpen(false)}><span className="nav-dot" style={{ background: module.accent }} /><span className="nav-label">{module.name.replace(" Management", "")}</span></Link>)}
+        {allowed.has("property") && <Link className={`nav-link ${pathname.startsWith("/tenant-portal") ? "active" : ""}`} href="/tenant-portal" title="Tenant Portal" onClick={() => setMenuOpen(false)}><span className="nav-dot" style={{ background: "#7c3aed" }} /><span className="nav-label">Tenant Portal</span></Link>}
       </nav>
       <button className="logout-button" onClick={() => logout()}>Sign out</button>
     </aside>
