@@ -30,6 +30,10 @@ class SaleListing(OrganizationOwnedModel):
             raise ValidationError('Sales project must belong to the same organization.')
         if self.unit_id and self.project_id and self.project.property_id and self.unit.property_id != self.project.property_id:
             raise ValidationError('The unit must belong to the project property.')
+        if self.list_price <= 0:
+            raise ValidationError({'list_price': 'List price must be greater than zero.'})
+        if not 0 <= self.minimum_deposit_percent <= 100 or not 0 <= self.construction_progress <= 100:
+            raise ValidationError('Deposit percentage and construction progress must be between 0 and 100.')
 
 
 class Buyer(OrganizationOwnedModel):
@@ -90,6 +94,8 @@ class PropertySale(OrganizationOwnedModel):
             raise ValidationError('Buyer must belong to the same organization.')
         if self.listing_id and self.listing.organization_id != self.organization_id:
             raise ValidationError('Listing must belong to the same organization.')
+        if self.agreed_price <= 0 or self.reservation_fee < 0:
+            raise ValidationError('Sale price must be positive and reservation fee cannot be negative.')
 
 
 class Installment(OrganizationOwnedModel):
@@ -116,6 +122,8 @@ class Installment(OrganizationOwnedModel):
     def clean(self):
         if self.sale_id and self.sale.organization_id != self.organization_id:
             raise ValidationError('Installment must belong to the sale organization.')
+        if self.amount <= 0 or self.paid_amount < 0 or self.paid_amount > self.amount:
+            raise ValidationError('Installment amounts are invalid.')
 
 
 class SalePayment(OrganizationOwnedModel):
@@ -144,6 +152,16 @@ class SalePayment(OrganizationOwnedModel):
             models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_sale_payment_ref'),
             models.UniqueConstraint(fields=('organization', 'external_reference'), name='unique_organization_external_payment_ref'),
         ]
+
+    def clean(self):
+        if self.sale_id and self.sale.organization_id != self.organization_id:
+            raise ValidationError('Payment sale must belong to the same organization.')
+        if self.installment_id and self.installment.organization_id != self.organization_id:
+            raise ValidationError('Payment installment must belong to the same organization.')
+        if self.installment_id and self.sale_id and self.installment.sale_id != self.sale_id:
+            raise ValidationError({'installment': 'Installment must belong to the selected sale.'})
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Payment amount must be greater than zero.'})
 
 
 class SiteVisit(OrganizationOwnedModel):
@@ -178,6 +196,7 @@ class AgentCommission(OrganizationOwnedModel):
     rate_percent = models.DecimalField(max_digits=6, decimal_places=2)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     required_paid_percent = models.DecimalField(max_digits=6, decimal_places=2, default=20)
+    required_construction_percent = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     approved_at = models.DateTimeField(null=True, blank=True)
     paid_on = models.DateField(null=True, blank=True)
@@ -185,6 +204,14 @@ class AgentCommission(OrganizationOwnedModel):
     class Meta:
         ordering = ('-created_at',)
         constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_commission_ref')]
+
+    def clean(self):
+        if self.sale_id and self.sale.organization_id != self.organization_id:
+            raise ValidationError('Commission sale must belong to the same organization.')
+        if self.amount < 0 or not 0 <= self.rate_percent <= 100:
+            raise ValidationError('Commission amount and rate are invalid.')
+        if not 0 <= self.required_paid_percent <= 100 or not 0 <= self.required_construction_percent <= 100:
+            raise ValidationError('Commission gates must be between 0 and 100.')
 
 
 class SaleDocument(OrganizationOwnedModel):
@@ -199,6 +226,12 @@ class SaleDocument(OrganizationOwnedModel):
     class Meta:
         ordering = ('document_type', 'title')
         constraints = [models.UniqueConstraint(fields=('sale', 'checksum'), name='unique_sale_document_checksum')]
+
+    def clean(self):
+        if self.sale_id and self.sale.organization_id != self.organization_id:
+            raise ValidationError('Sale document must belong to the same organization.')
+        if not self.checksum.strip():
+            raise ValidationError({'checksum': 'An integrity checksum is required.'})
 
 
 class SalesAuditEvent(OrganizationOwnedModel):

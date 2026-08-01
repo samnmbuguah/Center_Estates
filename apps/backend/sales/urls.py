@@ -1,9 +1,10 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import BuyerViewSet, CommissionViewSet, InstallmentViewSet, ListingViewSet, PaymentViewSet, SaleDocumentViewSet, SalesAuditEventViewSet, SaleViewSet, SalesDashboardViewSet, SiteVisitViewSet
+from .views import BuyerViewSet, CommissionViewSet, InstallmentViewSet, ListingViewSet, PaymentViewSet, SaleDocumentViewSet, SalesAnalyticsViewSet, SalesAuditEventViewSet, SaleViewSet, SalesDashboardViewSet, SiteVisitViewSet
 
 router = DefaultRouter()
 router.register('dashboard', SalesDashboardViewSet, basename='sales-dashboard')
+router.register('analytics', SalesAnalyticsViewSet, basename='sales-analytics')
 router.register('inventory', ListingViewSet)
 router.register('buyers', BuyerViewSet)
 router.register('sales', SaleViewSet)

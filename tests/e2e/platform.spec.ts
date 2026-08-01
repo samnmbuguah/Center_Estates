@@ -149,6 +149,33 @@ test("sales payment verification and audit controls are connected", async ({ pag
   await expect(page.getByText("payment verified", { exact: true })).toBeVisible();
 });
 
+test("sales buyer and commission workflows are controlled", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel sales workflow races");
+  await page.goto("/sales");
+  await page.getByRole("button", { name: "Buyers", exact: true }).click();
+  const lead = page.getByRole("row").filter({ hasText: "BUY-2026-0043" });
+  await lead.getByRole("button", { name: "Qualify", exact: true }).click();
+  await expect(lead.getByText("qualified", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Commissions", exact: true }).click();
+  const commission = page.getByRole("row").filter({ hasText: "COM-2026-0029" });
+  await commission.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(commission.getByText("approved", { exact: true })).toBeVisible();
+});
+
+test("sales performance and report exports use live data", async ({ page }, testInfo) => {
+  await page.goto("/sales");
+  await page.getByRole("button", { name: "Agent performance", exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "Pipeline value" })).toBeVisible();
+  await expect(page.getByText("admin", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await expect(page.getByText("Payment reconciliation", { exact: true })).toBeVisible();
+  test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("row").filter({ hasText: "Payment reconciliation" }).getByRole("button", { name: "Download CSV" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("sales-payments.csv");
+});
+
 test("tender submission evidence and audit trail are connected", async ({ page }) => {
   await page.goto("/tender");
   await page.getByRole("button", { name: "Submissions", exact: true }).click();

@@ -1,7 +1,9 @@
+import csv
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -55,11 +57,72 @@ class ListingViewSet(SalesModelViewSet):
     serializer_class = SaleListingSerializer
     search_fields = ('unit__code', 'unit__unit_type', 'project__name')
 
+    def perform_create(self, serializer):
+        serializer.save(
+            organization=self._validate_organization(serializer), status=SaleListing.Status.AVAILABLE,
+            reservation_expires_at=None,
+        )
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='expire-reservations')
+    def expire_reservations(self, request):
+        organization = get_active_organization(request)
+        listings = SaleListing.objects.select_for_update().filter(
+            organization=organization, status=SaleListing.Status.RESERVED,
+            reservation_expires_at__lt=timezone.now(),
+        )
+        expired = 0
+        for listing in listings:
+            sale = listing.sales.filter(status=PropertySale.Status.RESERVED).order_by('-created_at').first()
+            if sale:
+                sale.status = PropertySale.Status.CANCELLED
+                sale.cancellation_reason = 'Reservation expired automatically.'
+                sale.save(update_fields=('status', 'cancellation_reason', 'updated_at'))
+                SalesAuditEvent.objects.create(
+                    organization=organization, sale=sale, event_type='reservation_expired',
+                    from_status=PropertySale.Status.RESERVED, to_status=PropertySale.Status.CANCELLED,
+                    notes=sale.cancellation_reason, actor=request.user,
+                )
+            listing.status = SaleListing.Status.AVAILABLE
+            listing.reservation_expires_at = None
+            listing.save(update_fields=('status', 'reservation_expires_at', 'updated_at'))
+            expired += 1
+        return Response({'expired': expired})
+
 
 class BuyerViewSet(SalesModelViewSet):
     queryset = Buyer.objects.select_related('assigned_agent')
     serializer_class = BuyerSerializer
     search_fields = ('reference', 'full_name', 'email', 'phone', 'id_number')
+
+    def perform_create(self, serializer):
+        serializer.save(
+            organization=self._validate_organization(serializer), status=Buyer.Status.LEAD,
+            confirmed_at=None,
+        )
+
+    def perform_update(self, serializer):
+        if serializer.instance.status in (Buyer.Status.COMPLETED, Buyer.Status.CANCELLED):
+            raise ValidationError({'buyer': 'Closed buyer records are immutable.'})
+        super().perform_update(serializer)
+
+    @action(detail=True, methods=('post',))
+    def transition(self, request, pk=None):
+        buyer = self.get_object()
+        target = str(request.data.get('status', '')).strip()
+        allowed = {
+            Buyer.Status.LEAD: {Buyer.Status.QUALIFIED, Buyer.Status.CANCELLED},
+            Buyer.Status.QUALIFIED: {Buyer.Status.ACTIVE, Buyer.Status.CANCELLED},
+            Buyer.Status.ACTIVE: {Buyer.Status.COMPLETED, Buyer.Status.CANCELLED},
+            Buyer.Status.COMPLETED: set(), Buyer.Status.CANCELLED: set(),
+        }
+        if target not in allowed[buyer.status]:
+            raise ValidationError({'status': f'Cannot transition buyer from {buyer.status} to {target or "blank"}.'})
+        buyer.status = target
+        if target == Buyer.Status.ACTIVE and buyer.confirmed_at is None:
+            buyer.confirmed_at = timezone.now()
+        buyer.save(update_fields=('status', 'confirmed_at', 'updated_at'))
+        return Response(self.get_serializer(buyer).data)
 
 
 class SaleViewSet(SalesModelViewSet):
@@ -73,6 +136,8 @@ class SaleViewSet(SalesModelViewSet):
         SalesAuditEvent.objects.create(organization=organization, sale=sale, event_type='created', to_status=sale.status, actor=self.request.user)
 
     def perform_update(self, serializer):
+        if serializer.instance.status in (PropertySale.Status.COMPLETED, PropertySale.Status.CANCELLED):
+            raise ValidationError({'sale': 'Completed or cancelled sales are immutable.'})
         if 'status' in serializer.validated_data and serializer.validated_data['status'] != self.get_object().status:
             raise ValidationError({'status': 'Use the transition action so inventory and audit controls are applied.'})
         super().perform_update(serializer)
@@ -135,6 +200,18 @@ class InstallmentViewSet(SalesModelViewSet):
     serializer_class = InstallmentSerializer
     search_fields = ('sale__reference', 'sale__buyer__full_name', 'description', 'milestone')
 
+    def perform_create(self, serializer):
+        due_on = serializer.validated_data['due_on']
+        serializer.save(
+            organization=self._validate_organization(serializer), paid_amount=Decimal('0'),
+            status=Installment.Status.DUE if due_on <= timezone.localdate() else Installment.Status.UPCOMING,
+        )
+
+    def perform_update(self, serializer):
+        if serializer.instance.paid_amount > 0:
+            raise ValidationError({'installment': 'An installment with allocations cannot be edited.'})
+        super().perform_update(serializer)
+
 
 class PaymentViewSet(SalesModelViewSet):
     queryset = SalePayment.objects.select_related('sale__buyer', 'installment', 'verified_by')
@@ -150,6 +227,8 @@ class PaymentViewSet(SalesModelViewSet):
         SalesAuditEvent.objects.create(organization=organization, sale=payment.sale, payment=payment, event_type='payment_submitted', to_status=payment.status, actor=self.request.user)
 
     def perform_update(self, serializer):
+        if serializer.instance.status != SalePayment.Status.PENDING:
+            raise ValidationError({'payment': 'Only pending payment submissions can be edited.'})
         protected = {'status', 'verified_by', 'verified_at', 'rejection_reason'} & set(serializer.validated_data)
         if protected:
             raise ValidationError({'payment': 'Use verification actions for controlled payment status changes.'})
@@ -161,8 +240,12 @@ class PaymentViewSet(SalesModelViewSet):
     def _recalculate_commissions(self, sale):
         verified_total = sale.payments.filter(status=SalePayment.Status.VERIFIED).aggregate(total=Sum('amount'))['total'] or Decimal(0)
         paid_percent = verified_total / sale.agreed_price * 100 if sale.agreed_price else Decimal(0)
-        for commission in sale.commissions.exclude(status=AgentCommission.Status.PAID):
-            commission.status = AgentCommission.Status.ELIGIBLE if paid_percent >= commission.required_paid_percent else AgentCommission.Status.PENDING
+        construction_percent = sale.listing.construction_progress
+        for commission in sale.commissions.exclude(status__in=(AgentCommission.Status.PAID, AgentCommission.Status.APPROVED)):
+            commission.status = AgentCommission.Status.ELIGIBLE if (
+                paid_percent >= commission.required_paid_percent
+                and construction_percent >= commission.required_construction_percent
+            ) else AgentCommission.Status.PENDING
             commission.save(update_fields=('status', 'updated_at'))
 
     @action(detail=True, methods=('post',))
@@ -241,11 +324,61 @@ class CommissionViewSet(SalesModelViewSet):
     serializer_class = AgentCommissionSerializer
     search_fields = ('reference', 'sale__reference', 'sale__buyer__full_name', 'agent__username')
 
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), status=AgentCommission.Status.PENDING)
+
+    def perform_update(self, serializer):
+        if serializer.instance.status not in (AgentCommission.Status.PENDING, AgentCommission.Status.HELD):
+            raise ValidationError({'commission': 'Eligible, approved or paid commissions cannot be edited.'})
+        super().perform_update(serializer)
+
+    def _transition(self, commission, allowed, status, notes=''):
+        if commission.status not in allowed:
+            raise ValidationError({'status': f'Commission cannot move from {commission.status} to {status}.'})
+        previous = commission.status
+        commission.status = status
+        if status == AgentCommission.Status.APPROVED:
+            commission.approved_at = timezone.now()
+        if status == AgentCommission.Status.PAID:
+            commission.paid_on = timezone.localdate()
+        commission.save()
+        SalesAuditEvent.objects.create(
+            organization=commission.organization, sale=commission.sale,
+            event_type='commission_status_change', from_status=previous, to_status=status,
+            notes=notes, details={'commission': commission.reference, 'amount': str(commission.amount)},
+            actor=self.request.user,
+        )
+        return Response(self.get_serializer(commission).data)
+
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        return self._transition(self.get_object(), (AgentCommission.Status.ELIGIBLE,), AgentCommission.Status.APPROVED)
+
+    @action(detail=True, methods=('post',))
+    def hold(self, request, pk=None):
+        reason = str(request.data.get('reason', '')).strip()
+        if not reason:
+            raise ValidationError({'reason': 'A hold reason is required.'})
+        return self._transition(
+            self.get_object(), (AgentCommission.Status.PENDING, AgentCommission.Status.ELIGIBLE),
+            AgentCommission.Status.HELD, reason,
+        )
+
+    @action(detail=True, methods=('post',), url_path='mark-paid')
+    def mark_paid(self, request, pk=None):
+        return self._transition(self.get_object(), (AgentCommission.Status.APPROVED,), AgentCommission.Status.PAID)
+
 
 class SaleDocumentViewSet(SalesModelViewSet):
     queryset = SaleDocument.objects.select_related('sale')
     serializer_class = SaleDocumentSerializer
     search_fields = ('title', 'document_type', 'sale__reference')
+
+    def perform_update(self, serializer):
+        raise ValidationError({'document': 'Legal documents are immutable; upload a new checksum version.'})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({'document': 'Legal documents cannot be deleted.'})
 
 
 class SalesAuditEventViewSet(SalesModelViewSet):
@@ -285,3 +418,76 @@ class SalesDashboardViewSet(ViewSet):
             'inventoryByStatus': list(listings.values('status').annotate(count=Count('id')).order_by('status')),
             'salesByProject': list(sales.values('listing__project__name').annotate(count=Count('id'), value=Sum('agreed_price')).order_by('-value')),
         })
+
+
+class SalesAnalyticsViewSet(ViewSet):
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.SALES
+
+    def _organization(self):
+        return get_active_organization(self.request)
+
+    def list(self, request):
+        organization = self._organization()
+        performance = PropertySale.objects.for_organization(organization).values(
+            'agent__id', 'agent__username', 'agent__first_name', 'agent__last_name',
+        ).annotate(
+            deals=Count('id'), value=Sum('agreed_price'),
+            completed=Count('id', filter=Q(status=PropertySale.Status.COMPLETED)),
+            cancelled=Count('id', filter=Q(status=PropertySale.Status.CANCELLED)),
+        ).order_by('-value')
+        overdue = Installment.objects.for_organization(organization).filter(
+            due_on__lt=timezone.localdate(),
+        ).exclude(status=Installment.Status.PAID).aggregate(
+            amount=Sum('amount'), paid=Sum('paid_amount'), count=Count('id'),
+        )
+        return Response({
+            'agentPerformance': list(performance),
+            'installmentExposure': {
+                'count': overdue['count'] or 0,
+                'outstanding': (overdue['amount'] or Decimal('0')) - (overdue['paid'] or Decimal('0')),
+            },
+            'reports': [
+                {'key': 'inventory', 'name': 'Inventory availability'},
+                {'key': 'sales', 'name': 'Sales pipeline'},
+                {'key': 'payments', 'name': 'Payment reconciliation'},
+                {'key': 'commissions', 'name': 'Agent commissions'},
+                {'key': 'visits', 'name': 'Site visits and attribution'},
+            ],
+        })
+
+    @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
+    def export(self, request, report_kind=None):
+        organization = self._organization()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="sales-{report_kind}.csv"'
+        writer = csv.writer(response)
+        if report_kind == 'inventory':
+            writer.writerow(('Project', 'Unit', 'Type', 'Floor', 'Price', 'Progress', 'Status'))
+            for row in SaleListing.objects.for_organization(organization).select_related('project', 'unit'):
+                writer.writerow((row.project.name, row.unit.code, row.unit.unit_type, row.unit.floor,
+                                 row.list_price, row.construction_progress, row.status))
+        elif report_kind == 'sales':
+            writer.writerow(('Sale', 'Buyer', 'Project', 'Unit', 'Agent', 'Price', 'Status'))
+            for row in PropertySale.objects.for_organization(organization).select_related('buyer', 'listing__project', 'listing__unit', 'agent'):
+                writer.writerow((row.reference, row.buyer.full_name, row.listing.project.name,
+                                 row.listing.unit.code, row.agent.username if row.agent else '', row.agreed_price, row.status))
+        elif report_kind == 'payments':
+            writer.writerow(('Payment', 'Sale', 'Buyer', 'Date', 'Amount', 'Method', 'External reference', 'Status'))
+            for row in SalePayment.objects.for_organization(organization).select_related('sale__buyer'):
+                writer.writerow((row.reference, row.sale.reference, row.sale.buyer.full_name, row.paid_on,
+                                 row.amount, row.method, row.external_reference, row.status))
+        elif report_kind == 'commissions':
+            writer.writerow(('Commission', 'Agent', 'Sale', 'Rate', 'Amount', 'Payment gate', 'Construction gate', 'Status'))
+            for row in AgentCommission.objects.for_organization(organization).select_related('agent', 'sale'):
+                writer.writerow((row.reference, row.agent.username, row.sale.reference, row.rate_percent,
+                                 row.amount, row.required_paid_percent, row.required_construction_percent, row.status))
+        elif report_kind == 'visits':
+            writer.writerow(('Visit', 'Visitor', 'Phone', 'Project', 'Interest', 'Agent', 'Visited', 'Follow up'))
+            for row in SiteVisit.objects.for_organization(organization).select_related('project', 'introducing_agent'):
+                writer.writerow((row.reference, row.visitor_name, row.phone, row.project.name,
+                                 row.interested_unit_type, row.introducing_agent.username if row.introducing_agent else '',
+                                 row.visited_at, row.follow_up_on or ''))
+        else:
+            raise ValidationError({'report': 'Unknown sales report.'})
+        return response

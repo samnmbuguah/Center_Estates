@@ -10,3 +10,9 @@
 8. Add agent appraisal, role dashboards, marketing outputs, audit/compliance reports and offline clerk queue.
 9. Test duplicate payments, partial approval, authorization boundaries and end-to-end buyer journeys.
 
+Implemented workflow evidence:
+
+- Buyer status changes, reservation/sale transitions and expired-reservation release use explicit state-machine actions.
+- Payment proof is tenant-scoped, duplicate protected, linked only to the selected sale's installment, verified/rejected/reversed atomically and permanently retained.
+- Installment allocations and commission eligibility are server-calculated; both verified-payment and construction-progress gates must pass before controlled approval and payout.
+- Legal sale documents are checksum-versioned and append-only, and every financial/workflow decision records a Sales audit event.

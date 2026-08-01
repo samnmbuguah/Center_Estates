@@ -462,6 +462,15 @@ class Command(BaseCommand):
                 'status': Buyer.Status.ACTIVE, 'assigned_agent': user, 'confirmed_at': timezone.now() - timedelta(days=28),
             },
         )
+        Buyer.objects.update_or_create(
+            organization=organization, reference='BUY-2026-0043',
+            defaults={
+                'full_name': 'Peter Kamau Mwangi', 'email': 'peter.kamau@example.com',
+                'phone': '+254 701 303 030', 'id_number': '31124567',
+                'address': 'Lavington, Nairobi', 'financing_type': 'self',
+                'status': Buyer.Status.LEAD, 'assigned_agent': user,
+            },
+        )
         sale, _ = PropertySale.objects.update_or_create(
             organization=organization, reference='SALE-2026-0031',
             defaults={
@@ -518,6 +527,7 @@ class Command(BaseCommand):
             defaults={
                 'sale': sale, 'agent': user, 'rate_percent': Decimal('2.00'),
                 'amount': Decimal('556000.00'), 'required_paid_percent': Decimal('20.00'),
+                'required_construction_percent': Decimal('50.00'),
                 'status': AgentCommission.Status.ELIGIBLE,
             },
         )

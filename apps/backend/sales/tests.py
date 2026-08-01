@@ -11,7 +11,10 @@ from organizations.models import Membership, Organization
 from properties.models import Project, Property, Unit
 from subscriptions.models import Subscription
 
-from .models import AgentCommission, Buyer, Installment, PropertySale, SaleListing, SalePayment, SalesAuditEvent
+from .models import (
+    AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing,
+    SalePayment, SalesAuditEvent,
+)
 
 
 class SalesIntegrityTests(TestCase):
@@ -75,6 +78,24 @@ class SalesApiTests(TestCase):
         self.assertEqual(Decimal(response.data['kpis']['verifiedPayments']), Decimal('1000000'))
         self.assertEqual(response.data['kpis']['activeBuyers'], 1)
 
+    def test_analytics_reports_agent_performance_and_overdue_exposure(self):
+        self.installment.due_on = timezone.localdate() - timezone.timedelta(days=1)
+        self.installment.save(update_fields=('due_on', 'updated_at'))
+        response = self.client.get('/api/v1/sales/analytics/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['agentPerformance'][0]['agent__username'], self.user.username)
+        self.assertEqual(response.data['agentPerformance'][0]['deals'], 1)
+        self.assertEqual(Decimal(response.data['installmentExposure']['outstanding']), Decimal('1000000'))
+        self.assertEqual(len(response.data['reports']), 5)
+
+    def test_payment_export_is_downloadable_and_tenant_scoped(self):
+        response = self.client.get('/api/v1/sales/analytics/exports/payments/', **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        content = response.content.decode()
+        self.assertIn('PAY1', content)
+        self.assertNotIn('Hidden', content)
+
     def test_duplicate_external_payment_reference_is_rejected(self):
         response = self.client.post('/api/v1/sales/payments/', {
             'reference': 'PAY2', 'sale': str(self.sale.id), 'paid_on': str(timezone.localdate()),
@@ -133,3 +154,74 @@ class SalesApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.sale.refresh_from_db()
         self.assertEqual(self.sale.status, PropertySale.Status.CONTRACTED)
+
+    def test_payment_cannot_allocate_to_another_sales_installment(self):
+        other_buyer = Buyer.objects.create(
+            organization=self.organization, reference='B2', full_name='Buyer Two',
+            email='buyer2@example.com', phone='0711', id_number='ID2',
+        )
+        other_prop = Property.objects.create(organization=self.organization, code='P2', name='Second Development')
+        other_unit = Unit.objects.create(organization=self.organization, property=other_prop, code='B-01')
+        other_project = Project.objects.create(organization=self.organization, property=other_prop, code='PR2', name='Second Project')
+        other_listing = SaleListing.objects.create(
+            organization=self.organization, unit=other_unit, project=other_project, list_price=Decimal('5000000'),
+        )
+        other_sale = PropertySale.objects.create(
+            organization=self.organization, reference='S2', buyer=other_buyer,
+            listing=other_listing, agreed_price=Decimal('5000000'),
+        )
+        response = self.client.post('/api/v1/sales/payments/', {
+            'reference': 'PAY-WRONG', 'sale': str(other_sale.id),
+            'installment': str(self.installment.id), 'paid_on': str(timezone.localdate()),
+            'amount': '100.00', 'method': 'bank', 'external_reference': 'EXT-WRONG',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400, response.data)
+
+    def test_commission_requires_payment_and_construction_gates_then_approval_and_payment(self):
+        self.commission.required_construction_percent = Decimal('50')
+        self.commission.save()
+        self.listing.construction_progress = Decimal('60')
+        self.listing.save()
+        verified = self.client.post(
+            f'/api/v1/sales/payments/{self.pending_payment.id}/verify/', {}, format='json', **self.headers,
+        )
+        self.assertEqual(verified.status_code, 200, verified.data)
+        self.commission.refresh_from_db()
+        self.assertEqual(self.commission.status, AgentCommission.Status.ELIGIBLE)
+        for action, expected in (('approve', AgentCommission.Status.APPROVED), ('mark-paid', AgentCommission.Status.PAID)):
+            response = self.client.post(
+                f'/api/v1/sales/commissions/{self.commission.id}/{action}/', {}, format='json', **self.headers,
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data['status'], expected)
+        self.assertTrue(SalesAuditEvent.objects.filter(
+            sale=self.sale, event_type='commission_status_change', to_status=AgentCommission.Status.PAID,
+        ).exists())
+
+    def test_legal_document_is_append_only(self):
+        document = SaleDocument.objects.create(
+            organization=self.organization, sale=self.sale, document_type='sale_agreement',
+            title='Executed sale agreement', file_url='https://example.com/agreement.pdf',
+            checksum='sha256:agreement-v1', signed_on=timezone.localdate(), is_final=True,
+        )
+        self.assertEqual(self.client.patch(
+            f'/api/v1/sales/documents/{document.id}/', {'title': 'Changed'},
+            format='json', **self.headers,
+        ).status_code, 400)
+        self.assertEqual(self.client.delete(
+            f'/api/v1/sales/documents/{document.id}/', **self.headers,
+        ).status_code, 400)
+
+    def test_expired_reservation_releases_inventory_and_audits_cancellation(self):
+        self.sale.status = PropertySale.Status.RESERVED
+        self.sale.save()
+        self.listing.status = SaleListing.Status.RESERVED
+        self.listing.reservation_expires_at = timezone.now() - timezone.timedelta(minutes=1)
+        self.listing.save()
+        response = self.client.post('/api/v1/sales/inventory/expire-reservations/', {}, format='json', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['expired'], 1)
+        self.sale.refresh_from_db(); self.listing.refresh_from_db()
+        self.assertEqual(self.sale.status, PropertySale.Status.CANCELLED)
+        self.assertEqual(self.listing.status, SaleListing.Status.AVAILABLE)
+        self.assertTrue(SalesAuditEvent.objects.filter(sale=self.sale, event_type='reservation_expired').exists())

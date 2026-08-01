@@ -11,6 +11,7 @@ class SaleListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = SaleListing
         exclude = ('organization',)
+        read_only_fields = ('status', 'reservation_expires_at')
 
 
 class BuyerSerializer(serializers.ModelSerializer):
@@ -18,6 +19,7 @@ class BuyerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Buyer
         exclude = ('organization',)
+        read_only_fields = ('status', 'confirmed_at')
 
 
 class PropertySaleSerializer(serializers.ModelSerializer):
@@ -28,6 +30,7 @@ class PropertySaleSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertySale
         exclude = ('organization',)
+        read_only_fields = ('status', 'reserved_at', 'contracted_on', 'cancellation_reason')
 
     def get_paid_amount(self, obj):
         return sum((payment.amount for payment in obj.payments.all() if payment.status == SalePayment.Status.VERIFIED), start=0)
@@ -39,6 +42,7 @@ class InstallmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Installment
         exclude = ('organization',)
+        read_only_fields = ('paid_amount', 'status')
 
 
 class SalePaymentSerializer(serializers.ModelSerializer):
@@ -47,6 +51,19 @@ class SalePaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = SalePayment
         exclude = ('organization',)
+        read_only_fields = ('status', 'verified_by', 'verified_at', 'rejection_reason')
+
+    def validate(self, attrs):
+        sale = attrs.get('sale', getattr(self.instance, 'sale', None))
+        installment = attrs.get('installment', getattr(self.instance, 'installment', None))
+        if sale and installment and installment.sale_id != sale.id:
+            raise serializers.ValidationError({'installment': 'Installment must belong to the selected sale.'})
+        return attrs
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Payment amount must be greater than zero.')
+        return value
 
     def validate_external_reference(self, value):
         request = self.context.get('request')
@@ -77,6 +94,7 @@ class AgentCommissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentCommission
         exclude = ('organization',)
+        read_only_fields = ('status', 'approved_at', 'paid_on')
 
 
 class SaleDocumentSerializer(serializers.ModelSerializer):
