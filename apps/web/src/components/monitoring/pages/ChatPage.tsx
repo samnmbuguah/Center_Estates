@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, Send, Users, MessageSquare } from "lucide-react";
-import { authHeaders, getToken } from "../api";
+import { API_BASE, authHeaders, getToken } from "../api";
+
 interface ChatMsg {
   id: string;
   project_id: string | null;
