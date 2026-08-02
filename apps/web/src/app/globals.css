@@ -750,6 +750,30 @@ a.profile-dropdown-item { text-decoration: none; }
 }
 
 /* Project workspace (MonitoringERP port) */
+.project-scope-banner {
+  align-items: center;
+  background: linear-gradient(90deg, #0b2136, #12304d);
+  border-radius: 12px;
+  color: white;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+}
+.project-scope-banner small {
+  color: #8ca4ba;
+  display: block;
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.project-scope-banner strong { font-size: 14px; }
+.project-scope-banner .secondary-action {
+  background: #ffffff12;
+  border-color: #ffffff28;
+  color: white;
+}
 .project-workspace-panel { overflow: hidden; }
 .project-workspace-header {
   align-items: flex-start;

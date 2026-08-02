@@ -14,7 +14,9 @@ This is the release source of truth for role-based acceptance. A story is only `
 
 ## Current baseline
 
-The established live suite has 34 passing browser scenarios and 10 intentional alternate-viewport skips. It proves administrator workflows across all modules and tenant self-service. The desktop role-control slice includes one-module visibility for viewers, Sales separation, and named business-role control visibility. These checks are useful evidence, but a role remains `PARTIAL` until its complete allow/deny workflow and audit trail are exercised.
+The established live suite proves administrator workflows across all modules and tenant self-service. The desktop role-control slice covers one-module visibility for viewers, Sales separation, construction certifier/finance controls, tender board and valuation reviewer gates, plus admin demo-identity switching.
+
+Demo identity switching (super-admin profile menu) is available for all seeded `role-*` users and `admin`.
 
 ## Passing role-control slice
 
@@ -29,20 +31,29 @@ The established live suite has 34 passing browser scenarios and 10 intentional a
 | `ROLE-SALES-DENY` | Sales viewer cannot see buyer-registration or payment-verification controls. |
 | `ROLE-SALES-MANAGE` | Sales operator can register a buyer but cannot verify payments. |
 | `ROLE-SALES-FINANCE` | Sales financier can verify payments but cannot register a buyer. |
+| `ROLE-SALES-AGENT` | Sales agent can register buyers but cannot verify payments. |
+| `ROLE-SALES-CLERK` | Site clerk cannot register buyers and opens site visits. |
+| `ROLE-SALES-ADVOCATE` | Advocate reaches legal documents without sales mutations. |
 | `ROLE-LEASING-OFFICER` | Leasing officer cannot administer property inventory or post receipts. |
 | `ROLE-PROPERTY-ACCOUNTANT` | Accountant can post receipts but cannot administer property inventory. |
 | `ROLE-FACILITY-TECHNICIAN` | Technician can create work orders under the facility work permission. |
 | `ROLE-FACILITY-INSPECTOR` | Inspector can create corrective work orders as part of inspection follow-up. |
 | `ROLE-TECHNICAL-AUTHOR` | Technical author cannot register tender invitations. |
+| `ROLE-TENDER-BOARD` | Board reviewer cannot register invitations and can open review gates. |
 | `ROLE-VALUATION-COORDINATOR` | Coordinator can register valuation instructions. |
 | `ROLE-VALUER-INSPECTOR` | Field valuer cannot register instructions. |
+| `ROLE-VALUATION-REVIEW` | Reviewer cannot create instructions and can open draft reports. |
 | `ROLE-CONSTRUCTION-AUDITOR` | Auditor can export reports but cannot create project workspaces. |
+| `ROLE-CONSTRUCTION-CERTIFY` | Certifier cannot create workspaces and sees progress Verify actions. |
+| `ROLE-CONSTRUCTION-FINANCE` | Finance officer cannot create workspaces and opens payment controls. |
+| `ROLE-CONSTRUCTION-ADMIN` | Construction admin can create project workspaces and export reports. |
+| `ROLE-ADMIN-SWITCH` | Super admin profile menu exposes demo identity switching. |
 
-The backend permission suite independently covers safe-read allow, mutation deny, manage allow and approve separation for all six modules. It currently passes as part of the 120-test backend suite.
+The backend permission suite independently covers safe-read allow, mutation deny, manage allow and approve separation for all six modules.
 
 | Module | Role | Representative user story | Current state |
 |---|---|---|---|
-| Platform | Organization administrator | Subscribe modules, manage organization-scoped access and use every subscribed module | ADMIN-PASS |
+| Platform | Super / organization administrator | Subscribe modules, manage access, demo-switch identities | PASS |
 | Property | Property manager | Manage properties, units, leases, service charges and operational reports | ADMIN-PASS |
 | Property | Leasing officer | Onboard tenants, verify documents, activate and renew leases without finance approval rights | PARTIAL |
 | Property | Accountant | Issue invoices, allocate receipts, reconcile bank entries, approve/pay expenses and export finance reports | PARTIAL |
@@ -52,28 +63,38 @@ The backend permission suite independently covers safe-read allow, mutation deny
 | Facility | Inspector | Execute inspections and create corrective work without finance/contractor administration | PARTIAL |
 | Facility | Occupant | Submit and follow only own service requests | PARTIAL |
 | Sales | Developer/owner | Manage inventory, sales governance, commission approval and portfolio reports | ADMIN-PASS |
-| Sales | Sales agent | Manage assigned buyers/sales/visits and view own performance without payment approval | MISSING |
-| Sales | Site clerk | Register visits and buyer leads without pricing, legal or commission approval access | MISSING |
+| Sales | Sales agent | Manage buyers/sales/visits without payment approval | PARTIAL |
+| Sales | Site clerk | Register visits without buyer/payment administration | PARTIAL |
 | Sales | Buyer | View own unit, installments, payments and legal documents | MISSING |
-| Sales | Financier | Read financed sales/progress and verify permitted payment evidence | MISSING |
-| Sales | Advocate | Upload immutable legal evidence without sales/payment administration | MISSING |
-| Sales | Relationship manager | Review governance/compliance without operational editing | MISSING |
+| Sales | Financier | Verify permitted payment evidence without selling | PARTIAL |
+| Sales | Advocate | Access legal documents without sales/payment administration | PARTIAL |
+| Sales | Relationship manager | Review governance/compliance without operational editing | PARTIAL |
 | Tender | Tender manager | Register invitations, plan work and progress the gated bid workflow | ADMIN-PASS |
-| Tender | Analyst | Confirm AI extraction and maintain compliance requirements | MISSING |
-| Tender | Technical author | Edit assigned proposal sections without seeing restricted pricing | PARTIAL |
-| Tender | Pricing officer | Maintain BOQ/pricing without proposal or board-decision administration | MISSING |
-| Tender | Board approver/reviewer | Decide bid/no-bid and approval gates without editing source evidence | MISSING |
+| Tender | Analyst | Confirm AI extraction and maintain compliance requirements | PARTIAL |
+| Tender | Technical author | Edit assigned proposal sections without invitation admin | PARTIAL |
+| Tender | Pricing officer | Maintain BOQ/pricing without invitation admin | PARTIAL |
+| Tender | Board approver/reviewer | Open review gates without invitation admin | PARTIAL |
 | Valuation | Coordinator | Register/assign instructions and schedule inspections | PARTIAL |
-| Valuation | Valuer/inspector | Complete field evidence, comparables and draft reports | PARTIAL |
-| Valuation | Reviewer | Request changes/approve drafts and issue controlled final reports | MISSING |
-| Valuation | Finance officer | Issue invoices, allocate payments and access fee aging without editing valuations | MISSING |
+| Valuation | Valuer/inspector | Complete field evidence without instruction registration | PARTIAL |
+| Valuation | Reviewer | Access draft reports without instruction registration | PARTIAL |
+| Valuation | Finance officer | Access fees without instruction registration | PARTIAL |
 | Valuation | Client | Read delivered reports and own fee records | MISSING |
 | Construction | Project administrator | Configure project teams, controls and all project registers | ADMIN-PASS |
 | Construction | Clerk of works/site engineer | Submit progress and evidence through offline/mobile sync | PARTIAL |
-| Construction | Quantity surveyor | Manage BoQ, variations, certificates and commercial evidence | ADMIN-PASS |
-| Construction | Certifier/approver | Verify milestones and approve controlled financial/governance actions | MISSING |
-| Construction | Finance officer | Process approved disbursements/recoveries without changing technical evidence | MISSING |
-| Construction | Auditor | Read immutable audit, document and finance evidence without mutations | PARTIAL |
+| Construction | Quantity surveyor | Manage BoQ, variations, certificates and commercial evidence | PARTIAL |
+| Construction | Certifier/approver | Verify milestones from the Progress register | PARTIAL |
+| Construction | Finance officer | Open payment controls without project create | PARTIAL |
+| Construction | Auditor | Read/export without mutations | PARTIAL |
+
+## Demo identities
+
+Seed via `seed_platform` (password from `SEED_ADMIN_PASSWORD` / `SEED_ROLE_PASSWORD`):
+
+- `admin` — superuser + platform admin
+- `role-{module}-viewer|operator|approver` for each module
+- Business roles: `role-property-manager`, `role-leasing-officer`, `role-property-accountant`, `role-facility-*`, `role-sales-*`, `role-tender-*`, `role-valuation-*`, `role-construction-*`, `role-clerk-of-works`, `role-quantity-surveyor`, …
+
+Switch from the top-right profile menu while signed in as admin.
 
 ## Tracking rules
 
@@ -96,4 +117,4 @@ E2E_ADMIN_PASSWORD=... E2E_ROLE_PASSWORD=... npm run e2e:roles
 npm run e2e:story -- 'ROLE-SALES-APPROVE'
 ```
 
-Playwright writes the human-readable report to `artifacts/playwright-report`, machine-readable JUnit to `artifacts/playwright-results.xml`, and failure traces/screenshots/videos to `artifacts/test-results`. The Acceptance workflow retains all three on every run, including failures.
+Playwright writes the human-readable report to `artifacts/playwright-report`, machine-readable JUnit to `artifacts/playwright-results.xml`, and failure traces/screenshots/videos to `artifacts/test-results`.

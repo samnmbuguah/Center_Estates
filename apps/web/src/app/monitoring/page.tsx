@@ -85,6 +85,9 @@ export default function MonitoringPage() {
   const organization = session?.activeOrganizationId ?? null;
   const canAdminister = can("monitoring.project_admin") || can("monitoring.manage");
   const canReport = can("monitoring.report");
+  const canCertify = can("monitoring.certify") || can("monitoring.manage");
+  const canCommercial = can("monitoring.commercial") || can("monitoring.manage");
+  const canFinance = can("monitoring.finance") || can("monitoring.manage");
   const [tab, setTab] = useState<Tab>("overview");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -176,7 +179,37 @@ export default function MonitoringPage() {
     await load();
   }
 
+  async function verifyMilestone(row: Row, decision: "verified" | "rejected" | "clarification") {
+    if (!canCertify) { setError("Progress verification requires the construction certifier permission."); return; }
+    const note = decision === "verified"
+      ? (window.prompt("Optional verification note:") ?? "")
+      : (window.prompt("Record the reason for this decision:")?.trim() ?? "");
+    if (decision !== "verified" && !note) return;
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/construction/milestone-verifications/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ milestone_entry: row.id, decision, note }),
+    }, organization);
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      setError(String(detail.milestone_entry ?? detail.detail ?? detail.note ?? "Milestone verification failed."));
+      return;
+    }
+    await load();
+  }
+
   async function runFinanceAction(row: Row, actionName: string) {
+    const commercialTabs = ["variations", "provisional-sums", "contingency-drawdowns", "advance-payments"];
+    const financeTabs = ["requisitions", "disbursements", "drawdowns"];
+    if (commercialTabs.includes(tab) && !canCommercial && !canFinance && !canAdminister) {
+      setError("This commercial action is not permitted for your role.");
+      return;
+    }
+    if (financeTabs.includes(tab) && !canFinance && !canAdminister && !canCertify) {
+      setError("This finance control action is not permitted for your role.");
+      return;
+    }
     await apiFetch("/auth/csrf/");
     let endpoint = "";
     let payload: Record<string, string> = {};
@@ -284,6 +317,18 @@ export default function MonitoringPage() {
       }
     >
     <div className="property-app monitoring-app">
+    {selectedProject && tab !== "overview" && (
+      <div className="project-scope-banner">
+        <div>
+          <small>Project scope</small>
+          <strong>{String(selectedProject.code)} — {String(selectedProject.name)}</strong>
+        </div>
+        <div className="module-heading-actions">
+          <button className="secondary-action" onClick={() => { setTab("projects"); void openProjectWorkspace(selectedProject); }}>Open workspace</button>
+          <button className="secondary-action" onClick={() => setSelectedProject(null)}>Clear filter</button>
+        </div>
+      </div>
+    )}
     {error && <div className="form-error">{error}<button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading verified construction records…</div> : tab === "overview" && dashboard && kpis ? <>
       <section className="kpi-grid monitoring-kpis">
@@ -419,6 +464,7 @@ export default function MonitoringPage() {
         search={search}
         setSearch={setSearch}
         onAction={runFinanceAction}
+        onVerifyMilestone={canCertify ? verifyMilestone : undefined}
         markAllNotificationsRead={markAllNotificationsRead}
         downloadReport={downloadReport}
         selectTab={selectTab}
@@ -427,6 +473,8 @@ export default function MonitoringPage() {
         setPortfolioView={setPortfolioView}
         stageFilter={stageFilter}
         setStageFilter={setStageFilter}
+        canCommercial={canCommercial || canAdminister}
+        canFinance={canFinance || canAdminister}
       />
     )}
     {modal && <div className="modal-backdrop" onMouseDown={() => { setModal(false); setOnboardingStep(1); }}><div className="form-modal tenant-intake-modal" onMouseDown={event => event.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Project onboarding</p><h2>Create construction workspace</h2></div><button onClick={() => { setModal(false); setOnboardingStep(1); }}>×</button></div><div className="onboarding-steps"><span className={onboardingStep === 1 ? "active" : ""}>1. Project</span><span className={onboardingStep === 2 ? "active" : ""}>2. Commercial</span><span className={onboardingStep === 3 ? "active" : ""}>3. Review</span></div><form onSubmit={async (event) => { if (onboardingStep < 3) { event.preventDefault(); setOnboardingStep((step) => step + 1); return; } await createProject(event); setOnboardingStep(1); }}><div style={{ display: onboardingStep === 1 ? "grid" : "none", gap: 16 }}><label>Shared portfolio project<select required name="portfolio_project" defaultValue=""><option disabled value="">Select project</option>{portfolioProjects.map(project => <option key={String(project.id)} value={String(project.id)}>{project.code} — {project.name}</option>)}</select></label><div className="form-row"><label>Construction code<input required name="code"/></label><label>Stage<select name="stage" defaultValue="planning"><option value="planning">Planning</option><option value="active">Active</option><option value="on_hold">On hold</option><option value="complete">Complete</option></select></label></div><label>Workspace name<input required name="name"/></label></div><div style={{ display: onboardingStep === 2 ? "grid" : "none", gap: 16 }}><div className="form-row"><label>Client<input name="client_name"/></label><label>Location<input name="location"/></label></div><label>Description<textarea name="description" rows={3}/></label><p className="form-help">Commercial baseline, BoQ and programme can be imported after the workspace is created.</p></div><div style={{ display: onboardingStep === 3 ? "grid" : "none", gap: 16 }}><p className="form-help">Review the project identity and create the organization-scoped construction workspace. Field evidence remains mobile-authoritative.</p></div><div className="form-actions"><button type="button" onClick={() => onboardingStep === 1 ? (setModal(false), setOnboardingStep(1)) : setOnboardingStep((step) => step - 1)}>{onboardingStep === 1 ? "Cancel" : "Back"}</button><button className="primary-action">{onboardingStep === 3 ? "Create workspace" : "Continue"}</button></div></form></div></div>}
@@ -646,6 +694,7 @@ function RegisterView({
   search,
   setSearch,
   onAction,
+  onVerifyMilestone,
   markAllNotificationsRead,
   downloadReport,
   selectTab,
@@ -654,6 +703,8 @@ function RegisterView({
   setPortfolioView,
   stageFilter,
   setStageFilter,
+  canCommercial = true,
+  canFinance = true,
 }: {
   tab: Exclude<Tab, "overview">;
   rows: Row[];
@@ -661,6 +712,7 @@ function RegisterView({
   search: string;
   setSearch: (value: string) => void;
   onAction: (row: Row, action: string) => void;
+  onVerifyMilestone?: (row: Row, decision: "verified" | "rejected" | "clarification") => void;
   markAllNotificationsRead: () => void;
   downloadReport: (kind: "boq" | "cost" | "milestones") => void;
   selectTab: (tab: Tab) => void;
@@ -669,6 +721,8 @@ function RegisterView({
   setPortfolioView: (view: "cards" | "list") => void;
   stageFilter: string;
   setStageFilter: (value: string) => void;
+  canCommercial?: boolean;
+  canFinance?: boolean;
 }) {
   const header = <RegisterHeader tab={tab} search={search} setSearch={setSearch} markAllNotificationsRead={markAllNotificationsRead} downloadReport={downloadReport} />;
   if (tab === "projects") {
@@ -738,13 +792,16 @@ function RegisterView({
     const amountKey = tab === "boq" ? "amount" : tab === "work-orders" ? "total_value" : tab === "consultant-payments" ? "amount" : tab === "advance-recoveries" ? "amount_recovered" : tab === "provisional-sums" ? "budgeted_amount" : "amount";
     const total = rows.reduce((sum,row) => sum + Number(row[amountKey] ?? 0),0);
     const pending = rows.filter(row => ["draft", "pending", "submitted", "requested", "active"].includes(String(row.status))).length;
-    return <article className="data-panel commercial-workspace">{header}<div className="commercial-banner"><div><small>Register value</small><strong>{cash.format(total)}</strong><span>Live organization-scoped commercial exposure</span></div><WorkspaceStat label="Register items" value={rows.length} tone="blue"/><WorkspaceStat label="Requiring action" value={pending} tone="amber"/><WorkspaceStat label="Controlled records" value={rows.filter(row => ["approved", "paid", "closed", "complete"].includes(String(row.status))).length} tone="green"/></div><Table cols={cols} rows={rows} tab={tab} onAction={onAction}/></article>;
+    return <article className="data-panel commercial-workspace">{header}<div className="commercial-banner"><div><small>Register value</small><strong>{cash.format(total)}</strong><span>Live organization-scoped commercial exposure</span></div><WorkspaceStat label="Register items" value={rows.length} tone="blue"/><WorkspaceStat label="Requiring action" value={pending} tone="amber"/><WorkspaceStat label="Controlled records" value={rows.filter(row => ["approved", "paid", "closed", "complete"].includes(String(row.status))).length} tone="green"/></div><Table cols={cols} rows={rows} tab={tab} onAction={canCommercial ? onAction : undefined}/></article>;
   }
   const financeTabs: Tab[] = ["requisitions", "certificates", "disbursements", "drawdowns"];
   if (financeTabs.includes(tab)) {
     const amountKey = tab === "certificates" ? "net_payable" : "amount";
     const total = rows.reduce((sum,row) => sum + Number(row[amountKey] ?? 0),0);
-    return <article className="data-panel finance-control-workspace">{header}<div className="finance-control-strip"><div><p>Financial control</p><strong>{cash.format(total)}</strong><small>Total visible value</small></div><div className="finance-ring" style={{"--ring": `${Math.min(100, rows.length ? rows.filter(row => ["approved","paid","disbursed"].includes(String(row.status))).length / rows.length * 100 : 0)}%`} as CSSProperties}><span>{rows.length}</span><small>records</small></div><WorkspaceStat label="Pending control" value={rows.filter(row => ["draft","submitted","pending","reviewed","document_review","valuation_review"].includes(String(row.status))).length} tone="amber"/><WorkspaceStat label="Completed" value={rows.filter(row => ["approved","paid","disbursed"].includes(String(row.status))).length} tone="green"/></div><Table cols={cols} rows={rows} tab={tab} onAction={onAction}/></article>;
+    return <article className="data-panel finance-control-workspace">{header}<div className="finance-control-strip"><div><p>Financial control</p><strong>{cash.format(total)}</strong><small>Total visible value</small></div><div className="finance-ring" style={{"--ring": `${Math.min(100, rows.length ? rows.filter(row => ["approved","paid","disbursed"].includes(String(row.status))).length / rows.length * 100 : 0)}%`} as CSSProperties}><span>{rows.length}</span><small>records</small></div><WorkspaceStat label="Pending control" value={rows.filter(row => ["draft","submitted","pending","reviewed","document_review","valuation_review"].includes(String(row.status))).length} tone="amber"/><WorkspaceStat label="Completed" value={rows.filter(row => ["approved","paid","disbursed"].includes(String(row.status))).length} tone="green"/></div><Table cols={cols} rows={rows} tab={tab} onAction={canFinance ? onAction : undefined}/></article>;
+  }
+  if (tab === "milestones" && onVerifyMilestone) {
+    return <article className="data-panel">{header}<div className="workspace-stat-row"><WorkspaceStat label="Submissions" value={rows.length} tone="blue"/><WorkspaceStat label="Awaiting verification" value={rows.filter(row => row.submitted_at).length} tone="amber"/><WorkspaceStat label="Certifier role" value="Required" tone="green"/></div><Table cols={cols} rows={rows} tab={tab} onVerifyMilestone={onVerifyMilestone}/></article>;
   }
   if (tab === "documents" || tab === "document-versions") return <article className="data-panel document-workspace">{header}<div className="document-toolbar"><span><b>{rows.length}</b> controlled files</span><span>Immutable revision history</span><span>Organization scoped</span></div>{rows.length ? <div className="document-card-grid">{rows.map((row,index) => <article className="document-card" key={String(row.id ?? index)}><div className="file-icon">{String(row.file_format ?? row.doc_type ?? "DOC").slice(0,4).toUpperCase()}</div><div><p>{String(row.discipline ?? row.project_name ?? "Project document")}</p><strong>{String(row.title ?? row.document_title ?? "Controlled document")}</strong>{tab === "document-versions" ? <small><span>{String(row.revision_number ?? "Revision")}</span> · version {String(row.version ?? "—")}</small> : <small>{String(row.doc_type ?? "Document")}</small>}</div><div className="document-meta"><Status value={String(row.file_format ?? row.doc_type ?? "file")}/><small>{String(row.uploaded_at ?? row.created_at ?? "")}</small></div></article>)}</div> : <Empty/>}</article>;
   if (tab === "bim-models") return <article className="data-panel bim-workspace">{header}<div className="document-toolbar"><span><b>{rows.length}</b> BIM models</span><span>Discipline-linked digital twins</span><span>Project scoped</span></div><div className="bim-layout">{rows.length ? <div className="document-card-grid">{rows.map((row,index) => <article className="document-card" key={String(row.id ?? index)}><div className="file-icon">BIM</div><div><p>{String(row.discipline ?? "Model")}</p><strong>{String(row.name ?? "BIM model")}</strong><small>v{String(row.version ?? "1")} · {String(row.element_count ?? 0)} elements · {String(row.file_format ?? "IFC")}</small></div><div className="document-meta"><Status value={String(row.processing_status ?? "ready")}/></div></article>)}</div> : <Empty/>}<aside className="bim-viewer-panel"><p>Model viewer</p><div className="bim-viewer-preview large"><span>IFC viewport</span><strong>{rows[0] ? String(rows[0].name) : "No model selected"}</strong><small>Clash detection, quantity take-off and progress overlays attach here.</small></div></aside></div></article>;
@@ -758,9 +815,10 @@ function WorkspaceStat({ label, value, tone }: { label: string; value: string | 
 function PanelTitle({ title, onClick }: { title: string; onClick: () => void }) { return <header className="panel-title"><h2>{title}</h2><button onClick={onClick}>View all →</button></header>; }
 function Status({ value }: { value: string }) { return <span className={`data-status status-${value}`}>{value.replaceAll("_", " ")}</span>; }
 function Empty() { return <div className="empty-state">No records requiring attention.</div>; }
-function Table({ cols, rows, tab, onAction }: { cols: { key: string; label: string; kind?: "money" | "status" | "progress" }[]; rows: Row[]; tab?: Tab; onAction?: (row: Row, action: string) => void }) {
-  const controlled = tab && ["variations", "requisitions", "disbursements", "drawdowns", "provisional-sums", "contingency-drawdowns", "advance-payments"].includes(tab);
-  return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{cols.map(col => <th key={col.key}>{col.label}</th>)}{controlled && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id ?? index)}>{cols.map(col => <td key={col.key}>{col.kind === "money" ? cash.format(Number(row[col.key] ?? 0)) : col.kind === "status" ? <Status value={String(row[col.key] ?? "unknown")}/> : col.kind === "progress" ? <span className="progress-cell"><i style={{width:`${Math.min(100, Number(row[col.key] ?? 0))}%`}}/><b>{Number(row[col.key] ?? 0)}%</b></span> : typeof row[col.key] === "boolean" ? (row[col.key] ? "Yes" : "No") : Array.isArray(row[col.key]) ? (row[col.key] as string[]).join(", ") : String(row[col.key] ?? "—")}</td>)}{controlled && <td><WorkflowButtons tab={tab} row={row} act={actionName => onAction?.(row, actionName)}/></td>}</tr>)}</tbody></table></div> : <Empty/>;
+function Table({ cols, rows, tab, onAction, onVerifyMilestone }: { cols: { key: string; label: string; kind?: "money" | "status" | "progress" }[]; rows: Row[]; tab?: Tab; onAction?: (row: Row, action: string) => void; onVerifyMilestone?: (row: Row, decision: "verified" | "rejected" | "clarification") => void }) {
+  const controlled = Boolean(tab && onAction && ["variations", "requisitions", "disbursements", "drawdowns", "provisional-sums", "contingency-drawdowns", "advance-payments"].includes(tab));
+  const verifiable = Boolean(tab === "milestones" && onVerifyMilestone);
+  return rows.length ? <div className="table-scroll"><table className="data-table"><thead><tr>{cols.map(col => <th key={col.key}>{col.label}</th>)}{(controlled || verifiable) && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id ?? index)}>{cols.map(col => <td key={col.key}>{col.kind === "money" ? cash.format(Number(row[col.key] ?? 0)) : col.kind === "status" ? <Status value={String(row[col.key] ?? "unknown")}/> : col.kind === "progress" ? <span className="progress-cell"><i style={{width:`${Math.min(100, Number(row[col.key] ?? 0))}%`}}/><b>{Number(row[col.key] ?? 0)}%</b></span> : typeof row[col.key] === "boolean" ? (row[col.key] ? "Yes" : "No") : Array.isArray(row[col.key]) ? (row[col.key] as string[]).join(", ") : String(row[col.key] ?? "—")}</td>)}{controlled && <td><WorkflowButtons tab={tab!} row={row} act={actionName => onAction?.(row, actionName)}/></td>}{verifiable && <td><div className="table-actions">{row.submitted_at ? <><button onClick={() => onVerifyMilestone?.(row, "verified")}>Verify</button><button onClick={() => onVerifyMilestone?.(row, "clarification")}>Clarify</button><button onClick={() => onVerifyMilestone?.(row, "rejected")}>Reject</button></> : <span>Awaiting submission</span>}</div></td>}</tr>)}</tbody></table></div> : <Empty/>;
 }
 
 function WorkflowButtons({ tab, row, act }: { tab: Tab; row: Row; act: (action: string) => void }) {
