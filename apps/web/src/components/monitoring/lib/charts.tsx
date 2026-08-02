@@ -2,10 +2,21 @@
  * Reusable chart components for dashboards. Thin wrappers around Recharts so
  * pages stay readable and chart styling is consistent.
  */
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
-} from "recharts";
+import * as Recharts from "recharts";
+
+const ResponsiveContainer = Recharts.ResponsiveContainer as any;
+const BarChart = Recharts.BarChart as any;
+const Bar = Recharts.Bar as any;
+const XAxis = Recharts.XAxis as any;
+const YAxis = Recharts.YAxis as any;
+const CartesianGrid = Recharts.CartesianGrid as any;
+const Tooltip = Recharts.Tooltip as any;
+const PieChart = Recharts.PieChart as any;
+const Pie = Recharts.Pie as any;
+const Cell = Recharts.Cell as any;
+const LineChart = Recharts.LineChart as any;
+const Line = Recharts.Line as any;
+const Legend = Recharts.Legend as any;
 
 const COLORS = ["var(--accent, #2563eb)", "var(--danger, #dc2626)", "var(--warning, #f59e0b)", "var(--success, #16a34a)"];
 
@@ -33,7 +44,7 @@ export function SimplePieChart({ data, height = 200 }: { data: PieDatum[]; heigh
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
-        <Pie data={data} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, value }) => `${name} (${value})`}>
+        <Pie data={data} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, value }: any) => `${name} (${value})`}>
           {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
         </Pie>
         <Tooltip contentStyle={{ background: "var(--card-bg, #1e293b)", border: "1px solid var(--border, #334155)", borderRadius: 8 }} />

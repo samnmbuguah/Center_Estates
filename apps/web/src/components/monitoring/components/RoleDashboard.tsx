@@ -337,12 +337,14 @@ export function RoleDashboard() {
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             {quickActions.map((action, i) => {
               if (action.perm && !can(action.perm)) return null;
+              const IconComp = action.icon as any;
               return (
                 <Link key={i} to={action.to} className="btn sm ghost">
-                  <action.icon size={14} style={{ marginRight: 6 }} /> {action.label}
+                  <IconComp size={14} style={{ marginRight: 6 }} /> {action.label}
                 </Link>
               );
             })}
+
           </div>
         </div>
       )}

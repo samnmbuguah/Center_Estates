@@ -4,7 +4,17 @@ import { BarChart3, Coins, TrendingUp, TrendingDown, AlertTriangle, FileDown, Fi
 import { get, fetchCashFlowForecast } from "../api";
 import { ErrorBanner } from "../components";
 import { SimpleBarChart } from "../lib/charts";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import * as Recharts from "recharts";
+
+const ResponsiveContainer = Recharts.ResponsiveContainer as any;
+const BarChart = Recharts.BarChart as any;
+const Bar = Recharts.Bar as any;
+const XAxis = Recharts.XAxis as any;
+const YAxis = Recharts.YAxis as any;
+const CartesianGrid = Recharts.CartesianGrid as any;
+const Tooltip = Recharts.Tooltip as any;
+const Legend = Recharts.Legend as any;
+
 import type { CashFlowForecast } from "../api";
 
 const CONTRACT_LABELS: Record<string, { label: string; icon: any; desc: string }> = {
