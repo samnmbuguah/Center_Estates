@@ -46,7 +46,8 @@ export default function ChatPage() {
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSent = useRef(0);
   const token = getToken();
-  const base = (import.meta.env.VITE_API_BASE?.replace(/\/+$/, "") || "") + "/chat";
+  const base = `${API_BASE}/chat`;
+
 
   const apiFetch = useCallback(async (path: string, options?: RequestInit) => {
     const res = await fetch(`${base}${path}`, {
@@ -100,7 +101,8 @@ export default function ChatPage() {
   // WebSocket connection
   useEffect(() => {
     if (!activeUser) return;
-    const apiBase = import.meta.env.VITE_API_BASE?.replace(/\/+$/, "") || "";
+    const apiBase = API_BASE;
+
     if (!apiBase || apiBase.startsWith("/") || (typeof window !== "undefined" && window.location.hostname.includes("monitoringerp.co.ke"))) return; // cPanel — no WS support, polling handles it
     const wsBase = apiBase.replace(/^http/, "ws");
     try {

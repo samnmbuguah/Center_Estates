@@ -42,7 +42,8 @@ export async function reportClientError(input: {
         stack: input.stack,
         componentStack: input.componentStack,
         url: typeof window !== "undefined" ? window.location.href : "",
-        release: import.meta.env.VITE_GIT_COMMIT || import.meta.env.MODE,
+        release: typeof process !== "undefined" ? process.env.NODE_ENV || "production" : "production",
+
         extra: input.extra || {},
       }),
       keepalive: true,
