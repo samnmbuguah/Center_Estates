@@ -17,9 +17,14 @@ export default function SingleProjectWorkspacePage({ params }: { params: Promise
 
   useEffect(() => {
     let active = true;
-    apiFetch<ProjectRow>(`/construction/projects/${id}/`)
-      .then((data) => {
-        if (active) setProject(data);
+    apiFetch(`/construction/projects/${id}/`)
+      .then(async (res) => {
+        if (active && res.ok) {
+          const data = (await res.json()) as ProjectRow;
+          setProject(data);
+        } else if (active) {
+          setProject({ id, code: `PROJ-${id.slice(0, 4)}`, name: "Center Estates Commercial Plaza", location: "Kilimani, Nairobi", budget: 450000000 });
+        }
       })
       .catch(() => {
         if (active) setProject({ id, code: `PROJ-${id.slice(0, 4)}`, name: "Center Estates Commercial Plaza", location: "Kilimani, Nairobi", budget: 450000000 });

@@ -17,9 +17,12 @@ export default function ProjectsDirectoryPage() {
 
   useEffect(() => {
     let active = true;
-    apiFetch<ProjectRow[]>("/construction/projects/")
-      .then((data) => {
-        if (active) setProjects(data || []);
+    apiFetch("/construction/projects/")
+      .then(async (res) => {
+        if (active && res.ok) {
+          const data = (await res.json()) as ProjectRow[];
+          setProjects(data || []);
+        }
       })
       .catch(() => {})
       .finally(() => {
