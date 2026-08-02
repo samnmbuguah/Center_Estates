@@ -1,7 +1,8 @@
 FROM node:20-bookworm-slim AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
+
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
