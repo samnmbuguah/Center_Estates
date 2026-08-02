@@ -52,15 +52,21 @@ export function useLocation() {
   };
 }
 
-export function useSearchParams(): [URLSearchParams, (params: Record<string, string>) => void] {
+export function useSearchParams(): [URLSearchParams, (params: Record<string, string>, opts?: { replace?: boolean }) => void] {
   if (typeof window === "undefined") return [new URLSearchParams(), () => {}];
   const searchParams = new URLSearchParams(window.location.search);
-  const setSearchParams = (newParams: Record<string, string>) => {
+  const setSearchParams = (newParams: Record<string, string>, opts?: { replace?: boolean }) => {
     const sp = new URLSearchParams(newParams);
-    window.history.pushState({}, "", `${window.location.pathname}?${sp.toString()}`);
+    const newUrl = `${window.location.pathname}?${sp.toString()}`;
+    if (opts?.replace) {
+      window.history.replaceState({}, "", newUrl);
+    } else {
+      window.history.pushState({}, "", newUrl);
+    }
   };
   return [searchParams, setSearchParams];
 }
+
 
 export function useOutletContext<T = any>(): T {
   return {} as T;
