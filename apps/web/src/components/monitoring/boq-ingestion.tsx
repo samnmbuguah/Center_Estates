@@ -76,7 +76,7 @@ export function BoqIngestion() {
       {step === "map" && (
         <div>
           <div style={{ background: "#dbeafe", color: "#1e40af", padding: 10, borderRadius: 6, fontSize: "0.85rem", marginBottom: 14 }}>
-            📄 File Loaded: <strong>{fileName}</strong> (4 Sheet Tabs Found: "Summary", "Substructure", "Superstructure", "Finishes")
+            📄 File Loaded: <strong>{fileName}</strong> (4 Sheet Tabs Found: &quot;Summary&quot;, &quot;Substructure&quot;, &quot;Superstructure&quot;, &quot;Finishes&quot;)
           </div>
 
           <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "#0f172a" }}>Map Excel Columns to Database Attributes</h4>

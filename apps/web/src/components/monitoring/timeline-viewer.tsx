@@ -211,7 +211,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
 
           <svg viewBox="0 0 700 280" style={{ width: "100%", height: 280, background: "#fafafa", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             {/* Grid lines */}
-            {[0, 25, 50, 75, 100].map((val, idx) => {
+            {[0, 25, 50, 75, 100].map((val) => {
               const y = 240 - (val / 100) * 200;
               return (
                 <g key={val}>

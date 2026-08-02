@@ -45,8 +45,7 @@ const DEFAULT_IPC: IpcCertificate = {
 const cash = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
 
 export function IpcBuilder({ initialData }: IpcBuilderProps) {
-  const [data, setData] = useState<IpcCertificate>({ ...DEFAULT_IPC, ...initialData });
-  const [printMode, setPrintMode] = useState(false);
+  const [data] = useState<IpcCertificate>({ ...DEFAULT_IPC, ...initialData });
 
   return (
     <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>

@@ -85,7 +85,6 @@ export function BimViewer({ modelName, elements = DEFAULT_ELEMENTS, onSelectElem
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animId: number;
     const render = () => {
       const w = canvas.width;
       const h = canvas.height;
@@ -130,7 +129,6 @@ export function BimViewer({ modelName, elements = DEFAULT_ELEMENTS, onSelectElem
         const projY = cy + (posX * Math.sin(radY) * Math.sin(radX) + posY * Math.cos(radX) + posZ * Math.cos(radY) * Math.sin(radX));
         const sizeX = 55 * zoom;
         const sizeY = 70 * zoom;
-        const sizeZ = 45 * zoom;
 
         // Colors
         let color = "#3b82f6";

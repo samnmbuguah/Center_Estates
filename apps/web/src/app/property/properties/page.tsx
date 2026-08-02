@@ -8,8 +8,6 @@ import { apiFetch } from "@/lib/api";
 
 type PropertyRow = Record<string, string | number | boolean | null>;
 
-const cash = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
-
 export default function PropertiesDirectoryPage() {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(true);
