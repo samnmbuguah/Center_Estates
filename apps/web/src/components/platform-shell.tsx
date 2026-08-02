@@ -7,6 +7,21 @@ import { modules } from "@/lib/modules";
 import { useAuth } from "@/components/auth-provider";
 import type { DemoIdentityGroup } from "@/lib/api";
 
+const QUICK_JUMP_ROUTES = [
+  { name: "Projects Directory", href: "/monitoring/projects", module: "monitoring", icon: "🏗️", detail: "Active project workspaces & budgets" },
+  { name: "Programme & Gantt Schedule", href: "/monitoring/projects/1/programme", module: "monitoring", icon: "📊", detail: "Critical path schedule & S-curves" },
+  { name: "3D BIM Model Inspector", href: "/monitoring/projects/1/bim", module: "monitoring", icon: "🏢", detail: "WebGL 3D model & IFC GUID linking" },
+  { name: "IPC Payment Builder", href: "/monitoring/projects/1/ipc", module: "monitoring", icon: "📄", detail: "Interim payment certificates & retention" },
+  { name: "5x5 Risk Matrix & Heatmap", href: "/monitoring/projects/1/risks", module: "monitoring", icon: "⚠️", detail: "Risk likelihood vs impact matrix" },
+  { name: "Property Portfolio Register", href: "/property/properties", module: "property", icon: "🏢", detail: "Properties, buildings & units" },
+  { name: "Tenant Profiles & Accounts", href: "/property/tenants", module: "property", icon: "👥", detail: "Tenant directory & lease agreements" },
+  { name: "Equipment & Asset Register", href: "/facility/assets", module: "facility", icon: "🔧", detail: "HVAC, elevators & generators" },
+  { name: "Work Orders Dispatch Board", href: "/facility/work-orders", module: "facility", icon: "📋", detail: "Maintenance work orders & technicians" },
+  { name: "Buyer CRM Directory", href: "/sales/buyers", module: "sales", icon: "🤝", detail: "Property buyers & KYC documents" },
+  { name: "Tender RFP Register", href: "/tender/invitations", module: "tender", icon: "💼", detail: "Public & private tender invitations" },
+  { name: "Valuation Instructions", href: "/valuation/instructions", module: "valuation", icon: "📜", detail: "Valuation jobs & inspection logs" },
+];
+
 export function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -228,10 +243,10 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
               ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search modules, projects, documents… (Ctrl+K)"
+              placeholder="Search modules, projects, documents, sub-routes… (Ctrl+K)"
               aria-label="Search modules"
             />
-            {query && filteredModules.length > 0 && (
+            {query && (
               <div className="global-search-results" role="listbox">
                 {filteredModules.map((module) => (
                   <Link
@@ -247,6 +262,25 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                     <span>
                       <strong>{module.name}</strong>
                       <small>{module.description}</small>
+                    </span>
+                  </Link>
+                ))}
+                {QUICK_JUMP_ROUTES.filter((r) =>
+                  [r.name, r.detail, r.module].join(" ").toLowerCase().includes(query.trim().toLowerCase())
+                ).map((route) => (
+                  <Link
+                    key={route.href}
+                    href={route.href}
+                    role="option"
+                    onClick={() => {
+                      setQuery("");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <span>{route.icon}</span>
+                    <span>
+                      <strong>{route.name}</strong>
+                      <small>{route.detail}</small>
                     </span>
                   </Link>
                 ))}
