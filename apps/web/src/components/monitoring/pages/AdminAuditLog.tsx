@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { fetchAuditLogs } from "../api";
-import { ErrorBanner } from "../components";
+import { ErrorBanner } from "../components/ErrorBanner";
+
 
 const CATEGORIES = ["system", "users", "tenants", "permissions", "data", "financial", "certificates", "exports"];
 

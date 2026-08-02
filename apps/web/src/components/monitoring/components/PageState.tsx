@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, Inbox, RefreshCw } from "lucide-react";
 import { Skeleton } from "./Skeleton";
 import { EmptyState } from "./EmptyState";
 import { ErrorBanner } from "./ErrorBanner";
@@ -32,7 +31,7 @@ export function PageError({ message, onRetry }: { message: string; onRetry?: () 
       <ErrorBanner message={message} />
       {onRetry && (
         <button className="btn ghost" onClick={onRetry} style={{ alignSelf: "flex-start" }}>
-          <RefreshCw size={14} style={{ marginRight: 6 }} /> Retry
+          ↺ Retry
         </button>
       )}
     </div>
@@ -52,7 +51,7 @@ export function PageEmpty({
 }) {
   return (
     <EmptyState
-      icon={icon ?? <Inbox size={40} />}
+      icon={icon ?? <span style={{ fontSize: 32 }}>📥</span>}
       title={title}
       description={description ?? "When data is available it will appear here. No demo figures are shown."}
       action={action}
@@ -102,7 +101,7 @@ export function StatusPill({
         whiteSpace: "nowrap",
       }}
     >
-      {tone === "danger" && <AlertTriangle size={10} />}
+      {tone === "danger" && <span>⚠️</span>}
       {label}
     </span>
   );
