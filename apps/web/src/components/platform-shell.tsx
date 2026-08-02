@@ -16,6 +16,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
   const profileRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const {
     session,
     loading,
@@ -38,6 +39,17 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       [module.name, module.description, ...module.features].join(" ").toLowerCase().includes(term),
     );
   }, [allowedSlugs, query]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!profileOpen || !session?.canSwitchIdentity) return;
@@ -213,9 +225,10 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           <label className="global-search">
             <span aria-hidden="true">⌕</span>
             <input
+              ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search modules, properties, tickets, documents…"
+              placeholder="Search modules, projects, documents… (Ctrl+K)"
               aria-label="Search modules"
             />
             {query && filteredModules.length > 0 && (
