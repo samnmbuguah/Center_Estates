@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Search, Send, Users, MessageSquare } from "lucide-react";
 import { API_BASE, authHeaders, getToken } from "../api";
+
+const MessageSquare = ({ size = 18 }: { size?: number }) => <span style={{ fontSize: size }}>💬</span>;
+const Search = ({ size = 14, style }: { size?: number; style?: React.CSSProperties }) => <span style={{ fontSize: size, ...style }}>🔍</span>;
+const Send = ({ size = 16 }: { size?: number }) => <span style={{ fontSize: size }}>✈</span>;
+const Users = ({ size = 48, opacity = 1 }: { size?: number; opacity?: number }) => <span style={{ fontSize: size, opacity }}>👥</span>;
+
+
 
 interface ChatMsg {
   id: string;

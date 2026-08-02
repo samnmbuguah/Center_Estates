@@ -33,15 +33,18 @@ export function useParams<T extends Record<string, string | undefined> = Record<
 }
 
 export function useNavigate() {
-  return (to: string | number) => {
+  return (to: string | number, options?: { replace?: boolean }) => {
     if (typeof window === "undefined") return;
     if (typeof to === "number") {
       window.history.go(to);
+    } else if (options?.replace) {
+      window.history.replaceState({}, "", String(to));
     } else {
       window.location.href = String(to);
     }
   };
 }
+
 
 export function useLocation() {
   if (typeof window === "undefined") return { pathname: "/monitoring", search: "", hash: "" };
