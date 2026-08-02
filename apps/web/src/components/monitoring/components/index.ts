@@ -1,15 +1,15 @@
-// Barrel file — all exports come from individual component files
-export { ErrorBanner } from "./components/ErrorBanner";
-export { FormField, SubmitButton } from "./components/FormField";
-export { RoleDashboard } from "./components/RoleDashboard";
-export { RoleHelp } from "./components/RoleHelp";
-export { TourEngine, TourLauncher, useTour } from "./components/tour";
-export { AISidebarChat } from "./components/AISidebarChat";
-export { ToastContainer } from "./components/Toast";
-export { Skeleton } from "./components/Skeleton";
-export { ConfirmModal } from "./components/ConfirmModal";
-export type { TourStep, RoleTourKey, TourAPI } from "./components/tour";
-export { EmptyState } from "./components/EmptyState";
-export { Breadcrumbs } from "./components/Breadcrumbs";
-export { PageLoading, PageError, PageEmpty, TableEmpty, StatusPill } from "./components/PageState";
-export { KpiCard, MetricStrip } from "./components/KpiCard";
+// Barrel file for components/ directory
+export { ErrorBanner } from "./ErrorBanner";
+export { FormField, SubmitButton } from "./FormField";
+export { RoleDashboard } from "./RoleDashboard";
+export { RoleHelp } from "./RoleHelp";
+export { TourEngine, TourLauncher, useTour } from "./tour";
+export { AISidebarChat } from "./AISidebarChat";
+export { ToastContainer } from "./Toast";
+export { Skeleton } from "./Skeleton";
+export { ConfirmModal } from "./ConfirmModal";
+export type { TourStep, RoleTourKey, TourAPI } from "./tour";
+export { EmptyState } from "./EmptyState";
+export { Breadcrumbs } from "./Breadcrumbs";
+export { PageLoading, PageError, PageEmpty, TableEmpty, StatusPill } from "./PageState";
+export { KpiCard, MetricStrip } from "./KpiCard";
