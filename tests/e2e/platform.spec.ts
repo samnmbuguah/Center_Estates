@@ -68,6 +68,27 @@ test("property command center renders live portfolio intelligence", async ({ pag
   await expect(page.locator(".chart-month")).toHaveCount(new Date().getMonth() + 1);
 });
 
+test("property tenant onboarding and compliance dialogs are connected", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant-code races");
+  await page.goto("/property");
+  await page.getByRole("button", { name: "Tenants", exact: true }).click();
+  await page.getByRole("button", { name: "+ Add tenant", exact: true }).click();
+  const tenantDialog = page.getByRole("dialog", { name: "Add new tenant" });
+  const suffix = Date.now();
+  await tenantDialog.getByLabel("Tenant code").fill(`E2E-${suffix}`);
+  await tenantDialog.getByLabel("Tenant name / company").fill(`E2E Tenant ${suffix}`);
+  await tenantDialog.getByLabel("Registration / ID number").fill(`REG-${suffix}`);
+  await tenantDialog.getByLabel("KRA PIN / Tax ID").fill(`P${String(suffix).slice(-8)}Z`);
+  await tenantDialog.getByLabel("Email", { exact: true }).fill(`tenant-${suffix}@example.test`);
+  await tenantDialog.getByRole("button", { name: "Save tenant" }).click();
+  await expect(page.getByText(`E2E Tenant ${suffix}`, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Tenant documents", exact: true }).click();
+  await page.getByRole("button", { name: "+ Register document", exact: true }).click();
+  const documentDialog = page.getByRole("dialog", { name: "Register tenant document" });
+  await expect(documentDialog.getByLabel("Tenant").getByRole("option", { name: new RegExp(`E2E-${suffix}`) })).toHaveCount(1);
+  await documentDialog.getByRole("button", { name: "Cancel" }).click();
+});
+
 test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
   await page.goto("/property");
