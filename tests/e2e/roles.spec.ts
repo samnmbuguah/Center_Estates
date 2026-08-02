@@ -38,7 +38,7 @@ test("@role:viewer @module:sales @story:ROLE-SALES-DENY viewer cannot see Sales 
   await signInAs(page, "role-sales-viewer");
   await page.goto("/sales");
   await expect(page.getByRole("button", { name: "+ Register buyer" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await page.locator(".module-tabs-workspace").getByRole("button", { name: "Payments", exact: true }).click();
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
 
@@ -46,7 +46,7 @@ test("@role:operator @module:sales @story:ROLE-SALES-MANAGE operator can manage 
   await signInAs(page, "role-sales-operator");
   await page.goto("/sales");
   await expect(page.getByRole("button", { name: "+ Register buyer" })).toBeVisible();
-  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await page.locator(".module-tabs-workspace").getByRole("button", { name: "Payments", exact: true }).click();
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
 
@@ -54,7 +54,7 @@ test("@role:sales-financier @module:sales @story:ROLE-SALES-FINANCE financier ca
   await signInAs(page, "role-sales-financier");
   await page.goto("/sales");
   await expect(page.getByRole("button", { name: "+ Register buyer" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await page.locator(".module-tabs-workspace").getByRole("button", { name: "Payments", exact: true }).click();
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toBeVisible();
 });
 

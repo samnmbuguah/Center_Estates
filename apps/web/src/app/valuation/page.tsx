@@ -1,7 +1,9 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { valuationNav } from "@/lib/module-nav";
 type Tab =
   | "overview"
   | "instructions"
@@ -308,35 +310,27 @@ export default function ValuationPage() {
     [tab],
   );
   const k = dash?.kpis;
+  const selectSection = (id: string) => {
+    setRows([]);
+    setSearch("");
+    setTab(id as Tab);
+  };
   return (
-    <div className="page-wrap property-app">
-      <section className="property-heading">
-        <div>
-          <p className="eyebrow">Valuation workspace</p>
-          <h1>Valuation</h1>
-          <p>
-            Instructions, field evidence, comparable analysis, reports and fees.
-          </p>
-        </div>
-        {canCoordinate && <button className="primary-action" onClick={() => setModal(true)}>
-          + New instruction
-        </button>}
-      </section>
-      <nav className="module-tabs">
-        {(Object.keys(names) as Tab[]).map((x) => (
-          <button
-            className={tab === x ? "active" : ""}
-            key={x}
-            onClick={() => {
-              setRows([]);
-              setSearch("");
-              setTab(x);
-            }}
-          >
-            {names[x]}
-          </button>
-        ))}
-      </nav>
+    <ModuleShell
+      moduleKey="valuation"
+      moduleName="Valuation"
+      eyebrow="Valuation workspace"
+      title="Valuation"
+      subtitle="Instructions, field evidence, comparable analysis, reports and fees."
+      accent="#0891b2"
+      groups={valuationNav}
+      activeId={tab}
+      onSelect={selectSection}
+      contextLabel="Section"
+      contextValue={names[tab]}
+      actions={canCoordinate ? <button className="primary-action" onClick={() => setModal(true)}>+ New instruction</button> : null}
+    >
+      <div className="property-app">
       {error && (
         <div className="form-error">
           {error}
@@ -348,30 +342,10 @@ export default function ValuationPage() {
       ) : tab === "overview" && k && dash ? (
         <>
           <section className="kpi-grid">
-            <Kpi
-              l="Active instructions"
-              v={String(k.activeInstructions)}
-              n={`${k.dueThisWeek} due within 7 days`}
-              go={() => setTab("instructions")}
-            />
-            <Kpi
-              l="Site inspections"
-              v={String(k.inspectionsPending)}
-              n="Scheduled or in progress"
-              go={() => setTab("inspections")}
-            />
-            <Kpi
-              l="Drafts in review"
-              v={String(k.draftsInReview)}
-              n={`${k.finalReports} final reports issued`}
-              go={() => setTab("draft-reports")}
-            />
-            <Kpi
-              l="Outstanding fees"
-              v={cash.format(Number(k.outstanding))}
-              n={`${cash.format(Number(k.revenue))} collected`}
-              go={() => setTab("invoices")}
-            />
+            <button className="icon-kpi" onClick={() => setTab("instructions")}><span style={{background:"#e0f2fe",color:"#0891b2"}}>📐</span><div><small>Active instructions</small><strong>{String(k.activeInstructions)}</strong><b>{k.dueThisWeek} due within 7 days</b></div></button>
+            <button className="icon-kpi" onClick={() => setTab("inspections")}><span style={{background:"#dbeafe",color:"#2563eb"}}>📍</span><div><small>Site inspections</small><strong>{String(k.inspectionsPending)}</strong><b>Scheduled or in progress</b></div></button>
+            <button className="icon-kpi" onClick={() => setTab("draft-reports")}><span style={{background:"#ffedd5",color:"#ea580c"}}>📝</span><div><small>Drafts in review</small><strong>{String(k.draftsInReview)}</strong><b>{k.finalReports} final reports issued</b></div></button>
+            <button className="icon-kpi" onClick={() => setTab("invoices")}><span style={{background:"#fee2e2",color:"#dc2626"}}>💰</span><div><small>Outstanding fees</small><strong>{cash.format(Number(k.outstanding))}</strong><b>{cash.format(Number(k.revenue))} collected</b></div></button>
           </section>
           <section className="dashboard-columns">
             <article className="data-panel">
@@ -423,6 +397,14 @@ export default function ValuationPage() {
                     </button>
                   ))}
                 </div>
+              </article>
+              <article className="quick-actions-card">
+                <header><h3>Quick Actions</h3></header>
+                <button onClick={() => setTab("instructions")}><span style={{background:"#e0f2fe"}}>＋</span>New instruction</button>
+                <button onClick={() => setTab("inspections")}><span style={{background:"#dbeafe"}}>📍</span>Site inspections</button>
+                <button onClick={() => setTab("draft-reports")}><span style={{background:"#ffedd5"}}>📝</span>Draft reports</button>
+                <button onClick={() => setTab("final-reports")}><span style={{background:"#dcfce7"}}>✓</span>Final reports</button>
+                <button onClick={() => setTab("invoices")}><span style={{background:"#fee2e2"}}>💰</span>Client invoicing</button>
               </article>
             </div>
           </section>
@@ -558,26 +540,7 @@ export default function ValuationPage() {
         </div>
       )}
     </div>
-  );
-}
-function Kpi({
-  l,
-  v,
-  n,
-  go,
-}: {
-  l: string;
-  v: string;
-  n: string;
-  go: () => void;
-}) {
-  return (
-    <button className="kpi-card" onClick={go}>
-      <span>{l}</span>
-      <strong>{v}</strong>
-      <small>{n}</small>
-      <i>View details →</i>
-    </button>
+    </ModuleShell>
   );
 }
 function Title({ t, go }: { t: string; go: () => void }) {

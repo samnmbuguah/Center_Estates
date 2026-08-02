@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { facilityNav } from "@/lib/module-nav";
 
 type Tab = "overview" | "assets" | "work-orders" | "work-order-events" | "work-order-cost-items" | "work-order-attachments" | "planned-maintenance" | "inspections" | "service-requests" | "meters" | "contractors";
 type Row = Record<string, string | number | boolean | null>;
@@ -82,33 +84,107 @@ export default function FacilityPage() {
 
   const kpi = dashboard?.kpis;
   const activeColumns = useMemo(() => tab === "overview" ? [] : columns[tab], [tab]);
-  return <div className="page-wrap property-app">
-    <section className="property-heading"><div><p className="eyebrow">Operations center</p><h1>Facility Management</h1><p>Assets, maintenance, compliance, services and utility performance.</p></div>{canWork && <button className="primary-action" onClick={() => setShowCreate(true)}>+ New work order</button>}</section>
-    <nav className="module-tabs" aria-label="Facility sections">{(Object.keys(labels) as Tab[]).map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => {setSearch("");setRows([]);setTab(item)}}>{labels[item]}</button>)}</nav>
+  const openWorkOrders = Number(kpi?.openWorkOrders ?? 0);
+  const overdueWorkOrders = Number(kpi?.overdueWorkOrders ?? 0);
+  const compliance = Number(kpi?.maintenanceCompliance ?? 0);
+  const requestSummary = dashboard?.requestSummary ?? [];
+  const assetCategories = dashboard?.assetCategories ?? [];
+  const totalAssets = assetCategories.reduce((sum, item) => sum + item.count, 0) || Number(kpi?.activeAssets ?? 0);
+  const selectFacilityTab = (item: string) => { setSearch(""); setRows([]); setTab(item as Tab); };
+  return (
+    <ModuleShell
+      moduleKey="facility"
+      moduleName="Facility Management"
+      eyebrow="Operations center"
+      title="Facility Management"
+      subtitle="Assets, maintenance, compliance, services and utility performance."
+      accent="#16a34a"
+      groups={facilityNav}
+      activeId={tab}
+      onSelect={selectFacilityTab}
+      contextLabel="Section"
+      contextValue={labels[tab]}
+      actions={canWork ? <button className="primary-action" onClick={() => setShowCreate(true)}>+ New work order</button> : null}
+    >
+    <div className="property-app facility-app">
     {error && <div className="form-error">{error}<button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading facility operations…</div> : tab === "overview" && kpi ? <>
       <section className="kpi-grid facility-kpis">
-        <Kpi label="Active assets" value={String(kpi.activeAssets)} note={`${money.format(Number(kpi.assetValue))} portfolio value`} action={() => setTab("assets")} />
-        <Kpi label="Open work orders" value={String(kpi.openWorkOrders)} note={`${kpi.overdueWorkOrders} overdue`} action={() => setTab("work-orders")} warning />
-        <Kpi label="PM compliance" value={`${kpi.maintenanceCompliance}%`} note="Preventive schedule completion" action={() => setTab("planned-maintenance")} />
-        <Kpi label="Energy & utilities" value={`${Number(kpi.utilityConsumption).toLocaleString()} kWh`} note={`${money.format(Number(kpi.utilityCost))} YTD`} action={() => setTab("meters")} />
+        <button className="icon-kpi" onClick={() => setTab("assets")}><span style={{background:"#e0e7ff",color:"#4f46e5"}}>🏢</span><div><small>Total Buildings</small><strong>{String(kpi.buildings)}</strong><b>Active locations</b></div></button>
+        <button className="icon-kpi" onClick={() => setTab("assets")}><span style={{background:"#dcfce7",color:"#16a34a"}}>✓</span><div><small>Active Assets</small><strong>{String(kpi.activeAssets)}</strong><b>{money.format(Number(kpi.assetValue))} portfolio value</b></div></button>
+        <button className="icon-kpi" onClick={() => setTab("work-orders")}><span style={{background:"#dbeafe",color:"#2563eb"}}>🔧</span><div><small>Open Work Orders</small><strong>{String(kpi.openWorkOrders)}</strong><b>{kpi.overdueWorkOrders} urgent / overdue</b></div></button>
+        <button className="icon-kpi" onClick={() => setTab("planned-maintenance")}><span style={{background:"#ffedd5",color:"#ea580c"}}>📋</span><div><small>Preventive Maintenance</small><strong>{compliance}%</strong><b>Schedule compliance</b></div></button>
+        <button className="icon-kpi" onClick={() => setTab("meters")}><span style={{background:"#e0f2fe",color:"#0284c7"}}>⚡</span><div><small>Energy Usage</small><strong>{Number(kpi.utilityConsumption).toLocaleString()} kWh</strong><b>{money.format(Number(kpi.utilityCost))} YTD</b></div></button>
       </section>
-      <section className="dashboard-columns">
-        <article className="data-panel"><PanelTitle title="Recent work orders" action={() => setTab("work-orders")} />
-          <SimpleTable columns={columns["work-orders"].slice(0, 6)} rows={dashboard.recentWorkOrders} />
-        </article>
+      <section className="facility-dashboard-grid">
+        <div>
+          <article className="data-panel">
+            <PanelTitle title="Work Orders Overview" action={() => setTab("work-orders")} />
+            <div className="donut-panel">
+              <div className="donut" style={{background:`conic-gradient(#ef4444 0% ${openWorkOrders ? Math.min(100, overdueWorkOrders / Math.max(openWorkOrders,1) * 100) : 0}%, #3b82f6 ${openWorkOrders ? Math.min(100, overdueWorkOrders / Math.max(openWorkOrders,1) * 100) : 0}% 70%, #f59e0b 70% 88%, #22c55e 88% 100%)`}}>
+                <strong>{openWorkOrders}</strong>
+                <small>Total open</small>
+              </div>
+              <div className="donut-legend">
+                <span><i style={{background:"#ef4444"}}/>Overdue <b>{overdueWorkOrders}</b></span>
+                <span><i style={{background:"#3b82f6"}}/>In progress <b>{Math.max(openWorkOrders - overdueWorkOrders, 0)}</b></span>
+                <span><i style={{background:"#f59e0b"}}/>Pending review</span>
+                <span><i style={{background:"#22c55e"}}/>Completed today</span>
+              </div>
+            </div>
+            <SimpleTable columns={columns["work-orders"].slice(0, 5)} rows={dashboard.recentWorkOrders} />
+          </article>
+          <div className="facility-charts-row">
+            <article className="data-panel">
+              <PanelTitle title="Assets by Category" action={() => setTab("assets")} />
+              <div className="asset-category-list">
+                {assetCategories.length ? assetCategories.map((item) => (
+                  <div key={item.category}>
+                    <span><small>{item.category || "Other"}</small><b>{item.count}</b></span>
+                    <i><b style={{width:`${totalAssets ? (item.count / totalAssets) * 100 : 0}%`}}/></i>
+                  </div>
+                )) : <Empty />}
+              </div>
+            </article>
+            <article className="data-panel">
+              <PanelTitle title="Maintenance Compliance" action={() => setTab("planned-maintenance")} />
+              <div className="compliance-gauge">
+                <div className="donut" style={{background:`conic-gradient(#22c55e 0% ${Math.min(100, compliance)}%, #e5e7eb ${Math.min(100, compliance)}% 100%)`}}>
+                  <strong>{compliance}%</strong>
+                  <small>On track</small>
+                </div>
+                <p>Target 90% · Preventive schedule completion</p>
+              </div>
+            </article>
+            <article className="data-panel">
+              <PanelTitle title="Service Requests" action={() => setTab("service-requests")} />
+              <div className="service-request-stats">
+                <div><small>Open requests</small><b>{String(kpi.openRequests)}</b></div>
+                {requestSummary.map((item) => <div key={item.status}><small>{item.status.replaceAll("_"," ")}</small><b>{item.count}</b></div>)}
+              </div>
+            </article>
+          </div>
+        </div>
         <div className="facility-side-stack">
-          <article className="data-panel"><PanelTitle title="Critical alerts" action={() => setTab("work-orders")} />{dashboard.urgentWorkOrders.length ? dashboard.urgentWorkOrders.map((row) => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("work-orders")}><span><strong>{row.title}</strong><small>{row.number} · {row.property_name}</small></span><Status value={String(row.priority)} /></button>) : <Empty />}</article>
+          <article className="data-panel"><PanelTitle title="Critical Alerts" action={() => setTab("work-orders")} />{dashboard.urgentWorkOrders.length ? dashboard.urgentWorkOrders.map((row) => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("work-orders")}><span><strong>{row.title}</strong><small>{row.number} · {row.property_name}</small></span><Status value={String(row.priority)} /></button>) : <Empty />}</article>
           <article className="data-panel"><PanelTitle title="Maintenance due" action={() => setTab("planned-maintenance")} />{dashboard.dueMaintenance.length ? dashboard.dueMaintenance.map((row) => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("planned-maintenance")}><span><strong>{row.name}</strong><small>{row.asset_name}</small></span><b>{row.next_due_on}</b></button>) : <Empty />}</article>
+          <article className="quick-actions-card">
+            <header><h3>Quick Actions</h3></header>
+            {canWork && <button onClick={() => setShowCreate(true)}><span style={{background:"#fee2e2"}}>＋</span>New Work Order</button>}
+            <button onClick={() => setTab("service-requests")}><span style={{background:"#dbeafe"}}>📨</span>Service Requests</button>
+            <button onClick={() => setTab("planned-maintenance")}><span style={{background:"#ffedd5"}}>📅</span>Schedule Maintenance</button>
+            <button onClick={() => setTab("assets")}><span style={{background:"#dcfce7"}}>▣</span>Add / View Assets</button>
+            <button onClick={() => setTab("contractors")}><span style={{background:"#ede9fe"}}>👷</span>Vendors & Contractors</button>
+          </article>
         </div>
       </section>
       <section className="summary-strip"><span><b>{kpi.buildings}</b> Buildings</span><span><b>{kpi.openRequests}</b> Open service requests</span><span><b>{kpi.contractors}</b> Active contractors</span>{dashboard.assetCategories.slice(0,3).map((item) => <span key={item.category}><b>{item.count}</b> {item.category} assets</span>)}</section>
     </> : <article className="data-panel collection-panel"><header className="collection-title"><div><p className="eyebrow">Operations register</p><h2>{labels[tab]}</h2></div><input value={search} onChange={(e) => setSearch(e.target.value)} aria-label={`Search ${labels[tab]}`} placeholder="Search records…" /></header><SimpleTable columns={activeColumns} rows={rows} tab={tab} onAction={runAction} permissions={{canWork,canInspect,canAdminister}} /></article>}
     {showCreate && <div className="modal-backdrop" onMouseDown={() => setShowCreate(false)}><div className="form-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Corrective maintenance</p><h2>New work order</h2></div><button onClick={() => setShowCreate(false)}>×</button></div><form onSubmit={createWorkOrder}><div className="form-row"><label>Work order number<input name="number" required placeholder="WO-2026-1790" /></label><label>Priority<select name="priority" defaultValue="medium"><option>low</option><option>medium</option><option>high</option><option>critical</option></select></label></div><label>Issue title<input name="title" required placeholder="Describe the maintenance issue" /></label><div className="form-row"><label>Category<input name="category" required placeholder="Mechanical" /></label><label>Property<select name="property" required defaultValue=""><option value="" disabled>Select property</option>{properties.map((row) => <option key={String(row.id)} value={String(row.id)}>{row.name}</option>)}</select></label></div><label>Description<textarea name="description" rows={4} /></label><input type="hidden" name="status" value="open" /><div className="form-actions"><button type="button" onClick={() => setShowCreate(false)}>Cancel</button><button className="primary-action">Create work order</button></div></form></div></div>}
-  </div>;
+    </div>
+    </ModuleShell>
+  );
 }
-
-function Kpi({label,value,note,action,warning=false}:{label:string;value:string;note:string;action:()=>void;warning?:boolean}) { return <button className={`kpi-card ${warning?"warning":""}`} onClick={action}><span>{label}</span><strong>{value}</strong><small>{note}</small><i>Open register →</i></button> }
 function PanelTitle({title,action}:{title:string;action:()=>void}) { return <header className="panel-title"><h2>{title}</h2><button onClick={action}>View all →</button></header> }
 function Status({value}:{value:string}) { return <span className={`data-status status-${value}`}>{value.replaceAll("_"," ")}</span> }
 function Empty() { return <div className="empty-state">Nothing requiring attention.</div> }

@@ -15,7 +15,7 @@ export default function LoginPage() {
     catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to sign in."); setSubmitting(false); }
   }
   return <main className="login-page"><section className="login-panel">
-    <div className="brand login-brand"><span className="brand-mark">CE</span><span>Center Estates<br /><small>Unified ERP Platform</small></span></div>
+    <div className="brand login-brand"><span className="brand-mark" aria-hidden="true"><span className="brand-mark-bars"><i/><i/><i/></span></span><span>CeEst<br /><small>Center Estates · ERP Platform</small></span></div>
     <p className="eyebrow">Welcome back</p><h1>Sign in to your workspace</h1><p>Use the account assigned by your organization administrator.</p>
     <form onSubmit={submit}>
       <label>Username<input name="username" autoComplete="username" required /></label>
@@ -23,5 +23,5 @@ export default function LoginPage() {
       {error && <div className="form-error" role="alert">{error}</div>}
       <button disabled={submitting}>{submitting ? "Signing in…" : "Sign in"}</button>
     </form>
-  </section><aside><p>One secure platform.</p><h2>Manage every stage of the property lifecycle.</h2><span>Property · Facility · Sales · Tender · Valuation · Monitoring</span></aside></main>;
+  </section><aside><p>One secure platform.</p><h2>Manage every stage of the property lifecycle.</h2><span>Property · Facility · Sales · Tender · Valuation · Construction Monitoring</span></aside></main>;
 }

@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { tenderNav } from "@/lib/module-nav";
 type Tab =
   | "overview"
   | "tenders"
@@ -314,36 +316,27 @@ export default function TenderPage() {
   }
   const cols = useMemo(() => (tab === "overview" ? [] : columns[tab]), [tab]);
   const k = dash?.kpis;
+  const selectSection = (id: string) => {
+    setRows([]);
+    setSearch("");
+    setTab(id as Tab);
+  };
   return (
-    <div className="page-wrap property-app">
-      <section className="property-heading">
-        <div>
-          <p className="eyebrow">Bid command center</p>
-          <h1>Tender Management</h1>
-          <p>
-            Controlled bid production from invitation and AI analysis through
-            award.
-          </p>
-        </div>
-        {canIntake && <button className="primary-action" onClick={() => setModal(true)}>
-          + Register invitation
-        </button>}
-      </section>
-      <nav className="module-tabs">
-        {(Object.keys(labels) as Tab[]).map((x) => (
-          <button
-            key={x}
-            className={tab === x ? "active" : ""}
-            onClick={() => {
-              setRows([]);
-              setSearch("");
-              setTab(x);
-            }}
-          >
-            {labels[x]}
-          </button>
-        ))}
-      </nav>
+    <ModuleShell
+      moduleKey="tender"
+      moduleName="Tender Management"
+      eyebrow="Bid command center"
+      title="Tender Management"
+      subtitle="Controlled bid production from invitation and AI analysis through award."
+      accent="#7c3aed"
+      groups={tenderNav}
+      activeId={tab}
+      onSelect={selectSection}
+      contextLabel="Section"
+      contextValue={labels[tab]}
+      actions={canIntake ? <button className="primary-action" onClick={() => setModal(true)}>+ Register invitation</button> : null}
+    >
+      <div className="property-app">
       {error && (
         <div className="form-error">
           {error}
@@ -355,30 +348,10 @@ export default function TenderPage() {
       ) : tab === "overview" && k && dash ? (
         <>
           <section className="kpi-grid">
-            <Kpi
-              l="Active tenders"
-              v={String(k.activeTenders)}
-              n={`${k.dueThisWeek} due within 7 days`}
-              go={() => setTab("tenders")}
-            />
-            <Kpi
-              l="Pipeline value"
-              v={money.format(Number(k.pipelineValue))}
-              n={`${k.submitted} submitted bids`}
-              go={() => setTab("tenders")}
-            />
-            <Kpi
-              l="Pending tasks"
-              v={String(k.pendingTasks)}
-              n="Across active bid plans"
-              go={() => setTab("tasks")}
-            />
-            <Kpi
-              l="Expiring documents"
-              v={String(k.expiringDocuments)}
-              n="Within the next 30 days"
-              go={() => setTab("company-documents")}
-            />
+            <button className="icon-kpi" onClick={() => setTab("tenders")}><span style={{background:"#ede9fe",color:"#7c3aed"}}>📋</span><div><small>Active tenders</small><strong>{String(k.activeTenders)}</strong><b>{k.dueThisWeek} due within 7 days</b></div></button>
+            <button className="icon-kpi" onClick={() => setTab("tenders")}><span style={{background:"#dbeafe",color:"#2563eb"}}>💼</span><div><small>Pipeline value</small><strong>{money.format(Number(k.pipelineValue))}</strong><b>{k.submitted} submitted bids</b></div></button>
+            <button className="icon-kpi" onClick={() => setTab("tasks")}><span style={{background:"#ffedd5",color:"#ea580c"}}>☑</span><div><small>Pending tasks</small><strong>{String(k.pendingTasks)}</strong><b>Across active bid plans</b></div></button>
+            <button className="icon-kpi" onClick={() => setTab("company-documents")}><span style={{background:"#fee2e2",color:"#dc2626"}}>📄</span><div><small>Expiring documents</small><strong>{String(k.expiringDocuments)}</strong><b>Within the next 30 days</b></div></button>
           </section>
           <section className="dashboard-columns">
             <article className="data-panel">
@@ -414,6 +387,14 @@ export default function TenderPage() {
                     </button>
                   ))}
                 </div>
+              </article>
+              <article className="quick-actions-card">
+                <header><h3>Quick Actions</h3></header>
+                <button onClick={() => setTab("tenders")}><span style={{background:"#ede9fe"}}>📋</span>Tender invitations</button>
+                <button onClick={() => setTab("requirements")}><span style={{background:"#dbeafe"}}>✨</span>AI analysis</button>
+                <button onClick={() => setTab("decisions")}><span style={{background:"#ffedd5"}}>⚖</span>Bid / no-bid</button>
+                <button onClick={() => setTab("submissions")}><span style={{background:"#dcfce7"}}>⬆</span>Submissions</button>
+                <button onClick={() => setTab("reports")}><span style={{background:"#e0f2fe"}}>📄</span>Reports</button>
               </article>
             </div>
           </section>
@@ -525,26 +506,7 @@ export default function TenderPage() {
         </div>
       )}
     </div>
-  );
-}
-function Kpi({
-  l,
-  v,
-  n,
-  go,
-}: {
-  l: string;
-  v: string;
-  n: string;
-  go: () => void;
-}) {
-  return (
-    <button className="kpi-card" onClick={go}>
-      <span>{l}</span>
-      <strong>{v}</strong>
-      <small>{n}</small>
-      <i>Open workflow →</i>
-    </button>
+    </ModuleShell>
   );
 }
 function Title({ t, go }: { t: string; go: () => void }) {

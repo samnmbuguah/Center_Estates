@@ -98,6 +98,46 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(Decimal(response.data["kpis"]["paidValue"]), Decimal("900000"))
         self.assertEqual(response.data["kpis"]["budgetUtilization"], 18.0)
 
+    def test_project_query_filters_charfield_and_fk_registers(self):
+        other_portfolio = PortfolioProject.objects.create(
+            organization=self.organization, code="P2-PORT", name="Project Two Portfolio",
+        )
+        other_project = Project.objects.create(
+            id="construction-project-2", organization=self.organization,
+            portfolio_project=other_portfolio, name="Project Two", code="P2",
+            stage="planning", created_at=int(time() * 1000), budget=Decimal("1000000"),
+        )
+        now = int(time() * 1000)
+        Ticket.objects.create(
+            organization=self.organization, project_id=other_project.id,
+            title="Other project issue", raised_by=self.user, created_at=now, updated_at=now,
+        )
+        scoped = self.client.get(
+            f"/api/v1/construction/tickets/?project={self.project.id}", **self.headers,
+        )
+        self.assertEqual(scoped.status_code, 200)
+        self.assertEqual(len(scoped.data), 1)
+        self.assertEqual(scoped.data[0]["title"], "Open defect")
+        variations = self.client.get(
+            f"/api/v1/construction/variations/?project={self.project.id}", **self.headers,
+        )
+        self.assertEqual(variations.status_code, 200)
+        self.assertEqual(len(variations.data), 1)
+
+    def test_project_workspace_and_scurve_endpoints(self):
+        workspace = self.client.get(
+            f"/api/v1/construction/projects/{self.project.id}/workspace/", **self.headers,
+        )
+        self.assertEqual(workspace.status_code, 200, workspace.data)
+        self.assertEqual(workspace.data["project"]["code"], "P1")
+        self.assertIn("scurve", workspace.data)
+        self.assertGreaterEqual(workspace.data["kpis"]["milestones"], 1)
+        scurve = self.client.get(
+            f"/api/v1/construction/reports/scurve/{self.project.id}/", **self.headers,
+        )
+        self.assertEqual(scurve.status_code, 200, scurve.data)
+        self.assertIn("series", scurve.data)
+
     def test_issued_certificate_can_only_be_voided_with_a_reason(self):
         url = f"/api/v1/construction/certificates/{self.certificate.id}/"
         edit = self.client.patch(url, {"amount": "2000000"}, format="json", **self.headers)

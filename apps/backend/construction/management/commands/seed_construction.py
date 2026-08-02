@@ -12,7 +12,7 @@ from construction.models import (
     AdminAuditLog, AdvancePayment, AdvanceRecovery, BimDiscrepancy, BimModel, BoQItem, Certificate, ChatMessage,
     ConsultantPayment, ContingencyDrawdown, DailyLog, Disbursement, DocumentVersion,
     DrawdownRequest, DroneDataset, LifecycleRecord, MaterialDelivery, MaterialRequisition, MaterialRequisitionLine,
-    MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
+    MilestoneEntry, MilestoneVerification, Notification, ProgressPlan, Project, ProjectApproval, ProjectDocument,
     ProjectMembership, ProvisionalSum, PurchaseOrder, PurchaseOrderLine, RequirementWaiver,
     Requisition, Risk, SatelliteDataset, StockMovement, StoreItem, StoreSupplier, SubmissionRecord,
     Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
@@ -61,6 +61,14 @@ class Command(BaseCommand):
                 "geofence_radius_m": 250,
             },
         )
+        # Planned S-curve baseline for the active ISO weeks of the seed year.
+        seed_year = timezone.localdate().isocalendar()[0]
+        for week_number, planned in ((1, 8), (4, 18), (8, 32), (12, 48), (16, 61), (20, 74), (24, 82), (28, 90)):
+            ProgressPlan.objects.update_or_create(
+                project_id=project.id,
+                week=f"{seed_year}-W{week_number:02d}",
+                defaults={"organization": organization, "planned_percent": planned},
+            )
         milestone, _ = MilestoneEntry.objects.update_or_create(
             id="ce-ms-foundations-001",
             defaults={

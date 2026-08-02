@@ -14,11 +14,25 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => signIn(page));
 
-async function openConstructionSection(page: Page, testInfo: TestInfo, name: string) {
-  if (testInfo.project.name.startsWith("mobile")) {
-    await page.getByRole("button", { name: "Open construction navigation" }).click();
+/** Prefer horizontal module tabs to avoid dual-nav strict-mode collisions. */
+async function openModuleSection(page: Page, name: string, testInfo?: TestInfo) {
+  const isMobile = Boolean(testInfo?.project.name.startsWith("mobile"));
+  if (isMobile) {
+    const openNav = page.getByRole("button", { name: "Open module navigation" });
+    if (await openNav.isVisible().catch(() => false)) await openNav.click();
+    await page.locator(".module-side-nav").getByRole("button", { name, exact: true }).click();
+    return;
   }
-  await page.getByRole("button", { name, exact: true }).click();
+  const tabs = page.locator(".module-tabs-workspace");
+  if (await tabs.count()) {
+    await tabs.getByRole("button", { name, exact: true }).click();
+    return;
+  }
+  await page.getByRole("button", { name, exact: true }).first().click();
+}
+
+async function openConstructionSection(page: Page, testInfo: TestInfo, name: string) {
+  await openModuleSection(page, name, testInfo);
 }
 
 test("subscribed modules navigate through the unified shell", async ({ page }, testInfo) => {
@@ -43,11 +57,11 @@ test("subscribed modules navigate through the unified shell", async ({ page }, t
 test("property rent ledger registers and receipt dialog are usable", async ({ page }) => {
   await page.goto("/property");
   await expect(page.getByText("Outstanding rent", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Receipts", exact: true }).click();
+  await openModuleSection(page, "Receipts");
   await expect(page.getByText("RCT-2026-0418", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Receipt allocations", exact: true }).click();
+  await openModuleSection(page, "Receipt allocations");
   await expect(page.getByText("INV-2026-0701", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Credit notes", exact: true }).click();
+  await openModuleSection(page, "Credit notes");
   await expect(page.getByText("CN-2026-0021", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Record receipt", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Record and allocate receipt" });
@@ -71,7 +85,7 @@ test("property command center renders live portfolio intelligence", async ({ pag
 test("property tenant onboarding and compliance dialogs are connected", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant-code races");
   await page.goto("/property");
-  await page.getByRole("button", { name: "Tenants", exact: true }).click();
+  await openModuleSection(page, "Tenants");
   await page.getByRole("button", { name: "+ Add tenant", exact: true }).click();
   const tenantDialog = page.getByRole("dialog", { name: "Add new tenant" });
   const suffix = Date.now();
@@ -82,7 +96,7 @@ test("property tenant onboarding and compliance dialogs are connected", async ({
   await tenantDialog.getByLabel("Email", { exact: true }).fill(`tenant-${suffix}@example.test`);
   await tenantDialog.getByRole("button", { name: "Save tenant" }).click();
   await expect(page.getByText(`E2E Tenant ${suffix}`, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Tenant documents", exact: true }).click();
+  await openModuleSection(page, "Tenant documents");
   await page.getByRole("button", { name: "+ Register document", exact: true }).click();
   const documentDialog = page.getByRole("dialog", { name: "Register tenant document" });
   await expect(documentDialog.getByLabel("Tenant").getByRole("option", { name: new RegExp(`E2E-${suffix}`) })).toHaveCount(1);
@@ -92,7 +106,7 @@ test("property tenant onboarding and compliance dialogs are connected", async ({
 test("property leasing officer can create a controlled draft lease", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel lease-reference races");
   await page.goto("/property");
-  await page.getByRole("button", { name: "Leases", exact: true }).click();
+  await openModuleSection(page, "Leases");
   await page.getByRole("button", { name: "+ Create lease", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create lease" });
   const reference = `E2E-LS-${Date.now()}`;
@@ -111,7 +125,7 @@ test("property finance can capture draft budgets and supplier expenses", async (
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutations avoid parallel finance register races");
   await page.goto("/property");
   const suffix=Date.now();
-  await page.getByRole("button", {name:"Budgets",exact:true}).click();
+  await openModuleSection(page, "Budgets");
   await page.getByRole("button", {name:"+ Add budget line",exact:true}).click();
   let dialog=page.getByRole("dialog",{name:"Create budget line"});
   await dialog.getByLabel("Property").selectOption({index:1});
@@ -119,7 +133,7 @@ test("property finance can capture draft budgets and supplier expenses", async (
   await dialog.getByLabel("Annual budget").fill("950000");
   await dialog.getByRole("button",{name:"Save draft"}).click();
   await expect(page.getByRole("row").filter({hasText:`E2E Budget ${suffix}`})).toContainText("draft");
-  await page.getByRole("button", {name:"Expenses",exact:true}).click();
+  await openModuleSection(page, "Expenses");
   await page.getByRole("button", {name:"+ Record expense",exact:true}).click();
   dialog=page.getByRole("dialog",{name:"Record supplier expense"});
   await dialog.getByLabel("Property").selectOption({index:1});
@@ -131,40 +145,60 @@ test("property finance can capture draft budgets and supplier expenses", async (
   await expect(page.getByRole("row").filter({hasText:`E2E Supplier ${suffix}`})).toContainText("draft");
 });
 
+test("property finance can configure and allocate a service charge", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel service-charge races");
+  await page.goto("/property");
+  await openModuleSection(page, "Service charge");
+  await page.getByRole("button", {name:"+ Set up charge",exact:true}).click();
+  const dialog=page.getByRole("dialog",{name:"Set up service charge"});
+  const name=`E2E Service Charge ${Date.now()}`;
+  await dialog.getByLabel("Property").selectOption({index:1});
+  await dialog.getByLabel("Scheme name").fill(name);
+  await dialog.getByLabel("Allocation method").selectOption("equal");
+  await dialog.getByLabel("Starts on").fill("2026-08-01");
+  await dialog.getByLabel("Annual service budget").fill("1200000");
+  await dialog.getByRole("button",{name:"Save draft"}).click();
+  const row=page.getByRole("row").filter({hasText:name});
+  await expect(row).toBeVisible();
+  await row.getByRole("button",{name:"Allocate",exact:true}).click();
+  await openModuleSection(page, "Charge allocations");
+  await expect(page.getByText(name,{exact:true}).first()).toBeVisible();
+});
+
 test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
   await page.goto("/property");
-  await page.getByRole("button", { name: "Expenses", exact: true }).click();
+  await openModuleSection(page, "Expenses");
   const expense = page.getByRole("row").filter({ hasText: "EXP-LIFT-PENDING" });
   await expect(expense.getByRole("button", { name: "Approve", exact: true })).toBeVisible();
   await expense.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(expense.getByText("approved", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Rent schedules", exact: true }).click();
+  await openModuleSection(page, "Rent schedules");
   await expect(page.getByRole("button", { name: "Generate invoice", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Leases", exact: true }).click();
+  await openModuleSection(page, "Leases");
   await expect(page.getByRole("row").filter({ hasText: "LS-2026-DRAFT" }).getByRole("button", { name: "Activate", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Budgets", exact: true }).click();
+  await openModuleSection(page, "Budgets");
   await expect(page.getByRole("row").filter({ hasText: "Utilities" }).getByRole("button", { name: "Approve", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Rent & invoices", exact: true }).click();
+  await openModuleSection(page, "Rent & invoices");
   const overdueInvoice = page.getByRole("row").filter({ hasText: "INV-2026-0702" });
   await overdueInvoice.getByRole("button", { name: "Send reminder", exact: true }).click();
-  await page.getByRole("button", { name: "Reminders", exact: true }).click();
+  await openModuleSection(page, "Reminders");
   await expect(page.getByText("INV-2026-0702", { exact: true }).first()).toBeVisible();
 });
 
 test("property arrears, service-charge and report data are connected", async ({ page }) => {
   await page.goto("/property");
-  await page.getByRole("button", { name: "Arrears", exact: true }).click();
+  await openModuleSection(page, "Arrears");
   await expect(page.getByText("Bluebird Retail Kenya", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Charge allocations", exact: true }).click();
+  await openModuleSection(page, "Charge allocations");
   await expect(page.getByText(`${new Date().getFullYear()} Commercial Service Charge`, { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Westlands Business Centre", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Reconciliations", exact: true }).click();
+  await openModuleSection(page, "Reconciliations");
   await expect(page.getByText("draft", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Bank reconciliation", exact: true }).click();
+  await openModuleSection(page, "Bank reconciliation");
   await expect(page.getByText("FT260418ACACIA", { exact: true })).toBeVisible();
   await expect(page.getByText("matched", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await openModuleSection(page, "Reports");
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("row").filter({ hasText: "Outstanding aging" }).getByRole("button", { name: "Download CSV" }).click();
   const download = await downloadPromise;
@@ -198,34 +232,34 @@ test("tenant can submit a scoped maintenance request", async ({ page }, testInfo
 
 test("facility work history, cost and media registers are connected", async ({ page }) => {
   await page.goto("/facility");
-  await page.getByRole("button", { name: "Work history", exact: true }).click();
+  await openModuleSection(page, "Work history");
   await expect(page.getByText("Technician checked in and isolated the leaking joint.", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Labor & parts", exact: true }).click();
+  await openModuleSection(page, "Labor & parts");
   await expect(page.getByText("Compression fitting and pipe section", { exact: true })).toBeVisible();
   await expect(page.getByText("AquaFix Stores", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Work media", exact: true }).click();
+  await openModuleSection(page, "Work media");
   await expect(page.getByText("leak-before-repair.jpg", { exact: true })).toBeVisible();
 });
 
 test("facility preventive and service workflows are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel maintenance races");
   await page.goto("/facility");
-  await page.getByRole("button", { name: "Planned maintenance", exact: true }).click();
+  await openModuleSection(page, "Planned maintenance");
   const schedule = page.getByRole("row").filter({ hasText: "PM-LIFT-MONTHLY" });
   await expect(schedule.getByRole("button", { name: "Generate work order", exact: true })).toBeVisible();
   await schedule.getByRole("button", { name: "Generate work order", exact: true }).click();
-  await page.getByRole("button", { name: "Work orders", exact: true }).click();
+  await openModuleSection(page, "Work orders");
   await expect(page.getByText(/PM-PM-LIFT-MONTHLY/).first()).toBeVisible();
-  await page.getByRole("button", { name: "Service requests", exact: true }).click();
+  await openModuleSection(page, "Service requests");
   await expect(page.getByRole("row").filter({ hasText: "SR-2026-00123" }).getByRole("button", { name: "Resolve", exact: true })).toBeVisible();
 });
 
 test("sales payment verification and audit controls are connected", async ({ page }) => {
   await page.goto("/sales");
-  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await openModuleSection(page, "Payments");
   await expect(page.getByText("PAY-2026-0106", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Audit trail", exact: true }).click();
+  await openModuleSection(page, "Audit trail");
   await expect(page.getByText("PAY-2026-0098", { exact: true })).toBeVisible();
   await expect(page.getByText("payment verified", { exact: true })).toBeVisible();
 });
@@ -233,11 +267,11 @@ test("sales payment verification and audit controls are connected", async ({ pag
 test("sales buyer and commission workflows are controlled", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel sales workflow races");
   await page.goto("/sales");
-  await page.getByRole("button", { name: "Buyers", exact: true }).click();
+  await openModuleSection(page, "Buyers");
   const lead = page.getByRole("row").filter({ hasText: "BUY-2026-0043" });
   await lead.getByRole("button", { name: "Qualify", exact: true }).click();
   await expect(lead.getByText("qualified", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Commissions", exact: true }).click();
+  await openModuleSection(page, "Commissions");
   const commission = page.getByRole("row").filter({ hasText: "COM-2026-0029" });
   await commission.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(commission.getByText("approved", { exact: true })).toBeVisible();
@@ -245,10 +279,10 @@ test("sales buyer and commission workflows are controlled", async ({ page }, tes
 
 test("sales performance and report exports use live data", async ({ page }, testInfo) => {
   await page.goto("/sales");
-  await page.getByRole("button", { name: "Agent performance", exact: true }).click();
+  await openModuleSection(page, "Agent performance");
   await expect(page.getByRole("columnheader", { name: "Pipeline value" })).toBeVisible();
   await expect(page.getByText("admin", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await openModuleSection(page, "Reports");
   await expect(page.getByText("Payment reconciliation", { exact: true })).toBeVisible();
   test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
   const downloadPromise = page.waitForEvent("download");
@@ -259,19 +293,19 @@ test("sales performance and report exports use live data", async ({ page }, test
 
 test("tender submission evidence and audit trail are connected", async ({ page }) => {
   await page.goto("/tender");
-  await page.getByRole("button", { name: "Submissions", exact: true }).click();
+  await openModuleSection(page, "Submissions");
   await expect(page.getByText("PPIP-RCT-260726-1048", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Audit trail", exact: true }).click();
+  await openModuleSection(page, "Audit trail");
   await expect(page.getByText("TND-2026-0039", { exact: true })).toBeVisible();
   await expect(page.getByText("submitted", { exact: true }).first()).toBeVisible();
 });
 
 test("tender approval controls and reports are interactive", async ({ page }, testInfo) => {
   await page.goto("/tender");
-  await page.getByRole("button", { name: "Financial BOQ", exact: true }).click();
+  await openModuleSection(page, "Financial BOQ");
   await expect(page.getByText("FM-001", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Approve", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await openModuleSection(page, "Reports");
   await expect(page.getByText("Requirement compliance matrix", { exact: true })).toBeVisible();
   test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
   const downloadPromise = page.waitForEvent("download");
@@ -281,21 +315,21 @@ test("tender approval controls and reports are interactive", async ({ page }, te
 
 test("valuation final report, payment and audit evidence are connected", async ({ page }) => {
   await page.goto("/valuation");
-  await page.getByRole("button", { name: "Final reports", exact: true }).click();
+  await openModuleSection(page, "Final reports");
   await expect(page.getByText("VR-2026-0161-F", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Payments", exact: true }).click();
+  await openModuleSection(page, "Payments");
   await expect(page.getByText("VPAY-2026-0032", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Audit trail", exact: true }).click();
+  await openModuleSection(page, "Audit trail");
   await expect(page.getByText("final report issued", { exact: true })).toBeVisible();
   await expect(page.getByText("payment allocated", { exact: true })).toBeVisible();
 });
 
 test("valuation analytics and evidence exports use live records", async ({ page }, testInfo) => {
   await page.goto("/valuation");
-  await page.getByRole("button", { name: "Analytics", exact: true }).click();
+  await openModuleSection(page, "Analytics");
   await expect(page.getByRole("columnheader", { name: "Average fee" })).toBeVisible();
   await expect(page.getByText("admin", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await openModuleSection(page, "Reports");
   await expect(page.getByText("Comparable evidence analysis", { exact: true })).toBeVisible();
   test.skip(testInfo.project.name.startsWith("mobile"), "Download behavior is covered once on desktop");
   const downloadPromise = page.waitForEvent("download");

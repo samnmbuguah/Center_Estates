@@ -13,8 +13,9 @@ from core.permissions import HasModuleSubscription
 from core.tenancy import get_active_organization
 
 from .models import (
-    BoQItem, Certificate, ContingencyDrawdown, DailyLog, Disbursement, MaterialDelivery,
-    MilestoneEntry, Observation, Project, Risk, SafetyIncident, Ticket, Variation,
+    BimModel, BoQItem, Certificate, ContingencyDrawdown, DailyLog, Disbursement, MaterialDelivery,
+    MilestoneEntry, Observation, ProgressPlan, Project, ProjectDocument, Risk, SafetyIncident,
+    Ticket, Variation, WorkPlanTask,
 )
 
 
@@ -192,3 +193,123 @@ def export_cost_csv(request, project_id):
     for item in BoQItem.objects.filter(project=project, organization=project.organization).order_by("section", "item_number"):
         writer.writerow([item.section, item.item_number, item.description, item.amount, item.cost_state, item.certified_amount])
     return response
+
+
+def build_scurve(project, organization):
+    planned = {
+        row.week: row.planned_percent
+        for row in ProgressPlan.objects.filter(project_id=project.id).order_by("week")
+    }
+    entries = list(
+        MilestoneEntry.objects.filter(
+            organization=organization, project_id=project.id, submitted_at__isnull=False, deleted_at__isnull=True,
+        ).order_by("submitted_at")
+    )
+    actual_by_week = {}
+    for entry in entries:
+        week = iso_week_from_ms(entry.submitted_at)
+        actual_by_week.setdefault(week, []).append(entry.percent_complete)
+    actual = {
+        week: round(sum(values) / len(values), 1)
+        for week, values in actual_by_week.items()
+    }
+    weeks = sorted(set(planned) | set(actual))
+    series = [
+        {
+            "week": week,
+            "planned_percent": planned.get(week),
+            "actual_percent": actual.get(week),
+        }
+        for week in weeks
+    ]
+    if not series and entries:
+        series = [
+            {
+                "week": f"M{index + 1}",
+                "planned_percent": min(100, int(round((index + 1) / max(len(entries), 1) * 100))),
+                "actual_percent": entry.percent_complete,
+            }
+            for index, entry in enumerate(entries)
+        ]
+    return {
+        "project_id": project.id,
+        "project_code": project.code,
+        "series": series,
+        "latest_actual": series[-1]["actual_percent"] if series else 0,
+        "latest_planned": series[-1]["planned_percent"] if series else 0,
+    }
+
+
+@api_view(["GET"])
+@permission_classes([ConstructionSubscription])
+def project_scurve(request, project_id):
+    """Planned vs actual progress series for the project S-curve chart."""
+    project = _scoped_project(request, project_id)
+    if not project:
+        return Response({"detail": "Project not found."}, status=404)
+    return Response(build_scurve(project, get_active_organization(request)))
+
+
+@api_view(["GET"])
+@permission_classes([ConstructionSubscription])
+def project_workspace(request, project_id):
+    """Unified project command-center payload (MonitoringERP ProjectWorkspace parity)."""
+    project = _scoped_project(request, project_id)
+    if not project:
+        return Response({"detail": "Project not found."}, status=404)
+    organization = get_active_organization(request)
+    milestones = list(
+        MilestoneEntry.objects.filter(organization=organization, project_id=project.id, deleted_at__isnull=True)
+        .order_by("-submitted_at", "milestone_id")[:20]
+    )
+    average_progress = (
+        round(sum(item.percent_complete for item in milestones) / len(milestones), 1) if milestones else 0
+    )
+    certificates = Certificate.objects.filter(organization=organization, project_id=project.id).exclude(status="void")
+    paid = Disbursement.objects.filter(
+        organization=organization, project_id=project.id, status="paid",
+    ).aggregate(total=Sum("amount"))["total"] or Decimal(0)
+    certified = certificates.aggregate(total=Sum("net_payable"))["total"] or Decimal(0)
+    budget = project.budget or Decimal(0)
+    util = round(float(paid / budget * 100), 1) if budget else 0
+    return Response({
+        "project": {
+            "id": project.id,
+            "code": project.code,
+            "name": project.name,
+            "stage": project.stage,
+            "location": project.location,
+            "client_name": project.client_name,
+            "budget": project.budget,
+            "planned_completion_date": project.planned_completion_date,
+            "site_latitude": getattr(project, "site_latitude", None),
+            "site_longitude": getattr(project, "site_longitude", None),
+        },
+        "kpis": {
+            "averageProgress": average_progress,
+            "milestones": len(milestones),
+            "milestonesComplete": sum(1 for item in milestones if item.percent_complete >= 100),
+            "openTickets": Ticket.objects.filter(organization=organization, project_id=project.id)
+            .exclude(status__in=("resolved", "closed")).count(),
+            "openRisks": Risk.objects.filter(organization=organization, project_id=project.id)
+            .exclude(status="closed").count(),
+            "budgetUtilization": util,
+            "certifiedValue": certified,
+            "paidValue": paid,
+            "documents": ProjectDocument.objects.filter(organization=organization, project=project).count(),
+            "workPlanTasks": WorkPlanTask.objects.filter(project=project).count(),
+            "bimModels": BimModel.objects.filter(project=project).count(),
+        },
+        "scurve": build_scurve(project, organization),
+        "milestones": [
+            {
+                "id": item.id,
+                "milestone_id": item.milestone_id,
+                "percent_complete": item.percent_complete,
+                "submitted_at": item.submitted_at,
+                "required_certifying_role": item.required_certifying_role,
+                "payment_value": item.payment_value,
+            }
+            for item in milestones
+        ],
+    })

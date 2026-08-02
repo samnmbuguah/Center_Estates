@@ -9,7 +9,9 @@ import {
   useState,
 } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { propertyNav } from "@/lib/module-nav";
 
 type Dashboard = {
   kpis: {
@@ -48,6 +50,10 @@ type Property = {
   city: string;
   status: string;
   units_count: number;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  address?: string;
+  metadata?: Record<string, unknown>;
 };
 type Building = {
   id: string;
@@ -319,7 +325,7 @@ export default function PropertyManagementPage() {
   const [showTenant, setShowTenant] = useState(false);
   const [showTenantDocument, setShowTenantDocument] = useState(false);
   const [showLease, setShowLease] = useState(false);
-  const [financialIntake, setFinancialIntake] = useState<"expense" | "budget" | null>(null);
+  const [financialIntake, setFinancialIntake] = useState<"expense" | "budget" | "service-charge" | null>(null);
   const [tenantOptions, setTenantOptions] = useState<Tenant[]>([]);
   const [unitOptions, setUnitOptions] = useState<Unit[]>([]);
   const [propertyOptions, setPropertyOptions] = useState<Property[]>([]);
@@ -590,11 +596,11 @@ export default function PropertyManagementPage() {
     event.preventDefault();
     if (!financialIntake) return;
     const payload=Object.fromEntries(new FormData(event.currentTarget).entries());
-    const endpoint=financialIntake === "expense" ? "expenses" : "budgets";
+    const endpoint=financialIntake === "expense" ? "expenses" : financialIntake === "budget" ? "budgets" : "service-charges";
     await apiFetch("/auth/csrf/");
     const response=await apiFetch(`/property/${endpoint}/`,{method:"POST",headers:{"X-CSRFToken":csrfFromCookie()},body:JSON.stringify(payload)},organizationId);
     if(!response.ok){const body=await response.json().catch(()=>({}));setError(Object.values(body).flat().join(" ")||`The ${financialIntake} could not be saved.`);return;}
-    setFinancialIntake(null);setTab(financialIntake === "expense" ? "expenses" : "budgets");await load();
+    setFinancialIntake(null);setTab(financialIntake === "expense" ? "expenses" : financialIntake === "budget" ? "budgets" : "service-charges");await load();
   }
 
   async function runAction(path: string) {
@@ -665,45 +671,39 @@ export default function PropertyManagementPage() {
   }
 
   const kpis = dashboard?.kpis;
+  const monthlyRentTotal = dashboard?.portfolio.reduce((sum, item) => sum + Number(item.monthlyRent || 0), 0) ?? 0;
+  const collected = Number(kpis?.collectedYtd ?? 0);
+  const outstanding = Number(kpis?.outstanding ?? 0);
+  const collectionBase = collected + outstanding;
+  const collectionRate = collectionBase > 0 ? Math.round((collected / collectionBase) * 1000) / 10 : 0;
+  const todayLabel = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const selectSection = (id: string) => {
+    setSearch("");
+    setRows([]);
+    setTab(id as Tab);
+  };
   return (
-    <div className="page-wrap property-app">
-      <section className="property-heading">
-        <div>
-          <p className="eyebrow">Portfolio workspace</p>
-          <h1>Property Management</h1>
-          <p>
-            Occupancy, leases, rent collections and operating costs in one view.
-          </p>
-        </div>
-        <div className="heading-actions">
-          {canFinance && (
-            <button onClick={() => setShowReceipt(true)}>Record receipt</button>
-          )}
-          {canOperate && (
-            <button
-              className="primary-action"
-              onClick={() => setShowCreate(true)}
-            >
-              + Add property
-            </button>
-          )}
-        </div>
-      </section>
-      <nav className="module-tabs" aria-label="Property management sections">
-        {(Object.keys(labels) as Tab[]).map((item) => (
-          <button
-            className={tab === item ? "active" : ""}
-            key={item}
-            onClick={() => {
-              setSearch("");
-              setRows([]);
-              setTab(item);
-            }}
-          >
-            {labels[item]}
-          </button>
-        ))}
-      </nav>
+    <ModuleShell
+      moduleKey="property"
+      moduleName="Property Management"
+      eyebrow="Portfolio workspace"
+      title="Property Management"
+      subtitle="Occupancy, leases, rent collections and operating costs in one view."
+      accent="#e23b3b"
+      groups={propertyNav}
+      activeId={tab}
+      onSelect={selectSection}
+      contextLabel="Section"
+      contextValue={labels[tab]}
+      actions={
+        <>
+          <span className="welcome-meta">📅 {todayLabel}</span>
+          {canFinance && <button className="secondary-action" onClick={() => setShowReceipt(true)}>Record receipt</button>}
+          {canOperate && <button className="primary-action" onClick={() => setShowCreate(true)}>+ Add property</button>}
+        </>
+      }
+    >
+      <div className="property-app">
       {error && (
         <div className="form-error">
           {error} <button onClick={load}>Retry</button>
@@ -714,35 +714,49 @@ export default function PropertyManagementPage() {
       ) : tab === "overview" && kpis ? (
         <>
           <section className="kpi-grid property-kpis">
-            <Kpi
-              label="Properties"
+            <IconKpi
+              icon="🏢"
+              tone="#fee2e2"
+              color="#dc2626"
+              label="Total Properties"
               value={String(kpis.properties)}
               note={`${kpis.units} total units`}
               onClick={() => setTab("properties")}
             />
-            <Kpi
-              label="Occupancy"
-              value={`${kpis.occupancyRate}%`}
-              note={`${kpis.occupiedUnits} occupied units`}
-              onClick={() => setTab("leases")}
+            <IconKpi
+              icon="🔑"
+              tone="#e0e7ff"
+              color="#4f46e5"
+              label="Occupied Units"
+              value={String(kpis.occupiedUnits)}
+              note={`${kpis.occupancyRate}% Occupancy`}
+              onClick={() => setTab("units")}
             />
-            <Kpi
-              label="Active tenants"
+            <IconKpi
+              icon="👥"
+              tone="#dbeafe"
+              color="#2563eb"
+              label="Total Tenants"
               value={String(kpis.activeTenants)}
               note={`${kpis.activeLeases} active leases`}
               onClick={() => setTab("tenants")}
             />
-            <Kpi
-              label="Collected YTD"
-              value={money.format(Number(kpis.collectedYtd))}
-              note="Posted tenant receipts"
-              onClick={() => setTab("receipts")}
+            <IconKpi
+              icon="💰"
+              tone="#dcfce7"
+              color="#16a34a"
+              label="Monthly Rent"
+              value={money.format(monthlyRentTotal)}
+              note={`${money.format(Number(kpis.collectedYtd))} collected YTD`}
+              onClick={() => setTab("rent")}
             />
-            <Kpi
+            <IconKpi
+              icon="⚠"
+              tone="#fee2e2"
+              color="#dc2626"
               label="Outstanding rent"
               value={money.format(Number(kpis.outstanding))}
-              note={`${money.format(Number(kpis.collectedYtd))} collected YTD`}
-              warning
+              note="Open invoice balances"
               onClick={() => setTab("arrears")}
             />
           </section>
@@ -757,23 +771,67 @@ export default function PropertyManagementPage() {
             </article>
             <article className="data-panel">
               <PanelTitle
-                title="Lease expiry overview"
-                action="View leases"
-                onClick={() => setTab("leases")}
+                title="Rent collection summary"
+                action="View arrears"
+                onClick={() => setTab("arrears")}
               />
-              <div className="expiry-list">
-                {dashboard.leaseExpiry.map((item) => (
-                  <button key={item.label} onClick={() => setTab("leases")}>
-                    <span>Expiring in {item.label}</span>
-                    <b>{item.count}</b>
-                  </button>
-                ))}
+              <div className="donut-panel">
+                <div
+                  className="donut"
+                  style={{
+                    background: `conic-gradient(#e23b3b 0% ${collectionRate}%, #243852 ${collectionRate}% 100%)`,
+                  }}
+                >
+                  <strong>{collectionRate}%</strong>
+                  <small>Collected</small>
+                </div>
+                <div className="donut-legend">
+                  <span>
+                    <i style={{ background: "#e23b3b" }} />
+                    Collected
+                    <b>{money.format(collected)}</b>
+                  </span>
+                  <span>
+                    <i style={{ background: "#243852" }} />
+                    Outstanding
+                    <b>{money.format(outstanding)}</b>
+                  </span>
+                </div>
               </div>
             </article>
             <article className="data-panel property-alert-panel">
+              <div className="collection-rate-card">
+                <small>Rent Collection (YTD)</small>
+                <div className="rent-summary-list">
+                  <div>
+                    <span>Total billed (collected + open)</span>
+                    <b>{money.format(collectionBase)}</b>
+                  </div>
+                  <div>
+                    <span>Total collected</span>
+                    <b>{money.format(collected)}</b>
+                  </div>
+                  <div>
+                    <span>Collection rate</span>
+                    <b>{collectionRate}%</b>
+                  </div>
+                  <div>
+                    <span>Outstanding</span>
+                    <b>{money.format(outstanding)}</b>
+                  </div>
+                </div>
+                {canFinance && (
+                  <button
+                    className="collection-cta"
+                    onClick={() => setShowReceipt(true)}
+                  >
+                    ＋ Record rent payment
+                  </button>
+                )}
+              </div>
               <PanelTitle
-                title="Collection watchlist"
-                action="View arrears"
+                title="Top overdue tenants"
+                action="View all"
                 onClick={() => setTab("arrears")}
               />
               {dashboard.overdueInvoices.length ? (
@@ -794,14 +852,6 @@ export default function PropertyManagementPage() {
                 ))
               ) : (
                 <Empty text="No overdue invoices." />
-              )}
-              {canFinance && (
-                <button
-                  className="collection-cta"
-                  onClick={() => setShowReceipt(true)}
-                >
-                  ＋ Record rent payment
-                </button>
               )}
             </article>
           </section>
@@ -835,13 +885,26 @@ export default function PropertyManagementPage() {
             </article>
             <article className="data-panel">
               <PanelTitle
+                title="Lease expiry overview"
+                action="View leases"
+                onClick={() => setTab("leases")}
+              />
+              <div className="expiry-list">
+                {dashboard.leaseExpiry.map((item) => (
+                  <button key={item.label} onClick={() => setTab("leases")}>
+                    <span>Expiring in {item.label}</span>
+                    <b>{item.count}</b>
+                  </button>
+                ))}
+              </div>
+            </article>
+            <article className="data-panel">
+              <PanelTitle
                 title="Rent ageing summary"
                 action="Ageing report"
                 onClick={() => setTab("arrears")}
               />
               <AgingSummary rows={dashboard.aging} />
-            </article>
-            <article className="data-panel">
               <PanelTitle
                 title="Quick actions"
                 action="Reports"
@@ -854,18 +917,18 @@ export default function PropertyManagementPage() {
                   </button>
                 )}
                 {canLease && (
-                  <button onClick={() => setTab("leases")}>
-                    ⌁ Manage leases
+                  <button onClick={() => setShowLease(true)}>
+                    ⌁ Add new lease
                   </button>
                 )}
                 {canLease && (
-                  <button onClick={() => setTab("tenants")}>
-                    ♙ Tenant register
+                  <button onClick={() => setShowTenant(true)}>
+                    ♙ Add new tenant
                   </button>
                 )}
                 {canFinance && (
                   <button onClick={() => setShowReceipt(true)}>
-                    ◎ Record payment
+                    ◎ Record rent payment
                   </button>
                 )}
                 {canFinance && (
@@ -907,6 +970,7 @@ export default function PropertyManagementPage() {
           onAddLease={() => setShowLease(true)}
           onAddExpense={() => setFinancialIntake("expense")}
           onAddBudget={() => setFinancialIntake("budget")}
+          onAddServiceCharge={() => setFinancialIntake("service-charge")}
           permissions={{ canLease, canFinance, canApprove, canReport }}
         />
       )}
@@ -1339,11 +1403,10 @@ export default function PropertyManagementPage() {
       {financialIntake && (
         <div className="modal-backdrop" onMouseDown={() => setFinancialIntake(null)}>
           <div className="form-modal" role="dialog" aria-modal="true" aria-labelledby="financial-intake" onMouseDown={event=>event.stopPropagation()}>
-            <div className="modal-title"><div><p className="eyebrow">Property finance</p><h2 id="financial-intake">{financialIntake === "expense" ? "Record supplier expense" : "Create budget line"}</h2></div><button aria-label="Close" onClick={()=>setFinancialIntake(null)}>×</button></div>
+            <div className="modal-title"><div><p className="eyebrow">Property finance</p><h2 id="financial-intake">{financialIntake === "expense" ? "Record supplier expense" : financialIntake === "budget" ? "Create budget line" : "Set up service charge"}</h2></div><button aria-label="Close" onClick={()=>setFinancialIntake(null)}>×</button></div>
             <form onSubmit={createFinancialRecord}>
               <label>Property<select name="property" required defaultValue=""><option value="" disabled>Select property</option>{propertyOptions.map(property=><option key={property.id} value={property.id}>{property.code} — {property.name}</option>)}</select></label>
-              {financialIntake === "expense" ? <><div className="form-row"><label>Supplier<input name="supplier" required /></label><label>Supplier invoice<input name="invoice_number" /></label></div><div className="form-row"><label>Category<input name="category" required placeholder="Utilities" /></label><label>Incurred on<input name="incurred_on" type="date" required /></label></div><label>Description<textarea name="description" rows={3}/></label></> : <div className="form-row"><label>Budget year<input name="year" type="number" min="2020" max="2100" defaultValue={new Date().getFullYear()} required /></label><label>Category<input name="category" required placeholder="Repairs and maintenance" /></label></div>}
-              <label>{financialIntake === "expense" ? "Expense amount" : "Annual budget"}<input name="amount" type="number" min={financialIntake === "expense" ? "0.01" : "0"} step="0.01" required /></label>
+              {financialIntake === "expense" ? <><div className="form-row"><label>Supplier<input name="supplier" required /></label><label>Supplier invoice<input name="invoice_number" /></label></div><div className="form-row"><label>Category<input name="category" required placeholder="Utilities" /></label><label>Incurred on<input name="incurred_on" type="date" required /></label></div><label>Description<textarea name="description" rows={3}/></label><label>Expense amount<input name="amount" type="number" min="0.01" step="0.01" required /></label></> : financialIntake === "budget" ? <><div className="form-row"><label>Budget year<input name="year" type="number" min="2020" max="2100" defaultValue={new Date().getFullYear()} required /></label><label>Category<input name="category" required placeholder="Repairs and maintenance" /></label></div><label>Annual budget<input name="amount" type="number" min="0" step="0.01" required /></label></> : <><label>Scheme name<input name="name" required placeholder="2026 Commercial Service Charge" /></label><div className="form-row"><label>Allocation method<select name="method" defaultValue="area"><option value="area">Floor area</option><option value="equal">Equal share</option><option value="fixed">Fixed amount</option></select></label><label>Starts on<input name="starts_on" type="date" required /></label></div><label>Annual service budget<input name="annual_budget" type="number" min="0" step="0.01" required /></label><input type="hidden" name="is_active" value="true" /></>}
               <p className="form-help">This record starts in draft and must follow the controlled submit and approval workflow before it affects approved reporting.</p>
               <div className="form-actions"><button type="button" onClick={()=>setFinancialIntake(null)}>Cancel</button><button className="primary-action">Save draft</button></div>
             </form>
@@ -1351,31 +1414,37 @@ export default function PropertyManagementPage() {
         </div>
       )}
     </div>
+    </ModuleShell>
   );
 }
 
-function Kpi({
+function IconKpi({
+  icon,
+  tone,
+  color,
   label,
   value,
   note,
   onClick,
-  warning = false,
 }: {
+  icon: string;
+  tone: string;
+  color: string;
   label: string;
   value: string;
   note: string;
   onClick: () => void;
-  warning?: boolean;
 }) {
   return (
-    <button
-      className={`kpi-card ${warning ? "warning" : ""}`}
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{note}</small>
-      <i>View details →</i>
+    <button className="icon-kpi" onClick={onClick}>
+      <span style={{ background: tone, color }} aria-hidden="true">
+        {icon}
+      </span>
+      <div>
+        <small>{label}</small>
+        <strong>{value}</strong>
+        <b>{note}</b>
+      </div>
     </button>
   );
 }
@@ -1523,6 +1592,7 @@ function Collection({
   onAddLease,
   onAddExpense,
   onAddBudget,
+  onAddServiceCharge,
   permissions,
 }: {
   tab: Tab;
@@ -1536,6 +1606,7 @@ function Collection({
   onAddLease: () => void;
   onAddExpense: () => void;
   onAddBudget: () => void;
+  onAddServiceCharge: () => void;
   permissions: {
     canLease: boolean;
     canFinance: boolean;
@@ -1544,17 +1615,35 @@ function Collection({
   };
 }) {
   const { canLease, canFinance, canApprove, canReport } = permissions;
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [registerView, setRegisterView] = useState<"table" | "map">("table");
   let headers: string[] = [],
     values: React.ReactNode[][] = [];
+  let propertyRows: Property[] = [];
   if (tab === "properties") {
-    headers = ["Code", "Property", "Type", "City", "Units", "Status"];
-    values = (rows as Property[]).map((r) => [
-      r.code,
-      r.name,
+    propertyRows = (rows as Property[]).filter((r) => {
+      if (typeFilter !== "all" && (r.property_type || "Unclassified") !== typeFilter) return false;
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (cityFilter !== "all" && (r.city || "—") !== cityFilter) return false;
+      return true;
+    });
+    headers = ["Property", "Type", "Location", "Units", "Status"];
+    values = propertyRows.map((r) => [
+      <div className="property-cell" key={r.id}>
+        <span className={`property-thumb ${(r.property_type || "").toLowerCase()}`} aria-hidden="true">
+          {(r.name || "P").slice(0, 1)}
+        </span>
+        <span>
+          <strong>{r.name}</strong>
+          <small>{r.code}</small>
+        </span>
+      </div>,
       r.property_type || "—",
       r.city || "—",
       r.units_count,
-      <Status key={r.id} value={r.status} />,
+      <Status key={`s-${r.id}`} value={r.status} />,
     ]);
   }
   if (tab === "buildings") {
@@ -1991,8 +2080,37 @@ function Collection({
       <Status key={r.id} value={r.status} />,
     ]);
   }
+  const propertyTypes = tab === "properties"
+    ? Array.from(new Set((rows as Property[]).map((r) => r.property_type || "Unclassified")))
+    : [];
+  const propertyCities = tab === "properties"
+    ? Array.from(new Set((rows as Property[]).map((r) => r.city || "—")))
+    : [];
+  const propertyStatuses = tab === "properties"
+    ? Array.from(new Set((rows as Property[]).map((r) => r.status)))
+    : [];
+  const propertyStats = tab === "properties"
+    ? {
+        total: rows.length,
+        units: (rows as Property[]).reduce((sum, r) => sum + Number(r.units_count || 0), 0),
+        active: (rows as Property[]).filter((r) => r.status === "active").length,
+        types: propertyTypes.length,
+      }
+    : null;
+
   return (
-    <article className="data-panel collection-panel">
+    <>
+    {tab === "properties" && propertyStats && (
+      <section className="register-kpi-strip" aria-label="Property register summary">
+        <article><small>Total Properties</small><strong>{propertyStats.total}</strong><b>Active register</b></article>
+        <article><small>Active Properties</small><strong>{propertyStats.active}</strong><b>Operational</b></article>
+        <article><small>Total Units</small><strong>{propertyStats.units}</strong><b>Across portfolio</b></article>
+        <article><small>Property Types</small><strong>{propertyStats.types}</strong><b>Classifications</b></article>
+        <article><small>Locations</small><strong>{propertyCities.length}</strong><b>Cities / areas</b></article>
+        <article><small>Showing</small><strong>{values.length}</strong><b>After filters</b></article>
+      </section>
+    )}
+    <article className={`data-panel collection-panel ${tab === "properties" ? "property-register-table" : ""}`}>
       <header className="collection-title">
         <div>
           <p className="eyebrow">Live records</p>
@@ -2014,16 +2132,75 @@ function Collection({
           )}
           {tab === "expenses" && canFinance && <button className="secondary-action" onClick={onAddExpense}>+ Record expense</button>}
           {tab === "budgets" && canFinance && <button className="secondary-action" onClick={onAddBudget}>+ Add budget line</button>}
+          {tab === "service-charges" && canFinance && <button className="secondary-action" onClick={onAddServiceCharge}>+ Set up charge</button>}
           <input
             aria-label={`Search ${labels[tab]}`}
             value={search}
             onChange={(event) => onSearch(event.target.value)}
-            placeholder="Search records…"
+            placeholder={tab === "properties" ? "Search properties, buildings, address…" : "Search records…"}
           />
         </div>
       </header>
-      <DataTable headers={headers} rows={values} />
+      {tab === "properties" && (
+        <div className="register-filter-bar">
+          <div className="filter-group">
+            <select aria-label="Property type filter" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <option value="all">All Property Types</option>
+              {propertyTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+            <select aria-label="Location filter" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
+              <option value="all">All Locations</option>
+              {propertyCities.map((city) => <option key={city} value={city}>{city}</option>)}
+            </select>
+            <select aria-label="Status filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="all">All Status</option>
+              {propertyStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+            <div>
+              <button className={`view-option ${registerView === "table" ? "active" : ""}`} aria-label="Table view" onClick={() => setRegisterView("table")}>☷</button>
+              <button className={`view-option ${registerView === "map" ? "active" : ""}`} aria-label="Map view" onClick={() => setRegisterView("map")}>⌖</button>
+            </div>
+          </div>
+          <span className="welcome-meta">Showing {values.length} of {rows.length} properties</span>
+        </div>
+      )}
+      {tab === "properties" && registerView === "map" ? (
+        <div className="property-map-panel">
+          <div className="property-map-canvas" role="img" aria-label="Property portfolio map">
+            {propertyRows.map((property, index) => {
+              const lat = Number(property.latitude ?? -1.286);
+              const lng = Number(property.longitude ?? 36.817);
+              // Project Nairobi-ish coordinates into the canvas with light scatter for missing points.
+              const top = property.latitude == null ? 20 + (index % 5) * 14 : Math.min(85, Math.max(8, ((lat + 1.4) / 0.4) * 100));
+              const left = property.longitude == null ? 18 + (index % 6) * 12 : Math.min(90, Math.max(8, ((lng - 36.7) / 0.3) * 100));
+              return (
+                <span
+                  className="property-map-pin"
+                  key={property.id}
+                  style={{ top: `${top}%`, left: `${left}%` }}
+                  title={`${property.name} · ${property.city || "Location"}`}
+                >
+                  <b>{(property.name || "P").slice(0, 1)}</b>
+                </span>
+              );
+            })}
+          </div>
+          <div className="property-map-legend">
+            {propertyRows.slice(0, 6).map((property) => (
+              <span key={property.id}>
+                <b>{property.name}</b>
+                {" · "}
+                {property.city || "—"}
+                {property.latitude != null ? ` · ${Number(property.latitude).toFixed(3)}, ${Number(property.longitude).toFixed(3)}` : " · coordinates pending"}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <DataTable headers={headers} rows={values} />
+      )}
     </article>
+    </>
   );
 }
 

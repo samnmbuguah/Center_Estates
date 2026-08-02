@@ -15,7 +15,10 @@ from .views import (
 )
 from core.views import MobileTokenView
 from .sync_views import media_upload, mobile_me, pull, push, register_device, verify_submission
-from .report_views import export_boq_csv, export_cost_csv, export_milestones_csv, monthly_report, project_report, weekly_report
+from .report_views import (
+    export_boq_csv, export_cost_csv, export_milestones_csv, monthly_report,
+    project_report, project_scurve, project_workspace, weekly_report,
+)
 
 router = DefaultRouter()
 router.register("dashboard", DashboardViewSet, basename="construction-dashboard")
@@ -76,6 +79,8 @@ urlpatterns += [
     path("audit/verify/<str:milestone_id>", verify_submission, name="construction-audit-verify"),
     path("reports/weekly/", weekly_report, name="construction-weekly-report"),
     path("reports/monthly/", monthly_report, name="construction-monthly-report"),
+    path("reports/scurve/<str:project_id>/", project_scurve, name="construction-scurve"),
+    path("projects/<str:project_id>/workspace/", project_workspace, name="construction-project-workspace"),
     path("reports/<str:project_id>/", project_report, name="construction-project-report"),
     path("exports/boq/<str:project_id>.csv", export_boq_csv, name="construction-boq-csv"),
     path("exports/cost/<str:project_id>.csv", export_cost_csv, name="construction-cost-csv"),

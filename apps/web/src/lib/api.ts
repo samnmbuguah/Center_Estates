@@ -1,12 +1,37 @@
 export type Organization = { id: string; name: string; slug: string; is_default: boolean; is_admin: boolean };
 export type ModuleEntitlement = { slug: string; name: string; limits: Record<string, unknown> };
+export type DemoIdentity = {
+  id: number;
+  username: string;
+  label: string;
+  roleSlug: string;
+  roleName: string;
+  module: string;
+  isAdmin: boolean;
+  isCurrent: boolean;
+};
+export type DemoIdentityGroup = {
+  module: string;
+  label: string;
+  identities: DemoIdentity[];
+};
 export type Session = {
-  user: { id: number; username: string; email: string; firstName: string; lastName: string };
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    isSuperuser?: boolean;
+  };
   organizations: Organization[];
   activeOrganizationId: string | null;
   modules: ModuleEntitlement[];
   roles: string[];
+  roleNames?: string[];
   permissions: string[];
+  impersonating?: boolean;
+  canSwitchIdentity?: boolean;
 };
 
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {

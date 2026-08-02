@@ -36,6 +36,30 @@ from .serializers import (
 )
 
 
+def apply_project_scope(queryset, project_id: str):
+    """Filter construction registers by project for both FK `project` and CharField `project_id`."""
+    if not project_id:
+        return queryset
+    field_names = {field.name for field in queryset.model._meta.fields}
+    if "project" in field_names:
+        return queryset.filter(project_id=project_id)
+    if "project_id" in field_names:
+        return queryset.filter(project_id=project_id)
+    # Related-path fallbacks for nested registers.
+    related_paths = (
+        "milestone_entry__project_id",
+        "ticket__project_id",
+        "document__project_id",
+        "advance_payment__project_id",
+        "bim_model__project_id",
+    )
+    for path in related_paths:
+        root = path.split("__", 1)[0]
+        if any(field.name == root for field in queryset.model._meta.fields):
+            return queryset.filter(**{path: project_id})
+    return queryset
+
+
 class ConstructionScopedViewSet(ModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.MONITORING
@@ -52,10 +76,12 @@ class ConstructionScopedViewSet(ModelViewSet):
             for field in self.search_fields:
                 query |= Q(**{f"{field}__icontains": search})
             queryset = queryset.filter(query)
-        project_id = self.request.query_params.get("project")
-        if project_id and any(field.name == "project" for field in queryset.model._meta.fields):
-            queryset = queryset.filter(project_id=project_id)
-        return queryset
+        project_id = (
+            self.request.query_params.get("project")
+            or self.request.query_params.get("project_id")
+            or ""
+        ).strip()
+        return apply_project_scope(queryset, project_id)
 
     def _validate_organization(self, serializer):
         organization = get_active_organization(self.request)

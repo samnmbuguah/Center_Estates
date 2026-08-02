@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { constructionNav } from "@/lib/module-nav";
 
 type Row = Record<string, string | number | boolean | null | string[]>;
 type Tab = "overview" | "projects" | "project-memberships" | "milestones" | "milestone-verifications" | "requirement-waivers" | "daily-logs" | "risks" | "tickets" | "ticket-comments" | "work-plan" | "boq" | "variations" | "quality-tests" | "rfis" | "safety-incidents" | "calendar" | "documents" | "document-versions" | "approvals" | "lifecycle" | "materials" | "store-items" | "store-suppliers" | "material-requisitions" | "purchase-orders" | "stock-movements" | "consultant-payments" | "drone-datasets" | "satellite-datasets" | "provisional-sums" | "contingency-drawdowns" | "advance-payments" | "advance-recoveries" | "subcontractors" | "work-orders" | "bim-models" | "bim-discrepancies" | "requisitions" | "certificates" | "disbursements" | "drawdowns" | "reports" | "chat" | "notifications" | "audit-log";
@@ -29,16 +31,6 @@ const labels: Record<Tab, string> = {
   reports: "Reports", chat: "Project chat", notifications: "Notifications", "audit-log": "Audit trail",
 };
 
-const navigationGroups: { label: string; icon: string; tabs: Tab[] }[] = [
-  { label: "Portfolio", icon: "⌂", tabs: ["overview", "projects", "project-memberships", "lifecycle", "calendar"] },
-  { label: "Site operations", icon: "◫", tabs: ["milestones", "daily-logs", "tickets", "ticket-comments", "risks", "safety-incidents", "quality-tests", "rfis"] },
-  { label: "Programme & controls", icon: "◷", tabs: ["work-plan", "milestone-verifications", "requirement-waivers", "approvals"] },
-  { label: "Commercial", icon: "◈", tabs: ["boq", "variations", "provisional-sums", "contingency-drawdowns", "advance-payments", "advance-recoveries", "consultant-payments", "work-orders", "subcontractors"] },
-  { label: "Procurement & stores", icon: "▣", tabs: ["materials", "store-items", "store-suppliers", "material-requisitions", "purchase-orders", "stock-movements"] },
-  { label: "Finance", icon: "◎", tabs: ["requisitions", "certificates", "disbursements", "drawdowns"] },
-  { label: "Documents & digital", icon: "◇", tabs: ["documents", "document-versions", "bim-models", "bim-discrepancies", "drone-datasets", "satellite-datasets"] },
-  { label: "Insights & collaboration", icon: "◌", tabs: ["reports", "chat", "notifications", "audit-log"] },
-];
 const columns: Record<Exclude<Tab, "overview">, { key: string; label: string; kind?: "money" | "status" | "progress" }[]> = {
   projects: [{key:"code",label:"Project"},{key:"name",label:"Name"},{key:"client_name",label:"Client"},{key:"location",label:"Location"},{key:"stage",label:"Stage",kind:"status"},{key:"budget",label:"Budget",kind:"money"},{key:"planned_completion_date",label:"Completion"}],
   "project-memberships": [{key:"project_name",label:"Project"},{key:"user_name",label:"Team member"},{key:"role_name",label:"Access role"},{key:"label",label:"Project responsibility"},{key:"created_at",label:"Assigned"}],
@@ -101,14 +93,29 @@ export default function MonitoringPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(false);
-  const [navigationOpen, setNavigationOpen] = useState(false);
-  const [navigationSearch, setNavigationSearch] = useState("");
-  const dashboardProjectId = dashboard?.projects[0]?.id;
+  const [selectedProject, setSelectedProject] = useState<Row | null>(null);
+  const [workspaceData, setWorkspaceData] = useState<{
+    milestones: Row[];
+    risks: Row[];
+    tickets: Row[];
+    workPlan: Row[];
+    documents: Row[];
+    bimModels: Row[];
+    scurve: { series?: { week: string; planned_percent?: number | null; actual_percent?: number | null }[] };
+    kpis: Record<string, string | number>;
+    project: Row;
+  }>({ milestones: [], risks: [], tickets: [], workPlan: [], documents: [], bimModels: [], scurve: { series: [] }, kpis: {}, project: {} });
+  const [onboardingStep, setOnboardingStep] = useState(1);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [portfolioView, setPortfolioView] = useState<"cards" | "list">("cards");
+  const [stageFilter, setStageFilter] = useState("all");
+  const dashboardProjectId = selectedProject?.id ?? dashboard?.projects[0]?.id;
 
   const load = useCallback(async () => {
     if (!organization) return;
     setLoading(true); setError("");
-    let path = tab === "overview" ? "/construction/dashboard/" : `/construction/${tab}/?search=${encodeURIComponent(search)}`;
+    const projectScope = selectedProject?.id ? `&project=${encodeURIComponent(String(selectedProject.id))}` : "";
+    let path = tab === "overview" ? "/construction/dashboard/" : `/construction/${tab}/?search=${encodeURIComponent(search)}${projectScope}`;
     if (tab === "reports") {
       const projectId = dashboardProjectId;
       if (!projectId) { setRows([]); setLoading(false); return; }
@@ -119,11 +126,40 @@ export default function MonitoringPage() {
     const data = await response.json();
     if (tab === "overview") setDashboard(data); else setRows(tab === "reports" ? data.weekly : data);
     setLoading(false);
-  }, [dashboardProjectId, organization, search, tab]);
+  }, [dashboardProjectId, organization, search, selectedProject, tab]);
   useEffect(() => { const timer = setTimeout(load, search ? 250 : 0); return () => clearTimeout(timer); }, [load, search]);
   useEffect(() => {
     if (modal && organization) apiFetch("/property/projects/", {}, organization).then(r => r.ok ? r.json() : []).then(setPortfolioProjects);
   }, [modal, organization]);
+
+  const openProjectWorkspace = useCallback(async (project: Row) => {
+    if (!organization) return;
+    setSelectedProject(project);
+    setTab("projects");
+    setWorkspaceLoading(true);
+    setError("");
+    const projectId = String(project.id);
+    const [workspace, risks, tickets, workPlan, documents, bimModels] = await Promise.all([
+      apiFetch(`/construction/projects/${projectId}/workspace/`, {}, organization).then((r) => (r.ok ? r.json() : null)),
+      apiFetch(`/construction/risks/?project=${encodeURIComponent(projectId)}`, {}, organization).then((r) => (r.ok ? r.json() : [])),
+      apiFetch(`/construction/tickets/?project=${encodeURIComponent(projectId)}`, {}, organization).then((r) => (r.ok ? r.json() : [])),
+      apiFetch(`/construction/work-plan/?project=${encodeURIComponent(projectId)}`, {}, organization).then((r) => (r.ok ? r.json() : [])),
+      apiFetch(`/construction/documents/?project=${encodeURIComponent(projectId)}`, {}, organization).then((r) => (r.ok ? r.json() : [])),
+      apiFetch(`/construction/bim-models/?project=${encodeURIComponent(projectId)}`, {}, organization).then((r) => (r.ok ? r.json() : [])),
+    ]);
+    setWorkspaceData({
+      milestones: (workspace?.milestones as Row[] | undefined) ?? [],
+      risks: (risks as Row[]).slice(0, 8),
+      tickets: (tickets as Row[]).slice(0, 8),
+      workPlan: (workPlan as Row[]).slice(0, 10),
+      documents: (documents as Row[]).slice(0, 8),
+      bimModels: (bimModels as Row[]).slice(0, 6),
+      scurve: workspace?.scurve ?? { series: [] },
+      kpis: workspace?.kpis ?? {},
+      project: workspace?.project ?? project,
+    });
+    setWorkspaceLoading(false);
+  }, [organization]);
 
   async function createProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); await apiFetch("/auth/csrf/");
@@ -187,45 +223,512 @@ export default function MonitoringPage() {
   }
 
   const selectedColumns = useMemo(() => tab === "overview" ? [] : columns[tab], [tab]);
-  const visibleNavigation = useMemo(() => {
-    const query = navigationSearch.trim().toLowerCase();
-    if (!query) return navigationGroups;
-    return navigationGroups.map(group => ({ ...group, tabs: group.tabs.filter(item => labels[item].toLowerCase().includes(query)) })).filter(group => group.tabs.length);
-  }, [navigationSearch]);
-  const selectTab = (item: Tab) => { setRows([]); setSearch(""); setTab(item); setNavigationOpen(false); };
+  const selectTab = (item: Tab | string) => {
+    setRows([]);
+    setSearch("");
+    setTab(item as Tab);
+    if (item !== "projects") setSelectedProject(null);
+  };
   const kpis = dashboard?.kpis;
   const activeProject = dashboard?.projects[0];
-  return <div className="monitoring-shell">
-    <button className={`monitoring-nav-scrim ${navigationOpen ? "visible" : ""}`} aria-label="Close construction navigation" onClick={() => setNavigationOpen(false)} />
-    <aside className={`monitoring-navigation ${navigationOpen ? "open" : ""}`} aria-label="Construction sections">
-      <div className="monitoring-nav-title"><span className="construction-mark">M</span><div><strong>Construction</strong><small>Monitoring workspace</small></div><button aria-label="Close construction navigation" onClick={() => setNavigationOpen(false)}>×</button></div>
-      <label className="monitoring-nav-search"><span aria-hidden="true">⌕</span><input value={navigationSearch} onChange={event => setNavigationSearch(event.target.value)} placeholder="Find a workspace" aria-label="Find a construction workspace" /></label>
-      <div className="monitoring-nav-scroll">{visibleNavigation.map(group => <section className="monitoring-nav-group" key={group.label}><p><span aria-hidden="true">{group.icon}</span>{group.label}</p>{group.tabs.map(item => <button aria-label={labels[item]} className={tab === item ? "active" : ""} key={item} onClick={() => selectTab(item)}><span>{labels[item]}</span>{item === "notifications" && <i aria-hidden="true">●</i>}</button>)}</section>)}</div>
-      <div className="monitoring-nav-footer"><span className="sync-dot" />Live organization data<small>Role and tenant scoped</small></div>
-    </aside>
-    <div className="monitoring-content">
-    <header className="monitoring-context-bar"><button className="monitoring-menu" aria-label="Open construction navigation" onClick={() => setNavigationOpen(true)}>☰</button><div className="monitoring-breadcrumb"><span>Construction monitoring</span><b>/</b><strong>{labels[tab]}</strong></div><div className="project-context"><span className="context-health" />{activeProject ? <><small>Active workspace</small><strong>{String(activeProject.name)}</strong></> : <strong>Portfolio view</strong>}</div></header>
-    <div className="page-wrap property-app monitoring-app">
-    <section className="monitoring-page-heading"><div><p className="eyebrow">Construction management</p><h1>{tab === "overview" ? "Project monitoring" : labels[tab]}</h1><p>{tab === "overview" ? "Verified field evidence, programme, quality, commercial control and close-out." : `Review and manage ${labels[tab].toLowerCase()} across the active organization.`}</p></div><div className="monitoring-heading-actions">{canReport && <button className="secondary-action" onClick={() => selectTab("reports")}>Export & reports</button>}{canAdminister && <button className="primary-action" onClick={() => setModal(true)}>+ Project workspace</button>}</div></section>
+  const firstName = session?.user.firstName || session?.user.username || "there";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const todayLabel = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const stageColors: Record<string, string> = {
+    planning: "#3b82f6",
+    active: "#f59e0b",
+    on_hold: "#94a3b8",
+    complete: "#06b6d4",
+    closed: "#10b981",
+    review_required: "#8b5cf6",
+  };
+  const totalProjects = Number(kpis?.portfolioProjects ?? 0);
+  const utilPct = Number(kpis?.budgetUtilization ?? 0);
+  const stageBreakdown = (dashboard?.projectStages ?? []).map((item) => ({
+    ...item,
+    pct: totalProjects ? Math.round((item.count / totalProjects) * 100) : 0,
+    color: stageColors[item.stage] || "#94a3b8",
+  }));
+  const stageConic = (() => {
+    if (!stageBreakdown.length) return "#e5e7eb 0% 100%";
+    let acc = 0;
+    const parts = stageBreakdown.map((item) => {
+      const start = acc;
+      acc += item.pct;
+      return `${item.color} ${start}% ${acc}%`;
+    });
+    if (acc < 100) parts.push(`#e5e7eb ${acc}% 100%`);
+    return parts.join(", ");
+  })();
+
+  return (
+    <ModuleShell
+      moduleKey="monitoring"
+      moduleName="Construction Monitoring"
+      eyebrow="Construction management"
+      title={tab === "overview" ? "Project monitoring" : labels[tab]}
+      subtitle={tab === "overview" ? `${greeting}, ${firstName}. Live portfolio control from verified site evidence, programme, commercial and close-out.` : `Review and manage ${labels[tab].toLowerCase()} across the active organization.`}
+      accent="#dc2626"
+      groups={constructionNav}
+      activeId={tab}
+      onSelect={selectTab}
+      contextLabel={selectedProject ? "Active project" : "Portfolio"}
+      contextValue={selectedProject ? String(selectedProject.name) : activeProject ? String(activeProject.name) : "All projects"}
+      actions={
+        <>
+          <span className="welcome-meta">📅 {todayLabel}</span>
+          {canReport && <button className="secondary-action" onClick={() => selectTab("reports")}>Export & reports</button>}
+          {canAdminister && <button className="primary-action" onClick={() => setModal(true)}>+ Project workspace</button>}
+        </>
+      }
+    >
+    <div className="property-app monitoring-app">
     {error && <div className="form-error">{error}<button onClick={load}>Retry</button></div>}
     {loading ? <div className="data-loading">Loading verified construction records…</div> : tab === "overview" && dashboard && kpis ? <>
-      <section className="monitoring-brief"><div><span className="brief-pulse"/><p>Portfolio control room</p><strong>{String(kpis.activeProjects)} active projects</strong></div><div><small>Progress submissions</small><strong>{Number(kpis.submittedMilestones)}</strong><span className="brief-stat-line">Verified milestone evidence</span></div><div><small>Budget utilization</small><strong>{Number(kpis.budgetUtilization)}%</strong><span className="brief-progress warning"><i style={{width:`${Math.min(100, Number(kpis.budgetUtilization))}%`}} /></span></div><button onClick={() => selectTab("notifications")}><small>Attention queue</small><strong>{Number(kpis.openTickets) + Number(kpis.highRisks)}</strong><span>Open issues and high risks →</span></button></section>
-      <section className="kpi-grid monitoring-kpis"><Kpi label="Active projects" value={String(kpis.activeProjects)} note={`${kpis.portfolioProjects} workspaces`} onClick={() => selectTab("projects")}/><Kpi label="Open site issues" value={String(kpis.openTickets)} note="Tracked through resolution" onClick={() => selectTab("tickets")}/><Kpi label="High exposure risks" value={String(kpis.highRisks)} note="Likelihood × impact ≥ 16" onClick={() => selectTab("risks")}/><Kpi label="Approved variations" value={cash.format(Number(kpis.approvedVariations))} note={`${kpis.submittedMilestones} progress submissions`} onClick={() => selectTab("variations")}/><Kpi label="Certified value" value={cash.format(Number(kpis.certifiedValue))} note="Current non-void certificates" onClick={() => selectTab("certificates")}/><Kpi label="Paid to date" value={cash.format(Number(kpis.paidValue))} note={`${kpis.budgetUtilization}% budget utilized`} onClick={() => selectTab("disbursements")}/></section>
-      <section className="dashboard-columns"><article className="data-panel"><PanelTitle title="Active construction portfolio" onClick={() => setTab("projects")}/><Table cols={columns.projects} rows={dashboard.projects}/></article><div className="facility-side-stack"><article className="data-panel"><PanelTitle title="Issues requiring action" onClick={() => setTab("tickets")}/>{dashboard.recentTickets.length ? dashboard.recentTickets.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("tickets")}><span><strong>{String(row.title)}</strong><small>{String(row.due_date || "No due date")} · escalation {String(row.escalation_level)}</small></span><Status value={String(row.priority)}/></button>) : <Empty/>}</article><article className="data-panel"><PanelTitle title="Risk watchlist" onClick={() => setTab("risks")}/>{dashboard.topRisks.length ? dashboard.topRisks.map(row => <button className="invoice-alert" key={String(row.id)} onClick={() => setTab("risks")}><span><strong>{String(row.reference || "Risk")}</strong><small>{String(row.description)}</small></span><b>{Number(row.likelihood) * Number(row.impact)}</b></button>) : <Empty/>}</article></div></section>
-      <section className="summary-strip">{dashboard.projectStages.map(item => <button key={item.stage} onClick={() => setTab("projects")}><b>{item.count}</b>{item.stage.replaceAll("_", " ")}</button>)}</section>
-    </> : <RegisterView tab={tab as Exclude<Tab, "overview">} rows={rows} cols={selectedColumns} search={search} setSearch={setSearch} onAction={runFinanceAction} markAllNotificationsRead={markAllNotificationsRead} downloadReport={downloadReport} selectTab={selectTab} />}
-    {modal && <div className="modal-backdrop" onMouseDown={() => setModal(false)}><div className="form-modal" onMouseDown={event => event.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Unified hierarchy</p><h2>Create construction workspace</h2></div><button onClick={() => setModal(false)}>×</button></div><form onSubmit={createProject}><label>Shared portfolio project<select required name="portfolio_project" defaultValue=""><option disabled value="">Select project</option>{portfolioProjects.map(project => <option key={String(project.id)} value={String(project.id)}>{project.code} — {project.name}</option>)}</select></label><div className="form-row"><label>Construction code<input required name="code"/></label><label>Stage<select name="stage" defaultValue="planning"><option value="planning">Planning</option><option value="active">Active</option><option value="on_hold">On hold</option><option value="complete">Complete</option></select></label></div><label>Workspace name<input required name="name"/></label><div className="form-row"><label>Client<input name="client_name"/></label><label>Location<input name="location"/></label></div><label>Description<textarea name="description" rows={3}/></label><div className="form-actions"><button type="button" onClick={() => setModal(false)}>Cancel</button><button className="primary-action">Create workspace</button></div></form></div></div>}
-    </div></div>
-  </div>;
+      <section className="kpi-grid monitoring-kpis">
+        <button className="icon-kpi" onClick={() => selectTab("projects")}><span style={{background:"#fee2e2",color:"#dc2626"}}>🏗️</span><div><small>Active Projects</small><strong>{String(kpis.activeProjects)}</strong><b>{kpis.portfolioProjects} total workspaces</b></div></button>
+        <button className="icon-kpi" onClick={() => selectTab("calendar")}><span style={{background:"#ffedd5",color:"#ea580c"}}>📋</span><div><small>Site Visits / Calendar</small><strong>{String(kpis.submittedMilestones)}</strong><b>Progress submissions</b></div></button>
+        <button className="icon-kpi" onClick={() => selectTab("drawdowns")}><span style={{background:"#dcfce7",color:"#16a34a"}}>💰</span><div><small>Drawdowns & Finance</small><strong>{cash.format(Number(kpis.certifiedValue))}</strong><b>Certified value</b></div></button>
+        <button className="icon-kpi" onClick={() => selectTab("risks")}><span style={{background:"#fee2e2",color:"#ef4444"}}>⚠</span><div><small>Risks Open</small><strong>{String(kpis.highRisks)}</strong><b>High exposure risks</b></div></button>
+        <button className="icon-kpi" onClick={() => selectTab("tickets")}><span style={{background:"#ede9fe",color:"#7c3aed"}}>🎫</span><div><small>Open Issues</small><strong>{String(kpis.openTickets)}</strong><b>Tracked to resolution</b></div></button>
+        <button className="icon-kpi" onClick={() => selectTab("disbursements")}><span style={{background:"#dbeafe",color:"#2563eb"}}>💹</span><div><small>Budget Utilization</small><strong>{utilPct}%</strong><b>{cash.format(Number(kpis.paidValue))} paid to date</b></div></button>
+      </section>
+      <div className="monitoring-dash-layout">
+        <div>
+          <section className="monitoring-overview-grid">
+            <article className="data-panel">
+              <PanelTitle title="Project Progress Overview" onClick={() => selectTab("projects")} />
+              <div className="donut-panel">
+                <div className="donut" style={{ background: `conic-gradient(${stageConic})` }}>
+                  <strong>{totalProjects}</strong>
+                  <small>Total</small>
+                </div>
+                <div className="donut-legend">
+                  {stageBreakdown.length ? stageBreakdown.map((item) => (
+                    <span key={item.stage}>
+                      <i style={{ background: item.color }} />
+                      {item.stage.replaceAll("_", " ")}
+                      <b>{item.count} ({item.pct}%)</b>
+                    </span>
+                  )) : <span>No projects yet</span>}
+                </div>
+              </div>
+            </article>
+            <article className="data-panel">
+              <PanelTitle title="Budget Utilization" onClick={() => selectTab("disbursements")} />
+              <div className="compliance-gauge">
+                <div className="donut" style={{ background: `conic-gradient(#e23b3b 0% ${Math.min(100, utilPct)}%, #e5e7eb ${Math.min(100, utilPct)}% 100%)` }}>
+                  <strong>{utilPct}%</strong>
+                  <small>Utilized</small>
+                </div>
+                <p>Paid {cash.format(Number(kpis.paidValue))} · Certified {cash.format(Number(kpis.certifiedValue))}</p>
+              </div>
+            </article>
+            <article className="data-panel">
+              <PanelTitle title="Top Risks" onClick={() => selectTab("risks")} />
+              {dashboard.topRisks.length ? dashboard.topRisks.map((row) => {
+                const score = Number(row.likelihood) * Number(row.impact);
+                return <button className="invoice-alert" key={String(row.id)} onClick={() => selectTab("risks")}>
+                  <span>
+                    <strong>{String(row.reference || "Risk")}</strong>
+                    <small>{String(row.description)}</small>
+                  </span>
+                  <b className={score >= 16 ? "status-critical" : score >= 9 ? "status-high" : ""} style={{ background: "transparent", color: score >= 16 ? "#c32929" : score >= 9 ? "#91620d" : "#566177" }}>{score}</b>
+                </button>;
+              }) : <Empty />}
+            </article>
+          </section>
+          <section className="monitoring-secondary-grid">
+            <article className="data-panel">
+              <PanelTitle title="Issues requiring action" onClick={() => selectTab("tickets")} />
+              {dashboard.recentTickets.length ? dashboard.recentTickets.map((row) => (
+                <button className="invoice-alert" key={String(row.id)} onClick={() => selectTab("tickets")}>
+                  <span>
+                    <strong>{String(row.title)}</strong>
+                    <small>{String(row.due_date || "No due date")} · escalation {String(row.escalation_level)}</small>
+                  </span>
+                  <Status value={String(row.priority)} />
+                </button>
+              )) : <Empty />}
+            </article>
+            <article className="data-panel">
+              <PanelTitle title="Active construction portfolio" onClick={() => selectTab("projects")} />
+              <Table cols={columns.projects.slice(0, 5)} rows={dashboard.projects.slice(0, 5)} />
+            </article>
+            <article className="data-panel">
+              <PanelTitle title="Recent activity" onClick={() => selectTab("audit-log")} />
+              {dashboard.recentTickets.slice(0, 4).map((row) => (
+                <button className="invoice-alert" key={`act-${String(row.id)}`} onClick={() => selectTab("tickets")}>
+                  <span>
+                    <strong>{String(row.title)}</strong>
+                    <small>Issue · {String(row.status)}</small>
+                  </span>
+                  <Status value={String(row.priority)} />
+                </button>
+              ))}
+              {!dashboard.recentTickets.length && <Empty />}
+            </article>
+          </section>
+          <section className="lifecycle-strip" aria-label="Project lifecycle stages">
+            {stageBreakdown.length ? stageBreakdown.map((item) => (
+              <button key={item.stage} className={item.stage === "active" ? "active" : ""} onClick={() => selectTab("projects")}>
+                <small>{item.stage.replaceAll("_", " ")}</small>
+                <strong>{item.count}</strong>
+              </button>
+            )) : (
+              <button onClick={() => selectTab("projects")}><small>Portfolio</small><strong>0</strong></button>
+            )}
+          </section>
+        </div>
+        <aside className="facility-side-stack">
+          <article className="quick-actions-card">
+            <header><h3>Quick Actions</h3></header>
+            {canAdminister && <button onClick={() => setModal(true)}><span style={{background:"#fee2e2"}}>＋</span>New Project Workspace</button>}
+            <button onClick={() => selectTab("daily-logs")}><span style={{background:"#dbeafe"}}>📷</span>Site Diary / Logs</button>
+            <button onClick={() => selectTab("tickets")}><span style={{background:"#ffedd5"}}>⚠</span>Raise Issue / Risk</button>
+            <button onClick={() => selectTab("drawdowns")}><span style={{background:"#dcfce7"}}>$</span>Review Drawdown</button>
+            <button onClick={() => selectTab("calendar")}><span style={{background:"#ede9fe"}}>📅</span>Schedule Meeting</button>
+            <button onClick={() => selectTab("reports")}><span style={{background:"#e0f2fe"}}>📄</span>Generate Report</button>
+            <button onClick={() => selectTab("documents")}><span style={{background:"#ffedd5"}}>📁</span>Upload Document</button>
+          </article>
+          <article className="data-panel">
+            <div className="report-hero" style={{ borderRadius: 0, minHeight: 140 }}>
+              <div>
+                <p>Construction monitoring</p>
+                <h3 style={{ fontSize: 16 }}>Made simple, transparent and accountable.</h3>
+                <span>Evidence-backed progress for every project stage.</span>
+              </div>
+            </div>
+          </article>
+        </aside>
+      </div>
+    </> : tab === "projects" && selectedProject ? (
+      <ProjectWorkspace
+        project={selectedProject}
+        loading={workspaceLoading}
+        data={workspaceData}
+        onBack={() => setSelectedProject(null)}
+        onNavigate={(item) => selectTab(item)}
+      />
+    ) : (
+      <RegisterView
+        tab={tab as Exclude<Tab, "overview">}
+        rows={rows}
+        cols={selectedColumns}
+        search={search}
+        setSearch={setSearch}
+        onAction={runFinanceAction}
+        markAllNotificationsRead={markAllNotificationsRead}
+        downloadReport={downloadReport}
+        selectTab={selectTab}
+        openProject={openProjectWorkspace}
+        portfolioView={portfolioView}
+        setPortfolioView={setPortfolioView}
+        stageFilter={stageFilter}
+        setStageFilter={setStageFilter}
+      />
+    )}
+    {modal && <div className="modal-backdrop" onMouseDown={() => { setModal(false); setOnboardingStep(1); }}><div className="form-modal tenant-intake-modal" onMouseDown={event => event.stopPropagation()}><div className="modal-title"><div><p className="eyebrow">Project onboarding</p><h2>Create construction workspace</h2></div><button onClick={() => { setModal(false); setOnboardingStep(1); }}>×</button></div><div className="onboarding-steps"><span className={onboardingStep === 1 ? "active" : ""}>1. Project</span><span className={onboardingStep === 2 ? "active" : ""}>2. Commercial</span><span className={onboardingStep === 3 ? "active" : ""}>3. Review</span></div><form onSubmit={async (event) => { if (onboardingStep < 3) { event.preventDefault(); setOnboardingStep((step) => step + 1); return; } await createProject(event); setOnboardingStep(1); }}><div style={{ display: onboardingStep === 1 ? "grid" : "none", gap: 16 }}><label>Shared portfolio project<select required name="portfolio_project" defaultValue=""><option disabled value="">Select project</option>{portfolioProjects.map(project => <option key={String(project.id)} value={String(project.id)}>{project.code} — {project.name}</option>)}</select></label><div className="form-row"><label>Construction code<input required name="code"/></label><label>Stage<select name="stage" defaultValue="planning"><option value="planning">Planning</option><option value="active">Active</option><option value="on_hold">On hold</option><option value="complete">Complete</option></select></label></div><label>Workspace name<input required name="name"/></label></div><div style={{ display: onboardingStep === 2 ? "grid" : "none", gap: 16 }}><div className="form-row"><label>Client<input name="client_name"/></label><label>Location<input name="location"/></label></div><label>Description<textarea name="description" rows={3}/></label><p className="form-help">Commercial baseline, BoQ and programme can be imported after the workspace is created.</p></div><div style={{ display: onboardingStep === 3 ? "grid" : "none", gap: 16 }}><p className="form-help">Review the project identity and create the organization-scoped construction workspace. Field evidence remains mobile-authoritative.</p></div><div className="form-actions"><button type="button" onClick={() => onboardingStep === 1 ? (setModal(false), setOnboardingStep(1)) : setOnboardingStep((step) => step - 1)}>{onboardingStep === 1 ? "Cancel" : "Back"}</button><button className="primary-action">{onboardingStep === 3 ? "Create workspace" : "Continue"}</button></div></form></div></div>}
+    </div>
+    </ModuleShell>
+  );
 }
 
 function RegisterHeader({ tab, search, setSearch, markAllNotificationsRead, downloadReport }: { tab: Exclude<Tab, "overview">; search: string; setSearch: (value: string) => void; markAllNotificationsRead: () => void; downloadReport: (kind: "boq" | "cost" | "milestones") => void }) {
   return <header className="collection-title"><div><p className="eyebrow">Organization-scoped live workspace</p><h2>{labels[tab]}</h2></div><div className="collection-actions">{tab === "notifications" && <button className="secondary-action" onClick={markAllNotificationsRead}>Mark all read</button>}{tab === "reports" && <><button className="secondary-action" onClick={() => downloadReport("boq")}>Export BoQ</button><button className="secondary-action" onClick={() => downloadReport("cost")}>Export cost</button><button className="secondary-action" onClick={() => downloadReport("milestones")}>Export progress</button></>}<label className="register-search"><span aria-hidden="true">⌕</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search records…" aria-label={`Search ${labels[tab]}`} /></label></div></header>;
 }
 
-function RegisterView({ tab, rows, cols, search, setSearch, onAction, markAllNotificationsRead, downloadReport, selectTab }: { tab: Exclude<Tab, "overview">; rows: Row[]; cols: { key: string; label: string; kind?: "money" | "status" | "progress" }[]; search: string; setSearch: (value: string) => void; onAction: (row: Row, action: string) => void; markAllNotificationsRead: () => void; downloadReport: (kind: "boq" | "cost" | "milestones") => void; selectTab: (tab: Tab) => void }) {
+function ProjectWorkspace({
+  project,
+  loading,
+  data,
+  onBack,
+  onNavigate,
+}: {
+  project: Row;
+  loading: boolean;
+  data: {
+    milestones: Row[];
+    risks: Row[];
+    tickets: Row[];
+    workPlan: Row[];
+    documents: Row[];
+    bimModels: Row[];
+    scurve: { series?: { week: string; planned_percent?: number | null; actual_percent?: number | null }[] };
+    kpis: Record<string, string | number>;
+    project: Row;
+  };
+  onBack: () => void;
+  onNavigate: (tab: Tab) => void;
+}) {
+  const active = data.project?.id ? data.project : project;
+  const avgProgress = Number(data.kpis.averageProgress ?? (
+    data.milestones.length
+      ? Math.round((data.milestones.reduce((sum, row) => sum + Number(row.percent_complete ?? 0), 0) / data.milestones.length) * 10) / 10
+      : 0
+  ));
+  const completed = Number(data.kpis.milestonesComplete ?? data.milestones.filter((row) => Number(row.percent_complete ?? 0) >= 100).length);
+  const nextMilestone = data.milestones.find((row) => Number(row.percent_complete ?? 0) < 100);
+  const openTickets = Number(data.kpis.openTickets ?? data.tickets.filter((row) => !["closed", "resolved"].includes(String(row.status))).length);
+  const openRisks = Number(data.kpis.openRisks ?? data.risks.filter((row) => String(row.status) !== "closed").length);
+  const series = data.scurve?.series ?? [];
+  const maxY = Math.max(100, ...series.map((point) => Math.max(Number(point.planned_percent ?? 0), Number(point.actual_percent ?? 0))));
+  return (
+    <article className="data-panel project-workspace-panel">
+      <header className="project-workspace-header">
+        <div>
+          <button className="secondary-action" onClick={onBack}>← Back to portfolio</button>
+          <div className="project-workspace-title">
+            <span className="mono-code">{String(active.code ?? "PROJECT")}</span>
+            <h2>{String(active.name ?? "Project workspace")}</h2>
+            <Status value={String(active.stage ?? "planning")} />
+          </div>
+          <p className="project-workspace-meta">
+            ⌖ {String(active.location ?? "Location not set")}
+            {active.client_name ? ` · Client: ${String(active.client_name)}` : ""}
+            {active.planned_completion_date ? ` · Target ${String(active.planned_completion_date)}` : ""}
+          </p>
+        </div>
+        <div className="monitoring-heading-actions">
+          <button className="secondary-action" onClick={() => onNavigate("reports")}>Share / Reports</button>
+          <button className="secondary-action" onClick={() => onNavigate("bim-models")}>BIM models</button>
+          <button className="primary-action" onClick={() => onNavigate("daily-logs")}>+ New log</button>
+        </div>
+      </header>
+      {loading ? <div className="data-loading">Loading project command center…</div> : (
+        <>
+          <div className="workspace-stat-row project-workspace-stats">
+            <WorkspaceStat label="Physical progress" value={`${avgProgress}%`} tone="blue" />
+            <WorkspaceStat label="Milestones complete" value={`${completed}/${Number(data.kpis.milestones ?? data.milestones.length ?? 0)}`} tone="green" />
+            <WorkspaceStat label="Open issues" value={openTickets} tone="red" />
+            <WorkspaceStat label="Open risks" value={openRisks} tone="amber" />
+            <WorkspaceStat label="Budget utilized" value={`${Number(data.kpis.budgetUtilization ?? 0)}%`} tone="blue" />
+          </div>
+          <div className="project-workspace-shortcuts">
+            {([
+              ["milestones", "Progress"],
+              ["work-plan", "Programme"],
+              ["tickets", "Issues"],
+              ["risks", "Risks"],
+              ["boq", "BoQ & cost"],
+              ["documents", "Documents"],
+              ["bim-models", "BIM"],
+              ["drawdowns", "Drawdowns"],
+              ["daily-logs", "Site diary"],
+            ] as [Tab, string][]).map(([item, label]) => (
+              <button key={item} onClick={() => onNavigate(item)}>{label}</button>
+            ))}
+          </div>
+          <div className="monitoring-overview-grid">
+            <article className="data-panel nested-panel">
+              <PanelTitle title="Progress over time (S-curve)" onClick={() => onNavigate("milestones")} />
+              {series.length ? (
+                <div className="scurve-chart" aria-label="Planned versus actual progress">
+                  <div className="scurve-plot">
+                    {series.map((point) => (
+                      <div className="scurve-column" key={point.week}>
+                        <div className="scurve-bars">
+                          <i className="planned" style={{ height: `${(Number(point.planned_percent ?? 0) / maxY) * 100}%` }} title={`Planned ${point.planned_percent ?? "—"}%`} />
+                          <i className="actual" style={{ height: `${(Number(point.actual_percent ?? 0) / maxY) * 100}%` }} title={`Actual ${point.actual_percent ?? "—"}%`} />
+                        </div>
+                        <span>{point.week.replace(/^\d{4}-W/, "W")}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="chart-legend">
+                    <span><i className="billed" />Planned</span>
+                    <span><i className="collected" />Actual</span>
+                  </div>
+                </div>
+              ) : <Empty />}
+            </article>
+            <article className="data-panel nested-panel">
+              <PanelTitle title="Progress milestones" onClick={() => onNavigate("milestones")} />
+              {data.milestones.length ? data.milestones.slice(0, 5).map((row, index) => (
+                <button className="invoice-alert" key={String(row.id ?? index)} onClick={() => onNavigate("milestones")}>
+                  <span>
+                    <strong>{String(row.milestone_id ?? "Milestone")}</strong>
+                    <small>{String(row.required_certifying_role ?? "Certifier")} · {String(row.submitted_at ?? "Not submitted")}</small>
+                  </span>
+                  <b>{Number(row.percent_complete ?? 0)}%</b>
+                </button>
+              )) : <Empty />}
+              {nextMilestone && (
+                <div className="next-milestone-callout">
+                  <small>Next milestone</small>
+                  <strong>{String(nextMilestone.milestone_id ?? "In progress")}</strong>
+                </div>
+              )}
+            </article>
+            <article className="data-panel nested-panel">
+              <PanelTitle title="BIM & digital twin" onClick={() => onNavigate("bim-models")} />
+              {data.bimModels.length ? data.bimModels.map((row, index) => (
+                <button className="invoice-alert" key={String(row.id ?? index)} onClick={() => onNavigate("bim-models")}>
+                  <span>
+                    <strong>{String(row.name ?? "BIM model")}</strong>
+                    <small>{String(row.discipline ?? "Model")} · v{String(row.version ?? "1")} · {String(row.element_count ?? 0)} elements</small>
+                  </span>
+                  <Status value={String(row.processing_status ?? "ready")} />
+                </button>
+              )) : <Empty />}
+              <div className="bim-viewer-preview" aria-hidden="true">
+                <span>IFC / model preview</span>
+                <strong>{String(active.code ?? "MODEL")}</strong>
+              </div>
+            </article>
+          </div>
+          <div className="monitoring-secondary-grid">
+            <article className="data-panel nested-panel">
+              <PanelTitle title="Programme snapshot" onClick={() => onNavigate("work-plan")} />
+              {data.workPlan.length ? data.workPlan.slice(0, 5).map((row, index) => (
+                <div className="programme-row compact" key={String(row.id ?? index)}>
+                  <div>
+                    <span>{String(row.task_id ?? index + 1)}</span>
+                    <strong>{String(row.task_name ?? "Activity")}</strong>
+                    <small>{String(row.responsible_party ?? "Unassigned")}</small>
+                  </div>
+                  <div className="programme-progress">
+                    <span><i style={{ width: `${Math.min(100, Number(row.percent_complete ?? 0))}%` }} /></span>
+                    <b>{Number(row.percent_complete ?? 0)}%</b>
+                  </div>
+                </div>
+              )) : <Empty />}
+            </article>
+            <article className="data-panel nested-panel">
+              <PanelTitle title="Risks & issues" onClick={() => onNavigate("risks")} />
+              {data.risks.length ? data.risks.slice(0, 4).map((row, index) => (
+                <button className="invoice-alert" key={String(row.id ?? index)} onClick={() => onNavigate("risks")}>
+                  <span>
+                    <strong>{String(row.reference ?? "Risk")}</strong>
+                    <small>{String(row.description)}</small>
+                  </span>
+                  <b>{Number(row.likelihood ?? 0) * Number(row.impact ?? 0)}</b>
+                </button>
+              )) : <Empty />}
+              {data.tickets.slice(0, 3).map((row, index) => (
+                <button className="invoice-alert" key={`t-${String(row.id ?? index)}`} onClick={() => onNavigate("tickets")}>
+                  <span>
+                    <strong>{String(row.title)}</strong>
+                    <small>Issue · due {String(row.due_date ?? "not set")}</small>
+                  </span>
+                  <Status value={String(row.priority ?? "normal")} />
+                </button>
+              ))}
+            </article>
+            <article className="data-panel nested-panel">
+              <PanelTitle title="Controlled documents" onClick={() => onNavigate("documents")} />
+              {data.documents.length ? (
+                <div className="document-card-grid">
+                  {data.documents.map((row, index) => (
+                    <article className="document-card" key={String(row.id ?? index)}>
+                      <div className="file-icon">{String(row.doc_type ?? "DOC").slice(0, 4).toUpperCase()}</div>
+                      <div>
+                        <p>{String(row.discipline ?? "Project document")}</p>
+                        <strong>{String(row.title ?? "Controlled document")}</strong>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : <Empty />}
+            </article>
+          </div>
+        </>
+      )}
+    </article>
+  );
+}
+
+function RegisterView({
+  tab,
+  rows,
+  cols,
+  search,
+  setSearch,
+  onAction,
+  markAllNotificationsRead,
+  downloadReport,
+  selectTab,
+  openProject,
+  portfolioView,
+  setPortfolioView,
+  stageFilter,
+  setStageFilter,
+}: {
+  tab: Exclude<Tab, "overview">;
+  rows: Row[];
+  cols: { key: string; label: string; kind?: "money" | "status" | "progress" }[];
+  search: string;
+  setSearch: (value: string) => void;
+  onAction: (row: Row, action: string) => void;
+  markAllNotificationsRead: () => void;
+  downloadReport: (kind: "boq" | "cost" | "milestones") => void;
+  selectTab: (tab: Tab) => void;
+  openProject: (project: Row) => void;
+  portfolioView: "cards" | "list";
+  setPortfolioView: (view: "cards" | "list") => void;
+  stageFilter: string;
+  setStageFilter: (value: string) => void;
+}) {
   const header = <RegisterHeader tab={tab} search={search} setSearch={setSearch} markAllNotificationsRead={markAllNotificationsRead} downloadReport={downloadReport} />;
-  if (tab === "projects") return <article className="data-panel construction-portfolio">{header}<div className="portfolio-toolbar-row"><span><b>{rows.length}</b> project workspaces</span><div><button className="view-option active" aria-label="Card view">▦</button><button className="view-option" aria-label="List view">☷</button></div></div>{rows.length ? <div className="construction-project-grid">{rows.map((row, index) => <button className="construction-project-card" key={String(row.id ?? index)} onClick={() => selectTab("milestones")}><div className={`project-visual project-visual-${index % 3}`}><span>{String(row.code ?? "PROJECT")}</span><Status value={String(row.stage ?? "planning")}/></div><div className="project-card-body"><p>{String(row.client_name ?? "Client project")}</p><h3>{String(row.name ?? "Untitled project")}</h3><span className="project-location">⌖ {String(row.location ?? "Location not set")}</span><div className="project-budget"><span><small>Approved budget</small><b>{cash.format(Number(row.budget ?? 0))}</b></span><span><small>Target completion</small><b>{String(row.planned_completion_date ?? "—")}</b></span></div><span className="project-open">Open project workspace →</span></div></button>)}</div> : <Empty/>}</article>;
+  if (tab === "projects") {
+    const stages = Array.from(new Set(rows.map((row) => String(row.stage ?? "planning"))));
+    const filtered = rows.filter((row) => stageFilter === "all" || String(row.stage) === stageFilter);
+    const activeCount = rows.filter((row) => row.stage === "active").length;
+    const planningCount = rows.filter((row) => row.stage === "planning").length;
+    const completeCount = rows.filter((row) => ["complete", "closed"].includes(String(row.stage))).length;
+    return (
+      <article className="data-panel construction-portfolio">
+        {header}
+        <div className="portfolio-filter-bar">
+          <div className="stage-filter-pills">
+            {[
+              { id: "all", label: `All Projects (${rows.length})` },
+              { id: "active", label: `Active (${activeCount})` },
+              { id: "planning", label: `Planning (${planningCount})` },
+              { id: "complete", label: `Completed (${completeCount})` },
+              ...stages.filter((stage) => !["active", "planning", "complete", "closed"].includes(stage)).map((stage) => ({ id: stage, label: stage.replaceAll("_", " ") })),
+            ].map((item) => (
+              <button key={item.id} className={stageFilter === item.id ? "active" : ""} onClick={() => setStageFilter(item.id)}>{item.label}</button>
+            ))}
+          </div>
+          <div className="portfolio-toolbar-row inline">
+            <span><b>{filtered.length}</b> project workspaces</span>
+            <div>
+              <button className={`view-option ${portfolioView === "cards" ? "active" : ""}`} aria-label="Card view" onClick={() => setPortfolioView("cards")}>▦</button>
+              <button className={`view-option ${portfolioView === "list" ? "active" : ""}`} aria-label="List view" onClick={() => setPortfolioView("list")}>☷</button>
+            </div>
+          </div>
+        </div>
+        {filtered.length ? (
+          portfolioView === "cards" ? (
+            <div className="construction-project-grid">
+              {filtered.map((row, index) => (
+                <button className="construction-project-card" key={String(row.id ?? index)} onClick={() => openProject(row)}>
+                  <div className={`project-visual project-visual-${index % 3}`}>
+                    <span>{String(row.code ?? "PROJECT")}</span>
+                    <Status value={String(row.stage ?? "planning")} />
+                  </div>
+                  <div className="project-card-body">
+                    <p>{String(row.client_name ?? "Client project")}</p>
+                    <h3>{String(row.name ?? "Untitled project")}</h3>
+                    <span className="project-location">⌖ {String(row.location ?? "Location not set")}</span>
+                    <div className="project-budget">
+                      <span><small>Approved budget</small><b>{cash.format(Number(row.budget ?? 0))}</b></span>
+                      <span><small>Target completion</small><b>{String(row.planned_completion_date ?? "—")}</b></span>
+                    </div>
+                    <span className="project-open">Open project workspace →</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Table cols={columns.projects} rows={filtered} />
+          )
+        ) : <Empty />}
+      </article>
+    );
+  }
   if (tab === "work-plan") return <article className="data-panel programme-workspace">{header}<div className="programme-summary"><span><small>Programme activities</small><strong>{rows.length}</strong></span><span><small>In progress</small><strong>{rows.filter(row => String(row.status).includes("progress")).length}</strong></span><span><small>Completed</small><strong>{rows.filter(row => String(row.status) === "completed").length}</strong></span><span><small>Requires attention</small><strong>{rows.filter(row => ["delayed", "blocked", "overdue"].includes(String(row.status))).length}</strong></span></div>{rows.length ? <div className="programme-list">{rows.map((row, index) => <div className="programme-row" key={String(row.id ?? index)}><div><span>{String(row.task_id ?? index + 1)}</span><strong>{String(row.task_name ?? "Programme activity")}</strong><small>{String(row.responsible_party ?? "Unassigned")}</small></div><div className="programme-dates"><small>{String(row.start_date ?? "—")}</small><span>→</span><small>{String(row.end_date ?? "—")}</small></div><div className="programme-progress"><span><i style={{width:`${Math.min(100, Number(row.percent_complete ?? 0))}%`}} /></span><b>{Number(row.percent_complete ?? 0)}%</b></div><Status value={String(row.status ?? "planned")}/></div>)}</div> : <Empty/>}</article>;
   if (tab === "risks") return <article className="data-panel risk-workspace">{header}<div className="risk-layout-new"><div className="risk-register-cards">{rows.length ? rows.map((row, index) => { const score = Number(row.likelihood ?? 0) * Number(row.impact ?? 0); return <button key={String(row.id ?? index)} className="risk-register-card" onClick={() => selectTab("tickets")}><span className={`risk-score risk-score-${score >= 16 ? "critical" : score >= 9 ? "high" : "moderate"}`}>{score}</span><div><p>{String(row.reference ?? "Risk")}</p><strong>{String(row.description ?? "Risk description")}</strong><small>{String(row.category ?? "General")} · {String(row.mitigation ?? "Mitigation not recorded")}</small></div><Status value={String(row.status ?? "open")}/></button>}) : <Empty/>}</div><aside className="risk-matrix"><h3>Exposure matrix</h3><p>Likelihood × impact</p><div className="matrix-grid">{[5,4,3,2,1].flatMap(likelihood => [1,2,3,4,5].map(impact => { const count = rows.filter(row => Number(row.likelihood) === likelihood && Number(row.impact) === impact).length; const score = likelihood * impact; return <span className={score >= 16 ? "critical" : score >= 9 ? "high" : score >= 4 ? "moderate" : "low"} key={`${likelihood}-${impact}`}>{count || ""}</span> }))}</div><div className="matrix-legend"><span><i className="low"/>Low</span><span><i className="moderate"/>Moderate</span><span><i className="high"/>High</span><span><i className="critical"/>Critical</span></div></aside></div></article>;
   if (tab === "tickets") return <article className="data-panel issues-workspace">{header}<div className="workspace-stat-row"><WorkspaceStat label="Open issues" value={rows.filter(row => !["closed", "resolved"].includes(String(row.status))).length} tone="blue"/><WorkspaceStat label="Urgent priority" value={rows.filter(row => ["urgent", "critical", "high"].includes(String(row.priority))).length} tone="red"/><WorkspaceStat label="Escalated" value={rows.filter(row => Number(row.escalation_level ?? 0) > 0).length} tone="amber"/><WorkspaceStat label="Resolved" value={rows.filter(row => ["closed", "resolved"].includes(String(row.status))).length} tone="green"/></div><div className="issue-board">{["urgent", "high", "normal"].map(priority => <section key={priority}><h3><span className={`priority-dot ${priority}`}/>{priority === "normal" ? "Other active" : `${priority} priority`}<b>{rows.filter(row => priority === "normal" ? !["urgent", "high"].includes(String(row.priority)) : String(row.priority) === priority).length}</b></h3>{rows.filter(row => priority === "normal" ? !["urgent", "high"].includes(String(row.priority)) : String(row.priority) === priority).map((row,index) => <button className="issue-card" key={String(row.id ?? index)} onClick={() => selectTab("ticket-comments")}><div><Status value={String(row.status ?? "open")}/><span>{String(row.risk_level ?? "medium")} risk</span></div><strong>{String(row.title ?? "Site issue")}</strong><small>Due {String(row.due_date ?? "not set")} · escalation {String(row.escalation_level ?? 0)}</small><i>Open discussion →</i></button>)}</section>)}</div></article>;
@@ -244,6 +747,7 @@ function RegisterView({ tab, rows, cols, search, setSearch, onAction, markAllNot
     return <article className="data-panel finance-control-workspace">{header}<div className="finance-control-strip"><div><p>Financial control</p><strong>{cash.format(total)}</strong><small>Total visible value</small></div><div className="finance-ring" style={{"--ring": `${Math.min(100, rows.length ? rows.filter(row => ["approved","paid","disbursed"].includes(String(row.status))).length / rows.length * 100 : 0)}%`} as CSSProperties}><span>{rows.length}</span><small>records</small></div><WorkspaceStat label="Pending control" value={rows.filter(row => ["draft","submitted","pending","reviewed","document_review","valuation_review"].includes(String(row.status))).length} tone="amber"/><WorkspaceStat label="Completed" value={rows.filter(row => ["approved","paid","disbursed"].includes(String(row.status))).length} tone="green"/></div><Table cols={cols} rows={rows} tab={tab} onAction={onAction}/></article>;
   }
   if (tab === "documents" || tab === "document-versions") return <article className="data-panel document-workspace">{header}<div className="document-toolbar"><span><b>{rows.length}</b> controlled files</span><span>Immutable revision history</span><span>Organization scoped</span></div>{rows.length ? <div className="document-card-grid">{rows.map((row,index) => <article className="document-card" key={String(row.id ?? index)}><div className="file-icon">{String(row.file_format ?? row.doc_type ?? "DOC").slice(0,4).toUpperCase()}</div><div><p>{String(row.discipline ?? row.project_name ?? "Project document")}</p><strong>{String(row.title ?? row.document_title ?? "Controlled document")}</strong>{tab === "document-versions" ? <small><span>{String(row.revision_number ?? "Revision")}</span> · version {String(row.version ?? "—")}</small> : <small>{String(row.doc_type ?? "Document")}</small>}</div><div className="document-meta"><Status value={String(row.file_format ?? row.doc_type ?? "file")}/><small>{String(row.uploaded_at ?? row.created_at ?? "")}</small></div></article>)}</div> : <Empty/>}</article>;
+  if (tab === "bim-models") return <article className="data-panel bim-workspace">{header}<div className="document-toolbar"><span><b>{rows.length}</b> BIM models</span><span>Discipline-linked digital twins</span><span>Project scoped</span></div><div className="bim-layout">{rows.length ? <div className="document-card-grid">{rows.map((row,index) => <article className="document-card" key={String(row.id ?? index)}><div className="file-icon">BIM</div><div><p>{String(row.discipline ?? "Model")}</p><strong>{String(row.name ?? "BIM model")}</strong><small>v{String(row.version ?? "1")} · {String(row.element_count ?? 0)} elements · {String(row.file_format ?? "IFC")}</small></div><div className="document-meta"><Status value={String(row.processing_status ?? "ready")}/></div></article>)}</div> : <Empty/>}<aside className="bim-viewer-panel"><p>Model viewer</p><div className="bim-viewer-preview large"><span>IFC viewport</span><strong>{rows[0] ? String(rows[0].name) : "No model selected"}</strong><small>Clash detection, quantity take-off and progress overlays attach here.</small></div></aside></div></article>;
   if (tab === "reports") return <article className="data-panel reports-workspace">{header}<div className="report-hero"><div><p>Construction intelligence</p><h3>Progress and control reporting</h3><span>Export auditable project evidence or review reporting periods below.</span></div><div><strong>{rows.length}</strong><small>reporting periods</small></div></div><div className="report-cards"><button onClick={() => downloadReport("boq")}><span>▤</span><strong>Bill of quantities</strong><small>Commercial baseline and item status</small></button><button onClick={() => downloadReport("cost")}><span>◈</span><strong>Cost report</strong><small>Budget, commitments and exposure</small></button><button onClick={() => downloadReport("milestones")}><span>◷</span><strong>Progress evidence</strong><small>Verified milestone submissions</small></button></div><Table cols={cols} rows={rows}/></article>;
   if (tab === "notifications" || tab === "chat") return <article className="data-panel collaboration-workspace">{header}<div className="collaboration-layout"><div className="collaboration-feed">{rows.length ? rows.map((row,index) => <article key={String(row.id ?? index)}><span className="feed-avatar">{String(row.sender_name ?? row.type ?? "CE").slice(0,2).toUpperCase()}</span><div><p>{String(row.sender_name ?? row.title ?? "System notification")}</p><strong>{String(row.body ?? "No message body")}</strong><small>{String(row.channel ?? row.created_at ?? "")}</small></div>{tab === "notifications" && <Status value={row.read_at ? "read" : "unread"}/>}</article>) : <Empty/>}</div><aside><h3>Team collaboration</h3><p>Messages and notifications remain connected to the active organization and project evidence.</p><span><b>{rows.length}</b> visible records</span><span><b>{rows.filter(row => !row.read_at).length}</b> requiring attention</span></aside></div></article>;
   return <article className="data-panel">{header}<Table cols={cols} rows={rows} tab={tab} onAction={onAction}/></article>;
@@ -251,7 +755,6 @@ function RegisterView({ tab, rows, cols, search, setSearch, onAction, markAllNot
 
 function WorkspaceStat({ label, value, tone }: { label: string; value: string | number; tone: "blue" | "red" | "amber" | "green" }) { return <span className={`workspace-stat ${tone}`}><small>{label}</small><strong>{value}</strong><i/></span>; }
 
-function Kpi({ label, value, note, onClick }: { label: string; value: string; note: string; onClick: () => void }) { return <button className="kpi-card" onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{note}</small><i>Open register →</i></button>; }
 function PanelTitle({ title, onClick }: { title: string; onClick: () => void }) { return <header className="panel-title"><h2>{title}</h2><button onClick={onClick}>View all →</button></header>; }
 function Status({ value }: { value: string }) { return <span className={`data-status status-${value}`}>{value.replaceAll("_", " ")}</span>; }
 function Empty() { return <div className="empty-state">No records requiring attention.</div>; }
