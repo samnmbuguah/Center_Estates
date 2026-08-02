@@ -2,7 +2,7 @@
  * Maps an S-curve series (planned vs actual cumulative %) onto SVG polyline
  * coordinates. Kept pure so the chart maths is unit-testable without a DOM.
  */
-import type { SCurvePoint } from "@monitoring/shared-types";
+import type { SCurvePoint } from "../shared-types";
 
 export function polylinePoints(
   series: SCurvePoint[],

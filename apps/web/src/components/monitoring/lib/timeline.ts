@@ -4,7 +4,7 @@
  * date, so the office can flick through "this work area on every visit".
  * Pure + unit-tested; the page just renders the result.
  */
-import type { EvidenceFileRow, MilestoneEntryRow } from "@monitoring/shared-types";
+import type { EvidenceFileRow, MilestoneEntryRow } from "../shared-types";
 
 export interface TimelinePhoto {
   id: string;

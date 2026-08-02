@@ -2,7 +2,7 @@
  * Issues dashboard helpers (SRS-MOB-OBS-03): flagged observations must be
  * visually distinguished and surfaced urgent-first. Pure + unit-tested.
  */
-import type { IssueRow } from "@monitoring/shared-types";
+import type { IssueRow } from "../shared-types";
 
 const FLAG_WEIGHT: Record<string, number> = { urgent: 0, issue: 1, none: 2 };
 
