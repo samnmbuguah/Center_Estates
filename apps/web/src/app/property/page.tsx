@@ -319,8 +319,10 @@ export default function PropertyManagementPage() {
   const [showTenant, setShowTenant] = useState(false);
   const [showTenantDocument, setShowTenantDocument] = useState(false);
   const [showLease, setShowLease] = useState(false);
+  const [financialIntake, setFinancialIntake] = useState<"expense" | "budget" | null>(null);
   const [tenantOptions, setTenantOptions] = useState<Tenant[]>([]);
   const [unitOptions, setUnitOptions] = useState<Unit[]>([]);
+  const [propertyOptions, setPropertyOptions] = useState<Property[]>([]);
   const [openInvoices, setOpenInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState("");
   const loadVersion = useRef(0);
@@ -408,6 +410,10 @@ export default function PropertyManagementPage() {
       showLease ? apiFetch("/property/units/?status=available", {}, organizationId).then(response => response.ok ? response.json() : []) : Promise.resolve([]),
     ]).then(([tenants, units]) => { setTenantOptions(tenants); if (showLease) setUnitOptions(units); });
   }, [organizationId, showLease, showTenantDocument]);
+  useEffect(() => {
+    if (!financialIntake || !organizationId) return;
+    apiFetch("/property/properties/", {}, organizationId).then(response => response.ok ? response.json() : []).then(setPropertyOptions);
+  }, [financialIntake, organizationId]);
 
   async function createProperty(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -578,6 +584,17 @@ export default function PropertyManagementPage() {
       return;
     }
     setShowLease(false); setTab("leases"); await load();
+  }
+
+  async function createFinancialRecord(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!financialIntake) return;
+    const payload=Object.fromEntries(new FormData(event.currentTarget).entries());
+    const endpoint=financialIntake === "expense" ? "expenses" : "budgets";
+    await apiFetch("/auth/csrf/");
+    const response=await apiFetch(`/property/${endpoint}/`,{method:"POST",headers:{"X-CSRFToken":csrfFromCookie()},body:JSON.stringify(payload)},organizationId);
+    if(!response.ok){const body=await response.json().catch(()=>({}));setError(Object.values(body).flat().join(" ")||`The ${financialIntake} could not be saved.`);return;}
+    setFinancialIntake(null);setTab(financialIntake === "expense" ? "expenses" : "budgets");await load();
   }
 
   async function runAction(path: string) {
@@ -888,6 +905,8 @@ export default function PropertyManagementPage() {
           onAddTenant={() => setShowTenant(true)}
           onAddTenantDocument={() => setShowTenantDocument(true)}
           onAddLease={() => setShowLease(true)}
+          onAddExpense={() => setFinancialIntake("expense")}
+          onAddBudget={() => setFinancialIntake("budget")}
           permissions={{ canLease, canFinance, canApprove, canReport }}
         />
       )}
@@ -1317,6 +1336,20 @@ export default function PropertyManagementPage() {
           </div>
         </div>
       )}
+      {financialIntake && (
+        <div className="modal-backdrop" onMouseDown={() => setFinancialIntake(null)}>
+          <div className="form-modal" role="dialog" aria-modal="true" aria-labelledby="financial-intake" onMouseDown={event=>event.stopPropagation()}>
+            <div className="modal-title"><div><p className="eyebrow">Property finance</p><h2 id="financial-intake">{financialIntake === "expense" ? "Record supplier expense" : "Create budget line"}</h2></div><button aria-label="Close" onClick={()=>setFinancialIntake(null)}>×</button></div>
+            <form onSubmit={createFinancialRecord}>
+              <label>Property<select name="property" required defaultValue=""><option value="" disabled>Select property</option>{propertyOptions.map(property=><option key={property.id} value={property.id}>{property.code} — {property.name}</option>)}</select></label>
+              {financialIntake === "expense" ? <><div className="form-row"><label>Supplier<input name="supplier" required /></label><label>Supplier invoice<input name="invoice_number" /></label></div><div className="form-row"><label>Category<input name="category" required placeholder="Utilities" /></label><label>Incurred on<input name="incurred_on" type="date" required /></label></div><label>Description<textarea name="description" rows={3}/></label></> : <div className="form-row"><label>Budget year<input name="year" type="number" min="2020" max="2100" defaultValue={new Date().getFullYear()} required /></label><label>Category<input name="category" required placeholder="Repairs and maintenance" /></label></div>}
+              <label>{financialIntake === "expense" ? "Expense amount" : "Annual budget"}<input name="amount" type="number" min={financialIntake === "expense" ? "0.01" : "0"} step="0.01" required /></label>
+              <p className="form-help">This record starts in draft and must follow the controlled submit and approval workflow before it affects approved reporting.</p>
+              <div className="form-actions"><button type="button" onClick={()=>setFinancialIntake(null)}>Cancel</button><button className="primary-action">Save draft</button></div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1488,6 +1521,8 @@ function Collection({
   onAddTenant,
   onAddTenantDocument,
   onAddLease,
+  onAddExpense,
+  onAddBudget,
   permissions,
 }: {
   tab: Tab;
@@ -1499,6 +1534,8 @@ function Collection({
   onAddTenant: () => void;
   onAddTenantDocument: () => void;
   onAddLease: () => void;
+  onAddExpense: () => void;
+  onAddBudget: () => void;
   permissions: {
     canLease: boolean;
     canFinance: boolean;
@@ -1975,6 +2012,8 @@ function Collection({
           {tab === "leases" && canLease && (
             <button className="secondary-action" onClick={onAddLease}>+ Create lease</button>
           )}
+          {tab === "expenses" && canFinance && <button className="secondary-action" onClick={onAddExpense}>+ Record expense</button>}
+          {tab === "budgets" && canFinance && <button className="secondary-action" onClick={onAddBudget}>+ Add budget line</button>}
           <input
             aria-label={`Search ${labels[tab]}`}
             value={search}

@@ -107,6 +107,30 @@ test("property leasing officer can create a controlled draft lease", async ({ pa
   await expect(page.getByRole("row").filter({ hasText: reference })).toContainText("draft");
 });
 
+test("property finance can capture draft budgets and supplier expenses", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutations avoid parallel finance register races");
+  await page.goto("/property");
+  const suffix=Date.now();
+  await page.getByRole("button", {name:"Budgets",exact:true}).click();
+  await page.getByRole("button", {name:"+ Add budget line",exact:true}).click();
+  let dialog=page.getByRole("dialog",{name:"Create budget line"});
+  await dialog.getByLabel("Property").selectOption({index:1});
+  await dialog.getByLabel("Category").fill(`E2E Budget ${suffix}`);
+  await dialog.getByLabel("Annual budget").fill("950000");
+  await dialog.getByRole("button",{name:"Save draft"}).click();
+  await expect(page.getByRole("row").filter({hasText:`E2E Budget ${suffix}`})).toContainText("draft");
+  await page.getByRole("button", {name:"Expenses",exact:true}).click();
+  await page.getByRole("button", {name:"+ Record expense",exact:true}).click();
+  dialog=page.getByRole("dialog",{name:"Record supplier expense"});
+  await dialog.getByLabel("Property").selectOption({index:1});
+  await dialog.getByLabel("Supplier", {exact:true}).fill(`E2E Supplier ${suffix}`);
+  await dialog.getByLabel("Category").fill("Repairs");
+  await dialog.getByLabel("Incurred on").fill("2026-08-02");
+  await dialog.getByLabel("Expense amount").fill("28500");
+  await dialog.getByRole("button",{name:"Save draft"}).click();
+  await expect(page.getByRole("row").filter({hasText:`E2E Supplier ${suffix}`})).toContainText("draft");
+});
+
 test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
   await page.goto("/property");
