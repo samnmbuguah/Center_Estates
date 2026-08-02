@@ -1,7 +1,7 @@
 "use client";
 
-import FacilityPage from "../page";
+import { FacilityWorkspace } from "../page";
 
 export default function WorkOrdersDirectoryPage() {
-  return <FacilityPage initialTab="work-orders" />;
+  return <FacilityWorkspace defaultTab="work-orders" />;
 }

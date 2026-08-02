@@ -1,7 +1,7 @@
 "use client";
 
-import FacilityPage from "../page";
+import { FacilityWorkspace } from "../page";
 
 export default function AssetsDirectoryPage() {
-  return <FacilityPage initialTab="assets" />;
+  return <FacilityWorkspace defaultTab="assets" />;
 }

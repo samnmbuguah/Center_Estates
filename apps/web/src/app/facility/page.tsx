@@ -2080,7 +2080,7 @@ function GenericListView({
 }
 
 /* ─── Main page ─── */
-export default function FacilityPage({ initialTab = "overview" }: { initialTab?: Tab }) {
+export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Tab }) {
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
   const canWork = can("facility.work") || can("facility.manage");
@@ -2091,8 +2091,9 @@ export default function FacilityPage({ initialTab = "overview" }: { initialTab?:
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
       if (q && labels[q]) return q;
     }
-    return initialTab;
+    return defaultTab;
   });
+
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
@@ -2317,3 +2318,8 @@ export default function FacilityPage({ initialTab = "overview" }: { initialTab?:
     </ModuleShell>
   );
 }
+
+export default function FacilityPage() {
+  return <FacilityWorkspace defaultTab="overview" />;
+}
+
