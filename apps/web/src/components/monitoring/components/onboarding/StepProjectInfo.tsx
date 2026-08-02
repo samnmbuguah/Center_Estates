@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import { SubmitButton } from "../../components/FormField";
 
-const MODULE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
+const MODULE_ICONS: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
+
   full_package: Package,
   progress_tracking: TrendingUp,
   financials: ChartLine,
