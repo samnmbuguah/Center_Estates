@@ -79,20 +79,23 @@ export function NavLink({
   to,
   children,
   className,
+  ...props
 }: {
   to: string;
   children: React.ReactNode;
   className?: string | ((props: { isActive: boolean }) => string);
+  [key: string]: any;
 }) {
   const loc = useLocation();
   const isActive = loc.pathname === to;
   const cls = typeof className === "function" ? className({ isActive }) : className;
   return (
-    <Link to={to} className={cls}>
+    <Link to={to} className={cls} {...props}>
       {children}
     </Link>
   );
 }
+
 
 export function Outlet() {
   return null;
