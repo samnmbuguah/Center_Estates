@@ -59,7 +59,10 @@ export const facilityNav: ModuleNavGroup[] = [
   {
     label: "Assets & locations",
     icon: "▣",
-    items: [{ id: "assets", label: "Assets" }],
+    items: [
+      { id: "buildings", label: "Buildings & Locations" },
+      { id: "assets", label: "Assets & Inventory" },
+    ],
   },
   {
     label: "Maintenance",
@@ -78,11 +81,12 @@ export const facilityNav: ModuleNavGroup[] = [
     items: [
       { id: "service-requests", label: "Service requests" },
       { id: "inspections", label: "Inspections" },
-      { id: "meters", label: "Utilities" },
+      { id: "meters", label: "Utility management" },
       { id: "contractors", label: "Contractors" },
     ],
   },
 ];
+
 
 export const salesNav: ModuleNavGroup[] = [
   { label: "Overview", icon: "⌂", items: [{ id: "overview", label: "Dashboard" }] },
