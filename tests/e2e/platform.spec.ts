@@ -89,6 +89,24 @@ test("property tenant onboarding and compliance dialogs are connected", async ({
   await documentDialog.getByRole("button", { name: "Cancel" }).click();
 });
 
+test("property leasing officer can create a controlled draft lease", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel lease-reference races");
+  await page.goto("/property");
+  await page.getByRole("button", { name: "Leases", exact: true }).click();
+  await page.getByRole("button", { name: "+ Create lease", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Create lease" });
+  const reference = `E2E-LS-${Date.now()}`;
+  await dialog.getByLabel("Lease reference").fill(reference);
+  await dialog.getByLabel("Tenant").selectOption({ index: 1 });
+  await dialog.getByLabel("Available unit").selectOption({ index: 1 });
+  await dialog.getByLabel("Starts on").fill("2026-09-01");
+  await dialog.getByLabel("Ends on").fill("2027-08-31");
+  await dialog.getByLabel("Monthly rent").fill("175000");
+  await dialog.getByLabel("Deposit").fill("350000");
+  await dialog.getByRole("button", { name: "Save draft lease" }).click();
+  await expect(page.getByRole("row").filter({ hasText: reference })).toContainText("draft");
+});
+
 test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
   await page.goto("/property");

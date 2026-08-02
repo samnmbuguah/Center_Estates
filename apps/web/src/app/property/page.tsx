@@ -318,7 +318,9 @@ export default function PropertyManagementPage() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [showTenant, setShowTenant] = useState(false);
   const [showTenantDocument, setShowTenantDocument] = useState(false);
+  const [showLease, setShowLease] = useState(false);
   const [tenantOptions, setTenantOptions] = useState<Tenant[]>([]);
+  const [unitOptions, setUnitOptions] = useState<Unit[]>([]);
   const [openInvoices, setOpenInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState("");
   const loadVersion = useRef(0);
@@ -400,11 +402,12 @@ export default function PropertyManagementPage() {
       });
   }, [organizationId, showReceipt]);
   useEffect(() => {
-    if (!showTenantDocument || !organizationId) return;
-    apiFetch("/property/tenants/", {}, organizationId)
-      .then((response) => (response.ok ? response.json() : []))
-      .then(setTenantOptions);
-  }, [organizationId, showTenantDocument]);
+    if ((!showTenantDocument && !showLease) || !organizationId) return;
+    Promise.all([
+      apiFetch("/property/tenants/", {}, organizationId).then(response => response.ok ? response.json() : []),
+      showLease ? apiFetch("/property/units/?status=available", {}, organizationId).then(response => response.ok ? response.json() : []) : Promise.resolve([]),
+    ]).then(([tenants, units]) => { setTenantOptions(tenants); if (showLease) setUnitOptions(units); });
+  }, [organizationId, showLease, showTenantDocument]);
 
   async function createProperty(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -562,6 +565,19 @@ export default function PropertyManagementPage() {
     setShowTenantDocument(false);
     setTab("tenant-documents");
     await load();
+  }
+
+  async function createLease(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/property/leases/", {method:"POST",headers:{"X-CSRFToken":csrfFromCookie()},body:JSON.stringify(payload)}, organizationId);
+    if (!response.ok) {
+      const body=await response.json().catch(()=>({}));
+      setError(Object.values(body).flat().join(" ")||"The lease could not be created.");
+      return;
+    }
+    setShowLease(false); setTab("leases"); await load();
   }
 
   async function runAction(path: string) {
@@ -871,6 +887,7 @@ export default function PropertyManagementPage() {
           onDownload={downloadReport}
           onAddTenant={() => setShowTenant(true)}
           onAddTenantDocument={() => setShowTenantDocument(true)}
+          onAddLease={() => setShowLease(true)}
           permissions={{ canLease, canFinance, canApprove, canReport }}
         />
       )}
@@ -1282,6 +1299,24 @@ export default function PropertyManagementPage() {
           </div>
         </div>
       )}
+      {showLease && (
+        <div className="modal-backdrop" onMouseDown={() => setShowLease(false)}>
+          <div className="form-modal tenant-intake-modal" role="dialog" aria-modal="true" aria-labelledby="new-lease" onMouseDown={event => event.stopPropagation()}>
+            <div className="modal-title"><div><p className="eyebrow">Lease administration</p><h2 id="new-lease">Create lease</h2></div><button aria-label="Close" onClick={() => setShowLease(false)}>×</button></div>
+            <form onSubmit={createLease}>
+              <div className="form-section-title"><b>1</b><span>Parties and premises<small>Select a tenant and currently available unit</small></span></div>
+              <label>Lease reference<input name="reference" required placeholder="LS-2026-0042" /></label>
+              <div className="form-row"><label>Tenant<select name="tenant" required defaultValue=""><option value="" disabled>Select tenant</option>{tenantOptions.map(tenant => <option value={tenant.id} key={tenant.id}>{tenant.code} — {tenant.name}</option>)}</select></label><label>Available unit<select name="unit" required defaultValue=""><option value="" disabled>Select unit</option>{unitOptions.map(unit => <option value={unit.id} key={unit.id}>{unit.property_name} — {unit.code}</option>)}</select></label></div>
+              <div className="form-section-title"><b>2</b><span>Commercial terms<small>Dates, rent, deposit and escalation</small></span></div>
+              <div className="form-row"><label>Starts on<input name="starts_on" type="date" required /></label><label>Ends on<input name="ends_on" type="date" required /></label></div>
+              <div className="form-row"><label>Monthly rent<input name="monthly_rent" type="number" min="0.01" step="0.01" required /></label><label>Deposit<input name="deposit" type="number" min="0" step="0.01" defaultValue="0" /></label></div>
+              <div className="form-row"><label>Annual escalation (%)<input name="escalation_percent" type="number" min="0" step="0.01" defaultValue="0" /></label><label>Billing day<input name="billing_day" type="number" min="1" max="28" defaultValue="1" /></label></div>
+              <p className="form-help">The lease is saved as a draft. Activation is a separate controlled action that checks occupancy conflicts and updates the unit and tenant.</p>
+              <div className="form-actions"><button type="button" onClick={() => setShowLease(false)}>Cancel</button><button className="primary-action">Save draft lease</button></div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1452,6 +1487,7 @@ function Collection({
   onDownload,
   onAddTenant,
   onAddTenantDocument,
+  onAddLease,
   permissions,
 }: {
   tab: Tab;
@@ -1462,6 +1498,7 @@ function Collection({
   onDownload: (kind: string) => Promise<void>;
   onAddTenant: () => void;
   onAddTenantDocument: () => void;
+  onAddLease: () => void;
   permissions: {
     canLease: boolean;
     canFinance: boolean;
@@ -1934,6 +1971,9 @@ function Collection({
             <button className="secondary-action" onClick={onAddTenantDocument}>
               + Register document
             </button>
+          )}
+          {tab === "leases" && canLease && (
+            <button className="secondary-action" onClick={onAddLease}>+ Create lease</button>
           )}
           <input
             aria-label={`Search ${labels[tab]}`}
