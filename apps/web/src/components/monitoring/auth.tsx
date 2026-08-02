@@ -44,7 +44,8 @@ export function useAuth() {
     me,
     loading: platformAuth.loading,
     error: null,
-    signIn: async () => {},
+    signIn: async (username?: string, password?: string) => {},
+
     signOut: () => platformAuth.logout(),
     can: (perm: string) => platformAuth.can(perm) || true,
     tenant,
