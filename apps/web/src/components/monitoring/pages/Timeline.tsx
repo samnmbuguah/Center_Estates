@@ -153,9 +153,9 @@ function seriesFromApi(scurve: SCurve | null): SCurveSeriesPoint[] | null {
   const series = scurve?.series;
   if (!series?.length) return null;
   return series.map((p) => ({
-    label: (p.week || "").replace(/^\d{4}-/, "") || p.week,
-    planned: Number(p.planned_percent ?? 0),
-    actual: p.actual_percent == null ? null : Number(p.actual_percent),
+    label: (p?.week || "").replace(/^\d{4}-/, "") || p?.week || "",
+    planned: Number(p?.planned_percent ?? 0),
+    actual: p?.actual_percent == null ? null : Number(p.actual_percent),
   }));
 }
 

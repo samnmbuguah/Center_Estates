@@ -131,9 +131,9 @@ export function ProjectWorkspace() {
   const scurveChart = useMemo(() => {
     const series = scurve?.series ?? [];
     return series.map((pt) => ({
-      label: pt.week,
-      planned: Number(pt.planned_percent ?? 0),
-      actual: Number(pt.actual_percent ?? 0),
+      label: pt?.week || "",
+      planned: Number(pt?.planned_percent ?? 0),
+      actual: Number(pt?.actual_percent ?? 0),
     }));
   }, [scurve]);
 
