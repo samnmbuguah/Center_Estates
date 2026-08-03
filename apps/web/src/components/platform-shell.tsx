@@ -169,7 +169,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`platform ${moduleWorkspaceActive ? "module-workspace-active" : ""}`} style={{ width: "100%", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className={`platform ${moduleWorkspaceActive ? "module-workspace-active" : ""}`}>
       {/* Outer Sidebar: ONLY rendered on Main Workspace Selector Page (/), NEVER inside module workspaces */}
       {!moduleWorkspaceActive && (
         <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
