@@ -5,8 +5,14 @@ import { Bot, Download, FileSpreadsheet, Upload, ClipboardList, Scale, Edit3 } f
 import { convertProjectPdf, fetchIngestionStatus, generateMilestones, ingestExcelPreview, workplanTemplateUrl, boqTemplateUrl, ingestExcelCommit } from "../api";
 import { ErrorBanner, ConfirmModal } from "../components";
 
+import { useWorkspace } from "../context/WorkspaceContext";
+
 export function Ingestion() {
-  const { id = "" } = useParams();
+  const { id: paramId = "" } = useParams();
+  const { activeProjectId } = useWorkspace();
+  const queryId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("id") || "" : "";
+  const id = paramId || activeProjectId || queryId || (typeof window !== "undefined" ? sessionStorage.getItem("activeProject") || "" : "");
+
   const [status, setStatus] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);

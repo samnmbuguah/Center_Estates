@@ -612,6 +612,7 @@ export const checkInflation = (id: string, milestoneId: string, percentComplete:
 
 // ---- BoQ / Work Plan Ingestion ----
 export const ingestExcel = (id: string, file: File) => {
+  if (!id) return Promise.reject(new ApiError(400, "Please select an active project before uploading an Excel file."));
   const fd = new FormData();
   fd.append("file", file);
   return fetch(`${API_BASE}/projects/${id}/ingest`, {
@@ -619,6 +620,7 @@ export const ingestExcel = (id: string, file: File) => {
   }).then(r => { if (!r.ok) throw new Error("Ingestion failed"); return r.json() as Promise<{ status: string; message: string }>; });
 };
 export const ingestExcelPreview = (id: string, file: File) => {
+  if (!id) return Promise.reject(new ApiError(400, "Please select an active project before uploading an Excel file."));
   const fd = new FormData();
   fd.append("file", file);
   return fetch(`${API_BASE}/projects/${id}/ingest/preview`, {
