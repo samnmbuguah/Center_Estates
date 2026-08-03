@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 
 export type ModuleNavItem = {
@@ -86,14 +87,39 @@ export function ModuleShell({
         onClick={() => setNavOpen(false)}
       />
 
+      {/* SINGLE LEFT SIDEBAR FOR THIS MODULE */}
       <aside className={`module-side-nav ${navOpen ? "open" : ""}`} aria-label={`${moduleName} sections`}>
+        {/* Switch Workspace Header */}
+        <div style={{ padding: "12px 14px 4px 14px" }}>
+          <Link
+            href="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--muted)",
+              background: "rgba(255,255,255,0.06)",
+              padding: "6px 10px",
+              borderRadius: 6,
+              textDecoration: "none",
+              border: "1px solid rgba(255,255,255,0.1)",
+            }}
+            title="Return to Main Workspace Selection Page"
+          >
+            <span aria-hidden="true">←</span>
+            <span>Switch Workspace</span>
+          </Link>
+        </div>
+
         <div className="module-side-nav-title">
           <span className="module-side-mark" style={{ background: `linear-gradient(145deg, ${accent}, ${accent}cc)` }}>
             {moduleName.slice(0, 1)}
           </span>
           <div>
             <strong>{moduleName}</strong>
-            <small>Module workspace</small>
+            <small>Workspace</small>
           </div>
           <button type="button" aria-label="Close module navigation" onClick={() => setNavOpen(false)}>
             ×
@@ -105,7 +131,7 @@ export function ModuleShell({
           <input
             value={navSearch}
             onChange={(event) => setNavSearch(event.target.value)}
-            placeholder="Find a section"
+            placeholder="Find a section..."
             aria-label={`Search ${moduleName} sections`}
           />
         </label>
@@ -135,8 +161,8 @@ export function ModuleShell({
 
         <div className="module-side-footer">
           <span className="sync-dot" />
-          Live organization data
-          <small>Role and subscription scoped</small>
+          Live Organization Data
+          <small>Role & Scope Filtered</small>
         </div>
       </aside>
 
@@ -151,6 +177,8 @@ export function ModuleShell({
             ☰
           </button>
           <div className="module-breadcrumb">
+            <Link href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Main Workspaces</Link>
+            <b>/</b>
             <span>{moduleName}</span>
             <b>/</b>
             <strong>{activeLabel}</strong>
@@ -159,7 +187,7 @@ export function ModuleShell({
             <span className="context-health" />
             <div>
               <small>{contextLabel}</small>
-              <strong>{contextValue ?? "Active organization"}</strong>
+              <strong>{contextValue ?? "Active Organization"}</strong>
             </div>
           </div>
         </header>
@@ -174,6 +202,7 @@ export function ModuleShell({
             {actions ? <div className="module-heading-actions">{actions}</div> : null}
           </section>
 
+          {/* HORIZONTAL SECONDARY NAV TABS */}
           <nav className="module-tabs module-tabs-workspace" aria-label={`${moduleName} sections`}>
             {horizontalItems.map((item) => (
               <button

@@ -1312,8 +1312,9 @@ a.profile-dropdown-item { text-decoration: none; }
 .module-workspace-content { min-width: 0; }
 
 /* Compact platform rail when a module workspace owns the left chrome */
-.platform.module-workspace-active { grid-template-columns: 74px minmax(0, 1fr); }
-.module-workspace-active > .sidebar { align-items: center; padding: 18px 9px; }
+.platform.module-workspace-active { grid-template-columns: 1fr; }
+.module-workspace-active > .sidebar { display: none !important; }
+
 .module-workspace-active > .sidebar .brand { margin: 0 0 26px; }
 .module-workspace-active > .sidebar .brand > span:last-child { display: none; }
 .module-workspace-active > .sidebar nav { width: 100%; }

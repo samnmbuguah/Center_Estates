@@ -30,8 +30,11 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const [identityGroups, setIdentityGroups] = useState<DemoIdentityGroup[]>([]);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
   const profileRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
   const {
     session,
     loading,
@@ -41,10 +44,12 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     stopImpersonate,
     loadDemoIdentities,
   } = useAuth();
+
   const allowedSlugs = useMemo(
     () => session?.modules.map((module) => module.slug) ?? [],
     [session?.modules],
   );
+
   const filteredModules = useMemo(() => {
     const term = query.trim().toLowerCase();
     const allowedSet = new Set(allowedSlugs);
@@ -54,6 +59,19 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       [module.name, module.description, ...module.features].join(" ").toLowerCase().includes(term),
     );
   }, [allowedSlugs, query]);
+
+  useEffect(() => {
+    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    setTheme(savedTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    localStorage.setItem("ce-theme", nextTheme);
+    setTheme(nextTheme);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -131,92 +149,102 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`platform ${moduleWorkspaceActive ? "module-workspace-active construction-workspace" : ""}`}>
-      <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
-        <Link className="brand" href="/" onClick={() => setMenuOpen(false)}>
-          <span className="brand-mark" aria-hidden="true">
-            <span className="brand-mark-bars"><i /><i /><i /></span>
-          </span>
-          <span>
-            CeEst
-            <br />
-            <small>Center Estates · ERP</small>
-          </span>
-        </Link>
-
-        <nav aria-label="Platform modules">
-          <p className="nav-section-label">Workplace</p>
-          <Link
-            className={`nav-link ${pathname === "/" ? "active" : ""}`}
-            href="/"
-            title="Command Center"
-            onClick={() => setMenuOpen(false)}
-          >
-            <span className="platform-nav-icon">⌂</span>
-            <span className="nav-label">Command Center</span>
+      {/* Outer Sidebar: ONLY rendered on Main Page (/), NEVER inside module workspaces */}
+      {!moduleWorkspaceActive && (
+        <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
+          <Link className="brand" href="/" onClick={() => setMenuOpen(false)}>
+            <span className="brand-mark" aria-hidden="true">
+              <span className="brand-mark-bars"><i /><i /><i /></span>
+            </span>
+            <span>
+              CeEst
+              <br />
+              <small>Center Estates · ERP</small>
+            </span>
           </Link>
 
-          <p className="nav-section-label">Modules</p>
-          {modules
-            .filter((module) => allowed.has(module.slug))
-            .map((module) => (
-              <Link
-                className={`nav-link ${pathname.startsWith(`/${module.slug}`) ? "active" : ""}`}
-                href={`/${module.slug}`}
-                title={module.name}
-                key={module.slug}
-                onClick={() => setMenuOpen(false)}
-              >
-                <span className="nav-module-icon" style={{ color: module.accent }} aria-hidden="true">
-                  {module.icon}
-                </span>
-                <span className="nav-label">{module.name.replace(" Management", "")}</span>
-              </Link>
-            ))}
-          {allowed.has("property") && (
+          <nav aria-label="Platform modules">
+            <p className="nav-section-label">Workplace</p>
             <Link
-              className={`nav-link ${pathname.startsWith("/tenant-portal") ? "active" : ""}`}
-              href="/tenant-portal"
-              title="Tenant Portal"
+              className={`nav-link ${pathname === "/" ? "active" : ""}`}
+              href="/"
+              title="Main Workspace Selection"
               onClick={() => setMenuOpen(false)}
             >
-              <span className="nav-module-icon" style={{ color: "#7c3aed" }} aria-hidden="true">
-                🔑
-              </span>
-              <span className="nav-label">Tenant Portal</span>
+              <span className="platform-nav-icon">⌂</span>
+              <span className="nav-label">Main Workspaces</span>
             </Link>
-          )}
-        </nav>
 
-        <div className="sidebar-support">
-          <strong>Quick Support</strong>
-          <span>support@ceest.co.ke</span>
-          <small>Mon – Fri 8:00AM – 6:00PM</small>
-        </div>
-        <button className="logout-button" onClick={() => logout()}>
-          Sign out
-        </button>
-      </aside>
+            <p className="nav-section-label">Modules</p>
+            {modules
+              .filter((module) => allowed.has(module.slug))
+              .map((module) => (
+                <Link
+                  className={`nav-link ${pathname.startsWith(`/${module.slug}`) ? "active" : ""}`}
+                  href={`/${module.slug}`}
+                  title={module.name}
+                  key={module.slug}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span className="nav-module-icon" style={{ color: module.accent }} aria-hidden="true">
+                    {module.icon}
+                  </span>
+                  <span className="nav-label">{module.name.replace(" Management", "")}</span>
+                </Link>
+              ))}
+            {allowed.has("property") && (
+              <Link
+                className={`nav-link ${pathname.startsWith("/tenant-portal") ? "active" : ""}`}
+                href="/tenant-portal"
+                title="Tenant Portal"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="nav-module-icon" style={{ color: "#7c3aed" }} aria-hidden="true">
+                  🔑
+                </span>
+                <span className="nav-label">Tenant Portal</span>
+              </Link>
+            )}
+          </nav>
 
-      {menuOpen && (
+          <div className="sidebar-support">
+            <strong>Quick Support</strong>
+            <span>support@ceest.co.ke</span>
+            <small>Mon – Fri 8:00AM – 6:00PM</small>
+          </div>
+          <button className="logout-button" onClick={() => logout()}>
+            Sign out
+          </button>
+        </aside>
+      )}
+
+      {menuOpen && !moduleWorkspaceActive && (
         <button className="mobile-nav-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />
       )}
 
       <div className="workspace">
         <header className="topbar">
-          <button
-            className="mobile-menu-button"
-            aria-label="Open navigation"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
+          {!moduleWorkspaceActive && (
+            <button
+              className="mobile-menu-button"
+              aria-label="Open navigation"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          )}
 
           <div className="topbar-context">
+            {moduleWorkspaceActive && (
+              <Link href="/" className="topbar-switch-home" title="Return to Main Workspace Selection Page">
+                ← Main Workspaces
+              </Link>
+            )}
             <div className="topbar-workspace">
-              <small>Active organization</small>
+              <small>Active Organization</small>
               <select
                 aria-label="Active organization"
                 value={activeOrganization?.id ?? ""}
@@ -289,21 +317,38 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           </label>
 
           <div className="topbar-actions">
+            {/* Theme Switcher Toggle (Light / Dark Mode) */}
+            <button
+              type="button"
+              className="theme-toggle-btn"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
+              aria-label="Toggle Theme"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                padding: "6px 12px",
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                color: "var(--text)",
+              }}
+            >
+              <span>{theme === "dark" ? "☀️ Light" : "🌙 Dark"}</span>
+            </button>
+
             <span className="system-live">
               <i />
-              Systems operational
+              Live
             </span>
             {session.impersonating && (
               <button type="button" className="impersonation-pill" onClick={() => void onReturnAdmin()}>
                 Demo identity · Return to admin
               </button>
             )}
-            <button className="topbar-icon-button" type="button" aria-label="Notifications" title="Notifications">
-              🔔
-            </button>
-            <button className="topbar-icon-button" type="button" aria-label="Messages" title="Messages">
-              ✉
-            </button>
             <div className="profile-menu" ref={profileRef}>
               <button
                 type="button"
@@ -329,7 +374,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                     <em>{displayRole}</em>
                   </div>
                   <Link href="/" className="profile-dropdown-item" onClick={() => setProfileOpen(false)}>
-                    Command Center
+                    Command Center (Switch Workspace)
                   </Link>
                   {session.canSwitchIdentity && (
                     <div className="profile-role-switcher">
@@ -381,7 +426,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             <div className="page-wrap">
               <div className="notice">
                 <strong>Module unavailable.</strong> Your active organization is not subscribed to this module.{" "}
-                <Link href="/">Return to the command center.</Link>
+                <Link href="/">Return to workspace selection.</Link>
               </div>
             </div>
           ) : (
