@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { facilityNav } from "@/lib/module-nav";
+import { DetailDrawer, Field, Modal, money } from "@/components/module-ui";
 
 type Tab =
   | "overview"
@@ -21,6 +22,8 @@ type Tab =
   | "contractors";
 
 type Row = Record<string, string | number | boolean | null>;
+type Kpis = Dashboard["kpis"];
+type ActionModal = { type: "inspection" | "resolve"; row: Row } | null;
 type Dashboard = {
   kpis: Record<string, string | number>;
   recentWorkOrders: Row[];
@@ -45,13 +48,24 @@ const labels: Record<Tab, string> = {
   contractors: "Contractors",
 };
 
-const money = new Intl.NumberFormat("en-KE", {
-  style: "currency",
-  currency: "KES",
-  maximumFractionDigits: 0,
-});
-
 /* ─── helpers ─── */
+function exportCsv(rows: Row[], filename: string) {
+  if (rows.length === 0) return;
+  const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+  const esc = (value: unknown) => {
+    const s = String(value ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [keys.join(","), ...rows.map((row) => keys.map((key) => esc(row[key])).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function FcStatus({ value }: { value: string }) {
   const slug = String(value ?? "")
     .toLowerCase()
@@ -138,7 +152,6 @@ function FcKpiCard({
   value,
   sub,
   link,
-  trendUp,
   onClick,
 }: {
   icon: string;
@@ -148,7 +161,6 @@ function FcKpiCard({
   value: string;
   sub?: string;
   link?: string;
-  trendUp?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -200,8 +212,6 @@ function DashboardView({
     : `conic-gradient(#e5e7eb 0% 100%)`;
 
   const slaDonut = `conic-gradient(#22c55e 0% ${compliance}%, #edf0f5 ${compliance}% 100%)`;
-
-  const priorityMax = openWO || 1;
 
   return (
     <>
@@ -477,8 +487,9 @@ function DashboardView({
 }
 
 /* ─── Buildings & Locations tab ─── */
-function BuildingsView({ rows, setTab }: { rows: Row[]; setTab: (t: Tab) => void }) {
+function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
   const [selectedLoc, setSelectedLoc] = useState(0);
+  const buildingCount = Number((kpis.buildings ?? rows.length) || 12);
   const locations = [
     { name: "Nairobi Head Office", county: "Nairobi County", count: 5, color: "#e23b3b" },
     { name: "Mombasa Branch", county: "Mombasa County", count: 2, color: "#3b82f6" },
@@ -500,7 +511,7 @@ function BuildingsView({ rows, setTab }: { rows: Row[]; setTab: (t: Tab) => void
   return (
     <>
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buildings" value="12" sub="Across all locations" onClick={() => {}} />
+        <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buildings" value={String(kpis.buildings ?? 0)} sub="Across all locations" onClick={() => {}} />
         <FcKpiCard icon="📍" iconBg="#dcfce7" iconColor="#16a34a" label="Locations" value="8" sub="Active sites" onClick={() => {}} />
         <FcKpiCard icon="📐" iconBg="#dbeafe" iconColor="#2563eb" label="Total Floor Area" value="125,420 m²" sub="Gross floor area" onClick={() => {}} />
         <FcKpiCard icon="▦" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg. Occupancy" value="93%" sub="All buildings" onClick={() => {}} />
@@ -556,8 +567,8 @@ function BuildingsView({ rows, setTab }: { rows: Row[]; setTab: (t: Tab) => void
           {/* Buildings table */}
           <article className="data-panel">
             <div className="fc-table-toolbar">
-              <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>All Buildings (12)</span>
-              <button className="fc-toolbar-btn">↓ Export</button>
+              <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>All Buildings ({buildingCount})</span>
+              <button className="fc-toolbar-btn" onClick={() => exportCsv(rows, "buildings.csv")}>↓ Export</button>
             </div>
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -633,7 +644,7 @@ function BuildingsView({ rows, setTab }: { rows: Row[]; setTab: (t: Tab) => void
               </table>
             </div>
             <div className="fc-pagination">
-              <span className="fc-pager-info">Showing 1 to 4 of 12 buildings</span>
+              <span className="fc-pager-info">Showing 1 to {rows.length > 0 ? Math.min(rows.length, 8) : 4} of {buildingCount} buildings</span>
               <div className="fc-pager">
                 <button className="fc-page-btn active">1</button>
                 <button className="fc-page-btn">2</button>
@@ -651,12 +662,12 @@ function BuildingsView({ rows, setTab }: { rows: Row[]; setTab: (t: Tab) => void
 /* ─── Assets & Inventory tab ─── */
 function AssetsView({
   rows,
-  onAction,
-  permissions,
+  kpis,
+  onAdd,
 }: {
   rows: Row[];
-  onAction: (row: Row, action: string) => void;
-  permissions: { canWork: boolean; canAdminister: boolean };
+  kpis: Kpis;
+  onAdd: () => void;
 }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
 
@@ -684,16 +695,26 @@ function AssetsView({
           { id: 8, code: "AST-0001241", name: "Water Heater – WH 2", category: "Water Supply", property_name: "5th Floor", condition: "out_of_service", health_score: 30 },
         ];
 
+  const totalAssets = Number(kpis.activeAssets ?? displayRows.length);
+  const maintenanceCount = displayRows.filter((r) => ["maintenance", "fair", "poor"].includes(String(r.condition))).length;
+  const outOfServiceCount = displayRows.filter((r) => String(r.condition) === "out_of_service").length;
+  const operationalCount = Math.max(totalAssets - maintenanceCount - outOfServiceCount, 0);
+  const pct = (n: number) => (totalAssets ? Math.round((n / totalAssets) * 100) : 0);
+  const assetValue = Number(kpis.assetValue ?? 0);
+  const avgHealth = displayRows.length
+    ? Math.round(displayRows.reduce((s, r) => s + Number(r.health_score ?? 0), 0) / displayRows.length)
+    : 0;
+
   return (
     <>
       {/* KPI strip */}
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Assets" value="1,248" sub="All buildings" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Operational" value="1,074" sub="86% of total assets" onClick={() => {}} />
-        <FcKpiCard icon="🔧" iconBg="#fef3c7" iconColor="#92400e" label="Under Maintenance" value="98" sub="8% of total assets" onClick={() => {}} />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Out of Service" value="76" sub="6% of total assets" onClick={() => {}} />
-        <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Total Asset Value" value="KES 245.6M" sub="Replacement cost" onClick={() => {}} />
-        <FcKpiCard icon="📊" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg. Asset Health" value="82%" sub="Good" onClick={() => {}} />
+        <FcKpiCard icon="📦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Assets" value={totalAssets.toLocaleString()} sub="All buildings" onClick={() => {}} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Operational" value={operationalCount.toLocaleString()} sub={`${pct(operationalCount)}% of total assets`} onClick={() => {}} />
+        <FcKpiCard icon="🔧" iconBg="#fef3c7" iconColor="#92400e" label="Under Maintenance" value={maintenanceCount.toLocaleString()} sub={`${pct(maintenanceCount)}% of total assets`} onClick={() => {}} />
+        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Out of Service" value={outOfServiceCount.toLocaleString()} sub={`${pct(outOfServiceCount)}% of total assets`} onClick={() => {}} />
+        <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Total Asset Value" value={money.format(assetValue)} sub="Replacement cost" onClick={() => {}} />
+        <FcKpiCard icon="📊" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg. Asset Health" value={`${avgHealth}%`} sub={avgHealth ? "Good" : "No data yet"} onClick={() => {}} />
       </div>
 
       <div className="fc-assets-layout">
@@ -735,9 +756,8 @@ function AssetsView({
                 <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Assets ({displayRows.length})</span>
               </div>
               <div className="fc-table-toolbar-right">
-                <button className="fc-toolbar-btn">↑ Export</button>
-                <button className="fc-toolbar-btn">↓ Import</button>
-                <button className="fc-toolbar-btn primary">+ Add New Asset</button>
+                <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "assets.csv")}>↑ Export</button>
+                <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Add New Asset</button>
               </div>
             </div>
             <div className="table-scroll">
@@ -793,7 +813,7 @@ function AssetsView({
               </table>
             </div>
             <div className="fc-pagination">
-              <span className="fc-pager-info">Showing 1 to 8 of 1,248 assets</span>
+              <span className="fc-pager-info">Showing 1 to {displayRows.length} of {totalAssets.toLocaleString()} assets</span>
               <div className="fc-pager">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -878,12 +898,12 @@ function AssetsView({
 /* ─── Work Orders tab ─── */
 function WorkOrdersView({
   rows,
-  onAction,
+  kpis,
   permissions,
   setShowCreate,
 }: {
   rows: Row[];
-  onAction: (row: Row, action: string) => void;
+  kpis: Kpis;
   permissions: { canWork: boolean };
   setShowCreate: (b: boolean) => void;
 }) {
@@ -915,9 +935,9 @@ function WorkOrdersView({
       </div>
 
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value="92%" sub="Target ≥ 95%" link="View PPM Calendar" onClick={() => {}} />
-        <FcKpiCard icon="📂" iconBg="#dcfce7" iconColor="#16a34a" label="Open Work Orders" value="134" sub="↑ 8 vs yesterday" link="View all work orders" onClick={() => {}} />
-        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Work Orders" value="27" sub="↓ 5 vs yesterday" link="View overdue" onClick={() => {}} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${String(kpis.maintenanceCompliance ?? 92)}%`} sub="Schedule compliance" link="View PPM Calendar" onClick={() => {}} />
+        <FcKpiCard icon="📂" iconBg="#dcfce7" iconColor="#16a34a" label="Open Work Orders" value={String(kpis.openWorkOrders ?? 0)} sub="Active across all buildings" link="View all work orders" onClick={() => {}} />
+        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Work Orders" value={String(kpis.overdueWorkOrders ?? 0)} sub="Past resolution due" link="View overdue" onClick={() => {}} />
         <FcKpiCard icon="⏱" iconBg="#fef3c7" iconColor="#92400e" label="Avg. Resolution Time" value="6.2 hrs" sub="Target 24 hrs" link="View SLA Performance" onClick={() => {}} />
         <FcKpiCard icon="📈" iconBg="#f0fdf4" iconColor="#15803d" label="Asset Health Index" value="82%" sub="Good" link="View Asset Health" onClick={() => {}} />
       </div>
@@ -933,7 +953,7 @@ function WorkOrdersView({
                   <select key={opt} className="fc-toolbar-select"><option>{opt}</option></select>
                 ))}
               </div>
-              <button className="fc-toolbar-btn">↓ Export</button>
+              <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "work-orders.csv")}>↓ Export</button>
             </div>
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -984,7 +1004,7 @@ function WorkOrdersView({
               </table>
             </div>
             <div className="fc-pagination">
-              <span className="fc-pager-info">Showing 1 to 5 of 134 work orders</span>
+              <span className="fc-pager-info">Showing 1 to {displayRows.length} of {String(kpis.openWorkOrders ?? displayRows.length)} work orders</span>
               <div className="fc-pager">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -1080,7 +1100,7 @@ function WorkOrdersView({
 }
 
 /* ─── Planned Maintenance tab ─── */
-function PlannedMaintenanceView({ rows, onAction, permissions }: { rows: Row[]; onAction: (row: Row, action: string) => void; permissions: { canAdminister: boolean } }) {
+function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canAdminister: boolean }; onAdd: () => void }) {
   const days = ["Mon 12 May", "Tue 13 May", "Wed 14 May", "Thu 15 May", "Fri 16 May", "Sat 17 May", "Sun 18 May"];
   const calEvents = [
     [
@@ -1112,13 +1132,19 @@ function PlannedMaintenanceView({ rows, onAction, permissions }: { rows: Row[]; 
     { id: 3, code: "PPM-2026-0458", name: "Electrical DB Inspection", asset_name: "DB-MDB-1", property_name: "Cradle Building – Ground Floor", frequency: "Monthly", next_due_on: "15 May 2026, 09:30 AM", is_active: true },
   ];
 
+  const compliance = Number(kpis.maintenanceCompliance ?? 92);
+  const completedTasks = rows.length > 0 ? rows.filter((r) => r.last_completed_on).length : 168;
+  const scheduledTasks = rows.length > 0 ? rows.length : 183;
+  const upcomingTasks = rows.length > 0 ? rows.filter((r) => !r.last_completed_on).length : 24;
+  const overdueTasks = rows.length > 0 ? rows.filter((r) => !r.last_completed_on && String(r.next_due_on ?? "").length).length : 7;
+
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value="92%" sub="Target ≥ 95%" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed Tasks" value="168" sub="of 183 scheduled" onClick={() => {}} />
-        <FcKpiCard icon="⏰" iconBg="#fef3c7" iconColor="#92400e" label="Upcoming Tasks" value="24" sub="Next 7 days" onClick={() => {}} />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Tasks" value="7" sub="Require attention" onClick={() => {}} />
+        <FcKpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" onClick={() => {}} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed Tasks" value={String(completedTasks)} sub={`of ${scheduledTasks} scheduled`} onClick={() => {}} />
+        <FcKpiCard icon="⏰" iconBg="#fef3c7" iconColor="#92400e" label="Upcoming Tasks" value={String(upcomingTasks)} sub="Next 7 days" onClick={() => {}} />
+        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Tasks" value={String(overdueTasks)} sub="Require attention" onClick={() => {}} />
         <FcKpiCard icon="👷" iconBg="#f0f4ff" iconColor="#4f46e5" label="Technicians Assigned" value="18" sub="Active this week" onClick={() => {}} />
         <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Maintenance Cost (MTD)" value="KES 1.45M" sub="↓ 8.4% vs last month" onClick={() => {}} />
       </div>
@@ -1197,7 +1223,7 @@ function PlannedMaintenanceView({ rows, onAction, permissions }: { rows: Row[]; 
                   <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
                 ))}
               </div>
-              <button className="fc-toolbar-btn primary">+ Create PPM Task</button>
+              <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Create PPM Task</button>
             </div>
             {/* Week grid */}
             <div className="fc-ppm-week-grid" style={{ overflowX: "auto" }}>
@@ -1282,7 +1308,7 @@ function PlannedMaintenanceView({ rows, onAction, permissions }: { rows: Row[]; 
 }
 
 /* ─── Inspections tab ─── */
-function InspectionsView({ rows, onAction, permissions }: { rows: Row[]; onAction: (row: Row, action: string) => void; permissions: { canInspect: boolean } }) {
+function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canInspect: boolean }; onAdd: () => void }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
 
   const displayRows = rows.length > 0 ? rows : [
@@ -1294,15 +1320,25 @@ function InspectionsView({ rows, onAction, permissions }: { rows: Row[]; onActio
     { id: 6, reference: "INSP-2026-0051", title: "CCTV System Check", asset_name: "CCTV-01 to 16", property_name: "Cradle Building – All Floors", scheduled_on: "16 May 2026, 02:30 PM", score: 72, violations: 3, status: "overdue" },
   ];
 
+  const hasData = rows.length > 0;
+  const totalInsp = hasData ? rows.length : 56;
+  const completedInsp = hasData ? rows.filter((r) => !["scheduled", "in_progress"].includes(String(r.status))).length : 42;
+  const inProgressInsp = hasData ? rows.filter((r) => String(r.status) === "in_progress").length : 8;
+  const overdueInsp = hasData ? rows.filter((r) => String(r.status) === "overdue").length : 6;
+  const defectsFound = hasData ? rows.reduce((s, r) => s + Number(r.violations ?? 0), 0) : 38;
+  const scoredRows = hasData ? rows.filter((r) => Number(r.score ?? 0) > 0) : [];
+  const complianceScore = scoredRows.length ? Math.round(scoredRows.reduce((s, r) => s + Number(r.score ?? 0), 0) / scoredRows.length) : Number(kpis.maintenanceCompliance ?? 92);
+  const pctOfTotal = (n: number) => (totalInsp ? Math.round((n / totalInsp) * 100) : 0);
+
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value="56" sub="↑ 12% vs last month" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value="42" sub="75%" onClick={() => {}} />
-        <FcKpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="In Progress" value="8" sub="14%" onClick={() => {}} />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value="6" sub="11%" onClick={() => {}} />
-        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="#9333ea" label="Defects Found" value="38" sub="This month" onClick={() => {}} />
-        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value="92%" sub="↑ 8% vs last month" onClick={() => {}} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "↑ 12% vs last month"} onClick={() => {}} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={String(completedInsp)} sub={`${pctOfTotal(completedInsp)}%`} onClick={() => {}} />
+        <FcKpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="In Progress" value={String(inProgressInsp)} sub={`${pctOfTotal(inProgressInsp)}%`} onClick={() => {}} />
+        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueInsp)} sub={`${pctOfTotal(overdueInsp)}%`} onClick={() => {}} />
+        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="#9333ea" label="Defects Found" value={String(defectsFound)} sub="This month" onClick={() => {}} />
+        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" onClick={() => {}} />
       </div>
 
       {/* Tabs */}
@@ -1325,8 +1361,8 @@ function InspectionsView({ rows, onAction, permissions }: { rows: Row[]; onActio
             </div>
             <div className="fc-table-toolbar-right">
               <button className="fc-toolbar-btn">Filters</button>
-              <button className="fc-toolbar-btn">↓ Export</button>
-              <button className="fc-toolbar-btn primary">+ New Inspection</button>
+              <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "inspections.csv")}>↓ Export</button>
+              <button className="fc-toolbar-btn primary" onClick={onAdd}>+ New Inspection</button>
             </div>
           </div>
           <div className="table-scroll">
@@ -1385,7 +1421,7 @@ function InspectionsView({ rows, onAction, permissions }: { rows: Row[]; onActio
             </table>
           </div>
           <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to 6 of 56 inspections</span>
+            <span className="fc-pager-info">Showing 1 to {displayRows.length} of {totalInsp} inspections</span>
             <div className="fc-pager">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -1481,7 +1517,7 @@ function InspectionsView({ rows, onAction, permissions }: { rows: Row[]; onActio
 }
 
 /* ─── Service Requests tab ─── */
-function ServiceRequestsView({ rows, onAction, permissions }: { rows: Row[]; onAction: (row: Row, action: string) => void; permissions: { canWork: boolean } }) {
+function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canWork: boolean } }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
 
   const displayRows = rows.length > 0 ? rows : [
@@ -1496,14 +1532,21 @@ function ServiceRequestsView({ rows, onAction, permissions }: { rows: Row[]; onA
   const priorityColors: Record<string, string> = { high: "#b91c1c", medium: "#a16207", low: "#15803d" };
   const catIcons: Record<string, string> = { "Plumbing": "💧", "Electrical": "⚡", "HVAC": "❄️", "Fire Safety": "🔥", "Carpentry": "🪚", "General": "🔧" };
 
+  const hasData = rows.length > 0;
+  const totalReq = Number(kpis.openRequests ?? 0);
+  const openReq = hasData ? rows.filter((r) => String(r.status) === "open").length : 38;
+  const inProgressReq = hasData ? rows.filter((r) => String(r.status) === "in_progress").length : 45;
+  const completedReq = hasData ? rows.filter((r) => ["resolved", "closed"].includes(String(r.status))).length : 40;
+  const overdueReq = hasData ? rows.filter((r) => String(r.status) === "overdue").length : 5;
+
   return (
     <>
       <div className="fc-kpi-strip" style={{ gridTemplateColumns: "repeat(7, minmax(0,1fr))" }}>
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Requests" value="128" sub="↑ 18% vs last month" onClick={() => {}} />
-        <FcKpiCard icon="📂" iconBg="#fff3cd" iconColor="#92400e" label="Open" value="38" sub="29.7%" onClick={() => {}} />
-        <FcKpiCard icon="⏳" iconBg="#dbeafe" iconColor="#1d4ed8" label="In Progress" value="45" sub="35.2%" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#166534" label="Completed" value="40" sub="31.3%" onClick={() => {}} />
-        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value="5" sub="3.9%" onClick={() => {}} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Open Requests" value={String(totalReq)} sub="Awaiting resolution" onClick={() => {}} />
+        <FcKpiCard icon="📂" iconBg="#fff3cd" iconColor="#92400e" label="Open" value={String(openReq)} sub={hasData ? "New & assigned" : "29.7%"} onClick={() => {}} />
+        <FcKpiCard icon="⏳" iconBg="#dbeafe" iconColor="#1d4ed8" label="In Progress" value={String(inProgressReq)} sub={hasData ? "Active" : "35.2%"} onClick={() => {}} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#166534" label="Completed" value={String(completedReq)} sub={hasData ? "Resolved & closed" : "31.3%"} onClick={() => {}} />
+        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueReq)} sub={hasData ? "Past SLA" : "3.9%"} onClick={() => {}} />
         <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="1.8 hrs" sub="Target: 4 hrs" onClick={() => {}} />
         <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction Score" value="4.6 / 5" sub="↑ 0.3 vs last month" onClick={() => {}} />
       </div>
@@ -1595,7 +1638,7 @@ function ServiceRequestsView({ rows, onAction, permissions }: { rows: Row[]; onA
             </table>
           </div>
           <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to 6 of 128 requests</span>
+            <span className="fc-pager-info">Showing 1 to {displayRows.length} of {totalReq || displayRows.length} requests</span>
             <div className="fc-pager">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -1664,19 +1707,21 @@ function ServiceRequestsView({ rows, onAction, permissions }: { rows: Row[]; onA
 }
 
 /* ─── Utilities tab ─── */
-function UtilitiesView({ rows }: { rows: Row[] }) {
+function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
   const sparkData = [30, 45, 38, 55, 48, 62, 50, 70, 58, 75, 65, 80];
   const maxSpark = Math.max(...sparkData);
+  const energyKwh = Number(kpis.utilityConsumption ?? 125430).toLocaleString();
+  const utilityCost = Number(kpis.utilityCost ?? 645780).toLocaleString();
 
   return (
     <>
       <div className="fc-kpi-strip six-col">
         {[
-          { icon: "⚡", bg: "#e0e7ff", color: "#4f46e5", label: "Total Energy (kWh)", value: "125,430", trend: "↑ 8.6%", up: false },
+          { icon: "⚡", bg: "#e0e7ff", color: "#4f46e5", label: "Total Energy (kWh)", value: energyKwh, trend: "YTD consumption", up: false },
           { icon: "💧", bg: "#dbeafe", color: "#2563eb", label: "Water Consumption (m³)", value: "1,245", trend: "↓ 5.3%", up: true },
           { icon: "⛽", bg: "#dcfce7", color: "#16a34a", label: "Generator Fuel (L)", value: "3,240", trend: "↑ 12.1%", up: false },
           { icon: "🔥", bg: "#fff7ed", color: "#ea580c", label: "Gas Consumption (kg)", value: "620", trend: "↓ 3.6%", up: true },
-          { icon: "💰", bg: "#fdf4ff", color: "#9333ea", label: "Utility Cost (KES)", value: "645,780", trend: "↑ 6.8%", up: false },
+          { icon: "💰", bg: "#fdf4ff", color: "#9333ea", label: "Utility Cost (KES)", value: utilityCost, trend: "YTD spend", up: false },
           { icon: "🌱", bg: "#f0fdf4", color: "#15803d", label: "Carbon Savings (kg CO₂)", value: "2,340", trend: "↑ 9.4%", up: true },
         ].map((kpi) => (
           <div key={kpi.label} className="fc-kpi-card" style={{ cursor: "default" }}>
@@ -1805,8 +1850,8 @@ function UtilitiesView({ rows }: { rows: Row[] }) {
             <div style={{ padding: "16px 18px" }}>
               <div style={{ marginBottom: 14 }}>
                 <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Total Cost</span>
-                <strong style={{ fontSize: 22 }}>KES 645,780</strong>
-                <span style={{ color: "#ef4444", fontSize: 11 }}> ↑ 6.8% vs last month</span>
+                <strong style={{ fontSize: 22 }}>KES {utilityCost}</strong>
+                <span style={{ color: "#ef4444", fontSize: 11 }}> YTD</span>
               </div>
               {[
                 { icon: "⚡", label: "Electricity", value: "KES 412,560", trend: "↑ 7.9%", up: false },
@@ -1831,7 +1876,7 @@ function UtilitiesView({ rows }: { rows: Row[] }) {
 }
 
 /* ─── Contractors tab ─── */
-function ContractorsView({ rows }: { rows: Row[] }) {
+function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd: () => void }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
 
   const displayRows = rows.length > 0 ? rows : [
@@ -1845,12 +1890,19 @@ function ContractorsView({ rows }: { rows: Row[] }) {
     { id: 8, code: "C-RF-001", name: "Rapid Fix Ltd.", specialty: "Specialized Repairs", contact_name: "0788 999 111", rating: 2.1, status: "blacklisted", insurance_expires_on: "—" },
   ];
 
+  const hasData = rows.length > 0;
+  const totalContractors = Number(kpis.contractors ?? (hasData ? rows.length : 68));
+  const activeContractors = hasData ? rows.filter((r) => String(r.status) === "active").length : 56;
+  const avgRating = hasData
+    ? (rows.reduce((s, r) => s + Number(r.rating ?? 0), 0) / rows.length).toFixed(1)
+    : "4.3";
+
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="👷" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Contractors" value="68" sub="↑ 7 this month" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active Contractors" value="56" sub="82% of total" onClick={() => {}} />
-        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Average Rating" value="4.3 / 5" sub="↑ 0.2 vs last month" onClick={() => {}} />
+        <FcKpiCard icon="👷" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Contractors" value={totalContractors.toLocaleString()} sub="Active across all locations" onClick={() => {}} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active Contractors" value={String(activeContractors)} sub={totalContractors ? `${Math.round((activeContractors / totalContractors) * 100)}% of total` : "0% of total"} onClick={() => {}} />
+        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Average Rating" value={`${avgRating} / 5`} sub="Across all contractors" onClick={() => {}} />
         <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="2.6 hrs" sub="↑ 0.4 hrs vs last month" onClick={() => {}} />
         <FcKpiCard icon="📄" iconBg="#fef3c7" iconColor="#92400e" label="Contracts Expiring" value="7" sub="Next 30 days" onClick={() => {}} />
         <FcKpiCard icon="💰" iconBg="#fdf4ff" iconColor="#9333ea" label="Total Spend (YTD)" value="KES 45.67M" sub="↑ 12.6% vs last year" onClick={() => {}} />

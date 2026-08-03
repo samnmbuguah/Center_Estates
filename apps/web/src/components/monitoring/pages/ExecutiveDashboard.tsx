@@ -30,9 +30,9 @@ export function ExecutiveDashboard() {
     fetchExecDashboard(projectId).then(setData).catch((e) => setError((e as Error).message));
   }, [projectId]);
 
-  const schedule = data?.schedule ?? { planned_percent: 0, actual_percent: 0, variance: 0 };
-  const cost = data?.cost ?? { budget: 0, forecast_final_cost: 0, certified_to_date: 0, paid_to_date: 0, variance: 0 };
-  const risk = data?.risk ?? { high_risk_tickets: 0, overdue_tickets: 0, critical_issues: 0 };
+  const schedule = (data?.schedule ?? { planned_percent: 0, actual_percent: 0, variance: 0 }) as any;
+  const cost = (data?.cost ?? { budget: 0, forecast_final_cost: 0, certified_to_date: 0, paid_to_date: 0, cost_variance: 0, approved_variations: 0 }) as any;
+  const risk = (data?.risk ?? { high_risk_tickets: 0, overdue_tickets: 0, critical_issues: 0 }) as any;
 
   const behind = schedule.actual_percent < schedule.planned_percent;
 
