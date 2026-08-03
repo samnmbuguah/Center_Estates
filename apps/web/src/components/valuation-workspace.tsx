@@ -1,10 +1,36 @@
 "use client";
 
-import React, { FormEvent, useCallback, useEffect, useState, useRef } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { valuationNav } from "@/lib/module-nav";
+import {
+  Badge,
+  DetailDrawer,
+  EmptyState,
+  ErrorBanner,
+  Field,
+  KpiCard,
+  KpiStrip,
+  LoadingState,
+  Modal,
+  Panel,
+  SearchInput,
+  StatusPill,
+  money,
+  number,
+} from "@/components/module-ui";
 
 export type ValuationTab =
   | "overview"
@@ -20,44 +46,1630 @@ export type ValuationTab =
   | "reports"
   | "audit-events";
 
-const names: Record<ValuationTab, string> = {
-  overview: "Command Center (Overview)",
+const labels: Record<ValuationTab, string> = {
+  overview: "Overview",
   instructions: "Valuation Instructions",
-  inspections: "Site Inspections & Evidence",
-  comparables: "Comparable Sales Evidence",
-  "draft-reports": "Draft Valuation Reports",
-  "final-reports": "Final Signed Reports",
+  inspections: "Site Inspections",
+  comparables: "Comparable Evidence",
+  "draft-reports": "Draft Reports",
+  "final-reports": "Final Reports",
   invoices: "Client Invoicing",
   payments: "Fee Collections",
-  clients: "Lenders & Clients Vault",
-  analytics: "Valuation Analytics & Turnaround",
+  clients: "Clients & Lenders",
+  analytics: "Analytics",
   reports: "Reports Catalogue",
   "audit-events": "Audit Trail",
 };
 
-const cash = new Intl.NumberFormat("en-KE", {
-  style: "currency",
-  currency: "KES",
-  maximumFractionDigits: 0,
-});
+type Row = Record<string, unknown>;
+type Dashboard = {
+  kpis?: Record<string, unknown>;
+  recentInstructions?: Row[];
+  upcomingInspections?: Row[];
+  pipeline?: { status: string; count: number }[];
+  valuationMix?: { valuation_type: string; count: number }[];
+};
+type Analytics = {
+  teamPerformance?: Row[];
+  aging?: { overdueInvoices?: number; overdueBalance?: string | number };
+  reports?: Row[];
+};
+type Tone = "green" | "red" | "yellow" | "blue" | "cyan" | "purple" | "gray";
 
-interface ValuationWorkspaceProps {
-  initialTab?: ValuationTab;
+const PALETTE = ["#0891b2", "#6366f1", "#f59e0b", "#16a34a", "#dc2626", "#8b5cf6", "#0ea5e9", "#eab308"];
+const EMPTY_ROWS: Row[] = [];
+const EMPTY_PIPELINE: { status: string; count: number }[] = [];
+const EMPTY_MIX: { valuation_type: string; count: number }[] = [];
+
+/* ───────────────────────── shared helpers ───────────────────────── */
+
+function fmtDate(v: unknown): string {
+  if (!v) return "—";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function ValuationWorkspace({ initialTab = "overview" }: ValuationWorkspaceProps) {
+function fmtDateTime(v: unknown): string {
+  if (!v) return "—";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return (
+    d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) +
+    " " +
+    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+  );
+}
+
+function fmtMoney(v: unknown): string {
+  return money.format(Number(v ?? 0));
+}
+
+function strOrNull(v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  return String(v);
+}
+
+async function readError(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as Record<string, unknown>;
+    if (typeof body.detail === "string") return body.detail;
+    for (const value of Object.values(body)) {
+      if (typeof value === "string") return value;
+      if (Array.isArray(value) && value.length > 0) return String(value[0]);
+    }
+    return `Request failed (${res.status}).`;
+  } catch {
+    return `Request failed (${res.status}).`;
+  }
+}
+
+function RefText({ value }: { value: unknown }) {
+  return <span className="mono" style={{ color: "var(--primary)", fontSize: 11, fontWeight: 700 }}>{String(value ?? "—")}</span>;
+}
+
+function DataTable({ headers, children }: { headers: ReactNode[]; children: ReactNode }) {
+  return (
+    <div className="table-scroll">
+      <table className="fc-data-table">
+        <thead>
+          <tr>{headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function TableChrome({ search, setSearch, placeholder, chips, actions, children }: {
+  search: string;
+  setSearch: (v: string) => void;
+  placeholder: string;
+  chips?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <div className="fc-table-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "12px 14px" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <SearchInput value={search} onChange={setSearch} placeholder={placeholder} />
+          {chips}
+        </div>
+        <div>{actions}</div>
+      </div>
+      {children}
+    </>
+  );
+}
+
+function FilterChips({ options, value, onChange }: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="row" style={{ gap: 6 }}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          className={`btn sm ${value === o.value ? "primary" : "ghost"}`}
+          style={{ fontSize: 11, padding: "4px 10px" }}
+          onClick={() => onChange(value === o.value ? "" : o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BarChart({ data, color = "#0891b2", height = 130 }: { data: { label: string; value: number }[]; color?: string; height?: number }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height, paddingTop: 8 }}>
+      {data.map((d) => (
+        <div key={d.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, height: "100%", justifyContent: "flex-end", minWidth: 0 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)" }}>{d.value}</span>
+          <div style={{ width: "100%", maxWidth: 46, background: d.value ? color : "var(--border)", borderRadius: "4px 4px 0 0", height: `${Math.max(3, (d.value / max) * (height - 46))}px`, opacity: d.value ? 1 : 0.4 }} />
+          <span style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Donut({ segments, center }: { segments: { label: string; color: string; value: number }[]; center: ReactNode }) {
+  const shown = segments.filter((s) => s.value > 0);
+  const total = Math.max(1, shown.reduce((acc, s) => acc + s.value, 0));
+  const parts = shown.map((s, index) => {
+    const fromPct = (shown.slice(0, index).reduce((acc, x) => acc + x.value, 0) / total) * 100;
+    const toPct = fromPct + (s.value / total) * 100;
+    return `${s.color} ${fromPct.toFixed(2)}% ${toPct.toFixed(2)}%`;
+  });
+  const grad = parts.length ? `conic-gradient(${parts.join(", ")})` : "conic-gradient(#edf0f5 0% 100%)";
+  return (
+    <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+      <div style={{ width: 118, height: 118, borderRadius: "50%", background: grad, display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>{center}</div>
+      </div>
+      <div style={{ display: "grid", gap: 7, minWidth: 120, flex: 1 }}>
+        {shown.length ? shown.map((s) => (
+          <span key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--muted)" }}>
+            <i style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, display: "inline-block", flexShrink: 0 }} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
+            <b style={{ marginLeft: "auto", color: "var(--text)" }}>{s.value}</b>
+          </span>
+        )) : <span className="muted" style={{ fontSize: 12 }}>No data yet</span>}
+      </div>
+    </div>
+  );
+}
+
+function StatBlock({ label, value, delta }: { label: string; value: ReactNode; delta?: ReactNode }) {
+  return (
+    <div style={{ padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--border)" }}>
+      <span className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+      <div style={{ fontSize: 19, fontWeight: 800, marginTop: 4 }}>{value}</div>
+      {delta ? <span className="muted" style={{ fontSize: 10 }}>{delta}</span> : null}
+    </div>
+  );
+}
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  padding: "8px 10px",
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  color: "var(--text)",
+  fontSize: 13,
+};
+
+/* ───────────────────────── instruction helpers ───────────────────────── */
+
+const IN_PROGRESS = ["assigned", "inspection", "drafting", "review"];
+const COMPLETED = ["final", "delivered"];
+
+function instructionTone(status: string): Tone {
+  const s = String(status ?? "").toLowerCase();
+  if (s === "cancelled") return "red";
+  if (s === "new") return "blue";
+  if (s === "assigned") return "purple";
+  if (s === "inspection") return "cyan";
+  if (s === "drafting" || s === "review") return "yellow";
+  if (COMPLETED.includes(s)) return "green";
+  return "gray";
+}
+
+function isOverdueInstruction(r: Row): boolean {
+  if (COMPLETED.includes(String(r.status)) || String(r.status) === "cancelled") return false;
+  const due = new Date(String(r.due_on ?? ""));
+  return !Number.isNaN(due.getTime()) && due.getTime() < new Date().getTime();
+}
+
+function instructionStatus(r: Row): { label: string; tone: Tone } {
+  if (isOverdueInstruction(r)) return { label: "Overdue", tone: "red" };
+  return { label: String(r.status ?? "—").replace(/_/g, " "), tone: instructionTone(String(r.status ?? "")) };
+}
+
+function PriorityBadge({ value }: { value: unknown }) {
+  const p = String(value ?? "normal");
+  const tone = p === "urgent" ? "red" : p === "high" ? "orange" : p === "normal" ? "gray" : "gray";
+  return <Badge value={p} tone={tone} />;
+}
+
+function draftTone(status: string): Tone {
+  if (status === "approved") return "green";
+  if (status === "changes") return "red";
+  if (status === "review") return "yellow";
+  return "yellow";
+}
+
+function invoiceTone(status: string): Tone {
+  const s = String(status ?? "");
+  if (s === "paid") return "green";
+  if (s === "overdue" || s === "void") return "red";
+  if (s === "partial" || s === "draft") return "yellow";
+  if (s === "issued") return "blue";
+  return "gray";
+}
+
+function INSTRUCTION_NEXT(row: Row): { value: string; label: string }[] {
+  const s = String(row.status ?? "");
+  const map: Record<string, { value: string; label: string }[]> = {
+    new: [{ value: "assigned", label: "Assign valuer" }],
+    assigned: [{ value: "inspection", label: "Start inspection phase" }],
+    inspection: [{ value: "drafting", label: "Move to drafting" }],
+    drafting: [{ value: "review", label: "Submit for review" }],
+  };
+  return map[s] ?? [];
+}
+
+function InstructionTimeline({ status }: { status: string }) {
+  const steps = ["new", "assigned", "inspection", "drafting", "review", "final", "delivered"];
+  const current = steps.indexOf(String(status));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0, margin: "16px 0 20px" }}>
+      {steps.map((s, i) => (
+        <Fragment key={s}>
+          {i > 0 ? <div style={{ flex: 1, height: 3, background: current >= i ? "#0891b2" : "var(--border)", borderRadius: 2, minWidth: 4 }} /> : null}
+          <div
+            title={s}
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              fontSize: 10,
+              fontWeight: 800,
+              color: current >= i ? "white" : "var(--muted)",
+              background: current >= i ? "#0891b2" : "var(--border)",
+              flexShrink: 0,
+            }}
+          >
+            {current > i ? "✓" : i + 1}
+          </div>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+function DonutSegments(recent: Row[], key: string, fallback: string): { label: string; color: string; value: number }[] {
+  const map: Record<string, number> = {};
+  for (const r of recent) {
+    const name = String(r[key] ?? fallback);
+    map[name] = (map[name] ?? 0) + 1;
+  }
+  return Object.entries(map)
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, value], i) => ({ label, value, color: PALETTE[i % PALETTE.length] }));
+}
+
+/* ───────────────────────── overview ───────────────────────── */
+
+function OverviewView({ dashboard, setTab, openNewInstruction }: {
+  dashboard: Dashboard | null;
+  setTab: (t: ValuationTab) => void;
+  openNewInstruction: () => void;
+}) {
+  const kpis = dashboard?.kpis ?? {};
+  const recent = dashboard?.recentInstructions ?? EMPTY_ROWS;
+  const inspections = dashboard?.upcomingInspections ?? EMPTY_ROWS;
+  const pipeline = dashboard?.pipeline ?? EMPTY_PIPELINE;
+  const mix = dashboard?.valuationMix ?? EMPTY_MIX;
+
+  const totalInstructions = pipeline.reduce((acc, p) => acc + Number(p.count ?? 0), 0);
+  const inProgress = pipeline.filter((p) => IN_PROGRESS.includes(String(p.status))).reduce((acc, p) => acc + Number(p.count ?? 0), 0);
+  const completed = pipeline.filter((p) => COMPLETED.includes(String(p.status))).reduce((acc, p) => acc + Number(p.count ?? 0), 0);
+  const overdueCount = recent.filter(isOverdueInstruction).length;
+  const draftReports = Number(kpis.draftsInReview ?? 0);
+  const finalReports = Number(kpis.finalReports ?? 0);
+  const turnaround = totalInstructions ? Math.round((completed / totalInstructions) * 100) : 0;
+  const outstanding = Number(kpis.outstanding ?? 0);
+  const revenue = Number(kpis.revenue ?? 0);
+
+  const months = useMemo(() => {
+    const now = new Date();
+    const bucket: { label: string; value: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      bucket.push({ label: d.toLocaleDateString("en-GB", { month: "short" }), value: 0 });
+    }
+    for (const r of recent) {
+      const v = new Date(String(r.instructed_on ?? ""));
+      if (Number.isNaN(v.getTime())) continue;
+      const idx = (now.getFullYear() - v.getFullYear()) * 12 + (now.getMonth() - v.getMonth());
+      if (idx >= 0 && idx < bucket.length) bucket[5 - idx].value += 1;
+    }
+    return bucket;
+  }, [recent]);
+
+  const bankDonut = useMemo(() => DonutSegments(recent, "client_name", "Unassigned client"), [recent]);
+
+  const feed = useMemo(() => {
+    const items: { at: string; icon: string; text: string }[] = [];
+    for (const r of recent) items.push({ at: String(r.instructed_on ?? ""), icon: "📐", text: `New instruction received · ${String(r.reference ?? "—")} — ${String(r.client_name ?? "—")}` });
+    for (const i of inspections) items.push({ at: String(i.scheduled_at ?? ""), icon: "📍", text: `Inspection scheduled · ${String(i.reference ?? "—")} for ${String(i.property_description ?? "—")}` });
+    return items.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 6);
+  }, [recent, inspections]);
+
+  const typeMix = useMemo(() => mix.map((m, i) => ({ label: String(m.valuation_type ?? "—"), value: Number(m.count ?? 0), color: PALETTE[i % PALETTE.length] })), [mix]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <KpiStrip cols={8}>
+        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Instructions" value={number.format(totalInstructions || Number(kpis.activeInstructions ?? 0))} sub="Across the pipeline" link="View instructions" onClick={() => setTab("instructions")} />
+        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub={`${Number(kpis.dueThisWeek ?? 0)} due this week`} link="View queue" onClick={() => setTab("instructions")} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Delivered or finalised" onClick={() => setTab("instructions")} />
+        <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft Reports" value={number.format(draftReports)} sub="Awaiting review" link="Review drafts" onClick={() => setTab("draft-reports")} />
+        <KpiCard icon="📄" iconBg="#cffafe" iconColor="#0e7490" label="Final Reports" value={number.format(finalReports)} sub="Signed & issued" link="View reports" onClick={() => setTab("final-reports")} />
+        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdueCount)} sub="Past target date" onClick={() => setTab("instructions")} />
+        <KpiCard icon="📈" iconBg="#e0e7ff" iconColor="#6d28d9" label="Turnaround" value={`${turnaround}%`} sub="Completed on time" onClick={() => setTab("analytics")} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Fees" value={fmtMoney(outstanding)} sub={`${fmtMoney(revenue)} collected YTD`} link="View invoicing" onClick={() => setTab("invoices")} />
+      </KpiStrip>
+
+      <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.55fr) minmax(0, 1fr)", alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="grid-2" style={{ alignItems: "start" }}>
+            <Panel title="Instructions Trend">
+              {months.some((m) => m.value > 0) ? (
+                <BarChart data={months} height={140} />
+              ) : (
+                <EmptyState icon="📈" title="No trend yet" description="Monthly instruction intake will appear here once instructions are instructed." />
+              )}
+            </Panel>
+            <Panel title="Volume of Work by Bank">
+              {bankDonut.length ? (
+                <Donut segments={bankDonut} center={<><strong style={{ fontSize: 18 }}>{recent.length}</strong><small className="muted" style={{ fontSize: 10 }}>Recent</small></>} />
+              ) : (
+                <EmptyState icon="🏦" title="No bank volume" description="Instruction mix by bank/lender will appear once instructions are recorded." />
+              )}
+            </Panel>
+          </div>
+
+          <Panel
+            title="Recent Valuation Instructions"
+            badge={recent.length}
+            action={<button className="btn ghost sm" onClick={() => setTab("instructions")}>View all →</button>}
+          >
+            {recent.length ? (
+              <DataTable headers={["Instruction No", "Bank / Client", "Property", "Type", "Instructed On", "Target", "Status", "Valuer"]}>
+                {recent.map((r) => {
+                  const st = instructionStatus(r);
+                  return (
+                    <tr key={String(r.id ?? r.reference)}>
+                      <td><RefText value={r.reference} /></td>
+                      <td><strong style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</strong></td>
+                      <td style={{ fontSize: 12 }}>{String(r.property_description ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.valuation_type ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.instructed_on)}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
+                      <td><StatusPill value={st.label} tone={st.tone} /></td>
+                      <td style={{ fontSize: 12 }}>{String(r.valuer_name || "—")}</td>
+                    </tr>
+                  );
+                })}
+              </DataTable>
+            ) : (
+              <EmptyState icon="📋" title="No instructions recorded" description="Create the first valuation instruction to seed the register." action={<button className="btn primary sm" onClick={openNewInstruction}>+ New Instruction</button>} />
+            )}
+          </Panel>
+
+          <Panel title="Type Mix (YTD)">
+            {typeMix.length ? (
+              <BarChart data={typeMix.map((t) => ({ label: t.label, value: t.value }))} height={120} />
+            ) : (
+              <EmptyState icon="🧩" title="No type data" description="Instructions by valuation type will appear here as the pipeline grows." />
+            )}
+          </Panel>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Panel title="Recent Activity">
+            {feed.length ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {feed.map((f, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
+                    <span style={{ fontSize: 15 }}>{f.icon}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600 }}>{f.text}</div>
+                      <span className="muted" style={{ fontSize: 11 }}>{f.at ? fmtDate(f.at) : "—"}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon="🕘" title="No activity yet" description="Instruction and inspection events will stream into this feed." />
+            )}
+          </Panel>
+
+          <Panel title="Key Performance Indicators (YTD)">
+            <div className="grid-2" style={{ gap: 10 }}>
+              <StatBlock label="Instructions" value={number.format(totalInstructions || Number(kpis.activeInstructions ?? 0))} delta="vs last year" />
+              <StatBlock label="Completed" value={number.format(completed)} delta={`${turnaround}% on time`} />
+              <StatBlock label="Final Reports" value={number.format(finalReports)} delta="Signed & issued" />
+              <StatBlock label="Fees YTD" value={fmtMoney(revenue)} delta={`${fmtMoney(outstanding)} outstanding`} />
+            </div>
+          </Panel>
+
+          <Panel title="Quick Actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button className="btn primary" style={{ textAlign: "left" }} onClick={openNewInstruction}>📐 New Instruction Intake</button>
+              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("inspections")}>📍 Schedule Site Inspection</button>
+              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("comparables")}>📊 Comparable Evidence Registry</button>
+              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("draft-reports")}>📝 Review Draft Reports</button>
+              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("invoices")}>💰 Issue Fee Invoices</button>
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── instructions ───────────────────────── */
+
+function InstructionsView({ rows, search, setSearch, status, setStatus, canCoordinate, onTransition }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+  status: string;
+  setStatus: (v: string) => void;
+  canCoordinate: boolean;
+  onTransition: (row: Row, target: string) => Promise<boolean>;
+}) {
+  const [selected, setSelected] = useState<Row | null>(null);
+
+  const inProgress = rows.filter((r) => IN_PROGRESS.includes(String(r.status))).length;
+  const completed = rows.filter((r) => COMPLETED.includes(String(r.status))).length;
+  const overdue = rows.filter(isOverdueInstruction).length;
+  const filtered = useMemo(() => {
+    if (!status) return rows;
+    if (status === "new") return rows.filter((r) => String(r.status) === "new");
+    if (status === "in-progress") return rows.filter((r) => IN_PROGRESS.includes(String(r.status)));
+    if (status === "drafting") return rows.filter((r) => ["drafting", "review"].includes(String(r.status)));
+    if (status === "completed") return rows.filter((r) => COMPLETED.includes(String(r.status)));
+    if (status === "overdue") return rows.filter(isOverdueInstruction);
+    return rows;
+  }, [rows, status]);
+
+  const overdueList = useMemo(() => rows.filter(isOverdueInstruction), [rows]);
+  const upcomingList = useMemo(
+    () =>
+      rows
+        .filter((r) => !COMPLETED.includes(String(r.status)) && String(r.status) !== "cancelled" && !isOverdueInstruction(r))
+        .sort((a, b) => String(a.due_on).localeCompare(String(b.due_on)))
+        .slice(0, 4),
+    [rows],
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <KpiStrip cols={5}>
+        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="All Instructions" value={number.format(rows.length)} sub="Total register" onClick={() => setStatus("")} />
+        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub="Assigned to drafting" onClick={() => setStatus(status === "in-progress" ? "" : "in-progress")} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Final or delivered" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
+        <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft / Review" value={number.format(rows.filter((r) => ["drafting", "review"].includes(String(r.status))).length)} sub="In report preparation" onClick={() => setStatus(status === "drafting" ? "" : "drafting")} />
+        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past target date" onClick={() => setStatus(status === "overdue" ? "" : "overdue")} />
+      </KpiStrip>
+
+      <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.65fr) minmax(0, 1fr)", alignItems: "start" }}>
+        <Panel title="Valuation Instructions" badge={filtered.length}>
+          <TableChrome
+            search={search}
+            setSearch={setSearch}
+            placeholder="Search instruction no., client, property, type…"
+            chips={<FilterChips options={[
+              { value: "", label: "All" },
+              { value: "new", label: "New" },
+              { value: "in-progress", label: "In Progress" },
+              { value: "drafting", label: "Draft / Review" },
+              { value: "completed", label: "Completed" },
+              { value: "overdue", label: "Overdue" },
+            ]} value={status} onChange={setStatus} />}
+          >
+            {filtered.length === 0 ? (
+              <EmptyState icon="📋" title="No instructions found" description={search ? "No instructions match the current search or status filter." : "Create a new valuation instruction to start the pipeline."} />
+            ) : (
+              <DataTable headers={["Instruction No", "Bank / Client", "Property", "Type", "Purpose", "Instructed", "Due", "Fee", "Priority", "Status", "Valuer", "Actions"]}>
+                {filtered.map((r) => {
+                  const st = instructionStatus(r);
+                  return (
+                    <tr key={String(r.id ?? r.reference)}>
+                      <td><RefText value={r.reference} /></td>
+                      <td><strong style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</strong></td>
+                      <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.valuation_type ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.purpose ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.instructed_on)}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.quoted_fee)}</td>
+                      <td><PriorityBadge value={r.priority} /></td>
+                      <td><StatusPill value={st.label} tone={st.tone} /></td>
+                      <td style={{ fontSize: 12 }}>{String(r.valuer_name || "—")}</td>
+                      <td>
+                        <button className="btn ghost sm" onClick={() => setSelected(r)}>Details</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </DataTable>
+            )}
+          </TableChrome>
+        </Panel>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Panel title="Overdue Instructions" badge={overdueList.length}>
+            {overdueList.length ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {overdueList.slice(0, 5).map((r) => (
+                  <button key={String(r.id ?? r.reference)} onClick={() => setSelected(r)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "none", borderLeft: 0, borderRight: 0, borderTop: 0, cursor: "pointer", textAlign: "left", width: "100%" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <RefText value={r.reference} />
+                      <div style={{ fontSize: 12, marginTop: 2 }}>{String(r.property_description ?? "—")}</div>
+                    </div>
+                    <StatusPill value="Overdue" tone="red" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon="✅" title="Nothing overdue" description="All active instructions are on track." />
+            )}
+          </Panel>
+
+          <Panel title="Upcoming Deadlines" badge={upcomingList.length}>
+            {upcomingList.length ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {upcomingList.map((r) => (
+                  <button key={String(r.id ?? r.reference)} onClick={() => setSelected(r)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "none", borderLeft: 0, borderRight: 0, borderTop: 0, cursor: "pointer", textAlign: "left", width: "100%" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <RefText value={r.reference} />
+                      <div style={{ fontSize: 12, marginTop: 2 }}>{String(r.client_name ?? "—")}</div>
+                    </div>
+                    <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(r.due_on)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon="🗓️" title="No upcoming deadlines" description="Active instructions with future due dates will appear here." />
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      {selected && (
+        <DetailDrawer title={<RefText value={selected.reference} />} onClose={() => setSelected(null)} width={400}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <StatusPill value={instructionStatus(selected).label} tone={instructionStatus(selected).tone} />
+            <PriorityBadge value={selected.priority} />
+          </div>
+          <InstructionTimeline status={String(selected.status ?? "")} />
+          <div className="grid-2" style={{ gap: 12 }}>
+            <Field label="Bank / Client"><strong style={{ fontSize: 13 }}>{String(selected.client_name ?? "—")}</strong></Field>
+            <Field label="Property"><span style={{ fontSize: 13 }}>{String(selected.property_description ?? "—")}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Valuation Type"><span style={{ fontSize: 13 }}>{String(selected.valuation_type ?? "—")}</span></Field>
+            <Field label="Purpose"><span style={{ fontSize: 13 }}>{String(selected.purpose ?? "—")}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Instructed On"><span style={{ fontSize: 13 }}>{fmtDate(selected.instructed_on)}</span></Field>
+            <Field label="Due On"><span style={{ fontSize: 13 }}>{fmtDate(selected.due_on)}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Quoted Fee (KES)"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.quoted_fee)}</span></Field>
+            <Field label="Valuer"><span style={{ fontSize: 13 }}>{String(selected.valuer_name || "—")}</span></Field>
+          </div>
+          {canCoordinate && INSTRUCTION_NEXT(selected).length > 0 && (
+            <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", margin: "0 0 10px" }}>Workflow Action</p>
+              <div className="row">
+                {INSTRUCTION_NEXT(selected).map((opt) => (
+                  <button key={opt.value} className="btn primary sm" onClick={() => { void onTransition(selected, opt.value).then((ok) => { if (ok) setSelected(null); }); }}>
+                    {opt.label} →
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </DetailDrawer>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── inspections ───────────────────────── */
+
+function InspectionsView({ rows, search, setSearch }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+}) {
+  const total = rows.length;
+  const completed = rows.filter((r) => String(r.status) === "completed").length;
+  const inProgress = rows.filter((r) => String(r.status) === "in_progress").length;
+  const scheduled = rows.filter((r) => ["scheduled", "rescheduled"].includes(String(r.status))).length;
+  const overdue = rows.filter((r) => {
+    if (String(r.status) === "completed") return false;
+    const at = new Date(String(r.scheduled_at ?? ""));
+    return !Number.isNaN(at.getTime()) && at.getTime() < new Date().getTime();
+  }).length;
+
+  const overdueList = rows.filter((r) => {
+    if (String(r.status) === "completed") return false;
+    const at = new Date(String(r.scheduled_at ?? ""));
+    return !Number.isNaN(at.getTime()) && at.getTime() < new Date().getTime();
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <KpiStrip cols={5}>
+        <KpiCard icon="📍" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={number.format(total)} sub="Across all instructions" onClick={() => {}} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Evidence captured" onClick={() => {}} />
+        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub="Fieldwork underway" onClick={() => {}} />
+        <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Scheduled" value={number.format(scheduled)} sub="Upcoming visits" onClick={() => {}} />
+        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past schedule" onClick={() => {}} />
+      </KpiStrip>
+
+      <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.65fr) minmax(0, 1fr)", alignItems: "start" }}>
+        <Panel title="Site Inspections & Evidence" badge={rows.length}>
+          <TableChrome
+            search={search}
+            setSearch={setSearch}
+            placeholder="Search inspection ref, instruction no., property…"
+          >
+            {rows.length === 0 ? (
+              <EmptyState icon="📍" title="No inspections scheduled" description="Inspections created against instructions will appear here with schedule, status and evidence." />
+            ) : (
+              <DataTable headers={["Inspection Ref", "Instruction", "Property", "Location", "Inspector", "Inspection Date", "Status", "Evidence", "Actions"]}>
+                {rows.map((r) => {
+                  const lat = String(r.latitude ?? "").trim();
+                  const lng = String(r.longitude ?? "").trim();
+                  const location = lat && lng ? `${lat}, ${lng}` : "—";
+                  const evidence = Number(r.evidence_count ?? 0);
+                  return (
+                    <tr key={String(r.id ?? r.reference)}>
+                      <td><RefText value={r.reference} /></td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                      <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{location}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.inspector_name || "—")}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDateTime(r.scheduled_at)}</td>
+                      <td><StatusPill value={strOrNull(r.status)} /></td>
+                      <td>{String(r.status) === "completed" ? <Badge tone="green">{evidence}</Badge> : <span className="muted" style={{ fontSize: 12 }}>{evidence || "—"}</span>}</td>
+                      <td><button className="btn ghost sm" disabled>View</button></td>
+                    </tr>
+                  );
+                })}
+              </DataTable>
+            )}
+          </TableChrome>
+        </Panel>
+
+        <Panel title="Overdue Inspections" badge={overdueList.length}>
+          {overdueList.length ? (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {overdueList.slice(0, 6).map((r) => (
+                <div key={String(r.id ?? r.reference)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <RefText value={r.reference} />
+                    <div style={{ fontSize: 12, marginTop: 2 }}>{String(r.property_description ?? "—")}</div>
+                  </div>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{fmtDate(r.scheduled_at)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState icon="✅" title="No overdue inspections" description="All scheduled inspections are on time or completed." />
+          )}
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── comparables ───────────────────────── */
+
+function ComparablesView({ rows, search, setSearch }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+}) {
+  return (
+    <Panel title="Comparable Sales Evidence" badge={rows.length}>
+      <TableChrome
+        search={search}
+        setSearch={setSearch}
+        placeholder="Search comparable ref, address, type or source…"
+      >
+        {rows.length === 0 ? (
+          <EmptyState icon="📊" title="No comparables recorded" description="Comparable sales evidence added to instructions will be listed here with rates and adjustments." />
+        ) : (
+          <DataTable headers={["Comparable Ref", "Instruction", "Property / Address", "Type", "Sale Price", "Area (m²)", "Rate/m²", "Sale Date", "Source", "Adjustment"]}>
+            {rows.map((r) => {
+              const adj = Number(r.adjustment_percent ?? 0);
+              return (
+                <tr key={String(r.id ?? r.reference)}>
+                  <td><RefText value={r.reference} /></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                  <td style={{ fontSize: 12, maxWidth: 200 }}>{String(r.address ?? "—")}</td>
+                  <td><Badge tone="purple">{String(r.property_type ?? "—")}</Badge></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.transaction_price)}</td>
+                  <td style={{ fontSize: 12 }}>{Number(r.area ?? 0).toLocaleString()}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.rate_per_area)}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(r.transaction_date)}</td>
+                  <td style={{ fontSize: 12 }}>{String(r.source ?? "—")}</td>
+                  <td>{adj === 0 ? <Badge tone="gray">As-is</Badge> : <Badge tone="yellow">{adj}%</Badge>}</td>
+                </tr>
+              );
+            })}
+          </DataTable>
+        )}
+      </TableChrome>
+    </Panel>
+  );
+}
+
+/* ───────────────────────── draft reports ───────────────────────── */
+
+function DraftReportsView({ rows, search, setSearch, canReview, openReview }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+  canReview: boolean;
+  openReview: (r: Row) => void;
+}) {
+  const inReview = rows.filter((r) => String(r.status) === "review").length;
+  const approved = rows.filter((r) => String(r.status) === "approved").length;
+  const changes = rows.filter((r) => String(r.status) === "changes").length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <KpiStrip cols={4}>
+        <KpiCard icon="📝" iconBg="#e0e7ff" iconColor="#4f46e5" label="Draft Reports" value={number.format(rows.length)} sub="All versions" onClick={() => {}} />
+        <KpiCard icon="👁️" iconBg="#fef3c7" iconColor="#92400e" label="In Review" value={number.format(inReview)} sub="Awaiting reviewer" onClick={() => {}} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Approved" value={number.format(approved)} sub="Ready to finalise" onClick={() => {}} />
+        <KpiCard icon="🔁" iconBg="#fee2e2" iconColor="#b91c1c" label="Changes Required" value={number.format(changes)} sub="Returned to valuer" onClick={() => {}} />
+      </KpiStrip>
+
+      <Panel title="Draft Report Register" badge={rows.length}>
+        <TableChrome
+          search={search}
+          setSearch={setSearch}
+          placeholder="Search instruction no., property, method or template…"
+        >
+          {rows.length === 0 ? (
+            <EmptyState icon="📝" title="No draft reports" description="Draft reports submitted for review will be tracked here with version and approval progress." />
+          ) : (
+            <DataTable headers={["Report Ref", "Instruction", "Property", "Valuer", "Draft Date", "Assessed Value", "Status", "Actions"]}>
+              {rows.map((r) => {
+                const ref = `${String(r.instruction_reference ?? "—")}/v${String(r.version ?? "1")}`;
+                return (
+                  <tr key={String(r.id)}>
+                    <td><RefText value={ref} /></td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                    <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{String(r.prepared_by_name || "—")}</td>
+                    <td style={{ fontSize: 12 }}>{fmtDateTime(r.created_at)}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.assessed_value)}</td>
+                    <td><StatusPill value={strOrNull(r.status)} tone={draftTone(String(r.status))} /></td>
+                    <td>
+                      {canReview && String(r.status) === "review" ? (
+                        <button className="btn primary sm" onClick={() => openReview(r)}>Review</button>
+                      ) : (
+                        <button className="btn ghost sm" onClick={() => openReview(r)}>View</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </DataTable>
+          )}
+        </TableChrome>
+      </Panel>
+    </div>
+  );
+}
+
+/* ───────────────────────── final reports ───────────────────────── */
+
+function FinalReportsView({ rows, search, setSearch }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+}) {
+  const [selected, setSelected] = useState<Row | null>(null);
+
+  return (
+    <Panel title="Final Signed Reports" badge={rows.length}>
+      <TableChrome
+        search={search}
+        setSearch={setSearch}
+        placeholder="Search report no., instruction no., client or property…"
+      >
+        {rows.length === 0 ? (
+          <EmptyState icon="📄" title="No final reports issued" description="Final reports signed from approved drafts will be listed here as immutable, checksummed records." />
+        ) : (
+          <DataTable headers={["Report No", "Instruction", "Property", "Client", "Issue Date", "Signed By", "Status", "Actions"]}>
+            {rows.map((r) => {
+              const delivered = Boolean(r.delivered_at);
+              return (
+                <tr key={String(r.id ?? r.report_number)}>
+                  <td><RefText value={r.report_number} /></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                  <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(r.issued_on)}</td>
+                  <td style={{ fontSize: 12 }}>{String(r.signed_by ?? "—")}</td>
+                  <td>{delivered ? <Badge tone="green">Delivered</Badge> : <Badge tone="cyan">Issued</Badge>}</td>
+                  <td>
+                    <button className="btn ghost sm" onClick={() => setSelected(r)}>View</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </DataTable>
+        )}
+      </TableChrome>
+
+      {selected && (
+        <DetailDrawer title={<RefText value={selected.report_number} />} onClose={() => setSelected(null)} width={400}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <StatusPill value={Boolean(selected.delivered_at) ? "Delivered" : "Issued"} tone={Boolean(selected.delivered_at) ? "green" : "cyan"} />
+            <StatusPill value="Signed" tone="green" />
+          </div>
+          <Field label="Instruction No"><span className="mono" style={{ fontSize: 13 }}>{String(selected.instruction_reference ?? "—")}</span></Field>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Client / Bank"><span style={{ fontSize: 13 }}>{String(selected.client_name ?? "—")}</span></Field>
+            <Field label="Property"><span style={{ fontSize: 13 }}>{String(selected.property_description ?? "—")}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Issue Date"><span style={{ fontSize: 13 }}>{fmtDate(selected.issued_on)}</span></Field>
+            <Field label="Market Value"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.market_value)}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Signed By (ID)"><span style={{ fontSize: 13 }}>{String(selected.signed_by ?? "—")}</span></Field>
+            <Field label="Delivery"><span style={{ fontSize: 13 }}>{Boolean(selected.delivered_at) ? fmtDateTime(selected.delivered_at) : "Not delivered"}</span></Field>
+          </div>
+          {selected.delivery_method ? <div style={{ marginTop: 12 }}><Field label="Delivery Method"><span style={{ fontSize: 13 }}>{String(selected.delivery_method)}</span></Field></div> : null}
+          <div style={{ marginTop: 12 }}>
+            <Field label="Integrity Checksum"><span className="mono" style={{ fontSize: 10, color: "var(--muted)", wordBreak: "break-all" }}>{String(selected.checksum ?? "—")}</span></Field>
+          </div>
+          {selected.file_url ? (
+            <div style={{ marginTop: 18 }}>
+              <a className="btn primary sm" style={{ width: "100%", justifyContent: "center" }} href={String(selected.file_url)} target="_blank" rel="noreferrer">↓ Download Report</a>
+            </div>
+          ) : null}
+        </DetailDrawer>
+      )}
+    </Panel>
+  );
+}
+
+/* ───────────────────────── invoices ───────────────────────── */
+
+function InvoicesView({ rows, search, setSearch }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+}) {
+  const [selected, setSelected] = useState<Row | null>(null);
+  const invoiced = rows.reduce((acc, r) => acc + Number(r.total ?? 0), 0);
+  const collected = rows.reduce((acc, r) => acc + (Number(r.total ?? 0) - Number(r.balance ?? 0)), 0);
+  const outstanding = rows.reduce((acc, r) => acc + Number(r.balance ?? 0), 0);
+
+  const aging = useMemo(() => {
+    const open = rows.filter((r) => !["paid", "void"].includes(String(r.status)));
+    const buckets = { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0 } as Record<string, number>;
+    for (const r of open) {
+      const due = new Date(String(r.due_on ?? ""));
+      if (Number.isNaN(due.getTime())) continue;
+      const days = Math.floor((new Date().getTime() - due.getTime()) / 86400000);
+      const key = days <= 30 ? "0-30" : days <= 60 ? "31-60" : days <= 90 ? "61-90" : "90+";
+      buckets[key] += Number(r.balance ?? 0);
+    }
+    return buckets;
+  }, [rows]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <KpiStrip cols={3}>
+        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Invoiced" value={fmtMoney(invoiced)} sub={`${rows.length} invoices issued`} onClick={() => {}} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(collected)} sub="Payments received" onClick={() => {}} />
+        <KpiCard icon="⏳" iconBg="#fee2e2" iconColor="#b91c1c" label="Outstanding" value={fmtMoney(outstanding)} sub="Unpaid balance" onClick={() => {}} />
+      </KpiStrip>
+
+      <Panel title="Aging Summary (Outstanding)">
+        {rows.length === 0 ? (
+          <EmptyState icon="🕘" title="No invoicing yet" description="Invoice aging by bucket will appear once invoices are issued." />
+        ) : (
+          <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, padding: 14 }}>
+            {Object.entries(aging).map(([bucket, value]) => (
+              <div key={bucket} style={{ padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{bucket} days</span>
+                <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: Number(value) > 0 ? "#b91c1c" : "var(--text)" }}>{fmtMoney(value)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel title="Client Invoices" badge={rows.length}>
+        <TableChrome
+          search={search}
+          setSearch={setSearch}
+          placeholder="Search invoice no., instruction no., client…"
+        >
+          {rows.length === 0 ? (
+            <EmptyState icon="🧾" title="No invoices" description="Invoices raised against completed instructions will appear here." />
+          ) : (
+            <DataTable headers={["Invoice No", "Instruction", "Client", "Issue Date", "Due Date", "Amount", "Paid", "Balance", "Status", "Actions"]}>
+              {rows.map((r) => (
+                <tr key={String(r.id ?? r.number)}>
+                  <td><RefText value={r.number} /></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(r.issued_on)}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.total)}</td>
+                  <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(Number(r.total ?? 0) - Number(r.balance ?? 0))}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.balance)}</td>
+                  <td><StatusPill value={strOrNull(r.status)} tone={invoiceTone(String(r.status))} /></td>
+                  <td><button className="btn ghost sm" onClick={() => setSelected(r)}>View</button></td>
+                </tr>
+              ))}
+            </DataTable>
+          )}
+        </TableChrome>
+      </Panel>
+
+      {selected && (
+        <DetailDrawer title={<RefText value={selected.number} />} onClose={() => setSelected(null)} width={400}>
+          <StatusPill value={strOrNull(selected.status)} tone={invoiceTone(String(selected.status))} />
+          <div style={{ marginTop: 12 }}>
+            <Field label="Instruction No"><span className="mono" style={{ fontSize: 13 }}>{String(selected.instruction_reference ?? "—")}</span></Field>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Field label="Client / Bank"><strong style={{ fontSize: 13 }}>{String(selected.client_name ?? "—")}</strong></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Issue Date"><span style={{ fontSize: 13 }}>{fmtDate(selected.issued_on)}</span></Field>
+            <Field label="Due Date"><span style={{ fontSize: 13 }}>{fmtDate(selected.due_on)}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Subtotal"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.subtotal)}</span></Field>
+            <Field label="Tax"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.tax)}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Total"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.total)}</span></Field>
+            <Field label="Balance"><span className="mono" style={{ fontSize: 13, color: Number(selected.balance) > 0 ? "#b91c1c" : "var(--text)" }}>{fmtMoney(selected.balance)}</span></Field>
+          </div>
+        </DetailDrawer>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── payments ───────────────────────── */
+
+function PaymentsView({ rows, search, setSearch, canFinance, openRecordPayment }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+  canFinance: boolean;
+  openRecordPayment: () => void;
+}) {
+  const total = rows.reduce((acc, r) => acc + Number(r.amount ?? 0), 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <KpiStrip cols={3}>
+        <KpiCard icon="💳" iconBg="#e0e7ff" iconColor="#4f46e5" label="Payments" value={number.format(rows.length)} sub="Fee collections" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(total)} sub="Total received" onClick={() => {}} />
+        <KpiCard icon="✅" iconBg="#cffafe" iconColor="#0e7490" label="Allocations" value={number.format(rows.filter((r) => !["rejected", "unapplied"].includes(String(r.status))).length)} sub="Applied to invoices" onClick={() => {}} />
+      </KpiStrip>
+
+      <Panel title="Fee Collections & Allocations" badge={rows.length} action={canFinance ? <button className="btn primary sm" onClick={openRecordPayment}>+ Record Payment</button> : undefined}>
+        <TableChrome
+          search={search}
+          setSearch={setSearch}
+          placeholder="Search payment ref, invoice no., client…"
+        >
+          {rows.length === 0 ? (
+            <EmptyState icon="💳" title="No payments recorded" description="Payments received against invoices are applied here and reduce the outstanding balance." action={canFinance ? <button className="btn primary sm" onClick={openRecordPayment}>+ Record Payment</button> : undefined} />
+          ) : (
+            <DataTable headers={["Payment Ref", "Invoice", "Client", "Method", "Amount", "Date", "Status", "Actions"]}>
+              {rows.map((r) => (
+                <tr key={String(r.id ?? r.reference)}>
+                  <td><RefText value={r.reference} /></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{String(r.invoice_number ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</td>
+                  <td><Badge tone="blue">{String(r.method ?? "—")}</Badge></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.amount)}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(r.paid_on)}</td>
+                  <td><StatusPill value="Applied" tone="green" /></td>
+                  <td><span className="muted" style={{ fontSize: 12 }}>{String(r.external_reference || "Auto")}</span></td>
+                </tr>
+              ))}
+            </DataTable>
+          )}
+        </TableChrome>
+      </Panel>
+    </div>
+  );
+}
+
+/* ───────────────────────── clients ───────────────────────── */
+
+function ClientsView({ rows, search, setSearch, canCoordinate, openNewClient }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+  canCoordinate: boolean;
+  openNewClient: () => void;
+}) {
+  const [selected, setSelected] = useState<Row | null>(null);
+
+  return (
+    <Panel title="Clients & Lenders Vault" badge={rows.length} action={canCoordinate ? <button className="btn primary sm" onClick={openNewClient}>+ New Client</button> : undefined}>
+      <TableChrome
+        search={search}
+        setSearch={setSearch}
+        placeholder="Search name, code, contact or email…"
+      >
+        {rows.length === 0 ? (
+          <EmptyState icon="🏢" title="No clients registered" description="Banks, lenders and corporate clients instructing valuations will appear here." action={canCoordinate ? <button className="btn primary sm" onClick={openNewClient}>+ New Client</button> : undefined} />
+        ) : (
+          <DataTable headers={["Client / Lender", "Type", "Contact", "Email", "Phone", "Terms (Days)", "Status", "Actions"]}>
+            {rows.map((r) => (
+              <tr key={String(r.id ?? r.code)}>
+                <td>
+                  <strong style={{ fontSize: 12 }}>{String(r.name ?? "—")}</strong>
+                  <div className="mono muted" style={{ fontSize: 10 }}>{String(r.code ?? "—")}</div>
+                </td>
+                <td><Badge tone="purple">{String(r.client_type ?? "—")}</Badge></td>
+                <td style={{ fontSize: 12 }}>{String(r.contact_name || "—")}</td>
+                <td style={{ fontSize: 12 }}>{String(r.email || "—")}</td>
+                <td style={{ fontSize: 12 }}>{String(r.phone || "—")}</td>
+                <td style={{ fontSize: 12 }}>{Number(r.payment_terms_days ?? 0) || "—"}</td>
+                <td><StatusPill value="Active" tone="green" /></td>
+                <td><button className="btn ghost sm" onClick={() => setSelected(r)}>View</button></td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </TableChrome>
+
+      {selected && (
+        <DetailDrawer title={<strong style={{ fontSize: 14 }}>{String(selected.name ?? "—")}</strong>} onClose={() => setSelected(null)} width={400}>
+          <div style={{ marginBottom: 10 }}>
+            <Badge tone="purple">{String(selected.client_type ?? "—")}</Badge>
+            <span className="mono muted" style={{ fontSize: 11, marginLeft: 8 }}>{String(selected.code ?? "—")}</span>
+          </div>
+          <Field label="Contact Name"><span style={{ fontSize: 13 }}>{String(selected.contact_name || "—")}</span></Field>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Email"><span style={{ fontSize: 13 }}>{String(selected.email || "—")}</span></Field>
+            <Field label="Phone"><span style={{ fontSize: 13 }}>{String(selected.phone || "—")}</span></Field>
+          </div>
+          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+            <Field label="Tax Number"><span className="mono" style={{ fontSize: 13 }}>{String(selected.tax_number || "—")}</span></Field>
+            <Field label="Payment Terms"><span style={{ fontSize: 13 }}>{Number(selected.payment_terms_days ?? 0) ? `${String(selected.payment_terms_days)} days` : "—"}</span></Field>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Field label="Registered"><span style={{ fontSize: 13 }}>{fmtDateTime(selected.created_at)}</span></Field>
+          </div>
+        </DetailDrawer>
+      )}
+    </Panel>
+  );
+}
+
+/* ───────────────────────── analytics ───────────────────────── */
+
+function AnalyticsView({ analytics, dashboard }: { analytics: Analytics | null; dashboard: Dashboard | null }) {
+  const team = analytics?.teamPerformance ?? EMPTY_ROWS;
+  const aging = analytics?.aging ?? {};
+  const recent = dashboard?.recentInstructions ?? EMPTY_ROWS;
+  const pipeline = dashboard?.pipeline ?? EMPTY_PIPELINE;
+  const mix = dashboard?.valuationMix ?? EMPTY_MIX;
+
+  const totalInstructions = team.reduce((acc, r) => acc + Number(r.instructions ?? 0), 0);
+  const delivered = team.reduce((acc, r) => acc + Number(r.delivered ?? 0), 0);
+  const feeEstimate = team.reduce((acc, r) => acc + Number(r.instructions ?? 0) * Number(r.averageFee ?? 0), 0);
+  const completionRate = totalInstructions ? Math.round((delivered / totalInstructions) * 100) : 0;
+  const overdueInvoices = Number(aging.overdueInvoices ?? 0);
+  const overdueBalance = Number(aging.overdueBalance ?? 0);
+
+  const bankDonut = useMemo(() => DonutSegments(recent, "client_name", "Unassigned client"), [recent]);
+  const typeBars = useMemo(() => mix.map((m, i) => ({ label: String(m.valuation_type ?? "—"), value: Number(m.count ?? 0), color: PALETTE[i % PALETTE.length] })), [mix]);
+  const pipelineBars = useMemo(() => pipeline.map((p) => ({ label: String(p.status ?? "—").replace(/_/g, " "), value: Number(p.count ?? 0) })), [pipeline]);
+  const feeBars = useMemo(
+    () => team.map((r) => ({ label: String(r.valuer__username ?? r.valuer__first_name ?? "Valuer"), value: Number(r.instructions ?? 0) * Number(r.averageFee ?? 0) })),
+    [team],
+  );
+  const bankMax = Math.max(1, ...bankDonut.map((s) => s.value));
+  const bankTotal = bankDonut.reduce((acc, s) => acc + s.value, 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <KpiStrip cols={7}>
+        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="Instructions YTD" value={number.format(totalInstructions)} sub="Assigned workload" onClick={() => {}} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(delivered)} sub="Delivered on time" onClick={() => {}} />
+        <KpiCard icon="⏱️" iconBg="#fef3c7" iconColor="#92400e" label="Avg Turnaround" value="—" sub="SLA tracking pending" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Quoted Fees" value={fmtMoney(feeEstimate)} sub="Across the pipeline" onClick={() => {}} />
+        <KpiCard icon="🎯" iconBg="#cffafe" iconColor="#0e7490" label="Completion Rate" value={`${completionRate}%`} sub="Of assigned work" onClick={() => {}} />
+        <KpiCard icon="📤" iconBg="#ede9fe" iconColor="#6d28d9" label="On-time %" value="—" sub="Delivery SLA pending" onClick={() => {}} />
+        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Rate" value={number.format(overdueInvoices)} sub={`${fmtMoney(overdueBalance)} aged`} onClick={() => {}} />
+      </KpiStrip>
+
+      <div className="grid-2" style={{ alignItems: "start" }}>
+        <Panel title="Instructions Trend (This Period)">
+          {pipelineBars.length ? <BarChart data={pipelineBars} height={150} /> : <EmptyState icon="📈" title="No trend data" description="Pipeline distribution by status will render once instructions are recorded." />}
+        </Panel>
+        <Panel title="Volume of Work by Bank">
+          {bankDonut.length ? <Donut segments={bankDonut} center={<><strong style={{ fontSize: 18 }}>{bankTotal}</strong><small className="muted" style={{ fontSize: 10 }}>Total</small></>} /> : <EmptyState icon="🏦" title="No bank volume" description="Instruction mix by bank/lender will appear here." />}
+        </Panel>
+      </div>
+
+      <div className="grid-2" style={{ alignItems: "start" }}>
+        <Panel title="Instructions by Type">
+          {typeBars.length ? <BarChart data={typeBars.map((t) => ({ label: t.label, value: t.value }))} height={140} /> : <EmptyState icon="🧩" title="No type data" description="Valuation type distribution will appear here." />}
+        </Panel>
+        <Panel title="Fee Analysis (This Period)">
+          {feeBars.length ? <BarChart data={feeBars} color="#ea580c" height={140} /> : <EmptyState icon="💰" title="No fee data" description="Quoted fee value by valuer will appear once instructions are recorded." />}
+        </Panel>
+      </div>
+
+      <div className="grid-2" style={{ alignItems: "start" }}>
+        <Panel title="Team Performance" badge={team.length}>
+          {team.length === 0 ? (
+            <EmptyState icon="🧑‍💼" title="No team data" description="Valuer performance (instructions, delivery and average fees) will appear here." />
+          ) : (
+            <DataTable headers={["Valuer", "Instructions", "Delivered", "Avg Fee", "Completion"]}>
+              {team.map((r, i) => {
+                const ins = Number(r.instructions ?? 0);
+                const del = Number(r.delivered ?? 0);
+                const pct = ins ? Math.round((del / ins) * 100) : 0;
+                const name = String(r.valuer__first_name || "") + " " + String(r.valuer__last_name || "") || String(r.valuer__username || "—");
+                return (
+                  <tr key={i}>
+                    <td><strong style={{ fontSize: 12 }}>{name.trim() || "—"}</strong></td>
+                    <td style={{ fontSize: 12 }}>{number.format(ins)}</td>
+                    <td style={{ fontSize: 12 }}>{number.format(del)}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.averageFee)}</td>
+                    <td>
+                      <div className="progress" style={{ width: 90 }}>
+                        <span style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </DataTable>
+          )}
+        </Panel>
+
+        <Panel title="Bank Performance (This Period)">
+          {bankDonut.length ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14 }}>
+              {bankDonut.map((s) => (
+                <div key={s.label}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{s.label}</span>
+                    <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{s.value} · {Math.round((s.value / bankMax) * 100)}%</span>
+                  </div>
+                  <div className="progress" style={{ height: 6 }}>
+                    <span style={{ width: `${Math.max(0, Math.min(100, (s.value / bankMax) * 100))}%`, background: s.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState icon="🏦" title="No bank performance" description="Share of work by bank/lender will render here once instructions are recorded." />
+          )}
+        </Panel>
+      </div>
+
+      <Panel title="Turnaround Time Analysis">
+        <EmptyState icon="⏱️" title="Turnaround segmentation pending" description="Average days per stage (instruction → inspection → draft → final) will be published here once SLA timings are recorded server-side." />
+      </Panel>
+    </div>
+  );
+}
+
+/* ───────────────────────── reports ───────────────────────── */
+
+function ReportsView({ reports, recentExports, onExport }: {
+  reports: Row[];
+  recentExports: { key: string; name: string; exportedAt: string }[];
+  onExport: (key: string, name: string) => void;
+}) {
+  const icons: Record<string, string> = { instructions: "📐", inspections: "📍", comparables: "📊", reports: "📄", fees: "💰" };
+  const descriptions: Record<string, string> = {
+    instructions: "Instruction pipeline and SLA compliance by valuer and client.",
+    inspections: "Inspection evidence register with GPS, findings and checklist coverage.",
+    comparables: "Comparable evidence analysis with rates and adjustments.",
+    reports: "Final signed valuation reports with delivery and checksum records.",
+    fees: "Fees, payments and outstanding aging across clients.",
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <Panel title="Report Catalogue" badge={reports.length}>
+        {reports.length === 0 ? (
+          <EmptyState icon="📊" title="No report catalogue" description="The analytics service will provide report definitions here." />
+        ) : (
+          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", padding: 16 }}>
+            {reports.map((r) => {
+              const key = String(r.key ?? "");
+              const name = String(r.name ?? "Report");
+              return (
+                <article className="data-panel" key={key} style={{ padding: 18 }}>
+                  <div style={{ alignItems: "center", display: "flex", gap: 10, marginBottom: 10 }}>
+                    <span style={{ background: "#e0f2fe", borderRadius: 10, color: "#0891b2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, height: 38, width: 38 }}>{icons[key] ?? "📄"}</span>
+                    <strong style={{ fontSize: 13 }}>{name}</strong>
+                  </div>
+                  <p className="muted" style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 14px", minHeight: 36 }}>{descriptions[key] ?? "Exports the current valuation dataset as CSV."}</p>
+                  <button className="btn primary sm" style={{ width: "100%", justifyContent: "center" }} onClick={() => onExport(key, name)}>↓ Export CSV</button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+
+      <Panel title="Recent Reports">
+        {reports.length === 0 ? (
+          <EmptyState icon="📄" title="No recent reports" description="Recent report definitions will be listed here." />
+        ) : (
+          <DataTable headers={["Report", "Key", "Kind"]}>
+            {reports.map((r) => (
+              <tr key={String(r.key ?? r.name)}>
+                <td><strong style={{ fontSize: 12 }}>{String(r.name ?? "—")}</strong></td>
+                <td className="mono" style={{ fontSize: 12 }}>{String(r.key ?? "—")}</td>
+                <td><Badge tone="cyan">CSV Export</Badge></td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </Panel>
+
+      <Panel title="Recent Exports" badge={recentExports.length}>
+        {recentExports.length === 0 ? (
+          <EmptyState icon="🕘" title="No exports yet" description="Reports you download from the catalogue will be tracked here." />
+        ) : (
+          <DataTable headers={["Report", "File", "Exported At"]}>
+            {recentExports.map((e, i) => (
+              <tr key={`${e.key}-${i}`}>
+                <td><strong style={{ fontSize: 12 }}>{e.name}</strong></td>
+                <td className="mono" style={{ fontSize: 12 }}>valuation-{e.key}.csv</td>
+                <td style={{ fontSize: 12 }}>{fmtDateTime(e.exportedAt)}</td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+/* ───────────────────────── audit events ───────────────────────── */
+
+function AuditEventsView({ rows, search, setSearch }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+}) {
+  const statusChanges = rows.filter((r) => String(r.event_type).includes("status")).length;
+  const financial = rows.filter((r) => ["invoice", "payment"].some((k) => String(r.event_type).includes(k))).length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <KpiStrip cols={4}>
+        <KpiCard icon="🕘" iconBg="#e0e7ff" iconColor="#4f46e5" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" onClick={() => {}} />
+        <KpiCard icon="🔀" iconBg="#fef3c7" iconColor="#92400e" label="Status Changes" value={number.format(statusChanges)} sub="Instruction moves" onClick={() => {}} />
+        <KpiCard icon="💳" iconBg="#dcfce7" iconColor="#16a34a" label="Financial Events" value={number.format(financial)} sub="Invoices & payments" onClick={() => {}} />
+        <KpiCard icon="🧾" iconBg="#cffafe" iconColor="#0e7490" label="Reports" value={number.format(rows.filter((r) => String(r.event_type).includes("draft") || String(r.event_type).includes("final")).length)} sub="Draft & final events" onClick={() => {}} />
+      </KpiStrip>
+
+      <Panel title="Audit Trail" badge={rows.length}>
+        <TableChrome
+          search={search}
+          setSearch={setSearch}
+          placeholder="Search instruction ref, event type or notes…"
+        >
+          {rows.length === 0 ? (
+            <EmptyState icon="🕘" title="No audit events" description="Every controlled action (creation, transition, approval, issue and allocation) will be recorded here with the acting user." />
+          ) : (
+            <DataTable headers={["Timestamp", "User", "Action", "Entity", "Detail"]}>
+              {rows.map((r) => {
+                let detail = String(r.notes ?? "");
+                if (!detail && r.details) detail = JSON.stringify(r.details).slice(0, 140);
+                return (
+                  <tr key={String(r.id)}>
+                    <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDateTime(r.created_at)}</td>
+                    <td style={{ fontSize: 12 }}><strong>{String(r.actor_name ?? "—")}</strong></td>
+                    <td><Badge value={strOrNull(r.event_type)} tone="cyan" /></td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                    <td className="muted" style={{ fontSize: 11, maxWidth: 260 }}>{detail || "—"}</td>
+                  </tr>
+                );
+              })}
+            </DataTable>
+          )}
+        </TableChrome>
+      </Panel>
+    </div>
+  );
+}
+
+/* ───────────────────────── modals ───────────────────────── */
+
+function NewInstructionModal({ clients, error, onSubmit, onClose }: {
+  clients: Row[];
+  error: string;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal title="+ New Valuation Instruction" onClose={onClose} wide>
+      {error ? <ErrorBanner message={error} onRetry={() => {}} /> : null}
+      <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="grid-2">
+          <Field label="Instruction Ref" required>
+            <input name="reference" required placeholder="e.g. VAL-2026-0186" style={inputStyle} />
+          </Field>
+          <Field label="Client / Lender" required>
+            <select name="client" required defaultValue="" style={inputStyle}>
+              <option value="" disabled>Select client…</option>
+              {clients.map((c) => <option key={String(c.id)} value={String(c.id)}>{String(c.name)}</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label="Property Description & L.R. No" required>
+          <input name="property_description" required placeholder="e.g. Commercial Complex L.R. 209/1844" style={inputStyle} />
+        </Field>
+        <div className="grid-2">
+          <Field label="Valuation Type" required>
+            <input name="valuation_type" required placeholder="e.g. Commercial Asset" style={inputStyle} />
+          </Field>
+          <Field label="Purpose" required>
+            <input name="purpose" required placeholder="e.g. Mortgage Security" style={inputStyle} />
+          </Field>
+        </div>
+        <div className="grid-2">
+          <Field label="Instruction Date" required>
+            <input name="instructed_on" type="date" required style={inputStyle} />
+          </Field>
+          <Field label="Due Date" required>
+            <input name="due_on" type="date" required style={inputStyle} />
+          </Field>
+        </div>
+        <div className="grid-2">
+          <Field label="Quoted Fee (KES)" required>
+            <input name="quoted_fee" type="number" required min="0" placeholder="450000" style={inputStyle} />
+          </Field>
+          <Field label="Priority">
+            <select name="priority" defaultValue="normal" style={inputStyle}>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </Field>
+        </div>
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn primary">Create Instruction</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function NewClientModal({ error, onSubmit, onClose }: {
+  error: string;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  onClose: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [clientType, setClientType] = useState("bank");
+  const [contact, setContact] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [tax, setTax] = useState("");
+  const [terms, setTerms] = useState("30");
+
+  return (
+    <Modal title="+ New Client / Lender" onClose={onClose} wide>
+      {error ? <ErrorBanner message={error} onRetry={() => {}} /> : null}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="grid-2">
+          <Field label="Client Code" required>
+            <input value={code} onChange={(e) => setCode(e.target.value)} required placeholder="e.g. ABC-001" style={inputStyle} />
+          </Field>
+          <Field label="Client Name" required>
+            <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. ABC Bank" style={inputStyle} />
+          </Field>
+        </div>
+        <div className="grid-2">
+          <Field label="Client Type" required>
+            <select value={clientType} onChange={(e) => setClientType(e.target.value)} style={inputStyle}>
+              <option value="bank">Bank</option>
+              <option value="corporate">Corporate</option>
+              <option value="government">Government</option>
+              <option value="individual">Individual</option>
+              <option value="legal">Legal firm</option>
+            </select>
+          </Field>
+          <Field label="Payment Terms (Days)">
+            <input value={terms} onChange={(e) => setTerms(e.target.value)} type="number" min="0" style={inputStyle} />
+          </Field>
+        </div>
+        <Field label="Contact Name">
+          <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Primary contact" style={inputStyle} />
+        </Field>
+        <div className="grid-2">
+          <Field label="Email">
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="contact@client.co.ke" style={inputStyle} />
+          </Field>
+          <Field label="Phone">
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+254 700 000 000" style={inputStyle} />
+          </Field>
+        </div>
+        <Field label="Tax Number">
+          <input value={tax} onChange={(e) => setTax(e.target.value)} placeholder="P/NIN" style={inputStyle} />
+        </Field>
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() =>
+              onSubmit({
+                code,
+                name,
+                client_type: clientType,
+                contact_name: contact,
+                email,
+                phone,
+                tax_number: tax,
+                payment_terms_days: Number(terms) || 30,
+              })
+            }
+          >
+            Create Client
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function DraftReviewModal({ report, error, busy, onSubmit, onClose }: {
+  report: Row;
+  error: string;
+  busy: boolean;
+  onSubmit: (action: "approve" | "request-changes", notes: string) => void;
+  onClose: () => void;
+}) {
+  const [notes, setNotes] = useState("");
+  const inReview = String(report.status) === "review";
+  const ref = `${String(report.instruction_reference ?? "—")}/v${String(report.version ?? "1")}`;
+
+  return (
+    <Modal title={`Review ${ref}`} onClose={onClose}>
+      {error ? <ErrorBanner message={error} onRetry={() => {}} /> : null}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="grid-2" style={{ gap: 12 }}>
+          <Field label="Instruction"><span className="mono" style={{ fontSize: 13 }}>{String(report.instruction_reference ?? "—")}</span></Field>
+          <Field label="Assessed Value"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(report.assessed_value)}</span></Field>
+        </div>
+        <Field label="Valuer"><span style={{ fontSize: 13 }}>{String(report.prepared_by_name || "—")}</span></Field>
+        <Field label="Review Comment">
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder="Approval note or required changes…" style={{ ...inputStyle, resize: "vertical" }} />
+        </Field>
+        {!inReview ? (
+          <p className="muted" style={{ fontSize: 12, margin: 0 }}>Only a report in review can be actioned — current status: <StatusPill value={strOrNull(report.status)} tone={draftTone(String(report.status))} />.</p>
+        ) : null}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn ghost sm" disabled={!inReview || busy} style={{ padding: "9px 14px" }} onClick={() => onSubmit("request-changes", notes)}>Request Changes</button>
+          <button type="button" className="btn primary" disabled={!inReview || busy} onClick={() => onSubmit("approve", notes)}>Approve Report</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function RecordPaymentModal({ invoices, error, busy, onSubmit, onClose }: {
+  invoices: Row[];
+  error: string;
+  busy: boolean;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  onClose: () => void;
+}) {
+  const [invoice, setInvoice] = useState("");
+  const [paidOn, setPaidOn] = useState("");
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("M-Pesa");
+  const [external, setExternal] = useState("");
+
+  return (
+    <Modal title="Allocate Payment" onClose={onClose}>
+      {error ? <ErrorBanner message={error} onRetry={() => {}} /> : null}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Field label="Invoice" required>
+          <select value={invoice} onChange={(e) => setInvoice(e.target.value)} required style={inputStyle}>
+            <option value="" disabled>Select invoice…</option>
+            {invoices.map((i) => <option key={String(i.id)} value={String(i.id)}>{String(i.number)} — {String(i.client_name ?? "—")}</option>)}
+          </select>
+        </Field>
+        <div className="grid-2">
+          <Field label="Payment Date" required>
+            <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} required style={inputStyle} />
+          </Field>
+          <Field label="Amount (KES)" required>
+            <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0" style={inputStyle} />
+          </Field>
+        </div>
+        <div className="grid-2">
+          <Field label="Method" required>
+            <select value={method} onChange={(e) => setMethod(e.target.value)} style={inputStyle}>
+              <option value="M-Pesa">M-Pesa</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Cash">Cash</option>
+            </select>
+          </Field>
+          <Field label="External Reference">
+            <input value={external} onChange={(e) => setExternal(e.target.value)} placeholder="e.g. STK transaction id" style={inputStyle} />
+          </Field>
+        </div>
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn primary" disabled={busy || !invoice || !paidOn || !amount} onClick={() => onSubmit({ invoice, paid_on: paidOn, amount: Number(amount), method, external_reference: external })}>
+            Allocate Payment
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ───────────────────────── workspace ───────────────────────── */
+
+export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
   const { session, can } = useAuth();
   const org = session?.activeOrganizationId ?? null;
 
-  const [tab, setTab] = useState<ValuationTab>(initialTab);
-  const [dash, setDash] = useState<any>(null);
-  const [rows, setRows] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
+  const [tab, setTab] = useState<ValuationTab>(() => (initialTab in labels ? (initialTab as ValuationTab) : "overview"));
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [rows, setRows] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
 
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [clients, setClients] = useState<Row[]>([]);
+  const [invoiceOptions, setInvoiceOptions] = useState<Row[]>([]);
+  const [recentExports, setRecentExports] = useState<{ key: string; name: string; exportedAt: string }[]>([]);
+
+  const [showNewInstruction, setShowNewInstruction] = useState(false);
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [showDraftReview, setShowDraftReview] = useState<Row | null>(null);
+  const [showRecordPayment, setShowRecordPayment] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const canCoordinate = can("valuation.coordinate");
+  const canFinance = can("valuation.finance");
+  const canReview = can("valuation.review");
 
   const loadVersion = useRef(0);
 
@@ -66,79 +1678,195 @@ export function ValuationWorkspace({ initialTab = "overview" }: ValuationWorkspa
     const version = ++loadVersion.current;
     setLoading(true);
     setError("");
-
-    const isAnalytics = tab === "analytics" || tab === "reports";
-    const path = tab === "overview"
-      ? "/valuation/dashboard/"
-      : isAnalytics
-      ? "/valuation/analytics/"
-      : `/valuation/${tab}/?search=${encodeURIComponent(search)}`;
-
     try {
-      const res = await apiFetch(path, {}, org);
-      if (res.ok) {
-        const data = await res.json();
+      if (tab === "overview") {
+        const res = await apiFetch("/valuation/dashboard/", {}, org);
         if (version !== loadVersion.current) return;
-        if (tab === "overview") setDash(data);
-        else if (tab === "analytics") setRows(data.teamPerformance || []);
-        else if (tab === "reports") setRows(data.reports || []);
-        else setRows(Array.isArray(data) ? data : []);
+        if (res.ok) {
+          const data = (await res.json()) as Dashboard;
+          if (version !== loadVersion.current) return;
+          setDashboard(data);
+          setRows([]);
+        } else {
+          setDashboard(null);
+        }
+      } else if (tab === "analytics" || tab === "reports") {
+        const res = await apiFetch("/valuation/analytics/", {}, org);
+        if (version !== loadVersion.current) return;
+        if (res.ok) {
+          const data = (await res.json()) as Analytics;
+          if (version !== loadVersion.current) return;
+          setAnalytics(data);
+          setRows(tab === "analytics" ? (data.teamPerformance ?? []) : (data.reports ?? []));
+        } else {
+          setAnalytics(null);
+          setRows([]);
+        }
+        if (tab === "analytics") {
+          const dres = await apiFetch("/valuation/dashboard/", {}, org);
+          if (version !== loadVersion.current) return;
+          if (dres.ok) setDashboard((await dres.json()) as Dashboard);
+        }
       } else {
-        setRows([]);
+        const res = await apiFetch(`/valuation/${tab}/?search=${encodeURIComponent(search)}`, {}, org);
+        if (version !== loadVersion.current) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (version !== loadVersion.current) return;
+          setRows(Array.isArray(data) ? (data as Row[]) : []);
+        } else {
+          setRows([]);
+        }
       }
-    } catch (e) {
-      setError("Unable to connect to valuation tracker service.");
+    } catch {
+      if (version === loadVersion.current) setError("Unable to connect to the valuation tracker service.");
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
   }, [tab, search, org]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    const timer = setTimeout(loadData, search ? 250 : 0);
+    return () => clearTimeout(timer);
+  }, [loadData, search]);
 
   useEffect(() => {
-    if (showAddModal && org) {
-      apiFetch("/valuation/clients/", {}, org)
-        .then((r) => (r.ok ? r.json() : []))
-        .then(setClients);
-    }
-  }, [showAddModal, org]);
+    if (!org || !showNewInstruction) return;
+    apiFetch("/valuation/clients/", {}, org)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setClients(Array.isArray(d) ? (d as Row[]) : []));
+  }, [org, showNewInstruction]);
 
-  async function submitRegisterInstruction(e: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (!org || !showRecordPayment) return;
+    apiFetch("/valuation/invoices/", {}, org)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setInvoiceOptions(Array.isArray(d) ? (d as Row[]) : []));
+  }, [org, showRecordPayment]);
+
+  const selectTab = (id: string) => {
+    setSearch("");
+    setStatus("");
+    setTab(id as ValuationTab);
+  };
+
+  const openNewInstruction = () => { setFormError(""); setShowNewInstruction(true); };
+  const openNewClient = () => { setFormError(""); setShowNewClient(true); };
+  const openReview = (r: Row) => { setFormError(""); setShowDraftReview(r); };
+  const openRecordPayment = () => { setFormError(""); setShowRecordPayment(true); };
+
+  async function submitNewInstruction(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setBusy(true);
+    setFormError("");
     const form = new FormData(e.currentTarget);
-    const payload = {
+    const payload: Record<string, unknown> = {
       ...Object.fromEntries(form.entries()),
       valuer: session?.user.id,
       status: "new",
     };
-
     await apiFetch("/auth/csrf/");
     const res = await apiFetch("/valuation/instructions/", {
       method: "POST",
       headers: { "X-CSRFToken": csrfFromCookie() },
       body: JSON.stringify(payload),
     }, org);
-
+    setBusy(false);
     if (res.ok) {
-      setShowAddModal(false);
+      setShowNewInstruction(false);
       setTab("instructions");
       loadData();
     } else {
-      setError("Valuation instruction creation failed. Check reference number.");
+      setFormError(await readError(res));
     }
   }
 
-  const kpis = dash?.kpis || {
-    activeInstructions: 24,
-    dueThisWeek: 5,
-    inspectionsPending: 8,
-    draftsInReview: 6,
-    finalReports: 142,
-    outstanding: "8400000",
-    revenue: "42600000",
-  };
+  async function submitNewClient(payload: Record<string, unknown>) {
+    setBusy(true);
+    setFormError("");
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/valuation/clients/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, org);
+    setBusy(false);
+    if (res.ok) {
+      setShowNewClient(false);
+      loadData();
+    } else {
+      setFormError(await readError(res));
+    }
+  }
+
+  async function submitDraftReview(report: Row, action: "approve" | "request-changes", notes: string) {
+    setBusy(true);
+    setFormError("");
+    const endpoint = action === "approve" ? "approve" : "request-changes";
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/valuation/draft-reports/${String(report.id)}/${endpoint}/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ notes }),
+    }, org);
+    setBusy(false);
+    if (res.ok) {
+      setShowDraftReview(null);
+      loadData();
+    } else {
+      setFormError(await readError(res));
+    }
+  }
+
+  async function submitRecordPayment(payload: Record<string, unknown>) {
+    setBusy(true);
+    setFormError("");
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/valuation/payments/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, org);
+    setBusy(false);
+    if (res.ok) {
+      setShowRecordPayment(false);
+      loadData();
+    } else {
+      setFormError(await readError(res));
+    }
+  }
+
+  const runTransition = useCallback(async (row: Row, target: string): Promise<boolean> => {
+    setError("");
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/valuation/instructions/${String(row.id)}/transition/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ status: target }),
+    }, org);
+    if (res.ok) {
+      loadData();
+      return true;
+    }
+    setError(await readError(res));
+    return false;
+  }, [org, loadData]);
+
+  async function exportReport(key: string, name: string) {
+    const res = await apiFetch(`/valuation/analytics/exports/${key}/`, {}, org);
+    if (!res.ok) {
+      setError("Report export failed.");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `valuation-${key}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setRecentExports((prev) => [{ key, name, exportedAt: new Date().toISOString() }, ...prev].slice(0, 8));
+  }
 
   const todayStr = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
@@ -152,250 +1880,53 @@ export function ValuationWorkspace({ initialTab = "overview" }: ValuationWorkspa
       accent="#0891b2"
       groups={valuationNav}
       activeId={tab}
-      onSelect={(id) => { setSearch(""); setTab(id as ValuationTab); }}
+      onSelect={selectTab}
       contextLabel="View Scope"
-      contextValue={names[tab]}
+      contextValue={labels[tab]}
       actions={
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 13, color: "var(--muted)" }}>📅 {todayStr}</span>
-          <button className="btn primary sm" onClick={() => setShowAddModal(true)}>+ New Instruction</button>
+        <div className="row">
+          <span className="pill pill-cyan" style={{ whiteSpace: "nowrap" }}>📅 {todayStr}</span>
+          <button className="btn primary sm" onClick={openNewInstruction}>+ New Instruction</button>
         </div>
       }
     >
-      <div className="valuation-workspace" style={{ padding: "16px 24px" }}>
-        {error && (
-          <div className="card" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", padding: 12, borderRadius: 8, marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "#ef4444", fontSize: 13 }}>⚠️ {error}</span>
-            <button className="btn ghost sm" onClick={loadData}>Retry</button>
-          </div>
-        )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {error ? <ErrorBanner message={error} onRetry={loadData} /> : null}
+        {formError ? <ErrorBanner message={formError} onRetry={() => setFormError("")} /> : null}
 
-        {/* TAB 1: OVERVIEW DASHBOARD */}
-        {tab === "overview" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-            {/* KPI Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, width: "100%" }}>
-              <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("instructions")}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Active Instructions</span>
-                  <span style={{ fontSize: 20 }}>📐</span>
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--text)" }}>{kpis.activeInstructions}</div>
-                <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4 }}>{kpis.dueThisWeek} due within 7 days</div>
-              </div>
-
-              <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("inspections")}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Site Inspections</span>
-                  <span style={{ fontSize: 20 }}>📍</span>
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--text)" }}>{kpis.inspectionsPending}</div>
-                <div style={{ fontSize: 12, color: "var(--primary)", marginTop: 4 }}>Scheduled or in progress</div>
-              </div>
-
-              <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("draft-reports")}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Drafts in Review</span>
-                  <span style={{ fontSize: 20 }}>📝</span>
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#eab308" }}>{kpis.draftsInReview}</div>
-                <div style={{ fontSize: 12, color: "#16a34a", marginTop: 4 }}>{kpis.finalReports} final reports issued</div>
-              </div>
-
-              <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("invoices")}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Outstanding Fees</span>
-                  <span style={{ fontSize: 20 }}>💰</span>
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#dc2626" }}>{cash.format(Number(kpis.outstanding))}</div>
-                <div style={{ fontSize: 12, color: "#16a34a", marginTop: 4 }}>{cash.format(Number(kpis.revenue))} collected</div>
-              </div>
-            </div>
-
-            {/* Dashboard Columns */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, width: "100%" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                <div className="card" style={{ padding: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <h3 style={{ margin: 0, fontSize: 16 }}>Recent Valuation Instructions</h3>
-                    <button className="btn ghost sm" onClick={() => setTab("instructions")}>View All Instructions →</button>
-                  </div>
-                  {(dash?.recentInstructions || []).length > 0 ? (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Instruction Ref</th>
-                          <th>Client</th>
-                          <th>Property</th>
-                          <th>Valuation Type</th>
-                          <th>Due Date</th>
-                          <th>Fee</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(dash?.recentInstructions || []).map((v: any, idx: number) => (
-                          <tr key={idx}>
-                            <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{v.reference}</td>
-                            <td><strong>{v.client_name || v.client?.name || "—"}</strong></td>
-                            <td>{v.property_description || "—"}</td>
-                            <td>{v.valuation_type || "—"}</td>
-                            <td>{v.due_on}</td>
-                            <td className="mono">{cash.format(Number(v.quoted_fee || 0))}</td>
-                            <td><span className="badge badge-blue">{v.status}</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--muted)" }}>No recent valuation instructions recorded.</div>
-                  )}
-                </div>
-
-              </div>
-
-              {/* Right Column: Actions & Quick Tools */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                <div className="card" style={{ padding: 20 }}>
-                  <h3 style={{ margin: "0 0 14px 0", fontSize: 16 }}>Valuation Actions</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <button className="btn primary" style={{ textAlign: "left" }} onClick={() => setShowAddModal(true)}>
-                      📐 New Instruction Intake
-                    </button>
-                    <button className="btn secondary" style={{ textAlign: "left" }} onClick={() => setTab("inspections")}>
-                      📍 Site Inspection & Photos
-                    </button>
-                    <button className="btn secondary" style={{ textAlign: "left" }} onClick={() => setTab("comparables")}>
-                      📊 Comparable Evidence Registry
-                    </button>
-                    <button className="btn secondary" style={{ textAlign: "left" }} onClick={() => setTab("draft-reports")}>
-                      📝 Review Draft Reports
-                    </button>
-                    <button className="btn secondary" style={{ textAlign: "left" }} onClick={() => setTab("invoices")}>
-                      💰 Issue Fee Invoices
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* OTHER TABS DATA TABLE */}
-        {tab !== "overview" && (
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16 }}>{names[tab]}</h3>
-              <input
-                type="text"
-                placeholder={`Search ${names[tab].toLowerCase()}...`}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", width: 280, fontSize: 13 }}
-              />
-            </div>
-
-            {rows.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted)" }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>📐</div>
-                <div>No records currently listed in <strong>{names[tab]}</strong>.</div>
-              </div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    {Object.keys(rows[0] || {}).slice(0, 7).map((k) => (
-                      <th key={k}>{k.replaceAll("_", " ").toUpperCase()}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={i}>
-                      {Object.values(r).slice(0, 7).map((v: any, j) => (
-                        <td key={j}>{typeof v === "object" ? JSON.stringify(v) : String(v)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {/* MODAL: REGISTER INSTRUCTION */}
-        {showAddModal && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "grid", placeItems: "center", padding: 20 }}>
-            <div className="card" style={{ width: "100%", maxWidth: 520, background: "var(--surface)", padding: 24 }}>
-              <h3 style={{ margin: "0 0 16px 0" }}>+ New Valuation Instruction Intake</h3>
-              <form onSubmit={submitRegisterInstruction} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Instruction Ref *</label>
-                    <input name="reference" required defaultValue="VAL-2026-0186" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Client *</label>
-                    <select name="client" required style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }}>
-                      <option value="">Select client / lender...</option>
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600 }}>Property Description & L.R. No *</label>
-                  <input name="property_description" required placeholder="e.g. Commercial Complex L.R. 209/1844" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }} />
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Valuation Type *</label>
-                    <input name="valuation_type" required defaultValue="Commercial Asset" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Purpose *</label>
-                    <input name="purpose" required defaultValue="Mortgage Security" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }} />
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Instruction Date *</label>
-                    <input name="instructed_on" type="date" required defaultValue="2026-08-02" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Due Date *</label>
-                    <input name="due_on" type="date" required defaultValue="2026-08-15" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }} />
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Quoted Fee (KES) *</label>
-                    <input name="quoted_fee" type="number" required defaultValue="450000" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600 }}>Priority</label>
-                    <select name="priority" defaultValue="normal" style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid var(--border)" }}>
-                      <option value="normal">Normal</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
-                  <button type="button" className="btn ghost" onClick={() => setShowAddModal(false)}>Cancel</button>
-                  <button type="submit" className="btn primary">Create Instruction</button>
-                </div>
-              </form>
-            </div>
-          </div>
+        {loading ? (
+          <LoadingState rows={5} />
+        ) : tab === "overview" ? (
+          <OverviewView dashboard={dashboard} setTab={setTab} openNewInstruction={openNewInstruction} />
+        ) : tab === "instructions" ? (
+          <InstructionsView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canCoordinate={canCoordinate} onTransition={runTransition} />
+        ) : tab === "inspections" ? (
+          <InspectionsView rows={rows} search={search} setSearch={setSearch} />
+        ) : tab === "comparables" ? (
+          <ComparablesView rows={rows} search={search} setSearch={setSearch} />
+        ) : tab === "draft-reports" ? (
+          <DraftReportsView rows={rows} search={search} setSearch={setSearch} canReview={canReview} openReview={openReview} />
+        ) : tab === "final-reports" ? (
+          <FinalReportsView rows={rows} search={search} setSearch={setSearch} />
+        ) : tab === "invoices" ? (
+          <InvoicesView rows={rows} search={search} setSearch={setSearch} />
+        ) : tab === "payments" ? (
+          <PaymentsView rows={rows} search={search} setSearch={setSearch} canFinance={canFinance} openRecordPayment={openRecordPayment} />
+        ) : tab === "clients" ? (
+          <ClientsView rows={rows} search={search} setSearch={setSearch} canCoordinate={canCoordinate} openNewClient={openNewClient} />
+        ) : tab === "analytics" ? (
+          <AnalyticsView analytics={analytics} dashboard={dashboard} />
+        ) : tab === "reports" ? (
+          <ReportsView reports={rows} recentExports={recentExports} onExport={exportReport} />
+        ) : (
+          <AuditEventsView rows={rows} search={search} setSearch={setSearch} />
         )}
       </div>
+
+      {showNewInstruction ? <NewInstructionModal key="new-instruction" clients={clients} error={formError} onSubmit={submitNewInstruction} onClose={() => setShowNewInstruction(false)} /> : null}
+      {showNewClient ? <NewClientModal key="new-client" error={formError} onSubmit={submitNewClient} onClose={() => setShowNewClient(false)} /> : null}
+      {showDraftReview ? <DraftReviewModal key={`review-${String(showDraftReview.id)}`} report={showDraftReview} error={formError} busy={busy} onSubmit={(action, notes) => { void submitDraftReview(showDraftReview, action, notes); }} onClose={() => setShowDraftReview(null)} /> : null}
+      {showRecordPayment ? <RecordPaymentModal key="record-payment" invoices={invoiceOptions} error={formError} busy={busy} onSubmit={submitRecordPayment} onClose={() => setShowRecordPayment(false)} /> : null}
     </ModuleShell>
   );
 }
