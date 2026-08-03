@@ -2657,12 +2657,7 @@ h3 { margin: 26px 0 12px; font-size: 18px; font-weight: 700; color: var(--text);
 
 .main {
   flex: 1; padding: 28px 36px 64px; min-width: 0;
-  background: var(--glow),
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
-    var(--bg);
-  background-size: auto, 30px 30px, 30px 30px, auto;
-  animation: fade 0.4s ease both;
+  background: var(--bg);
 }
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 26px; }
 .topbar .who { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 15px; }

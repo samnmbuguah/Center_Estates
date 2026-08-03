@@ -6,7 +6,7 @@ import { get, post } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBanner } from "../components";
 
-export function SignUp() {
+export function Register() {
   const { signIn, me } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState<"plan" | "form">("plan");
@@ -133,3 +133,5 @@ export function SignUp() {
     </div>
   );
 }
+
+export const SignUp = Register;

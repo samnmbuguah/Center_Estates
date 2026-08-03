@@ -58,7 +58,7 @@ function NavDropdown({ label, links, closeMobile }: { label: string; links: { to
   );
 }
 
-export function MarketingLayout() {
+export function MarketingLayout({ children }: { children?: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { pathname } = useLocation();
@@ -131,7 +131,7 @@ export function MarketingLayout() {
 
       {/* ── Content ────────────────────────────── */}
       <main className="marketing-main">
-        <Outlet />
+        {children ?? <Outlet />}
       </main>
 
       {/* WhatsApp floating widget */}
