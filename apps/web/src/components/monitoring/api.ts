@@ -166,8 +166,11 @@ export class ApiError extends Error {
 function normalizePath(rawPath: string): string {
   let p = rawPath.replace(/\/+/g, "/");
 
+  // Rewrite /projects/ingest/status/ before nested project ID check
+  p = p.replace(/^\/projects\/ingest(?:\/status)?/, "/dashboard");
+
   // Handle nested /projects/:id/subresource paths -> /subresource/?project_id=:id
-  const nestedMatch = p.match(/^\/projects\/([^/]+)\/(cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\/status)(?:\/|\?(.*))?$/);
+  const nestedMatch = p.match(/^\/projects\/([^/]+)\/(cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\/status|documents|members)(?:\/|\?(.*))?$/);
 
   if (nestedMatch) {
     const [, projectId, subresource, rawQuery] = nestedMatch;
@@ -178,6 +181,8 @@ function normalizePath(rawPath: string): string {
       targetEndpoint = "boq";
     } else if (subresource === "waivers") {
       targetEndpoint = "requirement-waivers";
+    } else if (subresource === "members") {
+      targetEndpoint = "project-memberships";
     }
 
     const queryParams = new URLSearchParams(rawQuery || "");
@@ -190,6 +195,7 @@ function normalizePath(rawPath: string): string {
   p = p.replace(/^\/projects\/milestones/, "/milestones");
 
   // General alias rewrites
+  p = p.replace(/^\/users/, "/project-memberships");
   p = p.replace(/^\/(?:finance\/)?drawdown-requests/, "/drawdowns");
   p = p.replace(/^\/finance\/certificates/, "/certificates");
   p = p.replace(/^\/finance\/requisitions/, "/requisitions");
