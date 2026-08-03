@@ -9,14 +9,13 @@ export function remapSpaRoute(target: string): string {
   const workspaceMatch = target.match(/^\/(?:app\/)?workspace\/([^/]+)$/);
   if (workspaceMatch) return `/monitoring?tab=project-detail&id=${workspaceMatch[1]}`;
 
-  const variationsMatch = target.match(/^\/(?:app\/)?projects\/([^/]+)\/variations/);
-  if (variationsMatch) return `/monitoring?tab=variations&projectId=${variationsMatch[1]}`;
-
-  const boqMatch = target.match(/^\/(?:app\/)?projects\/([^/]+)\/boq-review/);
-  if (boqMatch) return `/monitoring?tab=boq-review&projectId=${boqMatch[1]}`;
-
-  const contingencyMatch = target.match(/^\/(?:app\/)?projects\/([^/]+)\/contingency-drawdowns/);
-  if (contingencyMatch) return `/monitoring?tab=contingency-drawdowns&projectId=${contingencyMatch[1]}`;
+  const projectSubMatch = target.match(/^\/(?:app\/)?projects\/([^/]+)\/([^/]+)$/);
+  if (projectSubMatch) {
+    const [, projectId, subroute] = projectSubMatch;
+    let tab = subroute;
+    if (subroute === "boq-review" || subroute === "boq-material-reconciliation") tab = "boq";
+    return `/monitoring?tab=${tab}&id=${projectId}`;
+  }
 
   if (target.includes("pending-verification") || target.includes("pending-verifications")) {
     return "/monitoring?tab=pending-verification";
