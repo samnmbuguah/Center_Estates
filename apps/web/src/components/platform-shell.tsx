@@ -148,7 +148,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`platform ${moduleWorkspaceActive ? "module-workspace-active construction-workspace" : ""}`}>
+    <div className={`platform ${moduleWorkspaceActive ? "module-workspace-active" : ""}`} style={{ width: "100%", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {/* Outer Sidebar: ONLY rendered on Main Workspace Selector Page (/), NEVER inside module workspaces */}
       {!moduleWorkspaceActive && (
         <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
@@ -222,50 +222,51 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         <button className="mobile-nav-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />
       )}
 
-      <div className="workspace">
-        <header className="topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", height: 60, borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Link className="brand" href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="brand-mark" aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 6 }}>
+      <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* MONITORING ERP FULL-WIDTH TOPBAR HEADER */}
+        <header className="topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 60, width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box" }}>
+          <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <Link className="brand" href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
+              <span className="brand-mark" style={{ width: 34, height: 34, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                 <span className="brand-mark-bars"><i /><i /><i /></span>
               </span>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}>
-                CeEst
-              </span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>CeEst</span>
             </Link>
 
             {moduleWorkspaceActive && (
-              <Link href="/" className="btn ghost sm" style={{ fontSize: 12, padding: "5px 10px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 6, textDecoration: "none", color: "var(--text)" }}>
-                ← Main Workspaces
+              <Link href="/" className="btn ghost sm" style={{ fontSize: 12, padding: "5px 12px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+                <span>←</span> Switch Workspace
               </Link>
             )}
           </div>
 
-          <label className="global-search" style={{ flex: 1, maxWidth: 460, margin: "0 16px" }}>
-            <span aria-hidden="true">⌕</span>
+          <label className="global-search" style={{ flex: 1, maxWidth: 520, margin: "0 24px", position: "relative", display: "flex", alignItems: "center" }}>
+            <span aria-hidden="true" style={{ position: "absolute", left: 12, color: "var(--muted)", fontSize: 14 }}>⌕</span>
             <input
               ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search modules, projects, documents… (Ctrl+K)"
+              placeholder="Search modules, projects, documents, sub-routes… (Ctrl+K)"
               aria-label="Search modules"
+              style={{ width: "100%", padding: "7px 12px 7px 34px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, outline: "none" }}
             />
             {query && (
-              <div className="global-search-results" role="listbox">
+              <div className="global-search-results" role="listbox" style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, zIndex: 100, marginTop: 4, boxShadow: "0 10px 25px rgba(0,0,0,0.15)" }}>
                 {filteredModules.map((module) => (
                   <Link
                     key={module.slug}
                     href={`/${module.slug}`}
                     role="option"
+                    style={{ padding: "10px 14px", display: "flex", gap: 10, textDecoration: "none", color: "var(--text)", borderBottom: "1px solid var(--border)" }}
                     onClick={() => {
                       setQuery("");
                       setMenuOpen(false);
                     }}
                   >
-                    <span style={{ color: module.accent }}>{module.icon}</span>
+                    <span style={{ color: module.accent, fontSize: 16 }}>{module.icon}</span>
                     <span>
-                      <strong>{module.name}</strong>
-                      <small>{module.description}</small>
+                      <strong style={{ display: "block", fontSize: 13 }}>{module.name}</strong>
+                      <small style={{ color: "var(--muted)", fontSize: 11 }}>{module.description}</small>
                     </span>
                   </Link>
                 ))}
@@ -273,14 +274,19 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             )}
           </label>
 
-          <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span className="system-live" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: "rgba(16, 185, 129, 0.12)", color: "var(--success)", fontSize: 11, fontWeight: 700 }}>
+              <i style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
+              Live
+            </span>
+
             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <small style={{ fontSize: 9, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>Organization</small>
+              <small style={{ fontSize: 9, color: "var(--faint)", textTransform: "uppercase", fontWeight: 800 }}>Organization</small>
               <select
                 aria-label="Active organization"
                 value={activeOrganization?.id ?? ""}
                 onChange={(event) => selectOrganization(event.target.value)}
-                style={{ padding: "3px 6px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+                style={{ padding: "4px 10px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
               >
                 {session.organizations.map((organization) => (
                   <option value={organization.id} key={organization.id}>
@@ -299,45 +305,48 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
               style={{
                 background: "var(--surface-2)",
                 border: "1px solid var(--border)",
-                borderRadius: 6,
-                padding: "5px 10px",
+                borderRadius: 8,
+                padding: "6px 12px",
                 fontSize: 12,
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: "pointer",
                 color: "var(--text)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6
               }}
             >
               {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
             </button>
 
-            <div className="profile-menu" ref={profileRef}>
+            <div className="profile-menu" ref={profileRef} style={{ position: "relative" }}>
               <button
                 type="button"
                 className={`profile-trigger ${profileOpen ? "open" : ""}`}
                 aria-expanded={profileOpen}
                 aria-haspopup="menu"
                 onClick={() => setProfileOpen((open) => !open)}
+                style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: 0, cursor: "pointer", padding: 0 }}
               >
-                <div className="profile" title={session.user.username}>
+                <div className="profile" title={session.user.username} style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>
                   {initials}
                 </div>
-                <div className="profile-copy">
-                  <strong>{displayName}</strong>
-                  <small>{displayRole}</small>
+                <div className="profile-copy" style={{ textAlign: "left" }}>
+                  <strong style={{ display: "block", fontSize: 12, color: "var(--text)", lineHeight: 1.2 }}>{displayName}</strong>
+                  <small style={{ display: "block", fontSize: 10, color: "var(--muted)" }}>{displayRole}</small>
                 </div>
-                <span className="profile-chevron" aria-hidden="true">▾</span>
+                <span className="profile-chevron" aria-hidden="true" style={{ fontSize: 10, color: "var(--muted)" }}>▾</span>
               </button>
               {profileOpen && (
-                <div className="profile-dropdown" role="menu">
-                  <div className="profile-dropdown-head">
-                    <strong>{displayName}</strong>
-                    <span>{session.user.email || session.user.username}</span>
-                    <em>{displayRole}</em>
+                <div className="profile-dropdown" role="menu" style={{ position: "absolute", top: "100%", right: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 12, width: 220, zIndex: 100, marginTop: 6, boxShadow: "0 10px 25px rgba(0,0,0,0.15)" }}>
+                  <div className="profile-dropdown-head" style={{ marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
+                    <strong style={{ display: "block", fontSize: 13 }}>{displayName}</strong>
+                    <span style={{ fontSize: 11, color: "var(--muted)" }}>{session.user.email || session.user.username}</span>
                   </div>
-                  <Link href="/" className="profile-dropdown-item" onClick={() => setProfileOpen(false)}>
+                  <Link href="/" className="profile-dropdown-item" style={{ display: "block", padding: "8px 0", fontSize: 12, color: "var(--text)", textDecoration: "none" }} onClick={() => setProfileOpen(false)}>
                     Main Workspace Selection
                   </Link>
-                  <button type="button" className="profile-dropdown-item danger" onClick={() => void logout()}>
+                  <button type="button" className="profile-dropdown-item danger" style={{ background: "none", border: 0, color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "8px 0", textAlign: "left", width: "100%" }} onClick={() => void logout()}>
                     Sign out
                   </button>
                 </div>
@@ -346,10 +355,10 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main>
+        <main style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%", minWidth: 0 }}>
           {isKnownModule && !allowed.has(requestedModule) ? (
-            <div className="page-wrap">
-              <div className="notice">
+            <div className="page-wrap" style={{ padding: 24 }}>
+              <div className="notice" style={{ padding: 16, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
                 <strong>Module unavailable.</strong> Your active organization is not subscribed to this module.{" "}
                 <Link href="/">Return to workspace selection.</Link>
               </div>

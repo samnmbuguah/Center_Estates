@@ -1389,9 +1389,7 @@ a.profile-dropdown-item { text-decoration: none; }
   .module-page-heading { align-items: stretch; flex-direction: column; gap: 14px; }
   .register-kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .project-workspace-stats { grid-template-columns: repeat(2, 1fr); }
-  .bim-layout { grid-template-columns: 1fr; }
-  .platform.module-workspace-active,
-  .platform.construction-workspace { display: block; }
+  /* Mobile responsive layout */
   .module-workspace-active > .sidebar,
   .construction-workspace > .sidebar {
     align-items: stretch;
