@@ -1097,8 +1097,9 @@ a.profile-dropdown-item { text-decoration: none; }
 .module-workspace {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
-  min-height: calc(100vh - 70px);
-  background: #f4f7fb;
+  width: 100%;
+  min-height: calc(100vh - 60px);
+  background: var(--bg);
 }
 .module-side-nav {
   background: linear-gradient(180deg, #0b2136 0%, #081827 100%);

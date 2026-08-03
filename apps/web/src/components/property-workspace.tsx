@@ -318,7 +318,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
         </div>
       }
     >
-      <div className="property-workspace" style={{ padding: "16px 24px" }}>
+      <div className="property-workspace" style={{ padding: "16px 24px", width: "100%", boxSizing: "border-box" }}>
         {error && (
           <div className="card" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", padding: 12, borderRadius: 8, marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: "#ef4444", fontSize: 13 }}>⚠️ {error}</span>
@@ -328,8 +328,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
 
         {/* TAB 1: OVERVIEW DASHBOARD */}
         {tab === "overview" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 16, width: "100%" }}>
               <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("properties")}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Total Properties</span>
@@ -376,7 +376,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, width: "100%" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <div className="card" style={{ padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>

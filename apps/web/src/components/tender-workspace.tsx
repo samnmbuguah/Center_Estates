@@ -173,9 +173,9 @@ export function TenderWorkspace({ initialTab = "overview" }: TenderWorkspaceProp
 
         {/* TAB 1: OVERVIEW DASHBOARD */}
         {tab === "overview" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
             {/* KPI Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, width: "100%" }}>
               <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("tenders")}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Active Tenders</span>
@@ -214,7 +214,7 @@ export function TenderWorkspace({ initialTab = "overview" }: TenderWorkspaceProp
             </div>
 
             {/* Dashboard Columns */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, width: "100%" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <div className="card" style={{ padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
