@@ -1,121 +1,99 @@
+"use client";
+
 import { Eye, EyeOff, FileText, HardHat, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/components/monitoring/react-router-shim";
-
-import { apkDownloadUrl, usabilityPdfUrl } from "../api";
-import { useAuth } from "../auth";
-import { ErrorBanner } from "../components";
+import { useAuth } from "@/components/auth-provider";
 
 export function Login() {
-  const { signIn, error, me } = useAuth();
+  const { login, session } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!me) return;
-    // Role-based default home: financiers/execs prefer finance; CoW prefer daily logs.
-    const roles = (me.roles || []).map((r) => String(r).toLowerCase());
-    const perms = new Set(me.permissions || []);
-    let dest = "/app";
-    if (roles.some((r) => r.includes("clerk") || r.includes("cow"))) {
-      dest = perms.has("site.reporting.view") ? "/app/daily-logs" : "/app";
-    } else if (roles.some((r) => r.includes("financ") || r.includes("qs") || r.includes("quantity"))) {
-      dest = perms.has("finance.view") ? "/app/finance" : "/app";
-    } else if (roles.some((r) => r.includes("admin") || r.includes("subscriber"))) {
-      dest = perms.has("users.view") ? "/app/administration" : "/app";
-    }
-    navigate(dest, { replace: true });
-  }, [me, navigate]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  // Read branding from query param or local branding data (set by tenant context)
-  const [branding] = useState<{ logo_url?: string; primary_color?: string; company_name?: string } | null>(() => {
-    try {
-      const el = document.getElementById("branding-data");
-      if (el) return JSON.parse(el.textContent || "null");
-    } catch {}
-    return null;
-  });
+  useEffect(() => {
+    if (session?.user) {
+      navigate("/", { replace: true });
+    }
+  }, [session, navigate]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError("");
     try {
-      await signIn(username, password);
-    } catch {
-      /* error shown via context */
+      await login(username, password);
+      navigate("/", { replace: true });
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : "Unable to sign in. Please check your credentials.");
     } finally {
       setBusy(false);
     }
   }
 
-  const brandColor = branding?.primary_color || "var(--primary)";
-  const brandLogo = branding?.logo_url;
-  const brandName = branding?.company_name || "Construction Management";
-
   return (
-    <div className="login-wrap">
-      <div className="login-hero">
-        <div className="top">
-          {brandLogo ? (
-            <img src={brandLogo} alt="" style={{ height: 36, borderRadius: 8 }} />
-          ) : (
-            <span className="logo" style={{ background: brandColor }}><HardHat size={20} color="#fff" /></span>
-          )}
-          {brandName}
+    <div className="login-wrap" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--bg)" }}>
+      <div className="login-hero" style={{ background: "linear-gradient(135deg, #0b1727, #071524)", color: "#fff", padding: 48, display: "flex", flexDirection: "column", justifyBetween: "space-between" }}>
+        <div className="top" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 18, fontWeight: 800 }}>
+          <span className="logo" style={{ background: "var(--primary)", width: 38, height: 38, borderRadius: 10, display: "grid", placeItems: "center" }}>
+            <HardHat size={20} color="#fff" />
+          </span>
+          Center Estates ERP
         </div>
-        <div>
-          <h1>
+        <div style={{ margin: "auto 0" }}>
+          <h1 style={{ fontSize: 38, lineHeight: 1.2, margin: "0 0 16px", fontWeight: 800 }}>
             Site to boardroom,<br />
-            <span className="accent">in real time.</span>
+            <span className="accent" style={{ color: "#00a3ff" }}>in real time.</span>
           </h1>
-          <p>
-            Geofenced photo evidence, biometric-signed milestones and verified
-            progress — one source of truth from the trench to the certificate.
+          <p style={{ color: "#cbd5e1", fontSize: 15, maxWidth: 480, lineHeight: 1.6, margin: "0 0 24px" }}>
+            Geofenced photo evidence, milestone verification, property accounting, valuation tracking, and bid intelligence — one source of truth across all operations.
           </p>
-          <div className="pills">
-            <span className="pill">Evidence-grade</span>
-            <span className="pill">Geofenced</span>
-            <span className="pill">Audit-sealed</span>
-            <span className="pill">Offline-first</span>
+          <div className="pills" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span className="pill" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, padding: "6px 14px", fontSize: 12 }}>Property Portfolio</span>
+            <span className="pill" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, padding: "6px 14px", fontSize: 12 }}>Sales CRM</span>
+            <span className="pill" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, padding: "6px 14px", fontSize: 12 }}>Tender Vault</span>
+            <span className="pill" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, padding: "6px 14px", fontSize: 12 }}>Valuation Tracker</span>
+            <span className="pill" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, padding: "6px 14px", fontSize: 12 }}>Construction Control</span>
           </div>
         </div>
       </div>
 
-      <div className="login-form-side">
-        <form className="card login-card" onSubmit={submit}>
-          <h2>Welcome back</h2>
-          <p className="muted" style={{ marginBottom: 18 }}>Sign in to the management portal.</p>
-          <div className="field">
-            <label htmlFor="username">Email / Username</label>
-            <input id="username" name="username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+      <div className="login-form-side" style={{ display: "grid", placeItems: "center", padding: 32 }}>
+        <form className="card login-card" onSubmit={submit} style={{ maxWidth: 420, width: "100%", padding: 32, borderRadius: 16, background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}>
+          <h2 style={{ fontSize: 24, margin: "0 0 6px", fontWeight: 800, color: "var(--text)" }}>Welcome back</h2>
+          <p className="muted" style={{ marginBottom: 20, fontSize: 14, color: "var(--muted)" }}>Sign in to your organization workspace.</p>
+          
+          <div className="field" style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 6 }}>
+            <label htmlFor="username" style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>Email / Username</label>
+            <input id="username" name="username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 14 }} required />
           </div>
-          <div className="field">
-            <label htmlFor="password">Password</label>
+
+          <div className="field" style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+            <label htmlFor="password" style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>Password</label>
             <div style={{ position: "relative" }}>
-              <input id="password" name="password" type={showPw ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ paddingRight: 40 }} />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="btn ghost icon-only" style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", padding: 4 }} aria-label={showPw ? "Hide password" : "Show password"}>
+              <input id="password" name="password" type={showPw ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: "10px 40px 10px 12px", width: "100%", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 14 }} required />
+              <button type="button" onClick={() => setShowPw(!showPw)} className="btn ghost icon-only" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: 0, cursor: "pointer", color: "var(--muted)" }} aria-label={showPw ? "Hide password" : "Show password"}>
                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
-          {error && <ErrorBanner message={error} />}
-          <button className="btn" style={{ width: "100%", justifyContent: "center" }} disabled={busy || !username || !password}>
+
+          {error && <div style={{ padding: 12, borderRadius: 8, background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", color: "#ef4444", fontSize: 13, marginBottom: 16 }}>{error}</div>}
+
+          <button className="btn primary" style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: 14, fontWeight: 700, borderRadius: 8, background: "var(--primary)", color: "#fff", border: 0, cursor: "pointer" }} disabled={busy || !username || !password}>
             {busy ? "Signing in…" : "Sign in"}
           </button>
-          <p style={{ marginTop: 12, fontSize: 13, textAlign: "center" }}>
-            Don&apos;t have an account? <Link to="/sign-up">Start a free trial</Link>
+
+          <p style={{ marginTop: 16, fontSize: 13, textAlign: "center", color: "var(--muted)" }}>
+            Don&apos;t have an account? <Link to="/sign-up" style={{ color: "var(--primary)", fontWeight: 700 }}>Start a free trial</Link>
           </p>
-          {/* Public downloads — available without an account. */}
-          <div className="row" style={{ marginTop: 16, justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-            <a className="btn ghost sm" href={usabilityPdfUrl} target="_blank" rel="noreferrer">
-              <FileText size={14} /> Usability testing guide (PDF)
-            </a>
-            <a className="btn ghost sm" href={apkDownloadUrl}>
-              <Smartphone size={14} /> Android app (APK)
-            </a>
+
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link to="/home" style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none" }}>← Back to Public Website</Link>
           </div>
         </form>
       </div>
