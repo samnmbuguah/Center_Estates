@@ -37,7 +37,7 @@ export function Login() {
 
   return (
     <div className="login-wrap" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--bg)" }}>
-      <div className="login-hero" style={{ background: "linear-gradient(135deg, #0b1727, #071524)", color: "#fff", padding: 48, display: "flex", flexDirection: "column", justifyBetween: "space-between" }}>
+      <div className="login-hero" style={{ background: "linear-gradient(135deg, #0b1727, #071524)", color: "#fff", padding: 48, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div className="top" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 18, fontWeight: 800 }}>
           <span className="logo" style={{ background: "var(--primary)", width: 38, height: 38, borderRadius: 10, display: "grid", placeItems: "center" }}>
             <HardHat size={20} color="#fff" />
