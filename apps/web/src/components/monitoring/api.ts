@@ -147,11 +147,16 @@ export function setTenantId(id: string): void {
 }
 
 export function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   const token = getToken();
-  if (!token) throw new Error("not authenticated");
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
   const tenantId = getTenantId();
-  if (tenantId) headers["X-Tenant-ID"] = tenantId;
+  if (tenantId) {
+    headers["X-Tenant-ID"] = tenantId;
+    headers["X-Organization-ID"] = tenantId;
+  }
   return headers;
 }
 
@@ -166,17 +171,19 @@ export class ApiError extends Error {
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
   const isFormData = body instanceof FormData;
+  const h = authHeaders();
   try {
     res = await fetch(`${API_BASE}${path}`, {
       method,
       headers: {
-        ...authHeaders(),
+        ...h,
         ...(body !== undefined && !isFormData ? { "Content-Type": "application/json" } : {}),
       },
+      credentials: "include",
       body: isFormData ? (body as FormData) : (body !== undefined ? JSON.stringify(body) : undefined),
     });
-  } catch {
-    throw new ApiError(0, "Network error — check your connection and try again.");
+  } catch (err: any) {
+    throw new ApiError(0, err?.message || "Network error — check your connection and try again.");
   }
 
   if (res.status === 401) {
