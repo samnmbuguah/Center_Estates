@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { PlatformShell } from "@/components/platform-shell";
 import { AuthProvider } from "@/components/auth-provider";
+import { ToastProvider } from "@/components/monitoring/hooks/useToast";
 
 export const metadata: Metadata = {
   title: "Center Estates ERP",
@@ -15,7 +16,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body><AuthProvider><PlatformShell>{children}</PlatformShell></AuthProvider></body>
+      <body>
+        <AuthProvider>
+          <ToastProvider>
+            <PlatformShell>{children}</PlatformShell>
+          </ToastProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

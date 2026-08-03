@@ -42,8 +42,11 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   let p = path.replace(/\/+/g, "/");
   p = p.replace(/^\/hs-incidents/, "/safety-incidents");
   p = p.replace(/^\/calendar\/events/, "/calendar");
+  p = p.replace(/^\/store\/items/, "/store-items");
   p = p.replace(/^\/projects\/[^/]*\/lifecycle/, "/lifecycle");
   p = p.replace(/^\/projects\/[^/]*\/milestones/, "/milestones");
+  p = p.replace(/^\/projects\/[^/]*\/quality-tests/, "/quality-tests");
+  p = p.replace(/^\/projects\/[^/]*\/advance-payments/, "/advance-payments");
 
   const [base, query] = p.split("?");
   const slashedBase = base.endsWith("/") ? base : `${base}/`;
