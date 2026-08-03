@@ -21,9 +21,11 @@ export function AdminAuditLog() {
     setLoading(true);
     try {
       const res = await fetchAuditLogs({ category, outcome, search, limit: 50, offset: off });
-      setRows(res.results);
-      setTotal(res.total);
-      setOffset(res.offset);
+      const data = res as any;
+      const results = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
+      setRows(results);
+      setTotal(Array.isArray(data) ? results.length : (data?.total ?? results.length));
+      setOffset(Array.isArray(data) ? 0 : (data?.offset ?? 0));
     } catch (e) {
       setError((e as Error).message);
     } finally {
