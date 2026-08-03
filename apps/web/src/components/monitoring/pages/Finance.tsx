@@ -58,12 +58,19 @@ export function Finance() {
     }
     setError(null);
     get<any>(`/projects/${pid}/cost-dashboard`).then(setCostDashboard).catch((e) => setError(e.message));
-    get<any[]>(`/finance/certificates?project_id=${encodeURIComponent(pid)}`).then(setCertList).catch(() => setCertList([]));
-    get<any[]>(`/projects/${pid}/consultant-payments`).then(setConsultantList).catch(() => setConsultantList([]));
-    get<any[]>(`/projects/${pid}/provisional-sums`).then(setProvList).catch((e) => { setProvList([]); setError(`Provisional sums could not be loaded: ${e.message}`); });
-    get<any[]>(`/projects/${pid}/contingency-drawdowns`).then(setContingencyList).catch(() => setContingencyList([]));
-    get<any[]>(`/drawdown-requests?project_id=${encodeURIComponent(pid)}`).then(setFundingRequests).catch(() => setFundingRequests([]));
+    get<any>(`/finance/certificates?project_id=${encodeURIComponent(pid)}`).then(res => setCertList(Array.isArray(res) ? res : (res as any)?.results || [])).catch(() => setCertList([]));
+    get<any>(`/projects/${pid}/consultant-payments`).then(res => setConsultantList(Array.isArray(res) ? res : (res as any)?.results || [])).catch(() => setConsultantList([]));
+    get<any>(`/projects/${pid}/provisional-sums`).then(res => setProvList(Array.isArray(res) ? res : (res as any)?.results || [])).catch((e) => { setProvList([]); setError(`Provisional sums could not be loaded: ${e.message}`); });
+    get<any>(`/projects/${pid}/contingency-drawdowns`).then(res => setContingencyList(Array.isArray(res) ? res : (res as any)?.results || [])).catch(() => setContingencyList([]));
+    get<any>(`/drawdown-requests?project_id=${encodeURIComponent(pid)}`).then(res => setFundingRequests(Array.isArray(res) ? res : (res as any)?.results || [])).catch(() => setFundingRequests([]));
   }, [projectFilter]);
+
+  // Defensive array checks to prevent runtime errors when non-array objects are returned
+  const safeCertList = Array.isArray(certList) ? certList : [];
+  const safeProvList = Array.isArray(provList) ? provList : [];
+  const safeContingencyList = Array.isArray(contingencyList) ? contingencyList : [];
+  const safeFundingRequests = Array.isArray(fundingRequests) ? fundingRequests : [];
+  const safeConsultantList = Array.isArray(consultantList) ? consultantList : [];
 
   // Honest zeros when cost dashboard has not returned yet / has no figures.
   const contractSumVal = Number(costDashboard?.budget ?? 0);
@@ -83,8 +90,8 @@ export function Finance() {
     } catch (e: any) { setError(e?.message || "Report download failed"); }
   };
 
-  const paymentCertificates = certList.map((c, i) => ({
-    no: c.certificate_number || c.number || String(certList.length - i),
+  const paymentCertificates = safeCertList.map((c, i) => ({
+    no: c.certificate_number || c.number || String(safeCertList.length - i),
     period: c.notes || `Cert #${c.id}`,
     gross: Number(c.approved_fee || c.current_gross || c.amount || 0),
     retention: Number(c.retention_amount ?? (Number(c.amount || 0) * (Number(c.retention_percent || 0) / 100))),
@@ -94,7 +101,7 @@ export function Finance() {
     paidOn: c.created_at || c.issued_at ? new Date(c.created_at || c.issued_at).toLocaleDateString() : "—",
   }));
 
-  const provisionalSumItems = provList.map(p => ({
+  const provisionalSumItems = safeProvList.map(p => ({
     item: p.name,
     budget: Number(p.allocated_amount || 0),
     spent: Number(p.spent_amount || 0),
@@ -102,21 +109,21 @@ export function Finance() {
     usedPct: p.allocated_amount > 0 ? Math.round((p.spent_amount / p.allocated_amount) * 100) : 0,
   }));
 
-  const contingencyLogs = contingencyList.map(c => ({
+  const contingencyLogs = safeContingencyList.map(c => ({
     date: c.created_at ? new Date(c.created_at).toLocaleDateString() : "—",
     desc: c.description,
     amount: Number(c.amount || 0),
     appBy: c.approved_by || "—",
   }));
-  const fundingRequested = fundingRequests.reduce((s, r) => s + Number(r.amount || 0), 0);
-  const fundingApproved = fundingRequests.filter(r => ["approved", "disbursed", "paid"].includes(r.status)).reduce((s, r) => s + Number(r.amount || 0), 0);
-  const fundingDisbursed = fundingRequests.filter(r => ["disbursed", "paid"].includes(r.status)).reduce((s, r) => s + Number(r.amount || 0), 0);
-  const contingencyUsed = contingencyList.filter(c => c.status === "approved").reduce((s, c) => s + Number(c.amount || 0), 0);
+  const fundingRequested = safeFundingRequests.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const fundingApproved = safeFundingRequests.filter(r => ["approved", "disbursed", "paid"].includes(r.status)).reduce((s, r) => s + Number(r.amount || 0), 0);
+  const fundingDisbursed = safeFundingRequests.filter(r => ["disbursed", "paid"].includes(r.status)).reduce((s, r) => s + Number(r.amount || 0), 0);
+  const contingencyUsed = safeContingencyList.filter(c => c.status === "approved").reduce((s, c) => s + Number(c.amount || 0), 0);
   const advanceRecovered = Number(costDashboard?.advance_recovered || costDashboard?.advance_paid_to_date || 0);
   const advanceOutstanding = Number(costDashboard?.advance_outstanding || 0);
 
   // Consultant payments already loaded into certList for this project endpoint.
-  const consultants = consultantList.map((c: any) => ({
+  const consultants = safeConsultantList.map((c: any) => ({
     name: c.consultant_name || c.name || c.notes || `Consultant #${c.id}`,
     fee: Number(c.approved_fee || c.amount || 0),
     paid: Number(c.paid_amount || (c.status === "paid" ? c.amount : 0) || 0),

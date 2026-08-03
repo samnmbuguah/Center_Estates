@@ -190,6 +190,10 @@ function normalizePath(rawPath: string): string {
   p = p.replace(/^\/projects\/milestones/, "/milestones");
 
   // General alias rewrites
+  p = p.replace(/^\/(?:finance\/)?drawdown-requests/, "/drawdowns");
+  p = p.replace(/^\/finance\/certificates/, "/certificates");
+  p = p.replace(/^\/finance\/requisitions/, "/requisitions");
+  p = p.replace(/^\/finance\/disbursements/, "/disbursements");
   p = p.replace(/^\/hs-incidents/, "/safety-incidents");
   p = p.replace(/^\/calendar\/events/, "/calendar");
   p = p.replace(/^\/store\/items/, "/store-items");
