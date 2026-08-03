@@ -17,9 +17,9 @@ export function Login() {
 
   useEffect(() => {
     if (session?.user) {
-      navigate("/", { replace: true });
+      if (typeof window !== "undefined") window.location.href = "/workspaces";
     }
-  }, [session, navigate]);
+  }, [session]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,10 +27,9 @@ export function Login() {
     setError("");
     try {
       await login(username, password);
-      navigate("/", { replace: true });
+      if (typeof window !== "undefined") window.location.href = "/workspaces";
     } catch (err: any) {
       setError(err instanceof Error ? err.message : "Unable to sign in. Please check your credentials.");
-    } finally {
       setBusy(false);
     }
   }

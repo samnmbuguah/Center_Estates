@@ -8,7 +8,7 @@ async function signInAs(page: Page, username: string) {
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password").fill(rolePassword);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/(\/|\/workspaces)$/);
 }
 
 async function openTab(page: Page, name: string) {

@@ -8,7 +8,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Username").fill(process.env.E2E_ADMIN_USERNAME ?? "admin");
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/(\/|\/workspaces)$/);
   await expect(page.getByRole("heading", { name: "ERP modules", exact: true })).toBeVisible();
 }
 

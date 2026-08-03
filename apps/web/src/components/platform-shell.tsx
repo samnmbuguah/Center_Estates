@@ -119,7 +119,13 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     "/blog",
   ].some((path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)));
 
-  if (isPublicRoute) return <>{children}</>;
+  if (isPublicRoute) {
+    if (session?.user && (pathname === "/login" || pathname === "/sign-up")) {
+      if (typeof window !== "undefined") window.location.href = "/workspaces";
+      return <div className="full-loading">Redirecting to your workspace…</div>;
+    }
+    return <>{children}</>;
+  }
   if (loading || !session) return <div className="full-loading">Loading your workspace…</div>;
 
   const allowed = new Set(allowedSlugs);
