@@ -487,7 +487,7 @@ function DashboardView({
 }
 
 /* ─── Buildings & Locations tab ─── */
-function BuildingsView({ rows, kpis = {} }: { rows: Row[]; kpis?: Kpis; setTab?: (t: any) => void }) {
+function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
   const [selectedLoc, setSelectedLoc] = useState(0);
   const buildingCount = Number((kpis.buildings ?? rows.length) || 12);
   const locations = [
@@ -2324,8 +2324,6 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     setRows([]);
     setTab(id as Tab);
   };
-
-  const permissions = { canWork, canInspect, canAdminister };
 
   return (
     <ModuleShell

@@ -1,52 +1,84 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModuleShell } from "@/components/module-shell";
 import { tenderNav } from "@/lib/module-nav";
 import { apiFetch } from "@/lib/api";
+import { EmptyState, ErrorBanner, LoadingState, SearchInput, StatusPill, money } from "@/components/module-ui";
 
-type TenderRow = Record<string, string | number | boolean | null>;
+type Row = Record<string, unknown>;
+
+const EMPTY: Row[] = [];
+
+function fmtDateTime(v: unknown): string {
+  if (!v) return "—";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function truncate(v: unknown, max = 46): string {
+  const s = String(v ?? "").replace(/\s+/g, " ").trim();
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+function RefText({ value }: { value: unknown }) {
+  return <span className="mono" style={{ color: "var(--primary)", fontSize: 11, fontWeight: 700 }}>{String(value ?? "—")}</span>;
+}
+
+const stageToneMap: Record<string, "green" | "red" | "yellow" | "blue" | "cyan" | "purple" | "gray"> = {
+  invitation: "gray",
+  analysis: "cyan",
+  decision: "purple",
+  planning: "yellow",
+  technical: "blue",
+  financial: "blue",
+  review: "yellow",
+  packaging: "purple",
+  submitted: "blue",
+  awarded: "green",
+  regretted: "red",
+};
 
 export default function InvitationsPage() {
-  const [tenders, setTenders] = useState<TenderRow[]>([]);
+  const [rows, setRows] = useState<Row[]>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    let active = true;
+  const load = useCallback(() => {
+    setLoading(true);
+    setError("");
     apiFetch("/tender/tenders/")
       .then(async (res) => {
-        if (active && res.ok) {
-          const data = (await res.json()) as TenderRow[];
-          setTenders(data || []);
-        }
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as Row[];
+        setRows(Array.isArray(data) ? data : EMPTY);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+      .catch(() => setError("Unable to load tender invitations."))
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = tenders.filter((t) => {
-    if (!search.trim()) return true;
-    const term = search.toLowerCase();
-    return (
-      String(t.title || "").toLowerCase().includes(term) ||
-      String(t.reference_number || "").toLowerCase().includes(term) ||
-      String(t.issuing_authority || "").toLowerCase().includes(term)
+  useEffect(() => {
+    const timer = setTimeout(load, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter((r) =>
+      [r.reference, r.title, r.client].some((v) => String(v ?? "").toLowerCase().includes(term)),
     );
-  });
+  }, [rows, search]);
 
   return (
     <ModuleShell
       moduleKey="tender"
       moduleName="Tender & Bidding"
       eyebrow="Tender Pursuit"
-      title="RFP Invitations & Opportunity Register"
+      title="RFP Invitations"
       subtitle="Public and private tender invitations, AI requirements breakdown, bid/no-bid decisioning."
       accent="#7c3aed"
       groups={tenderNav}
@@ -55,55 +87,80 @@ export default function InvitationsPage() {
         if (id === "overview") window.location.href = "/tender";
         else window.location.href = `/tender?tab=${id}`;
       }}
-      contextLabel="Pursuit Scope"
-      contextValue={`${tenders.length} Active Tenders`}
     >
-      <div className="tender-app">
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, alignItems: "center" }}>
-          <input
-            type="text"
-            placeholder="Search tender by title, reference, client..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ padding: "8px 14px", width: 320, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.85rem" }}
-          />
-          <Link
-            href="/tender?tab=tenders"
-            style={{ background: "#7c3aed", color: "#fff", padding: "8px 16px", borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}
-          >
-            + Register Invitation
-          </Link>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {error && <ErrorBanner message={error} onRetry={load} />}
 
         {loading ? (
-          <div className="data-loading">Loading tender invitations…</div>
+          <LoadingState rows={5} />
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", background: "#fff", borderRadius: 8, overflow: "hidden", border: "1px solid #e2e8f0" }}>
-            <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                <th style={{ padding: 10, textAlign: "left" }}>Tender Ref</th>
-                <th style={{ padding: 10, textAlign: "left" }}>Title / Scope</th>
-                <th style={{ padding: 10, textAlign: "left" }}>Issuing Authority</th>
-                <th style={{ padding: 10, textAlign: "center" }}>Decision</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t) => (
-                <tr key={String(t.id)} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: 10, fontWeight: "bold", fontFamily: "monospace", color: "#7c3aed" }}>
-                    {String(t.reference_number || `RFP-${t.id}`)}
-                  </td>
-                  <td style={{ padding: 10, fontWeight: 600 }}>{String(t.title || "Construction RFP")}</td>
-                  <td style={{ padding: 10, color: "#64748b" }}>{String(t.issuing_authority || "Ministry of Transport")}</td>
-                  <td style={{ padding: 10, textAlign: "center" }}>
-                    <span style={{ padding: "2px 8px", borderRadius: 12, fontSize: "0.75rem", fontWeight: "bold", background: "#dcfce7", color: "#166534" }}>
-                      BID APPROVED
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <article className="data-panel">
+            <header className="panel-title">
+              <h2 style={{ fontSize: 14, margin: 0 }}>Invitation Register</h2>
+              <SearchInput value={search} onChange={setSearch} placeholder="Search reference, title, client…" />
+            </header>
+
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon="📨"
+                title="No tender invitations"
+                description={search ? "No invitations match the current search." : "Register the first invitation to seed the pursuit pipeline."}
+                action={<Link className="btn primary sm" href="/tender?tab=tenders" style={{ textDecoration: "none" }}>+ Register Invitation</Link>}
+              />
+            ) : (
+              <div className="table-scroll">
+                <table className="fc-data-table">
+                  <thead>
+                    <tr>
+                      <th>Tender No</th>
+                      <th>Title</th>
+                      <th>Client</th>
+                      <th>Category</th>
+                      <th>Budget</th>
+                      <th>Deadline</th>
+                      <th>Readiness</th>
+                      <th>Stage</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((r) => {
+                      const readiness = Math.max(0, Math.min(100, Number(r.readiness_score ?? 0)));
+                      return (
+                        <tr key={String(r.id ?? r.reference)}>
+                          <td>
+                            <Link href={`/tender/invitations/${String(r.id)}`} style={{ textDecoration: "none" }}>
+                              <RefText value={r.reference} />
+                            </Link>
+                          </td>
+                          <td>
+                            <strong style={{ display: "block", fontSize: 12 }}>{String(r.title ?? "—")}</strong>
+                            <small className="muted">{truncate(r.description)}</small>
+                          </td>
+                          <td style={{ fontSize: 12 }}>{String(r.client ?? "—")}</td>
+                          <td style={{ fontSize: 12 }}>{String(r.category || "—")}</td>
+                          <td className="mono" style={{ fontSize: 12 }}>{money.format(Number(r.estimated_value ?? 0))}</td>
+                          <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDateTime(r.submission_deadline)}</td>
+                          <td>
+                            <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                              <div className="progress" style={{ flex: 1 }}>
+                                <span style={{ width: `${readiness}%` }} />
+                              </div>
+                              <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{readiness}%</span>
+                            </div>
+                          </td>
+                          <td><StatusPill value={String(r.stage ?? "—")} tone={stageToneMap[String(r.stage)] ?? "gray"} /></td>
+                          <td>
+                            <Link className="btn ghost sm" href={`/tender/invitations/${String(r.id)}`} style={{ textDecoration: "none" }}>Open</Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
         )}
       </div>
     </ModuleShell>

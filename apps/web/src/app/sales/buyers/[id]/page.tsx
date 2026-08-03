@@ -1,52 +1,64 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { ModuleShell } from "@/components/module-shell";
 import { salesNav } from "@/lib/module-nav";
 import { apiFetch } from "@/lib/api";
+import { Badge, ErrorBanner, Field, KpiCard, KpiStrip, LoadingState, Panel, StatusPill } from "@/components/module-ui";
 
-type BuyerRow = Record<string, string | number | boolean | null>;
+type Row = Record<string, unknown>;
 
-const cash = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
+function fmtDateTime(v: unknown): string {
+  if (!v) return "—";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function toneForBuyer(s: string): "green" | "red" | "yellow" | "blue" | "cyan" | "purple" | "gray" {
+  if (s === "active" || s === "completed") return "green";
+  if (s === "qualified") return "blue";
+  if (s === "lead") return "yellow";
+  if (s === "cancelled") return "red";
+  return "gray";
+}
 
 export default function SingleBuyerWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [buyer, setBuyer] = useState<BuyerRow | null>(null);
+  const [row, setRow] = useState<Row | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
-    let active = true;
+  const load = useCallback(() => {
+    setLoading(true);
+    setError("");
     apiFetch(`/sales/buyers/${id}/`)
       .then(async (res) => {
-        if (active && res.ok) {
-          const data = (await res.json()) as BuyerRow;
-          setBuyer(data);
-        } else if (active) {
-          setBuyer({ id, first_name: "Samuel", last_name: "Karania", email: "samuel.k@example.com", phone_number: "+254 722 987654", id_number: "28491032" });
-        }
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as Row;
+        setRow(data);
       })
-      .catch(() => {
-        if (active) setBuyer({ id, first_name: "Samuel", last_name: "Karania", email: "samuel.k@example.com", phone_number: "+254 722 987654", id_number: "28491032" });
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+      .catch(() => setError("Unable to load this buyer account."))
+      .finally(() => setLoading(false));
   }, [id]);
 
-  const buyerName = buyer ? `${buyer.first_name || ""} ${buyer.last_name || ""}`.trim() : "Buyer Account";
+  useEffect(() => {
+    const timer = setTimeout(load, 0);
+    return () => clearTimeout(timer);
+  }, [load, reloadKey]);
+
+  const buyerName = row ? String(row.full_name || row.reference || "Buyer Account") : "Buyer Account";
 
   return (
     <ModuleShell
       moduleKey="sales"
-      moduleName="Sales & Marketing"
+      moduleName="Sales Management"
       eyebrow="Buyer CRM Account"
       title={buyerName}
       subtitle="Buyer profile, KYC verification documents, reserved units, and installment payment ledger."
-      accent="#e23b3b"
+      accent="#ea580c"
       groups={salesNav}
       activeId="buyers"
       onSelect={(tabId) => {
@@ -54,50 +66,51 @@ export default function SingleBuyerWorkspacePage({ params }: { params: Promise<{
         else window.location.href = `/sales?tab=${tabId}`;
       }}
       contextLabel="Buyer ID"
-      contextValue={`BUYER-${id}`}
+      contextValue={String(row?.reference ?? "—")}
     >
-      <div className="sales-app">
-        <div style={{ marginBottom: 14 }}>
-          <Link href="/sales/buyers" style={{ color: "#e23b3b", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
-            $\leftarrow$ Back to Buyer Directory
-          </Link>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div>
+          <Link href="/sales/buyers" className="btn ghost sm" style={{ textDecoration: "none" }}>← Back to Buyer Directory</Link>
         </div>
 
+        {error && <ErrorBanner message={error} onRetry={() => setReloadKey((k) => k + 1)} />}
+
         {loading ? (
-          <div className="data-loading">Loading buyer account…</div>
-        ) : (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>National ID / Passport</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#e23b3b", fontFamily: "monospace" }}>{String(buyer?.id_number || "28491032")}</h3>
-              </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Selected Unit</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#0f172a" }}>Unit A-304 (3 Bed)</h3>
-              </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Purchase Price</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#16a34a" }}>{cash.format(14500000)}</h3>
-              </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Installments Paid</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#2563eb" }}>{cash.format(4350000)} (30%)</h3>
-              </div>
+          <LoadingState rows={4} />
+        ) : row ? (
+          <>
+            <KpiStrip cols={4}>
+              <KpiCard icon="🪪" iconBg="#e0e7ff" iconColor="#4f46e5" label="National / Company ID" value={<span className="mono">{String(row.id_number ?? "—")}</span>} />
+              <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Financing" value={row.financing_type === "bank" ? "Bank" : "Self"} sub={String(row.financier || "")} />
+              <KpiCard icon="🤝" iconBg="#dcfce7" iconColor="#16a34a" label="Assigned Agent" value={String(row.agent_name || "—")} />
+              <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Confirmed" value={row.confirmed_at ? fmtDateTime(row.confirmed_at) : "Not confirmed"} />
+            </KpiStrip>
+
+            <div className="row" style={{ gap: 8 }}>
+              <StatusPill value={String(row.status ?? "—")} tone={toneForBuyer(String(row.status ?? ""))} />
+              <Badge tone={row.financing_type === "bank" ? "blue" : "green"}>{row.financing_type === "bank" ? "Bank-financed" : "Self-financed"}</Badge>
             </div>
 
-            <div style={{ background: "#ffffff", padding: 18, borderRadius: 10, border: "1px solid #e2e8f0" }}>
-              <h4 style={{ margin: "0 0 10px 0", color: "#0f172a" }}>KYC & Contract Status</h4>
-              <p style={{ color: "#64748b", fontSize: "0.85rem", margin: "0 0 14px 0" }}>
-                Email: <strong>{String(buyer?.email)}</strong> | Phone: <strong>{String(buyer?.phone_number)}</strong>
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontWeight: "bold", fontSize: "0.75rem" }}>KYC VERIFIED</span>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dbeafe", color: "#1e40af", fontWeight: "bold", fontSize: "0.75rem" }}>SALE AGREEMENT SIGNED</span>
+            <Panel title="Buyer Details">
+              <div className="grid-2" style={{ gap: 14 }}>
+                <Field label="Full Name"><strong style={{ fontSize: 13 }}>{String(row.full_name ?? "—")}</strong></Field>
+                <Field label="Reference"><span className="mono" style={{ fontSize: 13 }}>{String(row.reference ?? "—")}</span></Field>
+                <Field label="Email"><span style={{ fontSize: 13 }}>{String(row.email ?? "—")}</span></Field>
+                <Field label="Phone"><span style={{ fontSize: 13 }}>{String(row.phone ?? "—")}</span></Field>
+                <Field label="National / Company ID"><span className="mono" style={{ fontSize: 13 }}>{String(row.id_number ?? "—")}</span></Field>
+                <Field label="KRA PIN"><span className="mono" style={{ fontSize: 13 }}>{String(row.tax_number || "—")}</span></Field>
+                <Field label="Financier"><span style={{ fontSize: 13 }}>{String(row.financier || "—")}</span></Field>
+                <Field label="Assigned Agent"><span style={{ fontSize: 13 }}>{String(row.agent_name || "—")}</span></Field>
+                <Field label="Confirmed On"><span style={{ fontSize: 13 }}>{row.confirmed_at ? fmtDateTime(row.confirmed_at) : "Not confirmed"}</span></Field>
               </div>
-            </div>
-          </div>
-        )}
+              {row.address ? (
+                <div style={{ marginTop: 16 }}>
+                  <Field label="Address"><p style={{ margin: 0, fontSize: 13, whiteSpace: "pre-wrap" }}>{String(row.address)}</p></Field>
+                </div>
+              ) : null}
+            </Panel>
+          </>
+        ) : null}
       </div>
     </ModuleShell>
   );

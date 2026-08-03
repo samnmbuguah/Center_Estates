@@ -1,52 +1,73 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { ModuleShell } from "@/components/module-shell";
 import { valuationNav } from "@/lib/module-nav";
 import { apiFetch } from "@/lib/api";
+import { Badge, ErrorBanner, Field, KpiCard, KpiStrip, LoadingState, Panel, StatusPill, money } from "@/components/module-ui";
 
-type InstructionRow = Record<string, string | number | boolean | null>;
+type Row = Record<string, unknown>;
 
-const cash = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
+function fmtDate(v: unknown): string {
+  if (!v) return "—";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function instructionTone(value: unknown): "green" | "red" | "yellow" | "blue" | "cyan" | "purple" | "gray" {
+  const s = String(value ?? "").toLowerCase();
+  if (s === "cancelled") return "red";
+  if (s === "new") return "blue";
+  if (s === "assigned") return "purple";
+  if (s === "inspection") return "cyan";
+  if (s === "drafting" || s === "review") return "yellow";
+  if (["final", "delivered"].includes(s)) return "green";
+  return "gray";
+}
+
+function PriorityBadge({ value }: { value: unknown }) {
+  const p = String(value ?? "normal");
+  const tone = p === "urgent" ? "red" : p === "high" ? "orange" : "gray";
+  return <Badge value={p} tone={tone} />;
+}
 
 export default function SingleValuationWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [instruction, setInstruction] = useState<InstructionRow | null>(null);
+  const [row, setRow] = useState<Row | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
-    let active = true;
+  const load = useCallback(() => {
+    setLoading(true);
+    setError("");
     apiFetch(`/valuation/instructions/${id}/`)
       .then(async (res) => {
-        if (active && res.ok) {
-          const data = (await res.json()) as InstructionRow;
-          setInstruction(data);
-        } else if (active) {
-          setInstruction({ id, reference_number: `VAL-2026-${id.slice(0, 3)}`, property_name: "Riverside Office Complex Tower B", client_name: "Commercial Bank of Kenya", assessed_market_value: 380000000 });
-        }
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as Row;
+        setRow(data);
       })
-      .catch(() => {
-        if (active) setInstruction({ id, reference_number: `VAL-2026-${id.slice(0, 3)}`, property_name: "Riverside Office Complex Tower B", client_name: "Commercial Bank of Kenya", assessed_market_value: 380000000 });
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+      .catch(() => setError("Unable to load this valuation instruction."))
+      .finally(() => setLoading(false));
   }, [id]);
 
-  const propName = instruction ? String(instruction.property_name || "Valuation Subject") : "Valuation Subject";
+  useEffect(() => {
+    const timer = setTimeout(load, 0);
+    return () => clearTimeout(timer);
+  }, [load, reloadKey]);
+
+  const title = row ? String(row.property_description || row.reference || "Valuation Instruction") : "Valuation Instruction";
 
   return (
     <ModuleShell
       moduleKey="valuation"
       moduleName="Valuation"
-      eyebrow="Valuation Job Workspace"
-      title={propName}
+      eyebrow="Valuation Instruction"
+      title={title}
       subtitle="Site inspection evidence, comparable market sales, draft valuation report, and signed certification."
-      accent="#ea580c"
+      accent="#0891b2"
       groups={valuationNav}
       activeId="instructions"
       onSelect={(tabId) => {
@@ -54,48 +75,48 @@ export default function SingleValuationWorkspacePage({ params }: { params: Promi
         else window.location.href = `/valuation?tab=${tabId}`;
       }}
       contextLabel="Valuation Ref"
-      contextValue={String(instruction?.reference_number || `VAL-${id}`)}
+      contextValue={String(row?.reference ?? "—")}
     >
-      <div className="valuation-app">
-        <div style={{ marginBottom: 14 }}>
-          <Link href="/valuation/instructions" style={{ color: "#ea580c", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
-            $\leftarrow$ Back to Valuation Register
-          </Link>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div>
+          <Link href="/valuation/instructions" className="btn ghost sm" style={{ textDecoration: "none" }}>← Back to Instructions</Link>
         </div>
 
+        {error && <ErrorBanner message={error} onRetry={() => setReloadKey((k) => k + 1)} />}
+
         {loading ? (
-          <div className="data-loading">Loading valuation workspace…</div>
-        ) : (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Reference Number</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#ea580c", fontFamily: "monospace" }}>{String(instruction?.reference_number)}</h3>
-              </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Assessed Market Value</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#16a34a" }}>{cash.format(Number(instruction?.assessed_market_value || 380000000))}</h3>
-              </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Forced Sale Value (FSV)</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#2563eb" }}>{cash.format(285000000)}</h3>
-              </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Instructing Client</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#0f172a" }}>{String(instruction?.client_name)}</h3>
-              </div>
+          <LoadingState rows={4} />
+        ) : row ? (
+          <>
+            <KpiStrip cols={4}>
+              <KpiCard icon="📋" iconBg="#e0f2fe" iconColor="#0891b2" label="Reference" value={<span className="mono">{String(row.reference ?? "—")}</span>} />
+              <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Quoted Fee" value={money.format(Number(row.quoted_fee ?? 0))} />
+              <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Instructed On" value={fmtDate(row.instructed_on)} />
+              <KpiCard icon="⏳" iconBg="#fee2e2" iconColor="#b91c1c" label="Due On" value={fmtDate(row.due_on)} />
+            </KpiStrip>
+
+            <div className="row" style={{ gap: 8 }}>
+              <StatusPill value={String(row.status ?? "—")} tone={instructionTone(row.status)} />
+              <PriorityBadge value={row.priority} />
             </div>
 
-            <div style={{ background: "#ffffff", padding: 18, borderRadius: 10, border: "1px solid #e2e8f0" }}>
-              <h4 style={{ margin: "0 0 8px 0", color: "#0f172a" }}>Site Inspection & Valuation Workflow</h4>
-              <div style={{ display: "flex", gap: 10 }}>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontWeight: "bold", fontSize: "0.75rem" }}>SITE INSPECTED</span>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontWeight: "bold", fontSize: "0.75rem" }}>COMPARABLES ANALYZED</span>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dbeafe", color: "#1e40af", fontWeight: "bold", fontSize: "0.75rem" }}>DRAFT REPORT SIGNED</span>
+            <Panel title="Instruction Details">
+              <div className="grid-2" style={{ gap: 14 }}>
+                <Field label="Bank / Client"><strong style={{ fontSize: 13 }}>{String(row.client_name ?? "—")}</strong></Field>
+                <Field label="Valuer"><span style={{ fontSize: 13 }}>{String(row.valuer_name || "—")}</span></Field>
+                <Field label="Property"><span style={{ fontSize: 13 }}>{String(row.property_description ?? "—")}</span></Field>
+                <Field label="Address"><span style={{ fontSize: 13 }}>{String(row.address || "—")}</span></Field>
+                <Field label="Valuation Type"><span style={{ fontSize: 13 }}>{String(row.valuation_type ?? "—")}</span></Field>
+                <Field label="Purpose"><span style={{ fontSize: 13 }}>{String(row.purpose ?? "—")}</span></Field>
               </div>
-            </div>
-          </div>
-        )}
+              {row.instructions ? (
+                <div style={{ marginTop: 16 }}>
+                  <Field label="Valuer Instructions"><p style={{ margin: 0, fontSize: 13, whiteSpace: "pre-wrap" }}>{String(row.instructions)}</p></Field>
+                </div>
+              ) : null}
+            </Panel>
+          </>
+        ) : null}
       </div>
     </ModuleShell>
   );

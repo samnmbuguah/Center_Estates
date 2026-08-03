@@ -1,112 +1,153 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModuleShell } from "@/components/module-shell";
 import { salesNav } from "@/lib/module-nav";
 import { apiFetch } from "@/lib/api";
+import { Badge, EmptyState, ErrorBanner, LoadingState, SearchInput, StatusPill } from "@/components/module-ui";
 
-type BuyerRow = Record<string, string | number | boolean | null>;
+type Row = Record<string, unknown>;
+
+const EMPTY: Row[] = [];
+
+function RefText({ value }: { value: unknown }) {
+  return <span className="mono" style={{ color: "var(--primary)", fontSize: 11, fontWeight: 700 }}>{String(value ?? "—")}</span>;
+}
+
+function toneForBuyer(s: string): "green" | "red" | "yellow" | "blue" | "cyan" | "purple" | "gray" {
+  if (s === "active" || s === "completed") return "green";
+  if (s === "qualified") return "blue";
+  if (s === "lead") return "yellow";
+  if (s === "cancelled") return "red";
+  return "gray";
+}
 
 export default function BuyersDirectoryPage() {
-  const [buyers, setBuyers] = useState<BuyerRow[]>([]);
+  const [rows, setRows] = useState<Row[]>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    let active = true;
+  const load = useCallback(() => {
+    setLoading(true);
+    setError("");
     apiFetch("/sales/buyers/")
       .then(async (res) => {
-        if (active && res.ok) {
-          const data = (await res.json()) as BuyerRow[];
-          setBuyers(data || []);
-        }
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as Row[];
+        setRows(Array.isArray(data) ? data : EMPTY);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+      .catch(() => setError("Unable to connect to the buyers registry."))
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = buyers.filter((b) => {
-    if (!search.trim()) return true;
-    const term = search.toLowerCase();
-    return (
-      String(b.first_name || "").toLowerCase().includes(term) ||
-      String(b.last_name || "").toLowerCase().includes(term) ||
-      String(b.email || "").toLowerCase().includes(term) ||
-      String(b.id_number || "").toLowerCase().includes(term)
+  useEffect(() => {
+    const timer = setTimeout(load, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter((r) =>
+      [r.reference, r.full_name, r.id_number, r.tax_number, r.email].some((v) => String(v ?? "").toLowerCase().includes(term)),
     );
-  });
+  }, [rows, search]);
+
+  const active = rows.filter((b) => ["active", "qualified"].includes(String(b.status ?? ""))).length;
 
   return (
     <ModuleShell
       moduleKey="sales"
-      moduleName="Sales & Marketing"
-      eyebrow="Buyer CRM"
+      moduleName="Sales Management"
+      eyebrow="Sales & Marketing Workspace"
       title="Buyer & Client Directory"
-      subtitle="Registered property buyers, KYC documents, selected units, and sales lead status."
-      accent="#e23b3b"
+      subtitle="Registered property buyers, KYC identifiers, financing type and lead status."
+      accent="#ea580c"
       groups={salesNav}
       activeId="buyers"
       onSelect={(id) => {
         if (id === "overview") window.location.href = "/sales";
         else window.location.href = `/sales?tab=${id}`;
       }}
-      contextLabel="Buyers Scope"
-      contextValue={`${buyers.length} Registered Buyers`}
+      actions={
+        <Link className="btn primary sm" href="/sales?tab=buyers&register=1" style={{ textDecoration: "none" }}>
+          + Register Buyer
+        </Link>
+      }
     >
-      <div className="sales-app">
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, alignItems: "center" }}>
-          <input
-            type="text"
-            placeholder="Search buyer by name, email, ID number..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ padding: "8px 14px", width: 320, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.85rem" }}
-          />
-          <Link
-            href="/sales?tab=buyers"
-            style={{ background: "#e23b3b", color: "#fff", padding: "8px 16px", borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}
-          >
-            + Register Buyer
-          </Link>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {error && <ErrorBanner message={error} onRetry={load} />}
 
         {loading ? (
-          <div className="data-loading">Loading buyer directory…</div>
+          <LoadingState rows={5} />
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", background: "#fff", borderRadius: 8, overflow: "hidden", border: "1px solid #e2e8f0" }}>
-            <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                <th style={{ padding: 10, textAlign: "left" }}>Buyer Name</th>
-                <th style={{ padding: 10, textAlign: "left" }}>National ID / Passport</th>
-                <th style={{ padding: 10, textAlign: "left" }}>Contact Details</th>
-                <th style={{ padding: 10, textAlign: "center" }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((buyer) => (
-                <tr key={String(buyer.id)} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: 10, fontWeight: "bold" }}>
-                    {`${buyer.first_name || ""} ${buyer.last_name || ""}`.trim() || "Registered Buyer"}
-                  </td>
-                  <td style={{ padding: 10, fontFamily: "monospace" }}>{String(buyer.id_number || "KYC Verified")}</td>
-                  <td style={{ padding: 10, color: "#64748b" }}>
-                    {String(buyer.email || "No email")} | {String(buyer.phone_number || "No phone")}
-                  </td>
-                  <td style={{ padding: 10, textAlign: "center" }}>
-                    <span style={{ padding: "2px 8px", borderRadius: 12, fontSize: "0.75rem", fontWeight: "bold", background: "#dcfce7", color: "#166534" }}>
-                      ACTIVE BUYER
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className="summary-strip" style={{ marginTop: 0 }}>
+              <span><b>{rows.length}</b> Total buyers</span>
+              <span><b>{active}</b> Active / qualified</span>
+              <span><b>{rows.filter((b) => String(b.status) === "lead").length}</b> Leads</span>
+              <span><b>{rows.filter((b) => String(b.status) === "completed").length}</b> Completed</span>
+              <span><b>{rows.filter((b) => String(b.financing_type) === "bank").length}</b> Bank-financed</span>
+            </div>
+
+            <article className="data-panel">
+              <header className="panel-title">
+                <h2 style={{ fontSize: 14, margin: 0 }}>Buyers Registry</h2>
+                <SearchInput value={search} onChange={setSearch} placeholder="Search name, ref, ID, email…" />
+              </header>
+
+              {filtered.length === 0 ? (
+                <EmptyState
+                  icon="👥"
+                  title="No buyers registered"
+                  description={search ? "No buyers match the current search." : "Register your first buyer to attach units, installments and payments."}
+                  action={<Link className="btn primary sm" href="/sales?tab=buyers&register=1" style={{ textDecoration: "none" }}>+ Register Buyer</Link>}
+                />
+              ) : (
+                <div className="table-scroll">
+                  <table className="fc-data-table">
+                    <thead>
+                      <tr>
+                        <th>Ref</th>
+                        <th>Buyer Name</th>
+                        <th>ID / KRA</th>
+                        <th>Contact</th>
+                        <th>Email</th>
+                        <th>Financing</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((b) => (
+                        <tr key={String(b.id)}>
+                          <td>
+                            <Link href={`/sales/buyers/${String(b.id)}`} style={{ textDecoration: "none" }}>
+                              <RefText value={b.reference} />
+                            </Link>
+                          </td>
+                          <td><strong style={{ fontSize: 12 }}>{String(b.full_name ?? "—")}</strong></td>
+                          <td className="mono" style={{ fontSize: 12 }}>
+                            {String(b.id_number ?? "—")}
+                            {b.tax_number ? <div style={{ color: "var(--muted)", fontSize: 11 }}>{String(b.tax_number)}</div> : null}
+                          </td>
+                          <td style={{ fontSize: 12 }}>{String(b.phone ?? "—")}</td>
+                          <td style={{ fontSize: 12, color: "#6b7890" }}>{String(b.email ?? "—")}</td>
+                          <td><Badge tone={b.financing_type === "bank" ? "blue" : "green"}>{b.financing_type === "bank" ? "Bank" : "Self"}</Badge></td>
+                          <td><StatusPill value={String(b.status ?? "")} tone={toneForBuyer(String(b.status ?? ""))} /></td>
+                          <td>
+                            <Link className="btn ghost sm" href={`/sales/buyers/${String(b.id)}`} style={{ textDecoration: "none" }}>Open</Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </article>
+          </>
         )}
       </div>
     </ModuleShell>
