@@ -29,10 +29,10 @@ const money = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES
 
 export default function Home() {
   const { session } = useAuth();
-  const allowed = new Set(session?.modules.map((module) => module.slug) ?? []);
+  const allowed = new Set(session?.modules?.map((module) => module.slug) ?? modules.map((m) => m.slug));
   const subscribedModules = modules.filter((module) => allowed.has(module.slug));
-  const name = session?.user.firstName || session?.user.username || "there";
-  const organization = session?.organizations.find((item) => item.id === session.activeOrganizationId);
+  const name = session?.user?.firstName || session?.user?.username || "there";
+  const organization = session?.organizations?.find((item) => item.id === session?.activeOrganizationId);
   const organizationId = session?.activeOrganizationId ?? null;
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
@@ -40,14 +40,14 @@ export default function Home() {
     month: "long",
     year: "numeric",
   });
-  const roleLabel = session?.permissions.includes("*")
+  const roleLabel = session?.permissions?.includes("*")
     ? "Platform administrator"
-    : session?.roles.join(", ") || "Organization member";
+    : session?.roles?.join(", ") || "Organization member";
   const [pulse, setPulse] = useState<Pulse>({});
   const [alerts, setAlerts] = useState<InboxAlert[]>([]);
   const [tasks, setTasks] = useState<InboxTask[]>([]);
   const [pulseLoading, setPulseLoading] = useState(true);
-  const moduleSlugs = session?.modules.map((module) => module.slug).join(",") ?? "";
+  const moduleSlugs = session?.modules?.map((module) => module.slug).join(",") ?? "";
 
   useEffect(() => {
     if (!organizationId) return;
