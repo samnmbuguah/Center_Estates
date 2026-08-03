@@ -38,7 +38,43 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   const headers = new Headers(init.headers);
   if (organizationId) headers.set("X-Organization-ID", organizationId);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  return fetch(`/api/v1${path}`, { ...init, headers, credentials: "include" });
+
+  let p = path.replace(/\/+/g, "/");
+  p = p.replace(/^\/hs-incidents/, "/safety-incidents");
+  p = p.replace(/^\/calendar\/events/, "/calendar");
+  p = p.replace(/^\/projects\/[^/]*\/lifecycle/, "/lifecycle");
+  p = p.replace(/^\/projects\/[^/]*\/milestones/, "/milestones");
+
+  const [base, query] = p.split("?");
+  const slashedBase = base.endsWith("/") ? base : `${base}/`;
+  const cleanPath = query ? `${slashedBase}?${query}` : slashedBase;
+
+  const isConstruction = [
+    "/projects",
+    "/milestones",
+    "/milestone-verifications",
+    "/evidence",
+    "/daily-logs",
+    "/risks",
+    "/tickets",
+    "/work-plan",
+    "/boq",
+    "/variations",
+    "/quality-tests",
+    "/rfis",
+    "/safety-incidents",
+    "/calendar",
+    "/documents",
+    "/lifecycle",
+    "/materials",
+    "/requisitions",
+    "/certificates",
+    "/disbursements",
+    "/drawdowns",
+  ].some((ep) => cleanPath.startsWith(ep));
+
+  const fullPath = isConstruction ? `/construction${cleanPath}` : cleanPath;
+  return fetch(`/api/v1${fullPath}`, { ...init, headers, credentials: "include" });
 }
 
 export function csrfFromCookie() {

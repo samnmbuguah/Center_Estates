@@ -163,17 +163,28 @@ export class ApiError extends Error {
   }
 }
 
+function normalizePath(rawPath: string): string {
+  let p = rawPath.replace(/\/+/g, "/");
+  p = p.replace(/^\/hs-incidents/, "/safety-incidents");
+  p = p.replace(/^\/calendar\/events/, "/calendar");
+  p = p.replace(/^\/projects\/[^/]*\/lifecycle/, "/lifecycle");
+  p = p.replace(/^\/projects\/[^/]*\/milestones/, "/milestones");
+
+  const [base, query] = p.split("?");
+  const slashedBase = base.endsWith("/") ? base : `${base}/`;
+  return query ? `${slashedBase}?${query}` : slashedBase;
+}
+
 async function req<T>(method: string, rawPath: string, body?: unknown): Promise<T> {
   let res: Response;
   const isFormData = body instanceof FormData;
   const h = authHeaders();
 
-  // Sanitize path to avoid double slashes like /projects//milestones
-  const cleanPath = rawPath.replace(/\/+/g, "/");
-  const isRootApi = cleanPath.startsWith("/auth/") || cleanPath === "/me" || cleanPath.startsWith("/me/");
+  const cleanPath = normalizePath(rawPath);
+  const isRootApi = cleanPath.startsWith("/auth/") || cleanPath === "/me/" || cleanPath.startsWith("/me/");
   const targetUrl = isRootApi
-    ? `/api/v1${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`
-    : `${API_BASE}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+    ? `/api/v1${cleanPath}`
+    : `${API_BASE}${cleanPath}`;
 
   try {
     res = await fetch(targetUrl, {
