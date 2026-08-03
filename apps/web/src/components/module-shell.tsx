@@ -89,7 +89,7 @@ export function ModuleShell({
       <aside className={`module-side-nav ${navOpen ? "open" : ""}`} aria-label={`${moduleName} sections`}>
         <div style={{ padding: "12px 14px 4px 14px" }}>
           <Link
-            href="/"
+            href="/workspaces"
             style={{
               display: "flex",
               alignItems: "center",

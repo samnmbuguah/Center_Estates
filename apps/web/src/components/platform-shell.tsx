@@ -105,6 +105,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }, [profileOpen]);
 
   const isPublicRoute = [
+    "/",
     "/login",
     "/sign-up",
     "/home",
@@ -116,7 +117,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     "/faq",
     "/docs",
     "/blog",
-  ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  ].some((path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)));
 
   if (isPublicRoute) return <>{children}</>;
   if (loading || !session) return <div className="full-loading">Loading your workspace…</div>;
@@ -173,8 +174,8 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           <nav aria-label="Platform modules">
             <p className="nav-section-label">Workplace</p>
             <Link
-              className={`nav-link ${pathname === "/" ? "active" : ""}`}
-              href="/"
+              className={`nav-link ${pathname === "/workspaces" ? "active" : ""}`}
+              href="/workspaces"
               title="Main Workspace Selection"
               onClick={() => setMenuOpen(false)}
             >
@@ -238,7 +239,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             </Link>
 
             {moduleWorkspaceActive && (
-              <Link href="/" className="btn ghost sm" style={{ fontSize: 12, padding: "5px 12px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+              <Link href="/workspaces" className="btn ghost sm" style={{ fontSize: 12, padding: "5px 12px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
                 <span>←</span> Switch Workspace
               </Link>
             )}
