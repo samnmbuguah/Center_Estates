@@ -166,27 +166,41 @@ export class ApiError extends Error {
 function normalizePath(rawPath: string): string {
   let p = rawPath.replace(/\/+/g, "/");
 
+  // Handle nested /projects/:id/subresource paths -> /subresource/?project_id=:id
+  const nestedMatch = p.match(/^\/projects\/([^/]+)\/(cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\/status)(?:\/|\?(.*))?$/);
+
+  if (nestedMatch) {
+    const [, projectId, subresource, rawQuery] = nestedMatch;
+    let targetEndpoint = subresource;
+    if (subresource === "cost-dashboard" || subresource === "anomalies" || subresource === "ingest/status") {
+      targetEndpoint = "dashboard";
+    } else if (subresource === "boq-review" || subresource === "boq-material-reconciliation") {
+      targetEndpoint = "boq";
+    } else if (subresource === "waivers") {
+      targetEndpoint = "requirement-waivers";
+    }
+
+    const queryParams = new URLSearchParams(rawQuery || "");
+    queryParams.set("project_id", projectId);
+    return `/${targetEndpoint}/?${queryParams.toString()}`;
+  }
+
+  // Rewrite /projects/subresource without ID
+  p = p.replace(/^\/projects\/lifecycle/, "/lifecycle");
+  p = p.replace(/^\/projects\/milestones/, "/milestones");
+
+  // General alias rewrites
   p = p.replace(/^\/hs-incidents/, "/safety-incidents");
   p = p.replace(/^\/calendar\/events/, "/calendar");
   p = p.replace(/^\/store\/items/, "/store-items");
-  p = p.replace(/^\/projects\/[^/]*\/lifecycle/, "/lifecycle");
-  p = p.replace(/^\/projects\/[^/]*\/milestones/, "/milestones");
-  p = p.replace(/^\/projects\/[^/]*\/quality-tests/, "/quality-tests");
-  p = p.replace(/^\/projects\/[^/]*\/advance-payments/, "/advance-payments");
-  p = p.replace(/^\/projects\/[^/]*\/consultant-payments/, "/consultant-payments");
-  p = p.replace(/^\/projects\/[^/]*\/subcontractors/, "/subcontractors");
-  p = p.replace(/^\/projects\/[^/]*\/work-orders/, "/work-orders");
-  p = p.replace(/^\/projects\/[^/]*\/work-order-summary/, "/work-orders");
-  p = p.replace(/^\/projects\/[^/]*\/provisional-sums/, "/provisional-sums");
-  p = p.replace(/^\/projects\/[^/]*\/variations/, "/variations");
-  p = p.replace(/^\/projects\/[^/]*\/boq-items/, "/boq");
-  p = p.replace(/^\/projects\/[^/]*\/bim-models/, "/bim-models");
-  p = p.replace(/^\/projects\/[^/]*\/bim-discrepancies/, "/bim-discrepancies");
-  p = p.replace(/^\/projects\/[^/]*\/drone-datasets/, "/drone-datasets");
-  p = p.replace(/^\/projects\/[^/]*\/satellite-datasets/, "/satellite-datasets");
-  p = p.replace(/^\/projects\/ingest\/status/, "/dashboard");
-  p = p.replace(/^\/chat\/(users|conversations)/, "/chat-messages");
-  p = p.replace(/^\/audit\/logs/, "/dashboard");
+  p = p.replace(/^\/issues/, "/tickets");
+  p = p.replace(/^\/milestones\/pending-verification/, "/milestone-verifications");
+  p = p.replace(/^\/reports\/(weekly|scurve|exec-dashboard|compliance)/, "/dashboard");
+  p = p.replace(/^\/audit\/(logs|verify)/, "/dashboard");
+  p = p.replace(/^\/ai\/status/, "/dashboard");
+  p = p.replace(/^\/plans/, "/dashboard");
+  p = p.replace(/^\/tenants/, "/dashboard");
+  p = p.replace(/^\/sso-url/, "/dashboard");
 
   const [base, query] = p.split("?");
   const slashedBase = base.endsWith("/") ? base : `${base}/`;
