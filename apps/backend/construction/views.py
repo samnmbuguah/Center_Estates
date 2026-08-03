@@ -207,14 +207,36 @@ class EvidenceViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, EvidenceBaseV
     pass
 DailyLogViewSet = scoped_viewset("DailyLogViewSet", DailyLog, DailyLogSerializer, ("notes", "weather"))
 RiskViewSet = scoped_viewset("RiskViewSet", Risk, RiskSerializer, ("reference", "description"))
-TicketViewSet = scoped_viewset("TicketViewSet", Ticket, TicketSerializer, ("title", "body"))
-DailyLogViewSet.write_permission = 'monitoring.site'
-RiskViewSet.write_permission = 'monitoring.site'
-TicketViewSet.write_permission = 'monitoring.site'
+
+
+class TicketViewSet(ConstructionScopedViewSet):
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
+    search_fields = ("title", "body")
+
+    @action(detail=True, methods=["post"])
+    def acknowledge(self, request, pk=None):
+        ticket = self.get_object()
+        ticket.status = "acknowledged"
+        ticket.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=["post"])
+    def resolve(self, request, pk=None):
+        ticket = self.get_object()
+        ticket.status = "resolved"
+        ticket.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=["post"])
+    def close(self, request, pk=None):
+        ticket = self.get_object()
+        ticket.status = "closed"
+        ticket.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(ticket).data)
 
 
 class TicketCommentViewSet(ConstructionScopedViewSet):
-    write_permission = 'monitoring.site'
     queryset = TicketComment.objects.select_related("ticket", "author")
     serializer_class = TicketCommentSerializer
     organization_field = "ticket__organization"
