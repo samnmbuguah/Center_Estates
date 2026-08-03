@@ -1916,7 +1916,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
           </button>
         ))}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, paddingBottom: 8 }}>
-          <button className="fc-toolbar-btn primary" style={{ marginRight: 0 }}>+ Add Contractor</button>
+          <button className="fc-toolbar-btn primary" style={{ marginRight: 0 }} onClick={onAdd}>+ Add Contractor</button>
         </div>
       </div>
 
@@ -1930,7 +1930,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
               ))}
               <button className="fc-toolbar-btn">Filters</button>
             </div>
-            <button className="fc-toolbar-btn">↓ Export</button>
+            <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "contractors.csv")}>↓ Export</button>
           </div>
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -1950,13 +1950,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
                 {displayRows.map((row) => {
                   const rating = Number(row.rating ?? 0);
                   const statusStr = String(row.status ?? "active");
-                  const catColors: Record<string, string> = {
-                    "Plumbing & Drainage": "#3b82f6", "Electrical Systems": "#f59e0b", "Fire Safety Systems": "#ef4444",
-                    "Lift Systems": "#8b5cf6", "CCTV / Access Control": "#10b981", "HVAC Systems": "#6366f1",
-                    "Cleaning Services": "#22c55e", "Specialized Repairs": "#f97316",
-                  };
                   const cat = String(row.specialty ?? "General");
-                  const col = catColors[cat] ?? "#9ca3af";
                   return (
                     <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
                       <td>
@@ -1979,8 +1973,8 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
                         </div>
                       </td>
                       <td style={{ fontSize: 12 }}>2.1 hrs</td>
-                      <td style={{ fontSize: 12, fontWeight: 700 }}>{statusStr === "active" ? Math.floor(Math.random() * 5) + 1 : 0}</td>
-                      <td style={{ fontSize: 12, fontWeight: 700 }}>KES {(Math.random() * 9 + 1).toFixed(2)}M</td>
+                      <td style={{ fontSize: 12, fontWeight: 700 }}>{statusStr === "active" ? "1+" : "—"}</td>
+                      <td style={{ fontSize: 12, fontWeight: 700 }}>—</td>
                       <td>
                         <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
                       </td>
@@ -1991,7 +1985,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
             </table>
           </div>
           <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to 8 of 68 contractors</span>
+            <span className="fc-pager-info">Showing 1 to {displayRows.length} of {totalContractors.toLocaleString()} contractors</span>
             <div className="fc-pager">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -2086,23 +2080,20 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
 }
 
 /* ─── Generic list tab ─── */
-function GenericListView({
-  tab,
-  rows,
-  onAction,
-  permissions,
-}: {
-  tab: Tab;
-  rows: Row[];
-  onAction: (row: Row, action: string) => void;
-  permissions: { canWork: boolean; canInspect: boolean; canAdminister: boolean };
-}) {
+function GenericListView({ tab, rows }: { tab: Tab; rows: Row[] }) {
+  const [selected, setSelected] = useState<Row | null>(null);
   const columns: Record<string, { key: string; label: string }[]> = {
     "work-order-events": [{ key: "created_at", label: "Time" }, { key: "work_order", label: "Work Order" }, { key: "event_type", label: "Event" }, { key: "from_status", label: "From" }, { key: "to_status", label: "To" }, { key: "actor_name", label: "Actor" }, { key: "notes", label: "Notes" }],
     "work-order-cost-items": [{ key: "work_order", label: "Work Order" }, { key: "kind", label: "Type" }, { key: "description", label: "Item" }, { key: "quantity", label: "Quantity" }, { key: "unit_cost", label: "Unit Cost" }, { key: "total", label: "Total" }, { key: "supplier", label: "Supplier" }],
     "work-order-attachments": [{ key: "work_order", label: "Work Order" }, { key: "file_name", label: "File" }, { key: "media_type", label: "Type" }, { key: "caption", label: "Caption" }, { key: "uploaded_by_name", label: "Uploaded By" }, { key: "created_at", label: "Uploaded" }],
   };
   const cols = columns[tab] ?? [];
+  const moneyKeys = new Set(["unit_cost", "total", "cost"]);
+  const displayValue = (key: string, value: string | number | boolean | null) =>
+    moneyKeys.has(key) && Number(value)
+      ? money.format(Number(value))
+      : String(value ?? "—");
+  const titleCase = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <article className="data-panel">
@@ -2117,9 +2108,13 @@ function GenericListView({
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={String(row.id ?? i)}>
+                <tr
+                  key={String(row.id ?? i)}
+                  className={selected?.id === row.id ? "selected" : ""}
+                  onClick={() => setSelected(selected?.id === row.id ? null : row)}
+                >
                   {cols.map((c) => (
-                    <td key={c.key} style={{ fontSize: 12 }}>{String(row[c.key] ?? "—")}</td>
+                    <td key={c.key} style={{ fontSize: 12 }}>{displayValue(c.key, row[c.key] ?? null)}</td>
                   ))}
                 </tr>
               ))}
@@ -2127,6 +2122,17 @@ function GenericListView({
           </table>
         </div>
       ) : <EmptyState message={`No ${labels[tab].toLowerCase()} records found.`} />}
+      {selected && (
+        <DetailDrawer title={`${labels[tab]} — Details`} onClose={() => setSelected(null)}>
+          <div style={{ display: "grid", gap: 12 }}>
+            {Object.entries(selected).map(([key, value]) => (
+              <Field key={key} label={titleCase(key)}>
+                <span>{displayValue(key, value)}</span>
+              </Field>
+            ))}
+          </div>
+        </DetailDrawer>
+      )}
     </article>
   );
 }
