@@ -82,14 +82,8 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
 
       {/* ── Nav ─────────────────────────────────── */}
       <nav className={`marketing-nav${scrolled ? " scrolled" : ""}`}>
-        <Link to="/" className="nav-brand">
-          <span className="nav-logo-mark">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          </span>
-          <span className="nav-wordmark">Monitoring<span>Erp</span></span>
+        <Link to="/" className="nav-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+          <img src="/logo.png" alt="Center Estates" style={{ height: 38, width: "auto", objectFit: "contain" }} />
         </Link>
 
         <div className="nav-links">

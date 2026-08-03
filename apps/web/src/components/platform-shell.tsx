@@ -153,14 +153,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       {!moduleWorkspaceActive && (
         <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
           <Link className="brand" href="/" onClick={() => setMenuOpen(false)}>
-            <span className="brand-mark" aria-hidden="true">
-              <span className="brand-mark-bars"><i /><i /><i /></span>
-            </span>
-            <span>
-              CeEst
-              <br />
-              <small>Center Estates · ERP</small>
-            </span>
+            <img src="/logo.png" alt="Center Estates" style={{ height: 38, width: "auto", objectFit: "contain" }} />
           </Link>
 
           <nav aria-label="Platform modules">
@@ -227,10 +220,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         <header className="topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 60, width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box" }}>
           <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <Link className="brand" href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="brand-mark" style={{ width: 34, height: 34, borderRadius: 8, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                <span className="brand-mark-bars"><i /><i /><i /></span>
-              </span>
-              <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>CeEst</span>
+              <img src="/logo.png" alt="Center Estates" style={{ height: 32, width: "auto", objectFit: "contain" }} />
             </Link>
 
             {moduleWorkspaceActive && (
