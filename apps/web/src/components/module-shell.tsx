@@ -39,7 +39,7 @@ export function ModuleShell({
   eyebrow = "Module workspace",
   title,
   subtitle,
-  accent = "#e23b3b",
+  accent = "#00a3ff",
   groups,
   activeId,
   onSelect,
@@ -85,7 +85,7 @@ export function ModuleShell({
         onClick={() => setNavOpen(false)}
       />
 
-      {/* SINGLE LEFT SIDEBAR FOR MODULE */}
+      {/* MONITORING ERP SINGLE LEFT SIDEBAR */}
       <aside className={`module-side-nav ${navOpen ? "open" : ""}`} aria-label={`${moduleName} sections`}>
         <div style={{ padding: "12px 14px 4px 14px" }}>
           <Link
@@ -96,7 +96,7 @@ export function ModuleShell({
               gap: 6,
               fontSize: 12,
               fontWeight: 600,
-              color: "var(--muted)",
+              color: "rgba(255,255,255,0.75)",
               background: "rgba(255,255,255,0.06)",
               padding: "6px 10px",
               borderRadius: 6,
@@ -158,29 +158,33 @@ export function ModuleShell({
 
         <div className="module-side-footer">
           <span className="sync-dot" />
-          Live Data
+          Live Organization Data
           <small>Role & Scope Filtered</small>
         </div>
       </aside>
 
-      <div className="module-workspace-main">
-        <div className="module-workspace-body">
-          <section className="module-page-heading">
+      {/* MONITORING ERP MAIN PAGE SHELL */}
+      <div className="module-workspace-main main">
+        <div className="module-workspace-body" style={{ width: "100%", maxWidth: 1600, margin: "0 auto" }}>
+          <section className="page-head portfolio-head" style={{ marginBottom: 20 }}>
             <div>
-              <p className="eyebrow">{eyebrow}</p>
-              <h1>{title}</h1>
-              {subtitle ? <p>{subtitle}</p> : null}
+              <p className="eyebrow" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--primary)", margin: "0 0 4px" }}>
+                {eyebrow}
+              </p>
+              <h1 style={{ fontSize: 26, fontWeight: 800, margin: "2px 0 4px", color: "var(--text)" }}>{title}</h1>
+              {subtitle ? <p className="muted" style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>{subtitle}</p> : null}
             </div>
-            {actions ? <div className="module-heading-actions">{actions}</div> : null}
+            {actions ? <div className="portfolio-toolbar" style={{ display: "flex", gap: 10, alignItems: "center" }}>{actions}</div> : null}
           </section>
 
-          {/* HORIZONTAL SECONDARY NAV TABS */}
-          <nav className="module-tabs module-tabs-workspace" aria-label={`${moduleName} sections`}>
+          {/* MONITORING ERP SECONDARY HORIZONTAL TABS */}
+          <nav className="project-workspace-tabs" style={{ display: "flex", gap: 6, padding: "8px 12px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, overflowX: "auto", marginBottom: 20 }}>
             {horizontalItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className={activeId === item.id ? "active" : ""}
+                className={`btn sm ${activeId === item.id ? "primary" : "ghost"}`}
+                style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6, fontWeight: 600 }}
                 onClick={() => select(item.id)}
               >
                 {item.label}
@@ -188,7 +192,7 @@ export function ModuleShell({
             ))}
           </nav>
 
-          <div className="module-workspace-content">{children}</div>
+          <div className="module-workspace-content" style={{ width: "100%" }}>{children}</div>
         </div>
       </div>
     </div>
