@@ -30,23 +30,27 @@ export function ExecutiveDashboard() {
     fetchExecDashboard(projectId).then(setData).catch((e) => setError((e as Error).message));
   }, [projectId]);
 
-  const behind = data ? data.schedule.actual_percent < data.schedule.planned_percent : false;
+  const schedule = data?.schedule ?? { planned_percent: 0, actual_percent: 0, variance: 0 };
+  const cost = data?.cost ?? { budget: 0, forecast_final_cost: 0, certified_to_date: 0, paid_to_date: 0, variance: 0 };
+  const risk = data?.risk ?? { high_risk_tickets: 0, overdue_tickets: 0, critical_issues: 0 };
+
+  const behind = schedule.actual_percent < schedule.planned_percent;
 
   const scurveData = data ? [
-    { label: "Schedule", planned: data.schedule.planned_percent, actual: data.schedule.actual_percent },
+    { label: "Schedule", planned: schedule.planned_percent, actual: schedule.actual_percent },
   ] : [];
 
   const costData = data ? [
-    { label: "Budget", value: Number(data.cost.budget) / 1_000_000 },
-    { label: "Forecast", value: Number(data.cost.forecast_final_cost) / 1_000_000 },
-    { label: "Certified", value: Number(data.cost.certified_to_date) / 1_000_000 },
-    { label: "Paid", value: Number(data.cost.paid_to_date) / 1_000_000 },
+    { label: "Budget", value: Number(cost.budget) / 1_000_000 },
+    { label: "Forecast", value: Number(cost.forecast_final_cost) / 1_000_000 },
+    { label: "Certified", value: Number(cost.certified_to_date) / 1_000_000 },
+    { label: "Paid", value: Number(cost.paid_to_date) / 1_000_000 },
   ] : [];
 
   const riskData = data ? [
-    { name: "High Risk", value: data.risk.high_risk_tickets },
-    { name: "Overdue", value: data.risk.overdue_tickets },
-    { name: "Critical", value: data.risk.critical_issues },
+    { name: "High Risk", value: risk.high_risk_tickets },
+    { name: "Overdue", value: risk.overdue_tickets },
+    { name: "Critical", value: risk.critical_issues },
   ].filter(d => d.value > 0) : [];
 
   return (
@@ -68,11 +72,11 @@ export function ExecutiveDashboard() {
         <>
           <h3>Schedule</h3>
           <div className="grid">
-            <Stat label="Actual progress" value={`${data.schedule.actual_percent}%`} />
-            <Stat label="Planned progress" value={`${data.schedule.planned_percent}%`} />
+            <Stat label="Actual progress" value={`${schedule.actual_percent}%`} />
+            <Stat label="Planned progress" value={`${schedule.planned_percent}%`} />
             <Stat
               label="Variance"
-              value={`${data.schedule.variance > 0 ? "+" : ""}${data.schedule.variance}%`}
+              value={`${schedule.variance > 0 ? "+" : ""}${schedule.variance}%`}
               color={behind ? "var(--danger)" : "var(--success)"}
               sub={behind ? "Behind plan" : "On / ahead of plan"}
             />
