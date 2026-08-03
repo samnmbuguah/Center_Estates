@@ -5,9 +5,9 @@ const password = process.env.E2E_ADMIN_PASSWORD;
 async function signIn(page: Page) {
   if (!password) throw new Error("E2E_ADMIN_PASSWORD is required");
   await page.goto("/login");
-  await page.getByLabel("Username").fill(process.env.E2E_ADMIN_USERNAME ?? "admin");
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator("#username").fill(process.env.E2E_ADMIN_USERNAME ?? "admin");
+  await page.locator("#password").fill(password);
+  await page.locator("button[type=submit]").click();
   await expect(page).toHaveURL(/(\/|\/workspaces)$/);
   await expect(page.getByRole("heading", { name: "ERP modules", exact: true })).toBeVisible();
 }

@@ -80,7 +80,7 @@ export function Login() {
 
           {error && <div style={{ padding: 12, borderRadius: 8, background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", color: "#ef4444", fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
-          <button className="btn primary" style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: 14, fontWeight: 700, borderRadius: 8, background: "var(--primary)", color: "#fff", border: 0, cursor: "pointer" }} disabled={busy || !username || !password}>
+          <button type="submit" className="btn primary" style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: 14, fontWeight: 700, borderRadius: 8, background: "var(--primary)", color: "#fff", border: 0, cursor: "pointer" }} disabled={busy || !username || !password}>
             {busy ? "Signing in…" : "Sign in"}
           </button>
 

@@ -5,9 +5,9 @@ const rolePassword = process.env.E2E_ROLE_PASSWORD ?? process.env.E2E_ADMIN_PASS
 async function signInAs(page: Page, username: string) {
   if (!rolePassword) throw new Error("E2E_ROLE_PASSWORD or E2E_ADMIN_PASSWORD is required");
   await page.goto("/login");
-  await page.getByLabel("Username").fill(username);
-  await page.getByLabel("Password").fill(rolePassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator("#username").fill(username);
+  await page.locator("#password").fill(rolePassword);
+  await page.locator("button[type=submit]").click();
   await expect(page).toHaveURL(/(\/|\/workspaces)$/);
 }
 
