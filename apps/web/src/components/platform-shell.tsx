@@ -104,7 +104,21 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("mousedown", onPointer);
   }, [profileOpen]);
 
-  if (pathname === "/login") return children;
+  const isPublicRoute = [
+    "/login",
+    "/sign-up",
+    "/home",
+    "/about",
+    "/contact",
+    "/pricing",
+    "/product",
+    "/demo",
+    "/faq",
+    "/docs",
+    "/blog",
+  ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+
+  if (isPublicRoute) return <>{children}</>;
   if (loading || !session) return <div className="full-loading">Loading your workspace…</div>;
 
   const allowed = new Set(allowedSlugs);
