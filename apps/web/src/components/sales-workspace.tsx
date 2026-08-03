@@ -244,35 +244,36 @@ export function SalesWorkspace({ initialTab = "overview" }: SalesWorkspaceProps)
                     <h3 style={{ margin: 0, fontSize: 16 }}>Recent Sales Pipeline</h3>
                     <button className="btn ghost sm" onClick={() => setTab("sales")}>View All Sales →</button>
                   </div>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Sale Ref</th>
-                        <th>Buyer</th>
-                        <th>Project & Unit</th>
-                        <th>Agreed Price</th>
-                        <th>Paid Amount</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { ref: "SALE-2026-0045", buyer: "ABC Traders Ltd", project: "Kilimani Heights", unit: "UNIT-402", price: 14500000, paid: 14500000, status: "completed" },
-                        { ref: "SALE-2026-0044", buyer: "Dr. Mary Wanjiku", project: "Riverside Palms", unit: "UNIT-108", price: 22000000, paid: 8800000, status: "contracted" },
-                        { ref: "SALE-2026-0043", buyer: "Apex Holdings Ltd", project: "Westlands Square", unit: "UNIT-601", price: 18500000, paid: 1850000, status: "reserved" },
-                      ].map((s, idx) => (
-                        <tr key={idx}>
-                          <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{s.ref}</td>
-                          <td><strong>{s.buyer}</strong></td>
-                          <td>{s.project} ({s.unit})</td>
-                          <td className="mono">{cash.format(s.price)}</td>
-                          <td className="mono" style={{ color: "#16a34a" }}>{cash.format(s.paid)}</td>
-                          <td><span className={`badge ${s.status === "completed" ? "badge-green" : "badge-yellow"}`}>{s.status}</span></td>
+                  {(dashboard?.recentSales || []).length > 0 ? (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Sale Ref</th>
+                          <th>Buyer</th>
+                          <th>Project</th>
+                          <th>Agreed Price</th>
+                          <th>Paid Amount</th>
+                          <th>Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(dashboard?.recentSales || []).map((s: any, idx: number) => (
+                          <tr key={idx}>
+                            <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{s.reference}</td>
+                            <td><strong>{s.buyer_name || s.buyer?.full_name || "—"}</strong></td>
+                            <td>{s.project_name || "—"}</td>
+                            <td className="mono">{cash.format(Number(s.agreed_price || 0))}</td>
+                            <td className="mono" style={{ color: "#16a34a" }}>{cash.format(Number(s.paid_amount || 0))}</td>
+                            <td><span className={`badge ${s.status === "completed" ? "badge-green" : "badge-yellow"}`}>{s.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--muted)" }}>No recent sales recorded.</div>
+                  )}
                 </div>
+
               </div>
 
               {/* Right Column: Actions & Quick Tools */}

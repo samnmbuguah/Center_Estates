@@ -220,37 +220,38 @@ export function ValuationWorkspace({ initialTab = "overview" }: ValuationWorkspa
                     <h3 style={{ margin: 0, fontSize: 16 }}>Recent Valuation Instructions</h3>
                     <button className="btn ghost sm" onClick={() => setTab("instructions")}>View All Instructions →</button>
                   </div>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Instruction Ref</th>
-                        <th>Client</th>
-                        <th>Property</th>
-                        <th>Valuation Type</th>
-                        <th>Due Date</th>
-                        <th>Fee</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { ref: "VAL-2026-0185", client: "NCBA Bank Kenya PLC", property: "Commercial Complex L.R. 209/1844", type: "Commercial Security", due: "2026-08-10", fee: 450000, status: "in_progress" },
-                        { ref: "VAL-2026-0184", client: "Absa Bank Kenya", property: "Industrial Warehouse Park, Mavoko", type: "Industrial Asset", due: "2026-08-12", fee: 680000, status: "inspection" },
-                        { ref: "VAL-2026-0183", client: "KCB Group PLC", property: "Residential Estate 24 Units, Karen", type: "Residential Portfolio", due: "2026-08-18", fee: 350000, status: "review" },
-                      ].map((v, idx) => (
-                        <tr key={idx}>
-                          <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{v.ref}</td>
-                          <td><strong>{v.client}</strong></td>
-                          <td>{v.property}</td>
-                          <td>{v.type}</td>
-                          <td>{v.due}</td>
-                          <td className="mono">{cash.format(v.fee)}</td>
-                          <td><span className="badge badge-blue">{v.status}</span></td>
+                  {(dash?.recentInstructions || []).length > 0 ? (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Instruction Ref</th>
+                          <th>Client</th>
+                          <th>Property</th>
+                          <th>Valuation Type</th>
+                          <th>Due Date</th>
+                          <th>Fee</th>
+                          <th>Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(dash?.recentInstructions || []).map((v: any, idx: number) => (
+                          <tr key={idx}>
+                            <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{v.reference}</td>
+                            <td><strong>{v.client_name || v.client?.name || "—"}</strong></td>
+                            <td>{v.property_description || "—"}</td>
+                            <td>{v.valuation_type || "—"}</td>
+                            <td>{v.due_on}</td>
+                            <td className="mono">{cash.format(Number(v.quoted_fee || 0))}</td>
+                            <td><span className="badge badge-blue">{v.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--muted)" }}>No recent valuation instructions recorded.</div>
+                  )}
                 </div>
+
               </div>
 
               {/* Right Column: Actions & Quick Tools */}

@@ -359,11 +359,11 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
 
               <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("rent")}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Monthly Billed</span>
+                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Yearly Collections</span>
                   <span style={{ fontSize: 20 }}>💰</span>
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--text)" }}>{money.format(12480000)}</div>
-                <div style={{ fontSize: 12, color: "#16a34a", marginTop: 4 }}>{money.format(Number(kpis.collectedYtd))} collected</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--text)" }}>{money.format(Number(kpis.collectedYtd || 0))}</div>
+                <div style={{ fontSize: 12, color: "#16a34a", marginTop: 4 }}>YTD Collected</div>
               </div>
 
               <div className="card" style={{ padding: 18, cursor: "pointer" }} onClick={() => setTab("arrears")}>
@@ -371,8 +371,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
                   <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Outstanding Arrears</span>
                   <span style={{ fontSize: 20 }}>⚠️</span>
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#ef4444" }}>{money.format(Number(kpis.outstanding))}</div>
-                <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4 }}>15.4% uncollected rate</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "#ef4444" }}>{money.format(Number(kpis.outstanding || 0))}</div>
+                <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4 }}>Total Uncollected</div>
               </div>
             </div>
 
@@ -384,22 +384,24 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
                     <button className="btn ghost sm" onClick={() => setTab("rent")}>View Collection Ledger →</button>
                   </div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: 160, paddingBottom: 10, borderBottom: "1px solid var(--border)" }}>
-                    {[
-                      { m: "Feb", b: 11.2, c: 10.1 },
-                      { m: "Mar", b: 11.8, c: 10.5 },
-                      { m: "Apr", b: 12.0, c: 11.2 },
-                      { m: "May", b: 12.2, c: 11.0 },
-                      { m: "Jun", b: 12.4, c: 10.8 },
-                      { m: "Jul", b: 12.48, c: 10.54 },
-                    ].map((bar, i) => (
-                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 120 }}>
-                          <div style={{ width: 14, height: `${(bar.b / 14) * 100}%`, background: "var(--border)", borderRadius: "4px 4px 0 0" }} title={`Billed: KES ${bar.b}M`} />
-                          <div style={{ width: 14, height: `${(bar.c / 14) * 100}%`, background: "var(--primary)", borderRadius: "4px 4px 0 0" }} title={`Collected: KES ${bar.c}M`} />
-                        </div>
-                        <span style={{ fontSize: 11, color: "var(--muted)" }}>{bar.m}</span>
-                      </div>
-                    ))}
+                    {(dashboard?.collectionTrend || []).length > 0 ? (
+                      (dashboard?.collectionTrend || []).map((bar: any, i: number) => {
+                        const maxVal = Math.max(...(dashboard?.collectionTrend || []).map((b: any) => Number(b.billed || 1)), 1);
+                        const bHeight = (Number(bar.billed) / maxVal) * 100;
+                        const cHeight = (Number(bar.collected) / maxVal) * 100;
+                        return (
+                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 120 }}>
+                              <div style={{ width: 14, height: `${Math.max(bHeight, 4)}%`, background: "var(--border)", borderRadius: "4px 4px 0 0" }} title={`Billed: ${money.format(Number(bar.billed))}`} />
+                              <div style={{ width: 14, height: `${Math.max(cHeight, 4)}%`, background: "var(--primary)", borderRadius: "4px 4px 0 0" }} title={`Collected: ${money.format(Number(bar.collected))}`} />
+                            </div>
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>{bar.month}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div style={{ width: "100%", textAlign: "center", color: "var(--muted)", padding: 40 }}>No collection history available.</div>
+                    )}
                   </div>
                 </div>
 
@@ -409,36 +411,34 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
                     <button className="btn ghost sm" onClick={() => setTab("properties")}>All Properties →</button>
                   </div>
                   <div style={{ overflowX: "auto" }}>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Property</th>
-                          <th>Units</th>
-                          <th>Occupied</th>
-                          <th>Occupancy %</th>
-                          <th>Monthly Rent</th>
-                          <th>Outstanding</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          { name: "Finance House", code: "CE-PRO-001", units: 320, occ: 305, rate: "95.3%", rent: 3850000, out: 450000 },
-                          { name: "Uchumi House", code: "CE-PRO-002", units: 280, occ: 246, rate: "87.9%", rent: 2960000, out: 380750 },
-                          { name: "Sunset Apartments", code: "CE-PRO-003", units: 180, occ: 156, rate: "86.7%", rent: 2100000, out: 256450 },
-                          { name: "Ocean Court", code: "CE-PRO-004", units: 240, occ: 202, rate: "84.2%", rent: 2450000, out: 198750 },
-                          { name: "Yaya House", code: "CE-PRO-005", units: 120, occ: 92, rate: "76.7%", rent: 1120000, out: 110450 },
-                        ].map((p, idx) => (
-                          <tr key={idx}>
-                            <td><strong>{p.name}</strong> <div style={{ fontSize: 11, color: "var(--muted)" }}>{p.code}</div></td>
-                            <td>{p.units}</td>
-                            <td>{p.occ}</td>
-                            <td><span className="badge badge-green">{p.rate}</span></td>
-                            <td className="mono">{money.format(p.rent)}</td>
-                            <td className="mono" style={{ color: "#ef4444" }}>{money.format(p.out)}</td>
+                    {(dashboard?.portfolio || []).length > 0 ? (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Property</th>
+                            <th>Units</th>
+                            <th>Occupied</th>
+                            <th>Occupancy %</th>
+                            <th>Monthly Rent</th>
+                            <th>Outstanding</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {(dashboard?.portfolio || []).map((p: any, idx: number) => (
+                            <tr key={idx}>
+                              <td><strong>{p.name}</strong></td>
+                              <td>{p.units}</td>
+                              <td>{p.occupied}</td>
+                              <td><span className="badge badge-green">{p.occupancy}%</span></td>
+                              <td className="mono">{money.format(Number(p.monthlyRent || 0))}</td>
+                              <td className="mono" style={{ color: "#ef4444" }}>{money.format(Number(p.outstanding || 0))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div style={{ textAlign: "center", padding: "20px 0", color: "var(--muted)" }}>No property portfolio records found.</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -447,51 +447,51 @@ export function PropertyWorkspace({ initialTab = "overview" }: PropertyWorkspace
                 <div className="card" style={{ padding: 20 }}>
                   <h3 style={{ margin: "0 0 14px 0", fontSize: 16 }}>Collection Breakdown</h3>
                   <div style={{ textAlign: "center", padding: "16px 0" }}>
-                    <div style={{ fontSize: 36, fontWeight: 800, color: "var(--primary)" }}>84.5%</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Collection Rate (July 2026)</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, color: "var(--primary)" }}>{kpis.occupancyRate || 0}%</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Portfolio Occupancy Rate</div>
                   </div>
                   <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span>Total Billed:</span>
-                      <strong>{money.format(12480000)}</strong>
+                      <span>Total Properties:</span>
+                      <strong>{kpis.properties || 0}</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", color: "#16a34a" }}>
-                      <span>Collected:</span>
-                      <strong>{money.format(10540000)}</strong>
+                      <span>Active Leases:</span>
+                      <strong>{kpis.activeLeases || 0}</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", color: "#ef4444" }}>
-                      <span>Outstanding:</span>
-                      <strong>{money.format(1940000)}</strong>
+                      <span>Outstanding Arrears:</span>
+                      <strong>{money.format(Number(kpis.outstanding || 0))}</strong>
                     </div>
                   </div>
                 </div>
 
                 <div className="card" style={{ padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <h3 style={{ margin: 0, fontSize: 15 }}>Top Overdue Tenants</h3>
+                    <h3 style={{ margin: 0, fontSize: 15 }}>Overdue Invoices</h3>
                     <button className="btn ghost sm" onClick={() => setTab("arrears")}>View All →</button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {[
-                      { name: "ABC Traders Ltd", property: "Finance House", out: 256450, days: 54 },
-                      { name: "Sunset Apartments Ltd", property: "Sunset Apts", out: 198750, days: 45 },
-                      { name: "Mega Retailers Ltd", property: "Uchumi House", out: 190200, days: 42 },
-                      { name: "Blue Ocean Ltd", property: "Ocean Court", out: 129300, days: 32 },
-                    ].map((t, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < 3 ? "1px solid var(--border)" : "none" }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{t.name}</div>
-                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.property} · {t.days}d overdue</div>
+                    {(dashboard?.overdueInvoices || []).length > 0 ? (
+                      (dashboard?.overdueInvoices || []).map((t: any, i: number) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < (dashboard?.overdueInvoices.length - 1) ? "1px solid var(--border)" : "none" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{t.number || t.tenant_name || "Invoice"}</div>
+                            <div style={{ fontSize: 11, color: "var(--muted)" }}>Due: {t.due_on}</div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#ef4444" }}>{money.format(Number(t.balance || t.amount || 0))}</div>
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#ef4444" }}>{money.format(t.out)}</div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <div style={{ fontSize: 12, color: "var(--muted)", padding: "10px 0" }}>No overdue invoices currently.</div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+
 
         {/* TAB 2: PROPERTIES DIRECTORY */}
         {tab === "properties" && (

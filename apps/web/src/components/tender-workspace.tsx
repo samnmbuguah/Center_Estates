@@ -221,37 +221,38 @@ export function TenderWorkspace({ initialTab = "overview" }: TenderWorkspaceProp
                     <h3 style={{ margin: 0, fontSize: 16 }}>Recent Tender Invitations</h3>
                     <button className="btn ghost sm" onClick={() => setTab("tenders")}>View All Invitations →</button>
                   </div>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Tender Ref</th>
-                        <th>Title</th>
-                        <th>Client</th>
-                        <th>Deadline</th>
-                        <th>Value</th>
-                        <th>Readiness</th>
-                        <th>Stage</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { ref: "TND-2026-0048", title: "Construction of Expressway Extension Phase 2", client: "Kenya National Highways Authority", deadline: "2026-08-15", val: 850000000, read: "85%", stage: "planning" },
-                        { ref: "TND-2026-0047", title: "Supply & Fit-out of County General Hospital", client: "Ministry of Health", deadline: "2026-08-20", val: 320000000, read: "92%", stage: "technical_proposal" },
-                        { ref: "TND-2026-0046", title: "Smart City Fiber Network Infrastructure", client: "ICT Authority", deadline: "2026-08-28", val: 180000000, read: "78%", stage: "ai_analysis" },
-                      ].map((t, idx) => (
-                        <tr key={idx}>
-                          <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{t.ref}</td>
-                          <td><strong>{t.title}</strong></td>
-                          <td>{t.client}</td>
-                          <td>{t.deadline}</td>
-                          <td className="mono">{money.format(t.val)}</td>
-                          <td><span className="badge badge-green">{t.read}</span></td>
-                          <td><span className="badge">{t.stage}</span></td>
+                  {(dash?.recentTenders || []).length > 0 ? (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Tender Ref</th>
+                          <th>Title</th>
+                          <th>Client</th>
+                          <th>Deadline</th>
+                          <th>Value</th>
+                          <th>Readiness</th>
+                          <th>Stage</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(dash?.recentTenders || []).map((t: any, idx: number) => (
+                          <tr key={idx}>
+                            <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{t.reference}</td>
+                            <td><strong>{t.title}</strong></td>
+                            <td>{t.client}</td>
+                            <td>{t.submission_deadline}</td>
+                            <td className="mono">{money.format(Number(t.estimated_value || 0))}</td>
+                            <td><span className="badge badge-green">{t.readiness_score || 0}%</span></td>
+                            <td><span className="badge">{t.stage}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--muted)" }}>No recent tender invitations recorded.</div>
+                  )}
                 </div>
+
               </div>
 
               {/* Right Column: Actions & Quick Tools */}
