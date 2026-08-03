@@ -14,6 +14,7 @@ export function remapSpaRoute(target: string): string {
     const [, projectId, subroute] = projectSubMatch;
     let tab = subroute;
     if (subroute === "boq-review" || subroute === "boq-material-reconciliation") tab = "boq";
+    if (subroute === "generate-ipc" || subroute === "ipc" || subroute === "ipc-generation") tab = "certificates";
     return `/monitoring?tab=${tab}&id=${projectId}`;
   }
 
