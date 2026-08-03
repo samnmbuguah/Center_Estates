@@ -196,14 +196,13 @@ export const valuationNav: ModuleNavGroup[] = [
 
 export const constructionNav: ModuleNavGroup[] = [
   {
-    label: "Portfolio",
+    label: "Main",
     icon: "⌂",
     items: [
-      { id: "overview", label: "Command center" },
-      { id: "projects", label: "Projects" },
-      { id: "project-memberships", label: "Project team" },
-      { id: "lifecycle", label: "Lifecycle" },
+      { id: "overview", label: "Dashboard" },
+      { id: "projects", label: "Project Portfolio" },
       { id: "calendar", label: "Calendar" },
+      { id: "chat", label: "AI Assistant" },
     ],
   },
   {

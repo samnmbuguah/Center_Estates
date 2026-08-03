@@ -89,36 +89,15 @@ export function ModuleShell({
 
       {/* MONITORING ERP SINGLE LEFT SIDEBAR */}
       <aside className={`module-side-nav ${navOpen ? "open" : ""}`} aria-label={`${moduleName} sections`}>
-        <div style={{ padding: "12px 14px 4px 14px" }}>
-          <Link
-            href="/workspaces"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 12,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.75)",
-              background: "rgba(255,255,255,0.06)",
-              padding: "6px 10px",
-              borderRadius: 6,
-              textDecoration: "none",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
-            title="Return to Main Workspace Selection Page"
-          >
-            <span aria-hidden="true">←</span>
-            <span>Switch Workspace</span>
-          </Link>
-        </div>
-
-        <div className="module-side-nav-title">
-          <span className="module-side-mark" style={{ background: `linear-gradient(145deg, ${accent}, ${accent}cc)` }}>
-            {moduleName.slice(0, 1)}
-          </span>
+        <div className="module-side-nav-title" style={{ padding: "14px 16px", minHeight: 64, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <img src="/logo.png" alt="Center Estates" style={{ height: 34, width: "auto", objectFit: "contain", marginRight: 2 }} />
           <div>
-            <strong>{moduleName}</strong>
-            <small>WORKSPACE</small>
+            <strong style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em", color: "#ffffff", lineHeight: 1.1 }}>
+              {moduleKey === "monitoring" ? "Monitoring ERP" : `${moduleName.replace(" Management", "")} ERP`}
+            </strong>
+            <small style={{ color: "#f59e0b", fontSize: 9, fontWeight: 800, letterSpacing: "0.09em", textTransform: "uppercase" }}>
+              BY CENTER ESTATES
+            </small>
           </div>
           <button type="button" aria-label="Close module navigation" onClick={() => setNavOpen(false)}>
             ×
@@ -142,26 +121,32 @@ export function ModuleShell({
                 <span aria-hidden="true">{group.icon ?? "▪"}</span>
                 {group.label}
               </p>
-              {group.items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={activeId === item.id ? "active" : ""}
-                  aria-label={item.label}
-                  aria-current={activeId === item.id ? "page" : undefined}
-                  onClick={() => select(item.id)}
-                >
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {group.items.map((item) => {
+                const icon = item.id === "overview" ? "▦" : item.id === "projects" ? "📁" : item.id === "calendar" ? "📅" : item.id === "chat" ? "🤖" : null;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={activeId === item.id ? "active" : ""}
+                    aria-label={item.label}
+                    aria-current={activeId === item.id ? "page" : undefined}
+                    onClick={() => select(item.id)}
+                    style={{ gap: 8, paddingLeft: icon ? 12 : 28 }}
+                  >
+                    {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </section>
           ))}
         </div>
 
-        <div className="module-side-footer">
-          <span className="sync-dot" />
-          Live Organization Data
-          <small>Role & Scope Filtered</small>
+        <div className="module-side-footer-toolbar" style={{ display: "flex", gap: 6, padding: "10px 14px", borderTop: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.25)" }}>
+          <button className="btn ghost sm" title="Ingestion" onClick={() => select("materials")} style={{ flex: 1, height: 32, padding: 0, justifyContent: "center", color: "#a0aec0", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, fontSize: 13 }}>📥</button>
+          <button className="btn ghost sm" title="Reports" onClick={() => select("reports")} style={{ flex: 1, height: 32, padding: 0, justifyContent: "center", color: "#a0aec0", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, fontSize: 13 }}>📄</button>
+          <button className="btn ghost sm" title="Audit Trail" onClick={() => select("audit-log")} style={{ flex: 1, height: 32, padding: 0, justifyContent: "center", color: "#a0aec0", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, fontSize: 13 }}>⚡</button>
+          <button className="btn ghost sm" title="Calendar" onClick={() => select("calendar")} style={{ flex: 1, height: 32, padding: 0, justifyContent: "center", color: "#a0aec0", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, fontSize: 13 }}>📅</button>
         </div>
       </aside>
 
