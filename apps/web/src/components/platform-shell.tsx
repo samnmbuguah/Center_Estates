@@ -279,6 +279,28 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           </label>
 
           <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <Link
+              href="/monitoring"
+              className="system-live"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 12px",
+                borderRadius: 20,
+                background: "rgba(220, 38, 38, 0.12)",
+                color: "#dc2626",
+                fontSize: 11,
+                fontWeight: 700,
+                textDecoration: "none",
+                border: "1px solid rgba(220, 38, 38, 0.2)",
+              }}
+              title="System-Wide Construction Monitoring & Operations Control Room"
+            >
+              <i style={{ width: 6, height: 6, borderRadius: "50%", background: "#dc2626", display: "inline-block" }} />
+              System Monitoring
+            </Link>
+
             <span className="system-live" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: "rgba(16, 185, 129, 0.12)", color: "var(--success)", fontSize: 11, fontWeight: 700 }}>
               <i style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
               Live
