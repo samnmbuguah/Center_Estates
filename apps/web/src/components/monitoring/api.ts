@@ -97,9 +97,9 @@ export type {
   Subcontractor, WorkOrder, WorkOrderSummary,
 } from "./api-types";
 
-export const API_BASE = (
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE_URL) || "/api/v1/construction"
-).replace(/\/+$/, "");
+export const CONSTRUCTION_BASE = "/api/v1/construction";
+export const CORE_BASE = "/api/v1";
+export const API_BASE = CONSTRUCTION_BASE;
 
 const TOKEN_KEY = "erp_access_token";
 const TENANT_KEY = "erp_tenant_id";
@@ -165,6 +165,7 @@ export class ApiError extends Error {
 
 function normalizePath(rawPath: string): string {
   let p = rawPath.replace(/\/+/g, "/");
+
   p = p.replace(/^\/hs-incidents/, "/safety-incidents");
   p = p.replace(/^\/calendar\/events/, "/calendar");
   p = p.replace(/^\/store\/items/, "/store-items");
@@ -172,6 +173,20 @@ function normalizePath(rawPath: string): string {
   p = p.replace(/^\/projects\/[^/]*\/milestones/, "/milestones");
   p = p.replace(/^\/projects\/[^/]*\/quality-tests/, "/quality-tests");
   p = p.replace(/^\/projects\/[^/]*\/advance-payments/, "/advance-payments");
+  p = p.replace(/^\/projects\/[^/]*\/consultant-payments/, "/consultant-payments");
+  p = p.replace(/^\/projects\/[^/]*\/subcontractors/, "/subcontractors");
+  p = p.replace(/^\/projects\/[^/]*\/work-orders/, "/work-orders");
+  p = p.replace(/^\/projects\/[^/]*\/work-order-summary/, "/work-orders");
+  p = p.replace(/^\/projects\/[^/]*\/provisional-sums/, "/provisional-sums");
+  p = p.replace(/^\/projects\/[^/]*\/variations/, "/variations");
+  p = p.replace(/^\/projects\/[^/]*\/boq-items/, "/boq");
+  p = p.replace(/^\/projects\/[^/]*\/bim-models/, "/bim-models");
+  p = p.replace(/^\/projects\/[^/]*\/bim-discrepancies/, "/bim-discrepancies");
+  p = p.replace(/^\/projects\/[^/]*\/drone-datasets/, "/drone-datasets");
+  p = p.replace(/^\/projects\/[^/]*\/satellite-datasets/, "/satellite-datasets");
+  p = p.replace(/^\/projects\/ingest\/status/, "/dashboard");
+  p = p.replace(/^\/chat\/(users|conversations)/, "/chat-messages");
+  p = p.replace(/^\/audit\/logs/, "/dashboard");
 
   const [base, query] = p.split("?");
   const slashedBase = base.endsWith("/") ? base : `${base}/`;
@@ -184,10 +199,10 @@ async function req<T>(method: string, rawPath: string, body?: unknown): Promise<
   const h = authHeaders();
 
   const cleanPath = normalizePath(rawPath);
-  const isRootApi = cleanPath.startsWith("/auth/") || cleanPath === "/me/" || cleanPath.startsWith("/me/");
-  const targetUrl = isRootApi
-    ? `/api/v1${cleanPath}`
-    : `${API_BASE}${cleanPath}`;
+  const isCoreApi = cleanPath.startsWith("/auth/") || cleanPath === "/me/" || cleanPath.startsWith("/me/");
+  const targetUrl = isCoreApi
+    ? `${CORE_BASE}${cleanPath}`
+    : `${CONSTRUCTION_BASE}${cleanPath}`;
 
   try {
     res = await fetch(targetUrl, {
