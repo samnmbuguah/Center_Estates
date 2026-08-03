@@ -101,6 +101,8 @@ type Tab =
   | "drone-datasets"
   | "satellite-datasets"
   | "reports"
+  | "site-visits"
+  | "stakeholders"
   | "chat"
   | "notifications"
   | "audit-log";
@@ -149,10 +151,28 @@ const tabLabels: Record<Tab, string> = {
   "drone-datasets": "Drone Photogrammetry",
   "satellite-datasets": "Satellite Orthomosaics",
   reports: "Executive & Site Reports",
+  "site-visits": "Site Visits & Field Inspections",
+  stakeholders: "Project Stakeholders",
   chat: "Project AI Assistant & Team Chat",
   notifications: "System Notifications",
   "audit-log": "Audit Log & Access Trail",
 };
+
+/** Exact horizontal navigation items aligned with MonitoringERP */
+export const monitoringHorizontalNav = [
+  { id: "overview", label: "Overview" },
+  { id: "tickets", label: "Tickets" },
+  { id: "work-plan", label: "Programme" },
+  { id: "milestones", label: "Milestones" },
+  { id: "requisitions", label: "Financials" },
+  { id: "risks", label: "Risks" },
+  { id: "documents", label: "Documents" },
+  { id: "reports", label: "Reports" },
+  { id: "site-visits", label: "Site Visits" },
+  { id: "daily-logs", label: "Daily Logs" },
+  { id: "materials", label: "Procurement" },
+  { id: "stakeholders", label: "Stakeholders" },
+];
 
 function WorkspaceContent() {
   const [tab, setTab] = useState<Tab>(() => {
@@ -183,6 +203,7 @@ function WorkspaceContent() {
       subtitle="Full lifecycle site monitoring, commercial controls, BIM/GIS, progress certification, and risk engineering."
       accent="#00a3ff"
       groups={constructionNav}
+      horizontalItemsOverride={monitoringHorizontalNav}
       activeId={tab}
       onSelect={handleSelectTab}
       contextLabel="Active Project"
@@ -232,6 +253,8 @@ function WorkspaceContent() {
         {tab === "drone-datasets" && <DroneDatasets />}
         {tab === "satellite-datasets" && <SatelliteDatasets />}
         {tab === "reports" && <Reports />}
+        {tab === "site-visits" && <SiteVisits />}
+        {tab === "stakeholders" && <Stakeholders />}
         {tab === "chat" && <ChatPage />}
         {tab === "notifications" && <NotificationsPage />}
         {tab === "audit-log" && <AdminAuditLog />}

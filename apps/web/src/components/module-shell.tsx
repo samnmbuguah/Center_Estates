@@ -24,6 +24,7 @@ type ModuleShellProps = {
   subtitle?: string;
   accent?: string;
   groups: ModuleNavGroup[];
+  horizontalItemsOverride?: { id: string; label: string }[];
   activeId: string;
   onSelect: (id: string) => void;
   actions?: ReactNode;
@@ -41,6 +42,7 @@ export function ModuleShell({
   subtitle,
   accent = "#00a3ff",
   groups,
+  horizontalItemsOverride,
   activeId,
   onSelect,
   actions,
@@ -57,8 +59,8 @@ export function ModuleShell({
   );
 
   const horizontalItems = useMemo(
-    () => allItems.filter((item) => !item.sideOnly),
-    [allItems],
+    () => horizontalItemsOverride ?? allItems.filter((item) => !item.sideOnly),
+    [allItems, horizontalItemsOverride],
   );
 
   const visibleGroups = useMemo(() => {
