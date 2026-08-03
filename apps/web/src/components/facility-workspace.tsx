@@ -487,7 +487,7 @@ function DashboardView({
 }
 
 /* ─── Buildings & Locations tab ─── */
-function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
+function BuildingsView({ rows, kpis = {} }: { rows: Row[]; kpis?: Kpis; setTab?: (t: any) => void }) {
   const [selectedLoc, setSelectedLoc] = useState(0);
   const buildingCount = Number((kpis.buildings ?? rows.length) || 12);
   const locations = [
@@ -1690,7 +1690,7 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
               <div style={{ marginTop: 14 }}>
                 <strong style={{ display: "block", fontSize: 12, marginBottom: 6 }}>Description</strong>
                 <p style={{ color: "#4b5563", fontSize: 12, lineHeight: 1.5, margin: 0 }}>
-                  The flush is not working in the men's washroom near lift lobby. Water does not refill after flush.
+                  The flush is not working in the men&apos;s washroom near lift lobby. Water does not refill after flush.
                 </p>
               </div>
             </div>
@@ -2159,6 +2159,9 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [properties, setProperties] = useState<Row[]>([]);
+  const [assets, setAssets] = useState<Row[]>([]);
+  const [createModal, setCreateModal] = useState<"asset" | "contractor" | "inspection" | "ppm" | null>(null);
+  const [actionModal, setActionModal] = useState<ActionModal>(null);
 
 
   const load = useCallback(async () => {
@@ -2188,11 +2191,18 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
   }, [load, search]);
 
   useEffect(() => {
-    if (showCreate && organizationId)
+    if ((showCreate || createModal) && organizationId)
       apiFetch("/property/properties/", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
         .then(setProperties);
-  }, [showCreate, organizationId]);
+  }, [showCreate, createModal, organizationId]);
+
+  useEffect(() => {
+    if ((createModal === "inspection" || createModal === "ppm") && organizationId)
+      apiFetch("/facility/assets/", {}, organizationId)
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setAssets);
+  }, [createModal, organizationId]);
 
   async function createWorkOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2219,25 +2229,52 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     setTab("work-orders");
   }
 
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!createModal) return;
+    const form = new FormData(event.currentTarget);
+    const path = {
+      asset: "/facility/assets/",
+      contractor: "/facility/contractors/",
+      inspection: "/facility/inspections/",
+      ppm: "/facility/planned-maintenance/",
+    }[createModal];
+    const payload = Object.fromEntries(
+      Object.entries(Object.fromEntries(form.entries())).filter(([, value]) => String(value).trim() !== "")
+    );
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(
+      path,
+      {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify(payload),
+      },
+      organizationId
+    );
+    if (!response.ok) {
+      setError("The record could not be created. Check required fields.");
+      return;
+    }
+    setCreateModal(null);
+    await load();
+  }
+
   async function runAction(row: Row, action: string) {
+    if (tab === "inspections" && action === "complete") {
+      setActionModal({ type: "inspection", row });
+      return;
+    }
+    if (tab === "service-requests" && action === "resolve") {
+      setActionModal({ type: "resolve", row });
+      return;
+    }
     await apiFetch("/auth/csrf/");
     let path = "";
-    let payload: Record<string, string | number | boolean> = {};
+    const payload: Record<string, string | number | boolean> = {};
     if (tab === "planned-maintenance") path = `/facility/planned-maintenance/${row.id}/${action}/`;
-    if (tab === "service-requests") {
-      path = `/facility/service-requests/${row.id}/${action}/`;
-      if (action === "resolve")
-        payload.satisfaction_score = Number(window.prompt("Satisfaction score (1-5):") ?? 0);
-    }
-    if (tab === "inspections") {
-      path = `/facility/inspections/${row.id}/complete/`;
-      const score = window.prompt("Inspection score (0-100):")?.trim();
-      if (!score) return;
-      const violations = Number(window.prompt("Number of violations:") ?? 0);
-      const findings = violations ? window.prompt("Record the inspection findings:")?.trim() : "";
-      if (violations && !findings) return;
-      payload = { score, violations, findings: findings ?? "", create_work_order: true };
-    }
+    if (tab === "service-requests") path = `/facility/service-requests/${row.id}/${action}/`;
+    if (tab === "inspections") path = `/facility/inspections/${row.id}/complete/`;
     const response = await apiFetch(
       path,
       { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload) },
@@ -2247,6 +2284,38 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       setError("The facility workflow action could not be completed.");
       return;
     }
+    await load();
+  }
+
+  async function submitActionModal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!actionModal) return;
+    const { type, row } = actionModal;
+    const form = new FormData(event.currentTarget);
+    await apiFetch("/auth/csrf/");
+    const path =
+      type === "inspection"
+        ? `/facility/inspections/${row.id}/complete/`
+        : `/facility/service-requests/${row.id}/resolve/`;
+    const payload: Record<string, string | number | boolean> =
+      type === "inspection"
+        ? {
+            score: Number(form.get("score")),
+            violations: Number(form.get("violations") ?? 0),
+            findings: String(form.get("findings") ?? ""),
+            create_work_order: form.get("create_work_order") === "on",
+          }
+        : { satisfaction_score: Number(form.get("satisfaction_score")) };
+    const response = await apiFetch(
+      path,
+      { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload) },
+      organizationId
+    );
+    if (!response.ok) {
+      setError("The facility workflow action could not be completed.");
+      return;
+    }
+    setActionModal(null);
     await load();
   }
 
@@ -2292,23 +2361,23 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "overview" && dashboard ? (
           <DashboardView dashboard={dashboard} setTab={setTab} setShowCreate={setShowCreate} canWork={canWork} />
         ) : tab === "buildings" ? (
-          <BuildingsView rows={rows} setTab={setTab} />
+          <BuildingsView rows={rows} kpis={dashboard?.kpis ?? {}} />
         ) : tab === "assets" ? (
-          <AssetsView rows={rows} onAction={runAction} permissions={{ canWork, canAdminister }} />
+          <AssetsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("asset")} />
         ) : tab === "work-orders" ? (
-          <WorkOrdersView rows={rows} onAction={runAction} permissions={{ canWork }} setShowCreate={setShowCreate} />
+          <WorkOrdersView rows={rows} kpis={dashboard?.kpis ?? {}} permissions={{ canWork }} setShowCreate={setShowCreate} />
         ) : tab === "planned-maintenance" ? (
-          <PlannedMaintenanceView rows={rows} onAction={runAction} permissions={{ canAdminister }} />
+          <PlannedMaintenanceView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canAdminister }} onAdd={() => setCreateModal("ppm")} />
         ) : tab === "inspections" ? (
-          <InspectionsView rows={rows} onAction={runAction} permissions={{ canInspect }} />
+          <InspectionsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canInspect }} onAdd={() => setCreateModal("inspection")} />
         ) : tab === "service-requests" ? (
-          <ServiceRequestsView rows={rows} onAction={runAction} permissions={{ canWork }} />
+          <ServiceRequestsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canWork }} />
         ) : tab === "meters" ? (
-          <UtilitiesView rows={rows} />
+          <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} />
         ) : tab === "contractors" ? (
-          <ContractorsView rows={rows} />
+          <ContractorsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("contractor")} />
         ) : (
-          <GenericListView tab={tab} rows={rows} onAction={runAction} permissions={permissions} />
+          <GenericListView tab={tab} rows={rows} />
         )}
 
         {/* Create work order modal */}
@@ -2371,6 +2440,233 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
               </form>
             </div>
           </div>
+        )}
+
+        {/* Action modal — inspection complete / service request resolve */}
+        {actionModal && (
+          <Modal
+            title={actionModal.type === "inspection" ? "Complete Inspection" : "Resolve Service Request"}
+            onClose={() => setActionModal(null)}
+          >
+            <form onSubmit={submitActionModal} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {actionModal.type === "inspection" ? (
+                <>
+                  <Field label="Inspection score" required>
+                    <input type="number" name="score" min={0} max={100} step={1} required placeholder="0–100" />
+                  </Field>
+                  <Field label="Violations">
+                    <input type="number" name="violations" min={0} step={1} defaultValue={0} />
+                  </Field>
+                  <Field label="Findings">
+                    <textarea name="findings" rows={4} placeholder="Record the inspection findings" />
+                  </Field>
+                  <label style={{ alignItems: "center", display: "flex", fontSize: 13, gap: 8 }}>
+                    <input type="checkbox" name="create_work_order" defaultChecked />
+                    Create a corrective work order when the inspection fails
+                  </label>
+                </>
+              ) : (
+                <Field label="Satisfaction score" required>
+                  <input type="number" name="satisfaction_score" min={1} max={5} step={1} required placeholder="1–5" />
+                </Field>
+              )}
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setActionModal(null)}>Cancel</button>
+                <button type="submit" className="btn primary">
+                  {actionModal.type === "inspection" ? "Complete Inspection" : "Resolve Request"}
+                </button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {/* Create asset modal */}
+        {createModal === "asset" && (
+          <Modal title="Add New Asset" onClose={() => setCreateModal(null)}>
+            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="grid-2">
+                <Field label="Asset code" required>
+                  <input name="code" required placeholder="AST-0001249" />
+                </Field>
+                <Field label="Category" required>
+                  <input name="category" required placeholder="Lift Systems" />
+                </Field>
+              </div>
+              <Field label="Asset name" required>
+                <input name="name" required placeholder="OTIS Lift – Lift 2" />
+              </Field>
+              <div className="grid-2">
+                <Field label="Property" required>
+                  <select name="property" required defaultValue="">
+                    <option value="" disabled>Select property</option>
+                    {properties.map((row) => (
+                      <option key={String(row.id)} value={String(row.id)}>{String(row.name)}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Purchase value">
+                  <input name="purchase_value" type="number" min={0} step={1} defaultValue={0} />
+                </Field>
+              </div>
+              <div className="grid-2">
+                <Field label="Condition">
+                  <select name="condition" defaultValue="good">
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="poor">Poor</option>
+                    <option value="out_of_service">Out of service</option>
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select name="is_active" defaultValue="true">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setCreateModal(null)}>Cancel</button>
+                <button type="submit" className="btn primary">Add Asset</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {/* Create contractor modal */}
+        {createModal === "contractor" && (
+          <Modal title="Add Contractor" onClose={() => setCreateModal(null)}>
+            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="grid-2">
+                <Field label="Contractor code" required>
+                  <input name="code" required placeholder="C-2026-0001" />
+                </Field>
+                <Field label="Specialty" required>
+                  <input name="specialty" required placeholder="Plumbing &amp; Drainage" />
+                </Field>
+              </div>
+              <Field label="Company name" required>
+                <input name="name" required placeholder="Acme Facilities Ltd." />
+              </Field>
+              <div className="grid-2">
+                <Field label="Contact person">
+                  <input name="contact_name" placeholder="Jane Doe" />
+                </Field>
+                <Field label="Phone">
+                  <input name="phone" placeholder="0712 345 678" />
+                </Field>
+              </div>
+              <div className="grid-2">
+                <Field label="Email">
+                  <input name="email" type="email" placeholder="contact@acme.co.ke" />
+                </Field>
+                <Field label="Status">
+                  <select name="status" defaultValue="active">
+                    <option value="active">Active</option>
+                    <option value="review">Under review</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="expired">Compliance expired</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setCreateModal(null)}>Cancel</button>
+                <button type="submit" className="btn primary">Add Contractor</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {/* Create inspection modal */}
+        {createModal === "inspection" && (
+          <Modal title="New Inspection" onClose={() => setCreateModal(null)}>
+            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="grid-2">
+                <Field label="Reference" required>
+                  <input name="reference" required placeholder="INSP-2026-0057" />
+                </Field>
+                <Field label="Type" required>
+                  <input name="inspection_type" required placeholder="routine" />
+                </Field>
+              </div>
+              <Field label="Title" required>
+                <input name="title" required placeholder="Fire Extinguisher Check" />
+              </Field>
+              <div className="grid-2">
+                <Field label="Property" required>
+                  <select name="property" required defaultValue="">
+                    <option value="" disabled>Select property</option>
+                    {properties.map((row) => (
+                      <option key={String(row.id)} value={String(row.id)}>{String(row.name)}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Asset">
+                  <select name="asset" defaultValue="">
+                    <option value="">None</option>
+                    {assets.map((row) => (
+                      <option key={String(row.id)} value={String(row.id)}>{String(row.code)} – {String(row.name)}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Scheduled on" required>
+                <input name="scheduled_on" type="date" required />
+              </Field>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setCreateModal(null)}>Cancel</button>
+                <button type="submit" className="btn primary">Create Inspection</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {/* Create PPM task modal */}
+        {createModal === "ppm" && (
+          <Modal title="Create PPM Task" onClose={() => setCreateModal(null)}>
+            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="grid-2">
+                <Field label="Task code" required>
+                  <input name="code" required placeholder="PPM-2026-0459" />
+                </Field>
+                <Field label="Frequency" required>
+                  <select name="frequency" defaultValue="monthly">
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="biannual">Biannual</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </Field>
+              </div>
+              <Field label="Task name" required>
+                <input name="name" required placeholder="Lift Preventive Maintenance" />
+              </Field>
+              <div className="grid-2">
+                <Field label="Asset" required>
+                  <select name="asset" required defaultValue="">
+                    <option value="" disabled>Select asset</option>
+                    {assets.map((row) => (
+                      <option key={String(row.id)} value={String(row.id)}>{String(row.code)} – {String(row.name)}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Next due on" required>
+                  <input name="next_due_on" type="date" required />
+                </Field>
+              </div>
+              <Field label="Estimated hours">
+                <input name="estimated_hours" type="number" min={0} step={0.5} defaultValue={1} />
+              </Field>
+              <Field label="Instructions">
+                <textarea name="instructions" rows={3} />
+              </Field>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setCreateModal(null)}>Cancel</button>
+                <button type="submit" className="btn primary">Create Task</button>
+              </div>
+            </form>
+          </Modal>
         )}
       </div>
     </ModuleShell>
