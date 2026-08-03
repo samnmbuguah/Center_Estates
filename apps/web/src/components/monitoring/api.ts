@@ -98,25 +98,20 @@ export type {
 } from "./api-types";
 
 export const API_BASE = (
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE_URL) || "/api/v1"
+  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE_URL) || "/api/v1/construction"
 ).replace(/\/+$/, "");
 
 const TOKEN_KEY = "erp_access_token";
 const TENANT_KEY = "erp_tenant_id";
 
 /** Public download URLs (no auth — browser navigates to them directly). */
-// Served as a STATIC file by the SPA's own nginx (same origin), NOT through
-// Django/gunicorn: the 100MB+ APK was being killed by the 60s gunicorn worker
-// timeout mid-stream with no range support, so slow downloads restarted and
-// failed. nginx streams large files with byte-range/resume support.
 export const apkDownloadUrl = "/app/download";
 export const usabilityPdfUrl = `${API_BASE}/docs/usability-testing.pdf`;
 export const fetchAppInfo = () =>
-  fetch(`${API_BASE}/app/info`).then((r) => r.json() as Promise<{ available: boolean; version: string }>);
+  fetch(`/api/v1/app/info`).then((r) => r.json() as Promise<{ available: boolean; version: string }>);
 
 // Defensive token store: use localStorage when it actually works (browser),
-// otherwise fall back to memory (tests / SSR). Keeps the session across reloads
-// in production without exploding in non-DOM environments.
+// otherwise fall back to memory (tests / SSR).
 const memory: Record<string, string | undefined> = {};
 const ls = (): Storage | null => {
   try {
@@ -168,12 +163,20 @@ export class ApiError extends Error {
   }
 }
 
-async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function req<T>(method: string, rawPath: string, body?: unknown): Promise<T> {
   let res: Response;
   const isFormData = body instanceof FormData;
   const h = authHeaders();
+
+  // Sanitize path to avoid double slashes like /projects//milestones
+  const cleanPath = rawPath.replace(/\/+/g, "/");
+  const isRootApi = cleanPath.startsWith("/auth/") || cleanPath === "/me" || cleanPath.startsWith("/me/");
+  const targetUrl = isRootApi
+    ? `/api/v1${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`
+    : `${API_BASE}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(targetUrl, {
       method,
       headers: {
         ...h,
@@ -187,18 +190,15 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
 
   if (res.status === 401) {
-    // Session expired/invalid — drop the token and return to the login screen.
     clearToken();
-    if (typeof window !== "undefined") window.location.reload();
     throw new ApiError(401, "Your session has expired. Please sign in again.");
   }
   if (!res.ok) {
-    // Prefer the server's own explanation when it sends one.
     let serverMessage = "";
     try {
       serverMessage = ((await res.json()) as { error?: string }).error ?? "";
     } catch {
-      // non-JSON error body — fall through to the generic message
+      // non-JSON error body
     }
     const message =
       serverMessage ? serverMessage
@@ -226,10 +226,9 @@ export async function uploadFile(file: File): Promise<string> {
 }
 
 // ---- Auth & identity ----
-// TenantInfo and Me are defined in api-types.ts and re-exported above
 
 export async function login(username: string, password: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/auth/token/`, {
+  const res = await fetch("/api/v1/auth/token/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password, client_kind: CLIENT_KIND.DESKTOP }),
