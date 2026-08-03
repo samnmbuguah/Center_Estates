@@ -87,15 +87,15 @@ export function ExecutiveDashboard() {
 
           <h3 className="mt-md">Cost</h3>
           <div className="grid">
-            <Stat label="Total budget" value={money(data.cost.budget)} />
-            <Stat label="Approved variations" value={money(data.cost.approved_variations)} />
-            <Stat label="Forecast final cost" value={money(data.cost.forecast_final_cost)} />
-            <Stat label="Certified to date" value={money(data.cost.certified_to_date)} />
-            <Stat label="Paid to date" value={money(data.cost.paid_to_date)} />
+            <Stat label="Total budget" value={money(cost.budget)} />
+            <Stat label="Approved variations" value={money(cost.approved_variations)} />
+            <Stat label="Forecast final cost" value={money(cost.forecast_final_cost)} />
+            <Stat label="Certified to date" value={money(cost.certified_to_date)} />
+            <Stat label="Paid to date" value={money(cost.paid_to_date)} />
             <Stat
               label="Cost variance"
-              value={money(data.cost.cost_variance)}
-              color={Number(data.cost.cost_variance) > 0 ? "var(--danger)" : "var(--success)"}
+              value={money(cost.cost_variance)}
+              color={Number(cost.cost_variance) > 0 ? "var(--danger)" : "var(--success)"}
               sub="forecast − budget"
             />
           </div>
@@ -105,12 +105,12 @@ export function ExecutiveDashboard() {
 
           <h3 className="mt-md">Risk summary</h3>
           <div className="grid">
-            <Stat label="High-risk tickets" value={String(data.risk.high_risk_tickets)}
-              color={data.risk.high_risk_tickets ? "var(--danger)" : undefined} />
-            <Stat label="Overdue tickets" value={String(data.risk.overdue_tickets)}
-              color={data.risk.overdue_tickets ? "var(--warning)" : undefined} />
-            <Stat label="Critical issues" value={String(data.risk.critical_issues)}
-              color={data.risk.critical_issues ? "var(--danger)" : undefined} />
+            <Stat label="High-risk tickets" value={String(risk.high_risk_tickets)}
+              color={risk.high_risk_tickets ? "var(--danger)" : undefined} />
+            <Stat label="Overdue tickets" value={String(risk.overdue_tickets)}
+              color={risk.overdue_tickets ? "var(--warning)" : undefined} />
+            <Stat label="Critical issues" value={String(risk.critical_issues)}
+              color={risk.critical_issues ? "var(--danger)" : undefined} />
           </div>
           {riskData.length > 0 && (
             <div className="card">
