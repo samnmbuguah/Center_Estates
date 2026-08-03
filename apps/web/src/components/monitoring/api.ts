@@ -206,7 +206,8 @@ function normalizePath(rawPath: string): string {
   p = p.replace(/^\/issues/, "/tickets");
   p = p.replace(/^\/milestones\/pending-verification/, "/milestone-verifications");
   p = p.replace(/^\/reports\/(weekly|scurve|exec-dashboard|compliance)/, "/dashboard");
-  p = p.replace(/^\/audit\/(logs|verify)/, "/dashboard");
+  p = p.replace(/^\/audit\/logs/, "/audit-log");
+  p = p.replace(/^\/audit\/verify\//, "/audit/verify/");
   p = p.replace(/^\/ai\/status/, "/dashboard");
   p = p.replace(/^\/plans/, "/dashboard");
   p = p.replace(/^\/tenants/, "/dashboard");
