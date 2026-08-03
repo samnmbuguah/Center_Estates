@@ -3,7 +3,7 @@ import { Link } from "@/components/monitoring/react-router-shim";
 import { Shield } from "lucide-react";
 import { useAuth } from "../auth";
 import { ErrorBanner } from "../components";
-import { authHeaders } from "../api";
+import { get } from "../api";
 
 export function Approvals() {
   const { can } = useAuth();
@@ -18,12 +18,11 @@ export function Approvals() {
     setLoading(true);
     if (!projectId) { setLoading(false); return; }
     const api = `/projects/${projectId}`;
-    const headers = authHeaders();
     Promise.all([
-      fetch(`/milestones/pending-verification`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${api}/boq-review`, { headers }).then(r => r.ok ? r.json() : { draft: [] }).catch(() => ({ draft: [] })),
-      fetch(`${api}/variations`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${api}/contingency-drawdowns`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+      get<any[]>("/milestones/pending-verification").catch(() => []),
+      get<any>(`${api}/boq-review`).catch(() => ({ draft: [] })),
+      get<any[]>(`${api}/variations`).catch(() => []),
+      get<any[]>(`${api}/contingency-drawdowns`).catch(() => []),
     ]).then(([v, b, va, c]) => {
       setData({
         verifications: Array.isArray(v) ? v : [],
