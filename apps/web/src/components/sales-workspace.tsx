@@ -488,7 +488,7 @@ function BuyersView({
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Active Buyers" value={number.format(active)} sub="Qualified or active" onClick={() => setStatus(status === "active" ? "" : "active")} />
         <KpiCard icon="🧲" iconBg="#fef3c7" iconColor="#92400e" label="Leads" value={number.format(countBy(rows, ["lead"]))} sub="Awaiting qualification" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
         <KpiCard icon="🎓" iconBg="#e0f2fe" iconColor="#0284c7" label="Completed" value={number.format(countBy(rows, ["completed"]))} sub="Closed purchases" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Bank-Financed" value={number.format(countBy(rows, ["bank"]).valueOf())} sub="Purchasing via financier" onClick={() => setStatus(status === "bank" ? "" : "bank")} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Bank-Financed" value={number.format(rows.filter((r) => String(r.financing_type) === "bank").length)} sub="Purchasing via financier" onClick={() => {}} />
       </KpiStrip>
 
       <Panel title="Buyers Registry" badge={rows.length}>
@@ -603,7 +603,7 @@ function SalesView({
     <>
       <KpiStrip cols={5}>
         <KpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Sales" value={number.format(rows.length)} sub="All pipeline records" onClick={() => {}} />
-        <KpiCard icon="💼" iconBg="#fff7ed" iconColor="#ea580c" label="Pipeline Value" value={fmtMoney(pipelineValue)} sub={`${number.format(pipelineDeals)} active deals`} onClick={() => setStatus(status === "" ? "draft" : "")} />
+        <KpiCard icon="💼" iconBg="#fff7ed" iconColor="#ea580c" label="Pipeline Value" value={fmtMoney(pipelineValue)} sub={`${number.format(pipelineDeals)} active deals`} onClick={() => {}} />
         <KpiCard icon="🔒" iconBg="#fef3c7" iconColor="#92400e" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Under reservation" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
         <KpiCard icon="📝" iconBg="#e0f2fe" iconColor="#0284c7" label="Contracted" value={number.format(countBy(rows, ["contracted"]))} sub="Agreements signed" onClick={() => setStatus(status === "contracted" ? "" : "contracted")} />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(countBy(rows, ["completed"]))} sub="Fully paid & closed" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
@@ -1473,7 +1473,7 @@ function PaymentActionModal({ payment, onClose, onAction, error }: {
             <textarea name="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. M-Pesa reference does not match, duplicate submission…" />
           </Field>
           <div className="modal-actions">
-            <button className="btn ghost" onClick={() => onAction({ action: "reject", reason })}>Reject</button>
+            <button className="btn ghost" disabled={!reason.trim()} onClick={() => onAction({ action: "reject", reason })}>Reject</button>
             <button className="btn primary" onClick={() => onAction({ action: "verify" })}>✓ Approve Payment</button>
           </div>
         </>
