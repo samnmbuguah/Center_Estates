@@ -1162,12 +1162,12 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
 
 function RentView({
   rows, rentInvoices, analytics, rentSection, setRentSection, loading, search, setSearch,
-  setTab, onRecordReceipt, onSendReminder, onSelectRow,
+  setTab, onRecordReceipt, onSelectRow,
 }: {
   rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null;
   rentSection: RentSection; setRentSection: (s: RentSection) => void; loading: boolean;
   search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
-  onRecordReceipt: (invoiceId?: ID) => void; onSendReminder: (r: ReminderRow) => void; onSelectRow: (r: Row) => void;
+  onRecordReceipt: (invoiceId?: ID) => void; onSelectRow: (r: Row) => void;
 }) {
   const totalBilled = rentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = rentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
@@ -1193,7 +1193,7 @@ function RentView({
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       <SubTabs
         active={rentSection}
-        onChange={setRentSection}
+        onChange={(id) => setRentSection(id as RentSection)}
         tabs={[
           { id: "invoices", label: "Invoices" },
           { id: "receipts", label: "Receipts" },
@@ -1434,10 +1434,10 @@ function RentView({
 /* âââ ARREARS âââ */
 
 function ArrearsView({
-  rows, analytics, loading, search, setSearch, setTab, onNavigateReminders,
+  rows, analytics, loading, search, setSearch, onNavigateReminders,
 }: {
   rows: Row[]; analytics: AgingAnalytics | null; loading: boolean; search: string;
-  setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onNavigateReminders: (tenantName: string) => void;
+  setSearch: (v: string) => void; onNavigateReminders: (tenantName: string) => void;
 }) {
   const tenants = rows as AgingTenantRow[];
   const summary = analytics?.summary ?? {};
@@ -1590,10 +1590,10 @@ function RemindersView({ rows, loading, search, setSearch, onSendReminder, setTa
 /* âââ RECEIPTS âââ */
 
 function ReceiptsView({
-  rows, creditNotes, loading, search, setSearch, setTab, onRecordReceipt,
+  rows, creditNotes, loading, search, setSearch, onRecordReceipt,
 }: {
   rows: Row[]; creditNotes: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
-  setTab: (t: PropertyTab) => void; onRecordReceipt: (invoiceId?: ID) => void;
+  onRecordReceipt: (invoiceId?: ID) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "receipts" | "credit-notes" | "unapplied">("all");
   const receipts = rows as ReceiptRow[];
@@ -1852,7 +1852,7 @@ function ServiceChargesView({
     <>
       <SubTabs
         active={scSection}
-        onChange={setScSection}
+        onChange={(id) => setScSection(id as ScSection)}
         tabs={[
           { id: "setup", label: "Setup" },
           { id: "allocations", label: "Allocations" },
@@ -2480,7 +2480,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const data = await res.json();
         if (version !== loadVersion.current) return;
         setAnalytics(data as AgingAnalytics);
-        setRows((data as AgingAnalytics).tenants ?? []);
+        setRows(((data as AgingAnalytics).tenants ?? []) as Row[]);
       } else if (tab === "reports") {
         const res = await apiFetch(`/property/analytics/?search=${q}`, {}, organizationId);
         if (!res.ok) { fail(); return; }
@@ -2494,7 +2494,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
           const agingData = await agingRes.json();
           if (version !== loadVersion.current) return;
           setAnalytics(agingData as AgingAnalytics);
-          setRows((agingData as AgingAnalytics).tenants ?? []);
+          setRows(((agingData as AgingAnalytics).tenants ?? []) as Row[]);
         } else {
           const [listRes, agingRes] = await Promise.all([
             apiFetch(`/property/${rentEndpoint(rentSection)}/?search=${q}`, {}, organizationId),
