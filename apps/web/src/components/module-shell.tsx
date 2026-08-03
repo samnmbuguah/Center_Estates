@@ -72,8 +72,6 @@ export function ModuleShell({
       .filter((group) => group.items.length > 0);
   }, [groups, navSearch]);
 
-  const activeLabel = allItems.find((item) => item.id === activeId)?.label ?? title;
-
   const select = (id: string) => {
     onSelect(id);
     setNavOpen(false);
@@ -87,9 +85,8 @@ export function ModuleShell({
         onClick={() => setNavOpen(false)}
       />
 
-      {/* SINGLE LEFT SIDEBAR FOR THIS MODULE */}
+      {/* SINGLE LEFT SIDEBAR FOR MODULE */}
       <aside className={`module-side-nav ${navOpen ? "open" : ""}`} aria-label={`${moduleName} sections`}>
-        {/* Switch Workspace Header */}
         <div style={{ padding: "12px 14px 4px 14px" }}>
           <Link
             href="/"
@@ -119,7 +116,7 @@ export function ModuleShell({
           </span>
           <div>
             <strong>{moduleName}</strong>
-            <small>Workspace</small>
+            <small>WORKSPACE</small>
           </div>
           <button type="button" aria-label="Close module navigation" onClick={() => setNavOpen(false)}>
             ×
@@ -161,37 +158,12 @@ export function ModuleShell({
 
         <div className="module-side-footer">
           <span className="sync-dot" />
-          Live Organization Data
+          Live Data
           <small>Role & Scope Filtered</small>
         </div>
       </aside>
 
       <div className="module-workspace-main">
-        <header className="module-context-bar">
-          <button
-            type="button"
-            className="module-menu"
-            aria-label="Open module navigation"
-            onClick={() => setNavOpen(true)}
-          >
-            ☰
-          </button>
-          <div className="module-breadcrumb">
-            <Link href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Main Workspaces</Link>
-            <b>/</b>
-            <span>{moduleName}</span>
-            <b>/</b>
-            <strong>{activeLabel}</strong>
-          </div>
-          <div className="module-context-chip">
-            <span className="context-health" />
-            <div>
-              <small>{contextLabel}</small>
-              <strong>{contextValue ?? "Active Organization"}</strong>
-            </div>
-          </div>
-        </header>
-
         <div className="module-workspace-body">
           <section className="module-page-heading">
             <div>

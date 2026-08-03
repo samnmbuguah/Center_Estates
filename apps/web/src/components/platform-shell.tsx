@@ -30,7 +30,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const [identityGroups, setIdentityGroups] = useState<DemoIdentityGroup[]>([]);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
   const profileRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -61,7 +61,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }, [allowedSlugs, query]);
 
   useEffect(() => {
-    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "dark";
+    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "light";
     document.documentElement.setAttribute("data-theme", savedTheme);
     setTheme(savedTheme);
   }, []);
@@ -149,7 +149,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`platform ${moduleWorkspaceActive ? "module-workspace-active construction-workspace" : ""}`}>
-      {/* Outer Sidebar: ONLY rendered on Main Page (/), NEVER inside module workspaces */}
+      {/* Outer Sidebar: ONLY rendered on Main Workspace Selector Page (/), NEVER inside module workspaces */}
       {!moduleWorkspaceActive && (
         <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
           <Link className="brand" href="/" onClick={() => setMenuOpen(false)}>
@@ -223,55 +223,31 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="workspace">
-        <header className="topbar">
-          {!moduleWorkspaceActive && (
-            <button
-              className="mobile-menu-button"
-              aria-label="Open navigation"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          )}
+        <header className="topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", height: 60, borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link className="brand" href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="brand-mark" aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 6 }}>
+                <span className="brand-mark-bars"><i /><i /><i /></span>
+              </span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}>
+                CeEst
+              </span>
+            </Link>
 
-          <div className="topbar-context">
             {moduleWorkspaceActive && (
-              <Link href="/" className="topbar-switch-home" title="Return to Main Workspace Selection Page">
+              <Link href="/" className="btn ghost sm" style={{ fontSize: 12, padding: "5px 10px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 6, textDecoration: "none", color: "var(--text)" }}>
                 ← Main Workspaces
               </Link>
             )}
-            <div className="topbar-workspace">
-              <small>Active Organization</small>
-              <select
-                aria-label="Active organization"
-                value={activeOrganization?.id ?? ""}
-                onChange={(event) => selectOrganization(event.target.value)}
-              >
-                {session.organizations.map((organization) => (
-                  <option value={organization.id} key={organization.id}>
-                    {organization.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {activeModule && (
-              <div className="topbar-module-crumb">
-                <small>Workspace</small>
-                <strong>{activeModule.name}</strong>
-              </div>
-            )}
           </div>
 
-          <label className="global-search">
+          <label className="global-search" style={{ flex: 1, maxWidth: 460, margin: "0 16px" }}>
             <span aria-hidden="true">⌕</span>
             <input
               ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search modules, projects, documents, sub-routes… (Ctrl+K)"
+              placeholder="Search modules, projects, documents… (Ctrl+K)"
               aria-label="Search modules"
             />
             {query && (
@@ -293,31 +269,27 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                     </span>
                   </Link>
                 ))}
-                {QUICK_JUMP_ROUTES.filter((r) =>
-                  [r.name, r.detail, r.module].join(" ").toLowerCase().includes(query.trim().toLowerCase())
-                ).map((route) => (
-                  <Link
-                    key={route.href}
-                    href={route.href}
-                    role="option"
-                    onClick={() => {
-                      setQuery("");
-                      setMenuOpen(false);
-                    }}
-                  >
-                    <span>{route.icon}</span>
-                    <span>
-                      <strong>{route.name}</strong>
-                      <small>{route.detail}</small>
-                    </span>
-                  </Link>
-                ))}
               </div>
             )}
           </label>
 
-          <div className="topbar-actions">
-            {/* Theme Switcher Toggle (Light / Dark Mode) */}
+          <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <small style={{ fontSize: 9, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>Organization</small>
+              <select
+                aria-label="Active organization"
+                value={activeOrganization?.id ?? ""}
+                onChange={(event) => selectOrganization(event.target.value)}
+                style={{ padding: "3px 6px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+              >
+                {session.organizations.map((organization) => (
+                  <option value={organization.id} key={organization.id}>
+                    {organization.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
               type="button"
               className="theme-toggle-btn"
@@ -327,28 +299,17 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
               style={{
                 background: "var(--surface-2)",
                 border: "1px solid var(--border)",
-                borderRadius: 8,
-                padding: "6px 12px",
-                fontSize: 13,
+                borderRadius: 6,
+                padding: "5px 10px",
+                fontSize: 12,
+                fontWeight: 600,
                 cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
                 color: "var(--text)",
               }}
             >
-              <span>{theme === "dark" ? "☀️ Light" : "🌙 Dark"}</span>
+              {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
             </button>
 
-            <span className="system-live">
-              <i />
-              Live
-            </span>
-            {session.impersonating && (
-              <button type="button" className="impersonation-pill" onClick={() => void onReturnAdmin()}>
-                Demo identity · Return to admin
-              </button>
-            )}
             <div className="profile-menu" ref={profileRef}>
               <button
                 type="button"
@@ -374,44 +335,8 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                     <em>{displayRole}</em>
                   </div>
                   <Link href="/" className="profile-dropdown-item" onClick={() => setProfileOpen(false)}>
-                    Command Center (Switch Workspace)
+                    Main Workspace Selection
                   </Link>
-                  {session.canSwitchIdentity && (
-                    <div className="profile-role-switcher">
-                      <p>Demo identity / role</p>
-                      {switchError && <div className="form-error compact">{switchError}</div>}
-                      {session.impersonating && (
-                        <button type="button" className="profile-dropdown-item accent" disabled={switching} onClick={() => void onReturnAdmin()}>
-                          ↩ Return to Super Administrator
-                        </button>
-                      )}
-                      <div className="profile-role-scroll">
-                        {identityGroups.length === 0 && (
-                          <small className="profile-role-empty">Loading demo identities…</small>
-                        )}
-                        {identityGroups.map((group) => (
-                          <div key={group.module} className="profile-role-group">
-                            <small>{group.label}</small>
-                            {group.identities.map((identity) => (
-                              <button
-                                key={identity.username}
-                                type="button"
-                                className={`profile-dropdown-item ${identity.isCurrent ? "current" : ""}`}
-                                disabled={switching || identity.isCurrent}
-                                onClick={() => void onSwitchIdentity(identity.username)}
-                              >
-                                <span>
-                                  <strong>{identity.label}</strong>
-                                  <small>{identity.roleName}</small>
-                                </span>
-                                <code>{identity.username}</code>
-                              </button>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <button type="button" className="profile-dropdown-item danger" onClick={() => void logout()}>
                     Sign out
                   </button>
