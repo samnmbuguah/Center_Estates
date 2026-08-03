@@ -6,6 +6,9 @@ import NextLink, { LinkProps as NextLinkProps } from "next/link";
 export function remapSpaRoute(target: string): string {
   if (!target || target.startsWith("#") || target.startsWith("http")) return target;
 
+  const workspaceMatch = target.match(/^\/(?:app\/)?workspace\/([^/]+)$/);
+  if (workspaceMatch) return `/monitoring?tab=project-detail&id=${workspaceMatch[1]}`;
+
   const variationsMatch = target.match(/^\/(?:app\/)?projects\/([^/]+)\/variations/);
   if (variationsMatch) return `/monitoring?tab=variations&projectId=${variationsMatch[1]}`;
 
@@ -19,7 +22,7 @@ export function remapSpaRoute(target: string): string {
     return "/monitoring?tab=pending-verification";
   }
 
-  const projectDetailMatch = target.match(/^\/(?:app\/)?projects\/([^/]+)$/);
+  const projectDetailMatch = target.match(/^\/(?:app\/)?(?:projects|workspace)\/([^/]+)$/);
   if (projectDetailMatch) return `/monitoring?tab=project-detail&id=${projectDetailMatch[1]}`;
 
   return target;
