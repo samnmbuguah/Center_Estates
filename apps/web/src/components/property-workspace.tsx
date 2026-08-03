@@ -62,7 +62,7 @@ const labels: Record<PropertyTab, string> = {
   reports: "Reports Catalogue",
 };
 
-/* âââ data row shapes (mirror backend serializers) âââ */
+/* ─── data row shapes (mirror backend serializers) ─── */
 
 interface PropertyRow extends Row {
   id: ID; code?: string; name?: string; property_type?: string; status?: string;
@@ -210,13 +210,13 @@ interface DashboardData {
 type RentSection = "invoices" | "receipts" | "arrears" | "reminders" | "ledger";
 type ScSection = "setup" | "allocations" | "reconciliations" | "budget";
 
-/* âââ formatting helpers âââ */
+/* ─── formatting helpers ─── */
 
 const kM = (v: unknown) => money.format(Number(v ?? 0));
 const kN = (v: unknown) => number.format(Number(v ?? 0));
 
 const fmtDate = (v: unknown): string => {
-  if (!v) return "â";
+  if (!v) return "—";
   const d = new Date(String(v));
   if (Number.isNaN(d.getTime())) return String(v);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
@@ -231,13 +231,13 @@ function daysUntil(end?: unknown): number | null {
 
 const daysLeftLabel = (end?: unknown): string => {
   const dl = daysUntil(end);
-  if (dl === null) return "â";
+  if (dl === null) return "—";
   if (dl < 0) return "Expired";
   return `${dl} days`;
 };
 
 const overdueLabel = (due?: unknown): string => {
-  if (!due) return "â";
+  if (!due) return "—";
   const d = new Date(String(due));
   if (Number.isNaN(d.getTime())) return String(due);
   const diff = Math.max(0, Math.round((Date.now() - d.getTime()) / 86400000));
@@ -258,13 +258,13 @@ function occupancyTone(v: number): "green" | "yellow" | "red" {
 
 function shortId(id?: unknown): string {
   const s = String(id ?? "");
-  return s.length > 8 ? s.slice(0, 8) : s || "â";
+  return s.length > 8 ? s.slice(0, 8) : s || "—";
 }
 
-/* âââ shared layout primitives âââ */
+/* ─── shared layout primitives ─── */
 
 function ViewToolbar({
-  title, subtitle, search, onSearch, placeholder = "Search recordsâ¦", children,
+  title, subtitle, search, onSearch, placeholder = "Search records…", children,
 }: {
   title: string; subtitle?: string; search: string; onSearch: (v: string) => void;
   placeholder?: string; children?: ReactNode;
@@ -290,7 +290,7 @@ function ListState({
 }) {
   if (loading) return <LoadingState rows={6} />;
   if (empty) {
-    return <EmptyState icon="ð" title={emptyTitle} description={emptyDesc ?? "There are no records to display for this view yet."} />;
+    return <EmptyState icon="📋" title={emptyTitle} description={emptyDesc ?? "There are no records to display for this view yet."} />;
   }
   return <>{children}</>;
 }
@@ -312,7 +312,7 @@ function SubTabs({ tabs, active, onChange }: { tabs: { id: string; label: string
   );
 }
 
-/* âââ detail drawer fields âââ */
+/* ─── detail drawer fields ─── */
 
 const detailFields: Partial<Record<PropertyTab, { label: string; key: string; money?: boolean; date?: boolean }[]>> = {
   properties: [
@@ -378,7 +378,7 @@ function RowDetailPanel({ tab, row }: { tab: PropertyTab; row: Row }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {fields.map((f) => {
         const raw = row[f.key];
-        const value = f.money ? kM(raw) : f.date ? fmtDate(raw) : raw === undefined || raw === null || raw === "" ? "â" : String(raw);
+        const value = f.money ? kM(raw) : f.date ? fmtDate(raw) : raw === undefined || raw === null || raw === "" ? "—" : String(raw);
         return (
           <div key={f.key} className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
             <span className="muted" style={{ fontSize: 12 }}>{f.label}</span>
@@ -390,12 +390,12 @@ function RowDetailPanel({ tab, row }: { tab: PropertyTab; row: Row }) {
   );
 }
 
-/* âââ OVERVIEW âââ */
+/* ─── OVERVIEW ─── */
 
 function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData | null; loading: boolean; setTab: (t: PropertyTab) => void }) {
   if (loading && !dashboard) return <LoadingState rows={8} />;
   if (!dashboard) {
-    return <EmptyState icon="ð¢" title="Dashboard unavailable" description="Add properties, units and leases to unlock portfolio, collection and occupancy analytics." />;
+    return <EmptyState icon="🏢" title="Dashboard unavailable" description="Add properties, units and leases to unlock portfolio, collection and occupancy analytics." />;
   }
   const k = dashboard.kpis ?? {};
   const properties = Number(k.properties ?? 0);
@@ -422,18 +422,18 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
       <KpiStrip>
-        <KpiCard icon="ð¢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
-        <KpiCard icon="â¦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(units)} sub={`${kN(occupied)} occupied`} link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="ð" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
-        <KpiCard icon="ð°" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Rent" value={kM(monthlyRent)} sub="Portfolio monthly rent" link="View rent" onClick={() => setTab("rent")} />
-        <KpiCard icon="â ï¸" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding Rent" value={kM(outstanding)} sub="Uncollected balance" link="View arrears" onClick={() => setTab("arrears")} />
-        <KpiCard icon="â" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub={`${kM(collected)} collected YTD`} link="View collections" onClick={() => setTab("rent")} />
-        <KpiCard icon="â£" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
+        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(units)} sub={`${kN(occupied)} occupied`} link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Rent" value={kM(monthlyRent)} sub="Portfolio monthly rent" link="View rent" onClick={() => setTab("rent")} />
+        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding Rent" value={kM(outstanding)} sub="Uncollected balance" link="View arrears" onClick={() => setTab("arrears")} />
+        <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub={`${kM(collected)} collected YTD`} link="View collections" onClick={() => setTab("rent")} />
+        <KpiCard icon="▣" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, width: "100%" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
-          <Panel title="Monthly Rent Collection Trend" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Collection Ledger â</button>}>
+          <Panel title="Monthly Rent Collection Trend" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Collection Ledger →</button>}>
             {trend.length > 0 ? (
               <div className="row" style={{ alignItems: "flex-end", gap: 12, height: 170, borderBottom: "1px solid var(--border)", padding: "18px 20px 8px" }}>
                 {trend.map((b) => (
@@ -447,11 +447,11 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
                 ))}
               </div>
             ) : (
-              <EmptyState icon="ð" title="No collection history" description="Billed and collected figures will appear here once invoices and receipts are recorded." />
+              <EmptyState icon="📊" title="No collection history" description="Billed and collected figures will appear here once invoices and receipts are recorded." />
             )}
           </Panel>
 
-          <Panel title="Property Portfolio Summary" action={<button className="btn ghost sm" onClick={() => setTab("properties")}>All Properties â</button>}>
+          <Panel title="Property Portfolio Summary" action={<button className="btn ghost sm" onClick={() => setTab("properties")}>All Properties →</button>}>
             {portfolio.length > 0 ? (
               <div className="table-scroll">
                 <table className="fc-data-table">
@@ -469,7 +469,7 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
                   <tbody>
                     {portfolio.map((p) => (
                       <tr key={String(p.id)}>
-                        <td><strong style={{ fontSize: 12 }}>{String(p.name ?? "â")}</strong></td>
+                        <td><strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong></td>
                         <td className="mono">{kN(p.units)}</td>
                         <td className="mono">{kN(p.occupied)}</td>
                         <td className="mono">{kN(p.vacant)}</td>
@@ -482,13 +482,13 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
                 </table>
               </div>
             ) : (
-              <EmptyState icon="ð¢" title="No portfolio records" description="Property occupancy and rent summaries appear here once properties are added." />
+              <EmptyState icon="🏢" title="No portfolio records" description="Property occupancy and rent summaries appear here once properties are added." />
             )}
           </Panel>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
-          <Panel title="Rent Collection Summary" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Ledger â</button>}>
+          <Panel title="Rent Collection Summary" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Ledger →</button>}>
             <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "18px 20px" }}>
               <div className="donut" style={{ background: donut, width: 120, height: 120, flexShrink: 0 }}>
                 <strong style={{ fontSize: 20 }}>{collectionRate}%</strong>
@@ -502,7 +502,7 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
             </div>
           </Panel>
 
-          <Panel title="Lease Expiry Overview" action={<button className="btn ghost sm" onClick={() => setTab("leases")}>Leases â</button>}>
+          <Panel title="Lease Expiry Overview" action={<button className="btn ghost sm" onClick={() => setTab("leases")}>Leases →</button>}>
             {leaseExpiry.length > 0 ? (
               <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
                 {leaseExpiry.map((e) => (
@@ -516,14 +516,14 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
                 ))}
               </div>
             ) : (
-              <EmptyState icon="ð" title="No expiring leases" description="Leases ending within the next 90 days will be tracked here." />
+              <EmptyState icon="📅" title="No expiring leases" description="Leases ending within the next 90 days will be tracked here." />
             )}
           </Panel>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
-        <Panel title="Top Overdue Tenants" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>View All â</button>}>
+        <Panel title="Top Overdue Tenants" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>View All →</button>}>
           {overdue.length > 0 ? (
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -539,8 +539,8 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
                 <tbody>
                   {overdue.map((inv) => (
                     <tr key={String(inv.id)}>
-                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(inv.number ?? "â")}</td>
-                      <td><strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "â")}</strong></td>
+                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(inv.number ?? "—")}</td>
+                      <td><strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "—")}</strong></td>
                       <td style={{ fontSize: 12 }}>{fmtDate(inv.due_on)}</td>
                       <td><Badge tone="red">{overdueLabel(inv.due_on)}</Badge></td>
                       <td className="mono" style={{ color: "var(--danger)" }}>{kM(inv.balance)}</td>
@@ -550,11 +550,11 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
               </table>
             </div>
           ) : (
-            <EmptyState icon="â" title="No overdue tenants" description="All outstanding invoices are up to date." />
+            <EmptyState icon="✓" title="No overdue tenants" description="All outstanding invoices are up to date." />
           )}
         </Panel>
 
-        <Panel title="Rent Ageing Summary" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report â</button>}>
+        <Panel title="Rent Ageing Summary" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report →</button>}>
           {aging.length > 0 ? (
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -584,7 +584,7 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
               </table>
             </div>
           ) : (
-            <EmptyState icon="ð" title="No outstanding balances" description="Aged balances by bucket will appear here." />
+            <EmptyState icon="📂" title="No outstanding balances" description="Aged balances by bucket will appear here." />
           )}
         </Panel>
       </div>
@@ -592,7 +592,7 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
   );
 }
 
-/* âââ PROPERTIES âââ */
+/* ─── PROPERTIES ─── */
 
 function PropertiesView({
   rows, loading, search, setSearch, setTab, onAdd, onSelectRow,
@@ -608,13 +608,13 @@ function PropertiesView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="ð¢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Properties" value={kN(props.length)} sub="Portfolio count" link="View register" onClick={() => setTab("properties")} />
-        <KpiCard icon="â¦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(totalUnits)} sub="Across portfolio" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="ð" iconBg="#fef3c7" iconColor="#d97706" label="Buildings" value={kN(totalBuildings)} sub="Registered buildings" link="View buildings" onClick={() => setTab("buildings")} />
-        <KpiCard icon="â" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active properties" link="View register" onClick={() => setTab("properties")} />
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Properties" value={kN(props.length)} sub="Portfolio count" link="View register" onClick={() => setTab("properties")} />
+        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(totalUnits)} sub="Across portfolio" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="🏗" iconBg="#fef3c7" iconColor="#d97706" label="Buildings" value={kN(totalBuildings)} sub="Registered buildings" link="View buildings" onClick={() => setTab("buildings")} />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active properties" link="View register" onClick={() => setTab("properties")} />
       </KpiStrip>
 
-      <ViewToolbar title="Property Register" subtitle="Manage all properties across your portfolio" search={search} onSearch={setSearch} placeholder="Search by name, code or cityâ¦">
+      <ViewToolbar title="Property Register" subtitle="Manage all properties across your portfolio" search={search} onSearch={setSearch} placeholder="Search by name, code or city…">
         <button className="btn primary sm" onClick={onAdd}>+ Add Property</button>
       </ViewToolbar>
 
@@ -640,17 +640,17 @@ function PropertiesView({
                 {props.map((p) => (
                   <tr key={String(p.id)} onClick={() => onSelectRow(p)}>
                     <td>
-                      <strong style={{ fontSize: 12 }}>{String(p.name ?? "â")}</strong>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(p.code ?? "â")}</div>
+                      <strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(p.code ?? "—")}</div>
                     </td>
-                    <td><span className="badge badge-blue">{String(p.property_type ?? "â")}</span></td>
-                    <td style={{ fontSize: 12 }}>{String(p.city ?? "â")}</td>
+                    <td><span className="badge badge-blue">{String(p.property_type ?? "—")}</span></td>
+                    <td style={{ fontSize: 12 }}>{String(p.city ?? "—")}</td>
                     <td className="mono">{kN(p.units_count)}</td>
-                    <td className="mono">{p.occupied === undefined ? "â" : kN(p.occupied)}</td>
-                    <td>{p.occupancy === undefined ? <span className="muted">â</span> : <Badge tone={occupancyTone(Number(p.occupancy))}>{pct(p.occupied, p.units_count)}%</Badge>}</td>
-                    <td className="mono">{p.monthlyRent === undefined ? "â" : kM(p.monthlyRent)}</td>
-                    <td className="mono" style={{ color: Number(p.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{p.outstanding === undefined ? "â" : kM(p.outstanding)}</td>
-                    <td><StatusPill value={String(p.status ?? "â")} /></td>
+                    <td className="mono">{p.occupied === undefined ? "—" : kN(p.occupied)}</td>
+                    <td>{p.occupancy === undefined ? <span className="muted">—</span> : <Badge tone={occupancyTone(Number(p.occupancy))}>{pct(p.occupied, p.units_count)}%</Badge>}</td>
+                    <td className="mono">{p.monthlyRent === undefined ? "—" : kM(p.monthlyRent)}</td>
+                    <td className="mono" style={{ color: Number(p.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{p.outstanding === undefined ? "—" : kM(p.outstanding)}</td>
+                    <td><StatusPill value={String(p.status ?? "—")} /></td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("units"); }}>Units</button>
@@ -669,25 +669,25 @@ function PropertiesView({
   );
 }
 
-/* âââ BUILDINGS âââ */
+/* ─── BUILDINGS ─── */
 
 function BuildingsView({ rows, loading, search, setSearch, setTab }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
 }) {
   const buildings = rows as BuildingRow[];
   const totalFloors = buildings.reduce((s, b) => s + Number(b.floors ?? 0), 0);
-  const locations = new Set(buildings.map((b) => String(b.property_name ?? "â"))).size;
+  const locations = new Set(buildings.map((b) => String(b.property_name ?? "—"))).size;
 
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="ð¢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Buildings" value={kN(buildings.length)} sub="Registered buildings" link="View register" onClick={() => setTab("buildings")} />
-        <KpiCard icon="ð" iconBg="#dbeafe" iconColor="#2563eb" label="Total Floors" value={kN(totalFloors)} sub="Across buildings" link="View buildings" onClick={() => setTab("buildings")} />
-        <KpiCard icon="ð" iconBg="#dcfce7" iconColor="#16a34a" label="Locations" value={kN(locations)} sub="Properties with buildings" link="View properties" onClick={() => setTab("properties")} />
-        <KpiCard icon="â¦" iconBg="#e0f2fe" iconColor="#0284c7" label="Units" value={kN(0)} sub="Linked via properties" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Buildings" value={kN(buildings.length)} sub="Registered buildings" link="View register" onClick={() => setTab("buildings")} />
+        <KpiCard icon="📐" iconBg="#dbeafe" iconColor="#2563eb" label="Total Floors" value={kN(totalFloors)} sub="Across buildings" link="View buildings" onClick={() => setTab("buildings")} />
+        <KpiCard icon="📍" iconBg="#dcfce7" iconColor="#16a34a" label="Locations" value={kN(locations)} sub="Properties with buildings" link="View properties" onClick={() => setTab("properties")} />
+        <KpiCard icon="▦" iconBg="#e0f2fe" iconColor="#0284c7" label="Units" value={kN(0)} sub="Linked via properties" link="View units" onClick={() => setTab("units")} />
       </KpiStrip>
 
-      <ViewToolbar title="Buildings Register" subtitle="Buildings, floors and property locations" search={search} onSearch={setSearch} placeholder="Search by name, code or propertyâ¦" />
+      <ViewToolbar title="Buildings Register" subtitle="Buildings, floors and property locations" search={search} onSearch={setSearch} placeholder="Search by name, code or property…" />
 
       <Panel title="Buildings">
         <ListState loading={loading} empty={buildings.length === 0} emptyTitle="No buildings found" emptyDesc="Buildings under each property will appear here once registered.">
@@ -699,7 +699,7 @@ function BuildingsView({ rows, loading, search, setSearch, setTab }: {
                   <th>Building ID</th>
                   <th>Type</th>
                   <th>Location</th>
-                  <th>Floor Area mÂ²</th>
+                  <th>Floor Area m²</th>
                   <th>Occupancy %</th>
                   <th>Status</th>
                   <th>Monthly Cost</th>
@@ -713,14 +713,14 @@ function BuildingsView({ rows, loading, search, setSearch, setTab }: {
                   const cost = (b.metadata as Record<string, unknown> | undefined)?.monthly_cost;
                   return (
                     <tr key={String(b.id)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(b.name ?? "â")}</strong></td>
-                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(b.code ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{String((b.metadata as Record<string, unknown> | undefined)?.building_type ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{String(b.property_name ?? "â")}</td>
-                      <td className="mono">{area === undefined ? "â" : `${kN(area)}`}</td>
-                      <td>{occ === undefined ? <span className="muted">â</span> : <Badge tone={occupancyTone(Number(occ))}>{Number(occ)}%</Badge>}</td>
+                      <td><strong style={{ fontSize: 12 }}>{String(b.name ?? "—")}</strong></td>
+                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(b.code ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String((b.metadata as Record<string, unknown> | undefined)?.building_type ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(b.property_name ?? "—")}</td>
+                      <td className="mono">{area === undefined ? "—" : `${kN(area)}`}</td>
+                      <td>{occ === undefined ? <span className="muted">—</span> : <Badge tone={occupancyTone(Number(occ))}>{Number(occ)}%</Badge>}</td>
                       <td><StatusPill value="active" /></td>
-                      <td className="mono">{cost === undefined ? "â" : kM(cost)}</td>
+                      <td className="mono">{cost === undefined ? "—" : kM(cost)}</td>
                       <td>
                         <button className="btn ghost sm" onClick={() => setTab("units")}>View Units</button>
                       </td>
@@ -736,7 +736,7 @@ function BuildingsView({ rows, loading, search, setSearch, setTab }: {
   );
 }
 
-/* âââ UNITS âââ */
+/* ─── UNITS ─── */
 
 function UnitsView({ rows, loading, search, setSearch, setTab }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
@@ -749,13 +749,13 @@ function UnitsView({ rows, loading, search, setSearch, setTab }: {
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="â¦" iconBg="#dbeafe" iconColor="#2563eb" label="Units" value={kN(units.length)} sub="Registered units" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="ð" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied" value={kN(occupied)} sub={`${pct(occupied, units.length)}% occupied`} link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="â" iconBg="#fef3c7" iconColor="#d97706" label="Available" value={kN(available)} sub="Vacant units" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="ð" iconBg="#e0f2fe" iconColor="#0284c7" label="Total Area" value={`${kN(totalArea)} mÂ²`} sub="Lettable floor area" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Units" value={kN(units.length)} sub="Registered units" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied" value={kN(occupied)} sub={`${pct(occupied, units.length)}% occupied`} link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="◌" iconBg="#fef3c7" iconColor="#d97706" label="Available" value={kN(available)} sub="Vacant units" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="📐" iconBg="#e0f2fe" iconColor="#0284c7" label="Total Area" value={`${kN(totalArea)} m²`} sub="Lettable floor area" link="View units" onClick={() => setTab("units")} />
       </KpiStrip>
 
-      <ViewToolbar title="Unit Register" subtitle="Every lettable and non-lettable unit across your properties" search={search} onSearch={setSearch} placeholder="Search by code, type or propertyâ¦" />
+      <ViewToolbar title="Unit Register" subtitle="Every lettable and non-lettable unit across your properties" search={search} onSearch={setSearch} placeholder="Search by code, type or property…" />
 
       <Panel title="Units">
         <ListState loading={loading} empty={units.length === 0} emptyTitle="No units found" emptyDesc="Generate units from a property or register them individually.">
@@ -768,7 +768,7 @@ function UnitsView({ rows, loading, search, setSearch, setTab }: {
                   <th>Building</th>
                   <th>Floor</th>
                   <th>Type</th>
-                  <th>Size mÂ²</th>
+                  <th>Size m²</th>
                   <th>Rent</th>
                   <th>Status</th>
                   <th>Tenant</th>
@@ -779,15 +779,15 @@ function UnitsView({ rows, loading, search, setSearch, setTab }: {
                   const rent = (u.metadata as Record<string, unknown> | undefined)?.rent;
                   return (
                     <tr key={String(u.id)}>
-                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(u.code ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{String(u.property_name ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{String(u.building_name ?? "â")}</td>
-                      <td className="mono" style={{ fontSize: 12 }}>{String(u.floor ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{String(u.unit_type ?? "â")}</td>
-                      <td className="mono">{u.area === undefined || u.area === null ? "â" : kN(u.area)}</td>
-                      <td className="mono">{rent === undefined ? "â" : kM(rent)}</td>
-                      <td><StatusPill value={String(u.status ?? "â")} /></td>
-                      <td style={{ fontSize: 12 }}>{String((u.metadata as Record<string, unknown> | undefined)?.tenant ?? "â")}</td>
+                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(u.code ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(u.property_name ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(u.building_name ?? "—")}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(u.floor ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(u.unit_type ?? "—")}</td>
+                      <td className="mono">{u.area === undefined || u.area === null ? "—" : kN(u.area)}</td>
+                      <td className="mono">{rent === undefined ? "—" : kM(rent)}</td>
+                      <td><StatusPill value={String(u.status ?? "—")} /></td>
+                      <td style={{ fontSize: 12 }}>{String((u.metadata as Record<string, unknown> | undefined)?.tenant ?? "—")}</td>
                     </tr>
                   );
                 })}
@@ -800,7 +800,7 @@ function UnitsView({ rows, loading, search, setSearch, setTab }: {
   );
 }
 
-/* âââ PROJECTS âââ */
+/* ─── PROJECTS ─── */
 
 function ProjectsView({ rows, loading, search, setSearch }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
@@ -812,12 +812,12 @@ function ProjectsView({ rows, loading, search, setSearch }: {
   return (
     <>
       <KpiStrip cols={3}>
-        <KpiCard icon="ð" iconBg="#e0e7ff" iconColor="#4f46e5" label="Projects" value={kN(projects.length)} sub="Development projects" />
-        <KpiCard icon="â³" iconBg="#fef3c7" iconColor="#d97706" label="In Progress" value={kN(active)} sub="Active projects" />
-        <KpiCard icon="â" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={kN(completed)} sub="Delivered projects" />
+        <KpiCard icon="🗂" iconBg="#e0e7ff" iconColor="#4f46e5" label="Projects" value={kN(projects.length)} sub="Development projects" />
+        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#d97706" label="In Progress" value={kN(active)} sub="Active projects" />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={kN(completed)} sub="Delivered projects" />
       </KpiStrip>
 
-      <ViewToolbar title="Development Projects" subtitle="Property development and refurbishment projects" search={search} onSearch={setSearch} placeholder="Search by name or project codeâ¦" />
+      <ViewToolbar title="Development Projects" subtitle="Property development and refurbishment projects" search={search} onSearch={setSearch} placeholder="Search by name or project code…" />
 
       <Panel title="Projects">
         <ListState loading={loading} empty={projects.length === 0} emptyTitle="No projects found" emptyDesc="Development projects will appear here once registered against a property.">
@@ -839,13 +839,13 @@ function ProjectsView({ rows, loading, search, setSearch }: {
                   const budget = (p.metadata as Record<string, unknown> | undefined)?.budget;
                   return (
                     <tr key={String(p.id)}>
-                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(p.code ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{String((p.metadata as Record<string, unknown> | undefined)?.property_name ?? "â")}</td>
-                      <td><strong style={{ fontSize: 12 }}>{String(p.name ?? "â")}</strong></td>
-                      <td><StatusPill value={String(p.status ?? "â")} /></td>
+                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(p.code ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String((p.metadata as Record<string, unknown> | undefined)?.property_name ?? "—")}</td>
+                      <td><strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong></td>
+                      <td><StatusPill value={String(p.status ?? "—")} /></td>
                       <td style={{ fontSize: 12 }}>{fmtDate(p.starts_on)}</td>
                       <td style={{ fontSize: 12 }}>{fmtDate(p.ends_on)}</td>
-                      <td className="mono">{budget === undefined ? "â" : kM(budget)}</td>
+                      <td className="mono">{budget === undefined ? "—" : kM(budget)}</td>
                     </tr>
                   );
                 })}
@@ -858,7 +858,7 @@ function ProjectsView({ rows, loading, search, setSearch }: {
   );
 }
 
-/* âââ TENANTS âââ */
+/* ─── TENANTS ─── */
 
 function TenantsView({
   rows, loading, search, setSearch, setTab, onAdd, onUploadDoc, onSelectRow,
@@ -874,13 +874,13 @@ function TenantsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="ð¥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Tenants" value={kN(tenants.length)} sub="Registered tenants" link="View tenants" onClick={() => setTab("tenants")} />
-        <KpiCard icon="â" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active tenancies" link="View tenants" onClick={() => setTab("tenants")} />
-        <KpiCard icon="â" iconBg="#fef3c7" iconColor="#d97706" label="Prospects" value={kN(prospects)} sub="Potential tenants" link="View tenants" onClick={() => setTab("tenants")} />
-        <KpiCard icon="â ï¸" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Combined arrears" link="View arrears" onClick={() => setTab("arrears")} />
+        <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Tenants" value={kN(tenants.length)} sub="Registered tenants" link="View tenants" onClick={() => setTab("tenants")} />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active tenancies" link="View tenants" onClick={() => setTab("tenants")} />
+        <KpiCard icon="◌" iconBg="#fef3c7" iconColor="#d97706" label="Prospects" value={kN(prospects)} sub="Potential tenants" link="View tenants" onClick={() => setTab("tenants")} />
+        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Combined arrears" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
-      <ViewToolbar title="Tenant Register" subtitle="Manage all tenants across your properties" search={search} onSearch={setSearch} placeholder="Search tenant name, email, phoneâ¦">
+      <ViewToolbar title="Tenant Register" subtitle="Manage all tenants across your properties" search={search} onSearch={setSearch} placeholder="Search tenant name, email, phone…">
         <button className="btn ghost sm" onClick={onUploadDoc}>+ Upload Document</button>
         <button className="btn primary sm" onClick={onAdd}>+ Add Tenant</button>
       </ViewToolbar>
@@ -905,21 +905,21 @@ function TenantsView({
                 {tenants.map((t) => (
                   <tr key={String(t.id)} onClick={() => onSelectRow(t)}>
                     <td>
-                      <strong style={{ fontSize: 12 }}>{String(t.name ?? "â")}</strong>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "â")}</div>
+                      <strong style={{ fontSize: 12 }}>{String(t.name ?? "—")}</strong>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "—")}</div>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12 }}>{String(t.property ?? "â")}</span>
+                      <span style={{ fontSize: 12 }}>{String(t.property ?? "—")}</span>
                       {t.unit ? <div className="muted" style={{ fontSize: 11 }}>{String(t.unit)}</div> : null}
                     </td>
                     <td style={{ fontSize: 12 }}>
-                      <div>{t.email ? String(t.email) : "â"}</div>
-                      <div className="muted" style={{ fontSize: 11 }}>{t.phone ? String(t.phone) : "â"}</div>
+                      <div>{t.email ? String(t.email) : "—"}</div>
+                      <div className="muted" style={{ fontSize: 11 }}>{t.phone ? String(t.phone) : "—"}</div>
                     </td>
-                    <td style={{ fontSize: 12 }}>{t.lease_start ? fmtDate(t.lease_start) : "â"}</td>
-                    <td style={{ fontSize: 12 }}>{t.lease_end ? fmtDate(t.lease_end) : "â"}</td>
-                    <td><StatusPill value={String(t.status ?? "â")} /></td>
-                    <td className="mono" style={{ color: Number(t.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{t.outstanding === undefined ? "â" : kM(t.outstanding)}</td>
+                    <td style={{ fontSize: 12 }}>{t.lease_start ? fmtDate(t.lease_start) : "—"}</td>
+                    <td style={{ fontSize: 12 }}>{t.lease_end ? fmtDate(t.lease_end) : "—"}</td>
+                    <td><StatusPill value={String(t.status ?? "—")} /></td>
+                    <td className="mono" style={{ color: Number(t.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{t.outstanding === undefined ? "—" : kM(t.outstanding)}</td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("leases"); }}>Leases</button>
@@ -937,7 +937,7 @@ function TenantsView({
   );
 }
 
-/* âââ TENANT DOCUMENTS âââ */
+/* ─── TENANT DOCUMENTS ─── */
 
 function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDownload }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
@@ -947,7 +947,7 @@ function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDow
 
   return (
     <>
-      <ViewToolbar title="Tenant Documents" subtitle="Uploaded identity, agreement and compliance documents" search={search} onSearch={setSearch} placeholder="Search by tenant, type or numberâ¦">
+      <ViewToolbar title="Tenant Documents" subtitle="Uploaded identity, agreement and compliance documents" search={search} onSearch={setSearch} placeholder="Search by tenant, type or number…">
         <button className="btn primary sm" onClick={onUpload}>+ Upload</button>
       </ViewToolbar>
 
@@ -970,13 +970,13 @@ function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDow
               <tbody>
                 {docs.map((d) => (
                   <tr key={String(d.id)}>
-                    <td><strong style={{ fontSize: 12 }}>{String(d.document_type ?? "â")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(d.tenant_name ?? "â")}</td>
-                    <td style={{ fontSize: 12 }}>{String(d.document_type ?? "â")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(d.document_number ?? "â")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(d.document_type ?? "—")}</strong></td>
+                    <td style={{ fontSize: 12 }}>{String(d.tenant_name ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{String(d.document_type ?? "—")}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(d.document_number ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(d.created_at)}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(d.expires_on)}</td>
-                    <td><StatusPill value={String(d.status ?? "â")} /></td>
+                    <td><StatusPill value={String(d.status ?? "—")} /></td>
                     <td>
                       <button className="btn ghost sm" onClick={() => onDownload(d)}>Download</button>
                     </td>
@@ -991,7 +991,7 @@ function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDow
   );
 }
 
-/* âââ LEASES âââ */
+/* ─── LEASES ─── */
 
 function LeasesView({
   rows, loading, search, setSearch, setTab, onAddLease, onDownloadTemplate, onLeaseAction, onSelectRow,
@@ -1013,11 +1013,11 @@ function LeasesView({
   return (
     <>
       <KpiStrip>
-        <KpiCard icon="ð" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Leases" value={kN(leases.length)} sub="Registered agreements" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="â" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Current tenancies" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="â³" iconBg="#fef3c7" iconColor="#d97706" label="Expiring in 30 Days" value={kN(expiring30)} sub="Upcoming renewals" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="ðª" iconBg="#fee2e2" iconColor="#dc2626" label="Expired" value={kN(expired)} sub="Closed agreements" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="ð°" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Rent" value={kM(monthlyRent)} sub="Active leases" link="View rent" onClick={() => setTab("rent")} />
+        <KpiCard icon="📑" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Leases" value={kN(leases.length)} sub="Registered agreements" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Current tenancies" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#d97706" label="Expiring in 30 Days" value={kN(expiring30)} sub="Upcoming renewals" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="🚪" iconBg="#fee2e2" iconColor="#dc2626" label="Expired" value={kN(expired)} sub="Closed agreements" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Rent" value={kM(monthlyRent)} sub="Active leases" link="View rent" onClick={() => setTab("rent")} />
       </KpiStrip>
 
       <div className="card" style={{ padding: 18, border: "1px dashed var(--primary)", background: "var(--surface-2)" }}>
@@ -1029,13 +1029,13 @@ function LeasesView({
             </p>
           </div>
           <div className="row" style={{ gap: 10 }}>
-            <button className="btn ghost sm" onClick={onDownloadTemplate}>ð¥ Download Template</button>
+            <button className="btn ghost sm" onClick={onDownloadTemplate}>📥 Download Template</button>
             <button className="btn primary sm" onClick={onAddLease}>+ Add Single Lease</button>
           </div>
         </div>
       </div>
 
-      <Panel title="Lease Register" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Invoices â</button>}>
+      <Panel title="Lease Register" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Invoices →</button>}>
         <ListState loading={loading} empty={leases.length === 0} emptyTitle="No leases found" emptyDesc="Add a single lease or bulk import a tenancy schedule to populate the register.">
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -1057,15 +1057,15 @@ function LeasesView({
               <tbody>
                 {leases.map((l) => (
                   <tr key={String(l.id)} onClick={() => onSelectRow(l)}>
-                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(l.reference ?? "â")}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(l.tenant_name ?? "â")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(l.property_name ?? "â")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(l.unit_code ?? "â")}</td>
+                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(l.reference ?? "—")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(l.tenant_name ?? "—")}</strong></td>
+                    <td style={{ fontSize: 12 }}>{String(l.property_name ?? "—")}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(l.unit_code ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(l.starts_on)}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(l.ends_on)}</td>
                     <td className="mono">{kM(l.monthly_rent)}</td>
-                    <td><StatusPill value={String(l.status ?? "â")} /></td>
-                    <td className="mono" style={{ color: Number(l.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{l.outstanding === undefined ? "â" : kM(l.outstanding)}</td>
+                    <td><StatusPill value={String(l.status ?? "—")} /></td>
+                    <td className="mono" style={{ color: Number(l.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{l.outstanding === undefined ? "—" : kM(l.outstanding)}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{daysLeftLabel(l.ends_on)}</td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
@@ -1086,7 +1086,7 @@ function LeasesView({
   );
 }
 
-/* âââ RENT SCHEDULES âââ */
+/* ─── RENT SCHEDULES ─── */
 
 function RentSchedulesView({ rows, loading, search, setSearch }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
@@ -1095,7 +1095,7 @@ function RentSchedulesView({ rows, loading, search, setSearch }: {
 
   return (
     <>
-      <ViewToolbar title="Rent Roll" subtitle="Unit-by-unit rent schedule with escalation and service charge" search={search} onSearch={setSearch} placeholder="Search by lease reference or tenantâ¦" />
+      <ViewToolbar title="Rent Roll" subtitle="Unit-by-unit rent schedule with escalation and service charge" search={search} onSearch={setSearch} placeholder="Search by lease reference or tenant…" />
 
       <Panel title="Rent Schedule (Rent Roll)">
         <ListState loading={loading} empty={schedules.length === 0} emptyTitle="No rent schedules found" emptyDesc="Generate rent schedules from active leases to build the rent roll.">
@@ -1117,15 +1117,15 @@ function RentSchedulesView({ rows, loading, search, setSearch }: {
               <tbody>
                 {schedules.map((s) => (
                   <tr key={String(s.id)}>
-                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(s.lease_reference ?? "â")}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(s.tenant_name ?? "â")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(s.period_start)} â {fmtDate(s.period_end)}</td>
+                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(s.lease_reference ?? "—")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(s.tenant_name ?? "—")}</strong></td>
+                    <td style={{ fontSize: 12 }}>{fmtDate(s.period_start)} — {fmtDate(s.period_end)}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(s.due_on)}</td>
                     <td className="mono">{kM(s.base_rent)}</td>
-                    <td className="mono">{s.escalation_amount ? kM(s.escalation_amount) : "â"}</td>
-                    <td className="mono">{s.service_charge ? kM(s.service_charge) : "â"}</td>
+                    <td className="mono">{s.escalation_amount ? kM(s.escalation_amount) : "—"}</td>
+                    <td className="mono">{s.service_charge ? kM(s.service_charge) : "—"}</td>
                     <td className="mono"><strong>{kM(s.total)}</strong></td>
-                    <td><StatusPill value={String(s.status ?? "â")} /></td>
+                    <td><StatusPill value={String(s.status ?? "—")} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1137,20 +1137,20 @@ function RentSchedulesView({ rows, loading, search, setSearch }: {
   );
 }
 
-/* âââ RENT & INVOICES âââ */
+/* ─── RENT & INVOICES ─── */
 
 function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onSelect: (r: Row) => void) {
   return invoices.map((inv) => (
     <tr key={String(inv.id)} onClick={() => onSelect(inv)}>
-      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(inv.number ?? "â")}</td>
-      <td><strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "â")}</strong></td>
-      <td style={{ fontSize: 12 }}>{String((inv.metadata as Record<string, unknown> | undefined)?.property_name ?? "â")}</td>
+      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(inv.number ?? "—")}</td>
+      <td><strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "—")}</strong></td>
+      <td style={{ fontSize: 12 }}>{String((inv.metadata as Record<string, unknown> | undefined)?.property_name ?? "—")}</td>
       {full && <td style={{ fontSize: 12 }}>{fmtDate(inv.issued_on)}</td>}
       <td style={{ fontSize: 12 }}>{fmtDate(inv.due_on)}</td>
       <td className="mono">{kM(inv.amount)}</td>
       {full && <td className="mono" style={{ color: Number(inv.amount) - Number(inv.balance ?? 0) > 0 ? "#16a34a" : "var(--muted)" }}>{kM(Number(inv.amount) - Number(inv.balance ?? 0))}</td>}
       <td className="mono" style={{ color: Number(inv.balance ?? 0) > 0 ? "var(--danger)" : "#16a34a" }}>{kM(inv.balance)}</td>
-      <td><StatusPill value={String(inv.status ?? "â")} /></td>
+      <td><StatusPill value={String(inv.status ?? "—")} /></td>
       <td>
         {Number(inv.balance ?? 0) > 0 && (
           <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onPay(String(inv.id)); }}>Pay</button>
@@ -1204,11 +1204,11 @@ function RentView({
       />
 
       <KpiStrip>
-        <KpiCard icon="ð§¾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} link="View invoices" onClick={() => setRentSection("invoices")} />
-        <KpiCard icon="â" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={kM(collected)} sub={`${collectionRate}% collection rate`} link="View receipts" onClick={() => setRentSection("receipts")} />
-        <KpiCard icon="â" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub="Billed vs collected" link="View invoices" onClick={() => setRentSection("invoices")} />
-        <KpiCard icon="â ï¸" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid balances" link="View arrears" onClick={() => setRentSection("arrears")} />
-        <KpiCard icon="ð" iconBg="#fff7ed" iconColor="#ea580c" label="Due This Month" value={kN(dueThisMonth)} sub="Open invoices" link="View invoices" onClick={() => setRentSection("invoices")} />
+        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} link="View invoices" onClick={() => setRentSection("invoices")} />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={kM(collected)} sub={`${collectionRate}% collection rate`} link="View receipts" onClick={() => setRentSection("receipts")} />
+        <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub="Billed vs collected" link="View invoices" onClick={() => setRentSection("invoices")} />
+        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid balances" link="View arrears" onClick={() => setRentSection("arrears")} />
+        <KpiCard icon="📅" iconBg="#fff7ed" iconColor="#ea580c" label="Due This Month" value={kN(dueThisMonth)} sub="Open invoices" link="View invoices" onClick={() => setRentSection("invoices")} />
       </KpiStrip>
 
       {rentSection === "invoices" && (
@@ -1280,11 +1280,11 @@ function RentView({
                 <tbody>
                   {(rows as ReceiptRow[]).map((r) => (
                     <tr key={String(r.id)}>
-                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(r.number ?? "â")}</td>
-                      <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "â")}</strong></td>
+                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(r.number ?? "—")}</td>
+                      <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "—")}</strong></td>
                       <td style={{ fontSize: 12 }}>{fmtDate(r.received_on)}</td>
-                      <td style={{ fontSize: 12 }}>{String(r.payment_method ?? "â").replace(/_/g, " ")}</td>
-                      <td className="mono" style={{ fontSize: 12 }}>{String(r.external_reference ?? "â")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.payment_method ?? "—").replace(/_/g, " ")}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(r.external_reference ?? "—")}</td>
                       <td className="mono">{kM(r.amount)}</td>
                       <td><Badge tone={r.invoice ? "green" : "yellow"}>{r.invoice ? "Applied" : "Unapplied"}</Badge></td>
                     </tr>
@@ -1313,9 +1313,9 @@ function RentView({
                 <tbody>
                   {(rows as AgingTenantRow[]).map((t, i) => (
                     <tr key={i}>
-                      <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "â")}</strong></td>
-                      <td style={{ fontSize: 12 }}>{String(t.property ?? "â")}</td>
-                      <td className="mono" style={{ fontSize: 12 }}>{String(t.unit ?? "â")}</td>
+                      <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "—")}</strong></td>
+                      <td style={{ fontSize: 12 }}>{String(t.property ?? "—")}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(t.unit ?? "—")}</td>
                       <td className="mono" style={{ color: "var(--danger)" }}>{kM(t.outstanding)}</td>
                       <td><Badge tone="red">{kN(t.oldest_days)}d</Badge></td>
                     </tr>
@@ -1328,7 +1328,7 @@ function RentView({
       )}
 
       {rentSection === "reminders" && (
-        <Panel title="Sent Reminders" action={<button className="btn ghost sm" onClick={() => setTab("reminders")}>All Reminders â</button>}>
+        <Panel title="Sent Reminders" action={<button className="btn ghost sm" onClick={() => setTab("reminders")}>All Reminders →</button>}>
           <ListState loading={loading} empty={rows.length === 0} emptyTitle="No reminders" emptyDesc="Payment reminders sent to tenants appear here.">
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -1345,10 +1345,10 @@ function RentView({
                 <tbody>
                   {(rows as ReminderRow[]).map((r) => (
                     <tr key={String(r.id)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "â")}</strong></td>
-                      <td className="mono" style={{ fontSize: 12 }}>{String(r.invoice_number ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{String(r.channel ?? "â").replace(/_/g, " ")}</td>
-                      <td style={{ fontSize: 12 }}>{String(r.recipient ?? "â")}</td>
+                      <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "—")}</strong></td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(r.invoice_number ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.channel ?? "—").replace(/_/g, " ")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.recipient ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{fmtDate(r.sent_at)}</td>
                       <td><Badge tone="green">Sent</Badge></td>
                     </tr>
@@ -1361,7 +1361,7 @@ function RentView({
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
-        <Panel title="Aging Summary (Outstanding)" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report â</button>}>
+        <Panel title="Aging Summary (Outstanding)" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report →</button>}>
           {agingTotal > 0 ? (
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -1394,11 +1394,11 @@ function RentView({
               </table>
             </div>
           ) : (
-            <EmptyState icon="â" title="No outstanding balances" description="All invoices have been collected." />
+            <EmptyState icon="✓" title="No outstanding balances" description="All invoices have been collected." />
           )}
         </Panel>
 
-        <Panel title="Top Tenants by Outstanding" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>View All Arrears â</button>}>
+        <Panel title="Top Tenants by Outstanding" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>View All Arrears →</button>}>
           {topTenants.length > 0 ? (
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -1413,8 +1413,8 @@ function RentView({
                 <tbody>
                   {topTenants.slice(0, 6).map((t, i) => (
                     <tr key={i}>
-                      <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "â")}</strong></td>
-                      <td style={{ fontSize: 12 }}>{String(t.property ?? "â")} Â· {String(t.unit ?? "â")}</td>
+                      <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "—")}</strong></td>
+                      <td style={{ fontSize: 12 }}>{String(t.property ?? "—")} · {String(t.unit ?? "—")}</td>
                       <td className="mono" style={{ color: "var(--danger)" }}>{kM(t.outstanding)}</td>
                       <td><Badge tone="red">{kN(t.oldest_days)}d</Badge></td>
                     </tr>
@@ -1423,7 +1423,7 @@ function RentView({
               </table>
             </div>
           ) : (
-            <EmptyState icon="â" title="No outstanding tenants" description="Every tenant is up to date." />
+            <EmptyState icon="✓" title="No outstanding tenants" description="Every tenant is up to date." />
           )}
         </Panel>
       </div>
@@ -1431,7 +1431,7 @@ function RentView({
   );
 }
 
-/* âââ ARREARS âââ */
+/* ─── ARREARS ─── */
 
 function ArrearsView({
   rows, analytics, loading, search, setSearch, onNavigateReminders,
@@ -1451,7 +1451,7 @@ function ArrearsView({
 
   return (
     <>
-      <ViewToolbar title="Arrears Register" subtitle="Tenants with outstanding balances and aged debt" search={search} onSearch={setSearch} placeholder="Search tenant or propertyâ¦" />
+      <ViewToolbar title="Arrears Register" subtitle="Tenants with outstanding balances and aged debt" search={search} onSearch={setSearch} placeholder="Search tenant or property…" />
 
       <Panel title="Aging Buckets (Outstanding)">
         {total > 0 ? (
@@ -1494,7 +1494,7 @@ function ArrearsView({
             </table>
           </div>
         ) : (
-          <EmptyState icon="â" title="No arrears" description="There are no outstanding balances to report." />
+          <EmptyState icon="✓" title="No arrears" description="There are no outstanding balances to report." />
         )}
       </Panel>
 
@@ -1515,8 +1515,8 @@ function ArrearsView({
               <tbody>
                 {tenants.map((t, i) => (
                   <tr key={i}>
-                    <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "â")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(t.property ?? "â")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "—")}</strong></td>
+                    <td style={{ fontSize: 12 }}>{String(t.property ?? "—")}</td>
                     <td className="mono" style={{ color: "var(--danger)" }}>{kM(t.outstanding)}</td>
                     <td><Badge tone={Number(t.oldest_days ?? 0) > 90 ? "red" : Number(t.oldest_days ?? 0) > 60 ? "yellow" : "blue"}>{kN(t.oldest_days)}d</Badge></td>
                     <td><Badge tone="red">Overdue</Badge></td>
@@ -1534,7 +1534,7 @@ function ArrearsView({
   );
 }
 
-/* âââ REMINDERS âââ */
+/* ─── REMINDERS ─── */
 
 function RemindersView({ rows, loading, search, setSearch, onSendReminder, setTab }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
@@ -1544,7 +1544,7 @@ function RemindersView({ rows, loading, search, setSearch, onSendReminder, setTa
 
   return (
     <>
-      <ViewToolbar title="Payment Reminders" subtitle="Sent and scheduled payment reminders" search={search} onSearch={setSearch} placeholder="Search tenant or invoiceâ¦" />
+      <ViewToolbar title="Payment Reminders" subtitle="Sent and scheduled payment reminders" search={search} onSearch={setSearch} placeholder="Search tenant or invoice…" />
 
       <Panel title="Reminders">
         <ListState loading={loading} empty={reminders.length === 0} emptyTitle="No reminders found" emptyDesc="Payment reminders sent from the collection workflow appear here.">
@@ -1564,10 +1564,10 @@ function RemindersView({ rows, loading, search, setSearch, onSendReminder, setTa
               <tbody>
                 {reminders.map((r) => (
                   <tr key={String(r.id)}>
-                    <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "â")}</strong></td>
-                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(r.invoice_number ?? "â")}</td>
-                    <td style={{ fontSize: 12 }}>{String(r.channel ?? "â").replace(/_/g, " ")}</td>
-                    <td style={{ fontSize: 12 }}>{String(r.recipient ?? "â")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "—")}</strong></td>
+                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(r.invoice_number ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{String(r.channel ?? "—").replace(/_/g, " ")}</td>
+                    <td style={{ fontSize: 12 }}>{String(r.recipient ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(r.sent_at)}</td>
                     <td><Badge tone="green">Sent</Badge></td>
                     <td>
@@ -1587,7 +1587,7 @@ function RemindersView({ rows, loading, search, setSearch, onSendReminder, setTa
   );
 }
 
-/* âââ RECEIPTS âââ */
+/* ─── RECEIPTS ─── */
 
 function ReceiptsView({
   rows, creditNotes, loading, search, setSearch, onRecordReceipt,
@@ -1631,13 +1631,13 @@ function ReceiptsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="ð§¾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Receipts" value={kM(receiptTotal)} sub="Collected this period" link="View receipts" onClick={() => setFilter("receipts")} />
-        <KpiCard icon="â©" iconBg="#fef3c7" iconColor="#d97706" label="Credit Notes" value={kM(creditTotal)} sub="Issued credits" link="View credit notes" onClick={() => setFilter("credit-notes")} />
-        <KpiCard icon="â" iconBg="#dcfce7" iconColor="#16a34a" label="Net Collections" value={kM(Math.max(receiptTotal - creditTotal, 0))} sub="Receipts less credits" link="View receipts" onClick={() => setFilter("all")} />
-        <KpiCard icon="â ï¸" iconBg="#fee2e2" iconColor="#dc2626" label="Unapplied" value={kM(unapplied)} sub="Receipts not allocated" link="View unapplied" onClick={() => setFilter("unapplied")} />
+        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Receipts" value={kM(receiptTotal)} sub="Collected this period" link="View receipts" onClick={() => setFilter("receipts")} />
+        <KpiCard icon="↩" iconBg="#fef3c7" iconColor="#d97706" label="Credit Notes" value={kM(creditTotal)} sub="Issued credits" link="View credit notes" onClick={() => setFilter("credit-notes")} />
+        <KpiCard icon="◔" iconBg="#dcfce7" iconColor="#16a34a" label="Net Collections" value={kM(Math.max(receiptTotal - creditTotal, 0))} sub="Receipts less credits" link="View receipts" onClick={() => setFilter("all")} />
+        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Unapplied" value={kM(unapplied)} sub="Receipts not allocated" link="View unapplied" onClick={() => setFilter("unapplied")} />
       </KpiStrip>
 
-      <ViewToolbar title="Receipts & Credit Notes" subtitle="Recorded payments and credit adjustments" search={search} onSearch={setSearch} placeholder="Search receipt, tenant or referenceâ¦">
+      <ViewToolbar title="Receipts & Credit Notes" subtitle="Recorded payments and credit adjustments" search={search} onSearch={setSearch} placeholder="Search receipt, tenant or reference…">
         <button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Receipt</button>
       </ViewToolbar>
 
@@ -1667,11 +1667,11 @@ function ReceiptsView({
                 {combined.map((r) => (
                   <tr key={String(r.id)}>
                     <td><Badge tone={r.docType === "Credit Note" ? "yellow" : "blue"}>{String(r.docType)}</Badge></td>
-                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(r.docNumber ?? "â")}</td>
+                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(r.docNumber ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(r.docDate)}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "â")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(r.docMethod ?? "â").replace(/_/g, " ")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(r.docRef ?? "â")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "—")}</strong></td>
+                    <td style={{ fontSize: 12 }}>{String(r.docMethod ?? "—").replace(/_/g, " ")}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(r.docRef ?? "—")}</td>
                     <td className="mono" style={{ color: r.docType === "Credit Note" ? "var(--danger)" : "var(--text)" }}>{kM(r.amount)}</td>
                     <td><Badge tone={r.docStatus === "Applied" ? "green" : r.docStatus === "Unapplied" ? "yellow" : "gray"}>{String(r.docStatus)}</Badge></td>
                   </tr>
@@ -1685,7 +1685,7 @@ function ReceiptsView({
   );
 }
 
-/* âââ RECEIPT ALLOCATIONS âââ */
+/* ─── RECEIPT ALLOCATIONS ─── */
 
 function ReceiptAllocationsView({ rows, loading, search, setSearch }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
@@ -1694,7 +1694,7 @@ function ReceiptAllocationsView({ rows, loading, search, setSearch }: {
 
   return (
     <>
-      <ViewToolbar title="Receipt Allocations" subtitle="How each receipt is allocated against open invoices" search={search} onSearch={setSearch} placeholder="Search receipt, invoice or tenantâ¦" />
+      <ViewToolbar title="Receipt Allocations" subtitle="How each receipt is allocated against open invoices" search={search} onSearch={setSearch} placeholder="Search receipt, invoice or tenant…" />
 
       <Panel title="Allocations">
         <ListState loading={loading} empty={allocations.length === 0} emptyTitle="No allocations found" emptyDesc="Receipts allocated to invoices appear here.">
@@ -1715,9 +1715,9 @@ function ReceiptAllocationsView({ rows, loading, search, setSearch }: {
                 {allocations.map((a) => (
                   <tr key={String(a.id)}>
                     <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{shortId(a.id)}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(a.receipt_number ?? "â")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(a.invoice_number ?? "â")}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(a.tenant_name ?? "â")}</strong></td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(a.receipt_number ?? "—")}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(a.invoice_number ?? "—")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(a.tenant_name ?? "—")}</strong></td>
                     <td className="mono">{kM(a.amount)}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(a.created_at)}</td>
                     <td><Badge tone="green">Applied</Badge></td>
@@ -1732,7 +1732,7 @@ function ReceiptAllocationsView({ rows, loading, search, setSearch }: {
   );
 }
 
-/* âââ BANK RECONCILIATION âââ */
+/* ─── BANK RECONCILIATION ─── */
 
 function BankReconciliationView({ rows, loading, search, setSearch, onMatch }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onMatch: (r: Row) => void;
@@ -1741,7 +1741,7 @@ function BankReconciliationView({ rows, loading, search, setSearch, onMatch }: {
 
   return (
     <>
-      <ViewToolbar title="Bank Reconciliation" subtitle="Match bank statements to recorded receipts" search={search} onSearch={setSearch} placeholder="Search reference or descriptionâ¦" />
+      <ViewToolbar title="Bank Reconciliation" subtitle="Match bank statements to recorded receipts" search={search} onSearch={setSearch} placeholder="Search reference or description…" />
 
       <Panel title="Bank Transactions">
         <ListState loading={loading} empty={transactions.length === 0} emptyTitle="No bank transactions found" emptyDesc="Imported bank statement transactions appear here.">
@@ -1761,12 +1761,12 @@ function BankReconciliationView({ rows, loading, search, setSearch, onMatch }: {
               <tbody>
                 {transactions.map((t) => (
                   <tr key={String(t.id)}>
-                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(t.reference ?? "â")}</td>
+                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(t.reference ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(t.transacted_on)}</td>
-                    <td style={{ fontSize: 12 }}>{String(t.description ?? "â")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(t.receipt_number ?? "â")}</td>
+                    <td style={{ fontSize: 12 }}>{String(t.description ?? "—")}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(t.receipt_number ?? "—")}</td>
                     <td className="mono">{kM(t.amount)}</td>
-                    <td><StatusPill value={String(t.status ?? "â")} /></td>
+                    <td><StatusPill value={String(t.status ?? "—")} /></td>
                     <td>
                       {t.status !== "matched" && (
                         <button className="btn ghost sm" onClick={() => onMatch(t)}>Match</button>
@@ -1783,7 +1783,7 @@ function BankReconciliationView({ rows, loading, search, setSearch, onMatch }: {
   );
 }
 
-/* âââ CREDIT NOTES âââ */
+/* ─── CREDIT NOTES ─── */
 
 function CreditNotesView({ rows, loading, search, setSearch, setTab }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
@@ -1792,7 +1792,7 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab }: {
 
   return (
     <>
-      <ViewToolbar title="Credit Notes" subtitle="Issued credit adjustments against invoices" search={search} onSearch={setSearch} placeholder="Search credit note, invoice or tenantâ¦" />
+      <ViewToolbar title="Credit Notes" subtitle="Issued credit adjustments against invoices" search={search} onSearch={setSearch} placeholder="Search credit note, invoice or tenant…" />
 
       <Panel title="Credit Notes">
         <ListState loading={loading} empty={notes.length === 0} emptyTitle="No credit notes found" emptyDesc="Credit notes issued against invoices appear here.">
@@ -1813,13 +1813,13 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab }: {
               <tbody>
                 {notes.map((c) => (
                   <tr key={String(c.id)}>
-                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(c.number ?? "â")}</td>
+                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(c.number ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(c.issued_on)}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(c.tenant_name ?? "â")}</strong></td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(c.invoice_number ?? "â")}</td>
-                    <td style={{ fontSize: 12 }}>{String(c.reason ?? "â")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(c.tenant_name ?? "—")}</strong></td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(c.invoice_number ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{String(c.reason ?? "—")}</td>
                     <td className="mono" style={{ color: "var(--danger)" }}>{kM(c.amount)}</td>
-                    <td><StatusPill value={String(c.status ?? "â")} /></td>
+                    <td><StatusPill value={String(c.status ?? "—")} /></td>
                     <td>
                       <button className="btn ghost sm" onClick={() => setTab("rent")}>View Invoice</button>
                     </td>
@@ -1834,7 +1834,7 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab }: {
   );
 }
 
-/* âââ SERVICE CHARGES âââ */
+/* ─── SERVICE CHARGES ─── */
 
 function ServiceChargesView({
   rows, scSection, setScSection, loading, search, setSearch, setTab,
@@ -1845,7 +1845,7 @@ function ServiceChargesView({
   const charges = rows as ServiceChargeRow[];
   const totalBudget = charges.reduce((s, c) => s + Number(c.annual_budget ?? 0), 0);
   const activeCharges = charges.filter((c) => c.is_active !== false).length;
-  const method = charges[0]?.method ?? "â";
+  const method = charges[0]?.method ?? "—";
   const totalArea = (charges[0]?.metadata as Record<string, unknown> | undefined)?.total_lettable_area;
 
   return (
@@ -1868,17 +1868,17 @@ function ServiceChargesView({
               <div>
                 <h4 style={{ margin: "0 0 4px 0", fontSize: 14 }}>Service Charge Model</h4>
                 <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                  Apportionment basis: <strong>{String(method).replace(/_/g, " ")}</strong> Â· Annual budget: <strong>{kM(totalBudget)}</strong>
+                  Apportionment basis: <strong>{String(method).replace(/_/g, " ")}</strong> · Annual budget: <strong>{kM(totalBudget)}</strong>
                 </p>
               </div>
               <div className="row" style={{ gap: 8 }}>
                 <span className="badge badge-blue">{kN(activeCharges)} active</span>
-                <span className="badge">{totalArea === undefined ? "â" : `${kN(totalArea)} mÂ² lettable`}</span>
+                <span className="badge">{totalArea === undefined ? "—" : `${kN(totalArea)} m² lettable`}</span>
               </div>
             </div>
           </div>
 
-          <Panel title="Cost Centres" action={<button className="btn ghost sm" onClick={() => setTab("service-charge-allocations")}>Allocations â</button>}>
+          <Panel title="Cost Centres" action={<button className="btn ghost sm" onClick={() => setTab("service-charge-allocations")}>Allocations →</button>}>
             <ListState loading={loading} empty={charges.length === 0} emptyTitle="No cost centres found" emptyDesc="Service charge schemes configured for your properties appear here.">
               <div className="table-scroll">
                 <table className="fc-data-table">
@@ -1895,8 +1895,8 @@ function ServiceChargesView({
                   <tbody>
                     {charges.map((c) => (
                       <tr key={String(c.id)}>
-                        <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(c.name ?? "â")}</td>
-                        <td style={{ fontSize: 12 }}>{String(c.property_name ?? "â")}</td>
+                        <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(c.name ?? "—")}</td>
+                        <td style={{ fontSize: 12 }}>{String(c.property_name ?? "—")}</td>
                         <td><Badge tone="green">Yes</Badge></td>
                         <td className="mono">{kM(c.annual_budget)}</td>
                         <td className="mono"><strong>{pct(c.annual_budget, totalBudget)}%</strong></td>
@@ -1939,8 +1939,8 @@ function ServiceChargesView({
                   {(rows as ServiceChargeAllocationRow[]).map((a) => (
                     <tr key={String(a.id)}>
                       <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{shortId(a.id)}</td>
-                      <td style={{ fontSize: 12 }}>{String(a.service_charge_name ?? "â")}</td>
-                      <td className="mono" style={{ fontSize: 12 }}>{String(a.unit_code ?? "â")}</td>
+                      <td style={{ fontSize: 12 }}>{String(a.service_charge_name ?? "—")}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(a.unit_code ?? "—")}</td>
                       <td className="mono">{Number(a.ratio ?? 0) * 100}%</td>
                       <td className="mono">{kM(a.monthly_amount)}</td>
                       <td className="mono">{kM(a.annual_amount)}</td>
@@ -1974,12 +1974,12 @@ function ServiceChargesView({
                   {(rows as ServiceChargeReconciliationRow[]).map((r) => (
                     <tr key={String(r.id)}>
                       <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{shortId(r.id)}</td>
-                      <td style={{ fontSize: 12 }}>{String(r.service_charge_name ?? "â")}</td>
-                      <td style={{ fontSize: 12 }}>{fmtDate(r.period_start)} â {fmtDate(r.period_end)}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.service_charge_name ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.period_start)} — {fmtDate(r.period_end)}</td>
                       <td className="mono">{kM(r.budgeted_amount)}</td>
                       <td className="mono">{kM(r.actual_amount)}</td>
                       <td className="mono" style={{ color: Number(r.variance ?? 0) < 0 ? "var(--danger)" : "#16a34a" }}>{kM(r.variance)}</td>
-                      <td><StatusPill value={String(r.status ?? "â")} /></td>
+                      <td><StatusPill value={String(r.status ?? "—")} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -2007,7 +2007,7 @@ function ServiceChargesView({
               </div>
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <span className="muted" style={{ fontSize: 12 }}>Total Lettable Area</span>
-                <strong className="mono">{totalArea === undefined ? "â" : `${kN(totalArea)} mÂ²`}</strong>
+                <strong className="mono">{totalArea === undefined ? "—" : `${kN(totalArea)} m²`}</strong>
               </div>
             </div>
           </Panel>
@@ -2016,7 +2016,7 @@ function ServiceChargesView({
               <p className="muted" style={{ margin: 0, fontSize: 12 }}>
                 Manage the organisation-wide budget register, income estimates and variance tracking from the Budgets workspace.
               </p>
-              <button className="btn ghost sm" onClick={() => setTab("budgets")}>Open Budgets â</button>
+              <button className="btn ghost sm" onClick={() => setTab("budgets")}>Open Budgets →</button>
             </div>
           </Panel>
         </div>
@@ -2025,7 +2025,7 @@ function ServiceChargesView({
   );
 }
 
-/* âââ SERVICE CHARGE ALLOCATIONS (dedicated tab) âââ */
+/* ─── SERVICE CHARGE ALLOCATIONS (dedicated tab) ─── */
 
 function ServiceChargeAllocationsView({ rows, loading, search, setSearch }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
@@ -2034,7 +2034,7 @@ function ServiceChargeAllocationsView({ rows, loading, search, setSearch }: {
 
   return (
     <>
-      <ViewToolbar title="Charge Allocations" subtitle="Unit-level apportionment for each service charge" search={search} onSearch={setSearch} placeholder="Search charge or unitâ¦" />
+      <ViewToolbar title="Charge Allocations" subtitle="Unit-level apportionment for each service charge" search={search} onSearch={setSearch} placeholder="Search charge or unit…" />
 
       <Panel title="Allocations">
         <ListState loading={loading} empty={allocations.length === 0} emptyTitle="No allocations found" emptyDesc="Generate allocations from a service charge to apportion its budget across units.">
@@ -2055,8 +2055,8 @@ function ServiceChargeAllocationsView({ rows, loading, search, setSearch }: {
                 {allocations.map((a) => (
                   <tr key={String(a.id)}>
                     <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{shortId(a.id)}</td>
-                    <td style={{ fontSize: 12 }}>{String(a.service_charge_name ?? "â")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(a.unit_code ?? "â")}</td>
+                    <td style={{ fontSize: 12 }}>{String(a.service_charge_name ?? "—")}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(a.unit_code ?? "—")}</td>
                     <td className="mono">{Number(a.ratio ?? 0) * 100}%</td>
                     <td className="mono">{kM(a.monthly_amount)}</td>
                     <td className="mono">{kM(a.annual_amount)}</td>
@@ -2072,7 +2072,7 @@ function ServiceChargeAllocationsView({ rows, loading, search, setSearch }: {
   );
 }
 
-/* âââ SERVICE CHARGE RECONCILIATIONS (dedicated tab) âââ */
+/* ─── SERVICE CHARGE RECONCILIATIONS (dedicated tab) ─── */
 
 function ServiceChargeReconciliationsView({ rows, loading, search, setSearch }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
@@ -2081,7 +2081,7 @@ function ServiceChargeReconciliationsView({ rows, loading, search, setSearch }: 
 
   return (
     <>
-      <ViewToolbar title="Service Charge Reconciliations" subtitle="Budget vs actual for each scheme period" search={search} onSearch={setSearch} placeholder="Search charge or periodâ¦" />
+      <ViewToolbar title="Service Charge Reconciliations" subtitle="Budget vs actual for each scheme period" search={search} onSearch={setSearch} placeholder="Search charge or period…" />
 
       <Panel title="Reconciliations">
         <ListState loading={loading} empty={reconciliations.length === 0} emptyTitle="No reconciliations found" emptyDesc="Period reconciliations comparing budgeted to actual expenditure appear here.">
@@ -2102,12 +2102,12 @@ function ServiceChargeReconciliationsView({ rows, loading, search, setSearch }: 
                 {reconciliations.map((r) => (
                   <tr key={String(r.id)}>
                     <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{shortId(r.id)}</td>
-                    <td style={{ fontSize: 12 }}>{String(r.service_charge_name ?? "â")}</td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(r.period_start)} â {fmtDate(r.period_end)}</td>
+                    <td style={{ fontSize: 12 }}>{String(r.service_charge_name ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{fmtDate(r.period_start)} — {fmtDate(r.period_end)}</td>
                     <td className="mono">{kM(r.budgeted_amount)}</td>
                     <td className="mono">{kM(r.actual_amount)}</td>
                     <td className="mono" style={{ color: Number(r.variance ?? 0) < 0 ? "var(--danger)" : "#16a34a" }}>{kM(r.variance)}</td>
-                    <td><StatusPill value={String(r.status ?? "â")} /></td>
+                    <td><StatusPill value={String(r.status ?? "—")} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -2119,7 +2119,7 @@ function ServiceChargeReconciliationsView({ rows, loading, search, setSearch }: 
   );
 }
 
-/* âââ BUDGETS âââ */
+/* ─── BUDGETS ─── */
 
 function BudgetsView({ rows, loading, search, setSearch, onSelectRow }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onSelectRow: (r: Row) => void;
