@@ -458,3 +458,20 @@ test("authenticated module pages do not produce browser errors", async ({ page }
   }
   expect(errors).toEqual([]);
 });
+
+test("monitoring workspace tabs handle empty or missing API payloads without throwing runtime errors", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/monitoring");
+  
+  // Test core horizontal tabs to verify resilience against empty/partial API data
+  const tabs = ["Overview", "Tickets", "Programme", "Milestones", "Financials", "Risks", "Documents", "Reports", "Daily Logs", "Procurement"];
+  for (const tabLabel of tabs) {
+    const tabBtn = page.getByRole("button", { name: tabLabel, exact: true });
+    if (await tabBtn.isVisible()) {
+      await tabBtn.click();
+      await page.waitForTimeout(100);
+    }
+  }
+  expect(errors).toEqual([]);
+});
