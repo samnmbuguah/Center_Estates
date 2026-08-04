@@ -194,7 +194,7 @@ export function Field({ label, children, required }: { label: string; children: 
   return (
     <div className="field">
       <label htmlFor={controlId} style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
-        {label} {required && <span style={{ color: "var(--danger)" }}>*</span>}
+        {label} {required && <span aria-hidden="true" style={{ color: "var(--danger)" }}>*</span>}
       </label>
       {control}
     </div>

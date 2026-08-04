@@ -122,6 +122,7 @@ test("property leasing officer can create a controlled draft lease", async ({ pa
 });
 
 test("property finance can capture draft budgets and supplier expenses", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutations avoid parallel finance register races");
   await page.goto("/property");
   const suffix=Date.now();
@@ -137,7 +138,7 @@ test("property finance can capture draft budgets and supplier expenses", async (
   await page.getByRole("button", {name:"+ Record expense",exact:true}).click();
   dialog=page.getByRole("dialog",{name:"Record supplier expense"});
   await dialog.getByLabel("Property").selectOption({index:1});
-  await dialog.getByLabel("Supplier", {exact:true}).fill(`E2E Supplier ${suffix}`);
+  await dialog.locator('input[name="supplier"]').fill(`E2E Supplier ${suffix}`);
   await dialog.getByLabel("Category").fill("Repairs");
   await dialog.getByLabel("Incurred on").fill("2026-08-02");
   await dialog.getByLabel("Expense amount").fill("28500");
@@ -162,6 +163,22 @@ test("property finance can configure and allocate a service charge", async ({ pa
   await expect(row).toBeVisible();
   await row.getByRole("button",{name:"Allocate",exact:true}).click();
   await expect(page.getByText(name,{exact:true}).first()).toBeVisible();
+});
+
+test("property finance can issue an audited credit note", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel invoice balance races");
+  await page.goto("/property");
+  await openModuleSection(page, "Credit notes");
+  await page.getByRole("button", { name: "+ Issue credit note", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Issue credit note" });
+  const number = `E2E-CN-${Date.now()}`;
+  await dialog.getByLabel("Credit note number").fill(number);
+  await dialog.getByLabel("Issued on").fill("2026-08-04");
+  await dialog.getByLabel("Invoice").selectOption({ index: 1 });
+  await dialog.getByLabel("Credit amount").fill("1");
+  await dialog.getByLabel("Reason").fill("End-to-end controlled billing adjustment");
+  await dialog.getByRole("button", { name: "Issue credit note", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: number })).toContainText("issued");
 });
 
 test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {

@@ -1788,14 +1788,16 @@ function BankReconciliationView({ rows, loading, search, setSearch, onMatch }: {
 
 /* ─── CREDIT NOTES ─── */
 
-function CreditNotesView({ rows, loading, search, setSearch, setTab }: {
-  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
+function CreditNotesView({ rows, loading, search, setSearch, setTab, onAdd }: {
+  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onAdd: () => void;
 }) {
   const notes = rows as CreditNoteRow[];
 
   return (
     <>
-      <ViewToolbar title="Credit Notes" subtitle="Issued credit adjustments against invoices" search={search} onSearch={setSearch} placeholder="Search credit note, invoice or tenant…" />
+      <ViewToolbar title="Credit Notes" subtitle="Issued credit adjustments against invoices" search={search} onSearch={setSearch} placeholder="Search credit note, invoice or tenant…">
+        <button className="btn primary sm" onClick={onAdd}>+ Issue credit note</button>
+      </ViewToolbar>
 
       <Panel title="Credit Notes">
         <ListState loading={loading} empty={notes.length === 0} emptyTitle="No credit notes found" emptyDesc="Credit notes issued against invoices appear here.">
@@ -2129,8 +2131,8 @@ function ServiceChargeReconciliationsView({ rows, loading, search, setSearch }: 
 
 /* ─── BUDGETS ─── */
 
-function BudgetsView({ rows, loading, search, setSearch, onSelectRow }: {
-  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onSelectRow: (r: Row) => void;
+function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd }: {
+  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onSelectRow: (r: Row) => void; onAdd: () => void;
 }) {
   const budgets = rows as BudgetRow[];
   const totalBudget = budgets.reduce((s, b) => s + Number(b.amount ?? 0), 0);
@@ -2147,7 +2149,9 @@ function BudgetsView({ rows, loading, search, setSearch, onSelectRow }: {
         <KpiCard icon="▽" iconBg="#fee2e2" iconColor="#dc2626" label="Variance" value={kM(totalVariance)} sub="Budget less actual" link="View budgets" onClick={() => {}} />
       </KpiStrip>
 
-      <ViewToolbar title="Budgets & Estimates" subtitle="Budget registers, utilization and variance tracking" search={search} onSearch={setSearch} placeholder="Search by property, category or year…" />
+      <ViewToolbar title="Budgets & Estimates" subtitle="Budget registers, utilization and variance tracking" search={search} onSearch={setSearch} placeholder="Search by property, category or year…">
+        <button className="btn primary sm" onClick={onAdd}>+ Add budget line</button>
+      </ViewToolbar>
 
       <Panel title="Recent Budgets">
         <ListState loading={loading} empty={budgets.length === 0} emptyTitle="No budgets found" emptyDesc="Property budgets and estimates will appear here once created.">
@@ -2205,9 +2209,9 @@ function BudgetsView({ rows, loading, search, setSearch, onSelectRow }: {
 
 /* ─── EXPENSES ─── */
 
-function ExpensesView({ rows, financial, loading, search, setSearch, setTab }: {
+function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onAdd }: {
   rows: Row[]; financial: FinancialAnalytics | null; loading: boolean;
-  search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
+  search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onAdd: () => void;
 }) {
   const expenses = rows as ExpenseRow[];
   const kpis = financial?.kpis;
@@ -2227,7 +2231,9 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab }: {
         <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Transactions" value={kN(expenses.length)} sub="Recent expense lines" link="View expenses" onClick={() => setTab("expenses")} />
       </KpiStrip>
 
-      <ViewToolbar title="Property Expenses" subtitle="Track and analyse income and expenses across your properties" search={search} onSearch={setSearch} placeholder="Search supplier, category or property…" />
+      <ViewToolbar title="Property Expenses" subtitle="Track and analyse income and expenses across your properties" search={search} onSearch={setSearch} placeholder="Search supplier, category or property…">
+        <button className="btn primary sm" onClick={onAdd}>+ Record expense</button>
+      </ViewToolbar>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
         <Panel title="Income vs Expenses (YTD)" action={<button className="btn ghost sm" onClick={() => setTab("receipts")}>Collections →</button>}>
@@ -2421,6 +2427,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [showRecordReceipt, setShowRecordReceipt] = useState(false);
   const [showUploadDoc, setShowUploadDoc] = useState(false);
   const [showAddServiceCharge, setShowAddServiceCharge] = useState(false);
+  const [financialIntake, setFinancialIntake] = useState<"budget" | "expense" | "credit-note" | null>(null);
   const [matchTarget, setMatchTarget] = useState<BankTransactionRow | null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<ID>("");
 
@@ -2610,10 +2617,15 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setTenantOptions(Array.isArray(d) ? d : []));
     }
-    if (showAddServiceCharge) {
+    if (showAddServiceCharge || financialIntake === "budget" || financialIntake === "expense") {
       void apiFetch("/property/properties/?search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setPropertyOptions(Array.isArray(d) ? d : []));
+    }
+    if (financialIntake === "credit-note") {
+      void apiFetch("/property/invoices/?search=", {}, organizationId)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setInvoiceOptions(Array.isArray(d) ? d.filter((invoice: InvoiceRow) => Number(invoice.balance ?? 0) > 0) : []));
     }
     if (showAddLease) {
       void apiFetch("/property/units/?search=", {}, organizationId)
@@ -2630,7 +2642,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setReceiptOptions(Array.isArray(d) ? d : []));
     }
-  }, [showAddLease, showUploadDoc, showRecordReceipt, showAddServiceCharge, matchTarget, organizationId]);
+  }, [showAddLease, showUploadDoc, showRecordReceipt, showAddServiceCharge, financialIntake, matchTarget, organizationId]);
 
   async function submitAddProperty(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -2842,6 +2854,43 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }
   }
 
+  async function submitFinancialIntake(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!financialIntake) return;
+    const form = new FormData(e.currentTarget);
+    const raw = Object.fromEntries(form.entries());
+    const endpoint = financialIntake === "credit-note" ? "credit-notes" : financialIntake === "expense" ? "expenses" : "budgets";
+    const payload = financialIntake === "credit-note"
+      ? {
+          number: String(raw.number ?? "").trim(), invoice: String(raw.invoice ?? ""),
+          issued_on: String(raw.issued_on ?? ""), amount: Number(raw.amount ?? 0), reason: String(raw.reason ?? "").trim(),
+        }
+      : financialIntake === "expense"
+        ? {
+            property: String(raw.property ?? ""), supplier: String(raw.supplier ?? "").trim(),
+            invoice_number: String(raw.invoice_number ?? "").trim(), category: String(raw.category ?? "").trim(),
+            incurred_on: String(raw.incurred_on ?? ""), description: String(raw.description ?? "").trim(), amount: Number(raw.amount ?? 0),
+          }
+        : {
+            property: String(raw.property ?? ""), year: Number(raw.year ?? new Date().getFullYear()),
+            category: String(raw.category ?? "").trim(), amount: Number(raw.amount ?? 0),
+          };
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/${endpoint}/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload),
+    }, organizationId);
+    if (res.ok) {
+      const destination: PropertyTab = financialIntake === "credit-note" ? "credit-notes" : financialIntake === "expense" ? "expenses" : "budgets";
+      setFinancialIntake(null);
+      setTab(destination);
+      loadData();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      const message = Object.values(body as Record<string, unknown>).flat().join(" ");
+      setError(message || "The financial record could not be saved.");
+    }
+  }
+
   async function generateServiceChargeAllocations(row: ServiceChargeRow) {
     await apiFetch("/auth/csrf/");
     const res = await apiFetch(`/property/service-charges/${row.id}/generate-allocations/`, {
@@ -2978,12 +3027,12 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={openRecordReceipt} />}
         {tab === "receipt-allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "bank-reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} />}
-        {tab === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
+        {tab === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("credit-note")} />}
         {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} />}
         {tab === "service-charge-allocations" && <ServiceChargeAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
-        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} onSelectRow={setSelectedRow} />}
-        {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
+        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} />}
+        {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={(key) => void downloadReportCSV(key)} />}
 
         {selectedRow && (
@@ -3301,6 +3350,74 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowAddServiceCharge(false)}>Cancel</button>
                 <button type="submit" className="btn primary">Save draft</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {financialIntake && (
+          <Modal
+            title={financialIntake === "credit-note" ? "Issue credit note" : financialIntake === "expense" ? "Record supplier expense" : "Create budget line"}
+            onClose={() => setFinancialIntake(null)}
+            wide
+          >
+            <form onSubmit={submitFinancialIntake} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {financialIntake === "credit-note" ? (
+                <>
+                  <div className="grid-2">
+                    <Field label="Credit note number" required><input name="number" required placeholder="e.g. CN-2026-0001" /></Field>
+                    <Field label="Issued on" required><input name="issued_on" type="date" required /></Field>
+                  </div>
+                  <Field label="Invoice" required>
+                    <select name="invoice" required defaultValue="">
+                      <option value="" disabled>Select outstanding invoice</option>
+                      {invoiceOptions.map((invoice) => (
+                        <option key={String(invoice.id)} value={String(invoice.id)}>{String(invoice.number)} · {String(invoice.tenant_name ?? "")} · {kM(invoice.balance)}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Credit amount" required><input name="amount" type="number" min={0.01} step="0.01" required /></Field>
+                  <Field label="Reason" required><textarea name="reason" rows={3} required placeholder="Reason for the adjustment" /></Field>
+                </>
+              ) : (
+                <>
+                  <Field label="Property" required>
+                    <select name="property" required defaultValue="">
+                      <option value="" disabled>Select property</option>
+                      {propertyOptions.map((property) => (
+                        <option key={String(property.id)} value={String(property.id)}>{String(property.code ?? "")} · {String(property.name ?? "")}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  {financialIntake === "expense" ? (
+                    <>
+                      <div className="grid-2">
+                        <Field label="Supplier" required><input name="supplier" required /></Field>
+                        <Field label="Supplier invoice"><input name="invoice_number" /></Field>
+                      </div>
+                      <div className="grid-2">
+                        <Field label="Category" required><input name="category" required placeholder="Utilities" /></Field>
+                        <Field label="Incurred on" required><input name="incurred_on" type="date" required /></Field>
+                      </div>
+                      <Field label="Description"><textarea name="description" rows={3} /></Field>
+                    </>
+                  ) : (
+                    <div className="grid-2">
+                      <Field label="Budget year" required><input name="year" type="number" min={2020} max={2100} defaultValue={new Date().getFullYear()} required /></Field>
+                      <Field label="Category" required><input name="category" required placeholder="Repairs and maintenance" /></Field>
+                    </div>
+                  )}
+                  <Field label={financialIntake === "expense" ? "Expense amount" : "Annual budget"} required>
+                    <input name="amount" type="number" min={financialIntake === "expense" ? 0.01 : 0} step="0.01" required />
+                  </Field>
+                </>
+              )}
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                {financialIntake === "credit-note" ? "Issuing this note immediately adjusts the selected invoice balance and creates an immutable audit record." : "The record starts in draft and follows the controlled submit and approval workflow."}
+              </p>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setFinancialIntake(null)}>Cancel</button>
+                <button type="submit" className="btn primary">{financialIntake === "credit-note" ? "Issue credit note" : "Save draft"}</button>
               </div>
             </form>
           </Modal>
