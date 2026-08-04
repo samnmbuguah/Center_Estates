@@ -25,6 +25,7 @@ from sales.models import AgentCommission, Buyer, Installment, PropertySale, Sale
 from subscriptions.models import Subscription
 from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderAuditEvent, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
 from valuations.models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationAuditEvent, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
+from companion.models import Task as CompanionTask, TaskTemplate, TaskEvent
 
 
 class Command(BaseCommand):
@@ -873,4 +874,45 @@ class Command(BaseCommand):
             details={'payment_reference': valuation_payment.reference, 'invoice': valuation_invoice.number, 'amount': str(valuation_payment.amount)},
             defaults={'actor': user},
         )
+
+        # ── Companion tasks ──────────────────────────────────────────────────
+        now = timezone.now()
+        template_review, _ = TaskTemplate.objects.update_or_create(
+            organization=organization, name='Review deliverable',
+            defaults={'title_template': 'Review {deliverable} for approval', 'default_priority': 'normal', 'default_days_to_due': 5, 'sla_hours': 48, 'source_module': 'property'},
+        )
+        template_inspection, _ = TaskTemplate.objects.update_or_create(
+            organization=organization, name='Scheduled inspection',
+            defaults={'title_template': 'Conduct scheduled inspection at {location}', 'default_priority': 'high', 'default_days_to_due': 3, 'sla_hours': 24, 'source_module': 'facility'},
+        )
+        task1, _ = CompanionTask.objects.update_or_create(
+            organization=organization, reference='CPN-2026-0001',
+            defaults={'title': 'Approve Q3 service charge budget', 'description': 'Review and approve the Q3 budget for service charge allocations across all properties.', 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'pending', 'due_at': now + timedelta(days=3), 'sla_due_at': now + timedelta(hours=48), 'source_module': 'property', 'source_ref': 'Service charge FY2026'},
+        )
+        CompanionTask.objects.update_or_create(
+            organization=organization, reference='CPN-2026-0002',
+            defaults={'title': 'Complete overdue lift inspection', 'description': 'Finance House lift 2 annual inspection is overdue.', 'assignee': user, 'assigned_by': user, 'priority': 'urgent', 'status': 'acknowledged', 'due_at': now - timedelta(days=2), 'sla_due_at': now - timedelta(days=1), 'acknowledged_at': now - timedelta(hours=18), 'escalated': True, 'escalated_at': now - timedelta(hours=6), 'source_module': 'facility', 'source_ref': 'WO-2026-1789'},
+        )
+        CompanionTask.objects.update_or_create(
+            organization=organization, reference='CPN-2026-0003',
+            defaults={'title': 'Draft valuation report for Equity Bank', 'description': 'Prepare draft valuation report for Westlands Business Centre mortgage security.', 'assignee': user, 'assigned_by': user, 'priority': 'normal', 'status': 'in_progress', 'due_at': now + timedelta(days=5), 'sla_due_at': now + timedelta(days=7), 'acknowledged_at': now - timedelta(hours=24), 'source_module': 'valuation', 'source_ref': 'VAL-2026-0184'},
+        )
+        CompanionTask.objects.update_or_create(
+            organization=organization, reference='CPN-2026-0004',
+            defaults={'title': 'Collect outstanding rent from ABC Traders', 'description': 'Follow up on KES 400,000 outstanding rent for Finance House 5th Floor.', 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'pending', 'due_at': now + timedelta(days=1), 'sla_due_at': now + timedelta(hours=24), 'source_module': 'property', 'source_ref': 'Rent invoice INV-2026-0702'},
+        )
+        CompanionTask.objects.update_or_create(
+            organization=organization, reference='CPN-2026-0005',
+            defaults={'title': 'Review tender proposal for NMA facilities contract', 'description': 'Technical and financial proposal review for TND-2026-0047.', 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'completed', 'due_at': now - timedelta(days=1), 'completed_at': now - timedelta(hours=12), 'source_module': 'tender', 'source_ref': 'TND-2026-0047'},
+        )
+        CompanionTask.objects.update_or_create(
+            organization=organization, reference='CPN-2026-0006',
+            defaults={'title': 'Schedule site visit for Sunset Apartments buyer', 'description': 'Site visit requested by buyer for Unit SA-201.', 'assignee': user, 'assigned_by': user, 'priority': 'normal', 'status': 'pending', 'due_at': now + timedelta(days=2), 'source_module': 'sales', 'source_ref': 'Buyer: Sunset Apartments Ltd'},
+        )
+        TaskEvent.objects.update_or_create(
+            organization=organization, task=task1, actor=user,
+            action='created', created_at=now - timedelta(days=1),
+            defaults={'note': 'Task created for Q3 budget approval.'},
+        )
+
         self.stdout.write(self.style.SUCCESS(f'Seeded platform data for {organization.name}.'))

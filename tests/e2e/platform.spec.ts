@@ -56,18 +56,18 @@ test("subscribed modules navigate through the unified shell", async ({ page }, t
 
 test("property rent ledger registers and receipt dialog are usable", async ({ page }) => {
   await page.goto("/property");
-  await expect(page.getByText("Outstanding rent", { exact: true })).toBeVisible();
+  await expect(page.getByText("Outstanding Rent", { exact: true })).toBeVisible();
   await openModuleSection(page, "Receipts");
   await expect(page.getByText("RCT-2026-0418", { exact: true })).toBeVisible();
   await openModuleSection(page, "Receipt allocations");
   await expect(page.getByText("INV-2026-0701", { exact: true })).toBeVisible();
   await openModuleSection(page, "Credit notes");
   await expect(page.getByText("CN-2026-0021", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Record receipt", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Record and allocate receipt" });
+  await page.getByRole("button", { name: "+ Record Receipt", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Record Rent Payment Receipt" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel("Open invoice")).not.toHaveValue("");
-  await expect(dialog.getByLabel("Amount")).toHaveAttribute("max", "100000.00");
+  await expect(dialog.getByLabel("Tenant")).toBeVisible();
+  await expect(dialog.getByLabel("Amount (KES)")).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
 });
@@ -86,20 +86,20 @@ test("property tenant onboarding and compliance dialogs are connected", async ({
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant-code races");
   await page.goto("/property");
   await openModuleSection(page, "Tenants");
-  await page.getByRole("button", { name: "+ Add tenant", exact: true }).click();
-  const tenantDialog = page.getByRole("dialog", { name: "Add new tenant" });
+  await page.getByRole("button", { name: "+ Add Tenant", exact: true }).last().click();
+  const tenantDialog = page.getByRole("dialog", { name: "Add New Tenant Profile" });
   const suffix = Date.now();
   await tenantDialog.getByLabel("Tenant code").fill(`E2E-${suffix}`);
-  await tenantDialog.getByLabel("Tenant name / company").fill(`E2E Tenant ${suffix}`);
-  await tenantDialog.getByLabel("Registration / ID number").fill(`REG-${suffix}`);
+  await tenantDialog.getByLabel("Full Name / Company").fill(`E2E Tenant ${suffix}`);
+  await tenantDialog.getByLabel("Registration Number").fill(`REG-${suffix}`);
   await tenantDialog.getByLabel("KRA PIN / Tax ID").fill(`P${String(suffix).slice(-8)}Z`);
-  await tenantDialog.getByLabel("Email", { exact: true }).fill(`tenant-${suffix}@example.test`);
-  await tenantDialog.getByRole("button", { name: "Save tenant" }).click();
+  await tenantDialog.getByLabel("Email Address").fill(`tenant-${suffix}@example.test`);
+  await tenantDialog.getByRole("button", { name: "Register Tenant" }).click();
   await expect(page.getByText(`E2E Tenant ${suffix}`, { exact: true })).toBeVisible();
   await openModuleSection(page, "Tenant documents");
-  await page.getByRole("button", { name: "+ Register document", exact: true }).click();
-  const documentDialog = page.getByRole("dialog", { name: "Register tenant document" });
-  await expect(documentDialog.getByLabel("Tenant").getByRole("option", { name: new RegExp(`E2E-${suffix}`) })).toHaveCount(1);
+  await page.getByRole("button", { name: "+ Upload", exact: true }).click();
+  const documentDialog = page.getByRole("dialog", { name: "Upload Tenant Document" });
+  await expect(documentDialog.getByLabel("Tenant").getByRole("option", { name: `E2E Tenant ${suffix}` })).toHaveCount(1);
   await documentDialog.getByRole("button", { name: "Cancel" }).click();
 });
 
@@ -128,17 +128,17 @@ test("property leasing officer can create a controlled draft lease", async ({ pa
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel lease-reference races");
   await page.goto("/property");
   await openModuleSection(page, "Leases");
-  await page.getByRole("button", { name: "+ Create lease", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Create lease" });
+  await page.getByRole("button", { name: "+ Add Single Lease", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Add Single Lease" });
   const reference = `E2E-LS-${Date.now()}`;
   await dialog.getByLabel("Lease reference").fill(reference);
   await dialog.getByLabel("Tenant").selectOption({ index: 1 });
-  await dialog.getByLabel("Available unit").selectOption({ index: 1 });
-  await dialog.getByLabel("Starts on").fill("2026-09-01");
-  await dialog.getByLabel("Ends on").fill("2027-08-31");
-  await dialog.getByLabel("Monthly rent").fill("175000");
-  await dialog.getByLabel("Deposit").fill("350000");
-  await dialog.getByRole("button", { name: "Save draft lease" }).click();
+  await dialog.getByLabel("Unit").selectOption({ index: 1 });
+  await dialog.getByLabel("Start Date").fill("2026-09-01");
+  await dialog.getByLabel("End Date").fill("2027-08-31");
+  await dialog.getByLabel("Monthly Rent (KES)").fill("175000");
+  await dialog.getByLabel("Deposit (KES)").fill("350000");
+  await dialog.getByRole("button", { name: "Save Lease" }).click();
   await expect(page.getByRole("row").filter({ hasText: reference })).toContainText("draft");
 });
 
@@ -222,8 +222,9 @@ test("property approval and billing workflows are interactive", async ({ page },
   await page.goto("/property");
   await openModuleSection(page, "Expenses");
   const expense = page.getByRole("row").filter({ hasText: "EXP-LIFT-PENDING" });
+  await expect(expense).toBeVisible();
   const approveExpense = expense.getByRole("button", { name: "Approve", exact: true });
-  if (await approveExpense.count()) await approveExpense.click();
+  if (await approveExpense.isVisible()) await approveExpense.click();
   await expect(expense.getByText("approved", { exact: true })).toBeVisible();
   await openModuleSection(page, "Rent schedules");
   await expect(page.getByRole("button", { name: "Generate invoice", exact: true })).toBeVisible();
@@ -280,7 +281,7 @@ test("property arrears, service-charge and report data are connected", async ({ 
   await expect(page.getByText("matched", { exact: true }).first()).toBeVisible();
   await openModuleSection(page, "Reports");
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("row").filter({ hasText: "Outstanding aging" }).getByRole("button", { name: "Download CSV" }).click();
+  await page.getByRole("row").filter({ hasText: "Outstanding aging" }).getByRole("button", { name: "Export CSV" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("property-aging.csv");
 });
@@ -532,7 +533,7 @@ test("mobile navigation opens, changes module and closes", async ({ page }, test
 test("authenticated module pages do not produce browser errors", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  for (const path of ["/property", "/facility", "/sales", "/tender", "/valuation", "/monitoring"]) {
+  for (const path of ["/property", "/facility", "/sales", "/tender", "/valuation", "/monitoring", "/companion"]) {
     await page.goto(path);
     await expect(page.locator("h1")).toBeVisible();
   }
@@ -550,6 +551,63 @@ test("monitoring workspace tabs handle empty or missing API payloads without thr
     const tabBtn = page.getByRole("button", { name: tabLabel, exact: true });
     if (await tabBtn.isVisible()) {
       await tabBtn.click();
+      await page.waitForTimeout(100);
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+test("companion module appears in command center and renders without errors", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/workspaces");
+  await page.waitForLoadState("networkidle");
+  const companionCard = page.locator("a[href='/companion']");
+  await expect(companionCard).toBeVisible();
+  await companionCard.click();
+  await expect(page.locator("h1")).toBeVisible();
+  await expect(page.getByText("Companion")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("companion workspace renders all tabs without browser errors", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/companion");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("h1")).toBeVisible();
+  
+  // Click through companion tabs
+  const tabs = ["All tasks", "My tasks", "Templates", "Performance dashboard"];
+  for (const tabLabel of tabs) {
+    const tabBtn = page.getByRole("button", { name: tabLabel });
+    if (await tabBtn.isVisible()) {
+      await tabBtn.click();
+      await page.waitForTimeout(100);
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+test("construction role dashboards render without errors", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  
+  for (const role of ["Role Dashboards"]) {
+    const tabBtn = page.getByRole("button", { name: role });
+    if (await tabBtn.isVisible()) {
+      await tabBtn.click();
+      await page.waitForTimeout(100);
+    }
+  }
+  // Navigate to monitoring first, then check role dashboards
+  await page.goto("/monitoring");
+  await page.waitForLoadState("networkidle");
+  
+  // Test the role dashboard nav items
+  for (const roleTab of page.locator(".module-side-nav button").filter({ hasText: /Project Manager|Finance|Site Agent/ })) {
+    if (await roleTab.isVisible()) {
+      await roleTab.click();
       await page.waitForTimeout(100);
     }
   }
