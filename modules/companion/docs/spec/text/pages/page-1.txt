@@ -1,0 +1,48 @@
+CeEst Workplace-
+Companion & Staff
+Performance
+
+fh CeEst
+
+Enhancement Brief
+
+This document provides the software
+development brief for the additional
+functionality approved for CeEst
+Workplace. It covers the new
+Companion experience, Workspace
+navigation changes, Task Assignment,
+and the Staff Performance
+Management framework.
+
+1. Workspace Navigation
+Changes
+
+The Workspace remains the command
+centre. Two additions are introduced:
+* My Companion - the first screen staff
+interact with after login.
+
+* Performance Dashboard - available to
+administrators and managers to
+monitor productivity and system
+adoption.
+
+The Workspace should retain its
+current design while adding these
+navigation items.
+
+= CeEst Worksplace
+
+oP Bom.
+
+Good Morning, Albin &
+
+emia
+
+a in)
+
+Pr Bi:
+
+KES 128M
+

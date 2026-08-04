@@ -1,0 +1,103 @@
+CeEst Workplace -
+Companion & Staff
+Performance
+Enhancement Brief
+This document provides the software
+development brief for the additional
+functionality approved for CeEst
+Workplace. It covers the new
+Companion experience, Workspace
+navigation changes, Task Assignment,
+and the Staff Performance
+Management framework.
+
+1. Workspace Navigation
+Changes
+The Workspace remains the command
+centre. Two additions are introduced:
+• My Companion - the first screen staff
+interact with after login.
+• Performance Dashboard - available to
+administrators and managers to
+monitor productivity and system
+adoption.
+The Workspace should retain its
+current design while adding these
+navigation items.
+2. Staff Performance
+Management
+    The Performance Dashboard is
+    intended to measure both productivity
+    and user adoption.
+
+• Daily Active Users
+• Last login for every user with
+   date/month filters
+• Average screen time
+• Active vs idle time
+• Module usage statistics
+• Tasks assigned vs completed
+• Overdue tasks by staff
+• Staff requiring attention
+• Escalated tasks pulled automatically
+   from Companion
+• Average Turnaround Time (TAT)
+• SLA compliance
+• Instructions received vs completed
+• System adoption score
+• Workload balancing across staff
+• Drill-down into individual staff history
+3. Task Assignment Centre
+Managers and administrators can
+assign tasks to one or multiple staff.
+Tasks flow directly into each user’s
+Companion. Support templates,
+recurring tasks, deadlines, priorities,
+attachments, reminders and
+delegation.
+4. Companion Workflow
+System events from Property
+Management, Facility Management,
+Help Desk, Procurement, Valuation,
+Visitor Management and Calendar
+automatically create Companion
+actions. Staff acknowledge, complete
+or delegate the work. SLA breaches
+automatically escalate to the
+Performance Dashboard.
+
+
+
+5. Escalation Logic
+Companion -> Reminder -> SLA
+Warning -> SLA Breach -> Performance
+Dashboard -> Administrator
+Intervention -> Resolution. No overdue
+operational task should remain hidden
+inside an individual's dashboard.
+    6. UI Navigation
+    Insert the approved UI mock-ups in the
+    final specification in this order:
+    1. Updated Workspace (with My
+    Companion and Performance
+    Dashboard navigation)
+    2. My Companion screen
+    3. Performance Dashboard
+    4. Task Assignment Centre
+    Each image should include annotations
+    describing the new functionality.
+
+    7. Acceptance Criteria
+    • Companion opens by default after
+    login.
+    • All scheduled ERP events appear
+    automatically in Companion.
+    • Users can delegate tasks.
+    • Administrators can monitor
+    adoption and productivity.
+    • Overdue work escalates
+    automatically.
+    • Performance analytics support
+    date-range filtering.
+•      Full audit trail maintained.
+

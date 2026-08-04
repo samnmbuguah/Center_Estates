@@ -1,0 +1,71 @@
+6. UI Navigation
+
+Insert the approved UI mock-ups in the
+final specification in this order:
+
+1. Updated Workspace (with My
+Companion and Performance
+Dashboard navigation)
+
+2. My Companion screen
+
+3. Performance Dashboard
+
+4, Task Assignment Centre
+
+Each image should include annotations
+describing the new functionality.
+
+7. Acceptance Criteria
+
+* Companion opens by default after
+login.
+* Allscheduled ERP events appear
+automatically in Companion.
+‘© Users can delegate tasks.
+‘* Administrators can monitor
+adoption and productivity.
+* Overdue work escalates
+automatically.
+* Performance analytics support
+date-range filtering.
+
+Full audit trail maintained.
+
+ri CeEst
+
+me
+My Tate
+
+am
+
+CeEst Companion
+
+Good Morning, Albin &
+
+Fetoe ponding ens
+
+Companion Assistant
+
+5
+
+3 Hi
+‘ah ry wens
+WowstTats +] My Teta
+
+‘i
+
+tiene
+
+© wreram mete ite?
+
+Dh tped tennant
+
+1 vrhternne
+
+Onset
+
+@ mci nse
+
+© stant
+

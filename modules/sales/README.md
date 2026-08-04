@@ -2,6 +2,9 @@
 
 Auditable property sales for completed and under-construction projects, supporting self-financed and bank-financed buyers.
 
+- Source specification: `specification.pdf` (Sales-Module-UIs.pdf, 19 mockup screens).
+- UI reference: [docs/UI_REFERENCE.md](docs/UI_REFERENCE.md).
+
 ## Roles
 
 Developer/owner, sales agent, site sales clerk, buyer, bank/financier, advocate/legal team and relationship manager. Each role is restricted by organization, assigned project/unit and workflow action.

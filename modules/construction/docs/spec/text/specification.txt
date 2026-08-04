@@ -1,0 +1,35 @@
+Monitoring ERP – Approved UI Mockups
+Source: Monitoring_ERP_Approved_UI_Mockups_With_Images.docx (design phase, approved 23 July 2026)
+
+Monitoring ERP – Approved UI Mockups
+This document contains the approved UI mockups developed during the design phase. These illustrations form the reference design for implementation by the software development team.
+UI Navigation Flow
+Developer Note: Implement the UI Navigation Flow module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Dashboard
+Developer Note: Implement the Dashboard module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Project Portfolio
+Developer Note: Implement the Project Portfolio module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Active Projects
+Developer Note: Implement the Active Projects module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Project Workspace (KASNEB Towers II)
+Developer Note: Implement the Project Workspace (KASNEB Towers II) module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Programme
+Developer Note: Implement the Programme module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Construction
+Developer Note: Implement the Construction module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Financial Monitoring
+Developer Note: Implement the Financial Monitoring module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Risks
+Developer Note: Implement the Risks module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Site Visits
+Developer Note: Implement the Site Visits module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Documents
+Developer Note: Implement the Documents module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Meetings
+Developer Note: Implement the Meetings module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Reports
+Developer Note: Implement the Reports module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Stakeholders
+Developer Note: Implement the Stakeholders module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
+Administration
+Developer Note: Implement the Administration module consistent with this approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.

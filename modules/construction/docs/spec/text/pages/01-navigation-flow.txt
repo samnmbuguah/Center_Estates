@@ -1,0 +1,3 @@
+UI Navigation Flow
+
+Developer Note: Implement consistent with the approved layout, maintaining Center Estates branding (red, grey and white), responsive design, and project-centric navigation.
