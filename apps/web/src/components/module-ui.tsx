@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, type CSSProperties } from "react";
+import { cloneElement, isValidElement, useId, type ReactNode, type CSSProperties } from "react";
 
 /**
  * Shared UI primitives for module workspaces.
@@ -186,22 +186,28 @@ export function DetailDrawer({ title, onClose, children, width = 380 }: { title:
 }
 
 export function Field({ label, children, required }: { label: string; children: ReactNode; required?: boolean }) {
+  const generatedId = useId();
+  const control = isValidElement<{ id?: string }>(children)
+    ? cloneElement(children, { id: children.props.id ?? generatedId })
+    : children;
+  const controlId = isValidElement<{ id?: string }>(control) ? control.props.id : undefined;
   return (
     <div className="field">
-      <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
+      <label htmlFor={controlId} style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
         {label} {required && <span style={{ color: "var(--danger)" }}>*</span>}
       </label>
-      {children}
+      {control}
     </div>
   );
 }
 
 export function Modal({ title, onClose, children, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  const titleId = useId();
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: wide ? 760 : 540 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ maxWidth: wide ? 760 : 540 }} onClick={(e) => e.stopPropagation()}>
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
-          <h3 style={{ margin: 0, fontSize: 16 }}>{title}</h3>
+          <h3 id={titleId} style={{ margin: 0, fontSize: 16 }}>{title}</h3>
           <button type="button" className="btn ghost sm" onClick={onClose} aria-label="Close">×</button>
         </header>
         {children}

@@ -161,7 +161,6 @@ test("property finance can configure and allocate a service charge", async ({ pa
   const row=page.getByRole("row").filter({hasText:name});
   await expect(row).toBeVisible();
   await row.getByRole("button",{name:"Allocate",exact:true}).click();
-  await openModuleSection(page, "Charge allocations");
   await expect(page.getByText(name,{exact:true}).first()).toBeVisible();
 });
 

@@ -1840,10 +1840,12 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab }: {
 /* ─── SERVICE CHARGES ─── */
 
 function ServiceChargesView({
-  rows, scSection, setScSection, loading, setTab,
+  rows, scSection, setScSection, loading, setTab, onAdd, onAllocate,
 }: {
   rows: Row[]; scSection: ScSection; setScSection: (s: ScSection) => void; loading: boolean;
   setTab: (t: PropertyTab) => void;
+  onAdd: () => void;
+  onAllocate: (row: ServiceChargeRow) => void;
 }) {
   const charges = rows as ServiceChargeRow[];
   const totalBudget = charges.reduce((s, c) => s + Number(c.annual_budget ?? 0), 0);
@@ -1881,7 +1883,7 @@ function ServiceChargesView({
             </div>
           </div>
 
-          <Panel title="Cost Centres" action={<button className="btn ghost sm" onClick={() => setTab("service-charge-allocations")}>Allocations →</button>}>
+          <Panel title="Cost Centres" action={<div className="row" style={{ gap: 8 }}><button className="btn ghost sm" onClick={() => setTab("service-charge-allocations")}>Allocations →</button><button className="btn primary sm" onClick={onAdd}>+ Set up charge</button></div>}>
             <ListState loading={loading} empty={charges.length === 0} emptyTitle="No cost centres found" emptyDesc="Service charge schemes configured for your properties appear here.">
               <div className="table-scroll">
                 <table className="fc-data-table">
@@ -1893,6 +1895,7 @@ function ServiceChargesView({
                       <th>Annual Budget</th>
                       <th>% of total</th>
                       <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1904,6 +1907,7 @@ function ServiceChargesView({
                         <td className="mono">{kM(c.annual_budget)}</td>
                         <td className="mono"><strong>{pct(c.annual_budget, totalBudget)}%</strong></td>
                         <td><StatusPill value={c.is_active === false ? "inactive" : "active"} /></td>
+                        <td><button className="btn ghost sm" onClick={() => onAllocate(c)}>Allocate</button></td>
                       </tr>
                     ))}
                     <tr>
@@ -1912,6 +1916,7 @@ function ServiceChargesView({
                       <td />
                       <td className="mono"><strong>{kM(totalBudget)}</strong></td>
                       <td className="mono"><strong>100%</strong></td>
+                      <td />
                       <td />
                     </tr>
                   </tbody>
@@ -2415,6 +2420,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [showAddLease, setShowAddLease] = useState(false);
   const [showRecordReceipt, setShowRecordReceipt] = useState(false);
   const [showUploadDoc, setShowUploadDoc] = useState(false);
+  const [showAddServiceCharge, setShowAddServiceCharge] = useState(false);
   const [matchTarget, setMatchTarget] = useState<BankTransactionRow | null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<ID>("");
 
@@ -2422,6 +2428,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [unitOptions, setUnitOptions] = useState<Row[]>([]);
   const [invoiceOptions, setInvoiceOptions] = useState<Row[]>([]);
   const [receiptOptions, setReceiptOptions] = useState<Row[]>([]);
+  const [propertyOptions, setPropertyOptions] = useState<Row[]>([]);
 
   const loadVersion = useRef(0);
 
@@ -2603,6 +2610,11 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setTenantOptions(Array.isArray(d) ? d : []));
     }
+    if (showAddServiceCharge) {
+      void apiFetch("/property/properties/?search=", {}, organizationId)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setPropertyOptions(Array.isArray(d) ? d : []));
+    }
     if (showAddLease) {
       void apiFetch("/property/units/?search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
@@ -2618,7 +2630,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setReceiptOptions(Array.isArray(d) ? d : []));
     }
-  }, [showAddLease, showUploadDoc, showRecordReceipt, matchTarget, organizationId]);
+  }, [showAddLease, showUploadDoc, showRecordReceipt, showAddServiceCharge, matchTarget, organizationId]);
 
   async function submitAddProperty(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -2803,6 +2815,51 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }
   }
 
+  async function submitServiceCharge(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      property: String(form.get("property") ?? ""),
+      name: String(form.get("name") ?? "").trim(),
+      method: String(form.get("method") ?? "area"),
+      starts_on: String(form.get("starts_on") ?? ""),
+      annual_budget: Number(form.get("annual_budget") ?? 0),
+      is_active: true,
+    };
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/property/service-charges/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, organizationId);
+    if (res.ok) {
+      setShowAddServiceCharge(false);
+      setScSection("setup");
+      setTab("service-charges");
+      loadData();
+    } else {
+      setError("Service charge setup failed. Check the property, dates, and budget.");
+    }
+  }
+
+  async function generateServiceChargeAllocations(row: ServiceChargeRow) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/service-charges/${row.id}/generate-allocations/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({}),
+    }, organizationId);
+    if (res.ok) {
+      const allocations = await res.json();
+      setSearch("");
+      setSelectedRow(null);
+      setRows(Array.isArray(allocations) ? allocations : []);
+      setTab("service-charge-allocations");
+    } else {
+      setError("Charge allocation failed. Confirm the property has eligible units.");
+    }
+  }
+
   async function downloadReportCSV(key: string) {
     const res = await apiFetch(`/property/analytics/exports/${key}/`, {}, organizationId);
     if (!res.ok) {
@@ -2922,7 +2979,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "receipt-allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "bank-reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} />}
         {tab === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
-        {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} />}
+        {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} />}
         {tab === "service-charge-allocations" && <ServiceChargeAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} onSelectRow={setSelectedRow} />}
@@ -3205,6 +3262,45 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowRecordReceipt(false)}>Cancel</button>
                 <button type="submit" className="btn primary">Post Receipt</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {showAddServiceCharge && (
+          <Modal title="Set up service charge" onClose={() => setShowAddServiceCharge(false)} wide>
+            <form onSubmit={submitServiceCharge} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="Property" required>
+                <select name="property" required defaultValue="">
+                  <option value="" disabled>Select property</option>
+                  {propertyOptions.map((property) => (
+                    <option key={String(property.id)} value={String(property.id)}>{String(property.name ?? property.code)}</option>
+                  ))}
+                </select>
+              </Field>
+              <div className="grid-2">
+                <Field label="Scheme name" required>
+                  <input name="name" required placeholder="e.g. 2026 Commercial Service Charge" />
+                </Field>
+                <Field label="Allocation method" required>
+                  <select name="method" defaultValue="area">
+                    <option value="area">Floor area</option>
+                    <option value="equal">Equal share</option>
+                    <option value="fixed">Fixed allocation</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="grid-2">
+                <Field label="Starts on" required>
+                  <input name="starts_on" type="date" required />
+                </Field>
+                <Field label="Annual service budget" required>
+                  <input name="annual_budget" type="number" min={1} step="0.01" required />
+                </Field>
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setShowAddServiceCharge(false)}>Cancel</button>
+                <button type="submit" className="btn primary">Save draft</button>
               </div>
             </form>
           </Modal>
