@@ -10,6 +10,7 @@ class Module(models.TextChoices):
     TENDER = 'tender', 'Tender Management'
     VALUATION = 'valuation', 'Valuation'
     MONITORING = 'monitoring', 'Construction Monitoring'
+    COMPANION = 'companion', 'Companion & Staff Performance'
 
 
 class OrganizationQuerySet(models.QuerySet):

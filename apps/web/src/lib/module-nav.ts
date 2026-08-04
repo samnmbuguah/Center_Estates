@@ -194,8 +194,7 @@ export const valuationNav: ModuleNavGroup[] = [
   },
 ];
 
-export const constructionNav: ModuleNavGroup[] = [
-  {
+export const constructionNav: ModuleNavGroup[] = [  {
     label: "Main",
     icon: "⌂",
     items: [
@@ -286,6 +285,29 @@ export const constructionNav: ModuleNavGroup[] = [
       { id: "chat", label: "Project chat" },
       { id: "notifications", label: "Notifications" },
       { id: "audit-log", label: "Audit trail" },
+    ],
+  },
+];
+
+export const companionNav: ModuleNavGroup[] = [
+  { label: "Companion", icon: "🧭", items: [{ id: "overview", label: "My Companion" }] },
+  {
+    label: "Tasks",
+    icon: "◈",
+    items: [
+      { id: "tasks", label: "All tasks" },
+      { id: "my-tasks", label: "My tasks" },
+      { id: "templates", label: "Templates" },
+      { id: "delegations", label: "Delegations" },
+    ],
+  },
+  {
+    label: "Performance",
+    icon: "◌",
+    items: [
+      { id: "performance", label: "Performance dashboard" },
+      { id: "staff", label: "Staff history" },
+      { id: "audit-events", label: "Audit trail" },
     ],
   },
 ];

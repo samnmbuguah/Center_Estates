@@ -20,6 +20,7 @@ type Pulse = {
   monitoring?: { activeProjects: number; openTickets: number; highRisks: number; budgetUtilization: number };
   tender?: { activeTenders: number; pipelineValue: number };
   valuation?: { activeInstructions: number; outstanding: number };
+  companion?: { dueToday: number; overdue: number; escalated: number };
 };
 
 type InboxAlert = { module: string; severity: string; title: string; detail: string; href: string };
@@ -135,6 +136,19 @@ export function CommandCenterWorkspace() {
           }),
         );
       }
+      if (slugSet.has("companion")) {
+        jobs.push(
+          apiFetch("/companion/dashboard/", {}, organizationId).then(async (response) => {
+            if (!response.ok) return;
+            const data = await response.json();
+            next.companion = {
+              dueToday: Number(data.kpis?.dueToday ?? 0),
+              overdue: Number(data.kpis?.overdue ?? 0),
+              escalated: Number(data.kpis?.escalated ?? 0),
+            };
+          }),
+        );
+      }
       jobs.push(
         apiFetch("/workspace/inbox/", {}, organizationId).then(async (response) => {
           if (!response.ok) return;
@@ -192,6 +206,12 @@ export function CommandCenterWorkspace() {
       return [
         { label: "Jobs", value: String(pulse.valuation.activeInstructions) },
         { label: "Fees due", value: money.format(pulse.valuation.outstanding) },
+      ];
+    }
+    if (slug === "companion" && pulse.companion) {
+      return [
+        { label: "Due today", value: String(pulse.companion.dueToday) },
+        { label: "Overdue", value: String(pulse.companion.overdue) },
       ];
     }
     return null;

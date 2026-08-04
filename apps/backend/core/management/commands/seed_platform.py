@@ -67,6 +67,7 @@ class Command(BaseCommand):
             Module.TENDER: ('intake', 'compliance', 'proposal', 'pricing', 'decision'),
             Module.VALUATION: ('coordinate', 'field', 'review', 'finance'),
             Module.MONITORING: ('project_admin', 'site', 'commercial', 'procurement', 'finance', 'certify'),
+            Module.COMPANION: ('assign', 'performance'),
         }
         for module, module_label in Module.choices:
             for suffix, action_label in (

@@ -5,6 +5,7 @@ export const modules = [
   { slug: "tender", name: "Tender Management", description: "Manage tenders, evaluations and contract awards.", accent: "#7c3aed", icon: "📋", features: ["Invitations", "AI analysis", "Bid decision", "Planning", "Proposals", "Submission"], stats: [{ label: "Focus", value: "Pipeline" }, { label: "Control", value: "Approvals" }] },
   { slug: "valuation", name: "Valuation", description: "Track valuation instructions, inspections and reports.", accent: "#0891b2", icon: "📐", features: ["Instructions", "Site inspections", "Draft reports", "Final reports", "Invoicing", "Analytics"], stats: [{ label: "Focus", value: "Instructions" }, { label: "Output", value: "Reports" }] },
   { slug: "monitoring", name: "Construction Monitoring", description: "Construction evidence, progress, risks, quality, finance and reporting.", accent: "#dc2626", icon: "🏗️", features: ["Projects", "Programme", "Site evidence", "Risks", "Finance", "Reports"], stats: [{ label: "Focus", value: "Site evidence" }, { label: "Control", value: "Cost & risk" }] },
+  { slug: "companion", name: "Companion & Staff Performance", description: "Personal task command center, task assignment and staff productivity analytics.", accent: "#0d9488", icon: "🧭", features: ["My Companion", "Task assignment", "Delegation", "Performance dashboard", "SLA escalation", "Adoption analytics"], stats: [{ label: "Focus", value: "Daily work" }, { label: "Control", value: "SLA & TAT" }] },
 ] as const;
 
 export type ErpModule = (typeof modules)[number];

@@ -1,0 +1,304 @@
+from django.db import transaction
+from django.db.models import Count, F, Q, Sum
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet, ViewSet
+
+from core.models import Module
+from core.permissions import HasModuleActionPermission
+from core.tenancy import get_active_organization
+
+from .models import Task, TaskEvent, TaskTemplate
+from .serializers import TaskEventSerializer, TaskSerializer, TaskTemplateSerializer
+
+STATUS_TRANSITIONS = {
+    Task.Status.PENDING: {Task.Status.ACKNOWLEDGED, Task.Status.CANCELLED, Task.Status.IN_PROGRESS},
+    Task.Status.ACKNOWLEDGED: {Task.Status.IN_PROGRESS, Task.Status.COMPLETED, Task.Status.CANCELLED},
+    Task.Status.IN_PROGRESS: {Task.Status.COMPLETED, Task.Status.CANCELLED},
+    Task.Status.DELEGATED: {Task.Status.ACKNOWLEDGED, Task.Status.COMPLETED, Task.Status.CANCELLED},
+    Task.Status.COMPLETED: set(),
+    Task.Status.CANCELLED: set(),
+}
+
+
+class CompanionModelViewSet(ModelViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.COMPANION
+    search_fields = ()
+
+    def get_queryset(self):
+        queryset = self.queryset.for_organization(get_active_organization(self.request))
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            from django.db.models import Q
+            query = Q()
+            for field in self.search_fields:
+                query |= Q(**{f'{field}__icontains': search})
+            queryset = queryset.filter(query)
+        return queryset
+
+    def _validate_organization(self, serializer):
+        organization = get_active_organization(self.request)
+        for name, value in serializer.validated_data.items():
+            if getattr(value, 'organization_id', organization.id) != organization.id:
+                raise ValidationError({name: 'The selected record belongs to another organization.'})
+        return organization
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer))
+
+    def perform_update(self, serializer):
+        self._validate_organization(serializer)
+        serializer.save()
+
+
+class TaskViewSet(CompanionModelViewSet):
+    queryset = Task.objects.select_related('assignee', 'assigned_by', 'template')
+    serializer_class = TaskSerializer
+    search_fields = ('title', 'reference', 'source_ref', 'assignee__username')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        scope = self.request.query_params.get('scope', '')
+        if scope == 'mine':
+            queryset = queryset.filter(assignee=self.request.user)
+        assignee = self.request.query_params.get('assignee', '').strip()
+        if assignee:
+            queryset = queryset.filter(assignee_id=assignee)
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        overdue = self.request.query_params.get('overdue')
+        if overdue in ('1', 'true'):
+            now = timezone.now()
+            queryset = queryset.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED)).filter(due_at__lt=now)
+        escalated = self.request.query_params.get('escalated')
+        if escalated in ('1', 'true'):
+            queryset = queryset.filter(escalated=True, status__in=(Task.Status.PENDING, Task.Status.ACKNOWLEDGED, Task.Status.IN_PROGRESS))
+        return queryset
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        now = timezone.now()
+        assignee = serializer.validated_data.get('assignee')
+        count = Task.objects.filter(organization=organization).count()
+        task = serializer.save(
+            organization=organization,
+            reference=f'CPN-{now:%Y}-{count + 1:04d}',
+            status=Task.Status.PENDING,
+        )
+        TaskEvent.objects.create(
+            organization=organization, task=task, actor=self.request.user,
+            action=TaskEvent.Action.CREATED, note='Task created.',
+        )
+        if assignee and assignee != self.request.user:
+            TaskEvent.objects.create(
+                organization=organization, task=task, actor=self.request.user,
+                action=TaskEvent.Action.ASSIGNED, note=f'Assigned to {assignee.username}.',
+            )
+
+    def perform_update(self, serializer):
+        organization = self._validate_organization(serializer)
+        previous = self.get_object()
+        serializer.save()
+        task = self.get_object()
+        changed = [
+            field for field in ('title', 'description', 'priority', 'due_at', 'sla_due_at')
+            if getattr(previous, field) != getattr(task, field)
+        ]
+        if changed:
+            TaskEvent.objects.create(
+                organization=organization, task=task, actor=self.request.user,
+                action=TaskEvent.Action.UPDATED, note=f'Updated: {", ".join(changed)}.',
+            )
+
+    def _transition(self, task, target, actor, note=''):
+        current = task.status
+        if target not in STATUS_TRANSITIONS.get(current, set()):
+            raise ValidationError({'status': f'Cannot move a {current} task to {target}.'})
+        event_action = {
+            Task.Status.ACKNOWLEDGED: TaskEvent.Action.ACKNOWLEDGED,
+            Task.Status.IN_PROGRESS: TaskEvent.Action.STARTED,
+            Task.Status.COMPLETED: TaskEvent.Action.COMPLETED,
+            Task.Status.CANCELLED: TaskEvent.Action.CANCELLED,
+        }.get(target, TaskEvent.Action.UPDATED)
+        if target == Task.Status.ACKNOWLEDGED:
+            task.acknowledged_at = timezone.now()
+        if target == Task.Status.COMPLETED:
+            task.completed_at = timezone.now()
+        task.status = target
+        task.save()
+        TaskEvent.objects.create(
+            organization=task.organization, task=task, actor=actor,
+            action=event_action, note=note or f'Status changed to {target}.',
+        )
+
+    @action(detail=True, methods=('post',))
+    def acknowledge(self, request, pk=None):
+        task = self.get_object()
+        self._transition(task, Task.Status.ACKNOWLEDGED, request.user)
+        return Response(TaskSerializer(task).data)
+
+    @action(detail=True, methods=('post',))
+    def start(self, request, pk=None):
+        task = self.get_object()
+        self._transition(task, Task.Status.IN_PROGRESS, request.user)
+        return Response(TaskSerializer(task).data)
+
+    @action(detail=True, methods=('post',))
+    def complete(self, request, pk=None):
+        task = self.get_object()
+        self._transition(task, Task.Status.COMPLETED, request.user, note='Task completed.')
+        return Response(TaskSerializer(task).data)
+
+    @action(detail=True, methods=('post',))
+    def cancel(self, request, pk=None):
+        task = self.get_object()
+        note = str(request.data.get('note', '')).strip()
+        self._transition(task, Task.Status.CANCELLED, request.user, note=note or 'Task cancelled.')
+        return Response(TaskSerializer(task).data)
+
+    @action(detail=True, methods=('post',))
+    def delegate(self, request, pk=None):
+        task = self.get_object()
+        delegate_id = request.data.get('delegate_to')
+        if not delegate_id:
+            raise ValidationError({'delegate_to': 'Select a staff member to delegate to.'})
+        organization = get_active_organization(request)
+        from django.contrib.auth import get_user_model
+        target = get_user_model().objects.filter(
+            pk=delegate_id, memberships__organization=organization, is_active=True,
+        ).first()
+        if not target:
+            raise ValidationError({'delegate_to': 'Staff member not found in this organization.'})
+        task.delegated_from = task.assignee
+        task.delegated_to = target
+        task.assignee = target
+        task.status = Task.Status.DELEGATED
+        task.save()
+        TaskEvent.objects.create(
+            organization=task.organization, task=task, actor=request.user,
+            action=TaskEvent.Action.DELEGATED, note=f'Delegated to {target.username}.',
+        )
+        return Response(TaskSerializer(task).data)
+
+    @action(detail=True, methods=('get',))
+    def events(self, request, pk=None):
+        task = self.get_object()
+        events = task.events.select_related('actor').all()
+        return Response(TaskEventSerializer(events, many=True).data)
+
+
+class TaskTemplateViewSet(CompanionModelViewSet):
+    queryset = TaskTemplate.objects.all()
+    serializer_class = TaskTemplateSerializer
+    search_fields = ('name', 'title_template')
+
+
+class CompanionDashboardViewSet(ViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.COMPANION
+
+    def list(self, request):
+        organization = get_active_organization(request)
+        now = timezone.now()
+        tasks = Task.objects.for_organization(organization).filter(assignee=request.user)
+        active = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
+        return Response({
+            'kpis': {
+                'dueToday': active.filter(due_at__date=now.date()).count(),
+                'overdue': active.filter(due_at__lt=now).count(),
+                'escalated': active.filter(escalated=True).count(),
+                'inProgress': active.filter(status=Task.Status.IN_PROGRESS).count(),
+                'completed': tasks.filter(status=Task.Status.COMPLETED).count(),
+            },
+            'recentTasks': TaskSerializer(active.order_by('-updated_at')[:10], many=True).data,
+            'overdueTasks': TaskSerializer(active.filter(due_at__lt=now).order_by('due_at')[:10], many=True).data,
+            'escalatedTasks': TaskSerializer(active.filter(escalated=True).order_by('-escalated_at')[:10], many=True).data,
+        })
+
+
+class PerformanceViewSet(ViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.COMPANION
+
+    def _require_manager(self, request):
+        organization = get_active_organization(request)
+        membership = organization.memberships.filter(user=request.user).first()
+        if not (membership and (membership.is_organization_admin or membership.has_permission('companion.performance.view'))):
+            raise ValidationError('Performance analytics are available to administrators and managers only.')
+
+    def list(self, request):
+        self._require_manager(request)
+        organization = get_active_organization(request)
+        date_from = request.query_params.get('from', '')
+        date_to = request.query_params.get('to', '')
+
+        tasks = Task.objects.for_organization(organization)
+        completed = tasks.filter(status=Task.Status.COMPLETED)
+        now = timezone.now()
+        active = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
+        overdue = active.filter(due_at__lt=now)
+        escalated = active.filter(escalated=True)
+
+        staff_rows = []
+        from django.contrib.auth import get_user_model
+        members = organization.memberships.filter(status__in=('active', '')).select_related('user')
+        for membership in members:
+            user = membership.user
+            user_tasks = tasks.filter(assignee=user)
+            user_done = user_tasks.filter(status=Task.Status.COMPLETED).count()
+            user_overdue = user_tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED)).filter(due_at__lt=now).count()
+            user_active = user_tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED)).count()
+            staff_rows.append({
+                'user_id': str(user.pk),
+                'username': user.username,
+                'name': user.get_full_name() or user.username,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+                'tasks_assigned': user_tasks.count(),
+                'tasks_completed': user_done,
+                'completion_rate': round((user_done / user_tasks.count() * 100), 1) if user_tasks.count() else 0,
+                'overdue_tasks': user_overdue,
+                'active_tasks': user_active,
+                'requires_attention': user_overdue > 0,
+            })
+
+        staff_rows.sort(key=lambda r: (not r['requires_attention'], -r['overdue_tasks']))
+
+        return Response({
+            'kpis': {
+                'dailyActiveUsers': members.filter(user__last_login__date=now.date()).count(),
+                'activeUsers': members.filter(user__last_login__isnull=False).count(),
+                'totalStaff': members.count(),
+                'tasksAssigned': tasks.count(),
+                'tasksCompleted': completed.count(),
+                'completionRate': round((completed.count() / tasks.count() * 100), 1) if tasks.count() else 0,
+                'overdueTasks': overdue.count(),
+                'escalatedTasks': escalated.count(),
+                'avgTurnaroundHours': 0,
+                'slaCompliance': 0,
+                'adoptionScore': 0,
+            },
+            'overdueTasks': TaskSerializer(overdue.order_by('due_at')[:15], many=True).data,
+            'escalatedTasks': TaskSerializer(escalated.order_by('-escalated_at')[:15], many=True).data,
+            'staff': staff_rows,
+        })
+
+    @action(detail=False, methods=('get',))
+    def staff(self, request):
+        self._require_manager(request)
+        organization = get_active_organization(request)
+        user_id = request.query_params.get('user_id', '').strip()
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.filter(pk=user_id, memberships__organization=organization).first()
+        if not user:
+            raise ValidationError({'user_id': 'Staff member not found.'})
+        tasks = Task.objects.for_organization(organization).filter(assignee=user).order_by('-created_at')
+        return Response({
+            'user': {'id': str(user.pk), 'username': user.username, 'name': user.get_full_name() or user.username},
+            'tasks': TaskSerializer(tasks[:50], many=True).data,
+            'events': TaskEventSerializer(TaskEvent.objects.filter(organization=organization, task__assignee=user).select_related('actor').order_by('-created_at')[:50], many=True).data,
+        })
