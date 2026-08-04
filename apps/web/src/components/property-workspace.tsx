@@ -939,9 +939,9 @@ function TenantsView({
 
 /* ─── TENANT DOCUMENTS ─── */
 
-function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDownload }: {
+function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDownload, onVerify }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
-  onUpload: () => void; onDownload: (r: Row) => void;
+  onUpload: () => void; onDownload: (r: Row) => void; onVerify: (r: TenantDocumentRow) => void;
 }) {
   const docs = rows as TenantDocumentRow[];
 
@@ -978,7 +978,10 @@ function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDow
                     <td style={{ fontSize: 12 }}>{fmtDate(d.expires_on)}</td>
                     <td><StatusPill value={String(d.status ?? "—")} /></td>
                     <td>
-                      <button className="btn ghost sm" onClick={() => onDownload(d)}>Download</button>
+                      <div className="row" style={{ gap: 6 }}>
+                        <button className="btn ghost sm" onClick={() => onDownload(d)}>Download</button>
+                        {d.status === "pending" && <button className="btn primary sm" onClick={() => onVerify(d)}>Verify</button>}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1091,8 +1094,8 @@ function LeasesView({
 
 /* ─── RENT SCHEDULES ─── */
 
-function RentSchedulesView({ rows, loading, search, setSearch }: {
-  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
+function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice }: {
+  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onGenerateInvoice: (r: RentScheduleRow) => void;
 }) {
   const schedules = rows as RentScheduleRow[];
 
@@ -1115,6 +1118,7 @@ function RentSchedulesView({ rows, loading, search, setSearch }: {
                   <th>Service Charge</th>
                   <th>Total</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1129,6 +1133,7 @@ function RentSchedulesView({ rows, loading, search, setSearch }: {
                     <td className="mono">{s.service_charge ? kM(s.service_charge) : "—"}</td>
                     <td className="mono"><strong>{kM(s.total)}</strong></td>
                     <td><StatusPill value={String(s.status ?? "—")} /></td>
+                    <td>{!s.invoice && s.status !== "waived" ? <button className="btn primary sm" onClick={() => onGenerateInvoice(s)}>Generate invoice</button> : <span className="muted">Invoiced</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1142,7 +1147,7 @@ function RentSchedulesView({ rows, loading, search, setSearch }: {
 
 /* ─── RENT & INVOICES ─── */
 
-function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onSelect: (r: Row) => void) {
+function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onRemind: (row: InvoiceRow) => void, onSelect: (r: Row) => void) {
   return invoices.map((inv) => (
     <tr key={String(inv.id)} onClick={() => onSelect(inv)}>
       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(inv.number ?? "—")}</td>
@@ -1155,9 +1160,10 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
       <td className="mono" style={{ color: Number(inv.balance ?? 0) > 0 ? "var(--danger)" : "#16a34a" }}>{kM(inv.balance)}</td>
       <td><StatusPill value={String(inv.status ?? "—")} /></td>
       <td>
-        {Number(inv.balance ?? 0) > 0 && (
-          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onPay(String(inv.id)); }}>Pay</button>
-        )}
+        <div className="row" style={{ gap: 6 }}>
+          {Number(inv.balance ?? 0) > 0 && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onPay(String(inv.id)); }}>Pay</button>}
+          {Number(inv.balance ?? 0) > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onRemind(inv); }}>Send reminder</button>}
+        </div>
       </td>
     </tr>
   ));
@@ -1165,12 +1171,12 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
 
 function RentView({
   rows, rentInvoices, analytics, rentSection, setRentSection, loading,
-  setTab, onRecordReceipt, onSelectRow,
+  setTab, onRecordReceipt, onSendReminder, onSelectRow,
 }: {
   rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null;
   rentSection: RentSection; setRentSection: (s: RentSection) => void; loading: boolean;
   setTab: (t: PropertyTab) => void;
-  onRecordReceipt: (invoiceId?: ID) => void; onSelectRow: (r: Row) => void;
+  onRecordReceipt: (invoiceId?: ID) => void; onSendReminder: (row: InvoiceRow) => void; onSelectRow: (r: Row) => void;
 }) {
   const totalBilled = rentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = rentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
@@ -1231,7 +1237,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSelectRow)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSendReminder, onSelectRow)}</tbody>
               </table>
             </div>
           </ListState>
@@ -1257,7 +1263,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSelectRow)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSendReminder, onSelectRow)}</tbody>
               </table>
             </div>
           </ListState>
@@ -2131,8 +2137,9 @@ function ServiceChargeReconciliationsView({ rows, loading, search, setSearch }: 
 
 /* ─── BUDGETS ─── */
 
-function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd }: {
+function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd, onAction }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onSelectRow: (r: Row) => void; onAdd: () => void;
+  onAction: (row: BudgetRow, action: "submit" | "approve" | "reject") => void;
 }) {
   const budgets = rows as BudgetRow[];
   const totalBudget = budgets.reduce((s, b) => s + Number(b.amount ?? 0), 0);
@@ -2193,7 +2200,12 @@ function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd }: {
                       <td><StatusPill value={String(b.status ?? "—")} /></td>
                       <td style={{ fontSize: 12 }}>{fmtDate(b.created_at)}</td>
                       <td>
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onSelectRow(b); }}>View</button>
+                        <div className="row" style={{ gap: 6 }}>
+                          {(["draft", "rejected"].includes(String(b.status))) && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onAction(b, "submit"); }}>Submit</button>}
+                          {b.status === "pending" && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(b, "approve"); }}>Approve</button>}
+                          {b.status === "pending" && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onAction(b, "reject"); }}>Reject</button>}
+                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onSelectRow(b); }}>View</button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2209,9 +2221,10 @@ function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd }: {
 
 /* ─── EXPENSES ─── */
 
-function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onAdd }: {
+function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onAdd, onAction }: {
   rows: Row[]; financial: FinancialAnalytics | null; loading: boolean;
   search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onAdd: () => void;
+  onAction: (row: ExpenseRow, action: "submit" | "approve" | "reject" | "mark-paid") => void;
 }) {
   const expenses = rows as ExpenseRow[];
   const kpis = financial?.kpis;
@@ -2300,6 +2313,7 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onA
                   <th>Invoice No</th>
                   <th>Amount</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -2312,6 +2326,14 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onA
                     <td className="mono" style={{ fontSize: 12 }}>{String(e.invoice_number ?? "—")}</td>
                     <td className="mono" style={{ color: "var(--danger)" }}>{kM(e.amount)}</td>
                     <td><StatusPill value={String(e.status ?? "—")} /></td>
+                    <td>
+                      <div className="row" style={{ gap: 6 }}>
+                        {(["draft", "rejected"].includes(String(e.status))) && <button className="btn ghost sm" onClick={() => onAction(e, "submit")}>Submit</button>}
+                        {e.status === "pending" && <button className="btn primary sm" onClick={() => onAction(e, "approve")}>Approve</button>}
+                        {e.status === "pending" && <button className="btn ghost sm" onClick={() => onAction(e, "reject")}>Reject</button>}
+                        {e.status === "approved" && <button className="btn primary sm" onClick={() => onAction(e, "mark-paid")}>Mark paid</button>}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -2909,6 +2931,19 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }
   }
 
+  async function runPropertyAction(endpoint: string, id: ID, action: string, failureMessage: string) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/${endpoint}/${id}/${action}/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
+    }, organizationId);
+    if (res.ok) {
+      await loadData();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || failureMessage);
+    }
+  }
+
   async function downloadReportCSV(key: string) {
     const res = await apiFetch(`/property/analytics/exports/${key}/`, {}, organizationId);
     if (!res.ok) {
@@ -2956,6 +2991,19 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       loadData();
     } else {
       setError("Reminder could not be sent.");
+    }
+  }
+
+  async function sendInvoiceReminder(row: InvoiceRow) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/invoices/${row.id}/send-reminder/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ channel: "portal" }),
+    }, organizationId);
+    if (res.ok) {
+      setError("");
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Invoice reminder could not be sent.");
     }
   }
 
@@ -3018,10 +3066,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "projects" && <ProjectsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "tenants" && <TenantsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onSelectRow={setSelectedRow} />}
-        {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} />}
+        {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
-        {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
-        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSelectRow={setSelectedRow} />}
+        {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} />}
+        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onSelectRow={setSelectedRow} />}
         {tab === "arrears" && <ArrearsView rows={rows} analytics={analytics} loading={loading} search={search} setSearch={setSearch} onNavigateReminders={navigateRemindersForTenant} />}
         {tab === "reminders" && <RemindersView rows={rows} loading={loading} search={search} setSearch={setSearch} onSendReminder={sendReminder} setTab={handleSelectTab} />}
         {tab === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={openRecordReceipt} />}
@@ -3031,8 +3079,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} />}
         {tab === "service-charge-allocations" && <ServiceChargeAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
-        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} />}
-        {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} />}
+        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => void runPropertyAction("budgets", row.id, action, "Budget action failed.")} />}
+        {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={(key) => void downloadReportCSV(key)} />}
 
         {selectedRow && (
