@@ -203,6 +203,34 @@ test("property approval and billing workflows are interactive", async ({ page },
   await expect(page.getByText("INV-2026-0702", { exact: true }).first()).toBeVisible();
 });
 
+test("property leasing and billing lifecycle controls are available", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  test.skip(testInfo.project.name.startsWith("mobile"), "Lifecycle mutations use shared lease and invoice records");
+  await page.goto("/property");
+  await openModuleSection(page, "Leases");
+  const activeLease = page.getByRole("row").filter({ hasText: "LS-2026-001" });
+  await activeLease.getByRole("button", { name: "Renew", exact: true }).click();
+  const renewal = page.getByRole("dialog", { name: "Renew lease" });
+  const reference = `E2E-RENEW-${Date.now()}`;
+  await renewal.getByLabel("Renewal reference").fill(reference);
+  await renewal.getByLabel("New end date").fill("2030-12-31");
+  await renewal.getByLabel("New monthly rent").fill("195000");
+  await renewal.getByRole("button", { name: "Create renewal", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: /E2E-RENEW-/ }).first()).toBeVisible();
+
+  const expiringLease = page.getByRole("row").filter({ hasText: "LS-2025-014" });
+  await expiringLease.getByRole("button", { name: "Terminate", exact: true }).click();
+  const termination = page.getByRole("dialog", { name: "Terminate lease" });
+  await expect(termination.getByRole("button", { name: "Confirm termination", exact: true })).toBeVisible();
+  await termination.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  await openModuleSection(page, "Rent & invoices");
+  const draftInvoice = page.getByRole("row").filter({ hasText: "INV-2026-DRAFT" });
+  const issue = draftInvoice.getByRole("button", { name: "Issue", exact: true });
+  if (await issue.count()) await issue.click();
+  await expect(draftInvoice.getByText(/issued|overdue|partial/, { exact: true })).toBeVisible();
+});
+
 test("property arrears, service-charge and report data are connected", async ({ page }) => {
   await page.goto("/property");
   await openModuleSection(page, "Arrears");

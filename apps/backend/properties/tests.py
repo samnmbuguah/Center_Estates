@@ -154,6 +154,19 @@ class PropertyApiTests(TestCase):
             format='json', **self.headers,
         ).status_code, 400)
 
+    def test_credit_note_rejects_unposted_invoice(self):
+        self.invoice.status = Invoice.Status.DRAFT
+        self.invoice.save(update_fields=('status',))
+        response = self.client.post('/api/v1/property/credit-notes/', {
+            'number': 'CN-DRAFT', 'invoice': str(self.invoice.id),
+            'issued_on': '2026-07-31', 'amount': '250.00',
+            'reason': 'Must not adjust an unposted invoice',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn('invoice', response.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('1000.00'))
+
     def test_tenant_document_verification_is_scoped_and_audited(self):
         response = self.client.post('/api/v1/property/tenant-documents/', {
             'tenant': str(self.tenant.id), 'document_type': 'tax_certificate',

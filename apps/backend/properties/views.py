@@ -689,6 +689,8 @@ class CreditNoteViewSet(OrganizationModelViewSet):
         invoice = Invoice.objects.select_for_update().filter(pk=candidate.pk, organization=organization).first()
         if not invoice:
             raise ValidationError({'invoice': 'Invoice belongs to another organization.'})
+        if invoice.status not in (Invoice.Status.ISSUED, Invoice.Status.OVERDUE, Invoice.Status.PARTIAL):
+            raise ValidationError({'invoice': 'Credit notes can only be issued against an outstanding posted invoice.'})
         amount = serializer.validated_data['amount']
         if amount > invoice.balance:
             raise ValidationError({'amount': 'Credit note exceeds the invoice balance.'})

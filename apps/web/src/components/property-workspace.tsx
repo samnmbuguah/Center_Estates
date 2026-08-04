@@ -1001,7 +1001,7 @@ function LeasesView({
 }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAddLease: () => void; onDownloadTemplate: () => void;
-  onLeaseAction: (r: LeaseRow, action: "activate") => void; onSelectRow: (r: Row) => void;
+  onLeaseAction: (r: LeaseRow, action: "activate" | "renew" | "terminate") => void; onSelectRow: (r: Row) => void;
 }) {
   const leases = rows as LeaseRow[];
   const active = leases.filter((l) => l.status === "active").length;
@@ -1078,6 +1078,12 @@ function LeasesView({
                         {l.status === "draft" && (
                           <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "activate"); }}>Activate</button>
                         )}
+                        {(["active", "expiring"].includes(String(l.status))) && (
+                          <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "renew"); }}>Renew</button>
+                        )}
+                        {(["active", "expiring"].includes(String(l.status))) && (
+                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "terminate"); }}>Terminate</button>
+                        )}
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("rent"); }}>Invoices</button>
                       </div>
                     </td>
@@ -1147,7 +1153,7 @@ function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice
 
 /* ─── RENT & INVOICES ─── */
 
-function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onRemind: (row: InvoiceRow) => void, onSelect: (r: Row) => void) {
+function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onRemind: (row: InvoiceRow) => void, onAction: (row: InvoiceRow, action: "issue" | "void") => void, onSelect: (r: Row) => void) {
   return invoices.map((inv) => (
     <tr key={String(inv.id)} onClick={() => onSelect(inv)}>
       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(inv.number ?? "—")}</td>
@@ -1163,6 +1169,8 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
         <div className="row" style={{ gap: 6 }}>
           {Number(inv.balance ?? 0) > 0 && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onPay(String(inv.id)); }}>Pay</button>}
           {Number(inv.balance ?? 0) > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onRemind(inv); }}>Send reminder</button>}
+          {inv.status === "draft" && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "issue"); }}>Issue</button>}
+          {(["draft", "issued", "overdue"].includes(String(inv.status))) && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "void"); }}>Void</button>}
         </div>
       </td>
     </tr>
@@ -1171,12 +1179,13 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
 
 function RentView({
   rows, rentInvoices, analytics, rentSection, setRentSection, loading,
-  setTab, onRecordReceipt, onSendReminder, onSelectRow,
+  setTab, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow,
 }: {
   rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null;
   rentSection: RentSection; setRentSection: (s: RentSection) => void; loading: boolean;
   setTab: (t: PropertyTab) => void;
-  onRecordReceipt: (invoiceId?: ID) => void; onSendReminder: (row: InvoiceRow) => void; onSelectRow: (r: Row) => void;
+  onRecordReceipt: (invoiceId?: ID) => void; onSendReminder: (row: InvoiceRow) => void;
+  onInvoiceAction: (row: InvoiceRow, action: "issue" | "void") => void; onSelectRow: (r: Row) => void;
 }) {
   const totalBilled = rentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = rentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
@@ -1237,7 +1246,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSendReminder, onSelectRow)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow)}</tbody>
               </table>
             </div>
           </ListState>
@@ -1263,7 +1272,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSendReminder, onSelectRow)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow)}</tbody>
               </table>
             </div>
           </ListState>
@@ -2451,6 +2460,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [showAddServiceCharge, setShowAddServiceCharge] = useState(false);
   const [financialIntake, setFinancialIntake] = useState<"budget" | "expense" | "credit-note" | null>(null);
   const [matchTarget, setMatchTarget] = useState<BankTransactionRow | null>(null);
+  const [renewalTarget, setRenewalTarget] = useState<LeaseRow | null>(null);
+  const [terminationTarget, setTerminationTarget] = useState<LeaseRow | null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<ID>("");
 
   const [tenantOptions, setTenantOptions] = useState<Row[]>([]);
@@ -2647,7 +2658,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     if (financialIntake === "credit-note") {
       void apiFetch("/property/invoices/?search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
-        .then((d) => setInvoiceOptions(Array.isArray(d) ? d.filter((invoice: InvoiceRow) => Number(invoice.balance ?? 0) > 0) : []));
+        .then((d) => setInvoiceOptions(Array.isArray(d) ? d.filter((invoice: InvoiceRow) => Number(invoice.balance ?? 0) > 0 && ["issued", "overdue", "partial"].includes(String(invoice.status))) : []));
     }
     if (showAddLease) {
       void apiFetch("/property/units/?search=", {}, organizationId)
@@ -2963,7 +2974,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     void downloadReportCSV("lease-expiry");
   };
 
-  async function runLeaseAction(row: LeaseRow, action: "activate") {
+  async function runLeaseAction(row: LeaseRow, action: "activate" | "renew" | "terminate") {
+    if (action === "renew") { setRenewalTarget(row); return; }
+    if (action === "terminate") { setTerminationTarget(row); return; }
     await apiFetch("/auth/csrf/");
     const res = await apiFetch(`/property/leases/${row.id}/${action}/`, {
       method: "POST",
@@ -2974,6 +2987,43 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       loadData();
     } else {
       setError("Lease action failed. Confirm the lease is a draft.");
+    }
+  }
+
+  async function submitLeaseRenewal(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!renewalTarget) return;
+    const form = new FormData(e.currentTarget);
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/leases/${renewalTarget.id}/renew/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({
+        reference: String(form.get("reference") ?? "").trim(),
+        ends_on: String(form.get("ends_on") ?? ""),
+        monthly_rent: Number(form.get("monthly_rent") ?? 0),
+      }),
+    }, organizationId);
+    if (res.ok) {
+      setRenewalTarget(null);
+      await loadData();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Lease renewal failed.");
+    }
+  }
+
+  async function confirmLeaseTermination() {
+    if (!terminationTarget) return;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/leases/${terminationTarget.id}/terminate/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
+    }, organizationId);
+    if (res.ok) {
+      setTerminationTarget(null);
+      await loadData();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Lease termination failed.");
     }
   }
 
@@ -3069,7 +3119,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
         {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} />}
-        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onSelectRow={setSelectedRow} />}
+        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => void runPropertyAction("invoices", row.id, action, "Invoice action failed.")} onSelectRow={setSelectedRow} />}
         {tab === "arrears" && <ArrearsView rows={rows} analytics={analytics} loading={loading} search={search} setSearch={setSearch} onNavigateReminders={navigateRemindersForTenant} />}
         {tab === "reminders" && <RemindersView rows={rows} loading={loading} search={search} setSearch={setSearch} onSendReminder={sendReminder} setTab={handleSelectTab} />}
         {tab === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={openRecordReceipt} />}
@@ -3468,6 +3518,38 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                 <button type="submit" className="btn primary">{financialIntake === "credit-note" ? "Issue credit note" : "Save draft"}</button>
               </div>
             </form>
+          </Modal>
+        )}
+
+        {renewalTarget && (
+          <Modal title="Renew lease" onClose={() => setRenewalTarget(null)}>
+            <form onSubmit={submitLeaseRenewal} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+                <strong>{String(renewalTarget.reference ?? "Lease")}</strong>
+                <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>{String(renewalTarget.tenant_name ?? "")} · current end {fmtDate(renewalTarget.ends_on)}</p>
+              </div>
+              <Field label="Renewal reference" required><input name="reference" required placeholder={`${String(renewalTarget.reference ?? "LEASE")}-R1`} /></Field>
+              <div className="grid-2">
+                <Field label="New end date" required><input name="ends_on" type="date" min={String(renewalTarget.ends_on ?? "")} required /></Field>
+                <Field label="New monthly rent" required><input name="monthly_rent" type="number" min={0.01} step="0.01" defaultValue={Number(renewalTarget.monthly_rent ?? 0)} required /></Field>
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setRenewalTarget(null)}>Cancel</button>
+                <button type="submit" className="btn primary">Create renewal</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {terminationTarget && (
+          <Modal title="Terminate lease" onClose={() => setTerminationTarget(null)}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <p style={{ margin: 0 }}>Terminate <strong>{String(terminationTarget.reference ?? "this lease")}</strong> for {String(terminationTarget.tenant_name ?? "the tenant")}? The unit will become available when no other current lease exists.</p>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setTerminationTarget(null)}>Cancel</button>
+                <button type="button" className="btn danger" onClick={() => void confirmLeaseTermination()}>Confirm termination</button>
+              </div>
+            </div>
           </Modal>
         )}
 
