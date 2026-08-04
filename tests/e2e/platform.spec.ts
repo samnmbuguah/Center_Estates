@@ -103,6 +103,27 @@ test("property tenant onboarding and compliance dialogs are connected", async ({
   await documentDialog.getByRole("button", { name: "Cancel" }).click();
 });
 
+test("property leasing can reject tenant compliance evidence with a reason", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel document review races");
+  await page.goto("/property");
+  await openModuleSection(page, "Tenant documents");
+  await page.getByRole("button", { name: "+ Upload", exact: true }).click();
+  const upload = page.getByRole("dialog", { name: "Upload Tenant Document" });
+  const number = `E2E-DOC-${Date.now()}`;
+  await upload.getByLabel("Tenant").selectOption({ index: 1 });
+  await upload.getByLabel("Document Type").selectOption("other");
+  await upload.getByLabel("Document Number").fill(number);
+  await upload.getByLabel("File URL").fill("https://example.test/evidence.pdf");
+  await upload.getByRole("button", { name: "Upload Document", exact: true }).click();
+  const row = page.getByRole("row").filter({ hasText: number });
+  await expect(row).toContainText("pending");
+  await row.getByRole("button", { name: "Reject", exact: true }).click();
+  const rejection = page.getByRole("dialog", { name: "Reject tenant document" });
+  await rejection.getByLabel("Rejection reason").fill("Document scan is incomplete and cannot be verified.");
+  await rejection.getByRole("button", { name: "Reject document", exact: true }).click();
+  await expect(row).toContainText("rejected");
+});
+
 test("property leasing officer can create a controlled draft lease", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel lease-reference races");
   await page.goto("/property");
@@ -163,6 +184,20 @@ test("property finance can configure and allocate a service charge", async ({ pa
   await expect(row).toBeVisible();
   await row.getByRole("button",{name:"Allocate",exact:true}).click();
   await expect(page.getByText(name,{exact:true}).first()).toBeVisible();
+});
+
+test("property finance can reconcile a service charge period", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single reconciliation avoids parallel period updates");
+  await page.goto("/property");
+  await openModuleSection(page, "Service charge");
+  const scheme = page.getByRole("row").filter({ hasText: "2026 Commercial Service Charge" });
+  await scheme.getByRole("button", { name: "Reconcile", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Reconcile service charge" });
+  await dialog.getByLabel("Period start").fill("2026-01-01");
+  await dialog.getByLabel("Period end").fill("2026-08-04");
+  await dialog.getByRole("button", { name: "Run reconciliation", exact: true }).click();
+  await expect(page.getByText("2026 Commercial Service Charge", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("draft", { exact: true }).first()).toBeVisible();
 });
 
 test("property finance can issue an audited credit note", async ({ page }, testInfo) => {

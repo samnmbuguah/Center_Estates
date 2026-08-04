@@ -939,9 +939,9 @@ function TenantsView({
 
 /* ─── TENANT DOCUMENTS ─── */
 
-function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDownload, onVerify }: {
+function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDownload, onVerify, onReject }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
-  onUpload: () => void; onDownload: (r: Row) => void; onVerify: (r: TenantDocumentRow) => void;
+  onUpload: () => void; onDownload: (r: Row) => void; onVerify: (r: TenantDocumentRow) => void; onReject: (r: TenantDocumentRow) => void;
 }) {
   const docs = rows as TenantDocumentRow[];
 
@@ -981,6 +981,7 @@ function TenantDocumentsView({ rows, loading, search, setSearch, onUpload, onDow
                       <div className="row" style={{ gap: 6 }}>
                         <button className="btn ghost sm" onClick={() => onDownload(d)}>Download</button>
                         {d.status === "pending" && <button className="btn primary sm" onClick={() => onVerify(d)}>Verify</button>}
+                        {d.status === "pending" && <button className="btn ghost sm" onClick={() => onReject(d)}>Reject</button>}
                       </div>
                     </td>
                   </tr>
@@ -1857,12 +1858,13 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab, onAdd }: {
 /* ─── SERVICE CHARGES ─── */
 
 function ServiceChargesView({
-  rows, scSection, setScSection, loading, setTab, onAdd, onAllocate,
+  rows, scSection, setScSection, loading, setTab, onAdd, onAllocate, onReconcile,
 }: {
   rows: Row[]; scSection: ScSection; setScSection: (s: ScSection) => void; loading: boolean;
   setTab: (t: PropertyTab) => void;
   onAdd: () => void;
   onAllocate: (row: ServiceChargeRow) => void;
+  onReconcile: (row: ServiceChargeRow) => void;
 }) {
   const charges = rows as ServiceChargeRow[];
   const totalBudget = charges.reduce((s, c) => s + Number(c.annual_budget ?? 0), 0);
@@ -1924,7 +1926,7 @@ function ServiceChargesView({
                         <td className="mono">{kM(c.annual_budget)}</td>
                         <td className="mono"><strong>{pct(c.annual_budget, totalBudget)}%</strong></td>
                         <td><StatusPill value={c.is_active === false ? "inactive" : "active"} /></td>
-                        <td><button className="btn ghost sm" onClick={() => onAllocate(c)}>Allocate</button></td>
+                        <td><div className="row" style={{ gap: 6 }}><button className="btn ghost sm" onClick={() => onAllocate(c)}>Allocate</button><button className="btn primary sm" onClick={() => onReconcile(c)}>Reconcile</button></div></td>
                       </tr>
                     ))}
                     <tr>
@@ -2462,6 +2464,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [matchTarget, setMatchTarget] = useState<BankTransactionRow | null>(null);
   const [renewalTarget, setRenewalTarget] = useState<LeaseRow | null>(null);
   const [terminationTarget, setTerminationTarget] = useState<LeaseRow | null>(null);
+  const [reconciliationTarget, setReconciliationTarget] = useState<ServiceChargeRow | null>(null);
+  const [documentRejectTarget, setDocumentRejectTarget] = useState<TenantDocumentRow | null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<ID>("");
 
   const [tenantOptions, setTenantOptions] = useState<Row[]>([]);
@@ -2942,6 +2946,44 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }
   }
 
+  async function submitServiceChargeReconciliation(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!reconciliationTarget) return;
+    const form = new FormData(e.currentTarget);
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/service-charges/${reconciliationTarget.id}/reconcile/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ period_start: String(form.get("period_start") ?? ""), period_end: String(form.get("period_end") ?? "") }),
+    }, organizationId);
+    if (res.ok) {
+      const reconciliation = await res.json();
+      setReconciliationTarget(null);
+      setRows([reconciliation as Row]);
+      setTab("service-charge-reconciliations");
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Service-charge reconciliation failed.");
+    }
+  }
+
+  async function submitDocumentRejection(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!documentRejectTarget) return;
+    const form = new FormData(e.currentTarget);
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/tenant-documents/${documentRejectTarget.id}/reject/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ reason: String(form.get("reason") ?? "").trim() }),
+    }, organizationId);
+    if (res.ok) {
+      setDocumentRejectTarget(null);
+      await loadData();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Document rejection failed.");
+    }
+  }
+
   async function runPropertyAction(endpoint: string, id: ID, action: string, failureMessage: string) {
     await apiFetch("/auth/csrf/");
     const res = await apiFetch(`/property/${endpoint}/${id}/${action}/`, {
@@ -3116,7 +3158,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "projects" && <ProjectsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "tenants" && <TenantsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onSelectRow={setSelectedRow} />}
-        {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} />}
+        {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onReject={setDocumentRejectTarget} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
         {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} />}
         {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => void runPropertyAction("invoices", row.id, action, "Invoice action failed.")} onSelectRow={setSelectedRow} />}
@@ -3126,7 +3168,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "receipt-allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "bank-reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} />}
         {tab === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("credit-note")} />}
-        {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} />}
+        {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} onReconcile={setReconciliationTarget} />}
         {tab === "service-charge-allocations" && <ServiceChargeAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => void runPropertyAction("budgets", row.id, action, "Budget action failed.")} />}
@@ -3550,6 +3592,39 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                 <button type="button" className="btn danger" onClick={() => void confirmLeaseTermination()}>Confirm termination</button>
               </div>
             </div>
+          </Modal>
+        )}
+
+        {reconciliationTarget && (
+          <Modal title="Reconcile service charge" onClose={() => setReconciliationTarget(null)}>
+            <form onSubmit={submitServiceChargeReconciliation} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+                <strong>{String(reconciliationTarget.name ?? "Service charge")}</strong>
+                <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>{String(reconciliationTarget.property_name ?? "")} · annual budget {kM(reconciliationTarget.annual_budget)}</p>
+              </div>
+              <div className="grid-2">
+                <Field label="Period start" required><input name="period_start" type="date" required /></Field>
+                <Field label="Period end" required><input name="period_end" type="date" required /></Field>
+              </div>
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>Approved and paid property expenses in this period are compared with the prorated budget. The result starts in draft for review.</p>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setReconciliationTarget(null)}>Cancel</button>
+                <button type="submit" className="btn primary">Run reconciliation</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {documentRejectTarget && (
+          <Modal title="Reject tenant document" onClose={() => setDocumentRejectTarget(null)}>
+            <form onSubmit={submitDocumentRejection} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <p style={{ margin: 0 }}>Record why <strong>{String(documentRejectTarget.document_number ?? documentRejectTarget.document_type ?? "this document")}</strong> cannot be accepted. The reason remains visible in its compliance record.</p>
+              <Field label="Rejection reason" required><textarea name="reason" rows={4} required placeholder="Describe the missing, invalid, or expired evidence" /></Field>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setDocumentRejectTarget(null)}>Cancel</button>
+                <button type="submit" className="btn danger">Reject document</button>
+              </div>
+            </form>
           </Modal>
         )}
 
