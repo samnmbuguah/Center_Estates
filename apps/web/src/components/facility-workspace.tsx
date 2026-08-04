@@ -19,7 +19,8 @@ type Tab =
   | "inspections"
   | "service-requests"
   | "meters"
-  | "contractors";
+  | "contractors"
+  | "reports";
 
 type Row = Record<string, string | number | boolean | null>;
 type Kpis = Dashboard["kpis"];
@@ -46,6 +47,7 @@ const labels: Record<Tab, string> = {
   "service-requests": "Service Requests",
   meters: "Utility Management",
   contractors: "Contractors",
+  reports: "Reports & BI",
 };
 
 /* ─── helpers ─── */
@@ -895,18 +897,218 @@ function AssetsView({
   );
 }
 
+/* ─── Work Order Detail ─── */
+function WorkOrderDetail({
+  row,
+  onBack,
+  organizationId,
+}: {
+  row: Row;
+  onBack: () => void;
+  organizationId: string | null;
+}) {
+  const [detailTab, setDetailTab] = useState<"overview" | "details" | "tasks">("overview");
+  const [events, setEvents] = useState<Row[]>([]);
+  const [costItems, setCostItems] = useState<Row[]>([]);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    apiFetch(`/facility/work-order-events/?search=${encodeURIComponent(String(row.number ?? ""))}`, {}, organizationId)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setEvents)
+      .catch(() => {});
+    apiFetch(`/facility/work-order-cost-items/?search=${encodeURIComponent(String(row.number ?? ""))}`, {}, organizationId)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setCostItems)
+      .catch(() => {});
+  }, [row.number, organizationId]);
+
+  const priority = String(row.priority ?? "low");
+  const status = String(row.status ?? "open");
+  const totalCost = costItems.reduce((sum, item) => sum + Number(item.total ?? 0), 0);
+  const laborCost = costItems.filter((i) => i.kind === "labor").reduce((s, i) => s + Number(i.total ?? 0), 0);
+  const partsCost = costItems.filter((i) => i.kind === "part").reduce((s, i) => s + Number(i.total ?? 0), 0);
+  const priorityColors: Record<string, string> = { critical: "#b91c1c", high: "#c2410c", medium: "#a16207", low: "#15803d" };
+
+  return (
+    <>
+      <nav style={{ marginBottom: 12, fontSize: 12, color: "#8a96a7" }}>
+        <span style={{ cursor: "pointer" }} onClick={onBack}>Maintenance</span>
+        <span style={{ margin: "0 6px" }}>/</span>
+        <span style={{ cursor: "pointer" }} onClick={onBack}>Work Orders</span>
+        <span style={{ margin: "0 6px" }}>/</span>
+        <span style={{ color: "#27364a" }}>{String(row.number ?? "—")}</span>
+      </nav>
+      <button onClick={onBack} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0 }}>
+        ← Back to Work Orders
+      </button>
+      <div className="data-panel" style={{ padding: "16px 18px", marginBottom: 16 }}>
+        <div style={{ alignItems: "center", display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 16, fontWeight: 700, color: "#27364a" }}>{String(row.number ?? "—")}</span>
+          <FcStatus value={status.replace("_", "-")} />
+          <span className="fc-priority-chip">
+            <i style={{ background: priorityColors[priority] ?? "#9ca3af" }} />
+            <span style={{ color: priorityColors[priority] ?? "#9ca3af", textTransform: "capitalize" }}>{priority}</span>
+          </span>
+        </div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px" }}>{String(row.title ?? "—")}</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ alignItems: "center", background: "#f0f4ff", borderRadius: 6, color: "#4f46e5", display: "inline-flex", fontSize: 11, gap: 4, padding: "3px 10px" }}>
+            📍 {String(row.property_name ?? "—")}
+          </span>
+          <span style={{ alignItems: "center", background: "#f0fdf4", borderRadius: 6, color: "#15803d", display: "inline-flex", fontSize: 11, gap: 4, padding: "3px 10px" }}>
+            🏗 {String(row.category ?? "General")}
+          </span>
+        </div>
+      </div>
+      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
+        {(["overview", "details", "tasks"] as const).map((t) => (
+          <button key={t} onClick={() => setDetailTab(t)} style={{ background: "transparent", border: 0, borderBottom: detailTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: detailTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", textTransform: "capitalize" }}>
+            {t === "tasks" ? "Tasks & Updates" : t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 340px" }}>
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="data-panel" style={{ padding: "16px 18px" }}>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Order Details</strong>
+            {[
+              { label: "Priority", value: <span className="fc-priority-chip"><i style={{ background: priorityColors[priority] ?? "#9ca3af" }} /><span style={{ color: priorityColors[priority] ?? "#9ca3af", textTransform: "capitalize" }}>{priority}</span></span> },
+              { label: "SLA Response Time", value: "Within 4 hours" },
+              { label: "SLA Resolution Time", value: "Within 48 hours" },
+              { label: "Assigned To", value: "James Kariuki" },
+              { label: "Reported At", value: String(row.reported_at ?? "—") },
+              { label: "Scheduled For", value: String(row.scheduled_for ?? "—") },
+              { label: "Progress", value: `${String(row.progress ?? 0)}%` },
+            ].map((f) => (
+              <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "9px 0" }}>
+                <span style={{ color: "#8a96a7", fontSize: 11 }}>{f.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{f.value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="data-panel">
+            <div style={{ borderBottom: "1px solid var(--line)", padding: "14px 18px" }}>
+              <strong style={{ fontSize: 13 }}>Parts & Materials</strong>
+            </div>
+            <div className="table-scroll">
+              <table className="fc-data-table">
+                <thead>
+                  <tr><th>Part Code</th><th>Description</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr>
+                </thead>
+                <tbody>
+                  {costItems.filter((i) => i.kind === "part").length > 0
+                    ? costItems.filter((i) => i.kind === "part").map((item, idx) => (
+                        <tr key={idx}>
+                          <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(item.reference ?? "—")}</td>
+                          <td style={{ fontSize: 12 }}>{String(item.description ?? "—")}</td>
+                          <td style={{ fontSize: 12 }}>{String(item.quantity ?? "—")}</td>
+                          <td style={{ fontSize: 12 }}>{money.format(Number(item.unit_cost ?? 0))}</td>
+                          <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</td>
+                        </tr>
+                      ))
+                    : [
+                        { code: "PIP-CRVEAN-2IN", desc: "PVC Pipe 2 inch", qty: 10, unit: 350, total: 3500 },
+                        { code: "PIP-ELEOW-2IN", desc: "PVC Elbow 2 inch", qty: 10, unit: 120, total: 1200 },
+                        { code: "CLAMP-2IN", desc: "Pipe Clamp 2 inch", qty: 10, unit: 80, total: 800 },
+                      ].map((p) => (
+                        <tr key={p.code}>
+                          <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{p.code}</td>
+                          <td style={{ fontSize: 12 }}>{p.desc}</td>
+                          <td style={{ fontSize: 12 }}>{p.qty} Piece</td>
+                          <td style={{ fontSize: 12 }}>{money.format(p.unit)}</td>
+                          <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(p.total)}</td>
+                        </tr>
+                      ))
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="data-panel" style={{ padding: "16px 18px" }}>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Cost Estimate Summary</strong>
+            {[
+              { label: "Labor Cost", value: money.format(Number(row.labor_cost ?? laborCost)) },
+              { label: "Parts Cost", value: money.format(Number(row.parts_cost ?? partsCost)) },
+              { label: "Other Cost", value: money.format(Number(row.other_cost ?? 0)) },
+            ].map((f) => (
+              <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "8px 0" }}>
+                <span style={{ color: "#8a96a7", fontSize: 11 }}>{f.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{f.value}</span>
+              </div>
+            ))}
+            <div style={{ borderTop: "2px solid #f0f2f6", display: "flex", justifyContent: "space-between", marginTop: 4, padding: "10px 0" }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Total Cost</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#e23b3b" }}>{money.format(Number(row.total_cost ?? totalCost))}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
+          <div className="data-panel" style={{ padding: "16px 18px" }}>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Approval</strong>
+            <div style={{ alignItems: "center", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, display: "flex", gap: 10, marginBottom: 12, padding: "10px 14px" }}>
+              <span style={{ color: "#ea580c" }}>⏳</span>
+              <span style={{ color: "#92400e", fontSize: 12 }}>Pending approval from Resident Manager</span>
+            </div>
+            <button
+              onClick={async () => {
+                if (!organizationId) return;
+                await apiFetch("/auth/csrf/");
+                await apiFetch(`/facility/work-orders/${row.id}/transition/`, {
+                  method: "POST",
+                  headers: { "X-CSRFToken": csrfFromCookie() },
+                  body: JSON.stringify({ status: "assigned", notes: "Approval requested" }),
+                }, organizationId);
+              }}
+              style={{ background: "#e23b3b", border: 0, borderRadius: 8, color: "white", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: "10px 16px", width: "100%" }}
+            >
+              Request Approval
+            </button>
+          </div>
+          <div className="data-panel" style={{ padding: "16px 18px" }}>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Order Timeline</strong>
+            <div style={{ display: "grid", gap: 12 }}>
+              {(events.length > 0 ? events : [
+                { event_type: "Work order created", created_at: String(row.reported_at ?? "—"), notes: "Initial report submitted" },
+                { event_type: "Assigned to technician", created_at: "—", notes: "James Kariuki" },
+                { event_type: "Inspection completed", created_at: "—", notes: "Site inspection done" },
+                { event_type: "Repair in progress", created_at: "—", notes: "Expect completion within hours" },
+              ]).slice(0, 6).map((evt, i, arr) => (
+                <div key={i} style={{ display: "flex", gap: 10 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div style={{ background: i === 0 ? "#e23b3b" : "#d7dce5", borderRadius: "50%", height: 8, width: 8 }} />
+                    {i < arr.length - 1 && <div style={{ background: "#edf0f5", flex: 1, width: 2, marginTop: 4 }} />}
+                  </div>
+                  <div style={{ paddingBottom: 8 }}>
+                    <strong style={{ display: "block", fontSize: 12 }}>{String(evt.event_type ?? "—").replace(/_/g, " ")}</strong>
+                    <span style={{ color: "#8a96a7", fontSize: 11 }}>{String(evt.created_at ?? "—")}</span>
+                    {evt.notes && <p style={{ color: "#4b5563", fontSize: 11, margin: "4px 0 0" }}>{String(evt.notes)}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ─── Work Orders tab ─── */
 function WorkOrdersView({
   rows,
   kpis,
   permissions,
   setShowCreate,
+  organizationId,
 }: {
   rows: Row[];
   kpis: Kpis;
   permissions: { canWork: boolean };
   setShowCreate: (b: boolean) => void;
+  organizationId: string | null;
 }) {
+  const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const displayRows = rows.length > 0 ? rows : [
     { id: 1, number: "WO-2026-1789", title: "Lift not functioning – Finance House", property_name: "Finance House", priority: "high", status: "overdue", progress: 0, total_cost: 0 },
     { id: 2, number: "WO-2026-1788", title: "AMC Service – Generator (Utalii House)", property_name: "Utalii House", priority: "high", status: "in_progress", progress: 60, total_cost: 45000 },
@@ -918,6 +1120,10 @@ function WorkOrdersView({
   const priorityColors: Record<string, string> = {
     critical: "#b91c1c", high: "#c2410c", medium: "#a16207", low: "#15803d",
   };
+
+  if (selectedRow) {
+    return <WorkOrderDetail row={selectedRow} onBack={() => setSelectedRow(null)} organizationId={organizationId} />;
+  }
 
   return (
     <>
@@ -974,7 +1180,7 @@ function WorkOrdersView({
                     const progress = Number(row.progress ?? 0);
                     const priority = String(row.priority ?? "low");
                     return (
-                      <tr key={String(row.id)}>
+                      <tr key={String(row.id)} onClick={() => setSelectedRow(row)} style={{ cursor: "pointer" }}>
                         <td><FcStatus value={String(row.status ?? "open").replace("_", " ")} /></td>
                         <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(row.number ?? "—")}</span></td>
                         <td><strong style={{ fontSize: 12 }}>{String(row.title ?? "—")}</strong></td>
@@ -1101,6 +1307,7 @@ function WorkOrdersView({
 
 /* ─── Planned Maintenance tab ─── */
 function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canAdminister: boolean }; onAdd: () => void }) {
+  const [subTab, setSubTab] = useState("calendar");
   const days = ["Mon 12 May", "Tue 13 May", "Wed 14 May", "Thu 15 May", "Fri 16 May", "Sat 17 May", "Sun 18 May"];
   const calEvents = [
     [
@@ -1151,18 +1358,23 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
 
       {/* View tabs */}
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {["Calendar View", "List View", "Gantt View", "Task Templates", "Maintenance Plans"].map((t, i) => (
-          <button
-            key={t}
-            style={{ background: "transparent", border: 0, borderBottom: i === 0 ? "2px solid #e23b3b" : "2px solid transparent", color: i === 0 ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", whiteSpace: "nowrap" }}
-          >
-            {t}
-          </button>
-        ))}
+        {(["calendar", "list", "gantt", "templates", "plans"] as const).map((t) => {
+          const labels: Record<string, string> = { calendar: "Calendar View", list: "List View", gantt: "Gantt View", templates: "Task Templates", plans: "Maintenance Plans" };
+          return (
+            <button
+              key={t}
+              onClick={() => setSubTab(t)}
+              style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", whiteSpace: "nowrap" }}
+            >
+              {labels[t]}
+            </button>
+          );
+        })}
       </div>
 
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "240px minmax(0,1fr)" }}>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: subTab === "list" ? "1fr" : "240px minmax(0,1fr)" }}>
         {/* Maintenance plans sidebar */}
+        {(subTab === "calendar" || subTab === "gantt" || subTab === "plans" || subTab === "templates") && (
         <div>
           <article className="data-panel">
             <div style={{ borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", padding: "14px 16px" }}>
@@ -1207,10 +1419,12 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
             </div>
           </article>
         </div>
+        )}
 
         {/* Calendar + tasks */}
         <div style={{ display: "grid", gap: 16 }}>
           {/* Calendar week header */}
+          {(subTab === "calendar" || subTab === "gantt") && (
           <article className="data-panel" style={{ overflow: "hidden" }}>
             <div className="fc-ppm-header">
               <div className="fc-ppm-cal-nav">
@@ -1253,6 +1467,7 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
               ))}
             </div>
           </article>
+          )}
 
           {/* Upcoming tasks table */}
           <article className="data-panel">
@@ -1310,6 +1525,7 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
 /* ─── Inspections tab ─── */
 function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canInspect: boolean }; onAdd: () => void }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
+  const [subTab, setSubTab] = useState("list");
 
   const displayRows = rows.length > 0 ? rows : [
     { id: 1, reference: "INSP-2026-0056", title: "Lift Safety Inspection", asset_name: "LIFT-1", property_name: "Cradle Building – Ground Floor", scheduled_on: "18 May 2026, 09:30 AM", score: 96, violations: 0, status: "completed" },
@@ -1343,13 +1559,24 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
 
       {/* Tabs */}
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {["Inspection List", "Calendar View", "Templates", "Checklists", "Reports"].map((t, i) => (
-          <button key={t} style={{ background: "transparent", border: 0, borderBottom: i === 0 ? "2px solid #e23b3b" : "2px solid transparent", color: i === 0 ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px" }}>
-            {t}
-          </button>
-        ))}
+        {(["list", "calendar", "templates", "checklists", "reports"] as const).map((t) => {
+          const tabLabels: Record<string, string> = { list: "Inspection List", calendar: "Calendar View", templates: "Templates", checklists: "Checklists", reports: "Reports" };
+          return (
+            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px" }}>
+              {tabLabels[t]}
+            </button>
+          );
+        })}
       </div>
 
+      {/* Filter inspections by sub-tab */}
+      {(() => {
+        const filteredRows = subTab === "list" ? displayRows
+          : subTab === "templates" ? displayRows.filter((r) => String(r.status) === "completed")
+          : subTab === "checklists" ? displayRows.filter((r) => Number(r.score ?? 0) >= 90)
+          : subTab === "reports" ? displayRows.filter((r) => String(r.status) === "overdue" || Number(r.violations ?? 0) > 0)
+          : displayRows;
+        return (
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 340px" : "1fr" }}>
         <article className="data-panel">
           <div className="fc-table-toolbar">
@@ -1381,7 +1608,7 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
                 </tr>
               </thead>
               <tbody>
-                {displayRows.map((row) => {
+                {filteredRows.map((row) => {
                   const score = Number(row.score ?? 0);
                   const status = String(row.status ?? "scheduled");
                   const typeMap: Record<string, string> = { "INSP-2026-0056": "statutory", "INSP-2026-0055": "routine", "INSP-2026-0054": "routine", "INSP-2026-0053": "routine", "INSP-2026-0052": "preventive", "INSP-2026-0051": "routine" };
@@ -1421,7 +1648,7 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
             </table>
           </div>
           <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to {displayRows.length} of {totalInsp} inspections</span>
+            <span className="fc-pager-info">Showing 1 to {filteredRows.length} of {totalInsp} inspections</span>
             <div className="fc-pager">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -1512,13 +1739,13 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
           </div>
         )}
       </div>
+      ); })()}
     </>
   );
 }
-
-/* ─── Service Requests tab ─── */
 function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canWork: boolean } }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
+  const [subTab, setSubTab] = useState("all");
 
   const displayRows = rows.length > 0 ? rows : [
     { id: 1, reference: "SR-2026-0187", subject: "Toilet flush not working", tenant_name: "John Mwangi (Tenant)", property_name: "Cradle Building – 3rd Floor", priority: "high", status: "in_progress", submitted_at: "18 May 2026, 09:15 AM" },
@@ -1553,12 +1780,25 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
 
       {/* Tabs */}
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {["All Requests", "My Requests", "Open", "In Progress", "Completed", "Cancelled"].map((t, i) => (
-          <button key={t} style={{ background: "transparent", border: 0, borderBottom: i === 0 ? "2px solid #e23b3b" : "2px solid transparent", color: i === 0 ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 14px", whiteSpace: "nowrap" }}>
-            {t}
-          </button>
-        ))}
+        {(["all", "mine", "open", "in_progress", "completed", "cancelled"] as const).map((t) => {
+          const tabLabels: Record<string, string> = { all: "All Requests", mine: "My Requests", open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" };
+          return (
+            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 14px", whiteSpace: "nowrap" }}>
+              {tabLabels[t]}
+            </button>
+          );
+        })}
       </div>
+
+      {(() => {
+        const filteredRows = subTab === "all" ? displayRows
+          : subTab === "mine" ? displayRows.filter((r) => String(r.tenant_name ?? "").includes("John"))
+          : subTab === "open" ? displayRows.filter((r) => String(r.status) === "open")
+          : subTab === "in_progress" ? displayRows.filter((r) => String(r.status) === "in_progress")
+          : subTab === "completed" ? displayRows.filter((r) => ["resolved", "closed"].includes(String(r.status)))
+          : subTab === "cancelled" ? displayRows.filter((r) => String(r.status) === "cancelled")
+          : displayRows;
+        return (
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 360px" : "1fr" }}>
         <article className="data-panel">
@@ -1587,7 +1827,7 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
                 </tr>
               </thead>
               <tbody>
-                {displayRows.map((row) => {
+                {filteredRows.map((row) => {
                   const priority = String(row.priority ?? "low");
                   const status = String(row.status ?? "open");
                   const ref = String(row.reference ?? "");
@@ -1638,7 +1878,7 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
             </table>
           </div>
           <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to {displayRows.length} of {totalReq || displayRows.length} requests</span>
+            <span className="fc-pager-info">Showing 1 to {filteredRows.length} of {totalReq || filteredRows.length} requests</span>
             <div className="fc-pager">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -1702,12 +1942,14 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
           </div>
         )}
       </div>
+      ); })()}
     </>
   );
 }
 
 /* ─── Utilities tab ─── */
 function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
+  const [subTab, setSubTab] = useState("overview");
   const sparkData = [30, 45, 38, 55, 48, 62, 50, 70, 58, 75, 65, 80];
   const maxSpark = Math.max(...sparkData);
   const energyKwh = Number(kpis.utilityConsumption ?? 125430).toLocaleString();
@@ -1742,12 +1984,24 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
 
       {/* Tabs */}
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {["Overview", "Electricity", "Water", "Generator Fuel", "Solar", "Gas", "Waste", "Reports"].map((t, i) => (
-          <button key={t} style={{ background: "transparent", border: 0, borderBottom: i === 0 ? "2px solid #e23b3b" : "2px solid transparent", color: i === 0 ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "12px 12px", whiteSpace: "nowrap" }}>
-            {t}
-          </button>
-        ))}
+        {(["overview", "electricity", "water", "generator", "solar", "gas", "waste", "reports"] as const).map((t) => {
+          const tabLabels: Record<string, string> = { overview: "Overview", electricity: "Electricity", water: "Water", generator: "Generator Fuel", solar: "Solar", gas: "Gas", waste: "Waste", reports: "Reports" };
+          return (
+            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "12px 12px", whiteSpace: "nowrap" }}>
+              {tabLabels[t]}
+            </button>
+          );
+        })}
       </div>
+
+      {(() => {
+        const filteredRows = subTab === "overview" ? rows
+          : subTab === "electricity" ? rows.filter((r) => String(r.utility_type ?? "") === "electricity")
+          : subTab === "water" ? rows.filter((r) => String(r.utility_type ?? "") === "water")
+          : subTab === "gas" ? rows.filter((r) => String(r.utility_type ?? "") === "gas")
+          : subTab === "generator" ? rows.filter((r) => String(r.utility_type ?? "") === "fuel" || String(r.utility_type ?? "") === "generator")
+          : rows;
+        return (
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0,1.5fr) 280px" }}>
         <div style={{ display: "grid", gap: 16 }}>
@@ -1768,8 +2022,8 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.length > 0
-                    ? rows.slice(0, 5).map((row) => (
+                  {filteredRows.length > 0
+                    ? filteredRows.slice(0, 5).map((row) => (
                         <tr key={String(row.id)}>
                           <td>
                             <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
@@ -1871,6 +2125,7 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
           </article>
         </div>
       </div>
+      ); })()}
     </>
   );
 }
@@ -1878,6 +2133,7 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
 /* ─── Contractors tab ─── */
 function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd: () => void }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
+  const [subTab, setSubTab] = useState("all");
 
   const displayRows = rows.length > 0 ? rows : [
     { id: 1, code: "C-2018-25487", name: "Aqua Solutions Ltd.", specialty: "Plumbing & Drainage", contact_name: "0721 345 678", rating: 4.6, status: "active", insurance_expires_on: "12 Dec 2026" },
@@ -1910,15 +2166,27 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
 
       {/* Tabs */}
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {["All Contractors", "By Category", "By Performance", "Approved", "Blacklisted"].map((t, i) => (
-          <button key={t} style={{ background: "transparent", border: 0, borderBottom: i === 0 ? "2px solid #e23b3b" : "2px solid transparent", color: i === 0 ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 14px", whiteSpace: "nowrap" }}>
-            {t}
-          </button>
-        ))}
+        {(["all", "category", "performance", "approved", "blacklisted"] as const).map((t) => {
+          const tabLabels: Record<string, string> = { all: "All Contractors", category: "By Category", performance: "By Performance", approved: "Approved", blacklisted: "Blacklisted" };
+          return (
+            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 14px", whiteSpace: "nowrap" }}>
+              {tabLabels[t]}
+            </button>
+          );
+        })}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, paddingBottom: 8 }}>
           <button className="fc-toolbar-btn primary" style={{ marginRight: 0 }} onClick={onAdd}>+ Add Contractor</button>
         </div>
       </div>
+
+      {(() => {
+        const filteredRows = subTab === "all" ? displayRows
+          : subTab === "approved" ? displayRows.filter((r) => String(r.status) === "active")
+          : subTab === "blacklisted" ? displayRows.filter((r) => String(r.status) === "blacklisted")
+          : subTab === "category" ? displayRows
+          : subTab === "performance" ? displayRows.filter((r) => Number(r.rating ?? 0) >= 4.0)
+          : displayRows;
+        return (
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 360px" : "1fr" }}>
         <article className="data-panel">
@@ -1930,7 +2198,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
               ))}
               <button className="fc-toolbar-btn">Filters</button>
             </div>
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "contractors.csv")}>↓ Export</button>
+            <button className="fc-toolbar-btn" onClick={() => exportCsv(filteredRows, "contractors.csv")}>↓ Export</button>
           </div>
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -1947,7 +2215,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
                 </tr>
               </thead>
               <tbody>
-                {displayRows.map((row) => {
+                {filteredRows.map((row) => {
                   const rating = Number(row.rating ?? 0);
                   const statusStr = String(row.status ?? "active");
                   const cat = String(row.specialty ?? "General");
@@ -1985,7 +2253,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
             </table>
           </div>
           <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to {displayRows.length} of {totalContractors.toLocaleString()} contractors</span>
+            <span className="fc-pager-info">Showing 1 to {filteredRows.length} of {totalContractors.toLocaleString()} contractors</span>
             <div className="fc-pager">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
@@ -2075,6 +2343,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
           </div>
         )}
       </div>
+      ); })()}
     </>
   );
 }
@@ -2137,6 +2406,138 @@ function GenericListView({ tab, rows }: { tab: Tab; rows: Row[] }) {
   );
 }
 
+/* ─── Reports & BI tab ─── */
+function ReportsView({ dashboard }: { dashboard: Dashboard }) {
+  const kpi = dashboard.kpis;
+  const openWO = Number(kpi.openWorkOrders ?? 0);
+  const completedWO = Number(kpi.completedToday ?? 18);
+  const overdueWO = Number(kpi.overdueWorkOrders ?? 0);
+  const compliance = Number(kpi.maintenanceCompliance ?? 92);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
+  const costData = [3.2, 3.8, 4.1, 3.6, 4.25, 3.9, 4.5];
+  const maxCost = Math.max(...costData);
+
+  const recentReports = [
+    { name: "Monthly KPI Summary", date: "01 Jun 2026", generated: "Admin User", type: "KPI", status: "ready" },
+    { name: "PPM Compliance Report", date: "28 May 2026", generated: "James Kariuki", type: "Compliance", status: "ready" },
+    { name: "Work Order Analysis", date: "25 May 2026", generated: "Admin User", type: "Analysis", status: "ready" },
+    { name: "Contractor Performance", date: "22 May 2026", generated: "Mary Wanjiku", type: "Performance", status: "ready" },
+    { name: "Sustainability Report", date: "20 May 2026", generated: "Admin User", type: "Sustainability", status: "ready" },
+  ];
+
+  return (
+    <>
+      <div className="fc-kpi-strip">
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" onClick={() => {}} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="WOs Completed" value={String(completedWO)} sub="This month" onClick={() => {}} />
+        <FcKpiCard icon="⏱" iconBg="#dbeafe" iconColor="#2563eb" label="Avg Response" value="6.2 hrs" sub="Target 24 hrs" onClick={() => {}} />
+        <FcKpiCard icon="💰" iconBg="#ffedd5" iconColor="#ea580c" label="Cost / WO" value="KES 18.7K" sub="Avg. per work order" onClick={() => {}} />
+        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value="89%" sub="All categories" onClick={() => {}} />
+        <FcKpiCard icon="⚙" iconBg="#fdf4ff" iconColor="#9333ea" label="Asset Reliability" value="82%" sub="Good" onClick={() => {}} />
+        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction" value="4.6 / 5" sub="↑ 0.3 vs last month" onClick={() => {}} />
+      </div>
+
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr 1fr" }}>
+        {/* Donut: Work Orders by Status */}
+        <article className="data-panel">
+          <PanelHeader title="Work Order Status Breakdown" />
+          <div style={{ padding: "18px" }}>
+            <div className="fc-donut-lg" style={{ background: `conic-gradient(#22c55e 0% ${completedWO / Math.max(completedWO + openWO + overdueWO, 1) * 100}%, #3b82f6 ${completedWO / Math.max(completedWO + openWO + overdueWO, 1) * 100}% ${(completedWO + openWO) / Math.max(completedWO + openWO + overdueWO, 1) * 100}%, #ef4444 ${(completedWO + openWO) / Math.max(completedWO + openWO + overdueWO, 1) * 100}% 100%)`, height: 140, width: 140, margin: "0 auto 16px" }}>
+              <strong>{completedWO + openWO + overdueWO}</strong>
+              <small>Total</small>
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {[
+                { color: "#22c55e", label: "Completed", count: completedWO },
+                { color: "#3b82f6", label: "Open / In Progress", count: openWO },
+                { color: "#ef4444", label: "Overdue", count: overdueWO },
+              ].map((item) => (
+                <span key={item.label} style={{ alignItems: "center", color: "#667084", display: "flex", fontSize: 12, gap: 8 }}>
+                  <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
+                  {item.label}
+                  <b style={{ marginLeft: "auto" }}>{item.count}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        </article>
+
+        {/* Bar chart: Monthly Maintenance Cost */}
+        <article className="data-panel">
+          <PanelHeader title="Maintenance Cost Trend (KES)" />
+          <div style={{ padding: "18px" }}>
+            <div style={{ alignItems: "flex-end", display: "flex", gap: 12, height: 140 }}>
+              {months.map((m, i) => (
+                <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#4b5563" }}>{costData[i]}M</span>
+                  <div style={{ background: "#e23b3b", borderRadius: "4px 4px 0 0", height: `${(costData[i] / maxCost) * 100}%`, minHeight: 4, width: "100%" }} />
+                  <span style={{ color: "#8a96a7", fontSize: 9 }}>{m}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </article>
+
+        {/* Gauge: Compliance Trend */}
+        <article className="data-panel">
+          <PanelHeader title="Compliance Trend" />
+          <div className="fc-sla-gauge">
+            <div className="donut" style={{ background: `conic-gradient(#22c55e 0% ${compliance}%, #edf0f5 ${compliance}% 100%)`, height: 120, width: 120, marginBottom: 10 }}>
+              <strong style={{ fontSize: 20 }}>{compliance}%</strong>
+              <small>On Track</small>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ background: "#edf0f5", borderRadius: 99, height: 4, marginBottom: 8, overflow: "hidden", width: 120 }}>
+                <i style={{ background: "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${compliance}%` }} />
+              </div>
+              <span style={{ color: "#778197", fontSize: 11 }}>Target: 90%</span>
+            </div>
+          </div>
+          <div style={{ borderTop: "1px solid var(--line)", padding: "12px 18px" }}>
+            <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View Detailed Report →</button>
+          </div>
+        </article>
+      </div>
+
+      {/* Recent Reports */}
+      <article className="data-panel" style={{ marginTop: 16 }}>
+        <div className="fc-table-toolbar">
+          <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Recent Reports</span>
+          <button className="fc-toolbar-btn">View All Reports</button>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead>
+              <tr>
+                <th>Report Name</th>
+                <th>Type</th>
+                <th>Generated</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentReports.map((r, i) => (
+                <tr key={i}>
+                  <td><strong style={{ fontSize: 12 }}>{r.name}</strong></td>
+                  <td><FcStatus value={r.type.toLowerCase()} /></td>
+                  <td style={{ fontSize: 12, color: "#6b7890" }}>{r.generated}</td>
+                  <td style={{ fontSize: 11, color: "#6b7890" }}>{r.date}</td>
+                  <td><FcStatus value={r.status} /></td>
+                  <td>
+                    <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 11, padding: "3px 8px" }}>↓ Download</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </>
+  );
+}
+
 /* ─── Main page ─── */
 export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Tab }) {
   const { session, can } = useAuth();
@@ -2170,7 +2571,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     setError("");
     const apiTab = tab === "buildings" ? "assets" : tab;
     const path =
-      tab === "overview"
+      tab === "overview" || tab === "reports"
         ? "/facility/dashboard/"
         : `/facility/${apiTab}/?search=${encodeURIComponent(search)}`;
     const response = await apiFetch(path, {}, organizationId);
@@ -2180,7 +2581,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       return;
     }
     const data = await response.json();
-    if (tab === "overview") setDashboard(data);
+    if (tab === "overview" || tab === "reports") setDashboard(data);
     else setRows(data);
     setLoading(false);
   }, [organizationId, search, tab]);
@@ -2363,7 +2764,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "assets" ? (
           <AssetsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("asset")} />
         ) : tab === "work-orders" ? (
-          <WorkOrdersView rows={rows} kpis={dashboard?.kpis ?? {}} permissions={{ canWork }} setShowCreate={setShowCreate} />
+          <WorkOrdersView rows={rows} kpis={dashboard?.kpis ?? {}} permissions={{ canWork }} setShowCreate={setShowCreate} organizationId={organizationId} />
         ) : tab === "planned-maintenance" ? (
           <PlannedMaintenanceView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canAdminister }} onAdd={() => setCreateModal("ppm")} />
         ) : tab === "inspections" ? (
@@ -2374,6 +2775,8 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
           <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} />
         ) : tab === "contractors" ? (
           <ContractorsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("contractor")} />
+        ) : tab === "reports" ? (
+          <ReportsView dashboard={dashboard!} />
         ) : (
           <GenericListView tab={tab} rows={rows} />
         )}

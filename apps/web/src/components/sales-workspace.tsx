@@ -26,6 +26,7 @@ export type SalesTab =
   | "overview"
   | "inventory"
   | "buyers"
+  | "leads"
   | "sales"
   | "installments"
   | "payments"
@@ -40,6 +41,7 @@ const labels: Record<SalesTab, string> = {
   overview: "Dashboard",
   inventory: "Projects & Units",
   buyers: "Buyers Registry",
+  leads: "Leads & Prospects",
   sales: "Sales Pipeline",
   installments: "Installment Schedules",
   payments: "Payments & Verification",
@@ -313,6 +315,10 @@ function OverviewView({
                 <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#ede9fe", color: "#6d28d9" }}>📊</span>Generate Report</span>
                 <span className="fc-qa-chevron">›</span>
               </button>
+              <button className="fc-quick-action" onClick={() => setTab("leads")}>
+                <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#fef3c7", color: "#92400e" }}>🧲</span>Leads & Prospects</span>
+                <span className="fc-qa-chevron">›</span>
+              </button>
             </div>
           </Panel>
 
@@ -469,6 +475,7 @@ function BuyersView({
   setStatus,
   openRegisterBuyer,
   transitionBuyer,
+  org,
 }: {
   rows: Row[];
   search: string;
@@ -477,6 +484,7 @@ function BuyersView({
   setStatus: (v: string) => void;
   openRegisterBuyer: () => void;
   transitionBuyer: (row: Row) => void;
+  org: string | null;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const active = countBy(rows, ["active", "qualified"]);
@@ -527,32 +535,7 @@ function BuyersView({
       </Panel>
 
       {selected && (
-        <DetailDrawer title={`Buyer ${String(selected.reference ?? "—")}`} onClose={() => setSelected(null)} width={400}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <span className="fc-detail-thumb-placeholder" style={{ height: 44, width: 44, fontSize: 20 }}>👤</span>
-            <div className="fc-detail-meta">
-              <strong style={{ fontSize: 14 }}>{String(selected.full_name ?? "—")}</strong>
-              <small className="mono">{String(selected.reference ?? "—")}</small>
-            </div>
-            <StatusPill value={String(selected.status ?? "")} tone={toneForBuyer(String(selected.status ?? ""))} />
-          </div>
-          <div className="fc-detail-grid">
-            <DField label="National / Company ID" value={<span className="mono">{String(selected.id_number ?? "—")}</span>} />
-            <DField label="KRA PIN" value={<span className="mono">{String(selected.tax_number || "—")}</span>} />
-            <DField label="Email" value={String(selected.email ?? "—")} />
-            <DField label="Phone" value={String(selected.phone ?? "—")} />
-            <DField label="Address" value={String(selected.address || "—")} />
-            <DField label="Financing Type" value={String(selected.financing_type === "bank" ? "Bank-financed" : "Self-financed")} />
-            <DField label="Financier" value={String(selected.financier || "—")} />
-            <DField label="Assigned Agent" value={String(selected.agent_name || "—")} />
-            <DField label="Confirmed" value={selected.confirmed_at ? fmtDateTime(selected.confirmed_at) : "Not confirmed"} />
-          </div>
-          {String(selected.status) in BUYER_TRANSITIONS && BUYER_TRANSITIONS[String(selected.status)].length > 0 && (
-            <div className="modal-actions">
-              <button className="btn primary sm" onClick={() => { setSelected(null); transitionBuyer(selected); }}>Update Status →</button>
-            </div>
-          )}
-        </DetailDrawer>
+        <BuyerProfileView buyer={selected} onBack={() => setSelected(null)} org={org} />
       )}
     </>
   );
@@ -573,6 +556,302 @@ const BUYER_TRANSITIONS: Record<string, { value: string; label: string }[]> = {
   completed: [],
   cancelled: [],
 };
+
+/* -------------------------- buyer profile -------------------------- */
+
+function BuyerProfileView({
+  buyer,
+  onBack,
+  org,
+}: {
+  buyer: Row;
+  onBack: () => void;
+  org: string | null;
+}) {
+  const [activeTab, setActiveTab] = useState<"overview" | "payments" | "documents" | "activity">("overview");
+  const [payments, setPayments] = useState<Row[]>([]);
+  const [documents, setDocuments] = useState<Row[]>([]);
+  const [activity, setActivity] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!org || activeTab === "overview") return;
+    let active = true;
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        if (activeTab === "payments") {
+          const res = await apiFetch(`/sales/payments/?search=${encodeURIComponent(String(buyer.full_name ?? ""))}`, {}, org);
+          if (active && res.ok) {
+            const data = await res.json();
+            const all = Array.isArray(data) ? data : [];
+            setPayments(all.filter((p: Row) => String(p.buyer_name ?? "").toLowerCase() === String(buyer.full_name ?? "").toLowerCase()));
+          }
+        } else if (activeTab === "documents") {
+          const salesRes = await apiFetch(`/sales/sales/?search=${encodeURIComponent(String(buyer.full_name ?? ""))}`, {}, org);
+          const sales = salesRes.ok ? (await salesRes.json()) : [];
+          const saleList: Row[] = Array.isArray(sales) ? sales : [];
+          const allDocs: Row[] = [];
+          for (const sale of saleList) {
+            const res = await apiFetch(`/sales/documents/?search=${encodeURIComponent(String(sale.reference ?? ""))}`, {}, org);
+            if (active && res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) allDocs.push(...data);
+            }
+          }
+          if (active) setDocuments(allDocs);
+        } else if (activeTab === "activity") {
+          const salesRes = await apiFetch(`/sales/sales/?search=${encodeURIComponent(String(buyer.full_name ?? ""))}`, {}, org);
+          const sales = salesRes.ok ? (await salesRes.json()) : [];
+          const saleList: Row[] = Array.isArray(sales) ? sales : [];
+          const allEvents: Row[] = [];
+          for (const sale of saleList) {
+            const res = await apiFetch(`/sales/audit-events/?search=${encodeURIComponent(String(sale.reference ?? ""))}`, {}, org);
+            if (active && res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) allEvents.push(...data);
+            }
+          }
+          if (active) setActivity(allEvents);
+        }
+      } catch {
+        /* silent */
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => { active = false; };
+  }, [org, activeTab, buyer]);
+
+  return (
+    <>
+      <button className="btn ghost sm" onClick={onBack} style={{ marginBottom: 14 }}>← Back to Buyers</button>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+        <span className="fc-detail-thumb-placeholder" style={{ height: 48, width: 48, fontSize: 22 }}>👤</span>
+        <div className="fc-detail-meta">
+          <strong style={{ fontSize: 16 }}>{String(buyer.full_name ?? "—")}</strong>
+          <small className="mono" style={{ fontSize: 12 }}>{String(buyer.reference ?? "—")}</small>
+        </div>
+        <StatusPill value={String(buyer.status ?? "")} tone={toneForBuyer(String(buyer.status ?? ""))} />
+        <Badge tone={buyer.financing_type === "bank" ? "blue" : "green"}>
+          {buyer.financing_type === "bank" ? "Bank Financed" : "Self Financed"}
+        </Badge>
+      </div>
+
+      <div className="row" style={{ gap: 4, marginBottom: 18, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+        {(["overview", "payments", "documents", "activity"] as const).map((t) => (
+          <button
+            key={t}
+            className={`btn sm ${activeTab === t ? "primary" : "ghost"}`}
+            onClick={() => setActiveTab(t)}
+          >
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" && (
+        <div className="grid-2" style={{ gap: 18 }}>
+          <Panel title="Buyer Information">
+            <div className="fc-detail-grid">
+              <DField label="Full Name" value={String(buyer.full_name ?? "—")} />
+              <DField label="Email" value={String(buyer.email ?? "—")} />
+              <DField label="Phone" value={String(buyer.phone ?? "—")} />
+              <DField label="ID Number" value={<span className="mono">{String(buyer.id_number ?? "—")}</span>} />
+              <DField label="KRA PIN" value={<span className="mono">{String(buyer.tax_number || "—")}</span>} />
+              <DField label="Financing" value={String(buyer.financing_type === "bank" ? "Bank Financed" : "Self Financed")} />
+              <DField label="Financier" value={String(buyer.financier || "—")} />
+              <DField label="Agent" value={String(buyer.agent_name || "—")} />
+              <DField label="Status" value={<StatusPill value={String(buyer.status ?? "")} tone={toneForBuyer(String(buyer.status ?? ""))} />} />
+              <DField label="Confirmed" value={buyer.confirmed_at ? fmtDateTime(buyer.confirmed_at) : "Not confirmed"} />
+            </div>
+          </Panel>
+          <Panel title="Purchase Timeline">
+            <EmptyState icon="📋" title="No purchase data" description="Purchase details will appear here once a sale is linked to this buyer." />
+          </Panel>
+        </div>
+      )}
+
+      {activeTab === "payments" && (
+        <Panel title="Payment History" badge={payments.length}>
+          {loading ? <LoadingState rows={3} /> : payments.length === 0 ? (
+            <EmptyState icon="💳" title="No payments" description="No payments found for this buyer." />
+          ) : (
+            <DataTable headers={["Payment Ref", "Sale", "Method", "Amount", "Date", "Status"]}>
+              {payments.map((p) => (
+                <tr key={String(p.id)}>
+                  <td><RefText value={p.reference} /></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{String(p.sale_reference ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{String(p.method ?? "—")}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(p.amount)}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(p.paid_on)}</td>
+                  <td><StatusPill value={String(p.status ?? "")} /></td>
+                </tr>
+              ))}
+            </DataTable>
+          )}
+        </Panel>
+      )}
+
+      {activeTab === "documents" && (
+        <Panel title="Documents" badge={documents.length}>
+          {loading ? <LoadingState rows={3} /> : documents.length === 0 ? (
+            <EmptyState icon="📄" title="No documents" description="No documents found for this buyer's sales." />
+          ) : (
+            <DataTable headers={["Title", "Type", "Sale Ref", "Signed On", "Status"]}>
+              {documents.map((d) => (
+                <tr key={String(d.id)}>
+                  <td><strong style={{ fontSize: 12 }}>{String(d.title ?? "—")}</strong></td>
+                  <td><Badge tone="purple">{String(d.document_type ?? "—")}</Badge></td>
+                  <td className="mono" style={{ fontSize: 12 }}>{String(d.sale_reference ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(d.signed_on)}</td>
+                  <td><StatusPill value={d.is_final ? "Final" : "Draft"} tone={d.is_final ? "green" : "yellow"} /></td>
+                </tr>
+              ))}
+            </DataTable>
+          )}
+        </Panel>
+      )}
+
+      {activeTab === "activity" && (
+        <Panel title="Activity" badge={activity.length}>
+          {loading ? <LoadingState rows={3} /> : activity.length === 0 ? (
+            <EmptyState icon="🕘" title="No activity" description="No audit events found for this buyer's sales." />
+          ) : (
+            <DataTable headers={["Timestamp", "User", "Action", "Detail"]}>
+              {activity.map((a) => (
+                <tr key={String(a.id)}>
+                  <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDateTime(a.created_at)}</td>
+                  <td><strong style={{ fontSize: 12 }}>{String(a.actor_name ?? "—")}</strong></td>
+                  <td><Badge tone={toneForAudit(String(a.event_type))}>{String(a.event_type ?? "—").replaceAll("_", " ")}</Badge></td>
+                  <td style={{ fontSize: 11, color: "#6b7890", maxWidth: 320 }}>{String(a.notes || "—")}</td>
+                </tr>
+              ))}
+            </DataTable>
+          )}
+        </Panel>
+      )}
+    </>
+  );
+}
+
+/* -------------------------- leads -------------------------- */
+
+function LeadsView({
+  rows,
+  search,
+  setSearch,
+  status,
+  setStatus,
+  openRegisterBuyer,
+  quickTransition,
+}: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+  status: string;
+  setStatus: (v: string) => void;
+  openRegisterBuyer: () => void;
+  quickTransition: (row: Row, target: string) => void;
+}) {
+  const total = rows.length;
+  const newCount = countBy(rows, ["lead"]);
+  const qualifiedCount = countBy(rows, ["qualified"]);
+  const activeCount = countBy(rows, ["active"]);
+  const completedCount = countBy(rows, ["completed"]);
+  const cancelledCount = countBy(rows, ["cancelled"]);
+
+  const funnelStages = [
+    { label: "New", count: newCount, color: "#2563eb" },
+    { label: "Contacted", count: 0, color: "#0891b2" },
+    { label: "Site Visit", count: 0, color: "#7c3aed" },
+    { label: "Interested", count: qualifiedCount, color: "#f59e0b" },
+    { label: "Reserved", count: activeCount, color: "#ea580c" },
+    { label: "Converted", count: completedCount, color: "#16a34a" },
+    { label: "Lost", count: cancelledCount, color: "#b91c1c" },
+  ];
+  const maxFunnel = Math.max(...funnelStages.map((s) => s.count), 1);
+
+  return (
+    <>
+      <KpiStrip cols={7}>
+        <KpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Leads" value={number.format(total)} sub="All pipeline leads" onClick={() => setStatus("")} />
+        <KpiCard icon="🆕" iconBg="#dbeafe" iconColor="#2563eb" label="New" value={number.format(newCount)} sub="Awaiting first contact" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
+        <KpiCard icon="📞" iconBg="#e0f2fe" iconColor="#0891b2" label="Contacted" value="0" sub="No data available" onClick={() => {}} />
+        <KpiCard icon="🏠" iconBg="#ede9fe" iconColor="#7c3aed" label="Site Visits" value="0" sub="No data available" onClick={() => {}} />
+        <KpiCard icon="⭐" iconBg="#fef3c7" iconColor="#f59e0b" label="Interested" value={number.format(qualifiedCount)} sub="Qualified leads" onClick={() => setStatus(status === "qualified" ? "" : "qualified")} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Converted" value={number.format(completedCount)} sub="Closed deals" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
+        <KpiCard icon="❌" iconBg="#fee2e2" iconColor="#b91c1c" label="Lost" value={number.format(cancelledCount)} sub="Dropped leads" onClick={() => setStatus(status === "cancelled" ? "" : "cancelled")} />
+      </KpiStrip>
+
+      <Panel title="Lead Funnel">
+        <div style={{ padding: 18 }}>
+          {funnelStages.map((stage) => (
+            <div key={stage.label} style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+                <span>{stage.label}</span>
+                <span className="mono" style={{ fontWeight: 700 }}>{number.format(stage.count)}</span>
+              </div>
+              <div style={{ background: "#edf0f5", borderRadius: 4, height: 22, overflow: "hidden" }}>
+                <div style={{ background: stage.color, height: "100%", width: `${(stage.count / maxFunnel) * 100}%`, borderRadius: 4, transition: "width 0.3s ease", minWidth: stage.count > 0 ? 2 : 0 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="Leads Pipeline" badge={rows.length}>
+        <TableChrome
+          search={search}
+          setSearch={setSearch}
+          placeholder="Search name, phone, agent…"
+          chips={<FilterChips options={[{ value: "lead", label: "New" }, { value: "qualified", label: "Interested" }, { value: "active", label: "Reserved" }, { value: "completed", label: "Converted" }, { value: "cancelled", label: "Lost" }]} value={status as "lead" | "qualified" | "active" | "completed" | "cancelled" | ""} onChange={(v) => setStatus(v)} />}
+          actions={<button className="btn primary sm" onClick={openRegisterBuyer}>+ New Lead</button>}
+        >
+          {rows.length === 0 ? (
+            <EmptyState icon="🧲" title="No leads found" description="Register your first lead to start tracking the sales pipeline." action={<button className="btn primary sm" onClick={openRegisterBuyer}>+ New Lead</button>} />
+          ) : (
+            <DataTable headers={["Name", "Phone", "Agent", "Budget", "Stage", "Actions"]}>
+              {rows.map((r) => (
+                <tr key={String(r.id)}>
+                  <td><strong style={{ fontSize: 12 }}>{String(r.full_name ?? "—")}</strong></td>
+                  <td style={{ fontSize: 12 }}>{String(r.phone ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{String(r.agent_name ?? "—")}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>{r.budget ? fmtMoney(r.budget) : "—"}</td>
+                  <td><StatusPill value={String(r.status ?? "")} tone={toneForBuyer(String(r.status ?? ""))} /></td>
+                  <td>
+                    {String(r.status) === "lead" && (
+                      <>
+                        <button className="btn ghost sm" onClick={() => quickTransition(r, "qualified")}>Qualify</button>
+                        <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => quickTransition(r, "cancelled")}>Lose</button>
+                      </>
+                    )}
+                    {String(r.status) === "qualified" && (
+                      <>
+                        <button className="btn ghost sm" onClick={() => quickTransition(r, "active")}>Reserve</button>
+                        <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => quickTransition(r, "cancelled")}>Lose</button>
+                      </>
+                    )}
+                    {String(r.status) === "active" && (
+                      <>
+                        <button className="btn ghost sm" onClick={() => quickTransition(r, "completed")}>Convert</button>
+                        <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => quickTransition(r, "cancelled")}>Lose</button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </DataTable>
+          )}
+        </TableChrome>
+      </Panel>
+    </>
+  );
+}
 
 /* -------------------------- sales -------------------------- */
 
@@ -1576,6 +1855,7 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
     const isAnalytics = tab === "performance" || tab === "reports";
     let path = "/sales/dashboard/";
     if (isAnalytics) path = "/sales/analytics/";
+    else if (tab === "leads") path = `/sales/buyers/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
     else if (tab !== "overview") path = `/sales/${tab}/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
 
     try {
@@ -1757,6 +2037,20 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
     }
   }
 
+  async function quickTransitionBuyer(row: Row, targetStatus: string) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/buyers/${row.id}/transition/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ status: targetStatus }),
+    }, org);
+    if (res.ok) {
+      loadData();
+    } else {
+      setError(await readError(res));
+    }
+  }
+
   async function runCommissionAction(row: Row, action: string) {
     await apiFetch("/auth/csrf/");
     let body = "{}";
@@ -1839,7 +2133,9 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
         ) : tab === "inventory" ? (
           <InventoryView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canSell={canSell} openNewListing={openNewListingModal} />
         ) : tab === "buyers" ? (
-          <BuyersView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} openRegisterBuyer={openBuyerRegistration} transitionBuyer={openTransitionBuyer} />
+          <BuyersView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} openRegisterBuyer={openBuyerRegistration} transitionBuyer={openTransitionBuyer} org={org} />
+        ) : tab === "leads" ? (
+          <LeadsView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} openRegisterBuyer={openBuyerRegistration} quickTransition={quickTransitionBuyer} />
         ) : tab === "sales" ? (
           <SalesView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canSell={canSell} openNewSale={openNewSaleModal} transitionSale={openTransitionSale} />
         ) : tab === "site-visits" ? (

@@ -513,7 +513,7 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
 
 /* ───────────────────────── instructions ───────────────────────── */
 
-function InstructionsView({ rows, search, setSearch, status, setStatus, canCoordinate, onTransition }: {
+function InstructionsView({ rows, search, setSearch, status, setStatus, canCoordinate, onTransition, setShowAddModal }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
@@ -521,21 +521,32 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
   setStatus: (v: string) => void;
   canCoordinate: boolean;
   onTransition: (row: Row, target: string) => Promise<boolean>;
+  setShowAddModal: () => void;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-  const inProgress = rows.filter((r) => IN_PROGRESS.includes(String(r.status))).length;
-  const completed = rows.filter((r) => COMPLETED.includes(String(r.status))).length;
-  const overdue = rows.filter(isOverdueInstruction).length;
+  const dateFiltered = useMemo(() => {
+    return rows.filter((r) => {
+      if (dateFrom && String(r.instructed_on ?? "").slice(0, 10) < dateFrom) return false;
+      if (dateTo && String(r.instructed_on ?? "").slice(0, 10) > dateTo) return false;
+      return true;
+    });
+  }, [rows, dateFrom, dateTo]);
+
+  const inProgress = dateFiltered.filter((r) => IN_PROGRESS.includes(String(r.status))).length;
+  const completed = dateFiltered.filter((r) => COMPLETED.includes(String(r.status))).length;
+  const overdue = dateFiltered.filter(isOverdueInstruction).length;
   const filtered = useMemo(() => {
-    if (!status) return rows;
-    if (status === "new") return rows.filter((r) => String(r.status) === "new");
-    if (status === "in-progress") return rows.filter((r) => IN_PROGRESS.includes(String(r.status)));
-    if (status === "drafting") return rows.filter((r) => ["drafting", "review"].includes(String(r.status)));
-    if (status === "completed") return rows.filter((r) => COMPLETED.includes(String(r.status)));
-    if (status === "overdue") return rows.filter(isOverdueInstruction);
-    return rows;
-  }, [rows, status]);
+    if (!status) return dateFiltered;
+    if (status === "new") return dateFiltered.filter((r) => String(r.status) === "new");
+    if (status === "in-progress") return dateFiltered.filter((r) => IN_PROGRESS.includes(String(r.status)));
+    if (status === "drafting") return dateFiltered.filter((r) => ["drafting", "review"].includes(String(r.status)));
+    if (status === "completed") return dateFiltered.filter((r) => COMPLETED.includes(String(r.status)));
+    if (status === "overdue") return dateFiltered.filter(isOverdueInstruction);
+    return dateFiltered;
+  }, [dateFiltered, status]);
 
   const overdueList = useMemo(() => rows.filter(isOverdueInstruction), [rows]);
   const upcomingList = useMemo(
@@ -557,20 +568,30 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
         <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past target date" onClick={() => setStatus(status === "overdue" ? "" : "overdue")} />
       </KpiStrip>
 
-      <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.65fr) minmax(0, 1fr)", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
         <Panel title="Valuation Instructions" badge={filtered.length}>
           <TableChrome
             search={search}
             setSearch={setSearch}
             placeholder="Search instruction no., client, property, type…"
-            chips={<FilterChips options={[
-              { value: "", label: "All" },
-              { value: "new", label: "New" },
-              { value: "in-progress", label: "In Progress" },
-              { value: "drafting", label: "Draft / Review" },
-              { value: "completed", label: "Completed" },
-              { value: "overdue", label: "Overdue" },
-            ]} value={status} onChange={setStatus} />}
+            chips={
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <FilterChips options={[
+                  { value: "", label: "All" },
+                  { value: "new", label: "New" },
+                  { value: "in-progress", label: "In Progress" },
+                  { value: "drafting", label: "Draft / Review" },
+                  { value: "completed", label: "Completed" },
+                  { value: "overdue", label: "Overdue" },
+                ]} value={status} onChange={setStatus} />
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginLeft: 4 }}>
+                  <label style={{ fontSize: 11, color: "var(--muted)" }}>From</label>
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12 }} />
+                  <label style={{ fontSize: 11, color: "var(--muted)" }}>To</label>
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12 }} />
+                </div>
+              </div>
+            }
           >
             {filtered.length === 0 ? (
               <EmptyState icon="📋" title="No instructions found" description={search ? "No instructions match the current search or status filter." : "Create a new valuation instruction to start the pipeline."} />
@@ -603,6 +624,15 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Panel title="Quick Actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button className="btn ghost sm" onClick={setShowAddModal}>+ New Instruction</button>
+              <button className="btn ghost sm" onClick={() => {}}>Schedule Inspection</button>
+              <button className="btn ghost sm" onClick={() => {}}>Upload Draft</button>
+              <button className="btn ghost sm" onClick={() => {}}>Download Register</button>
+            </div>
+          </Panel>
+
           <Panel title="Overdue Instructions" badge={overdueList.length}>
             {overdueList.length ? (
               <div style={{ display: "flex", flexDirection: "column" }}>
@@ -684,26 +714,62 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
 
 /* ───────────────────────── inspections ───────────────────────── */
 
-function InspectionsView({ rows, search, setSearch }: {
+function InspectionsView({ rows, search, setSearch, setShowAddModal }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
+  setShowAddModal: () => void;
 }) {
-  const total = rows.length;
-  const completed = rows.filter((r) => String(r.status) === "completed").length;
-  const inProgress = rows.filter((r) => String(r.status) === "in_progress").length;
-  const scheduled = rows.filter((r) => ["scheduled", "rescheduled"].includes(String(r.status))).length;
-  const overdue = rows.filter((r) => {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [selectedInspection, setSelectedInspection] = useState<Row | null>(null);
+
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
+      if (dateFrom && String(r.scheduled_at ?? "").slice(0, 10) < dateFrom) return false;
+      if (dateTo && String(r.scheduled_at ?? "").slice(0, 10) > dateTo) return false;
+      return true;
+    });
+  }, [rows, dateFrom, dateTo]);
+
+  const total = filtered.length;
+  const completed = filtered.filter((r) => String(r.status) === "completed").length;
+  const inProgress = filtered.filter((r) => String(r.status) === "in_progress").length;
+  const scheduled = filtered.filter((r) => ["scheduled", "rescheduled"].includes(String(r.status))).length;
+  const overdue = filtered.filter((r) => {
     if (String(r.status) === "completed") return false;
     const at = new Date(String(r.scheduled_at ?? ""));
     return !Number.isNaN(at.getTime()) && at.getTime() < new Date().getTime();
   }).length;
 
-  const overdueList = rows.filter((r) => {
+  const overdueList = filtered.filter((r) => {
     if (String(r.status) === "completed") return false;
     const at = new Date(String(r.scheduled_at ?? ""));
     return !Number.isNaN(at.getTime()) && at.getTime() < new Date().getTime();
   });
+
+  const now = new Date();
+  const thisMonthRows = rows.filter((r) => {
+    const d = new Date(String(r.scheduled_at ?? ""));
+    return !Number.isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+  const monthCompleted = thisMonthRows.filter((r) => String(r.status) === "completed").length;
+  const monthInProgress = thisMonthRows.filter((r) => String(r.status) === "in_progress").length;
+  const monthScheduled = thisMonthRows.filter((r) => ["scheduled", "rescheduled"].includes(String(r.status))).length;
+  const monthOverdue = thisMonthRows.filter((r) => {
+    if (String(r.status) === "completed") return false;
+    const at = new Date(String(r.scheduled_at ?? ""));
+    return !Number.isNaN(at.getTime()) && at.getTime() < new Date().getTime();
+  }).length;
+  const monthMax = Math.max(1, monthCompleted, monthInProgress, monthScheduled, monthOverdue);
+  const monthStatuses = [
+    { label: "Completed", count: monthCompleted, color: "#16a34a" },
+    { label: "In Progress", count: monthInProgress, color: "#2563eb" },
+    { label: "Scheduled", count: monthScheduled, color: "#f59e0b" },
+    { label: "Overdue", count: monthOverdue, color: "#dc2626" },
+  ];
+
+  const checklistItems = ["Property Access", "Building Exterior", "Interior Inspection", "Systems & Equipment", "Safety & Compliance"];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -715,18 +781,26 @@ function InspectionsView({ rows, search, setSearch }: {
         <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past schedule" onClick={() => {}} />
       </KpiStrip>
 
-      <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.65fr) minmax(0, 1fr)", alignItems: "start" }}>
-        <Panel title="Site Inspections & Evidence" badge={rows.length}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
+        <Panel title="Site Inspections & Evidence" badge={filtered.length}>
           <TableChrome
             search={search}
             setSearch={setSearch}
             placeholder="Search inspection ref, instruction no., property…"
+            chips={
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label style={{ fontSize: 11, color: "var(--muted)" }}>From</label>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12 }} />
+                <label style={{ fontSize: 11, color: "var(--muted)" }}>To</label>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 12 }} />
+              </div>
+            }
           >
-            {rows.length === 0 ? (
+            {filtered.length === 0 ? (
               <EmptyState icon="📍" title="No inspections scheduled" description="Inspections created against instructions will appear here with schedule, status and evidence." />
             ) : (
               <DataTable headers={["Inspection Ref", "Instruction", "Property", "Location", "Inspector", "Inspection Date", "Status", "Evidence", "Actions"]}>
-                {rows.map((r) => {
+                {filtered.map((r) => {
                   const lat = String(r.latitude ?? "").trim();
                   const lng = String(r.longitude ?? "").trim();
                   const location = lat && lng ? `${lat}, ${lng}` : "—";
@@ -741,7 +815,7 @@ function InspectionsView({ rows, search, setSearch }: {
                       <td style={{ fontSize: 12 }}>{fmtDateTime(r.scheduled_at)}</td>
                       <td><StatusPill value={strOrNull(r.status)} /></td>
                       <td>{String(r.status) === "completed" ? <Badge tone="green">{evidence}</Badge> : <span className="muted" style={{ fontSize: 12 }}>{evidence || "—"}</span>}</td>
-                      <td><button className="btn ghost sm" disabled>View</button></td>
+                      <td><button className="btn ghost sm" onClick={() => setSelectedInspection(r)}>View</button></td>
                     </tr>
                   );
                 })}
@@ -750,24 +824,101 @@ function InspectionsView({ rows, search, setSearch }: {
           </TableChrome>
         </Panel>
 
-        <Panel title="Overdue Inspections" badge={overdueList.length}>
-          {overdueList.length ? (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {overdueList.slice(0, 6).map((r) => (
-                <div key={String(r.id ?? r.reference)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <RefText value={r.reference} />
-                    <div style={{ fontSize: 12, marginTop: 2 }}>{String(r.property_description ?? "—")}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Panel title="Quick Actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button className="btn ghost sm" onClick={setShowAddModal}>Schedule Inspection</button>
+              <button className="btn ghost sm" onClick={() => {}}>Record Inspection (Mobile)</button>
+              <button className="btn ghost sm" onClick={() => {}}>Upload Inspection Report</button>
+              <button className="btn ghost sm" onClick={() => {}}>Upload Photos / Documents</button>
+            </div>
+          </Panel>
+
+          <Panel title="Status This Month">
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {monthStatuses.map((s) => (
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 80, fontSize: 12 }}>{s.label}</span>
+                  <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--surface-3, #e5e7eb)" }}>
+                    <div style={{ height: "100%", borderRadius: 4, width: `${(s.count / monthMax) * 100}%`, background: s.color }} />
                   </div>
-                  <span className="mono" style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{fmtDate(r.scheduled_at)}</span>
+                  <span className="mono" style={{ fontSize: 11 }}>{s.count}</span>
                 </div>
               ))}
             </div>
-          ) : (
-            <EmptyState icon="✅" title="No overdue inspections" description="All scheduled inspections are on time or completed." />
-          )}
-        </Panel>
+          </Panel>
+
+          <Panel title="Overdue Inspections" badge={overdueList.length}>
+            {overdueList.length ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {overdueList.slice(0, 4).map((r) => (
+                  <button key={String(r.id ?? r.reference)} onClick={() => setSelectedInspection(r)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 10px", borderBottom: "1px solid var(--border)", background: "none", borderLeft: 0, borderRight: 0, borderTop: 0, cursor: "pointer", textAlign: "left", width: "100%" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <RefText value={r.reference} />
+                      <div style={{ fontSize: 11, marginTop: 2 }}>{String(r.property_description ?? "—")}</div>
+                    </div>
+                    <span className="mono" style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>{fmtDate(r.scheduled_at)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon="✅" title="No overdue" description="All inspections on time." />
+            )}
+          </Panel>
+        </div>
       </div>
+
+      {selectedInspection && (
+        <DetailDrawer title={<><RefText value={selectedInspection.reference} /> <span className="muted" style={{ fontSize: 11 }}>({String(selectedInspection.instruction_reference ?? "—")})</span></>} onClose={() => setSelectedInspection(null)} width={420}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <Field label="Property"><span style={{ fontSize: 13 }}>{String(selectedInspection.property_description ?? "—")}</span></Field>
+            <Field label="Location"><span style={{ fontSize: 13 }}>{(() => { const lat = String(selectedInspection.latitude ?? "").trim(); const lng = String(selectedInspection.longitude ?? "").trim(); return lat && lng ? `${lat}, ${lng}` : "—"; })()}</span></Field>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <Field label="Inspector"><span style={{ fontSize: 13 }}>{String(selectedInspection.inspector_name || "—")}</span></Field>
+            <Field label="Date"><span style={{ fontSize: 13 }}>{fmtDateTime(selectedInspection.scheduled_at)}</span></Field>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <Field label="Status"><StatusPill value={strOrNull(selectedInspection.status)} /></Field>
+            <Field label="Evidence Count"><span className="mono" style={{ fontSize: 13 }}>{Number(selectedInspection.evidence_count ?? 0)}</span></Field>
+          </div>
+
+          <div style={{ marginTop: 8, marginBottom: 14 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", margin: "0 0 8px" }}>Inspection Checklist</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {checklistItems.map((item) => {
+                const checklist = selectedInspection.checklist as Record<string, boolean> | undefined;
+                const checked = checklist ? Boolean(checklist[item]) : false;
+                return (
+                  <label key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "default" }}>
+                    <input type="checkbox" checked={checked} readOnly style={{ accentColor: "var(--primary)" }} />
+                    {item}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <Field label="Findings">
+              <textarea readOnly value={String(selectedInspection.findings ?? "")} rows={4} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, resize: "vertical" }} />
+            </Field>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", margin: "0 0 8px" }}>Photos & Documents</p>
+            <div style={{ padding: "12px 14px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
+              {Number(selectedInspection.evidence_count ?? 0) > 0 ? (
+                <span>{Number(selectedInspection.evidence_count ?? 0)} file(s) attached</span>
+              ) : (
+                <span className="muted">No photos or documents uploaded yet.</span>
+              )}
+            </div>
+          </div>
+
+          <button className="btn ghost" onClick={() => setSelectedInspection(null)} style={{ width: "100%", justifyContent: "center" }}>Close</button>
+        </DetailDrawer>
+      )}
     </div>
   );
 }
@@ -816,12 +967,13 @@ function ComparablesView({ rows, search, setSearch }: {
 
 /* ───────────────────────── draft reports ───────────────────────── */
 
-function DraftReportsView({ rows, search, setSearch, canReview, openReview }: {
+function DraftReportsView({ rows, search, setSearch, canReview, openReview, setShowAddModal }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
   canReview: boolean;
   openReview: (r: Row) => void;
+  setShowAddModal: () => void;
 }) {
   const inReview = rows.filter((r) => String(r.status) === "review").length;
   const approved = rows.filter((r) => String(r.status) === "approved").length;
@@ -836,41 +988,55 @@ function DraftReportsView({ rows, search, setSearch, canReview, openReview }: {
         <KpiCard icon="🔁" iconBg="#fee2e2" iconColor="#b91c1c" label="Changes Required" value={number.format(changes)} sub="Returned to valuer" onClick={() => {}} />
       </KpiStrip>
 
-      <Panel title="Draft Report Register" badge={rows.length}>
-        <TableChrome
-          search={search}
-          setSearch={setSearch}
-          placeholder="Search instruction no., property, method or template…"
-        >
-          {rows.length === 0 ? (
-            <EmptyState icon="📝" title="No draft reports" description="Draft reports submitted for review will be tracked here with version and approval progress." />
-          ) : (
-            <DataTable headers={["Report Ref", "Instruction", "Property", "Valuer", "Draft Date", "Assessed Value", "Status", "Actions"]}>
-              {rows.map((r) => {
-                const ref = `${String(r.instruction_reference ?? "—")}/v${String(r.version ?? "1")}`;
-                return (
-                  <tr key={String(r.id)}>
-                    <td><RefText value={ref} /></td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
-                    <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(r.prepared_by_name || "—")}</td>
-                    <td style={{ fontSize: 12 }}>{fmtDateTime(r.created_at)}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.assessed_value)}</td>
-                    <td><StatusPill value={strOrNull(r.status)} tone={draftTone(String(r.status))} /></td>
-                    <td>
-                      {canReview && String(r.status) === "review" ? (
-                        <button className="btn primary sm" onClick={() => openReview(r)}>Review</button>
-                      ) : (
-                        <button className="btn ghost sm" onClick={() => openReview(r)}>View</button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </DataTable>
-          )}
-        </TableChrome>
-      </Panel>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
+        <Panel title="Draft Report Register" badge={rows.length}>
+          <TableChrome
+            search={search}
+            setSearch={setSearch}
+            placeholder="Search instruction no., property, method or template…"
+          >
+            {rows.length === 0 ? (
+              <EmptyState icon="📝" title="No draft reports" description="Draft reports submitted for review will be tracked here with version and approval progress." />
+            ) : (
+              <DataTable headers={["Report Ref", "Instruction", "Property", "Valuer", "Draft Date", "Assessed Value", "Status", "Actions"]}>
+                {rows.map((r) => {
+                  const ref = `${String(r.instruction_reference ?? "—")}/v${String(r.version ?? "1")}`;
+                  return (
+                    <tr key={String(r.id)}>
+                      <td><RefText value={ref} /></td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                      <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.prepared_by_name || "—")}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDateTime(r.created_at)}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.assessed_value)}</td>
+                      <td><StatusPill value={strOrNull(r.status)} tone={draftTone(String(r.status))} /></td>
+                      <td>
+                        {canReview && String(r.status) === "review" ? (
+                          <button className="btn primary sm" onClick={() => openReview(r)}>Review</button>
+                        ) : (
+                          <button className="btn ghost sm" onClick={() => openReview(r)}>View</button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </DataTable>
+            )}
+          </TableChrome>
+        </Panel>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Panel title="Quick Actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button className="btn ghost sm" onClick={setShowAddModal}>+ New Instruction</button>
+              <button className="btn ghost sm" onClick={() => {}}>Upload Revised Draft</button>
+              <button className="btn ghost sm" onClick={() => {}}>Upload Supporting Documents</button>
+              <button className="btn ghost sm" onClick={() => {}}>Add Internal Note</button>
+              <button className="btn ghost sm" onClick={() => {}}>Request Information</button>
+            </div>
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 }
@@ -884,78 +1050,122 @@ function FinalReportsView({ rows, search, setSearch }: {
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
 
-  return (
-    <Panel title="Final Signed Reports" badge={rows.length}>
-      <TableChrome
-        search={search}
-        setSearch={setSearch}
-        placeholder="Search report no., instruction no., client or property…"
-      >
-        {rows.length === 0 ? (
-          <EmptyState icon="📄" title="No final reports issued" description="Final reports signed from approved drafts will be listed here as immutable, checksummed records." />
-        ) : (
-          <DataTable headers={["Report No", "Instruction", "Property", "Client", "Issue Date", "Signed By", "Status", "Actions"]}>
-            {rows.map((r) => {
-              const delivered = Boolean(r.delivered_at);
-              return (
-                <tr key={String(r.id ?? r.report_number)}>
-                  <td><RefText value={r.report_number} /></td>
-                  <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
-                  <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
-                  <td style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</td>
-                  <td style={{ fontSize: 12 }}>{fmtDate(r.issued_on)}</td>
-                  <td style={{ fontSize: 12 }}>{String(r.signed_by ?? "—")}</td>
-                  <td>{delivered ? <Badge tone="green">Delivered</Badge> : <Badge tone="cyan">Issued</Badge>}</td>
-                  <td>
-                    <button className="btn ghost sm" onClick={() => setSelected(r)}>View</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </DataTable>
-        )}
-      </TableChrome>
+  const now = new Date();
+  const thisMonthRows = rows.filter((r) => {
+    const d = new Date(String(r.issued_on ?? ""));
+    return !Number.isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+  const delivered = thisMonthRows.filter((r) => Boolean(r.delivered_at)).length;
+  const issued = thisMonthRows.filter((r) => !Boolean(r.delivered_at)).length;
+  const deliveryMax = Math.max(1, delivered, issued);
+  const deliveryStatuses = [
+    { label: "Delivered", count: delivered, color: "#16a34a" },
+    { label: "Issued", count: issued, color: "#0891b2" },
+  ];
 
-      {selected && (
-        <DetailDrawer title={<RefText value={selected.report_number} />} onClose={() => setSelected(null)} width={400}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            <StatusPill value={Boolean(selected.delivered_at) ? "Delivered" : "Issued"} tone={Boolean(selected.delivered_at) ? "green" : "cyan"} />
-            <StatusPill value="Signed" tone="green" />
-          </div>
-          <Field label="Instruction No"><span className="mono" style={{ fontSize: 13 }}>{String(selected.instruction_reference ?? "—")}</span></Field>
-          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
-            <Field label="Client / Bank"><span style={{ fontSize: 13 }}>{String(selected.client_name ?? "—")}</span></Field>
-            <Field label="Property"><span style={{ fontSize: 13 }}>{String(selected.property_description ?? "—")}</span></Field>
-          </div>
-          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
-            <Field label="Issue Date"><span style={{ fontSize: 13 }}>{fmtDate(selected.issued_on)}</span></Field>
-            <Field label="Market Value"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.market_value)}</span></Field>
-          </div>
-          <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
-            <Field label="Signed By (ID)"><span style={{ fontSize: 13 }}>{String(selected.signed_by ?? "—")}</span></Field>
-            <Field label="Delivery"><span style={{ fontSize: 13 }}>{Boolean(selected.delivered_at) ? fmtDateTime(selected.delivered_at) : "Not delivered"}</span></Field>
-          </div>
-          {selected.delivery_method ? <div style={{ marginTop: 12 }}><Field label="Delivery Method"><span style={{ fontSize: 13 }}>{String(selected.delivery_method)}</span></Field></div> : null}
-          <div style={{ marginTop: 12 }}>
-            <Field label="Integrity Checksum"><span className="mono" style={{ fontSize: 10, color: "var(--muted)", wordBreak: "break-all" }}>{String(selected.checksum ?? "—")}</span></Field>
-          </div>
-          {selected.file_url ? (
-            <div style={{ marginTop: 18 }}>
-              <a className="btn primary sm" style={{ width: "100%", justifyContent: "center" }} href={String(selected.file_url)} target="_blank" rel="noreferrer">↓ Download Report</a>
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
+        <Panel title="Final Signed Reports" badge={rows.length}>
+          <TableChrome
+            search={search}
+            setSearch={setSearch}
+            placeholder="Search report no., instruction no., client or property…"
+          >
+            {rows.length === 0 ? (
+              <EmptyState icon="📄" title="No final reports issued" description="Final reports signed from approved drafts will be listed here as immutable, checksummed records." />
+            ) : (
+              <DataTable headers={["Report No", "Instruction", "Property", "Client", "Issue Date", "Signed By", "Status", "Actions"]}>
+                {rows.map((r) => {
+                  const delivered = Boolean(r.delivered_at);
+                  return (
+                    <tr key={String(r.id ?? r.report_number)}>
+                      <td><RefText value={r.report_number} /></td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                      <td style={{ fontSize: 12, maxWidth: 180 }}>{String(r.property_description ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.issued_on)}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.signed_by ?? "—")}</td>
+                      <td>{delivered ? <Badge tone="green">Delivered</Badge> : <Badge tone="cyan">Issued</Badge>}</td>
+                      <td>
+                        <button className="btn ghost sm" onClick={() => setSelected(r)}>View</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </DataTable>
+            )}
+          </TableChrome>
+
+          {selected && (
+            <DetailDrawer title={<RefText value={selected.report_number} />} onClose={() => setSelected(null)} width={400}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <StatusPill value={Boolean(selected.delivered_at) ? "Delivered" : "Issued"} tone={Boolean(selected.delivered_at) ? "green" : "cyan"} />
+                <StatusPill value="Signed" tone="green" />
+              </div>
+              <Field label="Instruction No"><span className="mono" style={{ fontSize: 13 }}>{String(selected.instruction_reference ?? "—")}</span></Field>
+              <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+                <Field label="Client / Bank"><span style={{ fontSize: 13 }}>{String(selected.client_name ?? "—")}</span></Field>
+                <Field label="Property"><span style={{ fontSize: 13 }}>{String(selected.property_description ?? "—")}</span></Field>
+              </div>
+              <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+                <Field label="Issue Date"><span style={{ fontSize: 13 }}>{fmtDate(selected.issued_on)}</span></Field>
+                <Field label="Market Value"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.market_value)}</span></Field>
+              </div>
+              <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
+                <Field label="Signed By (ID)"><span style={{ fontSize: 13 }}>{String(selected.signed_by ?? "—")}</span></Field>
+                <Field label="Delivery"><span style={{ fontSize: 13 }}>{Boolean(selected.delivered_at) ? fmtDateTime(selected.delivered_at) : "Not delivered"}</span></Field>
+              </div>
+              {selected.delivery_method ? <div style={{ marginTop: 12 }}><Field label="Delivery Method"><span style={{ fontSize: 13 }}>{String(selected.delivery_method)}</span></Field></div> : null}
+              <div style={{ marginTop: 12 }}>
+                <Field label="Integrity Checksum"><span className="mono" style={{ fontSize: 10, color: "var(--muted)", wordBreak: "break-all" }}>{String(selected.checksum ?? "—")}</span></Field>
+              </div>
+              {selected.file_url ? (
+                <div style={{ marginTop: 18 }}>
+                  <a className="btn primary sm" style={{ width: "100%", justifyContent: "center" }} href={String(selected.file_url)} target="_blank" rel="noreferrer">↓ Download Report</a>
+                </div>
+              ) : null}
+            </DetailDrawer>
+          )}
+        </Panel>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Panel title="Quick Actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button className="btn ghost sm" onClick={() => {}}>Resend Report</button>
+              <button className="btn ghost sm" onClick={() => {}}>Generate Invoice</button>
+              <button className="btn ghost sm" onClick={() => {}}>View Invoice</button>
+              <button className="btn ghost sm" onClick={() => {}}>Record Payment</button>
+              <button className="btn ghost sm" onClick={() => {}}>Add Follow Up</button>
             </div>
-          ) : null}
-        </DetailDrawer>
-      )}
-    </Panel>
+          </Panel>
+
+          <Panel title="Delivery Status (This Month)">
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {deliveryStatuses.map((s) => (
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 80, fontSize: 12 }}>{s.label}</span>
+                  <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--surface-3, #e5e7eb)" }}>
+                    <div style={{ height: "100%", borderRadius: 4, width: `${(s.count / deliveryMax) * 100}%`, background: s.color }} />
+                  </div>
+                  <span className="mono" style={{ fontSize: 11 }}>{s.count}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </div>
   );
 }
 
 /* ───────────────────────── invoices ───────────────────────── */
 
-function InvoicesView({ rows, search, setSearch }: {
+function InvoicesView({ rows, search, setSearch, setShowRecordPayment }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
+  setShowRecordPayment: () => void;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const invoiced = rows.reduce((acc, r) => acc + Number(r.total ?? 0), 0);
@@ -983,49 +1193,66 @@ function InvoicesView({ rows, search, setSearch }: {
         <KpiCard icon="⏳" iconBg="#fee2e2" iconColor="#b91c1c" label="Outstanding" value={fmtMoney(outstanding)} sub="Unpaid balance" onClick={() => {}} />
       </KpiStrip>
 
-      <Panel title="Aging Summary (Outstanding)">
-        {rows.length === 0 ? (
-          <EmptyState icon="🕘" title="No invoicing yet" description="Invoice aging by bucket will appear once invoices are issued." />
-        ) : (
-          <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, padding: 14 }}>
-            {Object.entries(aging).map(([bucket, value]) => (
-              <div key={bucket} style={{ padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--border)" }}>
-                <span className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{bucket} days</span>
-                <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: Number(value) > 0 ? "#b91c1c" : "var(--text)" }}>{fmtMoney(value)}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Panel title="Aging Summary (Outstanding)">
+            {rows.length === 0 ? (
+              <EmptyState icon="🕘" title="No invoicing yet" description="Invoice aging by bucket will appear once invoices are issued." />
+            ) : (
+              <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, padding: 14 }}>
+                {Object.entries(aging).map(([bucket, value]) => (
+                  <div key={bucket} style={{ padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                    <span className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{bucket} days</span>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: Number(value) > 0 ? "#b91c1c" : "var(--text)" }}>{fmtMoney(value)}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </Panel>
+            )}
+          </Panel>
 
-      <Panel title="Client Invoices" badge={rows.length}>
-        <TableChrome
-          search={search}
-          setSearch={setSearch}
-          placeholder="Search invoice no., instruction no., client…"
-        >
-          {rows.length === 0 ? (
-            <EmptyState icon="🧾" title="No invoices" description="Invoices raised against completed instructions will appear here." />
-          ) : (
-            <DataTable headers={["Invoice No", "Instruction", "Client", "Issue Date", "Due Date", "Amount", "Paid", "Balance", "Status", "Actions"]}>
-              {rows.map((r) => (
-                <tr key={String(r.id ?? r.number)}>
-                  <td><RefText value={r.number} /></td>
-                  <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
-                  <td style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</td>
-                  <td style={{ fontSize: 12 }}>{fmtDate(r.issued_on)}</td>
-                  <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
-                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.total)}</td>
-                  <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(Number(r.total ?? 0) - Number(r.balance ?? 0))}</td>
-                  <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.balance)}</td>
-                  <td><StatusPill value={strOrNull(r.status)} tone={invoiceTone(String(r.status))} /></td>
-                  <td><button className="btn ghost sm" onClick={() => setSelected(r)}>View</button></td>
-                </tr>
-              ))}
-            </DataTable>
-          )}
-        </TableChrome>
-      </Panel>
+          <Panel title="Client Invoices" badge={rows.length}>
+            <TableChrome
+              search={search}
+              setSearch={setSearch}
+              placeholder="Search invoice no., instruction no., client…"
+            >
+              {rows.length === 0 ? (
+                <EmptyState icon="🧾" title="No invoices" description="Invoices raised against completed instructions will appear here." />
+              ) : (
+                <DataTable headers={["Invoice No", "Instruction", "Client", "Issue Date", "Due Date", "Amount", "Paid", "Balance", "Status", "Actions"]}>
+                  {rows.map((r) => (
+                    <tr key={String(r.id ?? r.number)}>
+                      <td><RefText value={r.number} /></td>
+                      <td className="mono" style={{ fontSize: 12 }}>{String(r.instruction_reference ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.client_name ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.issued_on)}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.total)}</td>
+                      <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(Number(r.total ?? 0) - Number(r.balance ?? 0))}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.balance)}</td>
+                      <td><StatusPill value={strOrNull(r.status)} tone={invoiceTone(String(r.status))} /></td>
+                      <td><button className="btn ghost sm" onClick={() => setSelected(r)}>View</button></td>
+                    </tr>
+                  ))}
+                </DataTable>
+              )}
+            </TableChrome>
+          </Panel>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Panel title="Quick Actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button className="btn ghost sm" onClick={() => {}}>Create New Invoice</button>
+              <button className="btn ghost sm" onClick={() => {}}>Create Credit Note</button>
+              <button className="btn ghost sm" onClick={setShowRecordPayment}>Record Payment</button>
+              <button className="btn ghost sm" onClick={() => {}}>Upload Payment Proof</button>
+              <button className="btn ghost sm" onClick={() => {}}>Send Statement of Account</button>
+              <button className="btn ghost sm" onClick={() => {}}>Download Invoice Register</button>
+            </div>
+          </Panel>
+        </div>
+      </div>
 
       {selected && (
         <DetailDrawer title={<RefText value={selected.number} />} onClose={() => setSelected(null)} width={400}>
@@ -1899,17 +2126,17 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
         ) : tab === "overview" ? (
           <OverviewView dashboard={dashboard} setTab={setTab} openNewInstruction={openNewInstruction} />
         ) : tab === "instructions" ? (
-          <InstructionsView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canCoordinate={canCoordinate} onTransition={runTransition} />
+          <InstructionsView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canCoordinate={canCoordinate} onTransition={runTransition} setShowAddModal={openNewInstruction} />
         ) : tab === "inspections" ? (
-          <InspectionsView rows={rows} search={search} setSearch={setSearch} />
+          <InspectionsView rows={rows} search={search} setSearch={setSearch} setShowAddModal={() => {}} />
         ) : tab === "comparables" ? (
           <ComparablesView rows={rows} search={search} setSearch={setSearch} />
         ) : tab === "draft-reports" ? (
-          <DraftReportsView rows={rows} search={search} setSearch={setSearch} canReview={canReview} openReview={openReview} />
+          <DraftReportsView rows={rows} search={search} setSearch={setSearch} canReview={canReview} openReview={openReview} setShowAddModal={openNewInstruction} />
         ) : tab === "final-reports" ? (
           <FinalReportsView rows={rows} search={search} setSearch={setSearch} />
         ) : tab === "invoices" ? (
-          <InvoicesView rows={rows} search={search} setSearch={setSearch} />
+          <InvoicesView rows={rows} search={search} setSearch={setSearch} setShowRecordPayment={openRecordPayment} />
         ) : tab === "payments" ? (
           <PaymentsView rows={rows} search={search} setSearch={setSearch} canFinance={canFinance} openRecordPayment={openRecordPayment} />
         ) : tab === "clients" ? (

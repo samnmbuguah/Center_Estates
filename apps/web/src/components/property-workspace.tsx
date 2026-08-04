@@ -437,7 +437,7 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
             {trend.length > 0 ? (
               <div className="row" style={{ alignItems: "flex-end", gap: 12, height: 170, borderBottom: "1px solid var(--border)", padding: "18px 20px 8px" }}>
                 {trend.map((b) => (
-                  <div key={b.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div key={b.month} className="chart-month" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                     <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 120 }}>
                       <div title={`Billed ${kM(b.billed)}`} style={{ width: 12, height: `${Math.max((Number(b.billed) / trendMax) * 100, 3)}%`, background: "var(--border-strong)", borderRadius: "4px 4px 0 0" }} />
                       <div title={`Collected ${kM(b.collected)}`} style={{ width: 12, height: `${Math.max((Number(b.collected) / trendMax) * 100, 3)}%`, background: "var(--primary)", borderRadius: "4px 4px 0 0" }} />
@@ -554,39 +554,54 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
           )}
         </Panel>
 
-        <Panel title="Rent Ageing Summary" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report →</button>}>
-          {aging.length > 0 ? (
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th>Bucket</th>
-                    <th>Amount</th>
-                    <th>% of total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {aging.map((a) => (
-                    <tr key={a.label}>
-                      <td style={{ fontSize: 12 }}>{a.label}</td>
-                      <td className="mono" style={{ color: a.amount > 0 ? "var(--danger)" : "var(--muted)" }}>{kM(a.amount)}</td>
-                      <td>
-                        <div className="row" style={{ gap: 8 }}>
-                          <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
-                            <div style={{ width: `${pct(a.amount, agingTotal)}%`, height: "100%", background: a.amount > 0 ? "#e23b3b" : "var(--border-strong)" }} />
-                          </div>
-                          <span className="mono" style={{ fontSize: 11, width: 40, textAlign: "right" }}>{pct(a.amount, agingTotal)}%</span>
-                        </div>
-                      </td>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Panel title="Rent Ageing Summary" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report →</button>}>
+            {aging.length > 0 ? (
+              <div className="table-scroll">
+                <table className="fc-data-table">
+                  <thead>
+                    <tr>
+                      <th>Bucket</th>
+                      <th>Amount</th>
+                      <th>% of total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {aging.map((a) => (
+                      <tr key={a.label}>
+                        <td style={{ fontSize: 12 }}>{a.label}</td>
+                        <td className="mono" style={{ color: a.amount > 0 ? "var(--danger)" : "var(--muted)" }}>{kM(a.amount)}</td>
+                        <td>
+                          <div className="row" style={{ gap: 8 }}>
+                            <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
+                              <div style={{ width: `${pct(a.amount, agingTotal)}%`, height: "100%", background: a.amount > 0 ? "#e23b3b" : "var(--border-strong)" }} />
+                            </div>
+                            <span className="mono" style={{ fontSize: 11, width: 40, textAlign: "right" }}>{pct(a.amount, agingTotal)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState icon="📂" title="No outstanding balances" description="Aged balances by bucket will appear here." />
+            )}
+          </Panel>
+
+          <Panel title="Quick Actions">
+            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, width: 260 }}>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("properties")}>Add New Property →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("leases")}>Add New Lease →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("tenants")}>Add New Tenant →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("rent")}>Generate Invoice →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("rent")}>Record Rent Payment →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("arrears")}>Manage Arrears →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Collection Report →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Outstanding Rent Report →</button>
             </div>
-          ) : (
-            <EmptyState icon="📂" title="No outstanding balances" description="Aged balances by bucket will appear here." />
-          )}
-        </Panel>
+          </Panel>
+        </div>
       </div>
     </div>
   );
@@ -600,26 +615,55 @@ function PropertiesView({
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAdd: () => void; onSelectRow: (r: Row) => void;
 }) {
+  const [filterType, setFilterType] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const props = rows as PropertyRow[];
+  const filtered = props.filter((p) =>
+    (!filterType || p.property_type === filterType) &&
+    (!filterLocation || p.city === filterLocation) &&
+    (!filterStatus || p.status === filterStatus)
+  );
   const totalUnits = props.reduce((s, p) => s + Number(p.units_count ?? 0), 0);
   const totalBuildings = props.reduce((s, p) => s + Number(p.buildings_count ?? 0), 0);
   const active = props.filter((p) => p.status === "active").length;
+  const totalOccupied = props.reduce((s, p) => s + Number(p.occupied ?? 0), 0);
+  const vacant = Math.max(totalUnits - totalOccupied, 0);
+  const occupancyRate = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
+  const types = [...new Set(props.map((p) => p.property_type).filter(Boolean))];
+  const locations = [...new Set(props.map((p) => p.city).filter(Boolean))];
+  const statuses = [...new Set(props.map((p) => p.status).filter(Boolean))];
+  const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
   return (
     <>
-      <KpiStrip cols={4}>
+      <KpiStrip cols={6}>
         <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Properties" value={kN(props.length)} sub="Portfolio count" link="View register" onClick={() => setTab("properties")} />
         <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(totalUnits)} sub="Across portfolio" link="View units" onClick={() => setTab("units")} />
         <KpiCard icon="🏗" iconBg="#fef3c7" iconColor="#d97706" label="Buildings" value={kN(totalBuildings)} sub="Registered buildings" link="View buildings" onClick={() => setTab("buildings")} />
         <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active properties" link="View register" onClick={() => setTab("properties")} />
+        <KpiCard icon="◌" iconBg="#fee2e2" iconColor="#dc2626" label="Vacant Units" value={kN(vacant)} sub="Across portfolio" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="▣" iconBg="#e0f2fe" iconColor="#0284c7" label="Occupancy %" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
       </KpiStrip>
 
       <ViewToolbar title="Property Register" subtitle="Manage all properties across your portfolio" search={search} onSearch={setSearch} placeholder="Search by name, code or city…">
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selStyle}>
+          <option value="">All Types</option>
+          {types.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} style={selStyle}>
+          <option value="">All Locations</option>
+          {locations.map((l) => <option key={l} value={l}>{l}</option>)}
+        </select>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={selStyle}>
+          <option value="">All Status</option>
+          {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
         <button className="btn primary sm" onClick={onAdd}>+ Add Property</button>
       </ViewToolbar>
 
       <Panel title="Properties">
-        <ListState loading={loading} empty={props.length === 0} emptyTitle="No properties found" emptyDesc="Add a property to start building your portfolio hierarchy.">
+        <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No properties found" emptyDesc="Add a property to start building your portfolio hierarchy.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
@@ -637,7 +681,7 @@ function PropertiesView({
                 </tr>
               </thead>
               <tbody>
-                {props.map((p) => (
+                {filtered.map((p) => (
                   <tr key={String(p.id)} onClick={() => onSelectRow(p)}>
                     <td>
                       <strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong>
@@ -866,10 +910,19 @@ function TenantsView({
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAdd: () => void; onUploadDoc: () => void; onSelectRow: (r: Row) => void;
 }) {
+  const [filterProperty, setFilterProperty] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const tenants = rows as TenantRow[];
+  const filtered = tenants.filter((t) =>
+    (!filterProperty || t.property === filterProperty) &&
+    (!filterStatus || t.status === filterStatus)
+  );
   const active = tenants.filter((t) => t.status === "active").length;
   const prospects = tenants.filter((t) => t.status === "prospect").length;
   const outstanding = tenants.reduce((s, t) => s + Number(t.outstanding ?? 0), 0);
+  const propertyNames = [...new Set(tenants.map((t) => t.property).filter(Boolean))];
+  const statuses = [...new Set(tenants.map((t) => t.status).filter(Boolean))];
+  const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
   return (
     <>
@@ -881,12 +934,20 @@ function TenantsView({
       </KpiStrip>
 
       <ViewToolbar title="Tenant Register" subtitle="Manage all tenants across your properties" search={search} onSearch={setSearch} placeholder="Search tenant name, email, phone…">
+        <select value={filterProperty} onChange={(e) => setFilterProperty(e.target.value)} style={selStyle}>
+          <option value="">All Properties</option>
+          {propertyNames.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={selStyle}>
+          <option value="">All Status</option>
+          {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
         <button className="btn ghost sm" onClick={onUploadDoc}>+ Upload Document</button>
         <button className="btn primary sm" onClick={onAdd}>+ Add Tenant</button>
       </ViewToolbar>
 
       <Panel title="Tenants">
-        <ListState loading={loading} empty={tenants.length === 0} emptyTitle="No tenants found" emptyDesc="Register a tenant to link leases, invoices and documents.">
+        <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No tenants found" emptyDesc="Register a tenant to link leases, invoices and documents.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
@@ -902,7 +963,7 @@ function TenantsView({
                 </tr>
               </thead>
               <tbody>
-                {tenants.map((t) => (
+                {filtered.map((t) => (
                   <tr key={String(t.id)} onClick={() => onSelectRow(t)}>
                     <td>
                       <strong style={{ fontSize: 12 }}>{String(t.name ?? "—")}</strong>
@@ -1004,7 +1065,13 @@ function LeasesView({
   setTab: (t: PropertyTab) => void; onAddLease: () => void; onDownloadTemplate: () => void;
   onLeaseAction: (r: LeaseRow, action: "activate" | "renew" | "terminate") => void; onSelectRow: (r: Row) => void;
 }) {
+  const [filterProperty, setFilterProperty] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const leases = rows as LeaseRow[];
+  const filtered = leases.filter((l) =>
+    (!filterProperty || l.property_name === filterProperty) &&
+    (!filterStatus || l.status === filterStatus)
+  );
   const active = leases.filter((l) => l.status === "active").length;
   const expired = leases.filter((l) => l.status === "expired").length;
   const expiring30 = leases.filter((l) => {
@@ -1013,6 +1080,9 @@ function LeasesView({
   }).length;
   const monthlyRent = leases.filter((l) => ["active", "expiring"].includes(String(l.status))).reduce((s, l) => s + Number(l.monthly_rent ?? 0), 0);
   const outstanding = leases.reduce((s, l) => s + Number(l.outstanding ?? 0), 0);
+  const propertyNames = [...new Set(leases.map((l) => l.property_name).filter(Boolean))];
+  const statuses = [...new Set(leases.map((l) => l.status).filter(Boolean))];
+  const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
   return (
     <>
@@ -1025,7 +1095,16 @@ function LeasesView({
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid lease balances" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
-      <ViewToolbar title="Lease Register" subtitle="Manage all lease agreements across your properties" search={search} onSearch={setSearch} placeholder="Search lease no, tenant or unit…" />
+      <ViewToolbar title="Lease Register" subtitle="Manage all lease agreements across your properties" search={search} onSearch={setSearch} placeholder="Search lease no, tenant or unit…">
+        <select value={filterProperty} onChange={(e) => setFilterProperty(e.target.value)} style={selStyle}>
+          <option value="">All Properties</option>
+          {propertyNames.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={selStyle}>
+          <option value="">All Status</option>
+          {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </ViewToolbar>
 
       <div className="card" style={{ padding: 18, border: "1px dashed var(--primary)", background: "var(--surface-2)" }}>
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -1043,7 +1122,7 @@ function LeasesView({
       </div>
 
       <Panel title="Lease Register" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Invoices →</button>}>
-        <ListState loading={loading} empty={leases.length === 0} emptyTitle="No leases found" emptyDesc="Add a single lease or bulk import a tenancy schedule to populate the register.">
+        <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No leases found" emptyDesc="Add a single lease or bulk import a tenancy schedule to populate the register.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
@@ -1062,7 +1141,7 @@ function LeasesView({
                 </tr>
               </thead>
               <tbody>
-                {leases.map((l) => (
+                {filtered.map((l) => (
                   <tr key={String(l.id)} onClick={() => onSelectRow(l)}>
                     <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(l.reference ?? "—")}</td>
                     <td><strong style={{ fontSize: 12 }}>{String(l.tenant_name ?? "—")}</strong></td>
@@ -1230,6 +1309,9 @@ function RentView({
         <KpiCard icon="📅" iconBg="#fff7ed" iconColor="#ea580c" label="Due This Month" value={kN(dueThisMonth)} sub="Open invoices" link="View invoices" onClick={() => setRentSection("invoices")} />
       </KpiStrip>
 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 18, width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+
       {rentSection === "invoices" && (
         <Panel title="Rent Invoices & Collection Ledger" action={<button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Rent Payment</button>}>
           <ListState loading={loading} empty={rows.length === 0} emptyTitle="No invoices found" emptyDesc="Generate invoices from rent schedules or issue draft invoices.">
@@ -1378,6 +1460,50 @@ function RentView({
           </ListState>
         </Panel>
       )}
+
+      <Panel title="Collection Performance" action={<button className="btn ghost sm" onClick={() => setRentSection("invoices")}>Invoices →</button>}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "18px 20px" }}>
+          <div style={{ width: 120, height: 120, borderRadius: "50%", background: `conic-gradient(var(--primary) 0% ${collectionRate}%, var(--surface-3) ${collectionRate}% 100%)`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+            <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 700 }}>{collectionRate}%</div>
+          </div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                <i style={{ background: "var(--primary)", borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Collected
+              </span>
+              <strong className="mono">{kM(collected)}</strong>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                <i style={{ background: "var(--surface-3)", borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Outstanding
+              </span>
+              <strong className="mono">{kM(outstanding)}</strong>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                <i style={{ background: "var(--border-strong)", borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Total Billed
+              </span>
+              <strong className="mono">{kM(totalBilled)}</strong>
+            </div>
+          </div>
+        </div>
+      </Panel>
+
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, width: 260 }}>
+          <Panel title="Quick Actions">
+            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setRentSection("invoices")}>Generate Invoice →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => onRecordReceipt()}>Record Payment / Receipt →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setRentSection("reminders")}>Send Payment Reminder →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("arrears")}>Manage Arrears →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Download Aging Report →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Export Collection Report →</button>
+            </div>
+          </Panel>
+        </div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
         <Panel title="Aging Summary (Outstanding)" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report →</button>}>
@@ -1615,11 +1741,16 @@ function ReceiptsView({
   onRecordReceipt: (invoiceId?: ID) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "receipts" | "credit-notes" | "unapplied">("all");
+  const [filterTenant, setFilterTenant] = useState("");
+  const [filterType, setFilterType] = useState("");
   const receipts = rows as ReceiptRow[];
   const cns = creditNotes as CreditNoteRow[];
   const receiptTotal = receipts.reduce((s, r) => s + Number(r.amount ?? 0), 0);
   const creditTotal = cns.filter((c) => c.status !== "void").reduce((s, c) => s + Number(c.amount ?? 0), 0);
   const unapplied = receipts.filter((r) => !r.invoice).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const tenantNames = [...new Set(receipts.map((r) => r.tenant_name).filter(Boolean))];
+  const paymentMethods = [...new Set(receipts.map((r) => r.payment_method).filter(Boolean))];
+  const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
   const combined: Row[] = [
     ...receipts.map((r) => ({
@@ -1641,9 +1772,11 @@ function ReceiptsView({
       docStatus: c.status === "void" ? "Void" : "Applied",
     })),
   ].filter((c) => {
-    if (filter === "receipts") return c.docType === "Receipt";
-    if (filter === "credit-notes") return c.docType === "Credit Note";
-    if (filter === "unapplied") return c.docType === "Receipt" && c.docStatus === "Unapplied";
+    if (filter === "receipts") { if (c.docType !== "Receipt") return false; }
+    else if (filter === "credit-notes") { if (c.docType !== "Credit Note") return false; }
+    else if (filter === "unapplied") { if (c.docType !== "Receipt" || c.docStatus !== "Unapplied") return false; }
+    if (filterTenant && c.tenant_name !== filterTenant) return false;
+    if (filterType && c.docMethod !== filterType) return false;
     return true;
   });
 
@@ -1657,6 +1790,14 @@ function ReceiptsView({
       </KpiStrip>
 
       <ViewToolbar title="Receipts & Credit Notes" subtitle="Recorded payments and credit adjustments" search={search} onSearch={setSearch} placeholder="Search receipt, tenant or reference…">
+        <select value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)} style={selStyle}>
+          <option value="">All Tenants</option>
+          {tenantNames.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selStyle}>
+          <option value="">All Methods</option>
+          {paymentMethods.map((m) => <option key={m} value={m}>{String(m).replace(/_/g, " ")}</option>)}
+        </select>
         <button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Receipt</button>
       </ViewToolbar>
 
@@ -2071,6 +2212,7 @@ function ServiceChargeAllocationsView({ rows, loading, search, setSearch }: {
                 <tr>
                   <th>Allocation</th>
                   <th>Charge</th>
+                  <th>Property</th>
                   <th>Unit</th>
                   <th>Ratio</th>
                   <th>Monthly Amount</th>
@@ -2083,8 +2225,9 @@ function ServiceChargeAllocationsView({ rows, loading, search, setSearch }: {
                   <tr key={String(a.id)}>
                     <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{shortId(a.id)}</td>
                     <td style={{ fontSize: 12 }}>{String(a.service_charge_name ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{String(a.property_name ?? "—")}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{String(a.unit_code ?? "—")}</td>
-                    <td className="mono">{Number(a.ratio ?? 0) * 100}%</td>
+                    <td className="mono">{Number((Number(a.ratio ?? 0) * 100).toFixed(2))}%</td>
                     <td className="mono">{kM(a.monthly_amount)}</td>
                     <td className="mono">{kM(a.annual_amount)}</td>
                     <td><Badge tone="green">Active</Badge></td>
@@ -2148,8 +2291,8 @@ function ServiceChargeReconciliationsView({ rows, loading, search, setSearch }: 
 
 /* ─── BUDGETS ─── */
 
-function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd, onAction }: {
-  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onSelectRow: (r: Row) => void; onAdd: () => void;
+function BudgetsView({ rows, loading, search, setSearch, setTab, onSelectRow, onAdd, onAction }: {
+  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onSelectRow: (r: Row) => void; onAdd: () => void;
   onAction: (row: BudgetRow, action: "submit" | "approve" | "reject") => void;
 }) {
   const budgets = rows as BudgetRow[];
@@ -2157,6 +2300,7 @@ function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd, onA
   const totalActual = budgets.reduce((s, b) => s + Number(b.actual_amount ?? 0), 0);
   const totalVariance = budgets.reduce((s, b) => s + Number(b.variance ?? 0), 0);
   const utilization = pct(totalActual, totalBudget);
+  const gaugeColor = utilization > 90 ? "var(--danger)" : utilization > 80 ? "var(--warning)" : "var(--success)";
 
   return (
     <>
@@ -2171,7 +2315,37 @@ function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd, onA
         <button className="btn primary sm" onClick={onAdd}>+ Add budget line</button>
       </ViewToolbar>
 
-      <Panel title="Recent Budgets">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 18, width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Panel title="Budget Utilization" action={<button className="btn ghost sm" onClick={() => setTab("service-charges")}>Service Charges →</button>}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "18px 20px" }}>
+              <div style={{ width: 120, height: 120, borderRadius: "50%", background: `conic-gradient(${gaugeColor} 0% ${utilization}%, var(--surface-3) ${utilization}% 100%)`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 700 }}>{utilization}%</div>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                    <i style={{ background: gaugeColor, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Utilization
+                  </span>
+                  <strong className="mono">{utilization}%</strong>
+                </div>
+                <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                    <i style={{ background: "var(--primary)", borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Total Budget
+                  </span>
+                  <strong className="mono">{kM(totalBudget)}</strong>
+                </div>
+                <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                    <i style={{ background: "var(--danger)", borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Actual Spend
+                  </span>
+                  <strong className="mono">{kM(totalActual)}</strong>
+                </div>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Recent Budgets">
         <ListState loading={loading} empty={budgets.length === 0} emptyTitle="No budgets found" emptyDesc="Property budgets and estimates will appear here once created.">
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -2226,6 +2400,21 @@ function BudgetsView({ rows, loading, search, setSearch, onSelectRow, onAdd, onA
           </div>
         </ListState>
       </Panel>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, width: 260 }}>
+          <Panel title="Quick Actions">
+            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={onAdd}>Add Budget Line →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Copy Budget →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Upload Budget CSV →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Download Budget Template →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Submit for Approval →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Export Budget Report →</button>
+            </div>
+          </Panel>
+        </div>
+      </div>
     </>
   );
 }
@@ -2245,6 +2434,18 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onA
   const expensesByCategory = financial?.expensesByCategory ?? [];
   const expenseMax = Math.max(...expensesByCategory.map((c) => Number(c.total ?? 0)), 1);
   const netMax = Math.max(income, spent, 1);
+  const incomeByCategory = financial?.incomeByMethod ?? [];
+  const incomeTotal = incomeByCategory.reduce((s, c) => s + Number(c.total ?? 0), 0);
+  const incomePct = (part: unknown) => incomeTotal > 0 ? Math.round((Number(part ?? 0) / incomeTotal) * 100) : 0;
+  const categoryColors = ["#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#6366f1"];
+  const incomeDonutStops = incomeByCategory.reduce<string>((acc, c, i) => {
+    const p = incomePct(c.total);
+    const prev = incomeByCategory.slice(0, i).reduce((s, pc) => s + incomePct(pc.total), 0);
+    return `${acc}${categoryColors[i % categoryColors.length]} ${prev}% ${prev + p}%, `;
+  }, "");
+  const incomeDonut = incomeTotal > 0
+    ? `conic-gradient(${incomeDonutStops}var(--surface-3) ${incomeByCategory.reduce((s, c) => s + incomePct(c.total), 0)}% 100%)`
+    : "conic-gradient(var(--surface-3) 0% 100%)";
 
   return (
     <>
@@ -2258,6 +2459,9 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onA
       <ViewToolbar title="Property Expenses" subtitle="Track and analyse income and expenses across your properties" search={search} onSearch={setSearch} placeholder="Search supplier, category or property…">
         <button className="btn primary sm" onClick={onAdd}>+ Record expense</button>
       </ViewToolbar>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 18, width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
         <Panel title="Income vs Expenses (YTD)" action={<button className="btn ghost sm" onClick={() => setTab("receipts")}>Collections →</button>}>
@@ -2309,6 +2513,38 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onA
             <EmptyState icon="📊" title="No category data" description="Expense breakdown by category will appear here once expenses are recorded." />
           )}
         </Panel>
+      </div>
+
+      <Panel title="Income by Category" action={<button className="btn ghost sm" onClick={() => setTab("receipts")}>Collections →</button>}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "18px 20px" }}>
+          <div style={{ width: 120, height: 120, borderRadius: "50%", background: incomeDonut, display: "grid", placeItems: "center", flexShrink: 0 }}>
+            <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 700 }}>{kM(income)}</div>
+          </div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+            {incomeByCategory.slice(0, 5).map((c, i) => (
+              <div key={c.payment_method} className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                  <i style={{ background: categoryColors[i % categoryColors.length], borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />{String(c.payment_method ?? "—")}
+                </span>
+                <strong className="mono">{kM(c.total)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Panel>
+
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, width: 260 }}>
+          <Panel title="Quick Actions">
+            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={onAdd}>Record Expense →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("receipts")}>Upload Receipt / Invoice →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("receipts")}>Manage Categories →</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>View Cash Flow Statement →</button>
+            </div>
+          </Panel>
+        </div>
       </div>
 
       <Panel title="Recent Transactions" action={<button className="btn ghost sm" onClick={() => setTab("receipts")}>Receipts →</button>}>
@@ -2431,8 +2667,11 @@ function ReportsView({ rows, loading, onExport }: {
 /* ─── MAIN WORKSPACE ─── */
 
 export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
-  const { session } = useAuth();
+  const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
+  const canOperate = can("property.operations");
+  const canLease = can("property.leasing");
+  const canFinance = can("property.finance");
 
   const [tab, setTab] = useState<PropertyTab>(() => {
     if (typeof window !== "undefined") {
@@ -3143,9 +3382,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       actions={
         <div className="row" style={{ gap: 10, alignItems: "center" }}>
           <span className="muted" style={{ fontSize: 12 }}>📅 {todayStr}</span>
-          <button className="btn ghost sm" onClick={() => openRecordReceipt()}>+ Record Receipt</button>
-          <button className="btn ghost sm" onClick={() => setShowAddTenant(true)}>+ Add Tenant</button>
-          <button className="btn primary sm" onClick={() => setShowAddProperty(true)}>+ Add Property</button>
+          {canFinance && <button className="btn ghost sm" onClick={() => openRecordReceipt()}>+ Record Receipt</button>}
+          {canLease && <button className="btn ghost sm" onClick={() => setShowAddTenant(true)}>+ Add Tenant</button>}
+          {canOperate && <button className="btn primary sm" onClick={() => setShowAddProperty(true)}>+ Add Property</button>}
         </div>
       }
     >
@@ -3171,7 +3410,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} onReconcile={setReconciliationTarget} />}
         {tab === "service-charge-allocations" && <ServiceChargeAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
-        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => void runPropertyAction("budgets", row.id, action, "Budget action failed.")} />}
+        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => void runPropertyAction("budgets", row.id, action, "Budget action failed.")} />}
         {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={(key) => void downloadReportCSV(key)} />}
 

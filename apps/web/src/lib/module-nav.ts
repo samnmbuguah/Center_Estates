@@ -141,6 +141,7 @@ export const tenderNav: ModuleNavGroup[] = [
       { id: "proposals", label: "Proposals" },
       { id: "financial-items", label: "Financial BOQ" },
       { id: "reviews", label: "Review & approval" },
+      { id: "packaging", label: "Packaging" },
     ],
   },
   {
@@ -285,6 +286,15 @@ export const constructionNav: ModuleNavGroup[] = [  {
       { id: "chat", label: "Project chat" },
       { id: "notifications", label: "Notifications" },
       { id: "audit-log", label: "Audit trail" },
+    ],
+  },
+  {
+    label: "Role Dashboards",
+    icon: "👤",
+    items: [
+      { id: "role-pm", label: "Project Manager" },
+      { id: "role-finance", label: "Finance" },
+      { id: "role-site", label: "Site Agent" },
     ],
   },
 ];

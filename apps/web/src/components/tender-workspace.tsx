@@ -30,6 +30,7 @@ export type TenderTab =
   | "proposals"
   | "financial-items"
   | "reviews"
+  | "packaging"
   | "submissions"
   | "outcomes"
   | "reports"
@@ -60,7 +61,8 @@ const labels: Record<TenderTab, string> = {
   proposals: "Technical Proposal · Step 6",
   "financial-items": "Financial Proposal · Step 7",
   reviews: "Review & Approval · Step 8",
-  submissions: "Packaging & Submission · Step 9-10",
+  packaging: "Packaging · Step 9",
+  submissions: "Submission · Step 10",
   outcomes: "Award / Regret · Step 11",
   reports: "Tender Reports",
   "audit-events": "Audit Trail",
@@ -845,7 +847,201 @@ function ReviewsView({ rows, search, setSearch, tenderIndex, openReview, canRevi
   );
 }
 
-/* ─── Step 9-10 · Submission ─── */
+/* ─── Step 9 · Packaging ─── */
+
+function PackagingView({ rows, search, setSearch, tenderIndex }: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+  tenderIndex: Row[];
+}) {
+  const [selected, setSelected] = useState<Row | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const tenderById = useMemo(() => {
+    const m = new Map<string, Row>();
+    tenderIndex.forEach((t) => m.set(String(t.id), t));
+    return m;
+  }, [tenderIndex]);
+
+  const readyToSubmit = rows.filter((r) => String(r.status) === "ready").length;
+  const pendingAssembly = rows.filter((r) => String(r.status) === "draft" || String(r.status) === "assembling").length;
+  const submitted = rows.filter((r) => String(r.status) === "submitted").length;
+
+  const handleAutoGenerateTOC = useCallback(() => {
+    const toc = rows.map((r, i) => `${i + 1}. ${String(r.package_ref ?? r.id)} — ${String(r.tender_title ?? tenderById.get(String(r.tender))?.title ?? "Tender")}`).join("\n");
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.write(`<html><head><title>Table of Contents</title><style>body{font-family:monospace;padding:40px;font-size:13px}h1{font-size:16px}pre{white-space:pre-wrap}</style></head><body><h1>Package — Table of Contents</h1><pre>${toc}</pre></body></html>`);
+      w.document.close();
+    }
+  }, [rows, tenderById]);
+
+  const handleExportPDF = useCallback(() => {
+    const csvRows = [["Package Ref", "Tender", "Sections", "TOC Generated", "Status"]];
+    rows.forEach((r) => {
+      csvRows.push([
+        String(r.package_ref ?? ""),
+        String(r.tender_title ?? tenderById.get(String(r.tender))?.title ?? ""),
+        String(r.sections_count ?? 0),
+        r.toc_generated ? "Yes" : "No",
+        String(r.status ?? ""),
+      ]);
+    });
+    const csv = csvRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tender-packages.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [rows, tenderById]);
+
+  const handleSubmitPackage = useCallback(async (pkg: Row) => {
+    if (!window.confirm(`Submit package ${String(pkg.package_ref ?? pkg.id)}? This will record it as submitted.`)) return;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/tender/submissions/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({
+        tender: pkg.tender,
+        channel: "Portal",
+        receipt_reference: `PKG-${String(pkg.package_ref ?? pkg.id)}`,
+        package_version: "v1.0",
+        package_checksum: `SHA-${Date.now()}`,
+        compliant: true,
+      }),
+    }, null);
+    if (res.ok) {
+      window.location.reload();
+    }
+  }, []);
+
+  return (
+    <>
+      <SectionHeader eyebrow="Step 9 · Packaging" title="Tender Packages" action={
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className="btn ghost sm" onClick={handleAutoGenerateTOC}>Auto-generate TOC</button>
+          <button type="button" className="btn ghost sm" onClick={handleExportPDF}>Export as CSV</button>
+          <button type="button" className="btn primary sm" onClick={() => setCreateOpen(true)}>+ Create Package</button>
+        </div>
+      } />
+
+      <KpiStrip cols={4}>
+        <KpiCard icon="📦" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Total Packages" value={rows.length} sub="Created packages" />
+        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Ready to Submit" value={readyToSubmit} sub="Awaiting submission" />
+        <KpiCard icon="🔧" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Pending Assembly" value={pendingAssembly} sub="In progress" />
+        <KpiCard icon="📤" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="Submitted" value={submitted} sub="Delivered" />
+      </KpiStrip>
+
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Package Register</span>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search package ref, tender…" />
+        </div>
+        {rows.length === 0 ? (
+          <EmptyState icon="📦" title="No packages created" description="Create a package to assemble approved proposal sections and financial items into a submission-ready bundle." action={<button type="button" className="btn primary sm" onClick={() => setCreateOpen(true)}>+ Create Package</button>} />
+        ) : (
+          <DataTable headers={["Package Ref", "Tender", "Sections", "TOC Generated", "Status", "Actions"]}>
+            {rows.map((r) => (
+              <tr key={String(r.id)}>
+                <td><span className="mono" style={{ color: "#7c3aed", fontWeight: 700 }}>{String(r.package_ref ?? `PKG-${String(r.id)}`)}</span></td>
+                <td style={{ fontSize: 12 }}>{String(r.tender_title ?? tenderById.get(String(r.tender))?.title ?? "—")}</td>
+                <td className="mono" style={{ fontSize: 12 }}>{Number(r.sections_count ?? 0)}</td>
+                <td>{r.toc_generated ? <Badge value="Yes" tone="green" /> : <StatusPill value="No" tone="gray" />}</td>
+                <td><StatusPill value={String(r.status ?? "draft")} tone={String(r.status) === "ready" || String(r.status) === "submitted" ? "green" : String(r.status) === "submitted" ? "blue" : "yellow"} /></td>
+                <td>
+                  <div className="row" style={{ gap: 4 }}>
+                    <button type="button" className="btn ghost sm" onClick={() => setSelected(r)}>Details</button>
+                    {String(r.status) === "ready" && <button type="button" className="btn primary sm" onClick={() => handleSubmitPackage(r)}>Submit</button>}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </div>
+
+      {selected && (
+        <DetailDrawer title={`Package ${String(selected.package_ref ?? selected.id)} · Details`} onClose={() => setSelected(null)} width={420}>
+          <DetailField label="Package Reference"><span className="mono" style={{ color: "#7c3aed", fontWeight: 700 }}>{String(selected.package_ref ?? `PKG-${String(selected.id)}`)}</span></DetailField>
+          <DetailField label="Tender">{String(selected.tender_title ?? tenderById.get(String(selected.tender))?.title ?? "—")}</DetailField>
+          <DetailField label="Sections Included">{String(selected.sections_count ?? 0)}</DetailField>
+          <DetailField label="TOC Generated">{selected.toc_generated ? "Yes" : "No"}</DetailField>
+          <DetailField label="Status"><StatusPill value={String(selected.status ?? "draft")} /></DetailField>
+          {selected.status === "ready" && (
+            <button type="button" className="btn primary" style={{ marginTop: 12 }} onClick={() => handleSubmitPackage(selected)}>Submit Package</button>
+          )}
+        </DetailDrawer>
+      )}
+
+      {createOpen && (
+        <CreatePackageModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          tenders={tenderIndex}
+          onSubmit={async (payload) => {
+            await apiFetch("/auth/csrf/");
+            const res = await apiFetch("/tender/packages/", {
+              method: "POST",
+              headers: { "X-CSRFToken": csrfFromCookie() },
+              body: JSON.stringify(payload),
+            }, null);
+            if (res.ok) {
+              setCreateOpen(false);
+              window.location.reload();
+            }
+          }}
+          error=""
+        />
+      )}
+    </>
+  );
+}
+
+function CreatePackageModal({ open, onClose, tenders, onSubmit, error }: {
+  open: boolean;
+  onClose: () => void;
+  tenders: Row[];
+  onSubmit: (payload: Record<string, string>) => void;
+  error: string;
+}) {
+  if (!open) return null;
+  const eligible = tenders.filter((t) => String(t.stage) === "review" || String(t.stage) === "packaging");
+  return (
+    <Modal title="+ Create Package · Step 9" onClose={onClose} wide>
+      <FormError error={error} />
+      {eligible.length === 0 ? (
+        <p className="muted" style={{ fontSize: 13 }}>No tenders are at the review or packaging stage. Advance a tender through review & approval first.</p>
+      ) : (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
+        }}>
+          <Field label="Tender" required>
+            <select name="tender" required defaultValue="">
+              <option value="" disabled>Select tender…</option>
+              {eligible.map((t) => <option key={String(t.id)} value={String(t.id)}>{String(t.reference ?? "—")} · {String(t.title ?? "—")}</option>)}
+            </select>
+          </Field>
+          <Field label="Package Reference" required>
+            <input name="package_ref" required placeholder="e.g. PKG-2026-001" />
+          </Field>
+          <Field label="Sections to Include">
+            <textarea name="sections_description" rows={2} placeholder="List section titles to include, one per line, or leave blank for all approved sections" />
+          </Field>
+          <div className="modal-actions">
+            <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn primary">Create Package</button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+/* ─── Step 10 · Submission ─── */
 
 function SubmissionsView({ rows, search, setSearch, openRecord, canRecord }: {
   rows: Row[];
@@ -1121,7 +1317,7 @@ function OverviewView({ dash, setTab, openRegister, canRegister }: {
     { label: "Technical Proposal", tab: "proposals" },
     { label: "Financial Proposal", tab: "financial-items" },
     { label: "Review", tab: "reviews" },
-    { label: "Packaging", tab: "submissions" },
+    { label: "Packaging", tab: "packaging" },
     { label: "Submission", tab: "submissions" },
     { label: "Award / Regret", tab: "outcomes" },
   ];
@@ -1961,6 +2157,8 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
           <FinancialItemsView rows={rows} search={search} setSearch={setSearch} onApprove={approveFinancialItem} canPrice={canPrice} />
         ) : tab === "reviews" ? (
           <ReviewsView rows={rows} search={search} setSearch={setSearch} tenderIndex={tenderIndex} openReview={openReview} canReview={canDecide} />
+        ) : tab === "packaging" ? (
+          <PackagingView rows={rows} search={search} setSearch={setSearch} tenderIndex={tenderIndex} />
         ) : tab === "submissions" ? (
           <SubmissionsView rows={rows} search={search} setSearch={setSearch} openRecord={openRecordSubmission} canRecord={canDecide} />
         ) : tab === "outcomes" ? (
