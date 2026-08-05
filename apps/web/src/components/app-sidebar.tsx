@@ -4,6 +4,25 @@ import Link from "next/link";
 import { useState } from "react";
 import { modules } from "@/lib/modules";
 import type { ModuleNavGroup } from "./module-shell";
+import {
+  propertyNav,
+  facilityNav,
+  salesNav,
+  tenderNav,
+  valuationNav,
+  constructionNav,
+  companionNav,
+} from "@/lib/module-nav";
+
+const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
+  property: propertyNav,
+  facility: facilityNav,
+  sales: salesNav,
+  tender: tenderNav,
+  valuation: valuationNav,
+  monitoring: constructionNav,
+  companion: companionNav,
+};
 
 type AppSidebarProps = {
   pathname: string;
@@ -27,6 +46,8 @@ export function AppSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const allowedSet = new Set(allowedSlugs);
   const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
+
+  const currentTab = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
 
   return (
     <>
@@ -283,6 +304,7 @@ export function AppSidebar({
             .filter((m) => allowedSet.has(m.slug))
             .map((m) => {
               const isModuleActive = activeModuleSlug === m.slug;
+              const moduleNav = activeModuleNavGroups || MODULE_NAV_MAP[m.slug];
               return (
                 <div key={m.slug} style={{ display: "flex", flexDirection: "column" }}>
                   <Link
@@ -309,8 +331,8 @@ export function AppSidebar({
                     {!collapsed && isModuleActive && <span style={{ fontSize: 10 }}>▼</span>}
                   </Link>
 
-                  {/* If this module is active and we have sub-navigation items, expand them beneath! */}
-                  {!collapsed && isModuleActive && activeModuleNavGroups && activeModuleNavGroups.length > 0 && (
+                  {/* If this module is active, automatically expand its nav items! */}
+                  {!collapsed && isModuleActive && moduleNav && moduleNav.length > 0 && (
                     <div
                       className="module-subnav-tree"
                       style={{
@@ -322,32 +344,32 @@ export function AppSidebar({
                         gap: 2,
                       }}
                     >
-                      {activeModuleNavGroups.flatMap((group) => group.items).map((item) => {
-                        const isSectionActive = activeModuleSection === item.id;
+                      {moduleNav.flatMap((group) => group.items).map((item) => {
+                        const isSectionActive = activeModuleSection === item.id || currentTab === item.id;
                         return (
-                          <button
+                          <Link
                             key={item.id}
-                            type="button"
-                            onClick={() => onSelectSection?.(item.id)}
+                            href={`/${m.slug}?tab=${item.id}`}
+                            onClick={() => {
+                              onSelectSection?.(item.id);
+                              onCloseMobile();
+                            }}
                             style={{
                               display: "flex",
                               alignItems: "center",
                               gap: 8,
                               padding: "6px 10px",
                               borderRadius: 4,
-                              background: isSectionActive ? "rgba(255,255,255,0.12)" : "transparent",
-                              color: isSectionActive ? "#ffffff" : "rgba(255,255,255,0.65)",
-                              border: 0,
+                              background: isSectionActive ? "rgba(255,255,255,0.15)" : "transparent",
+                              color: isSectionActive ? "#ffffff" : "rgba(255,255,255,0.75)",
+                              textDecoration: "none",
                               fontSize: 12,
                               fontWeight: isSectionActive ? 700 : 400,
-                              cursor: "pointer",
-                              textAlign: "left",
-                              width: "100%",
                             }}
                           >
                             {item.icon && <span style={{ fontSize: 13 }}>{item.icon}</span>}
                             <span>{item.label}</span>
-                          </button>
+                          </Link>
                         );
                       })}
                     </div>
