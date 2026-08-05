@@ -709,15 +709,24 @@ _SCRIPTS = """
     });
 
     // ─── View switching ──────────────────────────────────────────────────────
-    const VIEWS = ['home','console','modules','pricing','about','contact'];
+    const VIEWS = ['home','console','workspace','property','facility','sales','tender','valuation','construction','companion','modules','pricing','about','contact'];
     const VIEW_SEO = {
-      home:    { title: 'Center Estates ERP — Enterprise Real Estate & Asset Platform', desc: 'Unified enterprise platform for property management, facility maintenance, RICS valuations, construction monitoring and field staff telemetry.' },
-      console: { title: 'Command Center Console — Center Estates ERP', desc: 'Unified enterprise operations dashboard across all 7 platform modules.' },
-      modules: { title: 'Platform Modules — Center Estates ERP', desc: 'Explore all 7 enterprise modules: Property Management, Facility, Valuations, Tenders, Construction Monitoring, Sales & Staff Companion.' },
-      pricing: { title: 'Pricing Plans — Center Estates ERP', desc: 'Transparent, module-based pricing for real estate enterprises in Africa. Starter, Professional and Enterprise plans available.' },
-      about:   { title: 'About Center Estates ERP — Our Story', desc: 'Built for real estate professionals in Kenya and Africa. Learn about our mission, team and values.' },
-      contact: { title: 'Contact Center Estates ERP — Get in Touch', desc: 'Reach the Center Estates team for demos, pricing inquiries or technical support.' },
+      home:         { title: 'Center Estates ERP — Enterprise Real Estate & Asset Platform', desc: 'Unified enterprise platform for property management, facility maintenance, RICS valuations, construction monitoring and field staff telemetry.' },
+      console:      { title: 'Command Center Console — Center Estates ERP', desc: 'Unified enterprise operations dashboard across all 7 platform modules.' },
+      workspace:    { title: 'Workspace Switcher & Persona Desk — Center Estates ERP', desc: 'Manage multi-tenant organization workspaces and switch demo role personas.' },
+      property:     { title: 'Property & Lease Portfolio Workspace — Center Estates ERP', desc: 'Manage properties, buildings, units, tenant leases, billing invoices and service charges.' },
+      facility:     { title: 'Facility Maintenance & Work Orders Workspace — Center Estates ERP', desc: 'Track asset registers, work order tickets, SLA enforcement, and contractor dispatch.' },
+      sales:        { title: 'Off-Plan Sales & Buyer Workspace — Center Estates ERP', desc: 'Manage unit inventory listings, buyer directory, reservation agreements, and payment schedules.' },
+      tender:       { title: 'Tender Procurement Desk — Center Estates ERP', desc: 'Issue procurement tenders, receive proposals, review financial bids, and track board awards.' },
+      valuation:    { title: 'RICS Valuation Workbench — Center Estates ERP', desc: 'Process valuation instructions, site inspection checklists, comparable evidence, and signed report certificates.' },
+      construction: { title: 'Construction Oversight & S-Curve Workspace — Center Estates ERP', desc: 'Monitor site progress, S-curve drawdowns, milestone verification, BOQ items, and daily site logs.' },
+      companion:    { title: 'Field Staff Telemetry Workspace — Center Estates ERP', desc: 'Assign field task templates, receive GPS telemetry, monitor staff performance scores, and track field check-ins.' },
+      modules:      { title: 'Platform Modules — Center Estates ERP', desc: 'Explore all 7 enterprise modules: Property Management, Facility, Valuations, Tenders, Construction Monitoring, Sales & Staff Companion.' },
+      pricing:      { title: 'Pricing Plans — Center Estates ERP', desc: 'Transparent, module-based pricing for real estate enterprises in Africa. Starter, Professional and Enterprise plans available.' },
+      about:        { title: 'About Center Estates ERP — Our Story', desc: 'Built for real estate professionals in Kenya and Africa. Learn about our mission, team and values.' },
+      contact:      { title: 'Contact Center Estates ERP — Get in Touch', desc: 'Reach the Center Estates team for demos, pricing inquiries or technical support.' },
     };
+
     function showView(name) {
       VIEWS.forEach(v => {
         const el = document.getElementById('view-' + v);
@@ -728,7 +737,8 @@ _SCRIPTS = """
         if (nl) nl.classList.toggle('active', v === name);
       });
       const topNav = document.getElementById('navbar');
-      if (topNav) topNav.style.display = (name === 'console') ? 'none' : 'flex';
+      const isAppView = ['console','workspace','property','facility','sales','tender','valuation','construction','companion'].includes(name);
+      if (topNav) topNav.style.display = isAppView ? 'none' : 'flex';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       const path = name === 'home' ? '/' : '/' + name;
       history.pushState({ view: name }, '', path);
@@ -744,6 +754,159 @@ _SCRIPTS = """
       if (ogUrl) ogUrl.setAttribute('content', 'https://monitoringerp.com' + path);
       const canonical = document.querySelector('link[rel="canonical"]');
       if (canonical) canonical.setAttribute('href', 'https://monitoringerp.com' + path);
+    }
+
+    async function loadModuleWorkspace(moduleKey) {
+      showView(moduleKey);
+      const container = document.getElementById('mw-content-' + moduleKey);
+      if (!container) return;
+      container.innerHTML = '<div style="padding:40px;color:var(--muted)"><div class="spinner" style="border-color:var(--accent);display:inline-block;margin-right:10px"></div> Loading ' + moduleKey + ' module records...</div>';
+      
+      const endpoints = {
+        property: '/api/v1/property/properties/',
+        facility: '/api/v1/facility/work-orders/',
+        sales: '/api/v1/sales/listings/',
+        tender: '/api/v1/tender/tenders/',
+        valuation: '/api/v1/valuation/instructions/',
+        construction: '/api/v1/construction/projects/',
+        companion: '/api/v1/companion/tasks/'
+      };
+
+      const url = endpoints[moduleKey];
+      if (!url) return;
+
+      try {
+        const resp = await fetch(url, { credentials: 'same-origin' });
+        if (!resp.ok) {
+          container.innerHTML = '<div class="alert alert-error">Access denied or endpoint error (' + resp.status + '). Sign in with a role that has ' + moduleKey + ' module permissions.</div>';
+          return;
+        }
+        const data = await resp.json();
+        const items = Array.isArray(data) ? data : (data.results || []);
+        renderModuleTable(moduleKey, items, container);
+      } catch (err) {
+        container.innerHTML = '<div class="alert alert-error">Network error: ' + err.message + '</div>';
+      }
+    }
+
+    function renderModuleTable(moduleKey, items, container) {
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No records found in this workspace yet.<br><br><button onclick="loadModuleData(\'' + moduleKey + '\')" class="btn btn-secondary btn-sm">Inspect Raw API ↗</button></div>';
+        return;
+      }
+
+      let cols = [];
+      let rowFn = item => '';
+
+      if (moduleKey === 'property') {
+        cols = ['Property Name', 'Code', 'Category', 'City / Location', 'Units', 'Status', 'Actions'];
+        rowFn = item => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px;font-weight:700;color:var(--text)">${item.name || 'Unnamed Property'}</td>
+            <td style="padding:12px 16px"><span class="badge badge-accent">${item.code || 'N/A'}</span></td>
+            <td style="padding:12px 16px">${item.category || 'Commercial'}</td>
+            <td style="padding:12px 16px">${item.city || item.address || 'Nairobi'}</td>
+            <td style="padding:12px 16px"><strong>${item.units_count || item.total_units || 0}</strong> units</td>
+            <td style="padding:12px 16px"><span class="badge badge-green">${item.is_active !== false ? 'Active' : 'Archived'}</span></td>
+            <td style="padding:12px 16px"><button onclick="loadModuleData('property')" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Inspect Data ↗</button></td>
+          </tr>`;
+      } else if (moduleKey === 'facility') {
+        cols = ['Work Order #', 'Title / Asset', 'Category', 'Priority', 'Status', 'Cost (KES)', 'Actions'];
+        rowFn = item => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px"><span class="badge badge-accent">${item.number || 'WO-REC'}</span></td>
+            <td style="padding:12px 16px;font-weight:700;color:var(--text)">${item.title || 'Work Order'}<br><small style="color:var(--muted)">${item.asset_name || ''}</small></td>
+            <td style="padding:12px 16px">${item.category || 'General'}</td>
+            <td style="padding:12px 16px"><span class="badge ${item.priority === 'critical' ? 'badge-amber' : 'badge-accent'}">${(item.priority || 'medium').toUpperCase()}</span></td>
+            <td style="padding:12px 16px"><span class="badge badge-green">${(item.status || 'in_progress').toUpperCase()}</span></td>
+            <td style="padding:12px 16px"><strong>KES ${(item.total_cost || 0).toLocaleString()}</strong></td>
+            <td style="padding:12px 16px"><button onclick="loadModuleData('facility')" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Inspect Data ↗</button></td>
+          </tr>`;
+      } else if (moduleKey === 'sales') {
+        cols = ['Listing Title', 'Unit #', 'Asking Price (KES)', 'Status', 'Buyer', 'Commission', 'Actions'];
+        rowFn = item => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px;font-weight:700;color:var(--text)">${item.title || item.property_name || 'Unit Listing'}</td>
+            <td style="padding:12px 16px"><span class="badge badge-accent">${item.unit_number || 'U-101'}</span></td>
+            <td style="padding:12px 16px"><strong style="color:var(--green)">KES ${(item.asking_price || item.price || 0).toLocaleString()}</strong></td>
+            <td style="padding:12px 16px"><span class="badge badge-cyan">${(item.status || 'available').toUpperCase()}</span></td>
+            <td style="padding:12px 16px">${item.buyer_name || 'Available'}</td>
+            <td style="padding:12px 16px">${item.commission_rate || '2.5'}%</td>
+            <td style="padding:12px 16px"><button onclick="loadModuleData('sales')" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Inspect Data ↗</button></td>
+          </tr>`;
+      } else if (moduleKey === 'tender') {
+        cols = ['Ref #', 'Tender Title', 'Category', 'Estimated Budget', 'Proposals', 'Status', 'Actions'];
+        rowFn = item => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px"><span class="badge badge-accent">${item.reference_number || 'TND-01'}</span></td>
+            <td style="padding:12px 16px;font-weight:700;color:var(--text)">${item.title || 'Procurement Tender'}</td>
+            <td style="padding:12px 16px">${item.category || 'Civil Works'}</td>
+            <td style="padding:12px 16px"><strong>KES ${(item.estimated_budget || 0).toLocaleString()}</strong></td>
+            <td style="padding:12px 16px"><span class="badge badge-green">${item.proposals_count || 0} bids</span></td>
+            <td style="padding:12px 16px"><span class="badge badge-amber">${(item.status || 'open').toUpperCase()}</span></td>
+            <td style="padding:12px 16px"><button onclick="loadModuleData('tender')" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Inspect Data ↗</button></td>
+          </tr>`;
+      } else if (moduleKey === 'valuation') {
+        cols = ['Instruction #', 'Property Name', 'Client', 'Purpose', 'Market Value (KES)', 'Status', 'Actions'];
+        rowFn = item => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px"><span class="badge badge-accent">${item.reference_number || 'VAL-01'}</span></td>
+            <td style="padding:12px 16px;font-weight:700;color:var(--text)">${item.property_name || 'Subject Asset'}</td>
+            <td style="padding:12px 16px">${item.client_name || 'Client'}</td>
+            <td style="padding:12px 16px">${item.purpose || 'Mortgage Security'}</td>
+            <td style="padding:12px 16px"><strong style="color:var(--accent)">KES ${(item.market_value || item.capital_value || 0).toLocaleString()}</strong></td>
+            <td style="padding:12px 16px"><span class="badge badge-green">${(item.status || 'completed').toUpperCase()}</span></td>
+            <td style="padding:12px 16px"><button onclick="loadModuleData('valuation')" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Inspect Data ↗</button></td>
+          </tr>`;
+      } else if (moduleKey === 'construction') {
+        cols = ['Code', 'Project Name', 'Location', 'Physical Progress', 'Financial Drawdown', 'Status', 'Actions'];
+        rowFn = item => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px"><span class="badge badge-accent">${item.code || 'P1'}</span></td>
+            <td style="padding:12px 16px;font-weight:700;color:var(--text)">${item.name || 'Construction Project'}</td>
+            <td style="padding:12px 16px">${item.location || 'Site Location'}</td>
+            <td style="padding:12px 16px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+                  <div style="width:${item.physical_progress || 45}%;height:100%;background:var(--green)"></div>
+                </div>
+                <span style="font-size:0.78rem;font-weight:700">${item.physical_progress || 45}%</span>
+              </div>
+            </td>
+            <td style="padding:12px 16px"><strong>${item.financial_progress || 40}%</strong></td>
+            <td style="padding:12px 16px"><span class="badge badge-amber">${(item.status || 'in_progress').toUpperCase()}</span></td>
+            <td style="padding:12px 16px"><button onclick="loadModuleData('construction')" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Inspect Data ↗</button></td>
+          </tr>`;
+      } else {
+        cols = ['Task Title', 'Assignee', 'Priority', 'Status', 'Check-in Time', 'Actions'];
+        rowFn = item => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:12px 16px;font-weight:700;color:var(--text)">${item.title || 'Field Inspection Task'}</td>
+            <td style="padding:12px 16px">${item.assigned_to_name || 'Field Officer'}</td>
+            <td style="padding:12px 16px"><span class="badge badge-accent">${(item.priority || 'normal').toUpperCase()}</span></td>
+            <td style="padding:12px 16px"><span class="badge badge-green">${(item.status || 'completed').toUpperCase()}</span></td>
+            <td style="padding:12px 16px"><small style="color:var(--muted)">${item.updated_at || 'Today'}</small></td>
+            <td style="padding:12px 16px"><button onclick="loadModuleData('companion')" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Inspect Data ↗</button></td>
+          </tr>`;
+      }
+
+      container.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div><strong style="font-size:0.95rem">${items.length} Records Loaded</strong></div>
+          <button onclick="loadModuleData('${moduleKey}')" class="btn btn-secondary btn-sm">Inspect Full API JSON ↗</button>
+        </div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <table style="width:100%;border-collapse:collapse;font-size:0.88rem;text-align:left">
+            <thead>
+              <tr style="background:var(--surface2);border-bottom:1px solid var(--border)">
+                ${cols.map(c => `<th style="padding:12px 16px;font-size:0.78rem;font-weight:700;text-transform:uppercase;color:var(--muted)">${c}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(rowFn).join('')}
+            </tbody>
+          </table>
+        </div>`;
     }
 
     // ─── Password helpers ────────────────────────────────────────────────────
@@ -1088,9 +1251,12 @@ _SCRIPTS = """
     // ─── Routing on load ─────────────────────────────────────────────────────
     (function initRoute() {
       const path = window.location.pathname.replace(/\/+$/, '') || '/';
-      const map = { '/': 'home', '/console': 'console', '/workspace': 'console', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
+      const map = { '/': 'home', '/console': 'console', '/workspace': 'workspace', '/property': 'property', '/facility': 'facility', '/sales': 'sales', '/tender': 'tender', '/valuation': 'valuation', '/construction': 'construction', '/companion': 'companion', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
       const view = map[path] || 'home';
       showView(view);
+      if (['property','facility','sales','tender','valuation','construction','companion'].includes(view)) {
+        loadModuleWorkspace(view);
+      }
       if (path === '/login') openModal('login-modal');
       if (path === '/register') openModal('register-modal');
       updateThemeBtn();
@@ -1557,11 +1723,193 @@ _VIEW_CONSOLE = """
           </div>
         </div>
 
-      </main>
+_VIEW_WORKSPACE = """
+  <!-- ========== WORKSPACE SWITCHER VIEW ========== -->
+  <div id="view-workspace" class="view">
+    <div style="display:flex;min-height:100vh;background:var(--bg)">
 
+      <!-- ERP SIDEBAR -->
+      <aside style="width:280px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:90;overflow-y:auto">
+        <div style="padding:22px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <a class="nav-logo" onclick="showView('home')" href="javascript:void(0)">
+            <div class="nav-logo-icon">CE</div>
+            <div>
+              <div style="font-family:'Outfit';font-weight:800;font-size:1.05rem">Center Estates</div>
+              <div style="font-size:0.68rem;color:var(--muted)">Workspaces Desk</div>
+            </div>
+          </a>
+          <button onclick="toggleTheme()" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">☀️</button>
+        </div>
+
+        <nav style="padding:16px 12px;flex:1">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--muted);padding:0 8px 10px">Workspace Navigation</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <a href="javascript:void(0)" onclick="showView('console')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📊</span> Command Center</a>
+            <a href="javascript:void(0)" onclick="showView('workspace')" class="sidebar-link active" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--accent);text-decoration:none;font-weight:700"><span>🏢</span> Workspace Switcher</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('property')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>🏡</span> Property Portfolio</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('facility')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>🔧</span> Facility Maintenance</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('sales')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>💳</span> Sales &amp; Off-Plan</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('tender')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📄</span> Tender Desk</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('valuation')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📐</span> RICS Valuations</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('construction')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>🏗️</span> Construction S-Curve</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('companion')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📱</span> Staff Companion</a>
+          </div>
+        </nav>
+      </aside>
+
+      <main style="flex:1;padding:32px 40px;overflow-y:auto">
+        <div style="margin-bottom:32px">
+          <span class="badge badge-accent" style="margin-bottom:8px">Multi-Tenant Management</span>
+          <h1 style="font-family:'Outfit';font-size:2.2rem;font-weight:900">Workspace Selection &amp; Persona Switcher</h1>
+          <p style="color:var(--muted);font-size:0.92rem">Manage organization memberships, join tenant workspaces, or switch demo personas.</p>
+        </div>
+
+        <div class="card" style="padding:28px;margin-bottom:32px">
+          <h2 style="font-family:'Outfit';font-size:1.3rem;font-weight:800;margin-bottom:16px">Active Organization Workspace</h2>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:1.2rem">&#127970;</div>
+              <div>
+                <h3 style="font-weight:800;font-size:1.1rem">Center Estates Demo</h3>
+                <span class="badge badge-green">Enterprise Tier</span>
+                <span style="font-size:0.8rem;color:var(--muted);margin-left:10px">ID: 6dfa6219-2aeb-4153-bf67-9c4f286fc0bb</span>
+              </div>
+            </div>
+            <button onclick="showView('console')" class="btn btn-primary">Enter Command Center ↗</button>
+          </div>
+        </div>
+
+        <h2 style="font-family:'Outfit';font-size:1.4rem;font-weight:800;margin-bottom:20px">Switch Role Workspace Persona</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+          <div class="card" style="padding:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="badge badge-accent">Super Admin</span>
+              <h4 style="font-weight:800;margin-top:6px">Platform Administrator</h4>
+              <small style="color:var(--muted)">Full system control across all modules</small>
+            </div>
+            <button onclick="switchRolePersona('admin')" class="btn btn-secondary btn-sm">Join Workspace ↗</button>
+          </div>
+          <div class="card" style="padding:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="badge badge-accent">Property</span>
+              <h4 style="font-weight:800;margin-top:6px">Property Manager (Amina)</h4>
+              <small style="color:var(--muted)">Leases, buildings, units &amp; billing</small>
+            </div>
+            <button onclick="switchRolePersona('role-property-manager')" class="btn btn-secondary btn-sm">Join Workspace ↗</button>
+          </div>
+          <div class="card" style="padding:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="badge badge-green">Facility</span>
+              <h4 style="font-weight:800;margin-top:6px">Facilities Manager (Daniel)</h4>
+              <small style="color:var(--muted)">Assets, work orders &amp; SLA tickets</small>
+            </div>
+            <button onclick="switchRolePersona('role-facility-manager')" class="btn btn-secondary btn-sm">Join Workspace ↗</button>
+          </div>
+          <div class="card" style="padding:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="badge badge-cyan">Sales</span>
+              <h4 style="font-weight:800;margin-top:6px">Sales Agent (Irene)</h4>
+              <small style="color:var(--muted)">Off-plan inventory &amp; buyers</small>
+            </div>
+            <button onclick="switchRolePersona('role-sales-agent')" class="btn btn-secondary btn-sm">Join Workspace ↗</button>
+          </div>
+          <div class="card" style="padding:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="badge badge-amber">Tender</span>
+              <h4 style="font-weight:800;margin-top:6px">Tender Manager (Nathan)</h4>
+              <small style="color:var(--muted)">Procurement RFPs &amp; proposals</small>
+            </div>
+            <button onclick="switchRolePersona('role-tender-manager')" class="btn btn-secondary btn-sm">Join Workspace ↗</button>
+          </div>
+          <div class="card" style="padding:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="badge badge-accent">Valuation</span>
+              <h4 style="font-weight:800;margin-top:6px">Valuer Inspector (Tom)</h4>
+              <small style="color:var(--muted)">RICS inspection reports &amp; certs</small>
+            </div>
+            <button onclick="switchRolePersona('role-valuer-inspector')" class="btn btn-secondary btn-sm">Join Workspace ↗</button>
+          </div>
+          <div class="card" style="padding:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="badge badge-green">Construction</span>
+              <h4 style="font-weight:800;margin-top:6px">Clerk of Works (Xavier)</h4>
+              <small style="color:var(--muted)">S-curve progress &amp; BOQ drawdowns</small>
+            </div>
+            <button onclick="switchRolePersona('role-clerk-of-works')" class="btn btn-secondary btn-sm">Join Workspace ↗</button>
+          </div>
+        </div>
+      </main>
     </div>
   </div>
 """
+
+def _build_mod_view(key, title, badge, desc, icon):
+    return f"""
+  <!-- ========== {title.upper()} MODULE VIEW ========== -->
+  <div id="view-{key}" class="view">
+    <div style="display:flex;min-height:100vh;background:var(--bg)">
+      <aside style="width:280px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:90;overflow-y:auto">
+        <div style="padding:22px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <a class="nav-logo" onclick="showView('home')" href="javascript:void(0)">
+            <div class="nav-logo-icon">CE</div>
+            <div>
+              <div style="font-family:'Outfit';font-weight:800;font-size:1.05rem">Center Estates</div>
+              <div style="font-size:0.68rem;color:var(--muted)">{title} Workspace</div>
+            </div>
+          </a>
+          <button onclick="toggleTheme()" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">☀️</button>
+        </div>
+
+        <nav style="padding:16px 12px;flex:1">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--muted);padding:0 8px 10px">ERP Workspaces</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <a href="javascript:void(0)" onclick="showView('console')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📊</span> Command Center</a>
+            <a href="javascript:void(0)" onclick="showView('workspace')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>🏢</span> Workspace Switcher</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('property')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>🏡</span> Property Portfolio</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('facility')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>🔧</span> Facility Maintenance</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('sales')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>💳</span> Sales &amp; Off-Plan</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('tender')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📄</span> Tender Desk</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('valuation')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📐</span> RICS Valuations</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('construction')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>🏗️</span> Construction S-Curve</a>
+            <a href="javascript:void(0)" onclick="loadModuleWorkspace('companion')" class="sidebar-link" style="display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--text);text-decoration:none;font-weight:600"><span>📱</span> Staff Companion</a>
+          </div>
+        </nav>
+      </aside>
+
+      <main style="flex:1;padding:32px 40px;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap">
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span class="badge badge-{badge}">{title.upper()} WORKSPACE</span>
+              <span class="badge badge-accent">Center Estates Demo</span>
+            </div>
+            <h1 style="font-family:'Outfit';font-size:2.2rem;font-weight:900">{icon} {title} Module</h1>
+            <p style="color:var(--muted);font-size:0.92rem">{desc}</p>
+          </div>
+          <div style="display:flex;gap:12px">
+            <button onclick="loadModuleWorkspace('{key}')" class="btn btn-primary btn-sm">Load Live Data 🔄</button>
+            <a href="/api/v1/docs/#/{key}" target="_blank" class="btn btn-secondary btn-sm">Swagger API ↗</a>
+          </div>
+        </div>
+
+        <div class="card" style="padding:28px" id="mw-content-{key}">
+          <div style="padding:40px;text-align:center;color:var(--muted)">
+            <button onclick="loadModuleWorkspace('{key}')" class="btn btn-primary btn-lg">Load {title} Live Records</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+"""
+
+_VIEW_PROPERTY = _build_mod_view('property', 'Property Management', 'accent', 'Manage property portfolios, building inventories, tenant leases, and billing invoices.', '🏡')
+_VIEW_FACILITY = _build_mod_view('facility', 'Facility Operations', 'green', 'Track equipment asset registers, maintenance work orders, SLA enforcement, and contractor dispatch.', '🔧')
+_VIEW_SALES = _build_mod_view('sales', 'Sales & Marketing', 'cyan', 'Manage off-plan unit listings, buyer directory, reservation agreements, and installment progress.', '💳')
+_VIEW_TENDER = _build_mod_view('tender', 'Tender Procurement', 'amber', 'Issue procurement RFPs, receive vendor proposals, conduct financial item reviews, and record board awards.', '📄')
+_VIEW_VALUATION = _build_mod_view('valuation', 'RICS Valuations', 'accent', 'Process valuation instructions, digital site inspection logs, comparable sales evidence, and signed report certificates.', '📐')
+_VIEW_CONSTRUCTION = _build_mod_view('construction', 'Construction Oversight', 'green', 'Monitor site progress, S-curve drawdowns, milestone verification, BOQ items, and daily site logs.', '🏗️')
+_VIEW_COMPANION = _build_mod_view('companion', 'Field Staff Companion', 'cyan', 'Assign field task templates, receive GPS/device telemetry, monitor staff performance scores, and track field check-ins.', '📱')
+
 
 # ---------------------------------------------------------------------------
 # MODULES VIEW
@@ -1961,6 +2309,14 @@ HTML_APP_TEMPLATE = (
     + '</head>'
     + _NAVBAR
     + _VIEW_CONSOLE
+    + _VIEW_WORKSPACE
+    + _VIEW_PROPERTY
+    + _VIEW_FACILITY
+    + _VIEW_SALES
+    + _VIEW_TENDER
+    + _VIEW_VALUATION
+    + _VIEW_CONSTRUCTION
+    + _VIEW_COMPANION
     + _VIEW_HOME
     + _VIEW_MODULES
     + _VIEW_PRICING
