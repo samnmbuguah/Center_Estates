@@ -319,16 +319,110 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                 <span className="profile-chevron" aria-hidden="true" style={{ fontSize: 10, color: "var(--muted)" }}>▾</span>
               </button>
               {profileOpen && (
-                <div className="profile-dropdown" role="menu" style={{ position: "absolute", top: "100%", right: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 12, width: 220, zIndex: 100, marginTop: 6, boxShadow: "0 10px 25px rgba(0,0,0,0.15)" }}>
+                <div
+                  className="profile-dropdown"
+                  role="menu"
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    padding: 14,
+                    width: 280,
+                    maxHeight: 480,
+                    overflowY: "auto",
+                    zIndex: 100,
+                    marginTop: 6,
+                    boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
+                  }}
+                >
                   <div className="profile-dropdown-head" style={{ marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
-                    <strong style={{ display: "block", fontSize: 13 }}>{displayName}</strong>
+                    <strong style={{ display: "block", fontSize: 13, color: "var(--text)" }}>{displayName}</strong>
                     <span style={{ fontSize: 11, color: "var(--muted)" }}>{session.user.email || session.user.username}</span>
+                    <div style={{ marginTop: 4 }}>
+                      <span className="status-pill" style={{ fontSize: 10, padding: "2px 8px", background: "rgba(229, 46, 46, 0.12)", color: "#e52e2e", fontWeight: 700, borderRadius: 10 }}>
+                        {displayRole}
+                      </span>
+                    </div>
                   </div>
-                  <Link href="/" className="profile-dropdown-item" style={{ display: "block", padding: "8px 0", fontSize: 12, color: "var(--text)", textDecoration: "none" }} onClick={() => setProfileOpen(false)}>
-                    Main Workspace Selection
+
+                  {session.impersonating && (
+                    <button
+                      type="button"
+                      disabled={switching}
+                      onClick={onReturnAdmin}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        marginBottom: 10,
+                        background: "#dc2626",
+                        color: "white",
+                        border: 0,
+                        borderRadius: 6,
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ↩ Return to Admin User
+                    </button>
+                  )}
+
+                  {switchError && (
+                    <div style={{ padding: "6px 8px", background: "var(--danger-bg)", color: "var(--danger)", fontSize: 11, borderRadius: 6, marginBottom: 8 }}>
+                      {switchError}
+                    </div>
+                  )}
+
+                  {/* ROLE & IDENTITY SWITCHER DROPDOWN SECTION */}
+                  {session.canSwitchIdentity && (
+                    <div style={{ marginBottom: 10, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
+                      <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", margin: "0 0 6px" }}>
+                        {requestedModule && isKnownModule
+                          ? `Switch Role (${modules.find((m) => m.slug === requestedModule)?.name ?? requestedModule})`
+                          : "Switch Role / Identity"}
+                      </p>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {identityGroups
+                          .filter((group) => !requestedModule || !isKnownModule || group.module === requestedModule)
+                          .flatMap((group) =>
+                            group.identities.map((identity) => (
+                              <button
+                                key={identity.username}
+                                type="button"
+                                disabled={switching || identity.username === session.user.username}
+                                onClick={() => void onSwitchIdentity(identity.username)}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  textAlign: "left",
+                                  padding: "6px 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid var(--border)",
+                                  background: identity.username === session.user.username ? "var(--surface-2)" : "transparent",
+                                  cursor: identity.username === session.user.username ? "default" : "pointer",
+                                  opacity: identity.username === session.user.username ? 0.7 : 1,
+                                }}
+                              >
+                                <strong style={{ fontSize: 12, color: "var(--text)" }}>{identity.label}</strong>
+                                <small style={{ fontSize: 10, color: "var(--muted)", fontWeight: 600 }}>@{identity.username}</small>
+                              </button>
+                            )),
+                          )}
+                      </div>
+                    </div>
+                  )}
+
+                  <Link href="/workspaces" className="profile-dropdown-item" style={{ display: "block", padding: "8px 0", fontSize: 12, color: "var(--text)", textDecoration: "none", fontWeight: 600 }} onClick={() => setProfileOpen(false)}>
+                    🏢 All Workspaces
                   </Link>
+
                   <button type="button" className="profile-dropdown-item danger" style={{ background: "none", border: 0, color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "8px 0", textAlign: "left", width: "100%" }} onClick={() => void logout()}>
-                    Sign out
+                    🚪 Sign out
                   </button>
                 </div>
               )}
