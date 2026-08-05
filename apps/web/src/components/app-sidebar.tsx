@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { modules } from "@/lib/modules";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/components/auth-provider";
 import type { ModuleNavGroup } from "./module-shell";
 import {
   propertyNav,
@@ -13,6 +15,7 @@ import {
   constructionNav,
   companionNav,
 } from "@/lib/module-nav";
+import { LayoutDashboard, HardHat, ClipboardCheck, CalendarDays, Shield, Settings, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 
 const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   property: propertyNav,
@@ -44,10 +47,30 @@ export function AppSidebar({
   onSelectSection,
 }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [badgeCounts, setBadgeCounts] = useState({ tasks: 0, approvals: 0 });
+  const { session } = useAuth();
   const allowedSet = new Set(allowedSlugs);
   const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
 
   const currentTab = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
+
+  const displayName = session?.user.firstName
+    ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
+    : session?.user.username || "";
+  const displayRole = session?.user.isSuperuser
+    ? "Super Administrator"
+    : session?.roleNames?.[0] || session?.roles[0] || "Member";
+  const userInitials = (session?.user.firstName || session?.user.username || "").slice(0, 2).toUpperCase();
+
+  useEffect(() => {
+    if (!session?.activeOrganizationId) return;
+    apiFetch("/companion/dashboard/", {}, session.activeOrganizationId)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.kpis) setBadgeCounts({ tasks: d.kpis.overdue + d.kpis.dueToday, approvals: d.kpis.escalated });
+      })
+      .catch(() => {});
+  }, [session?.activeOrganizationId]);
 
   return (
     <>
@@ -184,7 +207,7 @@ export function AppSidebar({
             onClick={onCloseMobile}
             title="Dashboard"
           >
-            <span style={{ fontSize: 15 }}>🏠</span>
+            <span style={{ fontSize: 15 }}><LayoutDashboard size={18} /></span>
             {!collapsed && <span>Dashboard</span>}
           </Link>
 
@@ -205,7 +228,7 @@ export function AppSidebar({
             onClick={onCloseMobile}
             title="Operations Center"
           >
-            <span style={{ fontSize: 15 }}>⚡</span>
+            <span style={{ fontSize: 15 }}><HardHat size={18} /></span>
             {!collapsed && <span>Operations Center</span>}
           </Link>
 
@@ -226,12 +249,12 @@ export function AppSidebar({
             title="My Tasks"
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 15 }}>📋</span>
+              <span style={{ fontSize: 15 }}><ClipboardCheck size={18} /></span>
               {!collapsed && <span>My Tasks</span>}
             </div>
-            {!collapsed && (
+            {!collapsed && badgeCounts.tasks > 0 && (
               <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
-                18
+                {badgeCounts.tasks}
               </span>
             )}
           </Link>
@@ -253,12 +276,12 @@ export function AppSidebar({
             title="Approvals"
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 15 }}>☑</span>
+              <span style={{ fontSize: 15 }}><ClipboardCheck size={18} /></span>
               {!collapsed && <span>Approvals</span>}
             </div>
-            {!collapsed && (
+            {!collapsed && badgeCounts.approvals > 0 && (
               <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
-                7
+                {badgeCounts.approvals}
               </span>
             )}
           </Link>
@@ -280,7 +303,7 @@ export function AppSidebar({
             onClick={onCloseMobile}
             title="Calendar"
           >
-            <span style={{ fontSize: 15 }}>📅</span>
+            <span style={{ fontSize: 15 }}><CalendarDays size={18} /></span>
             {!collapsed && <span>Calendar</span>}
           </Link>
 
@@ -415,7 +438,7 @@ export function AppSidebar({
             onClick={onCloseMobile}
             title="Administration"
           >
-            <span style={{ fontSize: 15 }}>🛡</span>
+            <span style={{ fontSize: 15 }}><Shield size={18} /></span>
             {!collapsed && <span>Administration</span>}
           </Link>
 
@@ -436,17 +459,32 @@ export function AppSidebar({
             onClick={onCloseMobile}
             title="System Settings"
           >
-            <span style={{ fontSize: 15 }}>⚙</span>
+            <span style={{ fontSize: 15 }}><Settings size={18} /></span>
             {!collapsed && <span>System Settings</span>}
           </Link>
         </div>
+
+        {/* User Profile Card */}
+        {session?.user && (
+          <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+              {userInitials}
+            </div>
+            {!collapsed && (
+              <div style={{ overflow: "hidden", minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayRole}</div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Support & Collapse Footer */}
         {!collapsed && (
           <div
             className="sidebar-support"
             style={{
-              margin: "auto 10px 10px",
+              margin: "0 10px 10px",
               padding: 10,
               background: "rgba(255,255,255,0.04)",
               borderRadius: 8,
@@ -454,7 +492,7 @@ export function AppSidebar({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-              <span style={{ fontSize: 14 }}>🎧</span>
+              <HelpCircle size={14} style={{ color: "white" }} />
               <strong style={{ fontSize: 11, color: "white" }}>Quick Support</strong>
             </div>
             <span style={{ display: "block", fontSize: 11, color: "#e2e8f0", fontWeight: 600 }}>0722 574 400</span>
@@ -484,7 +522,7 @@ export function AppSidebar({
           }}
           title={collapsed ? "Expand Menu" : "Collapse Menu"}
         >
-          <span>{collapsed ? "⏭" : "⏮"}</span>
+          <span>{collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</span>
           {!collapsed && <span>Collapse Menu</span>}
         </button>
       </aside>

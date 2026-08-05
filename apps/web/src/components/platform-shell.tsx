@@ -5,8 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { modules } from "@/lib/modules";
 import { useAuth } from "@/components/auth-provider";
-import type { DemoIdentityGroup } from "@/lib/api";
+import { apiFetch, csrfFromCookie, type DemoIdentityGroup } from "@/lib/api";
+import { useCallback } from "react";
 
+import { HardHat, Search, Moon, Sun, ChevronDown, Building2, Settings, LogOut, HelpCircle, ClipboardCheck, FileSpreadsheet } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 
@@ -33,10 +35,45 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const [identityGroups, setIdentityGroups] = useState<DemoIdentityGroup[]>([]);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
-  const [theme, setTheme] = useState<"dark" | "light">("light");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [subModalOpen, setSubModalOpen] = useState(false);
+  const [subscriptionsList, setSubscriptionsList] = useState<Array<{ id: string; module: string; is_active: boolean }>>([]);
+  const [updatingSub, setUpdatingSub] = useState<string | null>(null);
 
   const profileRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const fetchSubscriptions = useCallback(async () => {
+    try {
+      const res = await apiFetch("/subscriptions/");
+      if (res.ok) {
+        const data = (await res.json()) as { results?: Array<{ id: string; module: string; is_active: boolean }> };
+        setSubscriptionsList(data.results || (data as unknown as Array<{ id: string; module: string; is_active: boolean }>));
+      }
+    } catch (err) {
+      console.error("Failed to fetch subscriptions", err);
+    }
+  }, []);
+
+  const toggleModuleSubscription = async (moduleSlug: string, currentActive: boolean) => {
+    setUpdatingSub(moduleSlug);
+    try {
+      const existing = subscriptionsList.find((s) => s.module === moduleSlug);
+      if (existing) {
+        await apiFetch(`/subscriptions/${existing.id}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({ is_active: !currentActive }),
+        });
+      }
+      await fetchSubscriptions();
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to update module subscription", err);
+    } finally {
+      setUpdatingSub(null);
+    }
+  };
 
   const {
     session,
@@ -64,7 +101,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }, [allowedSlugs, query]);
 
   useEffect(() => {
-    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "light";
+    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "dark";
     document.documentElement.setAttribute("data-theme", savedTheme);
     setTheme(savedTheme);
   }, []);
@@ -202,7 +239,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <label className="global-search" style={{ flex: 1, maxWidth: 520, margin: "0 24px", position: "relative", display: "flex", alignItems: "center" }}>
-            <span aria-hidden="true" style={{ position: "absolute", left: 12, color: "var(--muted)", fontSize: 14 }}>⌕</span>
+            <span aria-hidden="true" style={{ position: "absolute", left: 12, color: "var(--muted)", fontSize: 14 }}><Search size={14} /></span>
             <input
               ref={searchInputRef}
               value={query}
@@ -231,6 +268,11 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                     </span>
                   </Link>
                 ))}
+                {filteredModules.length === 0 && query && (
+                  <div style={{ padding: "16px 14px", textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
+                    No modules found for &quot;{query}&quot;
+                  </div>
+                )}
               </div>
             )}
           </label>
@@ -238,30 +280,27 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <Link
               href="/monitoring"
-              className="system-live"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                padding: "4px 12px",
-                borderRadius: 20,
-                background: "rgba(220, 38, 38, 0.12)",
-                color: "#dc2626",
-                fontSize: 11,
-                fontWeight: 700,
+                padding: "5px 14px",
+                borderRadius: 8,
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                fontSize: 12,
+                fontWeight: 600,
                 textDecoration: "none",
-                border: "1px solid rgba(220, 38, 38, 0.2)",
+                border: "1px solid var(--border)",
+                transition: "border-color 0.15s ease",
               }}
-              title="System-Wide Construction Monitoring & Operations Control Room"
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+              title="Construction Monitoring — Projects, Programme, Finance, Risks"
             >
-              <i style={{ width: 6, height: 6, borderRadius: "50%", background: "#dc2626", display: "inline-block" }} />
-              System Monitoring
+              <HardHat size={14} style={{ color: "var(--primary)" }} />
+              Construction
             </Link>
-
-            <span className="system-live" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: "rgba(16, 185, 129, 0.12)", color: "var(--success)", fontSize: 11, fontWeight: 700 }}>
-              <i style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
-              Live
-            </span>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
               <small style={{ fontSize: 9, color: "var(--faint)", textTransform: "uppercase", fontWeight: 800 }}>Organization</small>
@@ -299,7 +338,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                 gap: 6
               }}
             >
-              {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+              {theme === "dark" ? <><Sun size={14} /> Light</> : <><Moon size={14} /> Dark</>}
             </button>
 
             <div className="profile-menu" ref={profileRef} style={{ position: "relative" }}>
@@ -314,11 +353,13 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                 <div className="profile" title={session.user.username} style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>
                   {initials}
                 </div>
-                <div className="profile-copy" style={{ textAlign: "left" }}>
-                  <strong style={{ display: "block", fontSize: 12, color: "var(--text)", lineHeight: 1.2 }}>{displayName}</strong>
-                  <small style={{ display: "block", fontSize: 10, color: "var(--muted)" }}>{displayRole}</small>
+                <div className="profile-copy" style={{ textAlign: "left", maxWidth: 130, overflow: "hidden" }}>
+                  <strong style={{ display: "block", fontSize: 12, color: "var(--text)", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</strong>
+                  <small style={{ display: "block", fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayRole}</small>
                 </div>
-                <span className="profile-chevron" aria-hidden="true" style={{ fontSize: 10, color: "var(--muted)" }}>▾</span>
+                <span className="profile-chevron" aria-hidden="true" style={{ fontSize: 10, color: "var(--muted)" }}>
+                  <ChevronDown size={14} />
+                </span>
               </button>
               {profileOpen && (
                 <div
@@ -330,57 +371,64 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                     right: 0,
                     background: "var(--surface)",
                     border: "1px solid var(--border)",
-                    borderRadius: 10,
-                    padding: 14,
+                    borderRadius: 12,
                     width: 280,
-                    maxHeight: 480,
-                    overflowY: "auto",
                     zIndex: 100,
-                    marginTop: 6,
+                    marginTop: 8,
                     boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
+                    overflow: "hidden",
                   }}
                 >
-                  <div className="profile-dropdown-head" style={{ marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
-                    <strong style={{ display: "block", fontSize: 13, color: "var(--text)" }}>{displayName}</strong>
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>{session.user.email || session.user.username}</span>
-                    <div style={{ marginTop: 4 }}>
-                      <span className="status-pill" style={{ fontSize: 10, padding: "2px 8px", background: "rgba(229, 46, 46, 0.12)", color: "#e52e2e", fontWeight: 700, borderRadius: 10 }}>
-                        {displayRole}
-                      </span>
+                  {/* User info header */}
+                  <div style={{ padding: 16, background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>{initials}</div>
+                      <div>
+                        <strong style={{ fontSize: 13, color: "var(--text)", display: "block" }}>{displayName}</strong>
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>{session.user.email || session.user.username}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "rgba(13, 148, 136, 0.12)", color: "#0d9488", fontWeight: 700 }}>{displayRole}</span>
+                      {session.organizations.length > 1 && (
+                        <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "var(--surface)", border: "1px solid var(--border)", fontWeight: 600 }}>{activeOrganization?.name}</span>
+                      )}
                     </div>
                   </div>
 
+                  {/* Identity switcher */}
                   {session.impersonating && (
-                    <button
-                      type="button"
-                      disabled={switching}
-                      onClick={onReturnAdmin}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px",
-                        marginBottom: 10,
-                        background: "#dc2626",
-                        color: "white",
-                        border: 0,
-                        borderRadius: 6,
-                        fontWeight: 700,
-                        fontSize: 12,
-                        cursor: "pointer",
-                      }}
-                    >
-                      ↩ Return to Admin User
-                    </button>
+                    <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
+                      <button
+                        type="button"
+                        disabled={switching}
+                        onClick={onReturnAdmin}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          background: "#dc2626",
+                          color: "white",
+                          border: 0,
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ↩ Return to Admin User
+                      </button>
+                    </div>
                   )}
 
                   {switchError && (
-                    <div style={{ padding: "6px 8px", background: "var(--danger-bg)", color: "var(--danger)", fontSize: 11, borderRadius: 6, marginBottom: 8 }}>
+                    <div style={{ padding: "6px 12px", background: "var(--danger-bg)", color: "var(--danger)", fontSize: 11, borderRadius: 6, margin: "8px 16px 0" }}>
                       {switchError}
                     </div>
                   )}
 
-                  {/* ROLE & IDENTITY SWITCHER DROPDOWN SECTION */}
+                  {/* ROLE & IDENTITY SWITCHER */}
                   {session.canSwitchIdentity && (
-                    <div style={{ marginBottom: 10, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
+                    <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
                       <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", margin: "0 0 6px" }}>
                         {requestedModule && isKnownModule
                           ? `Switch Role (${modules.find((m) => m.slug === requestedModule)?.name ?? requestedModule})`
@@ -419,13 +467,62 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                     </div>
                   )}
 
-                  <Link href="/workspaces" className="profile-dropdown-item" style={{ display: "block", padding: "8px 0", fontSize: 12, color: "var(--text)", textDecoration: "none", fontWeight: 600 }} onClick={() => setProfileOpen(false)}>
-                    🏢 All Workspaces
-                  </Link>
-
-                  <button type="button" className="profile-dropdown-item danger" style={{ background: "none", border: 0, color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "8px 0", textAlign: "left", width: "100%" }} onClick={() => void logout()}>
-                    🚪 Sign out
-                  </button>
+                  {/* Menu items */}
+                  <div style={{ padding: 6 }}>
+                    <Link href="/companion?tab=my-tasks" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, color: "var(--text)", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={() => setProfileOpen(false)}>
+                      <ClipboardCheck size={15} style={{ color: "var(--muted)" }} /> My Tasks
+                    </Link>
+                    <Link href="/workspaces" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, color: "var(--text)", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={() => setProfileOpen(false)}>
+                      <Building2 size={15} style={{ color: "var(--muted)" }} /> All Workspaces
+                    </Link>
+                    <div style={{ height: 1, background: "var(--border)", margin: "6px 12px" }} />
+                    <Link href="/companion" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, color: "var(--text)", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={() => setProfileOpen(false)}>
+                      <Settings size={15} style={{ color: "var(--muted)" }} /> Settings
+                    </Link>
+                    <button
+                      type="button"
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "none", border: 0, color: "var(--text)", fontSize: 13, fontWeight: 500, width: "100%", textAlign: "left", cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={() => { setProfileOpen(false); window.location.href = "/companion?tab=performance"; }}
+                    >
+                      <HelpCircle size={15} style={{ color: "var(--muted)" }} /> Help &amp; Support
+                    </button>
+                    {session.canSwitchIdentity && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          setSubModalOpen(true);
+                          void fetchSubscriptions();
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "none", border: 0, color: "var(--text)", fontSize: 13, fontWeight: 500, width: "100%", textAlign: "left", cursor: "pointer" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <FileSpreadsheet size={15} style={{ color: "var(--muted)" }} /> Module Access
+                      </button>
+                    )}
+                    <div style={{ height: 1, background: "var(--border)", margin: "6px 12px" }} />
+                    <button
+                      type="button"
+                      onClick={() => { setProfileOpen(false); logout(); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "none", border: 0, color: "#dc2626", fontSize: 13, fontWeight: 600, width: "100%", textAlign: "left", cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.06)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <LogOut size={15} /> Sign out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -446,6 +543,65 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+
+    {subModalOpen && (
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, width: "100%", maxWidth: 520, padding: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: "var(--text)" }}>⚙️ Module Access & Subscriptions</h3>
+              <p style={{ margin: "4px 0 0", fontSize: "0.8rem", color: "var(--muted)" }}>Enable or disable active platform modules for organization {session?.activeOrganizationId}.</p>
+            </div>
+            <button type="button" onClick={() => setSubModalOpen(false)} style={{ background: "none", border: 0, fontSize: 18, color: "var(--muted)", cursor: "pointer" }}>✕</button>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 360, overflowY: "auto" }}>
+            {[
+              { slug: "property", name: "🏢 Property Management", desc: "Leases, rent roll & tenant accounts" },
+              { slug: "facility", name: "🔧 Facility Management", desc: "Work orders & maintenance schedules" },
+              { slug: "sales", name: "💳 Sales & Leasing", desc: "Listings, buyers & CRM pipelines" },
+              { slug: "tender", name: "📝 Tender Engine", desc: "RFP invitations & contractor bids" },
+              { slug: "valuation", name: "📈 Valuation Services", desc: "Site inspections & RICS reports" },
+              { slug: "construction", name: "🏗️ Construction Control", desc: "Projects, IPCs & site monitoring" },
+              { slug: "companion", name: "📱 Companion Tasks", desc: "Field staff task management" },
+            ].map((mod) => {
+              const sub = subscriptionsList.find((s) => s.module === mod.slug);
+              const isActive = sub ? sub.is_active : true;
+              const isPending = updatingSub === mod.slug;
+              return (
+                <div key={mod.slug} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8 }}>
+                  <div>
+                    <strong style={{ display: "block", fontSize: 13, color: "var(--text)" }}>{mod.name}</strong>
+                    <small style={{ fontSize: 11, color: "var(--muted)" }}>{mod.desc}</small>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => void toggleModuleSubscription(mod.slug, isActive)}
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      border: 0,
+                      cursor: isPending ? "wait" : "pointer",
+                      background: isActive ? "rgba(16, 185, 129, 0.15)" : "rgba(220, 38, 38, 0.15)",
+                      color: isActive ? "var(--success)" : "#dc2626",
+                    }}
+                  >
+                    {isPending ? "Updating…" : isActive ? "✓ Active" : "✕ Disabled"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: 20, textAlign: "right" }}>
+            <button type="button" onClick={() => setSubModalOpen(false)} style={{ padding: "8px 16px", borderRadius: 8, background: "var(--accent)", color: "#fff", border: 0, fontWeight: 700, cursor: "pointer" }}>Done</button>
+          </div>
+        </div>
+      </div>
+    )}
   </TelemetryProvider>
   );
 }
