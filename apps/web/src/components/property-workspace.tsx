@@ -42,7 +42,7 @@ const labels: Record<PropertyTab, string> = {
   overview: "Overview",
   properties: "Properties",
   buildings: "Buildings",
-  units: "Units",
+  units: "Occupancy",
   projects: "Projects",
   tenants: "Tenants",
   "tenant-documents": "Tenant Documents",
