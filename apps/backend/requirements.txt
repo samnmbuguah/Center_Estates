@@ -7,3 +7,5 @@ gunicorn>=23,<24
 psycopg[binary]>=3.2,<4
 whitenoise>=6.9,<7
 cryptography>=45,<47
+drf-spectacular>=0.28,<1
+drf-spectacular-sidecar>=2025.4,<1

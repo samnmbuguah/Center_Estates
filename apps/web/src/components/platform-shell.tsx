@@ -188,7 +188,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
 
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {/* MONITORING ERP FULL-WIDTH TOPBAR HEADER */}
-        <header className="topbar" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 60, width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
+        <header className="topbar" role="banner" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 60, width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
           <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <Link className="brand" href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
               <img src="/logo.png" alt="Center Estates" style={{ height: 32, width: "auto", objectFit: "contain" }} />

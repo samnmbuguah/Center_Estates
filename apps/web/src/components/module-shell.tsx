@@ -139,6 +139,8 @@ export function ModuleShell({
                   <button
                     key={tab.id}
                     type="button"
+                    role="tab"
+                    aria-selected={isActive}
                     aria-current={isActive ? "page" : undefined}
                     onClick={() => onSelectSub?.(tab.id)}
                     style={{

@@ -1,5 +1,10 @@
+import { ErrorBoundary } from "@/components/error-boundary";
 import { CompanionWorkspace } from "@/components/companion-workspace";
 
 export default function CompanionPage() {
-  return <CompanionWorkspace initialTab="overview" />;
+  return (
+    <ErrorBoundary moduleName="Companion">
+      <CompanionWorkspace initialTab="overview" />
+    </ErrorBoundary>
+  );
 }

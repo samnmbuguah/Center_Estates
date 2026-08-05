@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { ModuleShell } from "@/components/module-shell";
 import { constructionNav } from "@/lib/module-nav";
 import { WorkspaceProvider, useWorkspace } from "@/components/monitoring/context/WorkspaceContext";
 import { fetchDashboard, fetchTickets, fetchDailyLogs, fetchRequisitions, type Ticket, type DailyLog, type Requisition } from "@/components/monitoring/api";
 
-// Import all MonitoringERP page components
-import { Projects } from "@/components/monitoring/pages/Projects";
-import { ProjectWorkspace } from "@/components/monitoring/pages/ProjectWorkspace";
-import { ProjectDetail } from "@/components/monitoring/pages/ProjectDetail";
+const Projects = lazy(() => import("@/components/monitoring/pages/Projects").then(m => ({ default: m.Projects })));
+const ProjectWorkspace = lazy(() => import("@/components/monitoring/pages/ProjectWorkspace").then(m => ({ default: m.ProjectWorkspace })));
+const ProjectDetail = lazy(() => import("@/components/monitoring/pages/ProjectDetail").then(m => ({ default: m.ProjectDetail })));
+const Timeline = lazy(() => import("@/components/monitoring/pages/Timeline").then(m => ({ default: m.Timeline })));
+const Finance = lazy(() => import("@/components/monitoring/pages/Finance").then(m => ({ default: m.Finance })));
+const CostDashboard = lazy(() => import("@/components/monitoring/pages/CostDashboard").then(m => ({ default: m.CostDashboard })));
+const IpcGeneration = lazy(() => import("@/components/monitoring/pages/IpcGeneration").then(m => ({ default: m.IpcGeneration })));
+const Reports = lazy(() => import("@/components/monitoring/pages/Reports").then(m => ({ default: m.Reports })));
+const ExecutiveDashboard = lazy(() => import("@/components/monitoring/pages/ExecutiveDashboard").then(m => ({ default: m.ExecutiveDashboard })));
+const BimViewer = lazy(() => import("@/components/monitoring/pages/BimViewer").then(m => ({ default: m.BimViewer })));
+
 import { ProjectLifecycle } from "@/components/monitoring/pages/ProjectLifecycle";
 import { PreConstruction } from "@/components/monitoring/pages/PreConstruction";
 import { DailyLogs } from "@/components/monitoring/pages/DailyLogs";
@@ -22,16 +29,12 @@ import { Notices } from "@/components/monitoring/pages/Notices";
 import { Tickets } from "@/components/monitoring/pages/Tickets";
 import { Subcontractors } from "@/components/monitoring/pages/Subcontractors";
 import { Stakeholders } from "@/components/monitoring/pages/Stakeholders";
-import { Timeline } from "@/components/monitoring/pages/Timeline";
 import { Milestones } from "@/components/monitoring/pages/Milestones";
 import { Approvals } from "@/components/monitoring/pages/Approvals";
-import { Finance } from "@/components/monitoring/pages/Finance";
-import { CostDashboard } from "@/components/monitoring/pages/CostDashboard";
 import { CashFlow } from "@/components/monitoring/pages/CashFlow";
 import { BoqCostStates } from "@/components/monitoring/pages/BoqCostStates";
 import { BoQReview } from "@/components/monitoring/pages/BoQReview";
 import { BoQMaterialReconciliation } from "@/components/monitoring/pages/BoQMaterialReconciliation";
-import { IpcGeneration } from "@/components/monitoring/pages/IpcGeneration";
 import { Variations } from "@/components/monitoring/pages/Variations";
 import { AdvancePayments } from "@/components/monitoring/pages/AdvancePayments";
 import { ConsultantPayments } from "@/components/monitoring/pages/ConsultantPayments";
@@ -47,7 +50,6 @@ import { BimDiscrepancies } from "@/components/monitoring/pages/BimDiscrepancies
 import { DroneDatasets } from "@/components/monitoring/pages/DroneDatasets";
 import { SatelliteDatasets } from "@/components/monitoring/pages/SatelliteDatasets";
 import { ProjectDocuments } from "@/components/monitoring/pages/ProjectDocuments";
-import { Reports } from "@/components/monitoring/pages/Reports";
 import { MonthlyReports } from "@/components/monitoring/pages/MonthlyReports";
 import CalendarPage from "@/components/monitoring/pages/CalendarPage";
 import ChatPage from "@/components/monitoring/pages/ChatPage";
@@ -56,7 +58,6 @@ import { Administration } from "@/components/monitoring/pages/Administration";
 import { RolesPermissions } from "@/components/monitoring/pages/RolesPermissions";
 import { Users } from "@/components/monitoring/pages/Users";
 import { AdminAuditLog } from "@/components/monitoring/pages/AdminAuditLog";
-import { ExecutiveDashboard } from "@/components/monitoring/pages/ExecutiveDashboard";
 
 type Tab =
   | "overview"
@@ -1029,7 +1030,8 @@ function WorkspaceContent() {
       activeId={tab}
       onSelect={handleSelectTab}
     >
-      <div className="monitoring-workspace-container" style={{ padding: "8px 0" }}>
+      <Suspense fallback={<div className="data-loading">Loading...</div>}>
+        <div className="monitoring-workspace-container" style={{ padding: "8px 0" }}>
         {tab === "overview" && <ExecutiveDashboard />}
         {tab === "projects" && <Projects />}
         {tab === "project-memberships" && <ProjectWorkspace />}
@@ -1088,7 +1090,8 @@ function WorkspaceContent() {
         {tab === "role-valuer" && <RoleValuerDashboard />}
         {tab === "role-facilities" && <RoleFacilitiesDashboard />}
         {tab === "role-admin" && <RoleAdminDashboard />}
-      </div>
+        </div>
+      </Suspense>
     </ModuleShell>
   );
 }

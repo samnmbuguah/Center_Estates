@@ -19,7 +19,7 @@ jobs:
           cache-dependency-path: apps/backend/requirements.txt
       - run: pip install -r requirements.txt
       - run: python manage.py makemigrations --check --dry-run
-      - run: python manage.py test audit construction core documents facilities notifications organizations properties sales subscriptions tenders valuations
+      - run: python manage.py test audit companion construction core documents facilities notifications organizations properties sales subscriptions tenders valuations
 
   web:
     runs-on: ubuntu-latest

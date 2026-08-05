@@ -2,7 +2,7 @@ from django.urls import path
 
 from .views import (
     DemoIdentitiesView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
-    RefreshView, StopImpersonateView, WorkspaceInboxView, csrf, health,
+    RefreshView, StopImpersonateView, WorkspaceInboxView, csrf, health, security_audit,
 )
 
 urlpatterns = [
@@ -17,4 +17,5 @@ urlpatterns = [
     path('auth/impersonate/', ImpersonateView.as_view(), name='impersonate'),
     path('auth/stop-impersonate/', StopImpersonateView.as_view(), name='stop-impersonate'),
     path('workspace/inbox/', WorkspaceInboxView.as_view(), name='workspace-inbox'),
+    path('security/audit/', security_audit, name='security-audit'),
 ]

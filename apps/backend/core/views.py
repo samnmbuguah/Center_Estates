@@ -5,7 +5,8 @@ from django.db import connection
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.throttling import ScopedRateThrottle
@@ -459,3 +460,18 @@ class WorkspaceInboxView(APIView):
                 'modules': sorted(modules),
             },
         })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def security_audit(request):
+    return Response({
+        'debug': settings.DEBUG,
+        'secure_ssl_redirect': getattr(settings, 'SECURE_SSL_REDIRECT', False),
+        'session_cookie_secure': settings.SESSION_COOKIE_SECURE,
+        'csrf_cookie_secure': settings.CSRF_COOKIE_SECURE,
+        'hsts_seconds': getattr(settings, 'SECURE_HSTS_SECONDS', None),
+        'cors_origins': getattr(settings, 'CORS_ALLOWED_ORIGINS', []),
+        'allowed_hosts': settings.ALLOWED_HOSTS,
+        'password_validators': [v['NAME'] for v in settings.AUTH_PASSWORD_VALIDATORS],
+    })
