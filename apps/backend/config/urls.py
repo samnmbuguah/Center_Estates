@@ -368,11 +368,28 @@ _NAVBAR = """
       <button class="nav-link" onclick="showView('contact')" id="nl-contact">Contact</button>
       <a href="/api/v1/docs/" target="_blank" class="nav-link" style="color:var(--cyan)">API Docs ↗</a>
     </div>
-    <div class="nav-actions">
+    <div class="nav-actions" id="nav-actions">
       <button class="btn btn-secondary btn-sm" onclick="openModal('login-modal')">Sign In</button>
       <button class="btn btn-primary btn-sm" onclick="openModal('register-modal')">Get Started</button>
     </div>
-  </nav>"""
+  </nav>
+
+  <!-- ========== ACTIVE SESSION BANNER ========== -->
+  <div id="session-banner" style="display:none;background:var(--surface2);border-bottom:1px solid var(--border);padding:10px 0;font-size:0.83rem">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green)"></span>
+        <span>Active Session: <strong id="sb-user">...</strong></span>
+        <span class="badge badge-accent" id="sb-org">Center Estates Demo</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <a href="/api/v1/docs/" target="_blank" style="color:var(--cyan);text-decoration:none;font-weight:600">Swagger API Console ↗</a>
+        <a href="/admin/" id="sb-admin-link" target="_blank" style="color:var(--amber);text-decoration:none;font-weight:600;display:none">Django Admin ↗</a>
+        <button onclick="handleLogout()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:6px;cursor:pointer">Sign Out</button>
+      </div>
+    </div>
+  </div>"""
+
 
 _FOOTER = """
   <!-- ========== FOOTER ========== -->
@@ -660,6 +677,52 @@ _SCRIPTS = """
       });
     }
 
+    // ─── Session State ──────────────────────────────────────────────────────
+    async function updateSessionState() {
+      try {
+        const r = await fetch('/api/v1/auth/me/', { credentials: 'same-origin' });
+        if (r.ok) {
+          const data = await r.json();
+          const user = data.user;
+          const org = data.organizations?.[0]?.name || 'Center Estates Demo';
+          const sbUser = document.getElementById('sb-user');
+          if (sbUser) sbUser.textContent = user.firstName ? `${user.firstName} ${user.lastName} (@${user.username})` : user.username;
+          const sbOrg = document.getElementById('sb-org');
+          if (sbOrg) sbOrg.textContent = org;
+          const sb = document.getElementById('session-banner');
+          if (sb) sb.style.display = 'block';
+          if (user.isSuperuser) {
+            const adminLink = document.getElementById('sb-admin-link');
+            if (adminLink) adminLink.style.display = 'inline-block';
+          }
+          const navActions = document.getElementById('nav-actions');
+          if (navActions) {
+            const initial = (user.username || 'U')[0].toUpperCase();
+            navActions.innerHTML = `
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;color:#fff">${initial}</div>
+                <div style="display:flex;flex-direction:column;text-align:left">
+                  <span style="font-size:0.82rem;font-weight:700;line-height:1.2">${user.username}</span>
+                  <span style="font-size:0.7rem;color:var(--green);font-weight:600">&#9679; Signed In</span>
+                </div>
+                <button onclick="handleLogout()" class="btn btn-secondary btn-sm" style="margin-left:8px;padding:6px 14px">Sign Out</button>
+              </div>
+            `;
+          }
+        }
+      } catch {
+        const sb = document.getElementById('session-banner');
+        if (sb) sb.style.display = 'none';
+      }
+    }
+
+    async function handleLogout() {
+      try {
+        await fetch('/api/v1/auth/logout/', { method: 'POST', credentials: 'same-origin' });
+      } catch {}
+      window.location.reload();
+    }
+
     // ─── Login ───────────────────────────────────────────────────────────────
     async function handleLogin(e) {
       e.preventDefault();
@@ -680,7 +743,7 @@ _SCRIPTS = """
         const data = await resp.json().catch(() => ({}));
         if (resp.ok) {
           closeModal('login-modal');
-          window.location.href = '/api/v1/docs/';
+          await updateSessionState();
         } else {
           const msg = data.detail || data.non_field_errors?.[0] || data.password?.[0] || 'Authentication failed. Check your credentials.';
           alertEl.textContent = msg;
@@ -776,15 +839,17 @@ _SCRIPTS = """
 
     // ─── Routing on load ─────────────────────────────────────────────────────
     (function initRoute() {
-      const path = window.location.pathname.replace(/\\/+$/, '') || '/';
+      const path = window.location.pathname.replace(/\/+$/, '') || '/';
       const map = { '/': 'home', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
       const view = map[path] || 'home';
       showView(view);
       if (path === '/login') openModal('login-modal');
       if (path === '/register') openModal('register-modal');
+      updateSessionState();
     })();
     window.addEventListener('popstate', e => { if (e.state?.view) showView(e.state.view); });
   </script>"""
+,StartLine:840,TargetContent:
 
 # ---------------------------------------------------------------------------
 # HOME VIEW
