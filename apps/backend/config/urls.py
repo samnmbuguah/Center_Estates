@@ -87,21 +87,92 @@ _BASE_HEAD = """<!DOCTYPE html>
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- ═══ THEME INITIALIZATION (Zero-Flicker) ═══════════════════════════════ -->
+  <script>
+    (function() {
+      const saved = localStorage.getItem('ce_theme');
+      const theme = saved ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #060b14; --surface: #0d1625; --surface2: #121d30;
-      --border: rgba(255,255,255,0.09); --border2: rgba(255,255,255,0.14);
-      --text: #f1f5f9; --muted: #94a3b8; --faint: #475569;
-      --accent: #6366f1; --accent2: #3b82f6; --accent3: #8b5cf6;
-      --green: #22c55e; --cyan: #06b6d4; --amber: #f59e0b;
-      --red: #ef4444;
-      --radius: 14px; --radius-sm: 8px; --radius-lg: 20px;
-      --shadow: 0 4px 24px -4px rgba(0,0,0,0.5);
-      --shadow-lg: 0 20px 60px -12px rgba(0,0,0,0.7);
+
+    :root, [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface2: #f1f5f9;
+      --border: #e2e8f0;
+      --border2: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --faint: #94a3b8;
+      --accent: #4f46e5;
+      --accent2: #2563eb;
+      --accent3: #7c3aed;
+      --green: #16a34a;
+      --cyan: #0891b2;
+      --amber: #d97706;
+      --red: #dc2626;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --radius-lg: 20px;
+      --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 20px 40px -8px rgba(15, 23, 42, 0.12);
+      --glass-bg: rgba(255, 255, 255, 0.88);
+      --glass-bg2: rgba(241, 245, 249, 0.95);
+      --modal-bg: rgba(15, 23, 42, 0.45);
+      --grid-line: rgba(15, 23, 42, 0.04);
+      --badge-accent-bg: rgba(79, 70, 229, 0.1); --badge-accent-text: #4338ca; --badge-accent-border: rgba(79, 70, 229, 0.2);
+      --badge-green-bg: rgba(22, 163, 74, 0.1); --badge-green-text: #15803d; --badge-green-border: rgba(22, 163, 74, 0.2);
+      --badge-amber-bg: rgba(217, 119, 6, 0.1); --badge-amber-text: #b45309; --badge-amber-border: rgba(217, 119, 6, 0.2);
+      --badge-muted-bg: rgba(100, 116, 139, 0.1); --badge-muted-text: #475569; --badge-muted-border: rgba(100, 116, 139, 0.2);
+      --alert-error-bg: #fef2f2; --alert-error-border: #fecaca; --alert-error-text: #991b1b;
+      --alert-success-bg: #f0fdf4; --alert-success-border: #bbf7d0; --alert-success-text: #166534;
+      --alert-info-bg: #eeefff; --alert-info-border: #c7d2fe; --alert-info-text: #3730a3;
+      --hero-gradient: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(79,70,229,0.12) 0%, transparent 70%),
+                        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(37,99,235,0.08) 0%, transparent 60%),
+                        var(--bg);
     }
+
+    [data-theme="dark"] {
+      --bg: #060b14;
+      --surface: #0d1625;
+      --surface2: #121d30;
+      --border: rgba(255, 255, 255, 0.09);
+      --border2: rgba(255, 255, 255, 0.14);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --faint: #475569;
+      --accent: #6366f1;
+      --accent2: #3b82f6;
+      --accent3: #8b5cf6;
+      --green: #22c55e;
+      --cyan: #06b6d4;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 20px 60px -12px rgba(0, 0, 0, 0.7);
+      --glass-bg: rgba(13, 22, 37, 0.8);
+      --glass-bg2: rgba(18, 29, 48, 0.9);
+      --modal-bg: rgba(0, 0, 0, 0.75);
+      --grid-line: rgba(255, 255, 255, 0.025);
+      --badge-accent-bg: rgba(99, 102, 241, 0.15); --badge-accent-text: #a5b4fc; --badge-accent-border: rgba(99, 102, 241, 0.3);
+      --badge-green-bg: rgba(34, 197, 94, 0.15); --badge-green-text: #4ade80; --badge-green-border: rgba(34, 197, 94, 0.3);
+      --badge-amber-bg: rgba(245, 158, 11, 0.15); --badge-amber-text: #fcd34d; --badge-amber-border: rgba(245, 158, 11, 0.3);
+      --badge-muted-bg: rgba(100, 116, 139, 0.2); --badge-muted-text: #94a3b8; --badge-muted-border: rgba(100, 116, 139, 0.3);
+      --alert-error-bg: rgba(239, 68, 68, 0.12); --alert-error-border: rgba(239, 68, 68, 0.3); --alert-error-text: #fca5a5;
+      --alert-success-bg: rgba(34, 197, 94, 0.12); --alert-success-border: rgba(34, 197, 94, 0.3); --alert-success-text: #4ade80;
+      --alert-info-bg: rgba(99, 102, 241, 0.12); --alert-info-border: rgba(99, 102, 241, 0.3); --alert-info-text: #a5b4fc;
+      --hero-gradient: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.25) 0%, transparent 70%),
+                        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(59,130,246,0.12) 0%, transparent 60%),
+                        var(--bg);
+    }
+
     html { scroll-behavior: smooth; }
     body {
       font-family: 'Inter', sans-serif;
@@ -111,6 +182,7 @@ _BASE_HEAD = """<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       overflow-x: hidden;
+      transition: background-color 0.25s ease, color 0.25s ease;
     }
     /* --- Layout --- */
     .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
@@ -118,13 +190,13 @@ _BASE_HEAD = """<!DOCTYPE html>
     .section-sm { padding: 64px 0; }
     /* --- Glassmorphism --- */
     .glass {
-      background: rgba(13, 22, 37, 0.8);
+      background: var(--glass-bg);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--border);
     }
     .glass2 {
-      background: rgba(18, 29, 48, 0.9);
+      background: var(--glass-bg2);
       backdrop-filter: blur(24px);
       border: 1px solid var(--border2);
     }
@@ -133,12 +205,13 @@ _BASE_HEAD = """<!DOCTYPE html>
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
+      box-shadow: var(--shadow);
       transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
     }
     .card:hover {
       border-color: rgba(99, 102, 241, 0.4);
       transform: translateY(-3px);
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow-lg);
     }
     /* --- Buttons --- */
     .btn {
@@ -149,30 +222,30 @@ _BASE_HEAD = """<!DOCTYPE html>
       white-space: nowrap;
     }
     .btn-primary {
-      background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
       color: white;
-      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+      box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
     }
     .btn-primary:hover {
-      opacity: 0.9; transform: translateY(-1px);
-      box-shadow: 0 8px 20px rgba(99, 102, 241, 0.5);
+      opacity: 0.92; transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(79, 70, 229, 0.45);
     }
     .btn-secondary {
-      background: rgba(255,255,255,0.07);
+      background: var(--surface2);
       color: var(--text);
       border: 1px solid var(--border2);
     }
     .btn-secondary:hover {
-      background: rgba(255,255,255,0.12);
-      border-color: rgba(255,255,255,0.25);
+      background: var(--border);
+      border-color: var(--border2);
     }
     .btn-outline {
       background: transparent;
       color: var(--accent);
-      border: 1px solid rgba(99,102,241,0.4);
+      border: 1px solid var(--accent);
     }
     .btn-outline:hover {
-      background: rgba(99,102,241,0.1);
+      background: var(--badge-accent-bg);
       border-color: var(--accent);
     }
     .btn-sm { padding: 8px 16px; font-size: 0.82rem; }
@@ -186,16 +259,16 @@ _BASE_HEAD = """<!DOCTYPE html>
       font-size: 0.7rem; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.06em;
     }
-    .badge-accent { background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3); }
-    .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
-    .badge-amber { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
-    .badge-muted { background: rgba(100,116,139,0.2); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
+    .badge-accent { background: var(--badge-accent-bg); color: var(--badge-accent-text); border: 1px solid var(--badge-accent-border); }
+    .badge-green  { background: var(--badge-green-bg);  color: var(--badge-green-text);  border: 1px solid var(--badge-green-border); }
+    .badge-amber  { background: var(--badge-amber-bg);  color: var(--badge-amber-text);  border: 1px solid var(--badge-amber-border); }
+    .badge-muted  { background: var(--badge-muted-bg);  color: var(--badge-muted-text);  border: 1px solid var(--badge-muted-border); }
     /* --- Forms --- */
     .form-group { margin-bottom: 20px; }
-    .form-label { display: block; font-size: 0.82rem; font-weight: 600; color: #cbd5e1; margin-bottom: 7px; }
+    .form-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 7px; }
     .form-input {
       width: 100%; padding: 12px 16px;
-      background: rgba(255,255,255,0.04);
+      background: var(--surface2);
       border: 1px solid var(--border2);
       border-radius: var(--radius-sm);
       color: var(--text); font-size: 0.9rem; font-family: 'Inter', sans-serif;
@@ -204,22 +277,22 @@ _BASE_HEAD = """<!DOCTYPE html>
     }
     .form-input:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
     }
     .form-input::placeholder { color: var(--faint); }
     .form-input-wrap { position: relative; }
     .form-input-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
     .form-hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
-    .form-error { font-size: 0.8rem; color: #fca5a5; margin-top: 5px; }
+    .form-error { font-size: 0.8rem; color: var(--red); margin-top: 5px; }
     /* --- Alerts --- */
     .alert {
       padding: 12px 16px; border-radius: var(--radius-sm);
       font-size: 0.85rem; display: flex; align-items: center; gap: 10px;
       margin-bottom: 20px;
     }
-    .alert-error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
-    .alert-success { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: #4ade80; }
-    .alert-info { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); color: #a5b4fc; }
+    .alert-error   { background: var(--alert-error-bg);   border: 1px solid var(--alert-error-border);   color: var(--alert-error-text); }
+    .alert-success { background: var(--alert-success-bg); border: 1px solid var(--alert-success-border); color: var(--alert-success-text); }
+    .alert-info    { background: var(--alert-info-bg);    border: 1px solid var(--alert-info-border);    color: var(--alert-info-text); }
     /* --- Navbar --- */
     #navbar {
       position: sticky; top: 0; z-index: 100;
@@ -229,10 +302,10 @@ _BASE_HEAD = """<!DOCTYPE html>
     .nav-logo { display: flex; align-items: center; gap: 12px; cursor: pointer; text-decoration: none; }
     .nav-logo-icon {
       width: 38px; height: 38px; border-radius: 9px;
-      background: linear-gradient(135deg, #6366f1, #3b82f6);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
       display: flex; align-items: center; justify-content: center;
       color: #fff; font-weight: 900; font-family: 'Outfit'; font-size: 1.1rem;
-      box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
       flex-shrink: 0;
     }
     .nav-links { display: flex; align-items: center; gap: 32px; }
@@ -243,19 +316,15 @@ _BASE_HEAD = """<!DOCTYPE html>
     .nav-link:hover, .nav-link.active { color: var(--text); }
     .nav-actions { display: flex; align-items: center; gap: 12px; }
     /* --- Hero gradient --- */
-    .hero-bg {
-      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.25) 0%, transparent 70%),
-                  radial-gradient(ellipse 60% 50% at 80% 50%, rgba(59,130,246,0.12) 0%, transparent 60%),
-                  var(--bg);
-    }
+    .hero-bg { background: var(--hero-gradient); }
     /* --- Glow orbs --- */
     .orb {
       position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
     }
     /* --- Grid patterns --- */
     .grid-bg {
-      background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
       background-size: 60px 60px;
     }
     /* --- Stats --- */
@@ -370,6 +439,7 @@ _NAVBAR = """
       <a href="/api/v1/docs/" target="_blank" class="nav-link" style="color:var(--cyan)">API Docs ↗</a>
     </div>
     <div class="nav-actions" id="nav-actions">
+      <button onclick="toggleTheme()" id="theme-toggle-btn" class="btn btn-secondary btn-sm" title="Switch Theme">☀️ Light</button>
       <button class="btn btn-secondary btn-sm" onclick="openModal('login-modal')">Sign In</button>
       <button class="btn btn-primary btn-sm" onclick="openModal('register-modal')">Get Started</button>
     </div>
@@ -698,6 +768,22 @@ _SCRIPTS = """
       });
     }
 
+    // ─── Theme Switcher ───────────────────────────────────────────────────────
+    function toggleTheme() {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('ce_theme', next);
+      updateThemeBtn();
+    }
+    function updateThemeBtn() {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const btn = document.getElementById('theme-toggle-btn');
+      if (btn) {
+        btn.innerHTML = cur === 'dark' ? '🌙 Dark' : '☀️ Light';
+      }
+    }
+
     // ─── Session State & Command Center ─────────────────────────────────────
     let _sessionData = null;
 
@@ -734,8 +820,10 @@ _SCRIPTS = """
           const navActions = document.getElementById('nav-actions');
           if (navActions) {
             const initial = (user.username || 'U')[0].toUpperCase();
+            const curTheme = document.documentElement.getAttribute('data-theme') || 'light';
             navActions.innerHTML = `
               <div style="display:flex;align-items:center;gap:12px">
+                <button onclick="toggleTheme()" id="theme-toggle-btn" class="btn btn-secondary btn-sm" title="Switch Theme">${curTheme === 'dark' ? '🌙 Dark' : '☀️ Light'}</button>
                 <button onclick="showView('console')" class="btn btn-primary btn-sm" style="padding:6px 14px">Command Center ↗</button>
                 <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;color:#fff">${initial}</div>
                 <div style="display:flex;flex-direction:column;text-align:left">
@@ -970,6 +1058,7 @@ _SCRIPTS = """
       showView(view);
       if (path === '/login') openModal('login-modal');
       if (path === '/register') openModal('register-modal');
+      updateThemeBtn();
       updateSessionState();
     })();
     window.addEventListener('popstate', e => { if (e.state?.view) showView(e.state.view); });
