@@ -501,7 +501,7 @@ export default function Home() {
             </div>
 
             {/* Page/Module Switcher Bar */}
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16, borderBottom: "1px solid #e2e8f0", pb: 12 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               {[
                 { id: "all", label: "All Pages" },
                 { id: "property", label: "🏢 Property" },
