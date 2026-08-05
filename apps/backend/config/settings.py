@@ -43,7 +43,8 @@ SECRET_KEY = secret_setting(
 DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() in {'1', 'true', 'yes'}
 
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get(
-    'DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1'
+    'DJANGO_ALLOWED_HOSTS',
+    'localhost,127.0.0.1,monitoringerp.com,www.monitoringerp.com,erp.169-58-102-217.sslip.io,*'
 ).split(',') if host.strip()]
 
 
@@ -208,11 +209,11 @@ SPECTACULAR_SETTINGS = {
 }
 
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(
-    'CORS_ALLOWED_ORIGINS', 'http://localhost:3000'
+    'CORS_ALLOWED_ORIGINS', 'https://monitoringerp.com,https://www.monitoringerp.com,http://localhost:3000,http://localhost:4300'
 ).split(',') if origin.strip()]
 
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get(
-    'CSRF_TRUSTED_ORIGINS', 'http://localhost:3000'
+    'CSRF_TRUSTED_ORIGINS', 'https://monitoringerp.com,https://www.monitoringerp.com,http://localhost:3000,http://localhost:4300'
 ).split(',') if origin.strip()]
 
 REST_FRAMEWORK = {
