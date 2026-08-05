@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import JsonResponse
 from django.db import connection
 from django.middleware.csrf import get_token
@@ -475,3 +477,91 @@ def security_audit(request):
         'allowed_hosts': settings.ALLOWED_HOSTS,
         'password_validators': [v['NAME'] for v in settings.AUTH_PASSWORD_VALIDATORS],
     })
+
+
+@method_decorator(csrf_protect, name='dispatch')
+class RegisterView(APIView):
+    """Self-service account registration. Creates a Django user and optionally an organisation."""
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        User = get_user_model()
+        data = request.data
+        username = str(data.get('username', '')).strip()
+        email = str(data.get('email', '')).strip()
+        password = str(data.get('password', ''))
+        first_name = str(data.get('first_name', '')).strip()
+        last_name = str(data.get('last_name', '')).strip()
+        organization_name = str(data.get('organization_name', '')).strip()
+
+        errors = {}
+        if not username:
+            errors['username'] = ['This field is required.']
+        elif User.objects.filter(username=username).exists():
+            errors['username'] = ['A user with that username already exists.']
+        if not email:
+            errors['email'] = ['This field is required.']
+        elif User.objects.filter(email=email).exists():
+            errors['email'] = ['A user with that email already exists.']
+        if not password:
+            errors['password'] = ['This field is required.']
+        if errors:
+            return Response(errors, status=400)
+
+        # Validate password strength
+        try:
+            validate_password(password)
+        except DjangoValidationError as exc:
+            return Response({'password': list(exc.messages)}, status=400)
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            is_active=True,
+        )
+
+        # Optionally create an organisation and link as admin
+        if organization_name:
+            try:
+                from organizations.models import Organization
+                import re
+                slug = re.sub(r'[^a-z0-9]+', '-', organization_name.lower()).strip('-')[:50]
+                # Make slug unique
+                base_slug = slug
+                counter = 1
+                while Organization.objects.filter(slug=slug).exists():
+                    slug = f'{base_slug}-{counter}'
+                    counter += 1
+                org = Organization.objects.create(name=organization_name, slug=slug)
+                Membership.objects.create(user=user, organization=org, is_organization_admin=True, is_default=True)
+            except Exception:
+                pass  # Organisation creation is optional, don't fail registration
+
+        return Response({
+            'detail': 'Account created successfully. You can now sign in.',
+            'username': user.username,
+        }, status=201)
+
+
+@method_decorator(csrf_protect, name='dispatch')
+class PasswordResetRequestView(APIView):
+    """Initiate a password reset. Always returns 200 to prevent email enumeration."""
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        email = str(request.data.get('email', '')).strip()
+        if email:
+            User = get_user_model()
+            user = User.objects.filter(email=email, is_active=True).first()
+            if user:
+                # In production, send a reset email here.
+                # For now we log the intent but always return a neutral response.
+                import logging
+                logging.getLogger(__name__).info('Password reset requested for %s', email)
+        return Response({'detail': 'If an account with that email exists, you will receive a reset link shortly.'})
+

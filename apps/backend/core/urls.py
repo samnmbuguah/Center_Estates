@@ -2,13 +2,16 @@ from django.urls import path
 
 from .views import (
     DemoIdentitiesView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
-    RefreshView, StopImpersonateView, WorkspaceInboxView, csrf, health, security_audit,
+    PasswordResetRequestView, RefreshView, RegisterView, StopImpersonateView,
+    WorkspaceInboxView, csrf, health, security_audit,
 )
 
 urlpatterns = [
     path('health/', health, name='health'),
     path('auth/csrf/', csrf, name='csrf'),
     path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
     path('auth/mobile-token/', MobileTokenView.as_view(), name='mobile-token'),
     path('auth/refresh/', RefreshView.as_view(), name='refresh'),
     path('auth/logout/', LogoutView.as_view(), name='logout'),
