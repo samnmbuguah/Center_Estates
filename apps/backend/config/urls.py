@@ -849,7 +849,6 @@ _SCRIPTS = """
     })();
     window.addEventListener('popstate', e => { if (e.state?.view) showView(e.state.view); });
   </script>"""
-,StartLine:840,TargetContent:
 
 # ---------------------------------------------------------------------------
 # HOME VIEW
