@@ -451,19 +451,53 @@ class TelemetryViewSet(ViewSet):
 
     def list(self, request):
         organization = get_active_organization(request)
-        events = TaskEvent.objects.filter(
+        module_param = request.query_params.get('module', '').strip()
+        path_param = request.query_params.get('path', '').strip()
+        user_param = request.query_params.get('user', '').strip() or request.query_params.get('actor', '').strip()
+
+        queryset = TaskEvent.objects.filter(
             organization=organization,
             note__startswith='Telemetry ['
-        ).select_related('actor').order_by('-created_at')[:100]
-        return Response([
-            {
-                'id': str(e.id),
-                'actor': e.actor.username if e.actor else 'anonymous',
-                'note': e.note,
-                'created_at': e.created_at.isoformat(),
-            }
-            for e in events
-        ])
+        ).select_related('actor')
+
+        if module_param:
+            queryset = queryset.filter(note__icontains=f"(Module: {module_param})")
+        if path_param:
+            queryset = queryset.filter(note__icontains=path_param)
+        if user_param:
+            queryset = queryset.filter(actor__username__icontains=user_param)
+
+        events = queryset.order_by('-created_at')[:100]
+
+        all_telemetry = TaskEvent.objects.filter(
+            organization=organization,
+            note__startswith='Telemetry ['
+        ).select_related('actor')
+        page_counts = {}
+        user_counts = {}
+        for ev in all_telemetry[:500]:
+            note = ev.note
+            mod = "dashboard"
+            if "(Module: " in note:
+                mod = note.split("(Module: ")[-1].rstrip(")")
+            page_counts[mod] = page_counts.get(mod, 0) + 1
+
+            actor_name = ev.actor.username if ev.actor else "anonymous"
+            user_counts[actor_name] = user_counts.get(actor_name, 0) + 1
+
+        return Response({
+            'by_module': page_counts,
+            'by_user': user_counts,
+            'events': [
+                {
+                    'id': str(e.id),
+                    'actor': e.actor.username if e.actor else 'anonymous',
+                    'note': e.note,
+                    'created_at': e.created_at.isoformat(),
+                }
+                for e in events
+            ]
+        })
 
     def create(self, request):
         organization = get_active_organization(request)

@@ -51,8 +51,10 @@ export default function Home() {
   // Telemetry Inspection State
   const [showTelemetryModal, setShowTelemetryModal] = useState(false);
   const [selectedTelemetryModule, setSelectedTelemetryModule] = useState("all");
+  const [selectedTelemetryUser, setSelectedTelemetryUser] = useState("all");
   const [telemetryEvents, setTelemetryEvents] = useState<{ id: string; actor: string; note: string; created_at: string }[]>([]);
   const [telemetryCounts, setTelemetryCounts] = useState<Record<string, number>>({});
+  const [telemetryUserCounts, setTelemetryUserCounts] = useState<Record<string, number>>({});
   const [loadingTelemetry, setLoadingTelemetry] = useState(false);
 
   const organization = session?.organizations.find((item) => item.id === session.activeOrganizationId);
@@ -62,16 +64,20 @@ export default function Home() {
   useEffect(() => {
     if (!showTelemetryModal || !organizationId) return;
     setLoadingTelemetry(true);
-    const query = selectedTelemetryModule !== "all" ? `?module=${selectedTelemetryModule}` : "";
+    const params = new URLSearchParams();
+    if (selectedTelemetryModule !== "all") params.set("module", selectedTelemetryModule);
+    if (selectedTelemetryUser !== "all") params.set("user", selectedTelemetryUser);
+    const query = params.toString() ? `?${params.toString()}` : "";
     apiFetch(`/companion/telemetry/${query}`, {}, organizationId)
       .then(async (res) => {
         if (!res.ok) return;
         const data = await res.json();
         setTelemetryEvents(data.events || []);
         setTelemetryCounts(data.by_module || {});
+        setTelemetryUserCounts(data.by_user || {});
       })
       .finally(() => setLoadingTelemetry(false));
-  }, [showTelemetryModal, selectedTelemetryModule, organizationId]);
+  }, [showTelemetryModal, selectedTelemetryModule, selectedTelemetryUser, organizationId]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -533,6 +539,29 @@ export default function Home() {
                   </button>
                 );
               })}
+            </div>
+
+            {/* System User Filter Bar */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, background: "#f8fafc", padding: "8px 12px", borderRadius: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>👤 Filter by System User:</span>
+                <select
+                  value={selectedTelemetryUser}
+                  onChange={(e) => setSelectedTelemetryUser(e.target.value)}
+                  style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 10px", fontSize: "0.75rem", fontWeight: 600, color: "#0f172a" }}
+                >
+                  <option value="all">All Users ({Object.values(telemetryUserCounts).reduce((a, b) => a + b, 0)})</option>
+                  {Object.keys(telemetryUserCounts).map((u) => (
+                    <option key={u} value={u}>
+                      {u} ({telemetryUserCounts[u]} events)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                Showing <strong>{telemetryEvents.length}</strong> events
+              </span>
             </div>
 
             {/* Event List */}
