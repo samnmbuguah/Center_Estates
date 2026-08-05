@@ -281,7 +281,7 @@ export default function Home() {
                         border: `1px solid ${isActive ? "#cbd5e1" : "#f1f5f9"}`,
                         background: isActive ? "#f8fafc" : "#fafafa",
                         display: "flex",
-                        justify: "space-between",
+                        justifyContent: "space-between",
                         alignItems: "center",
                       }}
                     >
