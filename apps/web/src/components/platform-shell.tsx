@@ -173,61 +173,104 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       {/* Outer Sidebar: ONLY rendered on Main Workspace Selector Page (/), NEVER inside module workspaces */}
       {!moduleWorkspaceActive && (
         <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
-          <Link className="brand" href="/" onClick={() => setMenuOpen(false)}>
-            <img src="/logo.png" alt="Center Estates" style={{ height: 38, width: "auto", objectFit: "contain" }} />
-          </Link>
+          <div className="platform-brand-header" style={{ padding: "18px 16px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/logo.png" alt="CeEst Logo" style={{ height: 34, width: "auto", objectFit: "contain" }} />
+            <div>
+              <strong style={{ fontSize: 16, fontWeight: 900, color: "#ffffff", letterSpacing: "-0.02em", display: "block", lineHeight: 1.1 }}>CeEst</strong>
+              <small style={{ color: "#ef4444", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                CENTER ESTATES TASK TRACKER
+              </small>
+            </div>
+          </div>
 
-          <nav aria-label="Platform modules">
-            <p className="nav-section-label">Workplace</p>
+          <nav aria-label="Command Center Operations" style={{ padding: "12px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
             <Link
-              className={`nav-link ${pathname === "/workspaces" ? "active" : ""}`}
+              className={`nav-link ${pathname === "/workspaces" || pathname === "/" ? "active" : ""}`}
               href="/workspaces"
-              title="Main Workspace Selection"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 14px",
+                borderRadius: 8,
+                background: (pathname === "/workspaces" || pathname === "/") ? "#e52e2e" : "transparent",
+                color: "#ffffff",
+                fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
+                textDecoration: "none",
+                fontSize: 13,
+              }}
               onClick={() => setMenuOpen(false)}
             >
-              <span className="platform-nav-icon">⌂</span>
-              <span className="nav-label">Main Workspaces</span>
+              <span style={{ fontSize: 15 }}>🏠</span>
+              <span>Workplace</span>
             </Link>
 
-            <p className="nav-section-label">Modules</p>
-            {modules
-              .filter((module) => allowed.has(module.slug))
-              .map((module) => (
-                <Link
-                  className={`nav-link ${pathname.startsWith(`/${module.slug}`) ? "active" : ""}`}
-                  href={`/${module.slug}`}
-                  title={module.name}
-                  key={module.slug}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <span className="nav-module-icon" style={{ color: module.accent }} aria-hidden="true">
-                    {module.icon}
-                  </span>
-                  <span className="nav-label">{module.name.replace(" Management", "")}</span>
-                </Link>
-              ))}
-            {allowed.has("property") && (
-              <Link
-                className={`nav-link ${pathname.startsWith("/tenant-portal") ? "active" : ""}`}
-                href="/tenant-portal"
-                title="Tenant Portal"
-                onClick={() => setMenuOpen(false)}
-              >
-                <span className="nav-module-icon" style={{ color: "#7c3aed" }} aria-hidden="true">
-                  🔑
-                </span>
-                <span className="nav-label">Tenant Portal</span>
-              </Link>
-            )}
+            <Link className="nav-link" href="/workspaces?tab=operations" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 15 }}>⚡</span>
+              <span>Operations Center</span>
+            </Link>
+
+            <Link className="nav-link" href="/workspaces?tab=tasks" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 15 }}>📋</span>
+                <span>My Tasks</span>
+              </div>
+              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 11, fontWeight: 700, padding: "2px 7px" }}>18</span>
+            </Link>
+
+            <Link className="nav-link" href="/workspaces?tab=approvals" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 15 }}>☑</span>
+                <span>Approvals</span>
+              </div>
+              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 11, fontWeight: 700, padding: "2px 7px" }}>7</span>
+            </Link>
+
+            <Link className="nav-link" href="/workspaces?tab=calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 15 }}>📅</span>
+              <span>Calendar</span>
+            </Link>
+
+            <Link className="nav-link" href="/workspaces?tab=reports" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 15 }}>📊</span>
+              <span>Reports & BI</span>
+            </Link>
+
+            <Link className="nav-link" href="/workspaces?tab=documents" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 15 }}>📁</span>
+              <span>Documents</span>
+            </Link>
+
+            <Link className="nav-link" href="/workspaces?tab=notifications" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 15 }}>🔔</span>
+              <span>Notifications</span>
+            </Link>
+
+            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "8px 0" }} />
+
+            <Link className="nav-link" href="/workspaces?tab=settings" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 15 }}>⚙</span>
+              <span>Settings</span>
+            </Link>
+
+            <Link className="nav-link" href="/workspaces?tab=help" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 15 }}>❓</span>
+              <span>Help & Support</span>
+            </Link>
           </nav>
 
-          <div className="sidebar-support">
-            <strong>Quick Support</strong>
-            <span>support@ceest.co.ke</span>
-            <small>Mon – Fri 8:00AM – 6:00PM</small>
+          <div className="sidebar-support" style={{ marginTop: "auto", margin: "14px 10px 10px", padding: 12, background: "rgba(255,255,255,0.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 16 }}>🎧</span>
+              <strong style={{ fontSize: 12, color: "white" }}>Quick Support</strong>
+            </div>
+            <span style={{ display: "block", fontSize: 11, color: "#e2e8f0", fontWeight: 600 }}>0722 574 400</span>
+            <span style={{ display: "block", fontSize: 11, color: "#94a3b8" }}>support@ceest.co.ke</span>
+            <small style={{ display: "block", fontSize: 10, color: "#64748b", marginTop: 2 }}>Mon - Fri 8:00AM - 6:00PM</small>
           </div>
-          <button className="logout-button" onClick={() => logout()}>
-            Sign out
+
+          <button className="logout-button" onClick={() => logout()} style={{ margin: "0 10px 14px", padding: "10px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "white", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <span>⏮</span> Collapse Menu
           </button>
         </aside>
       )}
