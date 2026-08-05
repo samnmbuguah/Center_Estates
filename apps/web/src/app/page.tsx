@@ -48,9 +48,30 @@ export default function Home() {
   });
   const [onboardSuccess, setOnboardSuccess] = useState("");
 
+  // Telemetry Inspection State
+  const [showTelemetryModal, setShowTelemetryModal] = useState(false);
+  const [selectedTelemetryModule, setSelectedTelemetryModule] = useState("all");
+  const [telemetryEvents, setTelemetryEvents] = useState<{ id: string; actor: string; note: string; created_at: string }[]>([]);
+  const [telemetryCounts, setTelemetryCounts] = useState<Record<string, number>>({});
+  const [loadingTelemetry, setLoadingTelemetry] = useState(false);
+
   const organization = session?.organizations.find((item) => item.id === session.activeOrganizationId);
   const organizationId = session?.activeOrganizationId ?? null;
   const name = session?.user.firstName || session?.user.username || "Admin";
+
+  useEffect(() => {
+    if (!showTelemetryModal || !organizationId) return;
+    setLoadingTelemetry(true);
+    const query = selectedTelemetryModule !== "all" ? `?module=${selectedTelemetryModule}` : "";
+    apiFetch(`/companion/telemetry/${query}`, {}, organizationId)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        setTelemetryEvents(data.events || []);
+        setTelemetryCounts(data.by_module || {});
+      })
+      .finally(() => setLoadingTelemetry(false));
+  }, [showTelemetryModal, selectedTelemetryModule, organizationId]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -327,14 +348,32 @@ export default function Home() {
               Audit Endpoint: /api/v1/companion/telemetry/<br />
               Status: <strong>Active & Logging</strong>
             </div>
-            <a
-              href="https://app.posthog.com"
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: "#2563eb", textDecoration: "none", fontSize: "0.8rem", fontWeight: 600 }}
-            >
-              View PostHog Analytics Dashboard ↗
-            </a>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button
+                type="button"
+                onClick={() => setShowTelemetryModal(true)}
+                style={{
+                  background: "#0f172a",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                🔍 Inspect Page Telemetry
+              </button>
+              <a
+                href="https://app.posthog.com"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "#2563eb", textDecoration: "none", fontSize: "0.75rem", fontWeight: 600 }}
+              >
+                PostHog Dashboard ↗
+              </a>
+            </div>
           </div>
 
           {/* Quick Sub-Route Jump Navigator */}
@@ -439,6 +478,85 @@ export default function Home() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Telemetry Inspection & Page Switcher Modal */}
+      {showTelemetryModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+          <div style={{ background: "#ffffff", width: "100%", maxWidth: 760, maxHeight: "85vh", overflow: "hidden", borderRadius: 12, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#0f172a" }}>📊 Page Telemetry & Audit Console</h3>
+                <small style={{ color: "#64748b" }}>Switch between pages to inspect live interaction events, pageviews, and user activity.</small>
+              </div>
+              <button onClick={() => setShowTelemetryModal(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#64748b" }}>✕</button>
+            </div>
+
+            {/* Page/Module Switcher Bar */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16, borderBottom: "1px solid #e2e8f0", pb: 12 }}>
+              {[
+                { id: "all", label: "All Pages" },
+                { id: "property", label: "🏢 Property" },
+                { id: "facility", label: "🔧 Facility" },
+                { id: "valuation", label: "📐 Valuation" },
+                { id: "companion", label: "🧭 Companion" },
+                { id: "sales", label: "🏷️ Sales" },
+                { id: "tender", label: "📋 Tender" },
+              ].map((tab) => {
+                const count = tab.id === "all" ? Object.values(telemetryCounts).reduce((a, b) => a + b, 0) : (telemetryCounts[tab.id] || 0);
+                const isSelected = selectedTelemetryModule === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedTelemetryModule(tab.id)}
+                    style={{
+                      background: isSelected ? "#0f172a" : "#f1f5f9",
+                      color: isSelected ? "#ffffff" : "#475569",
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: 20,
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span>{tab.label}</span>
+                    <span style={{ background: isSelected ? "rgba(255,255,255,0.2)" : "#cbd5e1", padding: "1px 6px", borderRadius: 10, fontSize: "0.7rem" }}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Event List */}
+            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 8, padding: 12, background: "#fafafa" }}>
+              {loadingTelemetry ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#64748b", fontSize: "0.85rem" }}>Loading page telemetry...</div>
+              ) : telemetryEvents.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#64748b", fontSize: "0.85rem" }}>
+                  No telemetry events recorded for <strong>{selectedTelemetryModule}</strong> page yet.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {telemetryEvents.map((event) => (
+                    <div key={event.id} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "10px 14px", fontSize: "0.8rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <strong style={{ color: "#0f172a" }}>👤 {event.actor}</strong>
+                        <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{new Date(event.created_at).toLocaleTimeString()}</span>
+                      </div>
+                      <div style={{ color: "#334155", fontFamily: "monospace", fontSize: "0.75rem" }}>{event.note}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
