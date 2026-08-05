@@ -727,6 +727,8 @@ _SCRIPTS = """
         const nl = document.getElementById('nl-' + v);
         if (nl) nl.classList.toggle('active', v === name);
       });
+      const topNav = document.getElementById('navbar');
+      if (topNav) topNav.style.display = (name === 'console') ? 'none' : 'flex';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       const path = name === 'home' ? '/' : '/' + name;
       history.pushState({ view: name }, '', path);
@@ -809,6 +811,13 @@ _SCRIPTS = """
           if (ccUser) ccUser.textContent = user.firstName ? `${user.firstName} ${user.lastName}` : user.username;
           const ccOrg = document.getElementById('cc-org-name');
           if (ccOrg) ccOrg.textContent = org;
+
+          const sideWs = document.getElementById('sidebar-ws-name');
+          if (sideWs) sideWs.textContent = org;
+          const sideUser = document.getElementById('sidebar-user-name');
+          if (sideUser) sideUser.textContent = user.firstName ? `${user.firstName} ${user.lastName}` : user.username;
+          const sideAvatar = document.getElementById('sidebar-user-avatar');
+          if (sideAvatar) sideAvatar.textContent = (user.username || 'A')[0].toUpperCase();
 
           if (user.isSuperuser) {
             const adminLink = document.getElementById('sb-admin-link');
@@ -1206,23 +1215,125 @@ _VIEW_HOME = """
 # ---------------------------------------------------------------------------
 
 _VIEW_CONSOLE = """
-  <!-- ========== COMMAND CENTER CONSOLE VIEW ========== -->
+  <!-- ========== COMMAND CENTER WORKSPACE VIEW (Enterprise Left Sidebar Layout) ========== -->
   <div id="view-console" class="view">
-    <section style="padding:40px 0 80px">
-      <div class="container">
+    <div style="display:flex;min-height:100vh;background:var(--bg)">
 
-        <!-- Welcome Header -->
+      <!-- ═══ LEFT ERP SIDEBAR ═══════════════════════════════════════════════ -->
+      <aside style="width:280px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:90;overflow-y:auto">
+
+        <!-- Sidebar Brand Logo -->
+        <div style="padding:22px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <a class="nav-logo" onclick="showView('home')" href="javascript:void(0)">
+            <div class="nav-logo-icon">CE</div>
+            <div>
+              <div style="font-family:'Outfit';font-weight:800;font-size:1.05rem;letter-spacing:-0.02em">Center Estates</div>
+              <div style="font-size:0.68rem;color:var(--muted);font-weight:600;margin-top:-1px">Command Center</div>
+            </div>
+          </a>
+          <button onclick="toggleTheme()" id="theme-toggle-btn" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem" title="Switch Theme">☀️</button>
+        </div>
+
+        <!-- Workspace Selector Dropdown Capsule -->
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface2)">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:8px">Active Workspace (/workspace)</div>
+          <div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);padding:10px 12px;border-radius:var(--radius-sm)">
+            <div style="width:30px;height:30px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:0.8rem;flex-shrink:0">&#127970;</div>
+            <div style="flex:1;overflow:hidden">
+              <div style="font-size:0.85rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sidebar-ws-name">Center Estates Demo</div>
+              <div style="font-size:0.7rem;color:var(--green);font-weight:600">&#9679; Connected Workspace</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Role Identity Switcher -->
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border)">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:10px">Workspace Role Personas</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button onclick="switchRolePersona('admin')" class="btn btn-secondary btn-sm" style="justify-content:flex-start;font-size:0.8rem;padding:7px 12px">
+              <span>&#9733;</span> <span style="font-weight:600">Platform Admin</span>
+            </button>
+            <button onclick="switchRolePersona('role-property-manager')" class="btn btn-secondary btn-sm" style="justify-content:flex-start;font-size:0.8rem;padding:7px 12px">
+              <span>&#127960;</span> <span>Property Manager</span>
+            </button>
+            <button onclick="switchRolePersona('role-facility-manager')" class="btn btn-secondary btn-sm" style="justify-content:flex-start;font-size:0.8rem;padding:7px 12px">
+              <span>&#128295;</span> <span>Facility Manager</span>
+            </button>
+            <button onclick="switchRolePersona('role-sales-agent')" class="btn btn-secondary btn-sm" style="justify-content:flex-start;font-size:0.8rem;padding:7px 12px">
+              <span>&#128179;</span> <span>Sales Agent</span>
+            </button>
+            <button onclick="switchRolePersona('role-valuer-inspector')" class="btn btn-secondary btn-sm" style="justify-content:flex-start;font-size:0.8rem;padding:7px 12px">
+              <span>&#128208;</span> <span>Valuation Inspector</span>
+            </button>
+            <button onclick="switchRolePersona('role-clerk-of-works')" class="btn btn-secondary btn-sm" style="justify-content:flex-start;font-size:0.8rem;padding:7px 12px">
+              <span>&#127959;</span> <span>Construction CoW</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sidebar Module Nav Links -->
+        <nav style="padding:16px 12px;flex:1">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:0 8px 10px">Modules &amp; Workspaces</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <a href="javascript:void(0)" onclick="loadModuleData('property')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#127962;</span> <span>Property Portfolio</span>
+            </a>
+            <a href="javascript:void(0)" onclick="loadModuleData('facility')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#128295;</span> <span>Facility Maintenance</span>
+            </a>
+            <a href="javascript:void(0)" onclick="loadModuleData('sales')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#128179;</span> <span>Sales &amp; Revenue</span>
+            </a>
+            <a href="javascript:void(0)" onclick="loadModuleData('tender')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#128196;</span> <span>Tender Desk</span>
+            </a>
+            <a href="javascript:void(0)" onclick="loadModuleData('valuation')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#128202;</span> <span>RICS Valuations</span>
+            </a>
+            <a href="javascript:void(0)" onclick="loadModuleData('construction')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#127959;</span> <span>Construction S-Curve</span>
+            </a>
+            <a href="javascript:void(0)" onclick="loadModuleData('companion')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#128241;</span> <span>Staff Companion</span>
+            </a>
+            <a href="javascript:void(0)" onclick="refreshAuditFeed()" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none;font-size:0.85rem;font-weight:600" class="sidebar-link">
+              <span style="font-size:1.1rem">&#128269;</span> <span>Central Audit Stream</span>
+            </a>
+            <a href="javascript:void(0)" onclick="showView('home')" style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--muted);text-decoration:none;font-size:0.85rem;font-weight:600;margin-top:12px" class="sidebar-link">
+              <span style="font-size:1.1rem">&#127960;</span> <span>Public Website ↗</span>
+            </a>
+          </div>
+        </nav>
+
+        <!-- Sidebar User Footer Capsule -->
+        <div style="padding:16px 20px;border-top:1px solid var(--border);background:var(--surface2)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;color:#fff" id="sidebar-user-avatar">A</div>
+            <div style="flex:1;overflow:hidden">
+              <div style="font-size:0.85rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sidebar-user-name">admin</div>
+              <div style="font-size:0.7rem;color:var(--green);font-weight:600">&#9679; Active Session</div>
+            </div>
+            <button onclick="handleLogout()" title="Sign Out" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem">&#10006;</button>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- ═══ MAIN WORKSPACE CONTENT ═════════════════════════════════════════ -->
+      <main style="flex:1;padding:32px 40px;overflow-y:auto;max-width:calc(100vw - 280px)">
+
+        <!-- Workspace Top Header Bar -->
         <div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:32px;flex-wrap:wrap">
           <div>
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              <span class="badge badge-green">&#9679; LIVE COMMAND CENTER</span>
+              <span class="badge badge-green">&#9679; ACTIVE WORKSPACE</span>
               <span class="badge badge-accent" id="cc-org-name">Center Estates Demo</span>
             </div>
-            <h1 style="font-family:'Outfit';font-size:2.4rem;font-weight:900;letter-spacing:-0.02em">
-              Welcome back, <span class="grad-text" id="cc-user-display">Administrator</span>
+            <h1 style="font-family:'Outfit';font-size:2.2rem;font-weight:900;letter-spacing:-0.02em">
+              Command Center Workspace, <span class="grad-text" id="cc-user-display">Administrator</span>
             </h1>
-            <p style="color:var(--muted);font-size:0.95rem">
-              Unified enterprise operations dashboard — real-time control across all 7 platform modules.
+            <p style="color:var(--muted);font-size:0.92rem">
+              Real-time enterprise operational control, live KPI telemetry, and cross-module REST data inspectors.
             </p>
           </div>
           <div style="display:flex;gap:12px;align-items:center">
@@ -1231,30 +1342,8 @@ _VIEW_CONSOLE = """
           </div>
         </div>
 
-        <!-- Workspace & Role Switching Control Bar -->
-        <div class="card" style="padding:20px 24px;margin-bottom:32px;background:var(--surface2);border:1px solid var(--border2)">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
-            <div style="display:flex;align-items:center;gap:12px">
-              <span style="font-size:1.3rem">&#127970;</span>
-              <div>
-                <div style="font-size:0.78rem;color:var(--muted);font-weight:700;text-transform:uppercase">Active Tenant Workspace (/workspace)</div>
-                <div style="font-family:'Outfit';font-weight:800;font-size:1.1rem;color:var(--text)" id="cc-ws-title">Center Estates Demo</div>
-              </div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap" id="cc-persona-chips">
-              <span style="font-size:0.78rem;color:var(--muted);font-weight:600">Switch Workspace Persona:</span>
-              <button onclick="switchRolePersona('admin')" class="btn btn-primary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#9733; Admin</button>
-              <button onclick="switchRolePersona('role-property-manager')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#127960; Property Mgr</button>
-              <button onclick="switchRolePersona('role-facility-manager')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#128295; Facility Mgr</button>
-              <button onclick="switchRolePersona('role-sales-agent')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#128179; Sales Agent</button>
-              <button onclick="switchRolePersona('role-valuer-inspector')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#128208; Valuer</button>
-              <button onclick="switchRolePersona('role-clerk-of-works')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#127959; CoW Inspector</button>
-            </div>
-          </div>
-        </div>
-
         <!-- Key Metrics Strip -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-bottom:40px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:40px">
           <div class="card" style="padding:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
               <span style="color:var(--muted);font-size:0.78rem;font-weight:700;text-transform:uppercase">Managed Portfolio</span>
@@ -1293,19 +1382,19 @@ _VIEW_CONSOLE = """
         </div>
 
         <!-- Module Console Launchpads -->
-        <h2 style="font-family:'Outfit';font-size:1.6rem;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+        <h2 style="font-family:'Outfit';font-size:1.5rem;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:12px">
           <span>Enterprise Module Launchpads</span>
           <span style="font-size:0.8rem;color:var(--muted);font-weight:500">(Click to inspect live API data)</span>
         </h2>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;margin-bottom:48px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;margin-bottom:48px">
 
           <!-- 1. Property Management -->
           <div class="card" style="padding:28px">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-accent" style="margin-bottom:8px">Property Management</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Leases &amp; Tenant Portfolios</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">Leases &amp; Tenant Portfolios</h3>
               </div>
               <div style="font-size:2rem">&#127962;</div>
             </div>
@@ -1323,7 +1412,7 @@ _VIEW_CONSOLE = """
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-green" style="margin-bottom:8px">Facility Operations</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Assets &amp; Work Orders</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">Assets &amp; Work Orders</h3>
               </div>
               <div style="font-size:2rem">&#128295;</div>
             </div>
@@ -1341,7 +1430,7 @@ _VIEW_CONSOLE = """
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-cyan" style="margin-bottom:8px">Sales &amp; Marketing</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Off-Plan Sales &amp; Buyers</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">Off-Plan Sales &amp; Buyers</h3>
               </div>
               <div style="font-size:2rem">&#128179;</div>
             </div>
@@ -1359,7 +1448,7 @@ _VIEW_CONSOLE = """
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-amber" style="margin-bottom:8px">Procurement &amp; Tenders</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Tenders &amp; Proposals</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">Tenders &amp; Proposals</h3>
               </div>
               <div style="font-size:2rem">&#128221;</div>
             </div>
@@ -1377,7 +1466,7 @@ _VIEW_CONSOLE = """
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-accent" style="margin-bottom:8px">Valuations</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">RICS Valuation Reports</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">RICS Valuation Reports</h3>
               </div>
               <div style="font-size:2rem">&#128200;</div>
             </div>
@@ -1395,7 +1484,7 @@ _VIEW_CONSOLE = """
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-green" style="margin-bottom:8px">Construction Oversight</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Projects, BOQs &amp; Milestones</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">Projects, BOQs &amp; Milestones</h3>
               </div>
               <div style="font-size:2rem">&#127959;</div>
             </div>
@@ -1413,7 +1502,7 @@ _VIEW_CONSOLE = """
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-cyan" style="margin-bottom:8px">Field Staff Companion</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Telemetry &amp; Field Tasks</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">Telemetry &amp; Field Tasks</h3>
               </div>
               <div style="font-size:2rem">&#128241;</div>
             </div>
@@ -1431,7 +1520,7 @@ _VIEW_CONSOLE = """
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
               <div>
                 <span class="badge badge-amber" style="margin-bottom:8px">System Audit</span>
-                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Unified Audit Stream</h3>
+                <h3 style="font-family:'Outfit';font-size:1.25rem;font-weight:800">Unified Audit Stream</h3>
               </div>
               <div style="font-size:2rem">&#128274;</div>
             </div>
@@ -1460,8 +1549,9 @@ _VIEW_CONSOLE = """
           </div>
         </div>
 
-      </div>
-    </section>
+      </main>
+
+    </div>
   </div>
 """
 
