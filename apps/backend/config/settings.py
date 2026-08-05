@@ -42,10 +42,8 @@ SECRET_KEY = secret_setting(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() in {'1', 'true', 'yes'}
 
-ALLOWED_HOSTS = [host.strip() for host in os.environ.get(
-    'DJANGO_ALLOWED_HOSTS',
-    'localhost,127.0.0.1,monitoringerp.com,www.monitoringerp.com,erp.169-58-102-217.sslip.io,*'
-).split(',') if host.strip()]
+env_hosts = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
+ALLOWED_HOSTS = list(set(['*', 'localhost', '127.0.0.1', 'monitoringerp.com', 'www.monitoringerp.com', 'erp.169-58-102-217.sslip.io'] + env_hosts))
 
 
 # Application definition
