@@ -1060,17 +1060,25 @@ _SCRIPTS = """
       }
     }
 
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return '';
+    }
+
     async function switchRolePersona(username) {
       try {
         const resp = await fetch('/api/v1/auth/login/', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
           body: JSON.stringify({ username: username, password: 'admin123' })
         });
         if (resp.ok) {
           window.location.reload();
         } else {
-          alert('Could not switch to persona: ' + username);
+          const err = await resp.json().catch(() => ({}));
+          alert('Could not switch to persona ' + username + ': ' + (err.detail || 'Access denied'));
         }
       } catch (err) {
         alert('Error switching persona: ' + err.message);
