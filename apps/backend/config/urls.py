@@ -956,6 +956,7 @@ _SCRIPTS = """
         const data = await resp.json().catch(() => ({}));
         if (resp.ok) {
           closeModal('login-modal');
+          showView('console');
           await updateSessionState();
         } else {
           const msg = data.detail || data.non_field_errors?.[0] || data.password?.[0] || 'Authentication failed. Check your credentials.';
@@ -1053,7 +1054,7 @@ _SCRIPTS = """
     // ─── Routing on load ─────────────────────────────────────────────────────
     (function initRoute() {
       const path = window.location.pathname.replace(/\/+$/, '') || '/';
-      const map = { '/': 'home', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
+      const map = { '/': 'home', '/console': 'console', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
       const view = map[path] || 'home';
       showView(view);
       if (path === '/login') openModal('login-modal');
