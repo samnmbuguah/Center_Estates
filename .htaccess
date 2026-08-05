@@ -1,0 +1,10 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home2/monitori/monitoringerp.com"
+PassengerBaseURI "/"
+PassengerPython "/home2/monitori/virtualenv/monitoringerp.com/3.9/bin/python"
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# Force HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
