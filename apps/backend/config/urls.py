@@ -515,22 +515,10 @@ _MODALS = """
 
 _SCRIPTS = """
   <script>
-    // ─── CSRF ────────────────────────────────────────────────────────────────
-    let _csrf = null;
-    async function getCSRF() {
-      if (_csrf) return _csrf;
-      const r = await fetch('/api/v1/auth/csrf/', { credentials: 'same-origin' });
-      const d = await r.json();
-      _csrf = d.csrfToken;
-      return _csrf;
-    }
-
     // ─── Modal helpers ───────────────────────────────────────────────────────
     function openModal(id) {
       document.getElementById(id).classList.add('active');
       document.body.style.overflow = 'hidden';
-      // Pre-fetch CSRF when opening login/register
-      if (id === 'login-modal' || id === 'register-modal') getCSRF();
     }
     function closeModal(id) {
       document.getElementById(id).classList.remove('active');
@@ -593,16 +581,14 @@ _SCRIPTS = """
       const p = document.getElementById('l-password').value;
       const btn = document.getElementById('login-btn');
       const txt = document.getElementById('login-btn-text');
-      const alert = document.getElementById('login-alert');
-      alert.style.display = 'none';
+      const alertEl = document.getElementById('login-alert');
+      alertEl.style.display = 'none';
       btn.disabled = true;
       txt.innerHTML = '<div class="spinner"></div> Authenticating...';
       try {
-        const csrf = await getCSRF();
         const resp = await fetch('/api/v1/auth/login/', {
           method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: u, password: p })
         });
         const data = await resp.json().catch(() => ({}));
@@ -611,15 +597,14 @@ _SCRIPTS = """
           window.location.href = '/api/v1/docs/';
         } else {
           const msg = data.detail || data.non_field_errors?.[0] || data.password?.[0] || 'Authentication failed. Check your credentials.';
-          alert.textContent = msg;
-          alert.className = 'alert alert-error';
-          alert.style.display = 'flex';
-          _csrf = null; // reset so next attempt fetches fresh token
+          alertEl.textContent = msg;
+          alertEl.className = 'alert alert-error';
+          alertEl.style.display = 'flex';
         }
       } catch {
-        alert.textContent = 'Network error. Please try again.';
-        alert.className = 'alert alert-error';
-        alert.style.display = 'flex';
+        alertEl.textContent = 'Network error. Please try again.';
+        alertEl.className = 'alert alert-error';
+        alertEl.style.display = 'flex';
       } finally {
         btn.disabled = false;
         txt.textContent = 'Sign In to Platform';
@@ -646,16 +631,14 @@ _SCRIPTS = """
         organization_name: document.getElementById('r-org').value.trim() || undefined,
       };
       try {
-        const csrf = await getCSRF();
         const resp = await fetch('/api/v1/auth/register/', {
           method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const data = await resp.json().catch(() => ({}));
         if (resp.ok || resp.status === 201) {
-          successEl.textContent = '\\u2713 Account created! You can now sign in with your credentials.';
+          successEl.textContent = '\u2713 Account created! You can now sign in.';
           successEl.style.display = 'flex';
           document.getElementById('register-form').reset();
           document.querySelectorAll('.pwd-bar').forEach(b => b.style.background = 'var(--border)');
@@ -686,20 +669,17 @@ _SCRIPTS = """
       btn.disabled = true;
       txt.innerHTML = '<div class="spinner"></div> Sending...';
       try {
-        const csrf = await getCSRF();
-        const resp = await fetch('/api/v1/auth/password-reset/', {
+        await fetch('/api/v1/auth/password-reset/', {
           method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: document.getElementById('f-email').value.trim() })
         });
-        // Always show success to prevent email enumeration
-        alertEl.textContent = '\\u2713 If an account with that email exists, you will receive a reset link shortly.';
+        alertEl.textContent = '\u2713 If an account with that email exists, you will receive a reset link.';
         alertEl.className = 'alert alert-success';
         alertEl.style.display = 'flex';
         document.getElementById('forgot-form').reset();
       } catch {
-        alertEl.textContent = '\\u2713 If an account with that email exists, you will receive a reset link shortly.';
+        alertEl.textContent = '\u2713 If an account with that email exists, you will receive a reset link.';
         alertEl.className = 'alert alert-success';
         alertEl.style.display = 'flex';
       } finally {

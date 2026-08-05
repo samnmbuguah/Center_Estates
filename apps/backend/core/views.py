@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.db import connection
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt, csrf_protect
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -70,8 +70,10 @@ def csrf(request):
     return JsonResponse({'csrfToken': get_token(request)})
 
 
-@method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
+    """Cookie-based JWT login. CSRF-exempt: protected by CORS + rate-limiting.
+    Authenticated endpoints are still CSRF-protected via CookieJWTAuthentication."""
     authentication_classes = ()
     permission_classes = (AllowAny,)
     throttle_classes = (ScopedRateThrottle,)
@@ -479,9 +481,9 @@ def security_audit(request):
     })
 
 
-@method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(APIView):
-    """Self-service account registration. Creates a Django user and optionally an organisation."""
+    """Self-service account registration. CSRF-exempt: protected by CORS + rate-limiting."""
     authentication_classes = ()
     permission_classes = (AllowAny,)
 
@@ -547,9 +549,10 @@ class RegisterView(APIView):
         }, status=201)
 
 
-@method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class PasswordResetRequestView(APIView):
-    """Initiate a password reset. Always returns 200 to prevent email enumeration."""
+    """Initiate a password reset. Always returns 200 to prevent email enumeration.
+    CSRF-exempt: no authenticated state; protected by CORS + rate-limiting."""
     authentication_classes = ()
     permission_classes = (AllowAny,)
 
