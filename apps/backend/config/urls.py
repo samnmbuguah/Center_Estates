@@ -791,7 +791,7 @@ _SCRIPTS = """
 
     function renderModuleTable(moduleKey, items, container) {
       if (!items || items.length === 0) {
-        container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No records found in this workspace yet.<br><br><button onclick="loadModuleData(\'' + moduleKey + '\')" class="btn btn-secondary btn-sm">Inspect Raw API ↗</button></div>';
+        container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">No records found in this workspace yet.<br><br><button onclick="loadModuleData('${moduleKey}')" class="btn btn-secondary btn-sm">Inspect Raw API ↗</button></div>`;
         return;
       }
 
