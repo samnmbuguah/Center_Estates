@@ -198,6 +198,55 @@ class TaskTemplateViewSet(CompanionModelViewSet):
     search_fields = ('name', 'title_template')
 
 
+import json
+import os
+import urllib.error
+import urllib.request
+
+
+def query_opencode_llm(prompt: str, context_str: str) -> str:
+    api_key = os.environ.get('OPENCODE_API_KEY') or os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        return ""
+
+    api_url = os.environ.get('OPENCODE_API_URL') or 'https://api.opencode.ai/v1/chat/completions'
+
+    system_prompt = (
+        "You are CeEst Operations Assistant, an AI co-pilot for Center Estates ERP system in Kenya. "
+        "Provide professional, structured, concise ERP operational guidance for property, facility, and construction management. "
+        "Use markdown formatting with bullet points."
+    )
+
+    payload = {
+        "model": os.environ.get('OPENCODE_MODEL', 'opencode-gpt-4o'),
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Live System Context:\n{context_str}\n\nUser Question:\n{prompt}"}
+        ],
+        "temperature": 0.4,
+        "max_tokens": 500
+    }
+
+    try:
+        req = urllib.request.Request(
+            api_url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {api_key}'
+            },
+            method='POST'
+        )
+        with urllib.request.urlopen(req, timeout=10) as res:
+            if res.status == 200:
+                data = json.loads(res.read().decode('utf-8'))
+                return data['choices'][0]['message']['content'].strip()
+    except Exception as err:
+        print(f"OpenCode API Note: {err}")
+        return ""
+    return ""
+
+
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
@@ -223,7 +272,8 @@ class CompanionDashboardViewSet(ViewSet):
     @action(detail=False, methods=('post',))
     def chat(self, request):
         organization = get_active_organization(request)
-        prompt = str(request.data.get('prompt', '')).strip().lower()
+        raw_prompt = str(request.data.get('prompt', '')).strip()
+        prompt = raw_prompt.lower()
         now = timezone.now()
 
         # Gather real-time context metrics across the organization
@@ -232,8 +282,17 @@ class CompanionDashboardViewSet(ViewSet):
         overdue_count = active_tasks.filter(due_at__lt=now).count()
         escalated_count = active_tasks.filter(escalated=True).count()
 
+        context_str = (
+            f"Organization: {organization.name}\n"
+            f"Active Tasks Assigned to User: {active_tasks.filter(assignee=request.user).count()}\n"
+            f"Overdue Tasks: {overdue_count}\n"
+            f"Escalated SLA Tasks: {escalated_count}\n"
+        )
+
+        llm_response = query_opencode_llm(raw_prompt, context_str)
+
         if 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
-            response_text = (
+            response_text = llm_response or (
                 f"📊 **Property Operations Summary for {organization.name}**:\n"
                 f"- **Active Properties**: 24 Portfolio Buildings\n"
                 f"- **Occupancy Rate**: 84.6% (1,056 of 1,248 units occupied)\n"
@@ -247,7 +306,7 @@ class CompanionDashboardViewSet(ViewSet):
                 {"label": "View Rent Aging Report", "action": "view_report", "href": "/property?tab=reports"},
             ]
         elif 'facility' in prompt or 'work order' in prompt or 'maintenance' in prompt or 'hvac' in prompt:
-            response_text = (
+            response_text = llm_response or (
                 f"🔧 **Facility Operations & Maintenance Summary**:\n"
                 f"- **Active Equipment Assets**: 846 registered assets across facilities.\n"
                 f"- **Open Work Orders**: 34 active (7 Urgent/Overdue, 12 In Progress, 15 Pending).\n"
@@ -260,7 +319,7 @@ class CompanionDashboardViewSet(ViewSet):
                 {"label": "PPM Schedule", "action": "ppm", "href": "/facility?tab=planned-maintenance"},
             ]
         elif 'construction' in prompt or 'ticket' in prompt or 'project' in prompt or 'site' in prompt:
-            response_text = (
+            response_text = llm_response or (
                 f"🏗️ **Construction Monitoring Summary**:\n"
                 f"- **Active Site Projects**: 4 major developments (CE-CONSTRUCTION-001 active).\n"
                 f"- **Open Site Tickets/Issues**: 12 open (3 High Priority structural/quality items).\n"
@@ -273,7 +332,7 @@ class CompanionDashboardViewSet(ViewSet):
                 {"label": "Open IPC Builder", "action": "ipc", "href": "/monitoring/projects/1/ipc"},
             ]
         else:
-            response_text = (
+            response_text = llm_response or (
                 f"🤖 **CeEst Operations Companion Status for {request.user.firstName or request.user.username}**:\n"
                 f"- You have **{active_tasks.filter(assignee=request.user).count()} active tasks** assigned to you.\n"
                 f"- **{overdue_count} tasks are overdue** and **{escalated_count} tasks require SLA escalation**.\n"
