@@ -295,7 +295,7 @@ class CompanionDashboardViewSet(ViewSet):
         qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
         qm_result = qm_orchestrator.execute_agent(
             prompt=raw_prompt,
-            user_name=request.user.firstName or request.user.username,
+            user_name=request.user.first_name or request.user.username,
             context_str=context_str,
         )
         llm_response = qm_result.get('response', '')
@@ -342,7 +342,7 @@ class CompanionDashboardViewSet(ViewSet):
             ]
         else:
             response_text = llm_response or (
-                f"🤖 **CeEst Operations Companion Status for {request.user.firstName or request.user.username}**:\n"
+                f"🤖 **CeEst Operations Companion Status for {request.user.first_name or request.user.username}**:\n"
                 f"- You have **{active_tasks.filter(assignee=request.user).count()} active tasks** assigned to you.\n"
                 f"- **{overdue_count} tasks are overdue** and **{escalated_count} tasks require SLA escalation**.\n"
                 f"- All systems operational (Property, Facility, Sales, Construction Monitoring)."

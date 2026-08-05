@@ -20,9 +20,9 @@ cd apps/web
 npm run build
 cd ../..
 
-# 2. Sync Files to cPanel via rsync
-echo "📤 Step 2: Syncing application code to ${REMOTE_HOST}:${REMOTE_PATH}..."
-rsync -avz --delete \
+# 2. Package codebase into lightweight archive
+echo "📦 Step 2: Packaging application archive..."
+tar -czf /tmp/deploy.tar.gz \
   --exclude='.git' \
   --exclude='.github' \
   --exclude='.next/cache' \
@@ -30,17 +30,28 @@ rsync -avz --delete \
   --exclude='__pycache__' \
   --exclude='*.pyc' \
   --exclude='.env' \
-  ./ "${REMOTE_HOST}:${REMOTE_PATH}/"
+  .
 
-# 3. Remote Setup & Dependency Installation
-echo "⚙️ Step 3: Installing Python dependencies and running migrations..."
+# 3. Upload archive to cPanel server
+echo "📤 Step 3: Uploading archive to ${REMOTE_HOST}:${REMOTE_PATH}..."
+scp /tmp/deploy.tar.gz "${REMOTE_HOST}:${REMOTE_PATH}/deploy.tar.gz"
+
+# 4. Extract and initialize environment on remote server
+echo "⚙️ Step 4: Extracting files, installing dependencies, and running migrations..."
 ssh "${REMOTE_HOST}" "
   source ${VENV_PATH}
   cd ${REMOTE_PATH}
+  tar -xzf deploy.tar.gz
+  rm -f deploy.tar.gz
   pip install --quiet --upgrade pip
   pip install --quiet -r apps/backend/requirements.txt PyMySQL
   python apps/backend/manage.py migrate --noinput || true
   python apps/backend/manage.py collectstatic --noinput || true
+  
+  # Set AI / QM API key for the Companion module
+  export OPENCODE_API_KEY='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'
+  export OPENAI_API_KEY='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'
+  
   mkdir -p tmp
   touch tmp/restart.txt
 "

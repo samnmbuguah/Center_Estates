@@ -70,3 +70,25 @@ class CompanionApiTests(TestCase):
         self.assertIn("staff", res.data)
         staff_rows = {s["user_id"]: s for s in res.data["staff"]}
         self.assertIn(str(self.staff.pk), staff_rows)
+
+    def test_ai_chat_endpoint_with_rule_based_fallback(self):
+        self.login(self.admin)
+        response = self.client.post(
+            '/api/v1/companion/dashboard/chat/',
+            {'prompt': 'Show me rent collections'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('response', response.data)
+        self.assertIn('suggestedActions', response.data)
+        self.assertTrue(len(response.data['suggestedActions']) > 0)
+
+    def test_ai_chat_endpoint_default_prompt(self):
+        self.login(self.admin)
+        response = self.client.post(
+            '/api/v1/companion/dashboard/chat/',
+            {'prompt': ''},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('response', response.data)
