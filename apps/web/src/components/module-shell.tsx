@@ -45,6 +45,8 @@ type ModuleShellProps = {
   entities?: EntityOption[];
   activeEntityId?: string;
   onSelectEntity?: (id: string) => void;
+  contextLabel?: string;
+  contextValue?: string;
 };
 
 export function ModuleShell({
