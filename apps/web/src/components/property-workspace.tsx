@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
@@ -33,7 +33,10 @@ export type PropertyTab =
   | "budgets"
   | "expenses"
   | "reports"
-  | "fees";
+  | "fees"
+  | "owner-portal"
+  | "forecast"
+  | "critical-dates";
 
 type Row = Record<string, unknown>;
 type ID = string;
@@ -62,6 +65,9 @@ const labels: Record<PropertyTab, string> = {
   expenses: "Property Expenses",
   reports: "Reports Catalogue",
   fees: "Fee Invoicing",
+  "owner-portal": "Owner Portal",
+  forecast: "5-Year Forecast",
+  "critical-dates": "Critical Dates",
 };
 
 /* ─── data row shapes (mirror backend serializers) ─── */
@@ -274,6 +280,41 @@ function exportCsv(rows: Row[], columns: { key: string; label: string }[], filen
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function exportLeaseICS(leases: Row[]) {
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Center Estates//ERP//EN"];
+  for (const l of leases) {
+    const endDate = String(l.end_date || l.end || "");
+    if (!endDate) continue;
+    const dt = new Date(endDate);
+    const dateStr = dt.getFullYear().toString() +
+      String(dt.getMonth() + 1).padStart(2, "0") +
+      String(dt.getDate()).padStart(2, "0") + "T000000Z";
+    lines.push(
+      "BEGIN:VEVENT",
+      `DTSTART:${dateStr}`,
+      `DTEND:${dateStr}`,
+      `SUMMARY:Lease expires: ${String(l.tenant_name || "")} - ${String(l.property_name || "")}`,
+      `DESCRIPTION:Lease ${String(l.reference || l.id || "")} expires. Monthly rent: KES ${Number(l.monthly_rent || 0).toLocaleString()}`,
+      "END:VEVENT"
+    );
+    const remind = new Date(dt.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const rStr = remind.getFullYear().toString() +
+      String(remind.getMonth() + 1).padStart(2, "0") +
+      String(remind.getDate()).padStart(2, "0") + "T000000Z";
+    lines.push(
+      "BEGIN:VEVENT",
+      `DTSTART:${rStr}`,
+      `DTEND:${rStr}`,
+      `SUMMARY:REMINDER: Lease expires in 30 days - ${String(l.tenant_name || "")}`,
+      "END:VEVENT"
+    );
+  }
+  lines.push("END:VCALENDAR");
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "lease-calendar.ics"; a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 /* ─── shared layout primitives ─── */
@@ -1170,6 +1211,7 @@ function LeasesView({
           { key: "escalation_percent", label: "Escalation %" }, { key: "status", label: "Status" },
           { key: "outstanding", label: "Outstanding" },
         ], "leases.csv")}>Export CSV</button>
+        <button className="btn ghost sm" onClick={() => exportLeaseICS(filtered)} title="Export leases to Outlook/Google Calendar">📅 Export Calendar</button>
       </ViewToolbar>
 
       <div className="card" style={{ padding: 18, border: "1px dashed var(--primary)", background: "var(--surface-2)" }}>
@@ -2896,6 +2938,530 @@ function ReportsView({ rows, loading, onExport }: {
   );
 }
 
+/* ─── OWNER PORTAL ─── */
+
+const sampleProperties = [
+  { name: "Nairobi Business Park", value: 450000000, incomeYtd: 36000000, occupancy: 94, noi: 23400000, capRate: 7.8 },
+  { name: "Mombasa Plaza", value: 280000000, incomeYtd: 22400000, occupancy: 88, noi: 14784000, capRate: 7.9 },
+  { name: "Kisumu Commercial Centre", value: 190000000, incomeYtd: 15200000, occupancy: 91, noi: 9880000, capRate: 7.8 },
+  { name: "Upper Hill Heights", value: 520000000, incomeYtd: 41600000, occupancy: 96, noi: 29952000, capRate: 8.6 },
+  { name: "Westlands Square", value: 340000000, incomeYtd: 27200000, occupancy: 85, noi: 15504000, capRate: 6.8 },
+];
+
+const sampleDistributions = [
+  { date: "2026-07-31", property: "Nairobi Business Park", amount: 4850000, status: "Paid" },
+  { date: "2026-07-31", property: "Mombasa Plaza", amount: 3100000, status: "Paid" },
+  { date: "2026-07-31", property: "Upper Hill Heights", amount: 6200000, status: "Pending" },
+  { date: "2026-06-30", property: "Kisumu Commercial Centre", amount: 2050000, status: "Paid" },
+];
+
+const occupancyTrend = [
+  { month: "Jan", rate: 87 }, { month: "Feb", rate: 88 }, { month: "Mar", rate: 89 },
+  { month: "Apr", rate: 90 }, { month: "May", rate: 92 }, { month: "Jun", rate: 91 },
+];
+
+const expenseBreakdown = [
+  { category: "Maintenance", amount: 8200000, color: "#3b82f6" },
+  { category: "Utilities", amount: 5400000, color: "#f59e0b" },
+  { category: "Security", amount: 3800000, color: "#8b5cf6" },
+  { category: "Insurance", amount: 2900000, color: "#ec4899" },
+  { category: "Property Tax", amount: 4500000, color: "#ef4444" },
+  { category: "Management", amount: 3200000, color: "#22c55e" },
+];
+
+const incomeByProperty = [
+  { name: "Nairobi BP", income: 36000000, color: "#3b82f6" },
+  { name: "Upper Hill", income: 41600000, color: "#22c55e" },
+  { name: "Westlands", income: 27200000, color: "#f59e0b" },
+  { name: "Mombasa Plz", income: 22400000, color: "#8b5cf6" },
+  { name: "Kisumu CC", income: 15200000, color: "#ec4899" },
+];
+
+function OwnerPortalView() {
+  const portfolioValue = sampleProperties.reduce((s, p) => s + p.value, 0);
+  const grossIncome = sampleProperties.reduce((s, p) => s + p.incomeYtd, 0);
+  const noiTotal = sampleProperties.reduce((s, p) => s + p.noi, 0);
+  const avgOccupancy = Math.round(sampleProperties.reduce((s, p) => s + p.occupancy, 0) / sampleProperties.length);
+  const capex = 12800000;
+  const dscr = 1.85;
+  const incomeMax = Math.max(...incomeByProperty.map((p) => p.income), 1);
+  const trendMax = Math.max(...occupancyTrend.map((t) => t.rate), 1);
+  const expenseTotal = expenseBreakdown.reduce((s, e) => s + e.amount, 0);
+  const expenseDonut = expenseTotal > 0
+    ? `conic-gradient(${expenseBreakdown.reduce((acc, e, i) => {
+        const pct = Math.round((e.amount / expenseTotal) * 100);
+        const prev = expenseBreakdown.slice(0, i).reduce((s, pe) => s + Math.round((pe.amount / expenseTotal) * 100), 0);
+        return `${acc}${e.color} ${prev}% ${prev + pct}%, `;
+      }, "")}var(--surface-3) ${expenseBreakdown.reduce((s, e) => s + Math.round((e.amount / expenseTotal) * 100), 0)}% 100%)`
+    : "conic-gradient(var(--surface-3) 0% 100%)";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
+      <KpiStrip cols={6}>
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Portfolio Value" value={kM(portfolioValue)} sub="Aggregate valuation" />
+        <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Gross Rental Income" value={kM(grossIncome)} sub="Year to date" />
+        <KpiCard icon="📈" iconBg="#dbeafe" iconColor="#2563eb" label="Net Operating Income" value={kM(noiTotal)} sub={`${Math.round((noiTotal / grossIncome) * 100)}% margin`} />
+        <KpiCard icon="▣" iconBg="#e0f2fe" iconColor="#0284c7" label="Occupancy Rate" value={`${avgOccupancy}%`} sub="Portfolio average" />
+        <KpiCard icon="🔧" iconBg="#fee2e2" iconColor="#dc2626" label="Capital Expenditure" value={kM(capex)} sub="Year to date" />
+        <KpiCard icon="📊" iconBg="#fef3c7" iconColor="#d97706" label="DSCR" value={`${dscr.toFixed(2)}x`} sub="Debt Service Coverage" />
+      </KpiStrip>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
+        <Panel title="Income by Property" action={<button className="btn ghost sm">Download →</button>}>
+          <div className="row" style={{ alignItems: "flex-end", gap: 20, height: 170, padding: "18px 20px 8px", borderBottom: "1px solid var(--border)" }}>
+            {incomeByProperty.map((p) => (
+              <div key={p.name} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div title={`${kM(p.income)}`} style={{ width: 36, height: `${Math.max((p.income / incomeMax) * 100, 3)}%`, background: p.color, borderRadius: "6px 6px 0 0" }} />
+                <span className="muted" style={{ fontSize: 10 }}>{p.name}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {incomeByProperty.map((p) => (
+              <div key={p.name} className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
+                  <i style={{ background: p.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />{p.name}
+                </span>
+                <strong className="mono">{kM(p.income)}</strong>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Occupancy Trend (6-Month)">
+          <div className="row" style={{ alignItems: "flex-end", gap: 16, height: 170, padding: "18px 20px 8px", borderBottom: "1px solid var(--border)" }}>
+            {occupancyTrend.map((t) => (
+              <div key={t.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div title={`${t.rate}%`} style={{ width: 28, height: `${Math.max((t.rate / trendMax) * 100, 3)}%`, background: "var(--primary)", borderRadius: "4px 4px 0 0" }} />
+                <span className="muted" style={{ fontSize: 11 }}>{t.month}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Panel title="Top Properties" action={<button className="btn ghost sm">Export →</button>}>
+            <div className="table-scroll">
+              <table className="fc-data-table">
+                <thead>
+                  <tr>
+                    <th>Property</th>
+                    <th>Value</th>
+                    <th>Income YTD</th>
+                    <th>Occupancy</th>
+                    <th>NOI</th>
+                    <th>Cap Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sampleProperties.map((p) => (
+                    <tr key={p.name}>
+                      <td><strong style={{ fontSize: 12 }}>{p.name}</strong></td>
+                      <td className="mono">{kM(p.value)}</td>
+                      <td className="mono">{kM(p.incomeYtd)}</td>
+                      <td><Badge tone={occupancyTone(p.occupancy)}>{p.occupancy}%</Badge></td>
+                      <td className="mono">{kM(p.noi)}</td>
+                      <td className="mono">{p.capRate}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <Panel title="Recent Distributions">
+            <div className="table-scroll">
+              <table className="fc-data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Property</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sampleDistributions.map((d, i) => (
+                    <tr key={i}>
+                      <td style={{ fontSize: 12 }}>{fmtDate(d.date)}</td>
+                      <td style={{ fontSize: 12 }}>{d.property}</td>
+                      <td className="mono">{kM(d.amount)}</td>
+                      <td><StatusPill value={d.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Panel title="Expense Breakdown">
+            <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 20px" }}>
+              <div style={{ width: 110, height: 110, borderRadius: "50%", background: expenseDonut, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 700 }}>{kM(expenseTotal)}</div>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+                {expenseBreakdown.map((e) => (
+                  <div key={e.category} className="row" style={{ justifyContent: "space-between", fontSize: 11 }}>
+                    <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 6 }}>
+                      <i style={{ background: e.color, borderRadius: "50%", display: "inline-block", height: 7, width: 7 }} />{e.category}
+                    </span>
+                    <strong className="mono">{kM(e.amount)}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Quick Actions">
+            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }}>📥 Download Portfolio Report</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }}>📊 Export to Excel</button>
+              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }}>📧 Share with Stakeholders</button>
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 5-YEAR CAPITAL FORECAST ─── */
+
+const forecastYears = [2026, 2027, 2028, 2029, 2030] as const;
+
+const forecastProperties = [
+  {
+    name: "Nairobi Business Park",
+    rentalIncome: [36000000, 37800000, 39690000, 41674500, 43758225],
+    serviceCharge: [4200000, 4410000, 4630500, 4862025, 5105126],
+    opex: [12800000, 13184000, 13579520, 13986906, 14406513],
+    capex: [3200000, 4500000, 3800000, 5000000, 4200000],
+    noi: [22900000, 24626000, 26030480, 27437619, 29022838],
+  },
+  {
+    name: "Mombasa Plaza",
+    rentalIncome: [22400000, 23520000, 24696000, 25930800, 27227340],
+    serviceCharge: [2800000, 2940000, 3087000, 3241350, 3403418],
+    opex: [9100000, 9373000, 9654190, 9943816, 10242130],
+    capex: [1800000, 2200000, 1500000, 2800000, 2000000],
+    noi: [14290000, 15127000, 16133810, 17193534, 18354628],
+  },
+  {
+    name: "Upper Hill Heights",
+    rentalIncome: [41600000, 43680000, 45864000, 48157200, 50565060],
+    serviceCharge: [5100000, 5355000, 5622750, 5903888, 6199082],
+    opex: [14800000, 15244000, 15701320, 16172360, 16657530],
+    capex: [5500000, 6800000, 4200000, 7100000, 5500000],
+    noi: [26350000, 28331000, 30557430, 32822728, 35177612],
+  },
+];
+
+const capitalProjects = [
+  { year: 2026, description: "Nairobi BP - Roof Replacement", cost: 3200000, funding: "Reserve Fund" },
+  { year: 2026, description: "Mombasa Plaza - Elevator Modernisation", cost: 1800000, funding: "CapEx Budget" },
+  { year: 2027, description: "Upper Hill - HVAC System Upgrade", cost: 6800000, funding: "CapEx Budget" },
+  { year: 2027, description: "Nairobi BP - Parking Lot Resurfacing", cost: 4500000, funding: "Reserve Fund" },
+  { year: 2028, description: "Mombasa Plaza - Facade Renovation", cost: 1500000, funding: "CapEx Budget" },
+  { year: 2028, description: "Upper Hill - Fire Safety System", cost: 4200000, funding: "Reserve Fund" },
+  { year: 2029, description: "Upper Hill - Solar Panel Installation", cost: 7100000, funding: "Green Fund" },
+  { year: 2029, description: "Nairobi BP - Common Area Refurb", cost: 5000000, funding: "CapEx Budget" },
+  { year: 2030, description: "Mombasa Plaza - Security System", cost: 2000000, funding: "CapEx Budget" },
+];
+
+function ForecastView() {
+  const [selectedYear, setSelectedYear] = useState(0);
+
+  const yearlyNoi = forecastYears.map((_, i) =>
+    forecastProperties.reduce((s, p) => s + p.noi[i], 0)
+  );
+  const yearlyCapex = forecastYears.map((_, i) =>
+    forecastProperties.reduce((s, p) => s + p.capex[i], 0)
+  );
+  const noiMax = Math.max(...yearlyNoi, 1);
+  const capexMax = Math.max(...yearlyCapex, 1);
+  const filteredProjects = capitalProjects.filter((p) => p.year === forecastYears[selectedYear]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
+      <div className="card" style={{ padding: 14, background: "var(--surface-2)" }}>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h4 style={{ margin: 0, fontSize: 14 }}>5-Year Capital Forecast</h4>
+            <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>Projected income, expenses and capital expenditure across the portfolio.</p>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            {forecastYears.map((y, i) => (
+              <button key={y} type="button" className={`btn sm ${selectedYear === i ? "primary" : "ghost"}`} onClick={() => setSelectedYear(i)}>{y}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 14, background: "var(--surface-2)", border: "1px dashed var(--primary)" }}>
+        <h4 style={{ margin: "0 0 8px 0", fontSize: 13 }}>Growth Assumptions</h4>
+        <div className="row" style={{ gap: 24, flexWrap: "wrap", fontSize: 12 }}>
+          <span>Annual rental escalation: <strong>5%</strong></span>
+          <span>Service charge inflation: <strong>5%</strong></span>
+          <span>Operating expense growth: <strong>3%</strong></span>
+          <span>Discount rate: <strong>8%</strong></span>
+          <span>Occupancy assumption: <strong>Stable</strong></span>
+        </div>
+      </div>
+
+      <Panel title="NOI Projection (5-Year)" action={<button className="btn ghost sm">Export →</button>}>
+        <div className="row" style={{ alignItems: "flex-end", gap: 20, height: 180, padding: "18px 20px 8px", borderBottom: "1px solid var(--border)" }}>
+          {forecastYears.map((y, i) => (
+            <div key={y} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div title={kM(yearlyNoi[i])} style={{ width: 44, height: `${Math.max((yearlyNoi[i] / noiMax) * 100, 3)}%`, background: i === 0 ? "#3b82f6" : "#22c55e", borderRadius: "6px 6px 0 0", opacity: 0.5 + i * 0.12 }} />
+              <span className="muted" style={{ fontSize: 11 }}>{y}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {forecastYears.map((y, i) => (
+            <div key={y} className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span style={{ color: "var(--muted)" }}>{y}</span>
+              <strong className="mono">{kM(yearlyNoi[i])}</strong>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="CapEx Schedule" action={<button className="btn ghost sm">Export →</button>}>
+        <div className="row" style={{ alignItems: "flex-end", gap: 20, height: 160, padding: "18px 20px 8px", borderBottom: "1px solid var(--border)" }}>
+          {forecastYears.map((y, i) => (
+            <div key={y} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div title={kM(yearlyCapex[i])} style={{ width: 44, height: `${Math.max((yearlyCapex[i] / capexMax) * 100, 3)}%`, background: "#f59e0b", borderRadius: "6px 6px 0 0", opacity: 0.5 + i * 0.12 }} />
+              <span className="muted" style={{ fontSize: 11 }}>{y}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Panel title="Forecast Table" action={<button className="btn ghost sm">Download →</button>}>
+            <div className="table-scroll">
+              <table className="fc-data-table">
+                <thead>
+                  <tr>
+                    <th>Property</th>
+                    {forecastYears.map((y) => (
+                      <th key={y} colSpan={5} style={{ textAlign: "center" }}>{y}</th>
+                    ))}
+                  </tr>
+                  <tr>
+                    <th />
+                    {forecastYears.flatMap((y) => [
+                      <th key={`${y}-ri`} style={{ fontSize: 9 }}>Rental</th>,
+                      <th key={`${y}-sc`} style={{ fontSize: 9 }}>Svc Chg</th>,
+                      <th key={`${y}-op`} style={{ fontSize: 9 }}>Opex</th>,
+                      <th key={`${y}-cx`} style={{ fontSize: 9 }}>CapEx</th>,
+                      <th key={`${y}-noi`} style={{ fontSize: 9 }}>NOI</th>,
+                    ])}
+                  </tr>
+                </thead>
+                <tbody>
+                  {forecastProperties.map((p) => (
+                    <tr key={p.name}>
+                      <td><strong style={{ fontSize: 12 }}>{p.name}</strong></td>
+                      {forecastYears.map((_, i) => (
+                        <Fragment key={i}>
+                          <td className="mono" style={{ fontSize: 11 }}>{kM(p.rentalIncome[i])}</td>
+                          <td className="mono" style={{ fontSize: 11 }}>{kM(p.serviceCharge[i])}</td>
+                          <td className="mono" style={{ fontSize: 11, color: "var(--danger)" }}>{kM(p.opex[i])}</td>
+                          <td className="mono" style={{ fontSize: 11, color: "#f59e0b" }}>{kM(p.capex[i])}</td>
+                          <td className="mono" style={{ fontSize: 11, fontWeight: 700, color: "#16a34a" }}>{kM(p.noi[i])}</td>
+                        </Fragment>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr>
+                    <td><strong style={{ fontSize: 12 }}>Total</strong></td>
+                    {forecastYears.map((_, i) => (
+                      <Fragment key={i}>
+                        <td className="mono" style={{ fontSize: 11 }}><strong>{kM(forecastProperties.reduce((s, p) => s + p.rentalIncome[i], 0))}</strong></td>
+                        <td className="mono" style={{ fontSize: 11 }}><strong>{kM(forecastProperties.reduce((s, p) => s + p.serviceCharge[i], 0))}</strong></td>
+                        <td className="mono" style={{ fontSize: 11 }}><strong>{kM(forecastProperties.reduce((s, p) => s + p.opex[i], 0))}</strong></td>
+                        <td className="mono" style={{ fontSize: 11 }}><strong>{kM(forecastProperties.reduce((s, p) => s + p.capex[i], 0))}</strong></td>
+                        <td className="mono" style={{ fontSize: 11, fontWeight: 700, color: "#16a34a" }}><strong>{kM(forecastProperties.reduce((s, p) => s + p.noi[i], 0))}</strong></td>
+                      </Fragment>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Panel title="Capital Projects">
+            <div className="table-scroll">
+              <table className="fc-data-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Cost</th>
+                    <th>Funding</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProjects.length > 0 ? filteredProjects.map((p, i) => (
+                    <tr key={i}>
+                      <td style={{ fontSize: 12 }}>{p.description}</td>
+                      <td className="mono">{kM(p.cost)}</td>
+                      <td><Badge tone="blue">{p.funding}</Badge></td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={3} className="muted" style={{ textAlign: "center", fontSize: 11 }}>No projects for {forecastYears[selectedYear]}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <div className="card" style={{ padding: 14, background: "var(--surface-2)", border: "1px dashed var(--primary)" }}>
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+              Forecasting engine coming soon. Contact your administrator to enable.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── CRITICAL DATES ─── */
+
+type CriticalDateType = "lease" | "contract" | "inspection" | "billing";
+
+interface CriticalDate {
+  type: CriticalDateType;
+  label: string;
+  property: string;
+  date: string;
+  entity: Row;
+  icon: string;
+}
+
+function criticalFormatDate(d: string) {
+  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+function criticalDaysUntil(d: string) {
+  return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+function CriticalDaysBadge({ date }: { date: string }) {
+  const d = criticalDaysUntil(date);
+  const color = d < 0 ? "red" : d <= 7 ? "red" : d <= 30 ? "yellow" : "green";
+  const text = d < 0 ? `${Math.abs(d)}d overdue` : d === 0 ? "Today" : `${d}d`;
+  return <span className={`pill pill-${color}`}>{text}</span>;
+}
+
+function exportICS(items: { title: string; date: string; description: string }[]) {
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Center Estates//ERP//EN",
+  ];
+  for (const item of items) {
+    const dt = new Date(item.date);
+    const dateStr = dt.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    lines.push(
+      "BEGIN:VEVENT",
+      `DTSTART:${dateStr}`,
+      `DTEND:${dateStr}`,
+      `SUMMARY:${item.title}`,
+      `DESCRIPTION:${item.description}`,
+      "END:VEVENT"
+    );
+  }
+  lines.push("END:VCALENDAR");
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "critical-dates.ics"; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function CriticalDatesView({ leases, contractors, inspections, serviceCharges, loading, setTab }: {
+  leases: Row[]; contractors: Row[]; inspections: Row[]; serviceCharges: Row[]; loading: boolean; setTab: (t: PropertyTab) => void;
+}) {
+  const [filter, setFilter] = useState<"all" | CriticalDateType>("all");
+
+  const dates = useMemo(() => {
+    const items: CriticalDate[] = [];
+    for (const l of leases) {
+      const end = String(l.end_date || l.lease_end || "");
+      if (end) items.push({ type: "lease", label: `Lease expires: ${String(l.tenant_name)}`, property: String(l.property_name ?? ""), date: end, entity: l, icon: "🔑" });
+    }
+    for (const c of contractors) {
+      const expires = String(c.expires_on || c.contract_expiry || "");
+      if (expires) items.push({ type: "contract", label: `Contract expires: ${String(c.name)}`, property: "", date: expires, entity: c, icon: "📄" });
+    }
+    for (const i of inspections) {
+      const scheduled = String(i.scheduled_at || i.scheduled_on || "");
+      const status = String(i.status || "");
+      if (scheduled && status !== "completed") items.push({ type: "inspection", label: `Inspection: ${String(i.title || i.name || "")}`, property: "", date: scheduled, entity: i, icon: "🔍" });
+    }
+    for (const sc of serviceCharges) {
+      const nextBilling = String(sc.next_billing || sc.billing_date || "");
+      if (nextBilling) items.push({ type: "billing", label: `Service charge billing: ${String(sc.scheme_name || sc.name || "")}`, property: String(sc.property_name ?? ""), date: nextBilling, entity: sc, icon: "💰" });
+    }
+    return items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [leases, contractors, inspections, serviceCharges]);
+
+  const filtered = filter === "all" ? dates : dates.filter(d => d.type === filter);
+  const next7 = dates.filter(d => criticalDaysUntil(d.date) <= 7).length;
+  const next30 = dates.filter(d => criticalDaysUntil(d.date) <= 30).length;
+  const overdue = dates.filter(d => criticalDaysUntil(d.date) < 0).length;
+
+  const icsItems = dates.map(d => ({ title: d.label, date: d.date, description: d.property ? `Property: ${d.property}` : "" }));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <KpiStrip>
+        <KpiCard icon="📅" label="Total Dates" value={String(dates.length)} />
+        <KpiCard icon="🔴" label="Next 7 Days" value={String(next7)} borderColor="#dc2626" />
+        <KpiCard icon="🟡" label="Next 30 Days" value={String(next30)} borderColor="#f59e0b" />
+        <KpiCard icon="⚠️" label="Overdue" value={String(overdue)} borderColor="#dc2626" />
+      </KpiStrip>
+
+      <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          {(["all", "lease", "contract", "inspection", "billing"] as const).map(f => (
+            <button key={f} className={`btn sm ${filter===f ? "primary" : "ghost"}`} onClick={() => setFilter(f)}>
+              {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}s
+            </button>
+          ))}
+        </div>
+        <button className="btn ghost sm" onClick={() => exportICS(icsItems)}>📅 Export to Calendar (ICS)</button>
+      </div>
+
+      <div className="card" style={{ padding: 18 }}>
+        {loading ? (
+          <LoadingState rows={6} />
+        ) : filtered.length === 0 ? (
+          <EmptyState icon="✅" title="No critical dates" description="All upcoming dates are clear." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {filtered.map((d, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: i < filtered.length-1 ? "1px solid var(--border)" : "none" }}>
+                <span style={{ fontSize: 20 }}>{d.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <strong style={{ fontSize: 14 }}>{d.label}</strong>
+                  <div className="muted" style={{ fontSize: 12 }}>{d.property ? `${d.property} · ` : ""}{criticalFormatDate(d.date)}</div>
+                </div>
+                <CriticalDaysBadge date={d.date} />
+                <button className="btn ghost sm" onClick={() => d.type === "lease" ? setTab("leases") : null}>View →</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── MAIN WORKSPACE ─── */
 
 export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
@@ -2918,6 +3484,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [analytics, setAnalytics] = useState<AgingAnalytics | null>(null);
   const [financial, setFinancial] = useState<FinancialAnalytics | null>(null);
   const [creditNotes, setCreditNotes] = useState<Row[]>([]);
+  const [contractors, setContractors] = useState<Row[]>([]);
+  const [inspections, setInspections] = useState<Row[]>([]);
+  const [criticalServiceCharges, setCriticalServiceCharges] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -3107,6 +3676,19 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const data = await res.json();
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(data) ? data : []);
+      } else if (tab === "critical-dates") {
+        const [leasesRes, scRes] = await Promise.all([
+          apiFetch(`/property/leases/?search=${q}`, {}, organizationId),
+          apiFetch(`/property/service-charges/?search=${q}`, {}, organizationId),
+        ]);
+        if (!leasesRes.ok || !scRes.ok) { fail(); return; }
+        const leasesData = await leasesRes.json();
+        const scData = await scRes.json();
+        if (version !== loadVersion.current) return;
+        setRows(Array.isArray(leasesData) ? leasesData : []);
+        setCriticalServiceCharges(Array.isArray(scData) ? scData : []);
+      } else if (tab === "owner-portal" || tab === "forecast") {
+        setLoading(false);
       } else {
         const ep = endpointFor(tab);
         const res = await apiFetch(`/property/${ep}/?search=${q}`, {}, organizationId);
@@ -3126,6 +3708,13 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     const timer = setTimeout(loadData, search ? 250 : 0);
     return () => clearTimeout(timer);
   }, [loadData, search]);
+
+  useEffect(() => {
+    if (tab === "critical-dates" && organizationId) {
+      apiFetch("/facility/contractors/", {}, organizationId).then(r => r.ok ? r.json() : []).then((d) => setContractors(Array.isArray(d) ? d : []));
+      apiFetch("/facility/inspections/", {}, organizationId).then(r => r.ok ? r.json() : []).then((d) => setInspections(Array.isArray(d) ? d : []));
+    }
+  }, [tab, organizationId]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -3639,6 +4228,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       { id: "fees",      label: "Fee Invoicing" },
     ],
     reports:  [],
+    "critical-dates":  [],
   };
 
   // Derive which left-nav section the current `tab` belongs to
@@ -3666,6 +4256,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     expenses: "expenses",
     fees: "expenses",
     reports: "reports",
+    "critical-dates": "critical-dates",
   };
 
   const activeSection = SECTION_FOR_TAB[tab] ?? tab;
@@ -3682,6 +4273,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     "service-charges": "service-charges",
     expenses: "expenses",
     reports: "reports",
+    "critical-dates": "critical-dates",
   };
 
   const handleSelectSection = (sectionId: string) => {
@@ -3738,6 +4330,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={(key) => void downloadReportCSV(key)} />}
         {tab === "fees" && <FeesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
+        {tab === "owner-portal" && <OwnerPortalView />}
+        {tab === "forecast" && <ForecastView />}
+        {tab === "critical-dates" && <CriticalDatesView leases={rows} contractors={contractors} inspections={inspections} serviceCharges={criticalServiceCharges} loading={loading} setTab={handleSelectTab} />}
 
         {selectedRow && (
           <DetailDrawer title={labels[tab]} onClose={() => setSelectedRow(null)} width={400}>

@@ -23,6 +23,14 @@ export const propertyNav: ModuleNavGroup[] = [
       { id: "reports",         label: "Reports",           icon: "📈" },
     ],
   },
+  {
+    label: "INSIGHTS",
+    items: [
+      { id: "owner-portal", label: "Owner Portal" },
+      { id: "forecast", label: "5-Year Forecast" },
+      { id: "critical-dates",  label: "Critical Dates",     icon: "📅" },
+    ],
+  },
 ];
 
 export const facilityNav: ModuleNavGroup[] = [
