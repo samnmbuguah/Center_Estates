@@ -1051,10 +1051,27 @@ _SCRIPTS = """
       }
     }
 
+    async function switchRolePersona(username) {
+      try {
+        const resp = await fetch('/api/v1/auth/login/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username, password: 'admin123' })
+        });
+        if (resp.ok) {
+          window.location.reload();
+        } else {
+          alert('Could not switch to persona: ' + username);
+        }
+      } catch (err) {
+        alert('Error switching persona: ' + err.message);
+      }
+    }
+
     // ─── Routing on load ─────────────────────────────────────────────────────
     (function initRoute() {
       const path = window.location.pathname.replace(/\/+$/, '') || '/';
-      const map = { '/': 'home', '/console': 'console', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
+      const map = { '/': 'home', '/console': 'console', '/workspace': 'console', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
       const view = map[path] || 'home';
       showView(view);
       if (path === '/login') openModal('login-modal');
@@ -1211,6 +1228,28 @@ _VIEW_CONSOLE = """
           <div style="display:flex;gap:12px;align-items:center">
             <a href="/api/v1/docs/" target="_blank" class="btn btn-secondary btn-sm" style="padding:10px 18px">Swagger API ↗</a>
             <a href="/admin/" id="cc-admin-btn" target="_blank" class="btn btn-primary btn-sm" style="padding:10px 18px;display:none">Django Admin ↗</a>
+          </div>
+        </div>
+
+        <!-- Workspace & Role Switching Control Bar -->
+        <div class="card" style="padding:20px 24px;margin-bottom:32px;background:var(--surface2);border:1px solid var(--border2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="font-size:1.3rem">&#127970;</span>
+              <div>
+                <div style="font-size:0.78rem;color:var(--muted);font-weight:700;text-transform:uppercase">Active Tenant Workspace (/workspace)</div>
+                <div style="font-family:'Outfit';font-weight:800;font-size:1.1rem;color:var(--text)" id="cc-ws-title">Center Estates Demo</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap" id="cc-persona-chips">
+              <span style="font-size:0.78rem;color:var(--muted);font-weight:600">Switch Workspace Persona:</span>
+              <button onclick="switchRolePersona('admin')" class="btn btn-primary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#9733; Admin</button>
+              <button onclick="switchRolePersona('role-property-manager')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#127960; Property Mgr</button>
+              <button onclick="switchRolePersona('role-facility-manager')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#128295; Facility Mgr</button>
+              <button onclick="switchRolePersona('role-sales-agent')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#128179; Sales Agent</button>
+              <button onclick="switchRolePersona('role-valuer-inspector')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#128208; Valuer</button>
+              <button onclick="switchRolePersona('role-clerk-of-works')" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:5px 10px">&#127959; CoW Inspector</button>
+            </div>
           </div>
         </div>
 
