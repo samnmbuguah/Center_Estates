@@ -203,6 +203,9 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Unified API for Property, Facility, Sales, Tender, Valuation, Construction, and Companion modules.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
 }
 
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(
