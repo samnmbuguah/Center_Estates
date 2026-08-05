@@ -444,10 +444,13 @@ class PerformanceViewSet(ViewSet):
         })
 
 
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 class TelemetryViewSet(ViewSet):
-    permission_classes = (IsAuthenticated,)
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     def list(self, request):
         organization = get_active_organization(request)
@@ -500,18 +503,22 @@ class TelemetryViewSet(ViewSet):
         })
 
     def create(self, request):
-        organization = get_active_organization(request)
+        try:
+            organization = get_active_organization(request)
+        except Exception:
+            organization = None
         event = request.data.get('event', 'user_action')
         properties = request.data.get('properties', {})
         url = request.data.get('url', '')
         module = request.data.get('module', 'dashboard')
 
-        TaskEvent.objects.create(
-            organization=organization,
-            task=None,
-            actor=request.user if request.user.is_authenticated else None,
-            action=TaskEvent.Action.UPDATED,
-            note=f"Telemetry [{event}]: {properties.get('element', properties.get('path', ''))} (Module: {module})"
-        )
+        if organization:
+            TaskEvent.objects.create(
+                organization=organization,
+                task=None,
+                actor=request.user if request.user.is_authenticated else None,
+                action=TaskEvent.Action.UPDATED,
+                note=f"Telemetry [{event}]: {properties.get('element', properties.get('path', ''))} (Module: {module})"
+            )
         return Response({'status': 'ok'})
 
