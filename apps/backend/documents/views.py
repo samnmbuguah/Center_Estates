@@ -14,12 +14,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     permission_classes = (IsAuthenticated, HasOrganizationContext)
     serializer_class = DocumentSerializer
-    filterset_fields = ('category', 'status')
-    search_fields = ('title', 'original_filename', 'category')
 
     def get_queryset(self):
         qs = Document.objects.select_related('uploaded_by', 'organization')
-        return scope_to_request(qs, self.request)
+        qs = scope_to_request(qs, self.request)
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        status = self.request.query_params.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
 
     def perform_create(self, serializer):
         org = get_active_organization(self.request)

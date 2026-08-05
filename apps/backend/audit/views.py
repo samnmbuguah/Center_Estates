@@ -12,9 +12,18 @@ class AuditEventViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
 
     permission_classes = (IsAuthenticated, HasOrganizationContext)
     serializer_class = AuditEventSerializer
-    filterset_fields = ('entity_type', 'entity_id', 'action')
-    search_fields = ('action', 'entity_type', 'entity_id')
 
     def get_queryset(self):
         qs = AuditEvent.objects.select_related('actor', 'organization')
-        return scope_to_request(qs, self.request)
+        qs = scope_to_request(qs, self.request)
+        entity_type = self.request.query_params.get('entity_type')
+        if entity_type:
+            qs = qs.filter(entity_type=entity_type)
+        entity_id = self.request.query_params.get('entity_id')
+        if entity_id:
+            qs = qs.filter(entity_id=entity_id)
+        action = self.request.query_params.get('action')
+        if action:
+            qs = qs.filter(action=action)
+        return qs
+
