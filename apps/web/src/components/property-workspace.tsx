@@ -2424,10 +2424,10 @@ function BudgetsView({ rows, loading, search, setSearch, setTab, onSelectRow, on
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🎯" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Budget" value={kM(totalBudget)} sub="Draft, pending & approved" link="View budgets" onClick={() => {}} />
-        <KpiCard icon="💸" iconBg="#dbeafe" iconColor="#2563eb" label="Actual Spend" value={kM(totalActual)} sub="Approved expenses" link="View budgets" onClick={() => {}} />
-        <KpiCard icon="◔" iconBg="#fef3c7" iconColor="#d97706" label="Utilization" value={`${utilization}%`} sub="Actual vs budget" link="View budgets" onClick={() => {}} />
-        <KpiCard icon="▽" iconBg="#fee2e2" iconColor="#dc2626" label="Variance" value={kM(totalVariance)} sub="Budget less actual" link="View budgets" onClick={() => {}} />
+        <KpiCard icon="🎯" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Budget" value={kM(totalBudget)} sub="Draft, pending & approved" />
+        <KpiCard icon="💸" iconBg="#dbeafe" iconColor="#2563eb" label="Actual Spend" value={kM(totalActual)} sub="Approved expenses" />
+        <KpiCard icon="◔" iconBg="#fef3c7" iconColor="#d97706" label="Utilization" value={`${utilization}%`} sub="Actual vs budget" />
+        <KpiCard icon="▽" iconBg="#fee2e2" iconColor="#dc2626" label="Variance" value={kM(totalVariance)} sub="Budget less actual" />
       </KpiStrip>
 
       <ViewToolbar title="Budgets & Estimates" subtitle="Budget registers, utilization and variance tracking" search={search} onSearch={setSearch} placeholder="Search by property, category or year…">
@@ -3506,6 +3506,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [terminationTarget, setTerminationTarget] = useState<LeaseRow | null>(null);
   const [reconciliationTarget, setReconciliationTarget] = useState<ServiceChargeRow | null>(null);
   const [documentRejectTarget, setDocumentRejectTarget] = useState<TenantDocumentRow | null>(null);
+  const [confirmVoidInvoice, setConfirmVoidInvoice] = useState<InvoiceRow | null>(null);
+  const [confirmRejectBudget, setConfirmRejectBudget] = useState<BudgetRow | null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<ID>("");
   const [wizardStep, setWizardStep] = useState(1);
   const [propertyData, setPropertyData] = useState<Record<string, string>>({});
@@ -3518,6 +3520,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [propertyOptions, setPropertyOptions] = useState<Row[]>([]);
 
   const loadVersion = useRef(0);
+  const failCount = useRef(0);
 
   const endpointFor = (t: PropertyTab): string => {
     const map: Partial<Record<PropertyTab, string>> = {
@@ -3560,9 +3563,16 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     const version = ++loadVersion.current;
     setLoading(true);
     setError("");
+    failCount.current = 0;
     const q = encodeURIComponent(search);
     const fail = () => {
-      if (version === loadVersion.current) setError("Property data could not be loaded. Please retry.");
+      if (version !== loadVersion.current) return;
+      failCount.current++;
+      if (failCount.current >= 3) {
+        setError("Data could not be loaded after multiple attempts. Please check your connection and retry.");
+      } else {
+        setError("Property data could not be loaded. Please retry.");
+      }
     };
     try {
       if (tab === "overview") {
@@ -3601,7 +3611,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
           const listData = await listRes.json();
           const agingData = await agingRes.json();
           if (version !== loadVersion.current) return;
-          const list = Array.isArray(listData) ? listData : [];
+          const list = Array.isArray(listData) ? listData as Row[] : [];
           setRows(list);
           setAnalytics(agingData as AgingAnalytics);
           if (rentSection === "invoices" || rentSection === "ledger") {
@@ -3617,7 +3627,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const listData = await listRes.json();
         const finData = await finRes.json();
         if (version !== loadVersion.current) return;
-        setRows(Array.isArray(listData) ? listData : []);
+        setRows(Array.isArray(listData) ? listData as Row[] : []);
         setFinancial(finData as FinancialAnalytics);
       } else if (tab === "receipts") {
         const [listRes, cnRes] = await Promise.all([
@@ -3628,8 +3638,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const listData = await listRes.json();
         const cnData = await cnRes.json();
         if (version !== loadVersion.current) return;
-        setRows(Array.isArray(listData) ? listData : []);
-        setCreditNotes(Array.isArray(cnData) ? cnData : []);
+        setRows(Array.isArray(listData) ? listData as Row[] : []);
+        setCreditNotes(Array.isArray(cnData) ? cnData as Row[] : []);
       } else if (tab === "properties") {
         const [listRes, dashRes] = await Promise.all([
           apiFetch(`/property/properties/?search=${q}`, {}, organizationId),
@@ -3637,7 +3647,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         ]);
         if (!listRes.ok) { fail(); return; }
         const listData = await listRes.json();
-        const list = Array.isArray(listData) ? listData : [];
+        const list = Array.isArray(listData) ? listData as Row[] : [];
         if (dashRes.ok) {
           const dash = await dashRes.json();
           const portfolio = (dash as DashboardData).portfolio ?? [];
@@ -3654,7 +3664,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         ]);
         if (!listRes.ok) { fail(); return; }
         const listData = await listRes.json();
-        const list = Array.isArray(listData) ? listData : [];
+        const list = Array.isArray(listData) ? listData as Row[] : [];
         if (ageRes.ok) {
           const ageData = await ageRes.json();
           const ageTenants = (ageData as AgingAnalytics).tenants ?? [];
@@ -3669,13 +3679,13 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         if (!res.ok) { fail(); return; }
         const data = await res.json();
         if (version !== loadVersion.current) return;
-        setRows(Array.isArray(data) ? data : []);
+        setRows(Array.isArray(data) ? data as Row[] : []);
       } else if (tab === "fees") {
         const res = await apiFetch(`/property/service-charges/?search=${q}`, {}, organizationId);
         if (!res.ok) { fail(); return; }
         const data = await res.json();
         if (version !== loadVersion.current) return;
-        setRows(Array.isArray(data) ? data : []);
+        setRows(Array.isArray(data) ? data as Row[] : []);
       } else if (tab === "critical-dates") {
         const [leasesRes, scRes] = await Promise.all([
           apiFetch(`/property/leases/?search=${q}`, {}, organizationId),
@@ -3685,8 +3695,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const leasesData = await leasesRes.json();
         const scData = await scRes.json();
         if (version !== loadVersion.current) return;
-        setRows(Array.isArray(leasesData) ? leasesData : []);
-        setCriticalServiceCharges(Array.isArray(scData) ? scData : []);
+        setRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
+        setCriticalServiceCharges(Array.isArray(scData) ? scData as Row[] : []);
       } else if (tab === "owner-portal" || tab === "forecast") {
         setLoading(false);
       } else {
@@ -3695,10 +3705,17 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         if (!res.ok) { fail(); return; }
         const data = await res.json();
         if (version !== loadVersion.current) return;
-        setRows(Array.isArray(data) ? data : []);
+        setRows(Array.isArray(data) ? data as Row[] : []);
       }
     } catch {
-      if (version === loadVersion.current) setError("Unable to connect to property management service.");
+      if (version === loadVersion.current) {
+        failCount.current++;
+        if (failCount.current >= 3) {
+          setError("Unable to connect after multiple attempts. Please check your connection and retry.");
+        } else {
+          setError("Unable to connect to property management service.");
+        }
+      }
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
@@ -4203,9 +4220,18 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
    */
   const SECTION_SUB_TABS: Record<string, { id: string; label: string }[]> = {
     overview:        [],
-    properties:      [],
-    units:           [],
-    tenants:         [],
+    properties: [
+      { id: "properties", label: "Property Register" },
+      { id: "buildings", label: "Buildings" },
+    ],
+    units: [
+      { id: "units", label: "Unit Occupancy" },
+      { id: "projects", label: "Property Projects" },
+    ],
+    tenants: [
+      { id: "tenants", label: "Tenants" },
+      { id: "tenant-documents", label: "Tenant documents" },
+    ],
     leases:          [],
     rent: [
       { id: "rent",                 label: "Invoices" },
@@ -4316,7 +4342,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onReject={setDocumentRejectTarget} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
         {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} />}
-        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => void runPropertyAction("invoices", row.id, action, "Invoice action failed.")} onSelectRow={setSelectedRow} />}
+        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} />}
         {tab === "arrears" && <ArrearsView rows={rows} analytics={analytics} loading={loading} search={search} setSearch={setSearch} onNavigateReminders={navigateRemindersForTenant} />}
         {tab === "reminders" && <RemindersView rows={rows} loading={loading} search={search} setSearch={setSearch} onSendReminder={sendReminder} setTab={handleSelectTab} />}
         {tab === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={openRecordReceipt} />}
@@ -4326,7 +4352,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} onReconcile={setReconciliationTarget} />}
         {tab === "service-charge-allocations" && <ServiceChargeAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
-        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => void runPropertyAction("budgets", row.id, action, "Budget action failed.")} />}
+        {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => { if (action === "reject") setConfirmRejectBudget(row); else void runPropertyAction("budgets", row.id, action, "Budget action failed."); }} />}
         {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={(key) => void downloadReportCSV(key)} />}
         {tab === "fees" && <FeesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
@@ -4815,6 +4841,30 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setTerminationTarget(null)}>Cancel</button>
                 <button type="button" className="btn danger" onClick={() => void confirmLeaseTermination()}>Confirm termination</button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {confirmVoidInvoice && (
+          <Modal title="Void invoice" onClose={() => setConfirmVoidInvoice(null)}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <p style={{ margin: 0 }}>Void invoice <strong>{String(confirmVoidInvoice.number ?? "—")}</strong> for {String(confirmVoidInvoice.tenant_name ?? "the tenant")}? This action cannot be undone and the invoice will be excluded from collection reporting.</p>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setConfirmVoidInvoice(null)}>Cancel</button>
+                <button type="button" className="btn danger" onClick={() => { const row = confirmVoidInvoice; setConfirmVoidInvoice(null); void runPropertyAction("invoices", row.id, "void", "Invoice void failed."); }}>Confirm void</button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {confirmRejectBudget && (
+          <Modal title="Reject budget" onClose={() => setConfirmRejectBudget(null)}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <p style={{ margin: 0 }}>Reject the <strong>{String(confirmRejectBudget.category ?? "budget")}</strong> for {String(confirmRejectBudget.property_name ?? "this property")} ({String(confirmRejectBudget.year ?? "—")})? This budget line will return to draft status for revision.</p>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setConfirmRejectBudget(null)}>Cancel</button>
+                <button type="button" className="btn danger" onClick={() => { const row = confirmRejectBudget; setConfirmRejectBudget(null); void runPropertyAction("budgets", row.id, "reject", "Budget rejection failed."); }}>Confirm reject</button>
               </div>
             </div>
           </Modal>

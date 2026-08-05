@@ -416,11 +416,7 @@ function DashboardView({
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: "1px solid var(--line)", padding: "10px 18px" }}>
-              <button onClick={() => {}} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                Go to My Tasks →
-              </button>
-            </div>
+
           </article>
 
           {/* Quick Actions */}
@@ -502,22 +498,18 @@ function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
     { name: "Meru Office", county: "Meru County", count: 1, color: "#ec4899" },
     { name: "Remote Sites", county: "Various Counties", count: 2, color: "#9ca3af" },
   ];
-  const mapPins = [
-    { top: "52%", left: "48%", color: "#e23b3b", label: "NH" },
-    { top: "68%", left: "62%", color: "#3b82f6", label: "MB" },
-    { top: "45%", left: "36%", color: "#8b5cf6", label: "KS" },
-    { top: "38%", left: "30%", color: "#f59e0b", label: "EL" },
-    { top: "46%", left: "40%", color: "#10b981", label: "NK" },
-  ];
+  const totalFloorArea = rows.length > 0 ? rows.reduce((s, r) => s + Number(r.floor_area ?? 0), 0) : null;
+  const avgOccupancy = rows.length > 0 ? Math.round(rows.reduce((s, r) => s + Number(r.occupancy ?? 0), 0) / rows.length) : null;
+  const monthlyOpsCost = rows.length > 0 ? rows.reduce((s, r) => s + Number(r.monthly_cost ?? 0), 0) : null;
 
   return (
     <>
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buildings" value={String(kpis.buildings ?? 0)} sub="Across all locations" onClick={() => {}} />
-        <FcKpiCard icon="📍" iconBg="#dcfce7" iconColor="#16a34a" label="Locations" value="8" sub="Active sites" onClick={() => {}} />
-        <FcKpiCard icon="📐" iconBg="#dbeafe" iconColor="#2563eb" label="Total Floor Area" value="125,420 m²" sub="Gross floor area" onClick={() => {}} />
-        <FcKpiCard icon="▦" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg. Occupancy" value="93%" sub="All buildings" onClick={() => {}} />
-        <FcKpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Operations Cost" value="KSh 3.8M" sub="All buildings" onClick={() => {}} />
+        <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buildings" value={String(kpis.buildings ?? 0)} sub="Across all locations" />
+        <FcKpiCard icon="📍" iconBg="#dcfce7" iconColor="#16a34a" label="Locations" value={String(locations.length || "—")} sub="Active sites" />
+        <FcKpiCard icon="📐" iconBg="#dbeafe" iconColor="#2563eb" label="Total Floor Area" value={totalFloorArea ? `${totalFloorArea.toLocaleString()} m²` : "—"} sub="Gross floor area" />
+        <FcKpiCard icon="▦" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg. Occupancy" value={avgOccupancy ? `${avgOccupancy}%` : "—"} sub="All buildings" />
+        <FcKpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Operations Cost" value={monthlyOpsCost ? money.format(monthlyOpsCost) : "—"} sub="All buildings" />
       </div>
 
       <div className="fc-locations-layout">
@@ -548,20 +540,10 @@ function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
         <div style={{ display: "grid", gap: 16 }}>
           <article className="data-panel">
             <PanelHeader title="Location Map" />
-            <div className="fc-map-placeholder" style={{ margin: 0, borderRadius: 0, minHeight: 300 }}>
-              {mapPins.map((pin, i) => (
-                <div
-                  key={i}
-                  className="fc-map-pin"
-                  style={{ top: pin.top, left: pin.left }}
-                >
-                  <div className="fc-map-pin-dot" style={{ background: pin.color, color: "white" }}>
-                    <span>{pin.label}</span>
-                  </div>
-                </div>
-              ))}
-              <div style={{ bottom: 10, right: 12, position: "absolute", background: "white", border: "1px solid #d7dce5", borderRadius: 8, padding: "6px 8px", fontSize: 11, color: "#6b7280" }}>
-                📍 {locations[selectedLoc].name}
+            <div className="card" style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--surface-2)" }}>
+              <div style={{ textAlign: "center" }}>
+                <span style={{ fontSize: 40, opacity: 0.3 }}>🗺️</span>
+                <div className="muted" style={{ marginTop: 8 }}>Map view requires a configured GIS provider.</div>
               </div>
             </div>
           </article>
@@ -592,8 +574,8 @@ function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
                         <tr key={String(row.id)}>
                           <td>
                             <div style={{ alignItems: "center", display: "flex", gap: 10 }}>
-                              <div className="fc-detail-thumb-placeholder" style={{ height: 36, width: 36, fontSize: 16, borderRadius: 6 }}>
-                                🏢
+                              <div style={{ height: 36, width: 36, fontSize: 16, borderRadius: 6, display: "grid", placeItems: "center", background: "var(--surface-2)", color: "var(--muted)" }}>
+                                {String(row.name || "?").slice(0, 1).toUpperCase()}
                               </div>
                               <div>
                                 <strong style={{ display: "block", fontSize: 12 }}>{String(row.name ?? "—")}</strong>
@@ -626,7 +608,9 @@ function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
                         <tr key={b.id}>
                           <td>
                             <div style={{ alignItems: "center", display: "flex", gap: 10 }}>
-                              <div className="fc-detail-thumb-placeholder" style={{ height: 36, width: 36, fontSize: 16, borderRadius: 6 }}>🏢</div>
+                              <div style={{ height: 36, width: 36, fontSize: 16, borderRadius: 6, display: "grid", placeItems: "center", background: "var(--surface-2)", color: "var(--muted)" }}>
+                                {String(b.name || "?").slice(0, 1).toUpperCase()}
+                              </div>
                               <div>
                                 <strong style={{ display: "block", fontSize: 12 }}>{b.name}</strong>
                                 <small style={{ color: "#8a96a7", fontSize: 10 }}>Building ID: {b.code}</small>
@@ -711,12 +695,12 @@ function AssetsView({
     <>
       {/* KPI strip */}
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Assets" value={totalAssets.toLocaleString()} sub="All buildings" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Operational" value={operationalCount.toLocaleString()} sub={`${pct(operationalCount)}% of total assets`} onClick={() => {}} />
-        <FcKpiCard icon="🔧" iconBg="#fef3c7" iconColor="#92400e" label="Under Maintenance" value={maintenanceCount.toLocaleString()} sub={`${pct(maintenanceCount)}% of total assets`} onClick={() => {}} />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Out of Service" value={outOfServiceCount.toLocaleString()} sub={`${pct(outOfServiceCount)}% of total assets`} onClick={() => {}} />
-        <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Total Asset Value" value={money.format(assetValue)} sub="Replacement cost" onClick={() => {}} />
-        <FcKpiCard icon="📊" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg. Asset Health" value={`${avgHealth}%`} sub={avgHealth ? "Good" : "No data yet"} onClick={() => {}} />
+        <FcKpiCard icon="📦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Assets" value={totalAssets.toLocaleString()} sub="All buildings" />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Operational" value={operationalCount.toLocaleString()} sub={`${pct(operationalCount)}% of total assets`} />
+        <FcKpiCard icon="🔧" iconBg="#fef3c7" iconColor="#92400e" label="Under Maintenance" value={maintenanceCount.toLocaleString()} sub={`${pct(maintenanceCount)}% of total assets`} />
+        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Out of Service" value={outOfServiceCount.toLocaleString()} sub={`${pct(outOfServiceCount)}% of total assets`} />
+        <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Total Asset Value" value={money.format(assetValue)} sub="Replacement cost" />
+        <FcKpiCard icon="📊" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg. Asset Health" value={`${avgHealth}%`} sub={avgHealth ? "Good" : "No data yet"} />
       </div>
 
       <div className="fc-assets-layout">
@@ -836,8 +820,8 @@ function AssetsView({
           {selectedRow && (
             <div className="fc-detail-panel">
               <div className="fc-detail-header">
-                <div className="fc-detail-thumb-placeholder">
-                  {assetIcons[String(selectedRow.category ?? "")] ?? "⚙️"}
+                <div style={{ height: 44, width: 44, fontSize: 20, borderRadius: 8, display: "grid", placeItems: "center", background: "var(--surface-2)", color: "var(--muted)" }}>
+                  {assetIcons[String(selectedRow.category ?? "")] ?? String(selectedRow.name ?? "?").slice(0, 1).toUpperCase()}
                 </div>
                 <div className="fc-detail-meta">
                   <strong>{String(selectedRow.name ?? "—")}</strong>
@@ -1141,11 +1125,11 @@ function WorkOrdersView({
       </div>
 
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${String(kpis.maintenanceCompliance ?? 92)}%`} sub="Schedule compliance" link="View PPM Calendar" onClick={() => {}} />
-        <FcKpiCard icon="📂" iconBg="#dcfce7" iconColor="#16a34a" label="Open Work Orders" value={String(kpis.openWorkOrders ?? 0)} sub="Active across all buildings" link="View all work orders" onClick={() => {}} />
-        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Work Orders" value={String(kpis.overdueWorkOrders ?? 0)} sub="Past resolution due" link="View overdue" onClick={() => {}} />
-        <FcKpiCard icon="⏱" iconBg="#fef3c7" iconColor="#92400e" label="Avg. Resolution Time" value="6.2 hrs" sub="Target 24 hrs" link="View SLA Performance" onClick={() => {}} />
-        <FcKpiCard icon="📈" iconBg="#f0fdf4" iconColor="#15803d" label="Asset Health Index" value="82%" sub="Good" link="View Asset Health" onClick={() => {}} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${String(kpis.maintenanceCompliance ?? 92)}%`} sub="Schedule compliance" />
+        <FcKpiCard icon="📂" iconBg="#dcfce7" iconColor="#16a34a" label="Open Work Orders" value={String(kpis.openWorkOrders ?? 0)} sub="Active across all buildings" />
+        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Work Orders" value={String(kpis.overdueWorkOrders ?? 0)} sub="Past resolution due" />
+        <FcKpiCard icon="⏱" iconBg="#fef3c7" iconColor="#92400e" label="Avg. Resolution Time" value="—" sub="Target 24 hrs" />
+        <FcKpiCard icon="📈" iconBg="#f0fdf4" iconColor="#15803d" label="Asset Health Index" value="—" sub="No data available" />
       </div>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0,1fr) 300px" }}>
@@ -1344,16 +1328,19 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
   const scheduledTasks = rows.length > 0 ? rows.length : 183;
   const upcomingTasks = rows.length > 0 ? rows.filter((r) => !r.last_completed_on).length : 24;
   const overdueTasks = rows.length > 0 ? rows.filter((r) => !r.last_completed_on && String(r.next_due_on ?? "").length).length : 7;
+  const uniqueTechnicians = rows.length > 0
+    ? new Set(rows.map((r) => String(r.assigned_to ?? "")).filter(Boolean)).size
+    : null;
 
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed Tasks" value={String(completedTasks)} sub={`of ${scheduledTasks} scheduled`} onClick={() => {}} />
-        <FcKpiCard icon="⏰" iconBg="#fef3c7" iconColor="#92400e" label="Upcoming Tasks" value={String(upcomingTasks)} sub="Next 7 days" onClick={() => {}} />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Tasks" value={String(overdueTasks)} sub="Require attention" onClick={() => {}} />
-        <FcKpiCard icon="👷" iconBg="#f0f4ff" iconColor="#4f46e5" label="Technicians Assigned" value="18" sub="Active this week" onClick={() => {}} />
-        <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Maintenance Cost (MTD)" value="KES 1.45M" sub="↓ 8.4% vs last month" onClick={() => {}} />
+        <FcKpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed Tasks" value={String(completedTasks)} sub={`of ${scheduledTasks} scheduled`} />
+        <FcKpiCard icon="⏰" iconBg="#fef3c7" iconColor="#92400e" label="Upcoming Tasks" value={String(upcomingTasks)} sub="Next 7 days" />
+        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Tasks" value={String(overdueTasks)} sub="Require attention" />
+        <FcKpiCard icon="👷" iconBg="#f0f4ff" iconColor="#4f46e5" label="Technicians Assigned" value={uniqueTechnicians ? String(uniqueTechnicians) : "—"} sub="Active this week" />
+        <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Maintenance Cost (MTD)" value="—" sub="No data available" />
       </div>
 
       {/* PPM Compliance Trend — last 6 months */}
@@ -1694,12 +1681,12 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "↑ 12% vs last month"} onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={String(completedInsp)} sub={`${pctOfTotal(completedInsp)}%`} onClick={() => {}} />
-        <FcKpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="In Progress" value={String(inProgressInsp)} sub={`${pctOfTotal(inProgressInsp)}%`} onClick={() => {}} />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueInsp)} sub={`${pctOfTotal(overdueInsp)}%`} onClick={() => {}} />
-        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="#9333ea" label="Defects Found" value={String(defectsFound)} sub="This month" onClick={() => {}} />
-        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" onClick={() => {}} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "↑ 12% vs last month"} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={String(completedInsp)} sub={`${pctOfTotal(completedInsp)}%`} />
+        <FcKpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="In Progress" value={String(inProgressInsp)} sub={`${pctOfTotal(inProgressInsp)}%`} />
+        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueInsp)} sub={`${pctOfTotal(overdueInsp)}%`} />
+        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="#9333ea" label="Defects Found" value={String(defectsFound)} sub="This month" />
+        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" />
       </div>
 
       {/* Tabs */}
@@ -1914,13 +1901,13 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
   return (
     <>
       <div className="fc-kpi-strip" style={{ gridTemplateColumns: "repeat(7, minmax(0,1fr))" }}>
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Open Requests" value={String(totalReq)} sub="Awaiting resolution" onClick={() => {}} />
-        <FcKpiCard icon="📂" iconBg="#fff3cd" iconColor="#92400e" label="Open" value={String(openReq)} sub={hasData ? "New & assigned" : "29.7%"} onClick={() => {}} />
-        <FcKpiCard icon="⏳" iconBg="#dbeafe" iconColor="#1d4ed8" label="In Progress" value={String(inProgressReq)} sub={hasData ? "Active" : "35.2%"} onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#166534" label="Completed" value={String(completedReq)} sub={hasData ? "Resolved & closed" : "31.3%"} onClick={() => {}} />
-        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueReq)} sub={hasData ? "Past SLA" : "3.9%"} onClick={() => {}} />
-        <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="1.8 hrs" sub="Target: 4 hrs" onClick={() => {}} />
-        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction Score" value="4.6 / 5" sub="↑ 0.3 vs last month" onClick={() => {}} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Open Requests" value={String(totalReq)} sub="Awaiting resolution" />
+        <FcKpiCard icon="📂" iconBg="#fff3cd" iconColor="#92400e" label="Open" value={String(openReq)} sub={hasData ? "New & assigned" : "29.7%"} />
+        <FcKpiCard icon="⏳" iconBg="#dbeafe" iconColor="#1d4ed8" label="In Progress" value={String(inProgressReq)} sub={hasData ? "Active" : "35.2%"} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#166534" label="Completed" value={String(completedReq)} sub={hasData ? "Resolved & closed" : "31.3%"} />
+        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueReq)} sub={hasData ? "Past SLA" : "3.9%"} />
+        <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="—" sub="No data available" />
+        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction Score" value="—" sub="No data available" />
       </div>
 
       {/* Tabs */}
@@ -2399,12 +2386,12 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="👷" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Contractors" value={totalContractors.toLocaleString()} sub="Active across all locations" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active Contractors" value={String(activeContractors)} sub={totalContractors ? `${Math.round((activeContractors / totalContractors) * 100)}% of total` : "0% of total"} onClick={() => {}} />
-        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Average Rating" value={`${avgRating} / 5`} sub="Across all contractors" onClick={() => {}} />
-        <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="2.6 hrs" sub="↑ 0.4 hrs vs last month" onClick={() => {}} />
-        <FcKpiCard icon="📄" iconBg="#fef3c7" iconColor="#92400e" label="Contracts Expiring" value="7" sub="Next 30 days" onClick={() => {}} />
-        <FcKpiCard icon="💰" iconBg="#fdf4ff" iconColor="#9333ea" label="Total Spend (YTD)" value="KES 45.67M" sub="↑ 12.6% vs last year" onClick={() => {}} />
+        <FcKpiCard icon="👷" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Contractors" value={totalContractors.toLocaleString()} sub="Active across all locations" />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active Contractors" value={String(activeContractors)} sub={totalContractors ? `${Math.round((activeContractors / totalContractors) * 100)}% of total` : "0% of total"} />
+        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Average Rating" value={`${avgRating} / 5`} sub="Across all contractors" />
+        <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="—" sub="No data available" />
+        <FcKpiCard icon="📄" iconBg="#fef3c7" iconColor="#92400e" label="Contracts Expiring" value="—" sub="No data available" />
+        <FcKpiCard icon="💰" iconBg="#fdf4ff" iconColor="#9333ea" label="Total Spend (YTD)" value="—" sub="No data available" />
       </div>
 
       {/* Tabs */}
@@ -2512,8 +2499,8 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
         {selectedRow && (
           <div className="fc-detail-panel">
             <div className="fc-detail-header">
-              <div className="fc-detail-thumb-placeholder" style={{ background: "linear-gradient(135deg, #1e3a5f, #0f2744)", fontSize: 20 }}>
-                👷
+              <div style={{ height: 44, width: 44, fontSize: 20, borderRadius: 8, display: "grid", placeItems: "center", background: "linear-gradient(135deg, #1e3a5f, #0f2744)", color: "#fff" }}>
+                {String(selectedRow.name || "?").slice(0, 1).toUpperCase()}
               </div>
               <div className="fc-detail-meta">
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
@@ -2671,13 +2658,13 @@ function ReportsView({ dashboard }: { dashboard: Dashboard }) {
   return (
     <>
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" onClick={() => {}} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="WOs Completed" value={String(completedWO)} sub="This month" onClick={() => {}} />
-        <FcKpiCard icon="⏱" iconBg="#dbeafe" iconColor="#2563eb" label="Avg Response" value="6.2 hrs" sub="Target 24 hrs" onClick={() => {}} />
-        <FcKpiCard icon="💰" iconBg="#ffedd5" iconColor="#ea580c" label="Cost / WO" value="KES 18.7K" sub="Avg. per work order" onClick={() => {}} />
-        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value="89%" sub="All categories" onClick={() => {}} />
-        <FcKpiCard icon="⚙" iconBg="#fdf4ff" iconColor="#9333ea" label="Asset Reliability" value="82%" sub="Good" onClick={() => {}} />
-        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction" value="4.6 / 5" sub="↑ 0.3 vs last month" onClick={() => {}} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="WOs Completed" value={String(completedWO)} sub="This month" />
+        <FcKpiCard icon="⏱" iconBg="#dbeafe" iconColor="#2563eb" label="Avg Response" value="—" sub="No data available" />
+        <FcKpiCard icon="💰" iconBg="#ffedd5" iconColor="#ea580c" label="Cost / WO" value="—" sub="No data available" />
+        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value="—" sub="No data available" />
+        <FcKpiCard icon="⚙" iconBg="#fdf4ff" iconColor="#9333ea" label="Asset Reliability" value="—" sub="No data available" />
+        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction" value="—" sub="No data available" />
       </div>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr 1fr" }}>
