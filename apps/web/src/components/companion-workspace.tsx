@@ -82,6 +82,65 @@ function greeting() {
   return "Good Evening";
 }
 
+/* ────────────── AI Productivity Engine ────────────── */
+
+function priorityScore(task: Row): number {
+  const now = Date.now();
+  const due = task.due_at ? new Date(String(task.due_at)).getTime() : now + 86400000;
+  const sla = task.sla_due_at ? new Date(String(task.sla_due_at)).getTime() : due;
+  const urgency = Math.max(0, 100 - Math.floor((due - now) / 3600000) * 2);
+  const slaUrgency = Math.max(0, 50 - Math.floor((sla - now) / 3600000));
+  const base = { low: 10, normal: 30, high: 60, urgent: 90 }[String(task.priority ?? "normal")] || 30;
+  const escalated = task.escalated ? 30 : 0;
+  const sticky = task.status === "acknowledged" ? 5 : 0;
+  return Math.min(100, base + urgency + slaUrgency + escalated + sticky);
+}
+
+function aiBriefing(recentTasks: Row[], overdueTasks: Row[], escalatedTasks: Row[]) {
+  const suggestions: string[] = [];
+  const active = recentTasks.filter(t => !["completed", "cancelled"].includes(String(t.status)));
+  const now = Date.now();
+
+  if (escalatedTasks.length > 0) {
+    suggestions.push(`${escalatedTasks.length} escalated task${escalatedTasks.length > 1 ? "s" : ""} need${escalatedTasks.length === 1 ? "s" : ""} immediate attention`);
+  }
+  const criticalDue = active.filter(t => {
+    const d = t.due_at ? new Date(String(t.due_at)).getTime() : Infinity;
+    return d - now < 86400000;
+  });
+  if (criticalDue.length > 0) {
+    suggestions.push(`${criticalDue.length} task${criticalDue.length > 1 ? "s" : ""} due within 24 hours`);
+  }
+    const blocked = active.filter(t => String(t.status) === "pending");
+    if (blocked.length > 0) {
+      suggestions.push(`${blocked.length} unacknowledged task${blocked.length > 1 ? "s" : ""} — acknowledge to start`);
+    }
+    const scored = (active as Row[]).map(t => ({ ...t, _score: priorityScore(t) })).sort((a: { _score: number }, b: { _score: number }) => b._score - a._score);
+    if (scored.length > 0) {
+      const top: Row & { _score: number } = scored[0];
+    suggestions.push(`Top priority: ${String(top.title).slice(0, 50)} (score: ${top._score})`);
+  }
+  if (suggestions.length === 0) {
+    suggestions.push("All clear — no urgent items need your attention today. 🎉");
+  }
+  return { suggestions, scored };
+}
+
+function workloadData(staffOptions: Row[], tasks: Row[]) {
+  return staffOptions.map(s => {
+    const staffTasks = tasks.filter(t => String(t.assignee_id || "") === String(s.user_id));
+    const active = staffTasks.filter(t => !["completed", "cancelled"].includes(String(t.status)));
+    return {
+      ...s,
+      taskCount: active.length,
+      overdue: active.filter(t => new Date(String(t.due_at || "")).getTime() < Date.now()).length,
+      capacity: Math.max(0, 10 - active.length),
+    };
+  }).sort((a, b) => a.taskCount - b.taskCount);
+}
+
+/* ────────────── end AI engine ────────────── */
+
 function TaskActions({ row, onAction }: { row: Row; onAction: (task: Row, action: string) => void }) {
   const status = String(row.status ?? "");
   return (
