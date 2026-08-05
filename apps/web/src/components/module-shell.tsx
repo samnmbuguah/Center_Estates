@@ -97,7 +97,7 @@ export function ModuleShell({
                 <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}>
                   {entities.find((e) => e.id === activeEntityId)?.name ?? `All ${entityLabel}s`}
                 </strong>
-                <span style={{ fontSize: 11, padding: "2px 8px", background: "#dcfce7", color="#15803d", fontWeight: 700, borderRadius: 12 }}>
+                <span style={{ fontSize: 11, padding: "2px 8px", background: "#dcfce7", color: "#15803d", fontWeight: 700, borderRadius: 12 }}>
                   {entities.find((e) => e.id === activeEntityId)?.status ?? "Active"}
                 </span>
                 {entities.find((e) => e.id === activeEntityId)?.location && (
