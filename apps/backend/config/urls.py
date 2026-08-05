@@ -361,6 +361,7 @@ _NAVBAR = """
       </div>
     </a>
     <div class="nav-links">
+      <button class="nav-link" onclick="showView('console')" id="nl-console" style="display:none;color:var(--accent);font-weight:700">Command Center</button>
       <button class="nav-link" onclick="showView('home')" id="nl-home">Overview</button>
       <button class="nav-link" onclick="showView('modules')" id="nl-modules">Modules</button>
       <button class="nav-link" onclick="showView('pricing')" id="nl-pricing">Pricing</button>
@@ -594,7 +595,28 @@ _MODALS = """
         <button onclick="closeModal('forgot-modal');openModal('login-modal')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:600">Back to login</button>
       </p>
     </div>
+  </div>
+
+  <!-- ========== DATA INSPECTOR MODAL ========== -->
+  <div id="data-modal" class="modal-overlay" onclick="handleOverlayClick(event,'data-modal')">
+    <div class="modal-box" style="max-width:760px;padding:36px;background:var(--surface2);position:relative">
+      <button class="modal-close" onclick="closeModal('data-modal')">&#10005;</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="font-size:1.6rem" id="dm-icon">&#128187;</div>
+        <div>
+          <h2 style="font-family:'Outfit';font-size:1.5rem;font-weight:800" id="dm-title">Module Data Inspector</h2>
+          <span class="badge badge-accent" id="dm-endpoint">/api/v1/property/properties/</span>
+        </div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:400px;overflow-y:auto;font-family:monospace;font-size:0.82rem;color:var(--cyan)" id="dm-content">
+        Loading API response...
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:20px">
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('data-modal')">Close Inspector</button>
+      </div>
+    </div>
   </div>"""
+
 
 _SCRIPTS = """
   <script>
@@ -612,14 +634,15 @@ _SCRIPTS = """
     }
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
-        ['login-modal','register-modal','forgot-modal'].forEach(closeModal);
+        ['login-modal','register-modal','forgot-modal','data-modal'].forEach(closeModal);
       }
     });
 
     // ─── View switching ──────────────────────────────────────────────────────
-    const VIEWS = ['home','modules','pricing','about','contact'];
+    const VIEWS = ['home','console','modules','pricing','about','contact'];
     const VIEW_SEO = {
       home:    { title: 'Center Estates ERP — Enterprise Real Estate & Asset Platform', desc: 'Unified enterprise platform for property management, facility maintenance, RICS valuations, construction monitoring and field staff telemetry.' },
+      console: { title: 'Command Center Console — Center Estates ERP', desc: 'Unified enterprise operations dashboard across all 7 platform modules.' },
       modules: { title: 'Platform Modules — Center Estates ERP', desc: 'Explore all 7 enterprise modules: Property Management, Facility, Valuations, Tenders, Construction Monitoring, Sales & Staff Companion.' },
       pricing: { title: 'Pricing Plans — Center Estates ERP', desc: 'Transparent, module-based pricing for real estate enterprises in Africa. Starter, Professional and Enterprise plans available.' },
       about:   { title: 'About Center Estates ERP — Our Story', desc: 'Built for real estate professionals in Kenya and Africa. Learn about our mission, team and values.' },
@@ -635,10 +658,8 @@ _SCRIPTS = """
         if (nl) nl.classList.toggle('active', v === name);
       });
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Update URL without reloading
       const path = name === 'home' ? '/' : '/' + name;
       history.pushState({ view: name }, '', path);
-      // Dynamic SEO updates
       const seo = VIEW_SEO[name] || VIEW_SEO.home;
       document.title = seo.title;
       const descEl = document.querySelector('meta[name="description"]');
@@ -677,42 +698,146 @@ _SCRIPTS = """
       });
     }
 
-    // ─── Session State ──────────────────────────────────────────────────────
+    // ─── Session State & Command Center ─────────────────────────────────────
+    let _sessionData = null;
+
     async function updateSessionState() {
       try {
         const r = await fetch('/api/v1/auth/me/', { credentials: 'same-origin' });
         if (r.ok) {
-          const data = await r.json();
-          const user = data.user;
-          const org = data.organizations?.[0]?.name || 'Center Estates Demo';
+          _sessionData = await r.json();
+          const user = _sessionData.user;
+          const org = _sessionData.organizations?.[0]?.name || 'Center Estates Demo';
+          
+          const nlConsole = document.getElementById('nl-console');
+          if (nlConsole) nlConsole.style.display = 'inline-block';
+          
           const sbUser = document.getElementById('sb-user');
           if (sbUser) sbUser.textContent = user.firstName ? `${user.firstName} ${user.lastName} (@${user.username})` : user.username;
           const sbOrg = document.getElementById('sb-org');
           if (sbOrg) sbOrg.textContent = org;
           const sb = document.getElementById('session-banner');
           if (sb) sb.style.display = 'block';
+          
+          const ccUser = document.getElementById('cc-user-display');
+          if (ccUser) ccUser.textContent = user.firstName ? `${user.firstName} ${user.lastName}` : user.username;
+          const ccOrg = document.getElementById('cc-org-name');
+          if (ccOrg) ccOrg.textContent = org;
+
           if (user.isSuperuser) {
             const adminLink = document.getElementById('sb-admin-link');
             if (adminLink) adminLink.style.display = 'inline-block';
+            const ccAdmin = document.getElementById('cc-admin-btn');
+            if (ccAdmin) ccAdmin.style.display = 'inline-block';
           }
+
           const navActions = document.getElementById('nav-actions');
           if (navActions) {
             const initial = (user.username || 'U')[0].toUpperCase();
             navActions.innerHTML = `
               <div style="display:flex;align-items:center;gap:12px">
+                <button onclick="showView('console')" class="btn btn-primary btn-sm" style="padding:6px 14px">Command Center ↗</button>
                 <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;color:#fff">${initial}</div>
                 <div style="display:flex;flex-direction:column;text-align:left">
                   <span style="font-size:0.82rem;font-weight:700;line-height:1.2">${user.username}</span>
                   <span style="font-size:0.7rem;color:var(--green);font-weight:600">&#9679; Signed In</span>
                 </div>
-                <button onclick="handleLogout()" class="btn btn-secondary btn-sm" style="margin-left:8px;padding:6px 14px">Sign Out</button>
+                <button onclick="handleLogout()" class="btn btn-secondary btn-sm" style="margin-left:8px;padding:6px 12px">Sign Out</button>
               </div>
             `;
           }
+
+          fetchConsoleKPIs();
+          refreshAuditFeed();
+
+          const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+          if (currentPath === '/' || currentPath === '/console' || currentPath === '/login') {
+            showView('console');
+          }
+        } else {
+          const sb = document.getElementById('session-banner');
+          if (sb) sb.style.display = 'none';
         }
       } catch {
         const sb = document.getElementById('session-banner');
         if (sb) sb.style.display = 'none';
+      }
+    }
+
+    async function fetchConsoleKPIs() {
+      try {
+        const [props, orders, sales, consts] = await Promise.all([
+          fetch('/api/v1/property/properties/').then(r=>r.json()).catch(()=>[]),
+          fetch('/api/v1/facility/work-orders/').then(r=>r.json()).catch(()=>[]),
+          fetch('/api/v1/sales/sales/').then(r=>r.json()).catch(()=>[]),
+          fetch('/api/v1/construction/projects/').then(r=>r.json()).catch(()=>[]),
+        ]);
+        const pCount = Array.isArray(props) ? props.length : (props.count || 0);
+        const oCount = Array.isArray(orders) ? orders.length : (orders.count || 0);
+        const sCount = Array.isArray(sales) ? sales.length : (sales.count || 0);
+        const cCount = Array.isArray(consts) ? consts.length : (consts.count || 0);
+
+        const elP = document.getElementById('cc-stat-props'); if (elP) elP.textContent = pCount + ' Properties';
+        const elO = document.getElementById('cc-stat-orders'); if (elO) elO.textContent = oCount + ' Work Orders';
+        const elS = document.getElementById('cc-stat-sales'); if (elS) elS.textContent = sCount + ' Active Sales';
+        const elC = document.getElementById('cc-stat-const'); if (elC) elC.textContent = cCount + ' Projects';
+      } catch {}
+    }
+
+    async function refreshAuditFeed() {
+      const container = document.getElementById('audit-feed-list');
+      if (!container) return;
+      try {
+        const res = await fetch('/api/v1/audit/events/');
+        if (res.ok) {
+          const data = await res.json();
+          const items = Array.isArray(data) ? data : (data.results || []);
+          if (items.length === 0) {
+            container.innerHTML = '<div style="color:var(--muted);font-size:0.88rem;padding:12px 0">No audit events recorded yet. Perform an action to see real-time log stream.</div>';
+            return;
+          }
+          container.innerHTML = items.slice(0, 8).map(evt => `
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:12px">
+                <span class="badge badge-accent" style="font-size:0.75rem">${evt.action}</span>
+                <span style="font-weight:600;font-size:0.85rem">${evt.entity_type} / ${(evt.entity_id || '').slice(0,8)}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;font-size:0.8rem;color:var(--muted)">
+                <span>Actor: <strong style="color:var(--text)">${evt.actor_username || 'System'}</strong></span>
+                <span>${new Date(evt.created_at).toLocaleTimeString()}</span>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch {
+        container.innerHTML = '<div style="color:var(--muted);font-size:0.88rem">Unable to load audit stream.</div>';
+      }
+    }
+
+    const ENDPOINTS = {
+      property:     { title: 'Property Management API', icon: '&#127962;', url: '/api/v1/property/properties/' },
+      facility:     { title: 'Facility Work Orders API', icon: '&#128295;', url: '/api/v1/facility/work-orders/' },
+      sales:        { title: 'Sales Inventory API', icon: '&#128179;', url: '/api/v1/sales/sales/' },
+      tender:       { title: 'Tender Management API', icon: '&#128221;', url: '/api/v1/tender/tenders/' },
+      valuation:    { title: 'Valuation Services API', icon: '&#128200;', url: '/api/v1/valuation/instructions/' },
+      construction: { title: 'Construction Projects API', icon: '&#127959;', url: '/api/v1/construction/projects/' },
+      companion:    { title: 'Field Staff Tasks API', icon: '&#128241;', url: '/api/v1/companion/tasks/' },
+      audit:        { title: 'System Audit Events API', icon: '&#128274;', url: '/api/v1/audit/events/' },
+    };
+
+    async function loadModuleData(key) {
+      const cfg = ENDPOINTS[key] || ENDPOINTS.property;
+      document.getElementById('dm-title').textContent = cfg.title;
+      document.getElementById('dm-icon').innerHTML = cfg.icon;
+      document.getElementById('dm-endpoint').textContent = cfg.url;
+      document.getElementById('dm-content').textContent = 'Loading API response from ' + cfg.url + ' ...';
+      openModal('data-modal');
+      try {
+        const res = await fetch(cfg.url);
+        const data = await res.json();
+        document.getElementById('dm-content').textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('dm-content').textContent = 'Error fetching API endpoint: ' + err.message;
       }
     }
 
@@ -968,6 +1093,248 @@ _VIEW_HOME = """
       </div>
     </section>
   </div>"""
+
+# ---------------------------------------------------------------------------
+# COMMAND CENTER CONSOLE VIEW (POST-LOGIN)
+# ---------------------------------------------------------------------------
+
+_VIEW_CONSOLE = """
+  <!-- ========== COMMAND CENTER CONSOLE VIEW ========== -->
+  <div id="view-console" class="view">
+    <section style="padding:40px 0 80px">
+      <div class="container">
+
+        <!-- Welcome Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:32px;flex-wrap:wrap">
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span class="badge badge-green">&#9679; LIVE COMMAND CENTER</span>
+              <span class="badge badge-accent" id="cc-org-name">Center Estates Demo</span>
+            </div>
+            <h1 style="font-family:'Outfit';font-size:2.4rem;font-weight:900;letter-spacing:-0.02em">
+              Welcome back, <span class="grad-text" id="cc-user-display">Administrator</span>
+            </h1>
+            <p style="color:var(--muted);font-size:0.95rem">
+              Unified enterprise operations dashboard — real-time control across all 7 platform modules.
+            </p>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <a href="/api/v1/docs/" target="_blank" class="btn btn-secondary btn-sm" style="padding:10px 18px">Swagger API ↗</a>
+            <a href="/admin/" id="cc-admin-btn" target="_blank" class="btn btn-primary btn-sm" style="padding:10px 18px;display:none">Django Admin ↗</a>
+          </div>
+        </div>
+
+        <!-- Key Metrics Strip -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-bottom:40px">
+          <div class="card" style="padding:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="color:var(--muted);font-size:0.78rem;font-weight:700;text-transform:uppercase">Managed Portfolio</span>
+              <span style="font-size:1.4rem">&#127962;</span>
+            </div>
+            <div style="font-family:'Outfit';font-size:2rem;font-weight:800;color:var(--text)" id="cc-stat-props">...</div>
+            <div style="font-size:0.78rem;color:var(--green);margin-top:4px">● Active Property Portfolio</div>
+          </div>
+
+          <div class="card" style="padding:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="color:var(--muted);font-size:0.78rem;font-weight:700;text-transform:uppercase">Facility Maintenance</span>
+              <span style="font-size:1.4rem">&#128295;</span>
+            </div>
+            <div style="font-family:'Outfit';font-size:2rem;font-weight:800;color:var(--text)" id="cc-stat-orders">...</div>
+            <div style="font-size:0.78rem;color:var(--accent);margin-top:4px">● Work Orders &amp; Maintenance</div>
+          </div>
+
+          <div class="card" style="padding:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="color:var(--muted);font-size:0.78rem;font-weight:700;text-transform:uppercase">Sales &amp; Revenue</span>
+              <span style="font-size:1.4rem">&#128179;</span>
+            </div>
+            <div style="font-family:'Outfit';font-size:2rem;font-weight:800;color:var(--text)" id="cc-stat-sales">...</div>
+            <div style="font-size:0.78rem;color:var(--cyan);margin-top:4px">● Property Sales &amp; Installments</div>
+          </div>
+
+          <div class="card" style="padding:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="color:var(--muted);font-size:0.78rem;font-weight:700;text-transform:uppercase">Construction Monitoring</span>
+              <span style="font-size:1.4rem">&#127959;</span>
+            </div>
+            <div style="font-family:'Outfit';font-size:2rem;font-weight:800;color:var(--text)" id="cc-stat-const">...</div>
+            <div style="font-size:0.78rem;color:var(--amber);margin-top:4px">● Projects &amp; BOQ Drawdowns</div>
+          </div>
+        </div>
+
+        <!-- Module Console Launchpads -->
+        <h2 style="font-family:'Outfit';font-size:1.6rem;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+          <span>Enterprise Module Launchpads</span>
+          <span style="font-size:0.8rem;color:var(--muted);font-weight:500">(Click to inspect live API data)</span>
+        </h2>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;margin-bottom:48px">
+
+          <!-- 1. Property Management -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-accent" style="margin-bottom:8px">Property Management</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Leases &amp; Tenant Portfolios</h3>
+              </div>
+              <div style="font-size:2rem">&#127962;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Manage properties, buildings, units, tenant leases, billing invoices, receipts, service charges, and credit notes.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('property')" class="btn btn-secondary btn-sm">Inspect Data ↗</button>
+              <a href="/api/v1/docs/#/property" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">API Endpoints ↗</a>
+            </div>
+          </div>
+
+          <!-- 2. Facility Management -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-green" style="margin-bottom:8px">Facility Operations</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Assets &amp; Work Orders</h3>
+              </div>
+              <div style="font-size:2rem">&#128295;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Track asset registers, work order lifecycles, planned maintenance, inspections, contractors, and utility meters.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('facility')" class="btn btn-secondary btn-sm">Inspect Data ↗</button>
+              <a href="/api/v1/docs/#/facility" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">API Endpoints ↗</a>
+            </div>
+          </div>
+
+          <!-- 3. Sales Management -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-cyan" style="margin-bottom:8px">Sales &amp; Marketing</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Off-Plan Sales &amp; Buyers</h3>
+              </div>
+              <div style="font-size:2rem">&#128179;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Manage unit inventory listings, buyers, reservation agreements, installment schedules, payments, and commissions.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('sales')" class="btn btn-secondary btn-sm">Inspect Data ↗</button>
+              <a href="/api/v1/docs/#/sales" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">API Endpoints ↗</a>
+            </div>
+          </div>
+
+          <!-- 4. Tender Management -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-amber" style="margin-bottom:8px">Procurement &amp; Tenders</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Tenders &amp; Proposals</h3>
+              </div>
+              <div style="font-size:2rem">&#128221;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Issue procurement tenders, receive proposals, conduct financial item reviews, record committee decisions, and track outcomes.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('tender')" class="btn btn-secondary btn-sm">Inspect Data ↗</button>
+              <a href="/api/v1/docs/#/tender" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">API Endpoints ↗</a>
+            </div>
+          </div>
+
+          <!-- 5. Valuation Services -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-accent" style="margin-bottom:8px">Valuations</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">RICS Valuation Reports</h3>
+              </div>
+              <div style="font-size:2rem">&#128200;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Process client valuation instructions, site inspections, comparable sales evidence, draft reports, and finalized certificates.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('valuation')" class="btn btn-secondary btn-sm">Inspect Data ↗</button>
+              <a href="/api/v1/docs/#/valuation" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">API Endpoints ↗</a>
+            </div>
+          </div>
+
+          <!-- 6. Construction Monitoring -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-green" style="margin-bottom:8px">Construction Oversight</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Projects, BOQs &amp; Milestones</h3>
+              </div>
+              <div style="font-size:2rem">&#127959;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Track site progress, milestone verification, BOQ drawdowns, daily site logs, BIM model discrepancies, and material requisitions.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('construction')" class="btn btn-secondary btn-sm">Inspect Data ↗</button>
+              <a href="/api/v1/docs/#/construction" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">API Endpoints ↗</a>
+            </div>
+          </div>
+
+          <!-- 7. Staff Companion -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-cyan" style="margin-bottom:8px">Field Staff Companion</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Telemetry &amp; Field Tasks</h3>
+              </div>
+              <div style="font-size:2rem">&#128241;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Assign field task templates, receive GPS/device telemetry, monitor staff performance scores, and handle offline synchronization.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('companion')" class="btn btn-secondary btn-sm">Inspect Data ↗</button>
+              <a href="/api/v1/docs/#/companion" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">API Endpoints ↗</a>
+            </div>
+          </div>
+
+          <!-- 8. System Audit Log -->
+          <div class="card" style="padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+              <div>
+                <span class="badge badge-amber" style="margin-bottom:8px">System Audit</span>
+                <h3 style="font-family:'Outfit';font-size:1.3rem;font-weight:800">Unified Audit Stream</h3>
+              </div>
+              <div style="font-size:2rem">&#128274;</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:20px">
+              Real-time immutable audit trail capturing every creation, modification, and deletion across all 7 enterprise modules.
+            </p>
+            <div style="display:flex;gap:10px">
+              <button onclick="loadModuleData('audit')" class="btn btn-secondary btn-sm">Inspect Audit Log ↗</button>
+              <a href="/api/v1/audit/events/" target="_blank" class="nav-link" style="font-size:0.82rem;align-self:center">Audit API ↗</a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Live Audit Feed Stream -->
+        <div class="card" style="padding:32px;margin-bottom:40px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap">
+            <div>
+              <h3 style="font-family:'Outfit';font-size:1.4rem;font-weight:800">Live System Audit &amp; Activity Stream</h3>
+              <p style="color:var(--muted);font-size:0.85rem;margin-top:2px">Real-time immutable event stream across your active organization.</p>
+            </div>
+            <button onclick="refreshAuditFeed()" class="btn btn-secondary btn-sm">Refresh Stream 🔄</button>
+          </div>
+          <div id="audit-feed-list" style="display:flex;flex-direction:column;gap:12px">
+            <div style="color:var(--muted);font-size:0.9rem">Loading live activity feed...</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+"""
 
 # ---------------------------------------------------------------------------
 # MODULES VIEW
@@ -1366,6 +1733,7 @@ HTML_APP_TEMPLATE = (
     + '<title>Center Estates ERP — Enterprise Real Estate &amp; Asset Platform</title>'
     + '</head>'
     + _NAVBAR
+    + _VIEW_CONSOLE
     + _VIEW_HOME
     + _VIEW_MODULES
     + _VIEW_PRICING
