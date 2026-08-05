@@ -513,7 +513,7 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
 
 /* ───────────────────────── instructions ───────────────────────── */
 
-function InstructionsView({ rows, search, setSearch, status, setStatus, canCoordinate, onTransition, setShowAddModal }: {
+function InstructionsView({ rows, search, setSearch, status, setStatus, canCoordinate, onTransition, setShowAddModal, setTab }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
@@ -522,6 +522,7 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
   canCoordinate: boolean;
   onTransition: (row: Row, target: string) => Promise<boolean>;
   setShowAddModal: () => void;
+  setTab: (t: ValuationTab) => void;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const [dateFrom, setDateFrom] = useState("");
@@ -627,9 +628,19 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
           <Panel title="Quick Actions">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button className="btn ghost sm" onClick={setShowAddModal}>+ New Instruction</button>
-              <button className="btn ghost sm" onClick={() => {}}>Schedule Inspection</button>
-              <button className="btn ghost sm" onClick={() => {}}>Upload Draft</button>
-              <button className="btn ghost sm" onClick={() => {}}>Download Register</button>
+              <button className="btn ghost sm" onClick={() => setTab("inspections")}>Schedule Inspection</button>
+              <button className="btn ghost sm" onClick={() => setTab("draft-reports")}>Upload Draft</button>
+              <button className="btn ghost sm" onClick={() => {
+                const hdr = "Reference,Client,Property,Type,Purpose,Instructed,Due,Fee,Priority,Status,Valuer\n";
+                const body = rows.map((r) => [String(r.reference ?? ""), String(r.client_name ?? ""), String(r.property_description ?? ""), String(r.valuation_type ?? ""), String(r.purpose ?? ""), String(r.instructed_on ?? ""), String(r.due_on ?? ""), String(r.quoted_fee ?? ""), String(r.priority ?? ""), String(r.status ?? ""), String(r.valuer_name ?? "")].join(",")).join("\n");
+                const blob = new Blob([hdr + body], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "valuation-instructions.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>Download Register</button>
             </div>
           </Panel>
 
@@ -774,11 +785,11 @@ function InspectionsView({ rows, search, setSearch, setShowAddModal }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={5}>
-        <KpiCard icon="📍" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={number.format(total)} sub="Across all instructions" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Evidence captured" onClick={() => {}} />
-        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub="Fieldwork underway" onClick={() => {}} />
-        <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Scheduled" value={number.format(scheduled)} sub="Upcoming visits" onClick={() => {}} />
-        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past schedule" onClick={() => {}} />
+        <KpiCard icon="📍" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={number.format(total)} sub="Across all instructions" />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Evidence captured" />
+        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub="Fieldwork underway" />
+        <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Scheduled" value={number.format(scheduled)} sub="Upcoming visits" />
+        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past schedule" />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
@@ -828,9 +839,9 @@ function InspectionsView({ rows, search, setSearch, setShowAddModal }: {
           <Panel title="Quick Actions">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button className="btn ghost sm" onClick={setShowAddModal}>Schedule Inspection</button>
-              <button className="btn ghost sm" onClick={() => {}}>Record Inspection (Mobile)</button>
-              <button className="btn ghost sm" onClick={() => {}}>Upload Inspection Report</button>
-              <button className="btn ghost sm" onClick={() => {}}>Upload Photos / Documents</button>
+              <button className="btn ghost sm" disabled title="Mobile app integration coming soon">Record Inspection (Mobile)</button>
+              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Inspection Report</button>
+              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Photos / Documents</button>
             </div>
           </Panel>
 
@@ -982,10 +993,10 @@ function DraftReportsView({ rows, search, setSearch, canReview, openReview, setS
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={4}>
-        <KpiCard icon="📝" iconBg="#e0e7ff" iconColor="#4f46e5" label="Draft Reports" value={number.format(rows.length)} sub="All versions" onClick={() => {}} />
-        <KpiCard icon="👁️" iconBg="#fef3c7" iconColor="#92400e" label="In Review" value={number.format(inReview)} sub="Awaiting reviewer" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Approved" value={number.format(approved)} sub="Ready to finalise" onClick={() => {}} />
-        <KpiCard icon="🔁" iconBg="#fee2e2" iconColor="#b91c1c" label="Changes Required" value={number.format(changes)} sub="Returned to valuer" onClick={() => {}} />
+        <KpiCard icon="📝" iconBg="#e0e7ff" iconColor="#4f46e5" label="Draft Reports" value={number.format(rows.length)} sub="All versions" />
+        <KpiCard icon="👁️" iconBg="#fef3c7" iconColor="#92400e" label="In Review" value={number.format(inReview)} sub="Awaiting reviewer" />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Approved" value={number.format(approved)} sub="Ready to finalise" />
+        <KpiCard icon="🔁" iconBg="#fee2e2" iconColor="#b91c1c" label="Changes Required" value={number.format(changes)} sub="Returned to valuer" />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
@@ -1029,10 +1040,10 @@ function DraftReportsView({ rows, search, setSearch, canReview, openReview, setS
           <Panel title="Quick Actions">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button className="btn ghost sm" onClick={setShowAddModal}>+ New Instruction</button>
-              <button className="btn ghost sm" onClick={() => {}}>Upload Revised Draft</button>
-              <button className="btn ghost sm" onClick={() => {}}>Upload Supporting Documents</button>
-              <button className="btn ghost sm" onClick={() => {}}>Add Internal Note</button>
-              <button className="btn ghost sm" onClick={() => {}}>Request Information</button>
+              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Revised Draft</button>
+              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Supporting Documents</button>
+              <button className="btn ghost sm" disabled title="Internal notes integration coming soon">Add Internal Note</button>
+              <button className="btn ghost sm" disabled title="Messaging integration coming soon">Request Information</button>
             </div>
           </Panel>
         </div>
@@ -1043,10 +1054,11 @@ function DraftReportsView({ rows, search, setSearch, canReview, openReview, setS
 
 /* ───────────────────────── final reports ───────────────────────── */
 
-function FinalReportsView({ rows, search, setSearch }: {
+function FinalReportsView({ rows, search, setSearch, setTab }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
+  setTab: (t: ValuationTab) => void;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
 
@@ -1132,11 +1144,11 @@ function FinalReportsView({ rows, search, setSearch }: {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <Panel title="Quick Actions">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn ghost sm" onClick={() => {}}>Resend Report</button>
-              <button className="btn ghost sm" onClick={() => {}}>Generate Invoice</button>
-              <button className="btn ghost sm" onClick={() => {}}>View Invoice</button>
-              <button className="btn ghost sm" onClick={() => {}}>Record Payment</button>
-              <button className="btn ghost sm" onClick={() => {}}>Add Follow Up</button>
+              <button className="btn ghost sm" disabled title="Email delivery integration coming soon">Resend Report</button>
+              <button className="btn ghost sm" onClick={() => setTab("invoices")}>Generate Invoice</button>
+              <button className="btn ghost sm" onClick={() => setTab("invoices")}>View Invoice</button>
+              <button className="btn ghost sm" onClick={() => setTab("payments")}>Record Payment</button>
+              <button className="btn ghost sm" disabled title="CRM follow-up integration coming soon">Add Follow Up</button>
             </div>
           </Panel>
 
@@ -1189,9 +1201,9 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCr
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={3}>
-        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Invoiced" value={fmtMoney(invoiced)} sub={`${rows.length} invoices issued`} onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(collected)} sub="Payments received" onClick={() => {}} />
-        <KpiCard icon="⏳" iconBg="#fee2e2" iconColor="#b91c1c" label="Outstanding" value={fmtMoney(outstanding)} sub="Unpaid balance" onClick={() => {}} />
+        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Invoiced" value={fmtMoney(invoiced)} sub={`${rows.length} invoices issued`} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(collected)} sub="Payments received" />
+        <KpiCard icon="⏳" iconBg="#fee2e2" iconColor="#b91c1c" label="Outstanding" value={fmtMoney(outstanding)} sub="Unpaid balance" />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
@@ -1245,11 +1257,21 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCr
           <Panel title="Quick Actions">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button className="btn ghost sm" onClick={setShowCreateInvoice}>Create New Invoice</button>
-              <button className="btn ghost sm" onClick={() => {}}>Create Credit Note</button>
+              <button className="btn ghost sm" disabled title="Credit note feature coming soon">Create Credit Note</button>
               <button className="btn ghost sm" onClick={setShowRecordPayment}>Record Payment</button>
-              <button className="btn ghost sm" onClick={() => {}}>Upload Payment Proof</button>
-              <button className="btn ghost sm" onClick={() => {}}>Send Statement of Account</button>
-              <button className="btn ghost sm" onClick={() => {}}>Download Invoice Register</button>
+              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Payment Proof</button>
+              <button className="btn ghost sm" disabled title="Email integration coming soon">Send Statement of Account</button>
+              <button className="btn ghost sm" onClick={() => {
+                const hdr = "Number,Instruction,Client,Issued,Due,Total,Paid,Balance,Status\n";
+                const body = rows.map((r) => [String(r.number ?? ""), String(r.instruction_reference ?? ""), String(r.client_name ?? ""), String(r.issued_on ?? ""), String(r.due_on ?? ""), String(r.total ?? ""), String(Math.round((Number(r.total ?? 0) - Number(r.balance ?? 0)) * 100) / 100), String(r.balance ?? ""), String(r.status ?? "")].join(",")).join("\n");
+                const blob = new Blob([hdr + body], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "valuation-invoices.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>Download Invoice Register</button>
             </div>
           </Panel>
         </div>
@@ -1296,9 +1318,9 @@ function PaymentsView({ rows, search, setSearch, canFinance, openRecordPayment }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={3}>
-        <KpiCard icon="💳" iconBg="#e0e7ff" iconColor="#4f46e5" label="Payments" value={number.format(rows.length)} sub="Fee collections" onClick={() => {}} />
-        <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(total)} sub="Total received" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#cffafe" iconColor="#0e7490" label="Allocations" value={number.format(rows.filter((r) => !["rejected", "unapplied"].includes(String(r.status))).length)} sub="Applied to invoices" onClick={() => {}} />
+        <KpiCard icon="💳" iconBg="#e0e7ff" iconColor="#4f46e5" label="Payments" value={number.format(rows.length)} sub="Fee collections" />
+        <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(total)} sub="Total received" />
+        <KpiCard icon="✅" iconBg="#cffafe" iconColor="#0e7490" label="Allocations" value={number.format(rows.filter((r) => !["rejected", "unapplied"].includes(String(r.status))).length)} sub="Applied to invoices" />
       </KpiStrip>
 
       <Panel title="Fee Collections & Allocations" badge={rows.length} action={canFinance ? <button className="btn primary sm" onClick={openRecordPayment}>+ Record Payment</button> : undefined}>
@@ -1437,13 +1459,13 @@ function AnalyticsView({ analytics, dashboard }: { analytics: Analytics | null; 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <KpiStrip cols={7}>
-        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="Instructions YTD" value={number.format(totalInstructions)} sub="Assigned workload" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(delivered)} sub="Delivered on time" onClick={() => {}} />
-        <KpiCard icon="⏱️" iconBg="#fef3c7" iconColor="#92400e" label="Avg Turnaround" value={avgTurnaround !== null ? `${avgTurnaround} days` : "Data pending"} sub="Completed instruction avg" onClick={() => {}} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Quoted Fees" value={fmtMoney(feeEstimate)} sub="Across the pipeline" onClick={() => {}} />
-        <KpiCard icon="🎯" iconBg="#cffafe" iconColor="#0e7490" label="Completion Rate" value={`${completionRate}%`} sub="Of assigned work" onClick={() => {}} />
-        <KpiCard icon="📤" iconBg="#ede9fe" iconColor="#6d28d9" label="On-time %" value="—" sub="Delivery SLA pending" onClick={() => {}} />
-        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Rate" value={number.format(overdueInvoices)} sub={`${fmtMoney(overdueBalance)} aged`} onClick={() => {}} />
+        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="Instructions YTD" value={number.format(totalInstructions)} sub="Assigned workload" />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(delivered)} sub="Delivered on time" />
+        <KpiCard icon="⏱️" iconBg="#fef3c7" iconColor="#92400e" label="Avg Turnaround" value={avgTurnaround !== null ? `${avgTurnaround} days` : "Data pending"} sub="Completed instruction avg" />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Quoted Fees" value={fmtMoney(feeEstimate)} sub="Across the pipeline" />
+        <KpiCard icon="🎯" iconBg="#cffafe" iconColor="#0e7490" label="Completion Rate" value={`${completionRate}%`} sub="Of assigned work" />
+        <KpiCard icon="📤" iconBg="#ede9fe" iconColor="#6d28d9" label="On-time %" value="—" sub="Delivery SLA pending" />
+        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Rate" value={number.format(overdueInvoices)} sub={`${fmtMoney(overdueBalance)} aged`} />
       </KpiStrip>
 
       <div className="grid-2" style={{ alignItems: "start" }}>
@@ -1610,10 +1632,10 @@ function AuditEventsView({ rows, search, setSearch }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={4}>
-        <KpiCard icon="🕘" iconBg="#e0e7ff" iconColor="#4f46e5" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" onClick={() => {}} />
-        <KpiCard icon="🔀" iconBg="#fef3c7" iconColor="#92400e" label="Status Changes" value={number.format(statusChanges)} sub="Instruction moves" onClick={() => {}} />
-        <KpiCard icon="💳" iconBg="#dcfce7" iconColor="#16a34a" label="Financial Events" value={number.format(financial)} sub="Invoices & payments" onClick={() => {}} />
-        <KpiCard icon="🧾" iconBg="#cffafe" iconColor="#0e7490" label="Reports" value={number.format(rows.filter((r) => String(r.event_type).includes("draft") || String(r.event_type).includes("final")).length)} sub="Draft & final events" onClick={() => {}} />
+        <KpiCard icon="🕘" iconBg="#e0e7ff" iconColor="#4f46e5" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" />
+        <KpiCard icon="🔀" iconBg="#fef3c7" iconColor="#92400e" label="Status Changes" value={number.format(statusChanges)} sub="Instruction moves" />
+        <KpiCard icon="💳" iconBg="#dcfce7" iconColor="#16a34a" label="Financial Events" value={number.format(financial)} sub="Invoices & payments" />
+        <KpiCard icon="🧾" iconBg="#cffafe" iconColor="#0e7490" label="Reports" value={number.format(rows.filter((r) => String(r.event_type).includes("draft") || String(r.event_type).includes("final")).length)} sub="Draft & final events" />
       </KpiStrip>
 
       <Panel title="Audit Trail" badge={rows.length}>
@@ -2239,15 +2261,15 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
         ) : tab === "overview" ? (
           <OverviewView dashboard={dashboard} setTab={setTab} openNewInstruction={openNewInstruction} />
         ) : tab === "instructions" ? (
-          <InstructionsView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canCoordinate={canCoordinate} onTransition={runTransition} setShowAddModal={openNewInstruction} />
+          <InstructionsView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canCoordinate={canCoordinate} onTransition={runTransition} setShowAddModal={openNewInstruction} setTab={setTab} />
         ) : tab === "inspections" ? (
-          <InspectionsView rows={rows} search={search} setSearch={setSearch} setShowAddModal={() => {}} />
+          <InspectionsView rows={rows} search={search} setSearch={setSearch} setShowAddModal={openNewInstruction} />
         ) : tab === "comparables" ? (
           <ComparablesView rows={rows} search={search} setSearch={setSearch} />
         ) : tab === "draft-reports" ? (
           <DraftReportsView rows={rows} search={search} setSearch={setSearch} canReview={canReview} openReview={openReview} setShowAddModal={openNewInstruction} />
         ) : tab === "final-reports" ? (
-          <FinalReportsView rows={rows} search={search} setSearch={setSearch} />
+          <FinalReportsView rows={rows} search={search} setSearch={setSearch} setTab={setTab} />
         ) : tab === "invoices" ? (
           <InvoicesView rows={rows} search={search} setSearch={setSearch} setShowRecordPayment={openRecordPayment} setShowCreateInvoice={openCreateInvoice} />
         ) : tab === "payments" ? (

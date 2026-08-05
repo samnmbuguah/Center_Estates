@@ -433,11 +433,11 @@ function InventoryView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Listings" value={number.format(rows.length)} sub="Across all projects" onClick={() => {}} />
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Listings" value={number.format(rows.length)} sub="Across all projects" />
         <KpiCard icon="🏠" iconBg="#dcfce7" iconColor="#16a34a" label="Available" value={number.format(countBy(rows, ["available"]))} sub="Open for sale" onClick={() => setStatus(status === "available" ? "" : "available")} />
         <KpiCard icon="🔒" iconBg="#fef3c7" iconColor="#92400e" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Held on reservations" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
         <KpiCard icon="✅" iconBg="#e0f2fe" iconColor="#0284c7" label="Sold" value={number.format(countBy(rows, ["sold"]))} sub="Completed sales" onClick={() => setStatus(status === "sold" ? "" : "sold")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Portfolio Value" value={fmtMoney(totalValue)} sub="Sum of list prices" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Portfolio Value" value={fmtMoney(totalValue)} sub="Sum of list prices" />
       </KpiStrip>
 
       <Panel title="Projects & Units" badge={rows.length}>
@@ -604,11 +604,11 @@ function BuyersView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buyers" value={number.format(rows.length)} sub="Registry count" onClick={() => {}} />
+        <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buyers" value={number.format(rows.length)} sub="Registry count" />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Active Buyers" value={number.format(active)} sub="Qualified or active" onClick={() => setStatus(status === "active" ? "" : "active")} />
         <KpiCard icon="🧲" iconBg="#fef3c7" iconColor="#92400e" label="Leads" value={number.format(countBy(rows, ["lead"]))} sub="Awaiting qualification" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
         <KpiCard icon="🎓" iconBg="#e0f2fe" iconColor="#0284c7" label="Completed" value={number.format(countBy(rows, ["completed"]))} sub="Closed purchases" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Bank-Financed" value={number.format(rows.filter((r) => String(r.financing_type) === "bank").length)} sub="Purchasing via financier" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Bank-Financed" value={number.format(rows.filter((r) => String(r.financing_type) === "bank").length)} sub="Purchasing via financier" />
       </KpiStrip>
 
       <Panel title="Buyers Registry" badge={rows.length}>
@@ -893,8 +893,8 @@ function LeadsView({
       <KpiStrip cols={7}>
         <KpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Leads" value={number.format(total)} sub="All pipeline leads" onClick={() => setStatus("")} />
         <KpiCard icon="🆕" iconBg="#dbeafe" iconColor="#2563eb" label="New" value={number.format(newCount)} sub="Awaiting first contact" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
-        <KpiCard icon="📞" iconBg="#e0f2fe" iconColor="#0891b2" label="Contacted" value="0" sub="No data available" onClick={() => {}} />
-        <KpiCard icon="🏠" iconBg="#ede9fe" iconColor="#7c3aed" label="Site Visits" value="0" sub="No data available" onClick={() => {}} />
+        <KpiCard icon="📞" iconBg="#e0f2fe" iconColor="#0891b2" label="Contacted" value="0" sub="No data available" />
+        <KpiCard icon="🏠" iconBg="#ede9fe" iconColor="#7c3aed" label="Site Visits" value="0" sub="No data available" />
         <KpiCard icon="⭐" iconBg="#fef3c7" iconColor="#f59e0b" label="Interested" value={number.format(qualifiedCount)} sub="Qualified leads" onClick={() => setStatus(status === "qualified" ? "" : "qualified")} />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Converted" value={number.format(completedCount)} sub="Closed deals" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
         <KpiCard icon="❌" iconBg="#fee2e2" iconColor="#b91c1c" label="Lost" value={number.format(cancelledCount)} sub="Dropped leads" onClick={() => setStatus(status === "cancelled" ? "" : "cancelled")} />
@@ -998,8 +998,8 @@ function SalesView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Sales" value={number.format(rows.length)} sub="All pipeline records" onClick={() => {}} />
-        <KpiCard icon="💼" iconBg="#fff7ed" iconColor="#ea580c" label="Pipeline Value" value={fmtMoney(pipelineValue)} sub={`${number.format(pipelineDeals)} active deals`} onClick={() => {}} />
+        <KpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Sales" value={number.format(rows.length)} sub="All pipeline records" />
+        <KpiCard icon="💼" iconBg="#fff7ed" iconColor="#ea580c" label="Pipeline Value" value={fmtMoney(pipelineValue)} sub={`${number.format(pipelineDeals)} active deals`} />
         <KpiCard icon="🔒" iconBg="#fef3c7" iconColor="#92400e" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Under reservation" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
         <KpiCard icon="📝" iconBg="#e0f2fe" iconColor="#0284c7" label="Contracted" value={number.format(countBy(rows, ["contracted"]))} sub="Agreements signed" onClick={() => setStatus(status === "contracted" ? "" : "contracted")} />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(countBy(rows, ["completed"]))} sub="Fully paid & closed" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
@@ -1122,10 +1122,10 @@ function SiteVisitsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="📍" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Visits" value={number.format(rows.length)} sub="Clerk-recorded visits" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Converted" value={number.format(converted)} sub="Became buyers" onClick={() => {}} />
-        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Follow-up Due" value={number.format(followDue)} sub="Needs client follow-up" onClick={() => {}} />
-        <KpiCard icon="📅" iconBg="#e0f2fe" iconColor="#0284c7" label="Scheduled" value={number.format(rows.length - converted - followDue)} sub="Upcoming presentations" onClick={() => {}} />
+        <KpiCard icon="📍" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Visits" value={number.format(rows.length)} sub="Clerk-recorded visits" />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Converted" value={number.format(converted)} sub="Became buyers" />
+        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Follow-up Due" value={number.format(followDue)} sub="Needs client follow-up" />
+        <KpiCard icon="📅" iconBg="#e0f2fe" iconColor="#0284c7" label="Scheduled" value={number.format(rows.length - converted - followDue)} sub="Upcoming presentations" />
       </KpiStrip>
 
       <Panel title="Site Visits & Presentations" badge={rows.length}>
@@ -1189,11 +1189,11 @@ function InstallmentsView({ rows, search, setSearch, status, setStatus }: {
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🗓️" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Installments" value={number.format(rows.length)} sub="Across all sales" onClick={() => {}} />
+        <KpiCard icon="🗓️" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Installments" value={number.format(rows.length)} sub="Across all sales" />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Paid" value={number.format(countBy(rows, ["paid"]))} sub="Settled in full" onClick={() => setStatus(status === "paid" ? "" : "paid")} />
         <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending" value={number.format(countBy(rows, ["upcoming", "due", "partial"]))} sub="Due or partly paid" onClick={() => setStatus(status === "due" ? "" : "due")} />
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past due date" onClick={() => setStatus(status === "overdue" ? "" : "overdue")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Outstanding" value={fmtMoney(outstanding)} sub="Total unpaid balance" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Outstanding" value={fmtMoney(outstanding)} sub="Total unpaid balance" />
       </KpiStrip>
 
       {clipNotice && (
@@ -1273,7 +1273,7 @@ function PaymentsView({
         <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending Verification" value={number.format(countBy(rows, ["pending"]))} sub="Awaiting approval" onClick={() => setStatus(status === "pending" ? "" : "pending")} />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Verified" value={number.format(countBy(rows, ["verified", "partial"]))} sub="Approved & applied" onClick={() => setStatus(status === "verified" ? "" : "verified")} />
         <KpiCard icon="✖️" iconBg="#fee2e2" iconColor="#b91c1c" label="Rejected" value={number.format(countBy(rows, ["rejected"]))} sub="Needs resubmission" onClick={() => setStatus(status === "rejected" ? "" : "rejected")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Collected" value={fmtMoney(verifiedTotal)} sub="Verified amount" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Collected" value={fmtMoney(verifiedTotal)} sub="Verified amount" />
       </KpiStrip>
 
       <Panel title="Payments & Verification" badge={rows.length}>
@@ -1341,11 +1341,11 @@ function CommissionsView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Commissions" value={number.format(rows.length)} sub="All agent records" onClick={() => {}} />
+        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Commissions" value={number.format(rows.length)} sub="All agent records" />
         <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending" value={number.format(countBy(rows, ["pending"]))} sub="Waiting on gates" onClick={() => setStatus(status === "pending" ? "" : "pending")} />
         <KpiCard icon="🧪" iconBg="#e0f2fe" iconColor="#0284c7" label="Eligible" value={number.format(countBy(rows, ["eligible"]))} sub="Gates passed" onClick={() => setStatus(status === "eligible" ? "" : "eligible")} />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Approved" value={number.format(countBy(rows, ["approved"]))} sub="Approved for payout" onClick={() => setStatus(status === "approved" ? "" : "approved")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Value" value={fmtMoney(totalValue)} sub="Total commission value" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Value" value={fmtMoney(totalValue)} sub="Total commission value" />
       </KpiStrip>
 
       <Panel title="Agent Commissions" badge={rows.length}>
@@ -1412,11 +1412,11 @@ function PerformanceView({ dashboard }: { dashboard: Dashboard }) {
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🧑‍💼" iconBg="#e0e7ff" iconColor="#4f46e5" label="Agents" value={number.format(agents.length)} sub="With recorded sales" onClick={() => {}} />
-        <KpiCard icon="🏷️" iconBg="#e0f2fe" iconColor="#0284c7" label="Units Sold" value={number.format(completed)} sub={`${number.format(deals)} total deals`} onClick={() => {}} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Value Sold" value={fmtMoney(valueSold)} sub="Aggregate agreed price" onClick={() => {}} />
-        <KpiCard icon="✖️" iconBg="#fee2e2" iconColor="#b91c1c" label="Cancellations" value={number.format(cancelled)} sub="Lost pipeline deals" onClick={() => {}} />
-        <KpiCard icon="⚠️" iconBg="#fef3c7" iconColor="#92400e" label="Overdue Exposure" value={fmtMoney(exposure.outstanding)} sub={`${number.format(Number(exposure.count ?? 0))} overdue installments`} onClick={() => {}} />
+        <KpiCard icon="🧑‍💼" iconBg="#e0e7ff" iconColor="#4f46e5" label="Agents" value={number.format(agents.length)} sub="With recorded sales" />
+        <KpiCard icon="🏷️" iconBg="#e0f2fe" iconColor="#0284c7" label="Units Sold" value={number.format(completed)} sub={`${number.format(deals)} total deals`} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Value Sold" value={fmtMoney(valueSold)} sub="Aggregate agreed price" />
+        <KpiCard icon="✖️" iconBg="#fee2e2" iconColor="#b91c1c" label="Cancellations" value={number.format(cancelled)} sub="Lost pipeline deals" />
+        <KpiCard icon="⚠️" iconBg="#fef3c7" iconColor="#92400e" label="Overdue Exposure" value={fmtMoney(exposure.outstanding)} sub={`${number.format(Number(exposure.count ?? 0))} overdue installments`} />
       </KpiStrip>
 
       <Panel title="Agent Performance" badge={agents.length}>
@@ -1529,9 +1529,9 @@ function DocumentsView({ rows, search, setSearch }: {
   return (
     <>
       <KpiStrip cols={3}>
-        <KpiCard icon="📄" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Documents" value={number.format(rows.length)} sub="All legal records" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Final Versions" value={number.format(finals)} sub="Checksum-immutable" onClick={() => {}} />
-        <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft Versions" value={number.format(rows.length - finals)} sub="Awaiting finalisation" onClick={() => {}} />
+        <KpiCard icon="📄" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Documents" value={number.format(rows.length)} sub="All legal records" />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Final Versions" value={number.format(finals)} sub="Checksum-immutable" />
+        <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft Versions" value={number.format(rows.length - finals)} sub="Awaiting finalisation" />
       </KpiStrip>
 
       <Panel title="Legal Documents" badge={rows.length}>
@@ -1574,10 +1574,10 @@ function AuditEventsView({ rows, search, setSearch }: {
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🕘" iconBg="#e0e7ff" iconColor="#4f46e5" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" onClick={() => {}} />
-        <KpiCard icon="💳" iconBg="#fef3c7" iconColor="#92400e" label="Payment Events" value={number.format(paymentEvents)} sub="Submissions & verification" onClick={() => {}} />
-        <KpiCard icon="🔀" iconBg="#e0f2fe" iconColor="#0284c7" label="Status Changes" value={number.format(statusChanges)} sub="Sale & commission moves" onClick={() => {}} />
-        <KpiCard icon="🧾" iconBg="#dcfce7" iconColor="#16a34a" label="Verified" value={number.format(rows.filter((r) => String(r.event_type).includes("verified")).length)} sub="Payments approved" onClick={() => {}} />
+        <KpiCard icon="🕘" iconBg="#e0e7ff" iconColor="#4f46e5" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" />
+        <KpiCard icon="💳" iconBg="#fef3c7" iconColor="#92400e" label="Payment Events" value={number.format(paymentEvents)} sub="Submissions & verification" />
+        <KpiCard icon="🔀" iconBg="#e0f2fe" iconColor="#0284c7" label="Status Changes" value={number.format(statusChanges)} sub="Sale & commission moves" />
+        <KpiCard icon="🧾" iconBg="#dcfce7" iconColor="#16a34a" label="Verified" value={number.format(rows.filter((r) => String(r.event_type).includes("verified")).length)} sub="Payments approved" />
       </KpiStrip>
 
       <Panel title="Audit Trail" badge={rows.length}>
@@ -1663,10 +1663,10 @@ function BankReconciliationView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🏦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Transactions" value={number.format(total)} sub="From payment records" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Matched" value={number.format(matched)} sub="Verified & reconciled" onClick={() => {}} />
-        <KpiCard icon="⚠️" iconBg="#fef3c7" iconColor="#92400e" label="Unmatched" value={number.format(unmatched)} sub="Pending verification" onClick={() => {}} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Reconciled" value={fmtMoney(totalReconciled)} sub={`${matchedPct}% matched`} onClick={() => {}} />
+        <KpiCard icon="🏦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Transactions" value={number.format(total)} sub="From payment records" />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Matched" value={number.format(matched)} sub="Verified & reconciled" />
+        <KpiCard icon="⚠️" iconBg="#fef3c7" iconColor="#92400e" label="Unmatched" value={number.format(unmatched)} sub="Pending verification" />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Reconciled" value={fmtMoney(totalReconciled)} sub={`${matchedPct}% matched`} />
       </KpiStrip>
 
       <div className="grid-2" style={{ gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
@@ -1905,7 +1905,7 @@ td:first-child{font-weight:600;width:40%;color:#555}
             ))}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button className="btn primary sm" onClick={downloadAgreement}>↓ Download Agreement</button>
-              <button className="btn ghost sm" onClick={() => {}}>✉ Send to Buyer</button>
+              <button className="btn ghost sm" disabled title="Email integration coming soon">✉ Send to Buyer</button>
             </div>
           </div>
         </Panel>
@@ -1966,10 +1966,10 @@ function HandoverView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🏠" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Units" value={number.format(totalUnits)} sub="Completed sales eligible" onClick={() => {}} />
-        <KpiCard icon="📦" iconBg="#dcfce7" iconColor="#16a34a" label="Ready for Handover" value={number.format(readyCount)} sub="Awaiting handover completion" onClick={() => {}} />
-        <KpiCard icon="✅" iconBg="#e0f2fe" iconColor="#0284c7" label="Handed Over" value={number.format(handedOverCount)} sub="Units fully delivered" onClick={() => {}} />
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending Inspection" value={number.format(pendingCount)} sub="Not yet ready" onClick={() => {}} />
+        <KpiCard icon="🏠" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Units" value={number.format(totalUnits)} sub="Completed sales eligible" />
+        <KpiCard icon="📦" iconBg="#dcfce7" iconColor="#16a34a" label="Ready for Handover" value={number.format(readyCount)} sub="Awaiting handover completion" />
+        <KpiCard icon="✅" iconBg="#e0f2fe" iconColor="#0284c7" label="Handed Over" value={number.format(handedOverCount)} sub="Units fully delivered" />
+        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending Inspection" value={number.format(pendingCount)} sub="Not yet ready" />
       </KpiStrip>
 
       <Panel title="Unit Handover" badge={rows.length}>

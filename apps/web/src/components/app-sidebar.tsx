@@ -69,6 +69,8 @@ export function AppSidebar({
 
       <aside
         className={`platform-sidebar ${menuOpen ? "mobile-open" : ""} ${collapsed ? "collapsed" : ""}`}
+        role="navigation"
+        aria-label="Main navigation"
         style={{
           width: collapsed ? 72 : 260,
           minWidth: collapsed ? 72 : 260,
@@ -464,6 +466,7 @@ export function AppSidebar({
           type="button"
           className="logout-button"
           onClick={() => setCollapsed(!collapsed)}
+          aria-expanded={!collapsed}
           style={{
             margin: "0 10px 12px",
             padding: "8px 12px",
