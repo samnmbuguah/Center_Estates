@@ -23,8 +23,6 @@ export default function RisksPage({ params }: { params: Promise<{ id: string }> 
         if (tabId === "overview") window.location.href = "/monitoring";
         else window.location.href = `/monitoring?tab=${tabId}`;
       }}
-      contextLabel="Risk Register"
-      contextValue={`Project #${id}`}
     >
       <div className="property-app monitoring-app">
         <div style={{ marginBottom: 14 }}>

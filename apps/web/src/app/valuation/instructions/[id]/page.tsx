@@ -74,8 +74,6 @@ export default function SingleValuationWorkspacePage({ params }: { params: Promi
         if (tabId === "overview") window.location.href = "/valuation";
         else window.location.href = `/valuation?tab=${tabId}`;
       }}
-      contextLabel="Valuation Ref"
-      contextValue={String(row?.reference ?? "—")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div>

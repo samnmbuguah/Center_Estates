@@ -2198,8 +2198,6 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
       groups={tenderNav}
       activeId={tab}
       onSelect={selectTab}
-      contextLabel="Pipeline Stage"
-      contextValue={labels[tab]}
       actions={
         <div className="row" style={{ gap: 10, alignItems: "center" }}>
           <span className="muted" style={{ fontSize: 13, whiteSpace: "nowrap" }}>📅 {todayStr}</span>

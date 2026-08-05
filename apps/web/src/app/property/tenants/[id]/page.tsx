@@ -51,8 +51,6 @@ export default function SingleTenantWorkspacePage({ params }: { params: Promise<
         if (tabId === "overview") window.location.href = "/property";
         else window.location.href = `/property?tab=${tabId}`;
       }}
-      contextLabel="Tenant ID"
-      contextValue={`TENANT-${id}`}
     >
       <div className="property-app">
         <div style={{ marginBottom: 14 }}>

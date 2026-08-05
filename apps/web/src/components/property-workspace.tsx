@@ -3586,6 +3586,89 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
 
   const todayStr = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
+  /**
+   * TWO-LEVEL NAVIGATION:
+   * - Left sidebar uses `section` (9 top-level items matching spec)
+   * - Horizontal tabs use `subTabs` for sub-pages within a section
+   * - `tab` remains the fine-grained state driving content rendering
+   */
+  const SECTION_SUB_TABS: Record<string, { id: string; label: string }[]> = {
+    overview:        [],
+    properties:      [],
+    units:           [],
+    tenants:         [],
+    leases:          [],
+    rent: [
+      { id: "rent",                 label: "Invoices" },
+      { id: "rent-schedules",       label: "Rent Roll" },
+      { id: "arrears",              label: "Arrears" },
+      { id: "reminders",            label: "Reminders" },
+      { id: "receipts",             label: "Receipts" },
+      { id: "receipt-allocations",  label: "Allocations" },
+      { id: "bank-reconciliation",  label: "Bank Reconciliation" },
+      { id: "credit-notes",         label: "Credit Notes" },
+    ],
+    "service-charges": [
+      { id: "service-charges",                  label: "Charge Setup" },
+      { id: "service-charge-allocations",        label: "Allocations" },
+      { id: "service-charge-reconciliations",    label: "Reconciliations" },
+    ],
+    expenses: [
+      { id: "budgets",   label: "Budgets & Estimates" },
+      { id: "expenses",  label: "Property Expenses" },
+      { id: "fees",      label: "Fee Invoicing" },
+    ],
+    reports:  [],
+  };
+
+  // Derive which left-nav section the current `tab` belongs to
+  const SECTION_FOR_TAB: Record<string, string> = {
+    overview: "overview",
+    properties: "properties",
+    buildings: "properties",
+    units: "units",
+    projects: "units",
+    tenants: "tenants",
+    "tenant-documents": "tenants",
+    leases: "leases",
+    "rent-schedules": "rent",
+    rent: "rent",
+    arrears: "rent",
+    reminders: "rent",
+    receipts: "rent",
+    "receipt-allocations": "rent",
+    "bank-reconciliation": "rent",
+    "credit-notes": "rent",
+    "service-charges": "service-charges",
+    "service-charge-allocations": "service-charges",
+    "service-charge-reconciliations": "service-charges",
+    budgets: "expenses",
+    expenses: "expenses",
+    fees: "expenses",
+    reports: "reports",
+  };
+
+  const activeSection = SECTION_FOR_TAB[tab] ?? tab;
+  const currentSubTabs = SECTION_SUB_TABS[activeSection] ?? [];
+
+  // When the user clicks a left-nav section, navigate to its default tab
+  const DEFAULT_TAB_FOR_SECTION: Record<string, PropertyTab> = {
+    overview: "overview",
+    properties: "properties",
+    units: "units",
+    tenants: "tenants",
+    leases: "leases",
+    rent: "rent",
+    "service-charges": "service-charges",
+    expenses: "expenses",
+    reports: "reports",
+  };
+
+  const handleSelectSection = (sectionId: string) => {
+    const defaultTab = DEFAULT_TAB_FOR_SECTION[sectionId] ?? sectionId as PropertyTab;
+    handleSelectTab(defaultTab);
+  };
+
   return (
     <ModuleShell
       moduleKey="property"
@@ -3595,10 +3678,11 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       subtitle="Tenants, occupancy, lease agreements, rent collections & property accounting."
       accent="#e23b3b"
       groups={propertyNav}
-      activeId={tab}
-      onSelect={handleSelectTab}
-      contextLabel="View Scope"
-      contextValue={labels[tab]}
+      activeId={activeSection}
+      onSelect={handleSelectSection}
+      subTabs={currentSubTabs}
+      activeSubId={currentSubTabs.length > 0 ? tab : undefined}
+      onSelectSub={handleSelectTab}
       actions={
         <div className="row" style={{ gap: 10, alignItems: "center" }}>
           <span className="muted" style={{ fontSize: 12 }}>📅 {todayStr}</span>

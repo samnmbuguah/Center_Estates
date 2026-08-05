@@ -1026,11 +1026,8 @@ function WorkspaceContent() {
       subtitle="Full lifecycle site monitoring, commercial controls, BIM/GIS, progress certification, and risk engineering."
       accent="#00a3ff"
       groups={constructionNav}
-      horizontalItemsOverride={monitoringHorizontalNav}
       activeId={tab}
       onSelect={handleSelectTab}
-      contextLabel="Active Project"
-      contextValue={activeProject?.name || "All Projects"}
     >
       <div className="monitoring-workspace-container" style={{ padding: "8px 0" }}>
         {tab === "overview" && <ExecutiveDashboard />}

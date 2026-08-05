@@ -79,8 +79,6 @@ export default function SingleTenderWorkspacePage({ params }: { params: Promise<
         if (tabId === "overview") window.location.href = "/tender";
         else window.location.href = `/tender?tab=${tabId}`;
       }}
-      contextLabel="Tender Ref"
-      contextValue={String(row?.reference ?? "—")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div>

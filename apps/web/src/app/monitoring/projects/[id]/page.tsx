@@ -53,8 +53,6 @@ export default function SingleProjectWorkspacePage({ params }: { params: Promise
         if (tabId === "overview") window.location.href = "/monitoring";
         else window.location.href = `/monitoring?tab=${tabId}`;
       }}
-      contextLabel="Active Project Scope"
-      contextValue={projName}
     >
       <div className="property-app monitoring-app">
         {/* Project Workspace Navigation Bar */}

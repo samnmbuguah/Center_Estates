@@ -332,8 +332,6 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       groups={companionNav}
       activeId={tab}
       onSelect={(id) => { setSearch(""); setTab(id as CompanionTab); }}
-      contextLabel="Section"
-      contextValue={labels[tab]}
       actions={
         isManager ? (
           <div className="row" style={{ gap: 8 }}>

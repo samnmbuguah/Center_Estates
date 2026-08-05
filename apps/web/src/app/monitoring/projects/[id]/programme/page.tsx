@@ -23,8 +23,6 @@ export default function ProgrammePage({ params }: { params: Promise<{ id: string
         if (tabId === "overview") window.location.href = "/monitoring";
         else window.location.href = `/monitoring?tab=${tabId}`;
       }}
-      contextLabel="Project ID"
-      contextValue={`PROJ-${id}`}
     >
       <div className="property-app monitoring-app">
         <div style={{ marginBottom: 14 }}>

@@ -65,8 +65,6 @@ export default function SingleBuyerWorkspacePage({ params }: { params: Promise<{
         if (tabId === "overview") window.location.href = "/sales";
         else window.location.href = `/sales?tab=${tabId}`;
       }}
-      contextLabel="Buyer ID"
-      contextValue={String(row?.reference ?? "—")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div>

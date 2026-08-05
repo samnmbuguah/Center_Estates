@@ -1,88 +1,48 @@
 import type { ModuleNavGroup } from "@/components/module-shell";
 
-/** Design-aligned left-rail groups. Labels must match e2e button names. */
+/**
+ * LEFT SIDEBAR NAV — top-level sections only.
+ *
+ * These drive which LEFT sidebar item is highlighted.
+ * Sub-pages within each section are rendered as HORIZONTAL TABS
+ * (passed via `subTabs` prop to ModuleShell), keeping the two levels separate.
+ */
+
 export const propertyNav: ModuleNavGroup[] = [
   {
-    label: "Portfolio",
-    icon: "⌂",
+    label: "PROPERTY MANAGEMENT",
     items: [
-      { id: "overview", label: "Overview" },
-      { id: "properties", label: "Properties" },
-      { id: "buildings", label: "Buildings" },
-      { id: "units", label: "Occupancy" },
-      { id: "projects", label: "Projects" },
+      { id: "overview",        label: "Overview",          icon: "▦" },
+      { id: "properties",      label: "Properties",        icon: "🏢" },
+      { id: "units",           label: "Occupancy",         icon: "🪟" },
+      { id: "tenants",         label: "Tenants",           icon: "👥" },
+      { id: "leases",          label: "Leases",            icon: "📄" },
+      { id: "rent",            label: "Rent Collection",   icon: "💰" },
+      { id: "service-charges", label: "Service Charge",    icon: "⚡" },
+      { id: "expenses",        label: "Income & Expenses", icon: "📊" },
+      { id: "reports",         label: "Reports",           icon: "📈" },
     ],
-  },
-  {
-    label: "Tenancy & Leases",
-    icon: "◈",
-    items: [
-      { id: "tenants", label: "Tenants & Leases" },
-      { id: "leases", label: "Lease agreements" },
-      { id: "tenant-documents", label: "Tenant documents" },
-    ],
-  },
-  {
-    label: "Collections & Billing",
-    icon: "◎",
-    items: [
-      { id: "rent-schedules", label: "Rent roll & schedules" },
-      { id: "rent", label: "Invoices & rent" },
-      { id: "arrears", label: "Arrears & reminders" },
-      { id: "receipts", label: "Receipts & credit notes" },
-      { id: "bank-reconciliation", label: "Bank reconciliation" },
-    ],
-  },
-  {
-    label: "Charges & Financials",
-    icon: "▣",
-    items: [
-      { id: "service-charges", label: "Service charge setup" },
-      { id: "budgets", label: "Budgets & estimates" },
-      { id: "expenses", label: "Property expenses" },
-    ],
-  },
-  {
-    label: "Insights",
-    icon: "◌",
-    items: [{ id: "reports", label: "Reports catalogue" }],
   },
 ];
 
 export const facilityNav: ModuleNavGroup[] = [
-  { label: "Overview", icon: "⌂", items: [{ id: "overview", label: "Facility Dashboard" }] },
   {
-    label: "Assets & Locations",
-    icon: "▣",
+    label: "FACILITY MANAGEMENT",
     items: [
-      { id: "buildings", label: "Buildings & Locations" },
-      { id: "assets", label: "Assets Registry" },
+      { id: "overview",          label: "Dashboard",           icon: "▦" },
+      { id: "buildings",         label: "Buildings & Locations",icon: "🏢" },
+      { id: "assets",            label: "Assets & Inventory",  icon: "📦" },
+      { id: "work-orders",       label: "Maintenance",         icon: "🔧" },
+      { id: "planned-maintenance",label: "Planned Maintenance",icon: "📅" },
+      { id: "service-requests",  label: "Service Requests",    icon: "🎫" },
+      { id: "inspections",       label: "Inspections",         icon: "🔍" },
+      { id: "meters",            label: "Energy & Utilities",  icon: "⚡" },
+      { id: "contractors",       label: "Vendors & Contracts", icon: "🤝" },
+      { id: "reports",           label: "Reports & BI",        icon: "📈" },
     ],
-  },
-  {
-    label: "Maintenance Operations",
-    icon: "🔧",
-    items: [
-      { id: "work-orders", label: "Work orders" },
-      { id: "service-requests", label: "Service requests" },
-      { id: "planned-maintenance", label: "Planned maintenance (PPM)" },
-      { id: "inspections", label: "Inspections & audits" },
-    ],
-  },
-  {
-    label: "Procurement & Expenses",
-    icon: "◷",
-    items: [
-      { id: "contractors", label: "Contractors & Vendors" },
-      { id: "meters", label: "Utility management" },
-    ],
-  },
-  {
-    label: "Analytics",
-    icon: "📊",
-    items: [{ id: "reports", label: "Reports & BI" }],
   },
 ];
+
 
 
 export const salesNav: ModuleNavGroup[] = [

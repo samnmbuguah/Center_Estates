@@ -2691,8 +2691,6 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
       groups={salesNav}
       activeId={tab}
       onSelect={selectTab}
-      contextLabel="View Scope"
-      contextValue={labels[tab]}
       actions={
         <div className="row">
           <button className="btn primary sm" onClick={openBuyerRegistration}>+ Register Buyer</button>

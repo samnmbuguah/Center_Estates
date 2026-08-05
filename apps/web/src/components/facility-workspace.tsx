@@ -2969,6 +2969,62 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     setTab(id as Tab);
   };
 
+  /**
+   * TWO-LEVEL NAVIGATION for Facility Management:
+   * - Left sidebar uses `section` (top-level items matching spec)
+   * - Horizontal tabs show sub-pages within a section
+   */
+  const SECTION_SUB_TABS: Record<string, { id: string; label: string }[]> = {
+    overview:           [],
+    buildings:          [],
+    assets:             [],
+    "work-orders": [
+      { id: "work-orders",         label: "Work Orders" },
+      { id: "service-requests",    label: "Service Requests" },
+      { id: "planned-maintenance", label: "Planned Maintenance (PPM)" },
+    ],
+    "planned-maintenance": [],
+    "service-requests":    [],
+    inspections:           [],
+    meters:                [],
+    contractors:           [],
+    reports:               [],
+  };
+
+  const SECTION_FOR_TAB: Record<string, string> = {
+    overview: "overview",
+    buildings: "buildings",
+    assets: "assets",
+    "work-orders": "work-orders",
+    "service-requests": "work-orders",
+    "planned-maintenance": "work-orders",
+    inspections: "inspections",
+    meters: "meters",
+    contractors: "contractors",
+    reports: "reports",
+  };
+
+  const DEFAULT_TAB_FOR_FACILITY_SECTION: Record<string, string> = {
+    overview: "overview",
+    buildings: "buildings",
+    assets: "assets",
+    "work-orders": "work-orders",
+    "planned-maintenance": "planned-maintenance",
+    "service-requests": "service-requests",
+    inspections: "inspections",
+    meters: "meters",
+    contractors: "contractors",
+    reports: "reports",
+  };
+
+  const activeFacilitySection = SECTION_FOR_TAB[tab] ?? tab;
+  const facilitySubTabs = SECTION_SUB_TABS[activeFacilitySection] ?? [];
+
+  const handleSelectFacilitySection = (sectionId: string) => {
+    const defaultTab = DEFAULT_TAB_FOR_FACILITY_SECTION[sectionId] ?? sectionId;
+    selectTab(defaultTab);
+  };
+
   return (
     <ModuleShell
       moduleKey="facility"
@@ -2978,10 +3034,11 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       subtitle="Assets, maintenance, compliance, services and utility performance."
       accent="#e23b3b"
       groups={facilityNav}
-      activeId={tab}
-      onSelect={selectTab}
-      contextLabel="Section"
-      contextValue={labels[tab]}
+      activeId={activeFacilitySection}
+      onSelect={handleSelectFacilitySection}
+      subTabs={facilitySubTabs}
+      activeSubId={facilitySubTabs.length > 0 ? tab : undefined}
+      onSelectSub={selectTab}
       actions={
         canWork ? (
           <button className="primary-action" onClick={() => setShowCreate(true)}>

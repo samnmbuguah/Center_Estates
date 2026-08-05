@@ -53,8 +53,6 @@ export default function ProjectsDirectoryPage() {
         if (id === "overview") window.location.href = "/monitoring";
         else window.location.href = `/monitoring?tab=${id}`;
       }}
-      contextLabel="Portfolio Scope"
-      contextValue={`${projects.length} Total Projects`}
     >
       <div className="property-app monitoring-app">
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, alignItems: "center" }}>

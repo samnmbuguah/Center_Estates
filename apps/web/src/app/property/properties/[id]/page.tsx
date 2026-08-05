@@ -51,8 +51,6 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
         if (tabId === "overview") window.location.href = "/property";
         else window.location.href = `/property?tab=${tabId}`;
       }}
-      contextLabel="Active Property"
-      contextValue={propName}
     >
       <div className="property-app">
         <div style={{ marginBottom: 14 }}>

@@ -183,79 +183,90 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <nav aria-label="Command Center Operations" style={{ padding: "12px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <nav aria-label="Command Center Navigation" style={{ padding: "12px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
+
+            {/* WORKPLACE section */}
+            <p style={{ padding: "6px 10px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", margin: 0 }}>WORKPLACE</p>
+
             <Link
-              className={`nav-link ${pathname === "/workspaces" || pathname === "/" ? "active" : ""}`}
+              className={`nav-link ${(pathname === "/workspaces" || pathname === "/") ? "active" : ""}`}
               href="/workspaces"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 14px",
-                borderRadius: 8,
-                background: (pathname === "/workspaces" || pathname === "/") ? "#e52e2e" : "transparent",
-                color: "#ffffff",
-                fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
-                textDecoration: "none",
-                fontSize: 13,
-              }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 6, background: (pathname === "/workspaces" || pathname === "/") ? "#e52e2e" : "transparent", color: "#ffffff", fontWeight: 700, textDecoration: "none", fontSize: 13 }}
               onClick={() => setMenuOpen(false)}
             >
-              <span style={{ fontSize: 15 }}>🏠</span>
-              <span>Workplace</span>
+              <span style={{ fontSize: 14 }}>🏠</span>
+              <span>Dashboard</span>
             </Link>
 
-            <Link className="nav-link" href="/workspaces?tab=operations" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 15 }}>⚡</span>
+            <Link className="nav-link" href="/monitoring" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 14 }}>⚡</span>
               <span>Operations Center</span>
             </Link>
 
-            <Link className="nav-link" href="/workspaces?tab=tasks" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+            <Link className="nav-link" href="/companion?tab=my-tasks" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 15 }}>📋</span>
+                <span style={{ fontSize: 14 }}>📋</span>
                 <span>My Tasks</span>
               </div>
-              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 11, fontWeight: 700, padding: "2px 7px" }}>18</span>
+              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>18</span>
             </Link>
 
-            <Link className="nav-link" href="/workspaces?tab=approvals" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+            <Link className="nav-link" href="/companion?tab=approvals" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 15 }}>☑</span>
+                <span style={{ fontSize: 14 }}>☑</span>
                 <span>Approvals</span>
               </div>
-              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 11, fontWeight: 700, padding: "2px 7px" }}>7</span>
+              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>7</span>
             </Link>
 
-            <Link className="nav-link" href="/workspaces?tab=calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 15 }}>📅</span>
+            <Link className="nav-link" href="/monitoring?tab=calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 14 }}>📅</span>
               <span>Calendar</span>
             </Link>
 
-            <Link className="nav-link" href="/workspaces?tab=reports" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 15 }}>📊</span>
-              <span>Reports & BI</span>
+            {/* MODULES section */}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
+            <p style={{ padding: "0 10px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", margin: 0 }}>MODULES</p>
+
+            {modules
+              .filter((m) => allowed.has(m.slug))
+              .map((m) => (
+                <Link
+                  key={m.slug}
+                  className={`nav-link ${pathname.startsWith(`/${m.slug}`) ? "active" : ""}`}
+                  href={`/${m.slug}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    background: pathname.startsWith(`/${m.slug}`) ? "#e52e2e" : "transparent",
+                    color: pathname.startsWith(`/${m.slug}`) ? "#fff" : "#b8c8d7",
+                    textDecoration: "none",
+                    fontSize: 13,
+                    fontWeight: pathname.startsWith(`/${m.slug}`) ? 700 : 400,
+                  }}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span style={{ fontSize: 14 }}>{m.icon}</span>
+                  <span>{m.name}</span>
+                </Link>
+              ))
+            }
+
+            {/* SETTINGS section */}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
+            <p style={{ padding: "0 10px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", margin: 0 }}>SETTINGS</p>
+
+            <Link className="nav-link" href="/admin" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 14 }}>🛡</span>
+              <span>Administration</span>
             </Link>
 
-            <Link className="nav-link" href="/workspaces?tab=documents" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 15 }}>📁</span>
-              <span>Documents</span>
-            </Link>
-
-            <Link className="nav-link" href="/workspaces?tab=notifications" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 15 }}>🔔</span>
-              <span>Notifications</span>
-            </Link>
-
-            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "8px 0" }} />
-
-            <Link className="nav-link" href="/workspaces?tab=settings" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 15 }}>⚙</span>
-              <span>Settings</span>
-            </Link>
-
-            <Link className="nav-link" href="/workspaces?tab=help" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 15 }}>❓</span>
-              <span>Help & Support</span>
+            <Link className="nav-link" href="/companion" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
+              <span style={{ fontSize: 14 }}>⚙</span>
+              <span>System Settings</span>
             </Link>
           </nav>
 

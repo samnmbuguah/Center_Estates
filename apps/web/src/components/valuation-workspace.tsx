@@ -2223,8 +2223,6 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       groups={valuationNav}
       activeId={tab}
       onSelect={selectTab}
-      contextLabel="View Scope"
-      contextValue={labels[tab]}
       actions={
         <div className="row">
           <span className="pill pill-cyan" style={{ whiteSpace: "nowrap" }}>📅 {todayStr}</span>
