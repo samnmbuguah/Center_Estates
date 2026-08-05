@@ -32,6 +32,7 @@ export type SalesTab =
   | "payments"
   | "site-visits"
   | "commissions"
+  | "handover"
   | "performance"
   | "reports"
   | "documents"
@@ -47,6 +48,7 @@ const labels: Record<SalesTab, string> = {
   payments: "Payments & Verification",
   "site-visits": "Site Visits (Sales Clerk)",
   commissions: "Agent Commissions",
+  handover: "Unit Handover",
   performance: "Agent Performance",
   reports: "Sales Reports",
   documents: "Legal Documents",
@@ -231,6 +233,11 @@ function OverviewView({
   const pendingPayments = dashboard.pendingPayments ?? [];
   const stage = dashboard.inventoryByStatus ?? [];
   const stageTotal = stage.reduce((s, r) => s + Number(r.count ?? 0), 0) || Math.max(available + reserved + sold, 1);
+  const salesValue = Number(kpis.salesValue ?? 0);
+  const verifiedPayments = Number(kpis.verifiedPayments ?? 0);
+  const outstanding = salesValue - verifiedPayments;
+  const collectionRate = salesValue > 0 ? Math.round((verifiedPayments / salesValue) * 100) : 0;
+  const salesByProject = dashboard.salesByProject ?? [];
 
   const stageColors: Record<string, string> = {
     available: "#16a34a",
@@ -260,12 +267,14 @@ function OverviewView({
 
   return (
     <>
-      <KpiStrip cols={5}>
+      <KpiStrip cols={7}>
         <KpiCard icon="🏠" iconBg="#dcfce7" iconColor="#16a34a" label="Available Units" value={number.format(available)} sub={`${number.format(reserved)} reserved · ${number.format(sold)} sold`} link="View inventory" onClick={() => setTab("inventory")} />
         <KpiCard icon="💼" iconBg="#dbeafe" iconColor="#2563eb" label="Pipeline Value" value={fmtMoney(kpis.salesValue)} sub={`${number.format(Number(kpis.pipelineDeals ?? 0))} active deals`} link="View sales" onClick={() => setTab("sales")} />
         <KpiCard icon="🏗️" iconBg="#e0f2fe" iconColor="#0284c7" label="Units Sold" value={number.format(sold)} sub={`${number.format(reserved)} reserved in progress`} link="View inventory" onClick={() => setTab("inventory")} />
         <KpiCard icon="💸" iconBg="#ffedd5" iconColor="#ea580c" label="Commissions Payable" value={fmtMoney(kpis.pendingCommissions)} sub="Unsettled agent commissions" link="View commissions" onClick={() => setTab("commissions")} />
         <KpiCard icon="💳" iconBg="#f0fdf4" iconColor="#15803d" label="Total Revenue" value={fmtMoney(kpis.verifiedPayments)} sub={`${number.format(Number(kpis.pendingPayments ?? 0))} awaiting verification`} link="View payments" onClick={() => setTab("payments")} />
+        <KpiCard icon="📉" iconBg="#fee2e2" iconColor="#b91c1c" label="Total Outstanding" value={fmtMoney(outstanding)} sub="Uncollected balance" onClick={() => setTab("payments")} />
+        <KpiCard icon="📊" iconBg="#ede9fe" iconColor="#7c3aed" label="Collection Rate" value={`${collectionRate}%`} sub={`${fmtMoney(verifiedPayments)} of ${fmtMoney(salesValue)}`} onClick={() => setTab("payments")} />
       </KpiStrip>
 
       <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.9fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
@@ -355,6 +364,30 @@ function OverviewView({
                     <span className="fc-alert-chevron">›</span>
                   </button>
                 ))}
+              </div>
+            </Panel>
+          )}
+
+          {salesByProject.length > 0 && (
+            <Panel title="Sales by Project" badge={salesByProject.length}>
+              <div style={{ padding: 14 }}>
+                {salesByProject.map((r) => {
+                  const name = String(r["listing__project__name"] ?? "Unknown");
+                  const count = Number(r.count ?? 0);
+                  const maxCount = Math.max(...salesByProject.map((x) => Number(x.count ?? 0)), 1);
+                  const pct = (count / maxCount) * 100;
+                  return (
+                    <div key={name} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+                        <span style={{ fontWeight: 600 }}>{name}</span>
+                        <span className="mono" style={{ fontWeight: 700, color: "#ea580c" }}>{number.format(count)} sales</span>
+                      </div>
+                      <div style={{ background: "#edf0f5", borderRadius: 4, height: 18, overflow: "hidden" }}>
+                        <div style={{ background: "linear-gradient(90deg, #ea580c, #f59e0b)", height: "100%", width: `${pct}%`, borderRadius: 4, transition: "width 0.3s ease", minWidth: count > 0 ? 4 : 0 }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </Panel>
           )}
@@ -1497,6 +1530,102 @@ function toneForAudit(t: string): "green" | "yellow" | "blue" | "red" | "gray" {
   return "gray";
 }
 
+/* -------------------------- handover -------------------------- */
+
+function HandoverView({
+  rows,
+  search,
+  setSearch,
+}: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+}) {
+  const [handoverStatus, setHandoverStatus] = useState<Record<string, string>>({});
+
+  const totalUnits = rows.length;
+  const readyCount = rows.filter((r) => handoverStatus[String(r.id)] === "ready").length;
+  const handedOverCount = rows.filter((r) => handoverStatus[String(r.id)] === "handed_over").length;
+  const pendingCount = totalUnits - readyCount - handedOverCount;
+
+  function markReady(id: string) {
+    setHandoverStatus((prev) => ({ ...prev, [id]: "ready" }));
+  }
+
+  function completeHandover(id: string) {
+    setHandoverStatus((prev) => ({ ...prev, [id]: "handed_over" }));
+  }
+
+  function exportCsv() {
+    const header = "Unit Code,Project,Buyer,Sale Date,Inspection,Handover Date,Status\n";
+    const body = rows.map((r) => {
+      const st = handoverStatus[String(r.id)] ?? "pending";
+      return [
+        String(r.unit_code ?? ""),
+        String(r.project_name ?? ""),
+        String(r.buyer_name ?? ""),
+        String(r.contracted_on ?? ""),
+        st === "handed_over" ? "Passed" : st === "ready" ? "Scheduled" : "Pending",
+        st === "handed_over" ? new Date().toLocaleDateString("en-GB") : "",
+        st,
+      ].join(",");
+    }).join("\n");
+    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "handover-report.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <>
+      <KpiStrip cols={4}>
+        <KpiCard icon="🏠" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Units" value={number.format(totalUnits)} sub="Completed sales eligible" onClick={() => {}} />
+        <KpiCard icon="📦" iconBg="#dcfce7" iconColor="#16a34a" label="Ready for Handover" value={number.format(readyCount)} sub="Awaiting handover completion" onClick={() => {}} />
+        <KpiCard icon="✅" iconBg="#e0f2fe" iconColor="#0284c7" label="Handed Over" value={number.format(handedOverCount)} sub="Units fully delivered" onClick={() => {}} />
+        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending Inspection" value={number.format(pendingCount)} sub="Not yet ready" onClick={() => {}} />
+      </KpiStrip>
+
+      <Panel title="Unit Handover" badge={rows.length}>
+        <TableChrome
+          search={search}
+          setSearch={setSearch}
+          placeholder="Search unit code, buyer, project…"
+          actions={<button className="btn primary sm" onClick={exportCsv}>↓ Export Handover Report</button>}
+        >
+          {rows.length === 0 ? (
+            <EmptyState icon="🏠" title="No units ready for handover" description="Completed sales that are candidates for handover will appear here." />
+          ) : (
+            <DataTable headers={["Unit Code", "Property", "Buyer", "Sale Date", "Inspection", "Handover Date", "Status", "Actions"]}>
+              {rows.map((r) => {
+                const st = handoverStatus[String(r.id)] ?? "pending";
+                return (
+                  <tr key={String(r.id)}>
+                    <td><RefText value={r.unit_code} /></td>
+                    <td><strong style={{ fontSize: 12 }}>{String(r.project_name ?? "—")}</strong></td>
+                    <td style={{ fontSize: 12 }}>{String(r.buyer_name ?? "—")}</td>
+                    <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDate(r.contracted_on ?? r.created_at)}</td>
+                    <td><StatusPill value={st === "handed_over" ? "Passed" : st === "ready" ? "Scheduled" : "Pending"} /></td>
+                    <td style={{ fontSize: 11, color: "#6b7890" }}>{st === "handed_over" ? fmtDate(new Date().toISOString()) : "—"}</td>
+                    <td><StatusPill value={st === "handed_over" ? "completed" : st === "ready" ? "ready" : "pending"} /></td>
+                    <td>
+                      {st === "pending" && <button className="btn ghost sm" onClick={() => markReady(String(r.id))}>Mark Ready for Handover</button>}
+                      {st === "ready" && <button className="btn primary sm" onClick={() => completeHandover(String(r.id))}>Complete Handover</button>}
+                      {st === "handed_over" && <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Done</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </DataTable>
+          )}
+        </TableChrome>
+      </Panel>
+    </>
+  );
+}
+
 /* -------------------------- modals -------------------------- */
 
 function FormError({ error }: { error: string }) {
@@ -1853,8 +1982,10 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
     setError("");
 
     const isAnalytics = tab === "performance" || tab === "reports";
+    const isHandover = tab === "handover";
     let path = "/sales/dashboard/";
     if (isAnalytics) path = "/sales/analytics/";
+    else if (isHandover) path = "/sales/sales/?status=completed";
     else if (tab === "leads") path = `/sales/buyers/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
     else if (tab !== "overview") path = `/sales/${tab}/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
 
@@ -2152,6 +2283,8 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
           <ReportsView rows={rows} recentExports={recentExports} exportReport={exportReport} />
         ) : tab === "documents" ? (
           <DocumentsView rows={rows} search={search} setSearch={setSearch} />
+        ) : tab === "handover" ? (
+          <HandoverView rows={rows} search={search} setSearch={setSearch} />
         ) : tab === "audit-events" ? (
           <AuditEventsView rows={rows} search={search} setSearch={setSearch} />
         ) : (

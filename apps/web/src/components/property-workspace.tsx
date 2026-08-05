@@ -7,7 +7,7 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { propertyNav } from "@/lib/module-nav";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
-  ErrorBanner, SearchInput, DetailDrawer, Modal, Field, money, number,
+  ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
 } from "@/components/module-ui";
 
 export type PropertyTab =
@@ -259,6 +259,19 @@ function occupancyTone(v: number): "green" | "yellow" | "red" {
 function shortId(id?: unknown): string {
   const s = String(id ?? "");
   return s.length > 8 ? s.slice(0, 8) : s || "—";
+}
+
+function exportCsv(rows: Row[], columns: { key: string; label: string }[], filename: string) {
+  const escape = (v: string) => v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
+  const header = columns.map((c) => c.label).join(",");
+  const body = rows.map((r) => columns.map((c) => escape(String(r[c.key] ?? ""))).join(",")).join("\n");
+  const blob = new Blob([header + "\n" + body], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /* ─── shared layout primitives ─── */
@@ -618,12 +631,15 @@ function PropertiesView({
   const [filterType, setFilterType] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const props = rows as PropertyRow[];
   const filtered = props.filter((p) =>
     (!filterType || p.property_type === filterType) &&
     (!filterLocation || p.city === filterLocation) &&
     (!filterStatus || p.status === filterStatus)
   );
+  const pagedRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalUnits = props.reduce((s, p) => s + Number(p.units_count ?? 0), 0);
   const totalBuildings = props.reduce((s, p) => s + Number(p.buildings_count ?? 0), 0);
   const active = props.filter((p) => p.status === "active").length;
@@ -659,6 +675,12 @@ function PropertiesView({
           <option value="">All Status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
+          { key: "name", label: "Property" }, { key: "code", label: "Code" }, { key: "property_type", label: "Type" },
+          { key: "city", label: "Location" }, { key: "units_count", label: "Units" }, { key: "occupied", label: "Occupied" },
+          { key: "occupancy", label: "Occupancy %" }, { key: "monthlyRent", label: "Monthly Rent" },
+          { key: "outstanding", label: "Outstanding" }, { key: "status", label: "Status" },
+        ], "properties.csv")}>Export CSV</button>
         <button className="btn primary sm" onClick={onAdd}>+ Add Property</button>
       </ViewToolbar>
 
@@ -681,7 +703,7 @@ function PropertiesView({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {pagedRows.map((p) => (
                   <tr key={String(p.id)} onClick={() => onSelectRow(p)}>
                     <td>
                       <strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong>
@@ -707,6 +729,7 @@ function PropertiesView({
               </tbody>
             </table>
           </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
     </>
@@ -912,11 +935,14 @@ function TenantsView({
 }) {
   const [filterProperty, setFilterProperty] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const tenants = rows as TenantRow[];
   const filtered = tenants.filter((t) =>
     (!filterProperty || t.property === filterProperty) &&
     (!filterStatus || t.status === filterStatus)
   );
+  const pagedRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const active = tenants.filter((t) => t.status === "active").length;
   const prospects = tenants.filter((t) => t.status === "prospect").length;
   const outstanding = tenants.reduce((s, t) => s + Number(t.outstanding ?? 0), 0);
@@ -942,6 +968,12 @@ function TenantsView({
           <option value="">All Status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
+          { key: "name", label: "Name" }, { key: "code", label: "Code" }, { key: "tenant_type", label: "Type" },
+          { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "property", label: "Property" },
+          { key: "unit", label: "Unit" }, { key: "status", label: "Status" },
+          { key: "outstanding", label: "Outstanding" }, { key: "created_at", label: "Registered" },
+        ], "tenants.csv")}>Export CSV</button>
         <button className="btn ghost sm" onClick={onUploadDoc}>+ Upload Document</button>
         <button className="btn primary sm" onClick={onAdd}>+ Add Tenant</button>
       </ViewToolbar>
@@ -963,7 +995,7 @@ function TenantsView({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((t) => (
+                {pagedRows.map((t) => (
                   <tr key={String(t.id)} onClick={() => onSelectRow(t)}>
                     <td>
                       <strong style={{ fontSize: 12 }}>{String(t.name ?? "—")}</strong>
@@ -992,6 +1024,7 @@ function TenantsView({
               </tbody>
             </table>
           </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
     </>
@@ -1067,11 +1100,14 @@ function LeasesView({
 }) {
   const [filterProperty, setFilterProperty] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const leases = rows as LeaseRow[];
   const filtered = leases.filter((l) =>
     (!filterProperty || l.property_name === filterProperty) &&
     (!filterStatus || l.status === filterStatus)
   );
+  const pagedRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const active = leases.filter((l) => l.status === "active").length;
   const expired = leases.filter((l) => l.status === "expired").length;
   const expiring30 = leases.filter((l) => {
@@ -1104,6 +1140,14 @@ function LeasesView({
           <option value="">All Status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
+          { key: "reference", label: "Reference" }, { key: "tenant_name", label: "Tenant" },
+          { key: "property_name", label: "Property" }, { key: "unit_code", label: "Unit" },
+          { key: "starts_on", label: "Start" }, { key: "ends_on", label: "End" },
+          { key: "monthly_rent", label: "Monthly Rent" }, { key: "deposit", label: "Deposit" },
+          { key: "escalation_percent", label: "Escalation %" }, { key: "status", label: "Status" },
+          { key: "outstanding", label: "Outstanding" },
+        ], "leases.csv")}>Export CSV</button>
       </ViewToolbar>
 
       <div className="card" style={{ padding: 18, border: "1px dashed var(--primary)", background: "var(--surface-2)" }}>
@@ -1141,7 +1185,7 @@ function LeasesView({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((l) => (
+                {pagedRows.map((l) => (
                   <tr key={String(l.id)} onClick={() => onSelectRow(l)}>
                     <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(l.reference ?? "—")}</td>
                     <td><strong style={{ fontSize: 12 }}>{String(l.tenant_name ?? "—")}</strong></td>
@@ -1172,6 +1216,7 @@ function LeasesView({
               </tbody>
             </table>
           </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
     </>
@@ -1743,6 +1788,8 @@ function ReceiptsView({
   const [filter, setFilter] = useState<"all" | "receipts" | "credit-notes" | "unapplied">("all");
   const [filterTenant, setFilterTenant] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const receipts = rows as ReceiptRow[];
   const cns = creditNotes as CreditNoteRow[];
   const receiptTotal = receipts.reduce((s, r) => s + Number(r.amount ?? 0), 0);
@@ -1779,6 +1826,7 @@ function ReceiptsView({
     if (filterType && c.docMethod !== filterType) return false;
     return true;
   });
+  const pagedRows = combined.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <>
@@ -1798,6 +1846,12 @@ function ReceiptsView({
           <option value="">All Methods</option>
           {paymentMethods.map((m) => <option key={m} value={m}>{String(m).replace(/_/g, " ")}</option>)}
         </select>
+        <button className="btn ghost sm" onClick={() => exportCsv(combined, [
+          { key: "docType", label: "Type" }, { key: "docNumber", label: "Doc No" }, { key: "docDate", label: "Date" },
+          { key: "tenant_name", label: "Tenant" }, { key: "docMethod", label: "Method" },
+          { key: "docRef", label: "Reference" }, { key: "amount", label: "Amount" },
+          { key: "docStatus", label: "Status" },
+        ], "receipts-credit-notes.csv")}>Export CSV</button>
         <button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Receipt</button>
       </ViewToolbar>
 
@@ -1824,7 +1878,7 @@ function ReceiptsView({
                 </tr>
               </thead>
               <tbody>
-                {combined.map((r) => (
+                {pagedRows.map((r) => (
                   <tr key={String(r.id)}>
                     <td><Badge tone={r.docType === "Credit Note" ? "yellow" : "blue"}>{String(r.docType)}</Badge></td>
                     <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(r.docNumber ?? "—")}</td>
@@ -1839,6 +1893,7 @@ function ReceiptsView({
               </tbody>
             </table>
           </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={combined.length} onPage={setPage} />
         </ListState>
       </Panel>
     </>

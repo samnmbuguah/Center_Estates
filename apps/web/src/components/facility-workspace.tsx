@@ -1947,6 +1947,39 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
   );
 }
 
+/* ─── Utility trend bar chart helper ─── */
+function UtilityBarChart({
+  title,
+  months,
+  values,
+  color,
+  format,
+}: {
+  title: string;
+  months: string[];
+  values: number[];
+  color: string;
+  format: (v: number) => string;
+}) {
+  const max = Math.max(...values, 1);
+  return (
+    <article className="data-panel">
+      <PanelHeader title={title} />
+      <div style={{ padding: "14px 18px" }}>
+        <div style={{ alignItems: "flex-end", display: "flex", gap: 10, height: 140 }}>
+          {months.map((m, i) => (
+            <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#4b5563" }}>{format(values[i])}</span>
+              <div style={{ background: color, borderRadius: "4px 4px 0 0", height: `${(values[i] / max) * 100}%`, minHeight: 4, width: "100%", transition: "height 0.3s" }} />
+              <span style={{ color: "#8a96a7", fontSize: 9 }}>{m}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 /* ─── Utilities tab ─── */
 function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
   const [subTab, setSubTab] = useState("overview");
@@ -1954,6 +1987,32 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
   const maxSpark = Math.max(...sparkData);
   const energyKwh = Number(kpis.utilityConsumption ?? 125430).toLocaleString();
   const utilityCost = Number(kpis.utilityCost ?? 645780).toLocaleString();
+
+  const trendMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const consumptionByMonth = rows.length > 0
+    ? (() => {
+        const buckets: Record<string, number> = {};
+        rows.forEach((r) => {
+          const d = String(r.read_at ?? "");
+          const m = d.slice(0, 3) || "Jan";
+          buckets[m] = (buckets[m] ?? 0) + Number(r.consumption ?? 0);
+        });
+        return trendMonths.map((m) => buckets[m] ?? 0);
+      })()
+    : [8200, 9100, 8800, 9500, 10200, 9800, 10500, 11000, 10300, 10800, 11200, 11500];
+  const costByMonth = rows.length > 0
+    ? (() => {
+        const buckets: Record<string, number> = {};
+        rows.forEach((r) => {
+          const d = String(r.read_at ?? "");
+          const m = d.slice(0, 3) || "Jan";
+          buckets[m] = (buckets[m] ?? 0) + Number(r.cost ?? 0);
+        });
+        return trendMonths.map((m) => buckets[m] ?? 0);
+      })()
+    : [52000, 58000, 55000, 60000, 65000, 62000, 68000, 72000, 67000, 70000, 74000, 76000];
+  const totalConsumption = consumptionByMonth.reduce((s, v) => s + v, 0);
+  const totalCost = costByMonth.reduce((s, v) => s + v, 0);
 
   return (
     <>
@@ -2065,6 +2124,45 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
             </div>
             <div style={{ padding: "12px 18px" }}>
               <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View All Meters →</button>
+            </div>
+          </article>
+
+          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
+            <UtilityBarChart
+              title="Utility Consumption Trend"
+              months={trendMonths}
+              values={consumptionByMonth}
+              color="#4f46e5"
+              format={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
+            />
+            <UtilityBarChart
+              title="Utility Cost Trend (KES)"
+              months={trendMonths}
+              values={costByMonth}
+              color="#22c55e"
+              format={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+            />
+          </div>
+
+          <article className="data-panel">
+            <PanelHeader title="Monthly Summary" />
+            <div style={{ padding: "14px 18px", display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+              <div>
+                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Total Consumption (YTD)</span>
+                <strong style={{ fontSize: 18 }}>{totalConsumption >= 1000 ? `${(totalConsumption / 1000).toFixed(1)}k` : totalConsumption}</strong>
+              </div>
+              <div>
+                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Total Cost (YTD)</span>
+                <strong style={{ fontSize: 18 }}>KES {totalCost >= 1000000 ? `${(totalCost / 1000000).toFixed(2)}M` : `${(totalCost / 1000).toFixed(0)}k`}</strong>
+              </div>
+              <div>
+                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Avg. Monthly Consumption</span>
+                <strong style={{ fontSize: 14 }}>{totalConsumption >= 1000 ? `${(totalConsumption / 12000).toFixed(1)}k` : Math.round(totalConsumption / 12)}</strong>
+              </div>
+              <div>
+                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Avg. Monthly Cost</span>
+                <strong style={{ fontSize: 14 }}>KES {totalCost >= 1000000 ? `${(totalCost / 12000000).toFixed(2)}M` : `${(totalCost / 12000).toFixed(0)}k`}</strong>
+              </div>
             </div>
           </article>
         </div>
