@@ -1251,7 +1251,7 @@ _SCRIPTS = """
     // ─── Routing on load ─────────────────────────────────────────────────────
     (function initRoute() {
       const path = window.location.pathname.replace(/\/+$/, '') || '/';
-      const map = { '/': 'home', '/console': 'console', '/workspace': 'workspace', '/property': 'property', '/facility': 'facility', '/sales': 'sales', '/tender': 'tender', '/valuation': 'valuation', '/construction': 'construction', '/companion': 'companion', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
+      const map = { '/': 'home', '/console': 'console', '/workspace': 'workspace', '/workspaces': 'workspace', '/property': 'property', '/facility': 'facility', '/sales': 'sales', '/tender': 'tender', '/valuation': 'valuation', '/construction': 'construction', '/companion': 'companion', '/modules': 'modules', '/pricing': 'pricing', '/about': 'about', '/contact': 'contact', '/login': 'home', '/register': 'home' };
       const view = map[path] || 'home';
       showView(view);
       if (['property','facility','sales','tender','valuation','construction','companion'].includes(view)) {
