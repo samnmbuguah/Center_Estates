@@ -19,7 +19,73 @@ _BASE_HEAD = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="index, follow">
+
+  <!-- ═══ PRIMARY SEO ═══════════════════════════════════════════════════════ -->
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <link rel="canonical" href="https://monitoringerp.com/">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="color-scheme" content="dark">
+
+  <!-- ═══ FAVICON & APP ICONS ══════════════════════════════════════════════ -->
+  <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+
+  <!-- ═══ OPEN GRAPH (Facebook, LinkedIn, WhatsApp preview) ════════════════ -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Center Estates ERP">
+  <meta property="og:url" content="https://monitoringerp.com/">
+  <meta property="og:title" content="Center Estates ERP — Enterprise Real Estate &amp; Asset Platform">
+  <meta property="og:description" content="Unified enterprise platform for property portfolio management, facility maintenance, RICS valuations, construction oversight and field staff telemetry. Built for real estate professionals in Africa.">
+  <meta property="og:image" content="https://monitoringerp.com/static/images/hero.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="en_KE">
+
+  <!-- ═══ TWITTER CARD ══════════════════════════════════════════════════════ -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Center Estates ERP — Enterprise Real Estate Platform">
+  <meta name="twitter:description" content="Manage property portfolios, facility maintenance, RICS valuations, construction and field staff — all in one enterprise console.">
+  <meta name="twitter:image" content="https://monitoringerp.com/static/images/hero.jpg">
+
+  <!-- ═══ STRUCTURED DATA: Organization Schema ══════════════════════════════ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Center Estates ERP",
+    "url": "https://monitoringerp.com",
+    "logo": "https://monitoringerp.com/static/images/favicon-512.png",
+    "description": "Enterprise Real Estate and Asset Operations Platform for property management, facility maintenance, valuations, tenders, construction monitoring and field staff telemetry.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "KES",
+      "description": "Free starter plan available"
+    },
+    "creator": {
+      "@type": "Organization",
+      "name": "Center Estates",
+      "url": "https://monitoringerp.com"
+    },
+    "featureList": [
+      "Property Portfolio Management",
+      "Facility Maintenance & Work Orders",
+      "RICS-Compliant Valuations",
+      "Tender Management",
+      "Construction Monitoring",
+      "Field Staff Telemetry",
+      "Multi-Tenant Architecture",
+      "REST API with OpenAPI Docs"
+    ]
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -535,6 +601,13 @@ _SCRIPTS = """
 
     // ─── View switching ──────────────────────────────────────────────────────
     const VIEWS = ['home','modules','pricing','about','contact'];
+    const VIEW_SEO = {
+      home:    { title: 'Center Estates ERP — Enterprise Real Estate & Asset Platform', desc: 'Unified enterprise platform for property management, facility maintenance, RICS valuations, construction monitoring and field staff telemetry.' },
+      modules: { title: 'Platform Modules — Center Estates ERP', desc: 'Explore all 7 enterprise modules: Property Management, Facility, Valuations, Tenders, Construction Monitoring, Sales & Staff Companion.' },
+      pricing: { title: 'Pricing Plans — Center Estates ERP', desc: 'Transparent, module-based pricing for real estate enterprises in Africa. Starter, Professional and Enterprise plans available.' },
+      about:   { title: 'About Center Estates ERP — Our Story', desc: 'Built for real estate professionals in Kenya and Africa. Learn about our mission, team and values.' },
+      contact: { title: 'Contact Center Estates ERP — Get in Touch', desc: 'Reach the Center Estates team for demos, pricing inquiries or technical support.' },
+    };
     function showView(name) {
       VIEWS.forEach(v => {
         const el = document.getElementById('view-' + v);
@@ -548,6 +621,19 @@ _SCRIPTS = """
       // Update URL without reloading
       const path = name === 'home' ? '/' : '/' + name;
       history.pushState({ view: name }, '', path);
+      // Dynamic SEO updates
+      const seo = VIEW_SEO[name] || VIEW_SEO.home;
+      document.title = seo.title;
+      const descEl = document.querySelector('meta[name="description"]');
+      if (descEl) descEl.setAttribute('content', seo.desc);
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute('content', seo.title);
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute('content', seo.desc);
+      const ogUrl = document.querySelector('meta[property="og:url"]');
+      if (ogUrl) ogUrl.setAttribute('content', 'https://monitoringerp.com' + path);
+      const canonical = document.querySelector('link[rel="canonical"]');
+      if (canonical) canonical.setAttribute('href', 'https://monitoringerp.com' + path);
     }
 
     // ─── Password helpers ────────────────────────────────────────────────────
@@ -1202,8 +1288,18 @@ _CONTACT_SCRIPT = """
 
 HTML_APP_TEMPLATE = (
     _BASE_HEAD
-    + '<meta name="description" content="Center Estates ERP — Enterprise platform for property management, facility maintenance, RICS valuations, and field staff telemetry.">'
-    + '<title>Center Estates ERP — Enterprise Real Estate Platform</title>'
+    + '<meta name="description" content="Center Estates ERP — Enterprise platform for property portfolio management, facility maintenance, RICS valuations, tender management, construction monitoring and field staff telemetry. Built for real estate professionals in Kenya and Africa.">'
+    + '<meta name="keywords" content="real estate ERP Kenya, property management software Africa, facility management system, RICS valuation software, construction monitoring ERP, tenant management, lease management, property portfolio software, enterprise real estate platform">'
+    + '<meta name="author" content="Center Estates">'
+    + '<meta name="publisher" content="Center Estates">'
+    + '<meta name="geo.region" content="KE">'
+    + '<meta name="geo.placename" content="Nairobi, Kenya">'
+    + '<meta name="language" content="English">'
+    + '<meta name="category" content="Real Estate, Property Management, Enterprise Software">'
+    + '<meta name="classification" content="Business">'
+    + '<meta name="rating" content="General">'
+    + '<meta name="revisit-after" content="7 days">'
+    + '<title>Center Estates ERP — Enterprise Real Estate &amp; Asset Platform</title>'
     + '</head>'
     + _NAVBAR
     + _VIEW_HOME
@@ -1218,7 +1314,6 @@ HTML_APP_TEMPLATE = (
     + '</body></html>'
 )
 
-
 # ---------------------------------------------------------------------------
 # Views
 # ---------------------------------------------------------------------------
@@ -1226,6 +1321,66 @@ HTML_APP_TEMPLATE = (
 @ensure_csrf_cookie
 def root_web_view(request):
     return HttpResponse(HTML_APP_TEMPLATE, content_type="text/html; charset=utf-8")
+
+
+_ROBOTS_TXT = """User-agent: *
+Allow: /
+Allow: /modules
+Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /login
+Allow: /register
+Allow: /static/
+
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://monitoringerp.com/sitemap.xml
+"""
+
+_SITEMAP_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://monitoringerp.com/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://monitoringerp.com/modules</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://monitoringerp.com/pricing</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://monitoringerp.com/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://monitoringerp.com/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://monitoringerp.com/login</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>
+"""
+
+def robots_txt(request):
+    return HttpResponse(_ROBOTS_TXT.strip(), content_type="text/plain; charset=utf-8")
+
+
+def sitemap_xml(request):
+    return HttpResponse(_SITEMAP_XML.strip(), content_type="application/xml; charset=utf-8")
 
 
 urlpatterns = [
@@ -1240,6 +1395,9 @@ urlpatterns = [
     path('api/v1/valuation/', include('valuations.urls')),
     path('api/v1/construction/', include('construction.urls')),
     path('api/v1/companion/', include('companion.urls')),
+    # SEO infrastructure
+    path('robots.txt', robots_txt, name='robots-txt'),
+    path('sitemap.xml', sitemap_xml, name='sitemap-xml'),
     # Catch-all: serve the SPA for all non-API paths
     re_path(r'^.*$', root_web_view, name='root-web-app'),
 ]
