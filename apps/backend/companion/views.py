@@ -444,9 +444,10 @@ class PerformanceViewSet(ViewSet):
         })
 
 
+from rest_framework.permissions import IsAuthenticated
+
 class TelemetryViewSet(ViewSet):
-    permission_classes = (HasModuleActionPermission,)
-    required_module = Module.COMPANION
+    permission_classes = (IsAuthenticated,)
 
     def create(self, request):
         organization = get_active_organization(request)
