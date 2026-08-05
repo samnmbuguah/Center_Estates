@@ -2,7 +2,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AssetViewSet, ContractorViewSet, FacilityAnalyticsViewSet, FacilityDashboardViewSet,
-    InspectionViewSet, MeterReadingViewSet, PreventiveScheduleViewSet,
+    FacilityPortalViewSet, InspectionViewSet, MeterReadingViewSet, PreventiveScheduleViewSet,
     ServiceRequestViewSet, UtilityMeterViewSet, WorkOrderAttachmentViewSet,
     WorkOrderCostItemViewSet, WorkOrderEventViewSet, WorkOrderViewSet,
 )
@@ -15,6 +15,7 @@ router.register('work-orders', WorkOrderViewSet)
 router.register('planned-maintenance', PreventiveScheduleViewSet)
 router.register('inspections', InspectionViewSet)
 router.register('service-requests', ServiceRequestViewSet)
+router.register('portal', FacilityPortalViewSet, basename='facility-portal')
 router.register('meters', UtilityMeterViewSet)
 router.register('meter-readings', MeterReadingViewSet)
 router.register('contractors', ContractorViewSet)

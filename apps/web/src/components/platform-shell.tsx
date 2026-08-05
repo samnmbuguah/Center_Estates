@@ -136,7 +136,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const isKnownModule = modules.some((module) => module.slug === requestedModule);
   const activeOrganization = session.organizations.find((item) => item.id === session.activeOrganizationId);
   const activeModule = modules.find((module) => pathname.startsWith(`/${module.slug}`));
-  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal");
+  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal");
   const displayName = session.user.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
     : session.user.username;

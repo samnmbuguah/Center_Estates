@@ -234,6 +234,12 @@ class Command(BaseCommand):
             organization=organization, user=user,
             defaults={'tenant': tenant_one, 'is_active': True},
         )
+        occupant_user = get_user_model().objects.filter(username='role-facility-occupant').first()
+        if occupant_user:
+            TenantPortalAccess.objects.update_or_create(
+                organization=organization, user=occupant_user,
+                defaults={'tenant': tenant_one, 'is_active': True},
+            )
         Notification.objects.update_or_create(
             organization=organization, recipient=user, title='Water shutdown notice',
             defaults={

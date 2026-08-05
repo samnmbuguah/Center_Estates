@@ -1,4 +1,5 @@
 import csv
+import uuid
 
 from django.db import transaction
 from django.db.models import Count, Sum
@@ -8,7 +9,7 @@ from django.utils import timezone
 import calendar
 from decimal import Decimal
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
@@ -304,6 +305,82 @@ class ServiceRequestViewSet(FacilityModelViewSet):
         service_request.status = ServiceRequest.Status.RESOLVED; service_request.resolved_at = timezone.now(); service_request.satisfaction_score = score
         service_request.save(update_fields=('status', 'resolved_at', 'satisfaction_score', 'updated_at'))
         return Response(self.get_serializer(service_request).data)
+
+
+class FacilityPortalViewSet(ViewSet):
+    """Occupant-facing facility portal scoped to the linked tenant profile.
+
+    Unlike the staff ServiceRequestViewSet, this view only exposes the
+    service requests of the tenant linked to the signed-in user and lets
+    them submit new requests against their active lease property.
+    """
+
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.FACILITY
+    permission_map = {'service_request': 'facility.view'}
+
+    def _access(self):
+        from properties.models import TenantPortalAccess
+
+        organization = get_active_organization(self.request)
+        access = TenantPortalAccess.objects.for_organization(organization).filter(
+            user=self.request.user, is_active=True,
+        ).select_related('tenant').first()
+        if not access:
+            raise PermissionDenied('No active occupant profile is linked to this account.')
+        return access
+
+    def _active_lease(self, access):
+        from properties.models import Lease
+
+        return Lease.objects.for_organization(access.organization).filter(
+            tenant=access.tenant, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
+        ).select_related('unit__property').first()
+
+    def list(self, request):
+        access = self._access()
+        requests = ServiceRequest.objects.for_organization(access.organization).filter(
+            tenant=access.tenant,
+        ).order_by('-submitted_at')[:12]
+        lease = self._active_lease(access)
+        return Response({
+            'tenant': {
+                'id': str(access.tenant.id), 'name': access.tenant.name,
+                'code': access.tenant.code,
+            },
+            'property': {
+                'id': str(lease.unit.property.id), 'name': lease.unit.property.name,
+                'unit': lease.unit.code,
+            } if lease else None,
+            'serviceRequests': list(requests.values(
+                'id', 'reference', 'subject', 'category', 'priority', 'status',
+                'submitted_at', 'resolved_at',
+            )),
+        })
+
+    @action(detail=False, methods=('post',), url_path='service-requests')
+    def service_request(self, request):
+        access = self._access()
+        lease = self._active_lease(access)
+        if not lease:
+            raise ValidationError({'lease': 'An active lease is required to report a maintenance issue.'})
+        subject = str(request.data.get('subject', '')).strip()
+        category = str(request.data.get('category', '')).strip()
+        if not subject or not category:
+            raise ValidationError({'request': 'Subject and category are required.'})
+        priority = str(request.data.get('priority', WorkOrder.Priority.MEDIUM))
+        if priority not in WorkOrder.Priority.values:
+            raise ValidationError({'priority': 'Select a valid priority.'})
+        service_request = ServiceRequest.objects.create(
+            organization=access.organization,
+            reference=f'REQ-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}',
+            subject=subject,
+            description=str(request.data.get('description', '')).strip(),
+            category=category, property=lease.unit.property, unit=lease.unit,
+            tenant=access.tenant, priority=priority, status=ServiceRequest.Status.NEW,
+            submitted_at=timezone.now(),
+        )
+        return Response(ServiceRequestSerializer(service_request).data, status=201)
 
 
 class UtilityMeterViewSet(FacilityModelViewSet):

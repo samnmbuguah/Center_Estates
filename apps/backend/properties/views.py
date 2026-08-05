@@ -590,6 +590,7 @@ class ServiceChargeReconciliationViewSet(ReadOnlyModelViewSet):
 
 class TenantDocumentViewSet(OrganizationModelViewSet):
     write_permission = 'property.leasing'
+    permission_map = {'verify': 'property.leasing', 'reject': 'property.leasing'}
     queryset = TenantDocument.objects.select_related('tenant', 'verified_by')
     serializer_class = TenantDocumentSerializer
     search_fields = ('tenant__name', 'document_type', 'document_number')

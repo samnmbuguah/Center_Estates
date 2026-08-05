@@ -7,8 +7,8 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.models import Module
-from organizations.models import Membership, Organization
-from properties.models import Property
+from organizations.models import Membership, MembershipRole, Organization, Permission, Role
+from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
 from .models import FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
@@ -205,3 +205,168 @@ class FacilityApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'text/csv')
         self.assertIn('facility-assets.csv', response['Content-Disposition'])
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class FacilityRolePermissionApiTests(TestCase):
+    """Role-complete acceptance for facility technician, inspector and occupant."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='facility-role-user', password='test')
+        self.organization = Organization.objects.create(name='Facility Roles', slug='facility-roles')
+        self.membership = Membership.objects.create(
+            user=self.user, organization=self.organization, is_default=True,
+        )
+        Subscription.objects.create(
+            organization=self.organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE,
+        )
+        self.property = Property.objects.create(
+            organization=self.organization, code='FR-1', name='Role Building',
+        )
+        self.asset = FacilityAsset.objects.create(
+            organization=self.organization, property=self.property, code='FR-A1',
+            name='Role Lift', category='Mechanical', purchase_value=Decimal('500000'),
+        )
+        self.work_order = WorkOrder.objects.create(
+            organization=self.organization, number='FR-WO-1', title='Lift repair',
+            category='Mechanical', property=self.property, asset=self.asset,
+            reported_by=self.user, priority=WorkOrder.Priority.HIGH,
+            status=WorkOrder.Status.ASSIGNED, reported_at=timezone.now(),
+            resolution_due_at=timezone.now() + timezone.timedelta(hours=6), progress=0,
+        )
+        self.role = Role.objects.create(
+            organization=self.organization, name='Business Role', slug='business-role',
+        )
+        MembershipRole.objects.create(membership=self.membership, role=self.role)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def _grant(self, *keys):
+        for key in keys:
+            permission, _ = Permission.objects.get_or_create(
+                key=key, defaults={'label': key, 'module': key.split('.')[0]},
+            )
+            self.role.permissions.add(permission)
+
+    def test_technician_runs_work_and_adds_costs_but_cannot_administer_or_inspect(self):
+        self._grant('facility.view', 'facility.work')
+        self.assertEqual(self.client.get('/api/v1/facility/dashboard/', **self.headers).status_code, 200)
+
+        created = self.client.post('/api/v1/facility/work-orders/', {
+            'number': 'FR-WO-2', 'title': 'Test alarm', 'category': 'Fire safety',
+            'property': str(self.property.id), 'priority': 'critical', 'status': 'open',
+            'reported_at': timezone.now().isoformat(), 'progress': 0,
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(WorkOrder.objects.get(number='FR-WO-2').reported_by, self.user)
+
+        transitioned = self.client.post(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/transition/',
+            {'status': 'in_progress', 'notes': 'Technician started work'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(transitioned.status_code, 200, transitioned.data)
+        self.assertEqual(transitioned.data['status'], WorkOrder.Status.IN_PROGRESS)
+
+        cost = self.client.post('/api/v1/facility/work-order-cost-items/', {
+            'work_order': str(self.work_order.id), 'kind': 'part', 'description': 'Lift cable',
+            'quantity': '1', 'unit_cost': '45000.00', 'total': '45000.00',
+        }, format='json', **self.headers)
+        self.assertEqual(cost.status_code, 201, cost.data)
+
+        for collection in ('assets', 'contractors', 'inspections', 'meters'):
+            with self.subTest(collection=collection):
+                self.assertEqual(
+                    self.client.post(
+                        f'/api/v1/facility/{collection}/', {}, format='json', **self.headers,
+                    ).status_code,
+                    403,
+                )
+
+    def test_inspector_executes_inspections_and_creates_corrective_work_but_cannot_administer(self):
+        self._grant('facility.view', 'facility.inspect', 'facility.work')
+        created = self.client.post('/api/v1/facility/inspections/', {
+            'reference': 'FR-INS-1', 'title': 'Fire safety inspection',
+            'inspection_type': 'Safety', 'property': str(self.property.id),
+            'asset': str(self.asset.id), 'scheduled_on': '2026-08-01',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+
+        completed = self.client.post(
+            f"/api/v1/facility/inspections/{created.data['id']}/complete/",
+            {'findings': 'Corroded fire hose reel', 'score': '42', 'violations': 2},
+            format='json', **self.headers,
+        )
+        self.assertEqual(completed.status_code, 200, completed.data)
+        self.assertEqual(completed.data['status'], Inspection.Status.FOLLOW_UP)
+        self.assertTrue(
+            WorkOrder.objects.filter(organization=self.organization, source_inspections__pk=created.data['id']).exists(),
+        )
+
+        for collection in ('assets', 'contractors', 'meters'):
+            with self.subTest(collection=collection):
+                self.assertEqual(
+                    self.client.post(
+                        f'/api/v1/facility/{collection}/', {}, format='json', **self.headers,
+                    ).status_code,
+                    403,
+                )
+
+    def test_occupant_portal_submits_and_follows_only_own_service_requests(self):
+        self._grant('facility.view')
+        tenant = Tenant.objects.create(
+            organization=self.organization, code='FR-T1', name='Role Occupant',
+            status=Tenant.Status.ACTIVE,
+        )
+        other_tenant = Tenant.objects.create(
+            organization=self.organization, code='FR-T2', name='Other Occupant',
+            status=Tenant.Status.ACTIVE,
+        )
+        building = Building.objects.create(
+            organization=self.organization, property=self.property, code='FR-B1', name='Role Tower',
+        )
+        unit = Unit.objects.create(
+            organization=self.organization, property=self.property, building=building,
+            code='FR-101', status=Unit.Status.OCCUPIED,
+        )
+        lease = Lease.objects.create(
+            organization=self.organization, reference='FR-LS-1', unit=unit,
+            tenant=tenant, starts_on='2026-01-01', ends_on='2027-01-01',
+            monthly_rent=Decimal('1000'), status=Lease.Status.ACTIVE,
+        )
+        TenantPortalAccess.objects.create(
+            organization=self.organization, user=self.user, tenant=tenant, is_active=True,
+        )
+        ServiceRequest.objects.create(
+            organization=self.organization, reference='FR-REQ-OTHER', subject='Other tenant issue',
+            category='Plumbing', property=self.property, tenant=other_tenant,
+            status=ServiceRequest.Status.NEW, submitted_at=timezone.now(),
+        )
+
+        portal = self.client.get('/api/v1/facility/portal/', **self.headers)
+        self.assertEqual(portal.status_code, 200, portal.data)
+        self.assertEqual(portal.data['tenant']['id'], str(tenant.id))
+        self.assertEqual(portal.data['property']['name'], 'Role Building')
+        self.assertEqual(len(portal.data['serviceRequests']), 0)
+
+        created = self.client.post('/api/v1/facility/portal/service-requests/', {
+            'subject': 'Leaking tap', 'category': 'Plumbing',
+            'description': 'Kitchen tap drips', 'priority': 'medium',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(str(created.data['tenant']), str(tenant.id))
+
+        portal = self.client.get('/api/v1/facility/portal/', **self.headers)
+        self.assertEqual(len(portal.data['serviceRequests']), 1)
+        self.assertEqual(portal.data['serviceRequests'][0]['subject'], 'Leaking tap')
+
+        # A facility staff endpoint stays out of reach: work mutation requires facility.work.
+        self.assertEqual(
+            self.client.post('/api/v1/facility/work-orders/', {}, format='json', **self.headers).status_code,
+            403,
+        )
+
+    def test_occupant_without_linked_profile_cannot_open_portal(self):
+        self._grant('facility.view')
+        self.assertEqual(self.client.get('/api/v1/facility/portal/', **self.headers).status_code, 403)

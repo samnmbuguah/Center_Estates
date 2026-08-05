@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from core.models import Module
-from organizations.models import Membership, Organization
+from organizations.models import Membership, MembershipRole, Organization, Permission, Role
 from subscriptions.models import Subscription
 from facilities.models import ServiceRequest
 from notifications.models import Notification
@@ -415,3 +415,134 @@ class PropertyApiTests(TestCase):
             f"/api/v1/property/bank-transactions/{created.data['id']}/", {'amount': '200'},
             format='json', **self.headers,
         ).status_code, 400)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class PropertyRolePermissionApiTests(TestCase):
+    """Role-complete acceptance for the Property manager, leasing officer and accountant."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='property-role-user', password='test')
+        self.organization = Organization.objects.create(name='Property Roles', slug='property-roles')
+        self.membership = Membership.objects.create(
+            user=self.user, organization=self.organization, is_default=True,
+        )
+        Subscription.objects.create(
+            organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE,
+        )
+        self.property = Property.objects.create(
+            organization=self.organization, code='ROLE-1', name='Role Property',
+            status=Property.Status.ACTIVE,
+        )
+        self.unit = Unit.objects.create(
+            organization=self.organization, property=self.property, code='R1',
+            status=Unit.Status.OCCUPIED,
+        )
+        self.tenant = Tenant.objects.create(
+            organization=self.organization, code='RT-1', name='Role Tenant',
+            status=Tenant.Status.ACTIVE,
+        )
+        self.lease = Lease.objects.create(
+            organization=self.organization, reference='ROLE-LS-1', unit=self.unit,
+            tenant=self.tenant, starts_on='2026-01-01', ends_on='2027-01-01',
+            monthly_rent=Decimal('1000'), status=Lease.Status.ACTIVE,
+        )
+        self.invoice = Invoice.objects.create(
+            organization=self.organization, number='ROLE-INV-1', lease=self.lease,
+            issued_on='2026-07-01', due_on='2026-07-07', amount=Decimal('1000'),
+            balance=Decimal('1000'), status=Invoice.Status.OVERDUE,
+        )
+        self.role = Role.objects.create(
+            organization=self.organization, name='Business Role', slug='business-role',
+        )
+        MembershipRole.objects.create(membership=self.membership, role=self.role)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def _grant(self, *keys):
+        for key in keys:
+            permission, _ = Permission.objects.get_or_create(
+                key=key, defaults={'label': key, 'module': key.split('.')[0]},
+            )
+            self.role.permissions.add(permission)
+
+    def test_leasing_officer_onboards_tenants_and_verifies_documents_but_cannot_administer_or_issue_receipts(self):
+        self._grant('property.view', 'property.leasing', 'property.report')
+        self.assertEqual(self.client.get('/api/v1/property/dashboard/', **self.headers).status_code, 200)
+
+        created = self.client.post('/api/v1/property/tenants/', {
+            'code': 'RT-2', 'name': 'New Prospect', 'status': Tenant.Status.PROSPECT,
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data['status'], Tenant.Status.PROSPECT)
+
+        document = TenantDocument.objects.create(
+            organization=self.organization, tenant=self.tenant,
+            document_type='identity', document_number='A1234567',
+            file_url='documents/passport.pdf',
+        )
+        verified = self.client.post(
+            f'/api/v1/property/tenant-documents/{document.id}/verify/', {}, format='json', **self.headers,
+        )
+        self.assertEqual(verified.status_code, 200, verified.data)
+        self.assertEqual(verified.data['status'], TenantDocument.Status.VERIFIED)
+
+        self.assertEqual(
+            self.client.post('/api/v1/property/properties/', {}, format='json', **self.headers).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post('/api/v1/property/receipts/', {}, format='json', **self.headers).status_code,
+            403,
+        )
+
+    def test_accountant_issues_invoices_allocates_receipts_and_pays_expenses_but_cannot_administer_or_lease(self):
+        self._grant('property.view', 'property.finance', 'property.approve', 'property.report')
+        self.assertEqual(self.client.get('/api/v1/property/dashboard/', **self.headers).status_code, 200)
+
+        draft = self.client.post('/api/v1/property/invoices/', {
+            'number': 'ROLE-INV-2', 'lease': str(self.lease.id),
+            'issued_on': '2026-08-01', 'due_on': '2026-08-07', 'amount': '1200.00',
+        }, format='json', **self.headers)
+        self.assertEqual(draft.status_code, 201, draft.data)
+        self.assertEqual(draft.data['status'], Invoice.Status.DRAFT)
+        issued = self.client.post(
+            f"/api/v1/property/invoices/{draft.data['id']}/issue/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(issued.status_code, 200, issued.data)
+        self.assertEqual(issued.data['status'], Invoice.Status.ISSUED)
+
+        receipt = self.client.post('/api/v1/property/receipts/', {
+            'number': 'ROLE-RCT-1', 'tenant': str(self.tenant.id),
+            'invoice': str(self.invoice.id), 'received_on': '2026-08-01',
+            'amount': '400.00', 'payment_method': 'bank_transfer',
+            'external_reference': 'ROLE-BANK-1',
+        }, format='json', **self.headers)
+        self.assertEqual(receipt.status_code, 201, receipt.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('600.00'))
+
+        expense = Expense.objects.create(
+            organization=self.organization, property=self.property, supplier='KPLC',
+            category='Utilities',
+            description='Electricity bill', amount=Decimal('8000'),
+            incurred_on='2026-08-01', status=Expense.Status.DRAFT,
+        )
+        submitted = self.client.post(
+            f'/api/v1/property/expenses/{expense.id}/submit/', {}, format='json', **self.headers,
+        )
+        self.assertEqual(submitted.status_code, 200, submitted.data)
+        approved = self.client.post(
+            f'/api/v1/property/expenses/{expense.id}/approve/', {}, format='json', **self.headers,
+        )
+        self.assertEqual(approved.status_code, 200, approved.data)
+
+        self.assertEqual(
+            self.client.post('/api/v1/property/properties/', {}, format='json', **self.headers).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post('/api/v1/property/tenants/', {}, format='json', **self.headers).status_code,
+            403,
+        )
