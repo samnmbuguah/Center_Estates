@@ -374,3 +374,26 @@ class PerformanceViewSet(ViewSet):
             'tasks': TaskSerializer(tasks[:50], many=True).data,
             'events': TaskEventSerializer(TaskEvent.objects.filter(organization=organization, task__assignee=user).select_related('actor').order_by('-created_at')[:50], many=True).data,
         })
+
+
+class TelemetryViewSet(ViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.COMPANION
+
+    def create(self, request):
+        organization = get_active_organization(request)
+        event = request.data.get('event', 'user_action')
+        properties = request.data.get('properties', {})
+        url = request.data.get('url', '')
+        module = request.data.get('module', 'dashboard')
+
+        if event in ('page_leave', 'user_click'):
+            TaskEvent.objects.create(
+                organization=organization,
+                task=None,
+                actor=request.user if request.user.is_authenticated else None,
+                action=TaskEvent.Action.UPDATED,
+                note=f"Telemetry [{event}]: {properties.get('element', properties.get('path', ''))} (Module: {module})"
+            )
+        return Response({'status': 'ok'})
+

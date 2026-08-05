@@ -604,6 +604,26 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
             )}
           </Panel>
 
+          <Panel title="🤖 AI Property Assistant">
+            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+              <p className="muted" style={{ fontSize: 11, margin: 0 }}>Smart predictive operations & automated document extractions.</p>
+              <button
+                className="btn primary sm"
+                style={{ textAlign: "left", justifyContent: "flex-start", width: "100%", fontSize: 11 }}
+                onClick={() => setTab("arrears")}
+              >
+                📊 AI Arrears Risk Predictor →
+              </button>
+              <button
+                className="btn ghost sm"
+                style={{ textAlign: "left", justifyContent: "flex-start", width: "100%", fontSize: 11 }}
+                onClick={() => setTab("leases")}
+              >
+                📄 AI Lease Agreement OCR →
+              </button>
+            </div>
+          </Panel>
+
           <Panel title="Quick Actions">
             <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, width: 260 }}>
               <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("properties")}>Add New Property →</button>

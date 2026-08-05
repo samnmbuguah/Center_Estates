@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import type { DemoIdentityGroup } from "@/lib/api";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { TelemetryProvider } from "@/components/telemetry-provider";
 
 const QUICK_JUMP_ROUTES = [
   { name: "Projects Directory", href: "/monitoring/projects", module: "monitoring", icon: "🏗️", detail: "Active project workspaces & budgets" },
@@ -171,7 +172,8 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="platform" style={{ display: "flex", minHeight: "100vh", width: "100vw", overflowX: "hidden" }}>
+    <TelemetryProvider>
+      <div className="platform" style={{ display: "flex", minHeight: "100vh", width: "100vw", overflowX: "hidden" }}>
       {/* UNIFIED PERSISTENT APP SIDEBAR FOR ALL PAGES */}
       <AppSidebar
         pathname={pathname}
@@ -444,5 +446,6 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+  </TelemetryProvider>
   );
 }
