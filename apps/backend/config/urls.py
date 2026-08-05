@@ -8,6 +8,8 @@ from django.urls import include, path, re_path
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.middleware.csrf import get_token
+from django.views.static import serve
+from django.conf import settings
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 # ---------------------------------------------------------------------------
@@ -1011,8 +1013,8 @@ _SCRIPTS = """
           refreshAuditFeed();
 
           const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
-          if (currentPath === '/' || currentPath === '/console' || currentPath === '/login') {
-            showView('console');
+          if (currentPath === '/login') {
+            showView('workspace');
           }
         } else {
           const sb = document.getElementById('session-banner');
@@ -2335,6 +2337,12 @@ HTML_APP_TEMPLATE = (
 # Views
 # ---------------------------------------------------------------------------
 
+_NEXT_STATIC_DIR = os.path.abspath(os.path.join(settings.BASE_DIR, '../web/.next/static'))
+_NEXT_SERVER_DIR = os.path.abspath(os.path.join(settings.BASE_DIR, '../web/.next/server/app'))
+
+def serve_nextjs_static(request, path):
+    return serve(request, path, document_root=_NEXT_STATIC_DIR)
+
 @ensure_csrf_cookie
 def root_web_view(request):
     return HttpResponse(HTML_APP_TEMPLATE, content_type="text/html; charset=utf-8")
@@ -2401,6 +2409,7 @@ def sitemap_xml(request):
 
 
 urlpatterns = [
+    path('_next/static/<path:path>', serve_nextjs_static, name='nextjs-static'),
     path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/v1/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('admin/', admin.site.urls),
