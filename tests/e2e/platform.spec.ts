@@ -28,6 +28,11 @@ async function openModuleSection(page: Page, name: string, testInfo?: TestInfo) 
     await tabs.getByRole("button", { name, exact: true }).click();
     return;
   }
+  const sidebarSection = page.locator(".module-subnav-tree").getByText(name, { exact: true });
+  if (await sidebarSection.count()) {
+    await sidebarSection.click();
+    return;
+  }
   await page.getByRole("button", { name, exact: true }).first().click();
 }
 
