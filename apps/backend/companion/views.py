@@ -247,6 +247,9 @@ def query_opencode_llm(prompt: str, context_str: str) -> str:
     return ""
 
 
+from .qm_agent import QMAgentOrchestrator
+
+
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
@@ -289,7 +292,13 @@ class CompanionDashboardViewSet(ViewSet):
             f"Escalated SLA Tasks: {escalated_count}\n"
         )
 
-        llm_response = query_opencode_llm(raw_prompt, context_str)
+        qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
+        qm_result = qm_orchestrator.execute_agent(
+            prompt=raw_prompt,
+            user_name=request.user.firstName or request.user.username,
+            context_str=context_str,
+        )
+        llm_response = qm_result.get('response', '')
 
         if 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
             response_text = llm_response or (
