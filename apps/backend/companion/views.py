@@ -449,6 +449,22 @@ from rest_framework.permissions import IsAuthenticated
 class TelemetryViewSet(ViewSet):
     permission_classes = (IsAuthenticated,)
 
+    def list(self, request):
+        organization = get_active_organization(request)
+        events = TaskEvent.objects.filter(
+            organization=organization,
+            note__startswith='Telemetry ['
+        ).select_related('actor').order_by('-created_at')[:100]
+        return Response([
+            {
+                'id': str(e.id),
+                'actor': e.actor.username if e.actor else 'anonymous',
+                'note': e.note,
+                'created_at': e.created_at.isoformat(),
+            }
+            for e in events
+        ])
+
     def create(self, request):
         organization = get_active_organization(request)
         event = request.data.get('event', 'user_action')
@@ -456,13 +472,12 @@ class TelemetryViewSet(ViewSet):
         url = request.data.get('url', '')
         module = request.data.get('module', 'dashboard')
 
-        if event in ('page_leave', 'user_click'):
-            TaskEvent.objects.create(
-                organization=organization,
-                task=None,
-                actor=request.user if request.user.is_authenticated else None,
-                action=TaskEvent.Action.UPDATED,
-                note=f"Telemetry [{event}]: {properties.get('element', properties.get('path', ''))} (Module: {module})"
-            )
+        TaskEvent.objects.create(
+            organization=organization,
+            task=None,
+            actor=request.user if request.user.is_authenticated else None,
+            action=TaskEvent.Action.UPDATED,
+            note=f"Telemetry [{event}]: {properties.get('element', properties.get('path', ''))} (Module: {module})"
+        )
         return Response({'status': 'ok'})
 
