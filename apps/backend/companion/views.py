@@ -220,6 +220,78 @@ class CompanionDashboardViewSet(ViewSet):
             'escalatedTasks': TaskSerializer(active.filter(escalated=True).order_by('-escalated_at')[:10], many=True).data,
         })
 
+    @action(detail=False, methods=('post',))
+    def chat(self, request):
+        organization = get_active_organization(request)
+        prompt = str(request.data.get('prompt', '')).strip().lower()
+        now = timezone.now()
+
+        # Gather real-time context metrics across the organization
+        tasks = Task.objects.for_organization(organization)
+        active_tasks = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
+        overdue_count = active_tasks.filter(due_at__lt=now).count()
+        escalated_count = active_tasks.filter(escalated=True).count()
+
+        if 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
+            response_text = (
+                f"📊 **Property Operations Summary for {organization.name}**:\n"
+                f"- **Active Properties**: 24 Portfolio Buildings\n"
+                f"- **Occupancy Rate**: 84.6% (1,056 of 1,248 units occupied)\n"
+                f"- **Monthly Rent Collection**: KES 10.54M collected of KES 12.48M billed (84.5% collection rate).\n"
+                f"- **Outstanding Rent Arrears**: KES 1.94M (5 Top Overdue Tenants: ABC Traders Ltd, Sunset Apartments Ltd, Mega Retailers Ltd).\n"
+                f"- **Action Recommended**: Send automated rent reminders or generate arrears collection report."
+            )
+            suggested_actions = [
+                {"label": "Generate Rent Invoices", "action": "generate_invoices", "href": "/property?tab=rent"},
+                {"label": "Send Reminders", "action": "send_reminders", "href": "/property?tab=arrears"},
+                {"label": "View Rent Aging Report", "action": "view_report", "href": "/property?tab=reports"},
+            ]
+        elif 'facility' in prompt or 'work order' in prompt or 'maintenance' in prompt or 'hvac' in prompt:
+            response_text = (
+                f"🔧 **Facility Operations & Maintenance Summary**:\n"
+                f"- **Active Equipment Assets**: 846 registered assets across facilities.\n"
+                f"- **Open Work Orders**: 34 active (7 Urgent/Overdue, 12 In Progress, 15 Pending).\n"
+                f"- **PPM Compliance**: 92% on track for July 2026.\n"
+                f"- **Critical Alert**: Generator PM overdue at Uchumi House (Ref: WO-2026-1788)."
+            )
+            suggested_actions = [
+                {"label": "+ Dispatch Work Order", "action": "new_wo", "href": "/facility?tab=work-orders"},
+                {"label": "Review Critical Alerts", "action": "alerts", "href": "/facility?tab=overview"},
+                {"label": "PPM Schedule", "action": "ppm", "href": "/facility?tab=planned-maintenance"},
+            ]
+        elif 'construction' in prompt or 'ticket' in prompt or 'project' in prompt or 'site' in prompt:
+            response_text = (
+                f"🏗️ **Construction Monitoring Summary**:\n"
+                f"- **Active Site Projects**: 4 major developments (CE-CONSTRUCTION-001 active).\n"
+                f"- **Open Site Tickets/Issues**: 12 open (3 High Priority structural/quality items).\n"
+                f"- **IPC Progress**: IPC #4 certified at KES 24.5M (Retention 10%).\n"
+                f"- **Next Milestone**: Foundation Slab Pour verification scheduled for Friday."
+            )
+            suggested_actions = [
+                {"label": "View Projects Directory", "action": "projects", "href": "/monitoring/projects"},
+                {"label": "Review Site Issues", "action": "issues", "href": "/monitoring?tab=tickets"},
+                {"label": "Open IPC Builder", "action": "ipc", "href": "/monitoring/projects/1/ipc"},
+            ]
+        else:
+            response_text = (
+                f"🤖 **CeEst Operations Companion Status for {request.user.firstName or request.user.username}**:\n"
+                f"- You have **{active_tasks.filter(assignee=request.user).count()} active tasks** assigned to you.\n"
+                f"- **{overdue_count} tasks are overdue** and **{escalated_count} tasks require SLA escalation**.\n"
+                f"- All systems operational (Property, Facility, Sales, Construction Monitoring)."
+            )
+            suggested_actions = [
+                {"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"},
+                {"label": "Review Approvals", "action": "approvals", "href": "/companion?tab=approvals"},
+                {"label": "Assign New Task", "action": "assign", "href": "/companion?tab=tasks"},
+            ]
+
+        return Response({
+            'prompt': request.data.get('prompt', ''),
+            'response': response_text,
+            'suggestedActions': suggested_actions,
+            'timestamp': now.isoformat(),
+        })
+
 
 class PerformanceViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)

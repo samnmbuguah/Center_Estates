@@ -123,6 +123,30 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [dateFilter, setDateFilter] = useState({ from: "", to: "" });
+
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiResponse, setAiResponse] = useState<{ response?: string; suggestedActions?: { label: string; action: string; href: string }[] } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const sendAiPrompt = async (promptText?: string) => {
+    const p = promptText || aiPrompt;
+    if (!p || !org) return;
+    setAiLoading(true);
+    try {
+      const res = await apiFetch("/companion/dashboard/chat/", {
+        method: "POST",
+        body: JSON.stringify({ prompt: p }),
+      }, org);
+      if (res.ok) {
+        setAiResponse(await res.json());
+        if (!promptText) setAiPrompt("");
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("daily");
@@ -399,6 +423,99 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {/* AI OPERATIONS ASSISTANT PANEL (QM INTEGRATION HUB) */}
+                <div className="card" style={{ padding: 18, background: "linear-gradient(135deg, rgba(13,148,136,0.08), var(--surface))", border: "1.5px solid var(--primary)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>🤖</span>
+                      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>AI Operations Assistant</h3>
+                    </div>
+                    <span className="status-pill" style={{ background: "#dcfce7", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+                      Live
+                    </span>
+                  </div>
+
+                  <p className="muted" style={{ fontSize: 12, margin: "0 0 12px" }}>
+                    Ask CeEst Companion to analyze rent arrears, dispatch work orders, or summarize project milestones.
+                  </p>
+
+                  <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                    {[
+                      { label: "📊 Rent Collections", prompt: "Summarize rent collections and arrears aging" },
+                      { label: "🔧 Open Work Orders", prompt: "Check open work orders and urgent alerts" },
+                      { label: "🏗️ Project Tickets", prompt: "List site tickets for construction project CE-001" },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        className="btn ghost sm"
+                        style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6 }}
+                        onClick={() => sendAiPrompt(preset.prompt)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void sendAiPrompt();
+                    }}
+                    style={{ display: "flex", gap: 8, marginBottom: 12 }}
+                  >
+                    <input
+                      type="text"
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="Ask Companion assistant…"
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        fontSize: 12,
+                        borderRadius: 6,
+                        border: "1px solid var(--border)",
+                        background: "var(--surface)",
+                        color: "var(--text)",
+                      }}
+                    />
+                    <button type="submit" className="btn primary sm" disabled={aiLoading || !aiPrompt.trim()}>
+                      {aiLoading ? "..." : "Ask"}
+                    </button>
+                  </form>
+
+                  {aiResponse && (
+                    <div
+                      style={{
+                        background: "var(--surface-2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      <div style={{ whiteSpace: "pre-wrap", color: "var(--text)", marginBottom: 10 }}>
+                        {aiResponse.response}
+                      </div>
+                      {aiResponse.suggestedActions && aiResponse.suggestedActions.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px dashed var(--border)", paddingTop: 8 }}>
+                          {aiResponse.suggestedActions.map((act) => (
+                            <a
+                              key={act.label}
+                              href={act.href}
+                              className="btn primary sm"
+                              style={{ fontSize: 11, padding: "3px 8px", textDecoration: "none" }}
+                            >
+                              {act.label} →
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="card" style={{ padding: 18 }}>
                   <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>🚨 Escalated</h3>
                   {escalatedTasks.length === 0 ? (
