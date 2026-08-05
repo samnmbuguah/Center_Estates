@@ -256,8 +256,22 @@ function DashboardView({
                 </div>
               </div>
 
-              {/* Recent Work Orders */}
+              {/* Recent Work Orders & SLA Alert */}
               <div>
+                {overdueWO > 0 && (
+                  <div style={{ background: "#fee2e2", border: "1px solid #f87171", borderRadius: 8, padding: "10px 14px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: "1.1rem" }}>⚠️</span>
+                      <div>
+                        <strong style={{ color: "#991b1b", fontSize: "0.85rem" }}>SLA Escalation Alert: {overdueWO} Overdue Orders</strong>
+                        <div style={{ color: "#7f1d1d", fontSize: "0.75rem" }}>High-priority tickets require immediate technician dispatch</div>
+                      </div>
+                    </div>
+                    <button onClick={() => setTab("work-orders")} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "4px 10px", borderRadius: 6, fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                      Dispatch Now
+                    </button>
+                  </div>
+                )}
                 <p style={{ color: "#8a96a7", fontSize: 11, fontWeight: 700, margin: "0 0 10px", textTransform: "uppercase" }}>
                   Recent Work Orders
                 </p>

@@ -611,34 +611,37 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
-          <Panel title="Rent Ageing Summary" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report →</button>}>
+          <Panel title="Rent Ageing Heatmap" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Ageing Report →</button>}>
             {aging.length > 0 ? (
-              <div className="table-scroll">
-                <table className="fc-data-table">
-                  <thead>
-                    <tr>
-                      <th>Bucket</th>
-                      <th>Amount</th>
-                      <th>% of total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {aging.map((a) => (
-                      <tr key={a.label}>
-                        <td style={{ fontSize: 12 }}>{a.label}</td>
-                        <td className="mono" style={{ color: a.amount > 0 ? "var(--danger)" : "var(--muted)" }}>{kM(a.amount)}</td>
-                        <td>
-                          <div className="row" style={{ gap: 8 }}>
-                            <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
-                              <div style={{ width: `${pct(a.amount, agingTotal)}%`, height: "100%", background: a.amount > 0 ? "#e23b3b" : "var(--border-strong)" }} />
-                            </div>
-                            <span className="mono" style={{ fontSize: 11, width: 40, textAlign: "right" }}>{pct(a.amount, agingTotal)}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ padding: "14px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {aging.map((a, idx) => {
+                  const colors = ["#16a34a", "#eab308", "#ea580c", "#dc2626"];
+                  const bgs = ["#dcfce7", "#fef9c3", "#ffedd5", "#fee2e2"];
+                  const color = colors[idx % colors.length];
+                  const bg = bgs[idx % bgs.length];
+                  return (
+                    <div
+                      key={a.label}
+                      onClick={() => setTab("arrears")}
+                      style={{
+                        background: bg,
+                        border: `1px solid ${color}`,
+                        borderRadius: 8,
+                        padding: 10,
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      <small style={{ color: "#475569", fontSize: "0.75rem", fontWeight: 600 }}>{a.label}</small>
+                      <strong style={{ color, fontSize: "1rem", fontFamily: "monospace" }}>{kM(a.amount)}</strong>
+                      <div style={{ height: 4, borderRadius: 99, background: "#cbd5e1", overflow: "hidden", marginTop: 4 }}>
+                        <div style={{ width: `${pct(a.amount, agingTotal)}%`, height: "100%", background: color }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <EmptyState icon="📂" title="No outstanding balances" description="Aged balances by bucket will appear here." />
