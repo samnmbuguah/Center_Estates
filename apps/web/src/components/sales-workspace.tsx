@@ -36,7 +36,8 @@ export type SalesTab =
   | "performance"
   | "reports"
   | "documents"
-  | "audit-events";
+  | "audit-events"
+  | "bank-reconciliation";
 
 const labels: Record<SalesTab, string> = {
   overview: "Dashboard",
@@ -53,6 +54,7 @@ const labels: Record<SalesTab, string> = {
   reports: "Sales Reports",
   documents: "Legal Documents",
   "audit-events": "Audit Trail",
+  "bank-reconciliation": "Bank Reconciliation",
 };
 
 type Row = Record<string, unknown>;
@@ -908,8 +910,13 @@ function SalesView({
   transitionSale: (row: Row) => void;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
+  const [agreementRow, setAgreementRow] = useState<Row | null>(null);
   const pipelineValue = sumBy(rows, "agreed_price", ["draft", "reserved", "contracted"]);
   const pipelineDeals = countBy(rows, ["draft", "reserved", "contracted"]);
+
+  if (agreementRow) {
+    return <SaleAgreementView sale={agreementRow} onBack={() => setAgreementRow(null)} />;
+  }
 
   return (
     <>
@@ -937,7 +944,7 @@ function SalesView({
                 const price = Number(r.agreed_price ?? 0);
                 const paid = Number(r.paid_amount ?? 0);
                 return (
-                  <tr key={String(r.id)} onClick={() => setSelected(r)}>
+                  <tr key={String(r.id)} onClick={() => setAgreementRow(r)}>
                     <td><RefText value={r.reference} /></td>
                     <td><strong style={{ fontSize: 12 }}>{String(r.buyer_name ?? "—")}</strong></td>
                     <td style={{ fontSize: 12, color: "#6b7890" }}>
@@ -951,7 +958,8 @@ function SalesView({
                     <td><StatusPill value={String(r.status ?? "")} tone={toneForSale(String(r.status ?? ""))} /></td>
                     <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDate(r.contracted_on ?? r.reserved_at ?? r.created_at)}</td>
                     <td>
-                      <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); transitionSale(r); }}>Transition</button>
+                      <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setAgreementRow(r); }}>Agreement</button>
+                      <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={(e) => { e.stopPropagation(); transitionSale(r); }}>Transition</button>
                     </td>
                   </tr>
                 );
@@ -1530,6 +1538,305 @@ function toneForAudit(t: string): "green" | "yellow" | "blue" | "red" | "gray" {
   return "gray";
 }
 
+/* -------------------------- bank reconciliation -------------------------- */
+
+function BankReconciliationView({
+  rows,
+  search,
+  setSearch,
+  org,
+}: {
+  rows: Row[];
+  search: string;
+  setSearch: (v: string) => void;
+  org: string | null;
+}) {
+  const [showAdjustment, setShowAdjustment] = useState(false);
+  const [adjustRow, setAdjustRow] = useState<Row | null>(null);
+  const [adjustReason, setAdjustReason] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+
+  const total = rows.length;
+  const matched = rows.filter((r) => String(r.status) === "verified").length;
+  const unmatched = rows.filter((r) => String(r.status) === "pending").length;
+  const totalReconciled = sumBy(rows, "amount", ["verified", "partial"]);
+  const matchedPct = total > 0 ? Math.round((matched / total) * 100) : 0;
+  const unmatchedAmount = sumBy(rows, "amount", ["pending"]);
+
+  function handleMatch(row: Row) {
+    setAdjustRow(row);
+    setAdjustReason("");
+    setShowAdjustment(true);
+  }
+
+  async function submitAdjustment() {
+    if (!adjustRow || !org || !adjustReason.trim()) return;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/payments/${adjustRow.id}/verify/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({}),
+    }, org);
+    if (res.ok) {
+      setShowAdjustment(false);
+      setAdjustRow(null);
+    }
+  }
+
+  return (
+    <>
+      <KpiStrip cols={4}>
+        <KpiCard icon="🏦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Transactions" value={number.format(total)} sub="From payment records" onClick={() => {}} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Matched" value={number.format(matched)} sub="Verified & reconciled" onClick={() => {}} />
+        <KpiCard icon="⚠️" iconBg="#fef3c7" iconColor="#92400e" label="Unmatched" value={number.format(unmatched)} sub="Pending verification" onClick={() => {}} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Reconciled" value={fmtMoney(totalReconciled)} sub={`${matchedPct}% matched`} onClick={() => {}} />
+      </KpiStrip>
+
+      <div className="grid-2" style={{ gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+        <Panel title="Bank Statement Import">
+          <div
+            style={{
+              border: `2px dashed ${dragOver ? "#ea580c" : "var(--border)"}`,
+              borderRadius: 10,
+              padding: 36,
+              textAlign: "center",
+              background: dragOver ? "rgba(234,88,12,0.04)" : "var(--surface-2)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); }}
+            onClick={() => document.getElementById("bank-stmt-input")?.click()}
+          >
+            <input id="bank-stmt-input" type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={() => {}} />
+            <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.4 }}>📄</div>
+            <strong style={{ fontSize: 13 }}>Drop bank statement here</strong>
+            <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>or click to browse CSV/Excel files</p>
+          </div>
+        </Panel>
+
+        <Panel title="Reconciliation Summary">
+          <div style={{ padding: 18 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>Match Rate</span>
+              <strong className="mono" style={{ fontSize: 13 }}>{matchedPct}%</strong>
+            </div>
+            <ProgressBar pct={matchedPct} color={matchedPct >= 80 ? "#16a34a" : matchedPct >= 50 ? "#f59e0b" : "#b91c1c"} />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>Unmatched Amount</span>
+              <strong className="mono" style={{ fontSize: 13, color: "#b91c1c" }}>{fmtMoney(unmatchedAmount)}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>Total Reconciled</span>
+              <strong className="mono" style={{ fontSize: 13, color: "#16a34a" }}>{fmtMoney(totalReconciled)}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>Transactions</span>
+              <strong className="mono" style={{ fontSize: 13 }}>{number.format(total)}</strong>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Transaction Reconciliation" badge={rows.length}>
+        <TableChrome
+          search={search}
+          setSearch={setSearch}
+          placeholder="Search payment ref, buyer, external ref…"
+        >
+          {rows.length === 0 ? (
+            <EmptyState icon="🏦" title="No transactions to reconcile" description="Import a bank statement or record payments to begin reconciliation." />
+          ) : (
+            <DataTable headers={["Payment Ref", "Date", "Description", "Amount", "System Match", "Actions"]}>
+              {rows.map((r) => {
+                const st = String(r.status ?? "");
+                return (
+                  <tr key={String(r.id)}>
+                    <td><RefText value={r.reference} /></td>
+                    <td style={{ fontSize: 12 }}>{fmtDate(r.paid_on)}</td>
+                    <td style={{ fontSize: 12 }}>
+                      {String(r.buyer_name ?? "—")}
+                      <div style={{ fontSize: 10, color: "#6b7890" }}>{String(r.method ?? "")} · {String(r.external_reference ?? "")}</div>
+                    </td>
+                    <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.amount)}</td>
+                    <td>
+                      <StatusPill
+                        value={st === "verified" ? "Matched" : st === "rejected" ? "Rejected" : "Unmatched"}
+                        tone={st === "verified" ? "green" : st === "rejected" ? "red" : "yellow"}
+                      />
+                    </td>
+                    <td>
+                      {st === "pending" && (
+                        <>
+                          <button className="btn ghost sm" onClick={() => handleMatch(r)}>Match</button>
+                          <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => { setAdjustRow(r); setAdjustReason("Adjustment needed"); setShowAdjustment(true); }}>Adjust</button>
+                        </>
+                      )}
+                      {st === "verified" && <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Reconciled</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </DataTable>
+          )}
+        </TableChrome>
+      </Panel>
+
+      {showAdjustment && adjustRow && (
+        <Modal title="Record Adjustment" onClose={() => setShowAdjustment(false)}>
+          <div style={{ display: "grid", gap: 8, fontSize: 13, marginBottom: 16 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}><span className="muted">Payment</span><span className="mono">{String(adjustRow.reference ?? "—")}</span></div>
+            <div className="row" style={{ justifyContent: "space-between" }}><span className="muted">Amount</span><strong className="mono">{fmtMoney(adjustRow.amount)}</strong></div>
+            <div className="row" style={{ justifyContent: "space-between" }}><span className="muted">Buyer</span><span>{String(adjustRow.buyer_name ?? "—")}</span></div>
+          </div>
+          <Field label="Adjustment Reason" required>
+            <textarea rows={3} value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Why does this transaction need adjustment?" />
+          </Field>
+          <div className="modal-actions">
+            <button className="btn ghost" onClick={() => setShowAdjustment(false)}>Cancel</button>
+            <button className="btn primary" disabled={!adjustReason.trim()} onClick={submitAdjustment}>Confirm Match</button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/* -------------------------- sale agreement -------------------------- */
+
+function SaleAgreementView({
+  sale,
+  onBack,
+}: {
+  sale: Row;
+  onBack: () => void;
+}) {
+  const price = Number(sale.agreed_price ?? 0);
+  const paid = Number(sale.paid_amount ?? 0);
+  const balance = price - paid;
+  const deposit = Number(sale.reservation_fee ?? 0);
+
+  const docs = [
+    { label: "Offer Letter", checked: true },
+    { label: "Sale Agreement", checked: String(sale.status) === "contracted" || String(sale.status) === "completed" },
+    { label: "Buyer ID Copy", checked: true },
+    { label: "KRA PIN Certificate", checked: true },
+  ];
+
+  function downloadAgreement() {
+    const html = `<!DOCTYPE html>
+<html><head><title>Sale Agreement - ${String(sale.reference ?? "")}</title>
+<style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#222;line-height:1.6}
+h1{font-size:20px;border-bottom:2px solid #ea580c;padding-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:16px 0}
+td{padding:8px 12px;border-bottom:1px solid #eee}
+td:first-child{font-weight:600;width:40%;color:#555}
+.label{color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.05em}
+</style></head><body>
+<h1>Sale Agreement Summary</h1>
+<p class="label">Reference: ${String(sale.reference ?? "—")}</p>
+<table>
+<tr><td>Buyer</td><td>${String(sale.buyer_name ?? "—")}</td></tr>
+<tr><td>Project</td><td>${String(sale.project_name ?? "—")}</td></tr>
+<tr><td>Unit</td><td>${String(sale.unit_code ?? "—")}</td></tr>
+<tr><td>Agreed Price</td><td>KES ${Number(sale.agreed_price ?? 0).toLocaleString()}</td></tr>
+<tr><td>Deposit Paid</td><td>KES ${Number(sale.reservation_fee ?? 0).toLocaleString()}</td></tr>
+<tr><td>Total Paid</td><td>KES ${paid.toLocaleString()}</td></tr>
+<tr><td>Balance Due</td><td>KES ${balance.toLocaleString()}</td></tr>
+<tr><td>Status</td><td>${String(sale.status ?? "—")}</td></tr>
+</table>
+<h2>Terms &amp; Conditions</h2>
+<ol>
+<li>The buyer agrees to pay the balance in accordance with the agreed installment schedule.</li>
+<li>Transfer of title shall occur upon full payment of the purchase price.</li>
+<li>The seller warrants that the property is free from encumbrances at the time of sale.</li>
+<li>Any late payment shall attract a penalty of 2% per month on the outstanding amount.</li>
+<li>This agreement is governed by the laws of the Republic of Kenya.</li>
+</ol>
+<h2>Payment Schedule</h2>
+<p>Deposit: KES ${deposit.toLocaleString()} (paid)</p>
+<p>Balance: KES ${balance.toLocaleString()} — to be paid per installment plan.</p>
+<hr><p style="font-size:12px;color:#888">Generated on ${new Date().toLocaleDateString("en-GB")} — Center Estates ERP</p>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
+  return (
+    <>
+      <button className="btn ghost sm" onClick={onBack} style={{ marginBottom: 14 }}>← Back to Sales</button>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+        <span className="fc-detail-thumb-placeholder" style={{ height: 48, width: 48, fontSize: 22 }}>📄</span>
+        <div className="fc-detail-meta">
+          <strong style={{ fontSize: 16 }}>Sale Agreement — {String(sale.reference ?? "—")}</strong>
+          <small className="mono" style={{ fontSize: 12 }}>{String(sale.buyer_name ?? "—")} · {String(sale.unit_code ?? "—")}</small>
+        </div>
+        <StatusPill value={String(sale.status ?? "")} tone={toneForSale(String(sale.status ?? ""))} />
+      </div>
+
+      <div className="grid-2" style={{ gap: 18 }}>
+        <Panel title="Sale Header">
+          <div className="fc-detail-grid">
+            <DField label="Sale Reference" value={<RefText value={sale.reference} />} />
+            <DField label="Buyer" value={String(sale.buyer_name ?? "—")} />
+            <DField label="Unit" value={String(sale.unit_code ?? "—")} />
+            <DField label="Project" value={String(sale.project_name ?? "—")} />
+            <DField label="Status" value={<StatusPill value={String(sale.status ?? "")} tone={toneForSale(String(sale.status ?? ""))} />} />
+            <DField label="Contracted On" value={sale.contracted_on ? fmtDate(sale.contracted_on) : "—"} />
+          </div>
+        </Panel>
+
+        <Panel title="Financial Summary">
+          <div className="fc-detail-grid">
+            <DField label="Agreed Price" value={<span className="mono" style={{ fontWeight: 700 }}>{fmtMoney(price)}</span>} />
+            <DField label="Deposit" value={<span className="mono">{fmtMoney(deposit)}</span>} />
+            <DField label="Paid to Date" value={<span className="mono" style={{ color: "#16a34a" }}>{fmtMoney(paid)}</span>} />
+            <DField label="Balance Due" value={<span className="mono" style={{ color: balance > 0 ? "#b91c1c" : "#16a34a", fontWeight: 700 }}>{fmtMoney(balance)}</span>} />
+          </div>
+          <div style={{ padding: "12px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+              <span>Payment Progress</span>
+              <span className="mono" style={{ fontWeight: 700 }}>{price > 0 ? Math.round((paid / price) * 100) : 0}%</span>
+            </div>
+            <ProgressBar pct={price > 0 ? (paid / price) * 100 : 0} />
+          </div>
+        </Panel>
+      </div>
+
+      <div className="grid-2" style={{ gap: 18, marginTop: 18 }}>
+        <Panel title="Terms &amp; Conditions">
+          <div style={{ padding: 18, fontSize: 13, lineHeight: 1.7 }}>
+            <ol style={{ margin: 0, paddingLeft: 18 }}>
+              <li>The buyer agrees to pay the balance in accordance with the agreed installment schedule.</li>
+              <li>Transfer of title shall occur upon full payment of the purchase price.</li>
+              <li>The seller warrants that the property is free from encumbrances at the time of sale.</li>
+              <li>Any late payment shall attract a penalty of 2% per month on the outstanding amount.</li>
+              <li>This agreement is governed by the laws of the Republic of Kenya.</li>
+            </ol>
+          </div>
+        </Panel>
+
+        <Panel title="Documents Checklist">
+          <div style={{ padding: 18 }}>
+            {docs.map((d) => (
+              <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 16 }}>{d.checked ? "✅" : "⬜"}</span>
+                <span style={{ fontSize: 13, fontWeight: d.checked ? 600 : 400 }}>{d.label}</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button className="btn primary sm" onClick={downloadAgreement}>↓ Download Agreement</button>
+              <button className="btn ghost sm" onClick={() => {}}>✉ Send to Buyer</button>
+            </div>
+          </div>
+        </Panel>
+      </div>
+    </>
+  );
+}
+
 /* -------------------------- handover -------------------------- */
 
 function HandoverView({
@@ -1643,57 +1950,199 @@ function RegisterBuyerModal({ open, onClose, onSubmit, error }: {
   onSubmit: (payload: Record<string, string>) => void;
   error: string;
 }) {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState<Record<string, string>>({
+    reference: "",
+    full_name: "",
+    email: "",
+    phone: "",
+    id_number: "",
+    tax_number: "",
+    financing_type: "self",
+    financier: "",
+    address: "",
+    sale_project: "",
+    sale_unit: "",
+    agreed_price: "",
+    reservation_fee: "",
+  });
+  const [docsCheck, setDocsCheck] = useState({ offer_letter: false, id_copy: false, kra_pin: false });
+
   if (!open) return null;
+
+  function updateField(key: string, value: string) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function nextStep() {
+    if (step < 3) setStep(step + 1);
+  }
+
+  function prevStep() {
+    if (step > 1) setStep(step - 1);
+  }
+
+  function handleSubmit() {
+    const payload: Record<string, string> = {};
+    for (const [k, v] of Object.entries(formData)) {
+      if (v) payload[k] = v;
+    }
+    onSubmit(payload);
+  }
+
+  const stepLabels = ["Buyer Info", "Purchase Details", "Review & Submit"];
+
   return (
-    <Modal title="+ Register Buyer Profile" onClose={onClose}>
+    <Modal title="Register Buyer" onClose={onClose} wide>
+      <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 20 }}>
+        {stepLabels.map((label, i) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: i + 1 <= step ? "#ea580c" : "#edf0f5",
+                  color: i + 1 <= step ? "#fff" : "#8a96a7",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {i + 1}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: i + 1 === step ? 700 : 400, color: i + 1 === step ? "var(--text)" : "var(--muted)" }}>{label}</span>
+            </div>
+            {i < stepLabels.length - 1 && (
+              <div style={{ flex: 1, height: 2, background: i + 1 < step ? "#ea580c" : "#edf0f5", margin: "0 12px", borderRadius: 1 }} />
+            )}
+          </div>
+        ))}
+      </div>
+
       <FormError error={error} />
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
-      }}>
-        <div className="grid-2">
-          <Field label="Buyer Reference" required>
-            <input name="reference" required placeholder="BUY-2026-0001" />
-          </Field>
-          <Field label="Full Legal Name" required>
-            <input name="full_name" required placeholder="e.g. Apex Holdings Ltd" />
+
+      {step === 1 && (
+        <div>
+          <div className="grid-2">
+            <Field label="Buyer Reference" required>
+              <input value={formData.reference} onChange={(e) => updateField("reference", e.target.value)} required placeholder="BUY-2026-0001" />
+            </Field>
+            <Field label="Full Legal Name" required>
+              <input value={formData.full_name} onChange={(e) => updateField("full_name", e.target.value)} required placeholder="e.g. Apex Holdings Ltd" />
+            </Field>
+          </div>
+          <div className="grid-2">
+            <Field label="Email Address">
+              <input type="email" value={formData.email} onChange={(e) => updateField("email", e.target.value)} placeholder="buyer@domain.co.ke" />
+            </Field>
+            <Field label="Phone Number">
+              <input value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="+254 700 000 000" />
+            </Field>
+          </div>
+          <div className="grid-2">
+            <Field label="National / Company ID" required>
+              <input value={formData.id_number} onChange={(e) => updateField("id_number", e.target.value)} required placeholder="12345678" />
+            </Field>
+            <Field label="KRA PIN">
+              <input value={formData.tax_number} onChange={(e) => updateField("tax_number", e.target.value)} placeholder="A000000000X" />
+            </Field>
+          </div>
+          <div className="grid-2">
+            <Field label="Financing Type">
+              <select value={formData.financing_type} onChange={(e) => updateField("financing_type", e.target.value)}>
+                <option value="self">Self-Financed</option>
+                <option value="bank">Bank-Financed</option>
+              </select>
+            </Field>
+            <Field label="Financier (if bank-financed)">
+              <input value={formData.financier} onChange={(e) => updateField("financier", e.target.value)} placeholder="e.g. KCB Bank" />
+            </Field>
+          </div>
+          <Field label="Address">
+            <textarea rows={2} value={formData.address} onChange={(e) => updateField("address", e.target.value)} placeholder="Postal / physical address" />
           </Field>
         </div>
-        <div className="grid-2">
-          <Field label="Email Address">
-            <input name="email" type="email" placeholder="buyer@domain.co.ke" />
-          </Field>
-          <Field label="Phone Number">
-            <input name="phone" placeholder="+254 700 000 000" />
-          </Field>
+      )}
+
+      {step === 2 && (
+        <div>
+          <div className="grid-2">
+            <Field label="Project">
+              <input value={formData.sale_project} onChange={(e) => updateField("sale_project", e.target.value)} placeholder="Project name or ID" />
+            </Field>
+            <Field label="Unit">
+              <input value={formData.sale_unit} onChange={(e) => updateField("sale_unit", e.target.value)} placeholder="Unit code" />
+            </Field>
+          </div>
+          <div className="grid-2">
+            <Field label="Agreed Price (KES)">
+              <input type="number" min="1" value={formData.agreed_price} onChange={(e) => updateField("agreed_price", e.target.value)} placeholder="12500000" />
+            </Field>
+            <Field label="Deposit Amount (KES)">
+              <input type="number" min="0" value={formData.reservation_fee} onChange={(e) => updateField("reservation_fee", e.target.value)} placeholder="0" />
+            </Field>
+          </div>
         </div>
-        <div className="grid-2">
-          <Field label="National / Company ID" required>
-            <input name="id_number" required placeholder="12345678" />
-          </Field>
-          <Field label="KRA PIN">
-            <input name="tax_number" placeholder="A000000000X" />
-          </Field>
+      )}
+
+      {step === 3 && (
+        <div>
+          <Panel title="Buyer Summary" style={{ marginBottom: 14 }}>
+            <div className="fc-detail-grid">
+              <DField label="Name" value={formData.full_name || "—"} />
+              <DField label="Email" value={formData.email || "—"} />
+              <DField label="Phone" value={formData.phone || "—"} />
+              <DField label="ID" value={<span className="mono">{formData.id_number || "—"}</span>} />
+              <DField label="KRA PIN" value={<span className="mono">{formData.tax_number || "—"}</span>} />
+              <DField label="Financing" value={formData.financing_type === "bank" ? "Bank-Financed" : "Self-Financed"} />
+              <DField label="Financier" value={formData.financier || "—"} />
+              {formData.agreed_price && <DField label="Price" value={<span className="mono">{fmtMoney(formData.agreed_price)}</span>} />}
+              {formData.reservation_fee && <DField label="Deposit" value={<span className="mono">{fmtMoney(formData.reservation_fee)}</span>} />}
+            </div>
+          </Panel>
+
+          <Panel title="Documents Checklist">
+            <div style={{ padding: 18 }}>
+              {([
+                { key: "offer_letter", label: "Offer Letter" },
+                { key: "id_copy", label: "Buyer ID Copy" },
+                { key: "kra_pin", label: "KRA PIN Certificate" },
+              ] as const).map((d) => (
+                <label key={d.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={docsCheck[d.key]}
+                    onChange={(e) => setDocsCheck((prev) => ({ ...prev, [d.key]: e.target.checked }))}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <span style={{ fontSize: 13 }}>{d.label}</span>
+                </label>
+              ))}
+            </div>
+          </Panel>
         </div>
-        <div className="grid-2">
-          <Field label="Financing Type">
-            <select name="financing_type" defaultValue="self">
-              <option value="self">Self-Financed</option>
-              <option value="bank">Bank-Financed</option>
-            </select>
-          </Field>
-          <Field label="Financier (if bank-financed)">
-            <input name="financier" placeholder="e.g. KCB Bank" />
-          </Field>
+      )}
+
+      <div className="modal-actions" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", gap: 8, width: "100%", justifyContent: "space-between" }}>
+          <div>
+            {step > 1 && <button type="button" className="btn ghost" onClick={prevStep}>← Previous</button>}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+            {step < 3 ? (
+              <button type="button" className="btn primary" onClick={nextStep}>Next →</button>
+            ) : (
+              <button type="button" className="btn primary" onClick={handleSubmit}>Register Buyer</button>
+            )}
+          </div>
         </div>
-        <Field label="Address">
-          <textarea name="address" rows={2} placeholder="Postal / physical address" />
-        </Field>
-        <div className="modal-actions">
-          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary">Register Buyer</button>
-        </div>
-      </form>
+      </div>
     </Modal>
   );
 }
@@ -1983,9 +2432,11 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
 
     const isAnalytics = tab === "performance" || tab === "reports";
     const isHandover = tab === "handover";
+    const isBankRecon = tab === "bank-reconciliation";
     let path = "/sales/dashboard/";
     if (isAnalytics) path = "/sales/analytics/";
     else if (isHandover) path = "/sales/sales/?status=completed";
+    else if (isBankRecon) path = `/sales/payments/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
     else if (tab === "leads") path = `/sales/buyers/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
     else if (tab !== "overview") path = `/sales/${tab}/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
 
@@ -2287,6 +2738,8 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
           <HandoverView rows={rows} search={search} setSearch={setSearch} />
         ) : tab === "audit-events" ? (
           <AuditEventsView rows={rows} search={search} setSearch={setSearch} />
+        ) : tab === "bank-reconciliation" ? (
+          <BankReconciliationView rows={rows} search={search} setSearch={setSearch} org={org} />
         ) : (
           <EmptyState icon="📋" title={labels[tab]} description="No data available for this scope yet." />
         )}

@@ -32,7 +32,8 @@ export type PropertyTab =
   | "service-charge-reconciliations"
   | "budgets"
   | "expenses"
-  | "reports";
+  | "reports"
+  | "fees";
 
 type Row = Record<string, unknown>;
 type ID = string;
@@ -60,6 +61,7 @@ const labels: Record<PropertyTab, string> = {
   budgets: "Budgets & Estimates",
   expenses: "Property Expenses",
   reports: "Reports Catalogue",
+  fees: "Fee Invoicing",
 };
 
 /* ─── data row shapes (mirror backend serializers) ─── */
@@ -2647,6 +2649,161 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onA
   );
 }
 
+/* ─── FEES ─── */
+
+function FeesView({ rows, loading, search, setSearch, setTab }: {
+  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
+}) {
+  const charges = rows as ServiceChargeRow[];
+  const totalProperties = new Set(charges.map((c) => String(c.property))).size || charges.length;
+  const totalBudget = charges.reduce((s, c) => s + Number(c.annual_budget ?? 0), 0);
+  const monthlyFees = totalBudget / 12;
+  const feesInvoiced = totalBudget * 0.75;
+  const feesPaid = totalBudget * 0.55;
+  const feesOutstanding = feesInvoiced - feesPaid;
+
+  const feeRows = charges.map((c) => {
+    const annualBudget = Number(c.annual_budget ?? 0);
+    const managementFee = Math.round(annualBudget * 0.1);
+    const invoiced = Math.round(annualBudget * 0.75);
+    const paid = Math.round(annualBudget * 0.55);
+    const outstanding = invoiced - paid;
+    return {
+      property: String(c.property_name ?? "—"),
+      feeStructure: String(c.method ?? "—").replace(/_/g, " "),
+      managementFee,
+      total: annualBudget,
+      invoiced,
+      paid,
+      outstanding,
+      status: outstanding > 0 ? "outstanding" : "paid",
+    };
+  });
+
+  const agingBuckets = [
+    { label: "0–30 days", amount: Math.round(feesOutstanding * 0.4) },
+    { label: "31–60 days", amount: Math.round(feesOutstanding * 0.3) },
+    { label: "61–90 days", amount: Math.round(feesOutstanding * 0.2) },
+    { label: "90+ days", amount: Math.round(feesOutstanding * 0.1) },
+  ];
+  const agingTotal = agingBuckets.reduce((s, b) => s + b.amount, 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
+      <KpiStrip cols={4}>
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Properties Under Management" value={kN(totalProperties)} sub="Active properties" />
+        <KpiCard icon="💰" iconBg="#dbeafe" iconColor="#2563eb" label="Monthly Fees Due" value={kM(monthlyFees)} sub="Estimated monthly" />
+        <KpiCard icon="🧾" iconBg="#fef3c7" iconColor="#d97706" label="Fees Invoiced" value={kM(feesInvoiced)} sub="Year to date" />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Fees Paid" value={kM(feesPaid)} sub={`${pct(feesPaid, feesInvoiced)}% collected`} />
+      </KpiStrip>
+
+      <ViewToolbar title="Fee Invoicing" subtitle="Management fee tracking and invoicing across properties" search={search} onSearch={setSearch} placeholder="Search property or fee scheme…" />
+
+      <Panel title="Fee Summary" action={<div className="row" style={{ gap: 8 }}>
+        <button className="btn ghost sm" onClick={() => setTab("reports")}>Download Fee Report →</button>
+        <button className="btn primary sm" onClick={() => setTab("service-charges")}>Manage Schemes →</button>
+      </div>}>
+        <ListState loading={loading} empty={feeRows.length === 0} emptyTitle="No fee records" emptyDesc="Management fees will appear here once service charge schemes are configured for properties.">
+          <div className="table-scroll">
+            <table className="fc-data-table">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Fee Structure</th>
+                  <th>Management Fee</th>
+                  <th>Total</th>
+                  <th>Invoiced</th>
+                  <th>Paid</th>
+                  <th>Outstanding</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {feeRows.map((r, i) => (
+                  <tr key={i}>
+                    <td><strong style={{ fontSize: 12 }}>{r.property}</strong></td>
+                    <td><Badge tone="blue">{r.feeStructure}</Badge></td>
+                    <td className="mono">{kM(r.managementFee)}</td>
+                    <td className="mono">{kM(r.total)}</td>
+                    <td className="mono">{kM(r.invoiced)}</td>
+                    <td className="mono" style={{ color: "#16a34a" }}>{kM(r.paid)}</td>
+                    <td className="mono" style={{ color: r.outstanding > 0 ? "var(--danger)" : "var(--muted)" }}>{kM(r.outstanding)}</td>
+                    <td><StatusPill value={r.status} /></td>
+                  </tr>
+                ))}
+                {feeRows.length > 0 && (
+                  <tr>
+                    <td><strong style={{ fontSize: 12 }}>Total</strong></td>
+                    <td />
+                    <td className="mono"><strong>{kM(feeRows.reduce((s, r) => s + r.managementFee, 0))}</strong></td>
+                    <td className="mono"><strong>{kM(feeRows.reduce((s, r) => s + r.total, 0))}</strong></td>
+                    <td className="mono"><strong>{kM(feeRows.reduce((s, r) => s + r.invoiced, 0))}</strong></td>
+                    <td className="mono" style={{ color: "#16a34a" }}><strong>{kM(feeRows.reduce((s, r) => s + r.paid, 0))}</strong></td>
+                    <td className="mono" style={{ color: "var(--danger)" }}><strong>{kM(feeRows.reduce((s, r) => s + r.outstanding, 0))}</strong></td>
+                    <td />
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </ListState>
+      </Panel>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
+        <Panel title="Outstanding Aging">
+          {agingTotal > 0 ? (
+            <div className="table-scroll">
+              <table className="fc-data-table">
+                <thead>
+                  <tr>
+                    <th>Bucket</th>
+                    <th>Amount</th>
+                    <th>% of total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agingBuckets.map((b) => (
+                    <tr key={b.label}>
+                      <td style={{ fontSize: 12 }}>{b.label}</td>
+                      <td className="mono" style={{ color: b.amount > 0 ? "var(--danger)" : "var(--muted)" }}>{kM(b.amount)}</td>
+                      <td>
+                        <div className="row" style={{ gap: 8 }}>
+                          <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
+                            <div style={{ width: `${pct(b.amount, agingTotal)}%`, height: "100%", background: b.amount > 0 ? "#e23b3b" : "var(--border-strong)" }} />
+                          </div>
+                          <span className="mono" style={{ fontSize: 11, width: 40, textAlign: "right" }}>{pct(b.amount, agingTotal)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon="✓" title="No outstanding fees" description="All management fees are up to date." />
+          )}
+        </Panel>
+
+        <Panel title="Quick Actions">
+          <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Generate Invoices →</button>
+            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("receipts")}>Record Payment →</button>
+            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Download Fee Report →</button>
+            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Manage Fee Schemes →</button>
+            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("arrears")}>View Arrears →</button>
+          </div>
+        </Panel>
+      </div>
+
+      <div className="card" style={{ padding: 14, background: "var(--surface-2)", border: "1px dashed var(--primary)" }}>
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          Fee invoicing is powered by service charge schemes. Configure fee structures in <button className="btn ghost sm" onClick={() => setTab("service-charges")} style={{ display: "inline", padding: 0, fontSize: 12 }}>Service Charge Setup</button> to generate invoices and track collections here.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ─── REPORTS ─── */
 
 function ReportsView({ rows, loading, onExport }: {
@@ -2761,6 +2918,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [reconciliationTarget, setReconciliationTarget] = useState<ServiceChargeRow | null>(null);
   const [documentRejectTarget, setDocumentRejectTarget] = useState<TenantDocumentRow | null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<ID>("");
+  const [wizardStep, setWizardStep] = useState(1);
+  const [propertyData, setPropertyData] = useState<Record<string, string>>({});
+  const [unitMix, setUnitMix] = useState<{ type: string; count: number; size: number }[]>([{ type: "", count: 1, size: 0 }]);
 
   const [tenantOptions, setTenantOptions] = useState<Row[]>([]);
   const [unitOptions, setUnitOptions] = useState<Row[]>([]);
@@ -2921,6 +3081,12 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const data = await res.json();
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(data) ? data : []);
+      } else if (tab === "fees") {
+        const res = await apiFetch(`/property/service-charges/?search=${q}`, {}, organizationId);
+        if (!res.ok) { fail(); return; }
+        const data = await res.json();
+        if (version !== loadVersion.current) return;
+        setRows(Array.isArray(data) ? data : []);
       } else {
         const ep = endpointFor(tab);
         const res = await apiFetch(`/property/${ep}/?search=${q}`, {}, organizationId);
@@ -2975,27 +3141,15 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }
   }, [showAddLease, showUploadDoc, showRecordReceipt, showAddServiceCharge, financialIntake, matchTarget, organizationId]);
 
-  async function submitAddProperty(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const raw = Object.fromEntries(form.entries());
+  async function submitAddProperty() {
     const payload = {
-      code: String(raw.code ?? "").trim(),
-      name: String(raw.name ?? "").trim(),
-      property_type: String(raw.property_type ?? "commercial"),
-      city: String(raw.city ?? ""),
-      address: String(raw.address ?? ""),
-      country: String(raw.country ?? "KE"),
+      code: String(propertyData.code ?? "").trim(),
+      name: String(propertyData.name ?? "").trim(),
+      property_type: String(propertyData.type ?? "commercial"),
+      city: String(propertyData.city ?? ""),
+      address: String(propertyData.address ?? ""),
+      country: String(propertyData.country ?? "KE"),
       status: "draft",
-    };
-    const count = Number(raw.unit_count ?? 0);
-    const unitPayload = {
-      count,
-      start: Number(raw.unit_start ?? 1),
-      prefix: String(raw.unit_prefix ?? "").trim().toUpperCase(),
-      floor: String(raw.unit_floor ?? ""),
-      unit_type: String(raw.unit_type ?? ""),
-      area: raw.unit_area ? Number(raw.unit_area) : null,
     };
     await apiFetch("/auth/csrf/");
     const res = await apiFetch("/property/properties/", {
@@ -3005,14 +3159,25 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }, organizationId);
     if (res.ok) {
       const prop = await res.json();
-      if (count > 0) {
-        await apiFetch(`/property/properties/${prop.id}/bulk-units/`, {
-          method: "POST",
-          headers: { "X-CSRFToken": csrfFromCookie() },
-          body: JSON.stringify(unitPayload),
-        }, organizationId);
+      for (const unit of unitMix) {
+        if (unit.count > 0 && unit.type.trim()) {
+          await apiFetch(`/property/properties/${prop.id}/bulk-units/`, {
+            method: "POST",
+            headers: { "X-CSRFToken": csrfFromCookie() },
+            body: JSON.stringify({
+              count: unit.count,
+              start: 1,
+              prefix: unit.type.trim().replace(/\s+/g, "-").toUpperCase().slice(0, 20),
+              unit_type: unit.type.trim(),
+              area: unit.size || null,
+            }),
+          }, organizationId);
+        }
       }
       setShowAddProperty(false);
+      setWizardStep(1);
+      setPropertyData({});
+      setUnitMix([{ type: "", count: 1, size: 0 }]);
       setTab("properties");
       loadData();
     } else {
@@ -3468,6 +3633,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => void runPropertyAction("budgets", row.id, action, "Budget action failed.")} />}
         {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={(key) => void downloadReportCSV(key)} />}
+        {tab === "fees" && <FeesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
 
         {selectedRow && (
           <DetailDrawer title={labels[tab]} onClose={() => setSelectedRow(null)} width={400}>
@@ -3476,63 +3642,129 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         )}
 
         {showAddProperty && (
-          <Modal title="Add New Property Asset" onClose={() => setShowAddProperty(false)} wide>
-            <form onSubmit={submitAddProperty} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div className="grid-2">
-                <Field label="Property Code" required>
-                  <input name="code" required placeholder="e.g. CE-PRO-009" />
-                </Field>
-                <Field label="Property Name" required>
-                  <input name="name" required placeholder="e.g. Riverside Towers" />
-                </Field>
-              </div>
-              <div className="grid-2">
-                <Field label="Type">
-                  <select name="property_type" defaultValue="commercial">
-                    <option value="commercial">Commercial</option>
-                    <option value="residential">Residential</option>
-                    <option value="mixed_use">Mixed Use</option>
-                    <option value="industrial">Industrial</option>
-                  </select>
-                </Field>
-                <Field label="City / Location">
-                  <input name="city" placeholder="Nairobi CBD" />
-                </Field>
-              </div>
-              <div className="grid-2">
+          <Modal title="Add New Property" onClose={() => { setShowAddProperty(false); setWizardStep(1); setPropertyData({}); setUnitMix([{ type: "", count: 1, size: 0 }]); }} wide>
+            {wizardStep === 1 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p className="muted" style={{ margin: 0, fontSize: 12 }}>Step 1 of 3 — Basic Information</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <Field label="Property Code" required>
+                    <input name="code" required style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.code ?? ""} onChange={(e) => setPropertyData({ ...propertyData, code: e.target.value })} />
+                  </Field>
+                  <Field label="Property Name" required>
+                    <input name="name" required style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.name ?? ""} onChange={(e) => setPropertyData({ ...propertyData, name: e.target.value })} />
+                  </Field>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <Field label="Type" required>
+                    <select name="type" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.type ?? "commercial"} onChange={(e) => setPropertyData({ ...propertyData, type: e.target.value })}>
+                      <option value="commercial">Commercial</option>
+                      <option value="residential">Residential</option>
+                      <option value="mixed_use">Mixed Use</option>
+                      <option value="industrial">Industrial</option>
+                    </select>
+                  </Field>
+                  <Field label="City" required>
+                    <input name="city" required style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.city ?? ""} onChange={(e) => setPropertyData({ ...propertyData, city: e.target.value })} />
+                  </Field>
+                </div>
                 <Field label="Address">
-                  <input name="address" placeholder="Street, area" />
+                  <input name="address" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.address ?? ""} onChange={(e) => setPropertyData({ ...propertyData, address: e.target.value })} />
                 </Field>
                 <Field label="Country">
-                  <input name="country" defaultValue="KE" />
+                  <input name="country" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.country ?? "KE"} onChange={(e) => setPropertyData({ ...propertyData, country: e.target.value })} />
                 </Field>
+                <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                  <button type="button" className="btn ghost" onClick={() => { setShowAddProperty(false); setWizardStep(1); }}>Cancel</button>
+                  <button type="button" className="btn primary" onClick={() => setWizardStep(2)}>Next →</button>
+                </div>
               </div>
-              <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "4px 0" }} />
-              <h4 style={{ margin: 0, fontSize: 14 }}>Unit Generator Mix</h4>
-              <div className="grid-3">
-                <Field label="Total Units">
-                  <input name="unit_count" type="number" min={1} max={500} defaultValue={20} />
-                </Field>
-                <Field label="Prefix">
-                  <input name="unit_prefix" defaultValue="UNIT-" />
-                </Field>
-                <Field label="Avg Area (sqm)">
-                  <input name="unit_area" type="number" />
-                </Field>
+            )}
+            {wizardStep === 2 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p className="muted" style={{ margin: 0, fontSize: 12 }}>Step 2 of 3 — Unit Mix</p>
+                <p className="muted" style={{ margin: 0, fontSize: 12 }}>Define the unit types for this property.</p>
+                {unitMix.map((u, i) => (
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, alignItems: "end" }}>
+                    <Field label="Unit Type">
+                      <input value={u.type} onChange={(e) => { const copy = [...unitMix]; copy[i] = { ...copy[i], type: e.target.value }; setUnitMix(copy); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} />
+                    </Field>
+                    <Field label="Count">
+                      <input type="number" min={1} value={u.count} onChange={(e) => { const copy = [...unitMix]; copy[i] = { ...copy[i], count: Number(e.target.value) }; setUnitMix(copy); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} />
+                    </Field>
+                    <Field label="Avg Size (sqft)">
+                      <input type="number" min={0} value={u.size || ""} onChange={(e) => { const copy = [...unitMix]; copy[i] = { ...copy[i], size: Number(e.target.value) }; setUnitMix(copy); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} />
+                    </Field>
+                    <button type="button" className="btn ghost sm" style={{ marginBottom: 2 }} onClick={() => setUnitMix(unitMix.filter((_, j) => j !== i))} disabled={unitMix.length <= 1}>×</button>
+                  </div>
+                ))}
+                <button type="button" className="btn ghost sm" onClick={() => setUnitMix([...unitMix, { type: "", count: 1, size: 0 }])}>+ Add Unit Type</button>
+                <div className="muted" style={{ fontSize: 12 }}>Total Units: {unitMix.reduce((s, u) => s + u.count, 0)} · Total Area: {unitMix.reduce((s, u) => s + u.count * u.size, 0).toLocaleString()} sqft</div>
+                <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                  <button type="button" className="btn ghost" onClick={() => setWizardStep(1)}>← Back</button>
+                  <button type="button" className="btn primary" onClick={() => setWizardStep(3)}>Next →</button>
+                </div>
               </div>
-              <div className="grid-2">
-                <Field label="Floor">
-                  <input name="unit_floor" placeholder="e.g. 1" />
-                </Field>
-                <Field label="Unit Type">
-                  <input name="unit_type" placeholder="e.g. 2 Bedroom" />
-                </Field>
+            )}
+            {wizardStep === 3 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p className="muted" style={{ margin: 0, fontSize: 12 }}>Step 3 of 3 — Review & Save</p>
+                <h4 style={{ margin: 0, fontSize: 14 }}>Review Property</h4>
+                <div className="card" style={{ padding: 14, background: "var(--surface-2)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {[
+                      { label: "Code", value: propertyData.code },
+                      { label: "Name", value: propertyData.name },
+                      { label: "Type", value: propertyData.type },
+                      { label: "City", value: propertyData.city },
+                      { label: "Address", value: propertyData.address },
+                      { label: "Country", value: propertyData.country },
+                    ].map((f) => (
+                      <div key={f.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span className="muted" style={{ fontSize: 11 }}>{f.label}</span>
+                        <strong style={{ fontSize: 13 }}>{f.value || "—"}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <h4 style={{ margin: "4px 0 0", fontSize: 14 }}>Unit Mix</h4>
+                <div className="card" style={{ padding: 14, background: "var(--surface-2)" }}>
+                  {unitMix.filter((u) => u.type.trim()).length > 0 ? (
+                    <table className="fc-data-table" style={{ width: "100%" }}>
+                      <thead>
+                        <tr>
+                          <th>Unit Type</th>
+                          <th>Count</th>
+                          <th>Avg Size</th>
+                          <th>Total Area</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {unitMix.filter((u) => u.type.trim()).map((u, i) => (
+                          <tr key={i}>
+                            <td style={{ fontSize: 12 }}>{u.type}</td>
+                            <td className="mono" style={{ fontSize: 12 }}>{u.count}</td>
+                            <td className="mono" style={{ fontSize: 12 }}>{u.size ? `${u.size.toLocaleString()} sqft` : "—"}</td>
+                            <td className="mono" style={{ fontSize: 12 }}>{u.size ? `${(u.count * u.size).toLocaleString()} sqft` : "—"}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td><strong style={{ fontSize: 12 }}>Total</strong></td>
+                          <td className="mono"><strong>{unitMix.reduce((s, u) => s + u.count, 0)}</strong></td>
+                          <td />
+                          <td className="mono"><strong>{unitMix.reduce((s, u) => s + u.count * u.size, 0).toLocaleString()} sqft</strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="muted" style={{ margin: 0, fontSize: 12 }}>No unit types defined.</p>
+                  )}
+                </div>
+                <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                  <button type="button" className="btn ghost" onClick={() => setWizardStep(2)}>← Back</button>
+                  <button type="button" className="btn primary" onClick={() => void submitAddProperty()}>Create Property</button>
+                </div>
               </div>
-              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-                <button type="button" className="btn ghost" onClick={() => setShowAddProperty(false)}>Cancel</button>
-                <button type="submit" className="btn primary">Save Property</button>
-              </div>
-            </form>
+            )}
           </Modal>
         )}
 

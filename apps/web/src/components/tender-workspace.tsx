@@ -595,10 +595,11 @@ function TasksView({ rows, search, setSearch, openTask, canTask }: {
 
 /* ─── Step 5 · Company Documents ─── */
 
-function CompanyDocumentsView({ rows, search, setSearch }: {
+function CompanyDocumentsView({ rows, search, setSearch, setShowUploadDoc }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
+  setShowUploadDoc: () => void;
 }) {
   const valid = rows.filter((r) => String(r.status) === "valid").length;
   const expiring = rows.filter((r) => String(r.status) === "expiring").length;
@@ -609,7 +610,10 @@ function CompanyDocumentsView({ rows, search, setSearch }: {
       <div className="data-panel">
         <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
           <span style={{ fontSize: 13, fontWeight: 800 }}>Company Document Vault</span>
-          <SearchInput value={search} onChange={setSearch} placeholder="Search document, type, version…" />
+          <div className="row" style={{ gap: 8 }}>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search document, type, version…" />
+            <button type="button" className="btn primary sm" onClick={setShowUploadDoc}>+ Upload Document</button>
+          </div>
         </div>
         {rows.length === 0 ? (
           <EmptyState icon="🗄️" title="No vault documents" description="Reusable company documents — certificates, registrations and permits — appear here with expiry tracking. Vault evidence is immutable; upload a new version to replace a file." />
@@ -1822,6 +1826,61 @@ function RecordOutcomeModal({ open, onClose, onSubmit, error, tenders }: {
   );
 }
 
+function UploadCompanyDocumentModal({ open, onClose, onSubmit, error }: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (payload: Record<string, string>) => void;
+  error: string;
+}) {
+  if (!open) return null;
+  return (
+    <Modal title="+ Upload Company Document" onClose={onClose}>
+      <FormError error={error} />
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
+      }}>
+        <Field label="Document Name" required>
+          <input name="name" required placeholder="e.g. Tax Compliance Certificate 2026" />
+        </Field>
+        <div className="grid-2">
+          <Field label="Document Type" required>
+            <select name="document_type" defaultValue="">
+              <option value="" disabled>Select type…</option>
+              <option value="Tax Compliance">Tax Compliance</option>
+              <option value="Insurance">Insurance</option>
+              <option value="Registration">Registration</option>
+              <option value="Certificate">Certificate</option>
+              <option value="Other">Other</option>
+            </select>
+          </Field>
+          <Field label="Version" required>
+            <input name="version" required placeholder="e.g. 1.0" defaultValue="1.0" />
+          </Field>
+        </div>
+        <div className="grid-2">
+          <Field label="Issue Date">
+            <input name="issued_on" type="date" />
+          </Field>
+          <Field label="Expiry Date">
+            <input name="expires_on" type="date" />
+          </Field>
+        </div>
+        <Field label="File URL">
+          <input name="file_url" type="url" placeholder="https://…" />
+        </Field>
+        <Field label="Checksum" required>
+          <input name="checksum" required placeholder="SHA-256 integrity hash" />
+        </Field>
+        <div className="modal-actions">
+          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn primary">Upload Document</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 /* ─── Main workspace ─── */
 
 export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
@@ -1846,6 +1905,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
   const [requirementRow, setRequirementRow] = useState<Row | null>(null);
   const [showSubmission, setShowSubmission] = useState(false);
   const [showOutcome, setShowOutcome] = useState(false);
+  const [showUploadDoc, setShowUploadDoc] = useState(false);
 
   const canRegister = can("tender.intake");
   const canCompliance = can("tender.compliance");
@@ -1937,6 +1997,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
   const openConfirmRequirement = (r: Row) => { setFormError(""); setRequirementRow(r); };
   const openRecordSubmission = () => { setFormError(""); setShowSubmission(true); };
   const openRecordOutcome = () => { setFormError(""); setShowOutcome(true); };
+  const openUploadDoc = () => { setFormError(""); setShowUploadDoc(true); };
 
   async function submitRegister(payload: Record<string, string>) {
     await apiFetch("/auth/csrf/");
@@ -2092,6 +2153,22 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
     }
   }
 
+  async function submitUploadDoc(payload: Record<string, string>) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/tender/company-documents/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, org);
+    if (res.ok) {
+      setShowUploadDoc(false);
+      setFormError("");
+      loadData();
+    } else {
+      setFormError(await readError(res));
+    }
+  }
+
   async function exportReport(key: string, name: string) {
     const res = await apiFetch(`/tender/analytics/exports/${key}/`, {}, org);
     if (!res.ok) {
@@ -2150,7 +2227,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
         ) : tab === "tasks" ? (
           <TasksView rows={rows} search={search} setSearch={setSearch} openTask={openTask} canTask={canRegister} />
         ) : tab === "company-documents" ? (
-          <CompanyDocumentsView rows={rows} search={search} setSearch={setSearch} />
+          <CompanyDocumentsView rows={rows} search={search} setSearch={setSearch} setShowUploadDoc={openUploadDoc} />
         ) : tab === "proposals" ? (
           <ProposalsView rows={rows} search={search} setSearch={setSearch} openProposal={openProposal} canPropose={canPropose} />
         ) : tab === "financial-items" ? (
@@ -2180,6 +2257,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
       <ConfirmRequirementModal row={requirementRow} onClose={() => setRequirementRow(null)} onSubmit={submitRequirement} error={formError} />
       <RecordSubmissionModal open={showSubmission} onClose={() => setShowSubmission(false)} onSubmit={submitSubmission} error={formError} tenders={tenderIndex} />
       <RecordOutcomeModal open={showOutcome} onClose={() => setShowOutcome(false)} onSubmit={submitOutcome} error={formError} tenders={tenderIndex} />
+      <UploadCompanyDocumentModal open={showUploadDoc} onClose={() => setShowUploadDoc(false)} onSubmit={submitUploadDoc} error={formError} />
     </ModuleShell>
   );
 }

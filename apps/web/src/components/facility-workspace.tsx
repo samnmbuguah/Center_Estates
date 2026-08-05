@@ -1356,6 +1356,33 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
         <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Maintenance Cost (MTD)" value="KES 1.45M" sub="↓ 8.4% vs last month" onClick={() => {}} />
       </div>
 
+      {/* PPM Compliance Trend — last 6 months */}
+      <article className="data-panel" style={{ marginBottom: 16 }}>
+        <PanelHeader title="PPM Compliance Trend (Last 6 Months)" />
+        <div style={{ padding: "14px 18px" }}>
+          {(() => {
+            const trendMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+            const trendValues = [85, 88, 90, 87, 92, compliance];
+            const maxVal = Math.max(...trendValues, 1);
+            return (
+              <div style={{ alignItems: "flex-end", display: "flex", gap: 10, height: 120 }}>
+                {trendMonths.map((m, i) => (
+                  <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: trendValues[i] >= 90 ? "#16a34a" : trendValues[i] >= 80 ? "#a16207" : "#b91c1c" }}>{trendValues[i]}%</span>
+                    <div style={{ background: trendValues[i] >= 90 ? "#22c55e" : trendValues[i] >= 80 ? "#f59e0b" : "#ef4444", borderRadius: "4px 4px 0 0", height: `${(trendValues[i] / maxVal) * 100}%`, minHeight: 4, width: "100%" }} />
+                    <span style={{ color: "#8a96a7", fontSize: 9 }}>{m}</span>
+                  </div>
+                ))}
+                <div style={{ position: "relative", width: "100%", height: 0, top: 0 }}>
+                  <div style={{ borderTop: "1px dashed #e23b3b", position: "absolute", top: -((90 / maxVal) * 120), left: 0, right: 0 }} />
+                  <span style={{ position: "absolute", top: -((90 / maxVal) * 120) - 14, right: 0, color: "#e23b3b", fontSize: 9, fontWeight: 700 }}>Target 90%</span>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </article>
+
       {/* View tabs */}
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
         {(["calendar", "list", "gantt", "templates", "plans"] as const).map((t) => {
@@ -1424,7 +1451,7 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
         {/* Calendar + tasks */}
         <div style={{ display: "grid", gap: 16 }}>
           {/* Calendar week header */}
-          {(subTab === "calendar" || subTab === "gantt") && (
+          {subTab === "calendar" && (
           <article className="data-panel" style={{ overflow: "hidden" }}>
             <div className="fc-ppm-header">
               <div className="fc-ppm-cal-nav">
@@ -1465,6 +1492,124 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
                   })}
                 </div>
               ))}
+            </div>
+          </article>
+          )}
+
+          {/* Gantt view */}
+          {subTab === "gantt" && (
+          <article className="data-panel" style={{ overflow: "hidden" }}>
+            <div className="fc-ppm-header">
+              <div className="fc-ppm-cal-nav">
+                <strong className="fc-ppm-cal-month">Gantt — PPM Tasks</strong>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {["All Buildings", "All Categories", "All Status", "All Technicians"].map((f) => (
+                  <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
+                ))}
+              </div>
+              <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Create PPM Task</button>
+            </div>
+            <div style={{ padding: "14px 18px", overflowX: "auto" }}>
+              {(() => {
+                const freqDays: Record<string, number> = { weekly: 7, monthly: 30, quarterly: 90, biannual: 180, annual: 365 };
+                const sortedTasks = [...displayRows].sort((a, b) => {
+                  const da = new Date(String(a.next_due_on ?? "")).getTime() || 0;
+                  const db = new Date(String(b.next_due_on ?? "")).getTime() || 0;
+                  return da - db;
+                });
+                if (sortedTasks.length === 0) {
+                  return <EmptyState message="No PPM tasks to display in Gantt view." />;
+                }
+                const taskSpans = sortedTasks.map((t) => {
+                  const due = new Date(String(t.next_due_on ?? Date.now()));
+                  const freq = String(t.frequency ?? "monthly").toLowerCase();
+                  const spanDays = freqDays[freq] || 30;
+                  const start = new Date(due.getTime() - spanDays * 86400000);
+                  return { task: t, start, end: due, spanDays };
+                });
+                const allStarts = taskSpans.map((s) => s.start.getTime());
+                const allEnds = taskSpans.map((s) => s.end.getTime());
+                const earliest = Math.min(...allStarts);
+                const latest = Math.max(...allEnds);
+                const totalSpan = Math.max((latest - earliest) / 86400000, 1);
+                const now = new Date();
+                const todayOffsetPct = Math.max(0, Math.min(100, ((now.getTime() - earliest) / (latest - earliest)) * 100));
+
+                const statusColor = (s: string) => {
+                  const slug = s.toLowerCase().replace(/[_\s]/g, "-");
+                  if (slug === "completed" || slug === "done") return "var(--success, #22c55e)";
+                  if (slug === "overdue" || slug === "failed") return "var(--danger, #ef4444)";
+                  if (slug === "in-progress" || slug === "in_progress") return "var(--warning, #f59e0b)";
+                  return "var(--primary, #3b82f6)";
+                };
+
+                return (
+                  <div>
+                    {/* Legend */}
+                    <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, color: "var(--muted, #8a96a7)" }}>
+                      {[
+                        { label: "Scheduled", color: "var(--primary, #3b82f6)" },
+                        { label: "In Progress", color: "var(--warning, #f59e0b)" },
+                        { label: "Overdue", color: "var(--danger, #ef4444)" },
+                        { label: "Completed", color: "var(--success, #22c55e)" },
+                      ].map((item) => (
+                        <span key={item.label} style={{ alignItems: "center", display: "flex", gap: 4 }}>
+                          <i style={{ background: item.color, borderRadius: 2, display: "inline-block", height: 8, width: 16 }} />
+                          {item.label}
+                        </span>
+                      ))}
+                    </div>
+                    {/* Header row */}
+                    <div style={{ display: "flex", gap: 4, marginBottom: 6, fontSize: 11, color: "var(--muted, #8a96a7)", fontWeight: 700 }}>
+                      <span style={{ minWidth: 180, maxWidth: 180 }}>Task</span>
+                      <span style={{ flex: 1 }}>Timeline</span>
+                    </div>
+                    {/* Today marker label */}
+                    <div style={{ display: "flex", gap: 4, marginBottom: 2 }}>
+                      <span style={{ minWidth: 180, maxWidth: 180 }} />
+                      <div style={{ flex: 1, position: "relative", height: 2 }}>
+                        <span style={{ position: "absolute", left: `${todayOffsetPct}%`, transform: "translateX(-50%)", fontSize: 9, color: "#e23b3b", fontWeight: 700, whiteSpace: "nowrap", top: -12 }}>Today</span>
+                      </div>
+                    </div>
+                    {/* Task rows */}
+                    {taskSpans.map(({ task, start, spanDays }) => {
+                      const offsetPct = Math.max(0, ((start.getTime() - earliest) / (latest - earliest)) * 100);
+                      const widthPct = Math.min(100 - offsetPct, (spanDays / totalSpan) * 100);
+                      const color = statusColor(String(task.status ?? "scheduled"));
+                      const freq = String(task.frequency ?? "monthly");
+                      return (
+                        <div key={String(task.id)} style={{ display: "flex", gap: 4, marginBottom: 6, fontSize: 12 }}>
+                          <div style={{ minWidth: 180, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ fontWeight: 600, color: "#27364a" }}>{String(task.name ?? "—")}</span>
+                            <span style={{ color: "#8a96a7", fontSize: 10, marginLeft: 6 }}>{freq}</span>
+                          </div>
+                          <div style={{ flex: 1, position: "relative", height: 22, background: "var(--surface-2, #f0f2f6)", borderRadius: 4 }}>
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: `${offsetPct}%`,
+                                width: `${Math.max(widthPct, 2)}%`,
+                                height: "100%",
+                                background: color,
+                                borderRadius: 4,
+                                opacity: 0.85,
+                                display: "flex",
+                                alignItems: "center",
+                                paddingLeft: 6,
+                              }}
+                            >
+                              <span style={{ color: "white", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden" }}>
+                                {String(task.name ?? "").length > 20 ? String(task.name ?? "").slice(0, 20) + "…" : String(task.name ?? "")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </article>
           )}

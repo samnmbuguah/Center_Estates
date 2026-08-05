@@ -1161,11 +1161,12 @@ function FinalReportsView({ rows, search, setSearch }: {
 
 /* ───────────────────────── invoices ───────────────────────── */
 
-function InvoicesView({ rows, search, setSearch, setShowRecordPayment }: {
+function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCreateInvoice }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
   setShowRecordPayment: () => void;
+  setShowCreateInvoice: () => void;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const invoiced = rows.reduce((acc, r) => acc + Number(r.total ?? 0), 0);
@@ -1243,7 +1244,7 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment }: {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <Panel title="Quick Actions">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn ghost sm" onClick={() => {}}>Create New Invoice</button>
+              <button className="btn ghost sm" onClick={setShowCreateInvoice}>Create New Invoice</button>
               <button className="btn ghost sm" onClick={() => {}}>Create Credit Note</button>
               <button className="btn ghost sm" onClick={setShowRecordPayment}>Record Payment</button>
               <button className="btn ghost sm" onClick={() => {}}>Upload Payment Proof</button>
@@ -1411,6 +1412,18 @@ function AnalyticsView({ analytics, dashboard }: { analytics: Analytics | null; 
   const overdueInvoices = Number(aging.overdueInvoices ?? 0);
   const overdueBalance = Number(aging.overdueBalance ?? 0);
 
+  const avgTurnaround = useMemo(() => {
+    const completed = recent.filter((r) => COMPLETED.includes(String(r.status)));
+    if (completed.length === 0) return null;
+    const totalDays = completed.reduce((acc, r) => {
+      const instructed = new Date(String(r.instructed_on ?? ""));
+      const due = new Date(String(r.due_on ?? ""));
+      if (Number.isNaN(instructed.getTime()) || Number.isNaN(due.getTime())) return acc;
+      return acc + Math.round((due.getTime() - instructed.getTime()) / 86400000);
+    }, 0);
+    return Math.round(totalDays / completed.length);
+  }, [recent]);
+
   const bankDonut = useMemo(() => DonutSegments(recent, "client_name", "Unassigned client"), [recent]);
   const typeBars = useMemo(() => mix.map((m, i) => ({ label: String(m.valuation_type ?? "—"), value: Number(m.count ?? 0), color: PALETTE[i % PALETTE.length] })), [mix]);
   const pipelineBars = useMemo(() => pipeline.map((p) => ({ label: String(p.status ?? "—").replace(/_/g, " "), value: Number(p.count ?? 0) })), [pipeline]);
@@ -1426,7 +1439,7 @@ function AnalyticsView({ analytics, dashboard }: { analytics: Analytics | null; 
       <KpiStrip cols={7}>
         <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="Instructions YTD" value={number.format(totalInstructions)} sub="Assigned workload" onClick={() => {}} />
         <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(delivered)} sub="Delivered on time" onClick={() => {}} />
-        <KpiCard icon="⏱️" iconBg="#fef3c7" iconColor="#92400e" label="Avg Turnaround" value="—" sub="SLA tracking pending" onClick={() => {}} />
+        <KpiCard icon="⏱️" iconBg="#fef3c7" iconColor="#92400e" label="Avg Turnaround" value={avgTurnaround !== null ? `${avgTurnaround} days` : "Data pending"} sub="Completed instruction avg" onClick={() => {}} />
         <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Quoted Fees" value={fmtMoney(feeEstimate)} sub="Across the pipeline" onClick={() => {}} />
         <KpiCard icon="🎯" iconBg="#cffafe" iconColor="#0e7490" label="Completion Rate" value={`${completionRate}%`} sub="Of assigned work" onClick={() => {}} />
         <KpiCard icon="📤" iconBg="#ede9fe" iconColor="#6d28d9" label="On-time %" value="—" sub="Delivery SLA pending" onClick={() => {}} />
@@ -1868,6 +1881,80 @@ function RecordPaymentModal({ invoices, error, busy, onSubmit, onClose }: {
   );
 }
 
+function CreateInvoiceModal({ finalReports, invoices, error, busy, onSubmit, onClose }: {
+  finalReports: Row[];
+  invoices: Row[];
+  error: string;
+  busy: boolean;
+  onSubmit: (payload: Record<string, unknown>) => void;
+  onClose: () => void;
+}) {
+  const invoicedInstructionIds = useMemo(() => new Set(invoices.map((i) => String(i.instruction ?? ""))), [invoices]);
+  const available = useMemo(() => finalReports.filter((r) => !invoicedInstructionIds.has(String(r.instruction ?? ""))), [finalReports, invoicedInstructionIds]);
+
+  const [instruction, setInstruction] = useState("");
+  const [subtotal, setSubtotal] = useState("");
+  const [taxRate, setTaxRate] = useState("16");
+  const [dueOn, setDueOn] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const amount = Number(subtotal) || 0;
+  const tax = Math.round(amount * (Number(taxRate) || 0) / 100 * 100) / 100;
+  const total = amount + tax;
+
+  return (
+    <Modal title="+ Create Invoice" onClose={onClose}>
+      {error ? <ErrorBanner message={error} onRetry={() => {}} /> : null}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Field label="Instruction Ref" required>
+          <select value={instruction} onChange={(e) => setInstruction(e.target.value)} required style={inputStyle}>
+            <option value="" disabled>Select instruction…</option>
+            {available.map((r) => (
+              <option key={String(r.id)} value={String(r.instruction ?? "")}>{String(r.instruction_reference ?? "—")} — {String(r.client_name ?? "—")}</option>
+            ))}
+          </select>
+        </Field>
+        <div className="grid-2">
+          <Field label="Amount (KES)" required>
+            <input type="number" min="0" value={subtotal} onChange={(e) => setSubtotal(e.target.value)} required placeholder="0" style={inputStyle} />
+          </Field>
+          <Field label="Tax Rate (%)">
+            <input type="number" min="0" max="100" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} style={inputStyle} />
+          </Field>
+        </div>
+        <div className="grid-2">
+          <Field label="Tax (KES)">
+            <input type="number" readOnly value={tax.toFixed(2)} style={{ ...inputStyle, background: "var(--surface-3)", opacity: 0.7 }} />
+          </Field>
+          <Field label="Total (KES)">
+            <input type="number" readOnly value={total.toFixed(2)} style={{ ...inputStyle, background: "var(--surface-3)", opacity: 0.7, fontWeight: 700 }} />
+          </Field>
+        </div>
+        <Field label="Due Date" required>
+          <input type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} required style={inputStyle} />
+        </Field>
+        <Field label="Notes">
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional notes…" style={{ ...inputStyle, resize: "vertical" }} />
+        </Field>
+        {available.length === 0 && (
+          <p className="muted" style={{ fontSize: 12, margin: 0 }}>All final reports have been invoiced. No outstanding instructions available.</p>
+        )}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn primary" disabled={busy || !instruction || !subtotal || !dueOn} onClick={() => onSubmit({
+            instruction: Number(instruction),
+            number: `INV-${Date.now().toString(36).toUpperCase()}`,
+            issued_on: new Date().toISOString().slice(0, 10),
+            due_on: dueOn,
+            subtotal: Number(subtotal),
+            tax,
+          })}>Create Invoice</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 /* ───────────────────────── workspace ───────────────────────── */
 
 export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
@@ -1892,6 +1979,8 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [showNewClient, setShowNewClient] = useState(false);
   const [showDraftReview, setShowDraftReview] = useState<Row | null>(null);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
+  const [showCreateInvoice, setShowCreateInvoice] = useState(false);
+  const [createInvoiceOptions, setCreateInvoiceOptions] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
 
   const canCoordinate = can("valuation.coordinate");
@@ -1971,6 +2060,13 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       .then((d) => setInvoiceOptions(Array.isArray(d) ? (d as Row[]) : []));
   }, [org, showRecordPayment]);
 
+  useEffect(() => {
+    if (!org || !showCreateInvoice) return;
+    apiFetch("/valuation/final-reports/", {}, org)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCreateInvoiceOptions(Array.isArray(d) ? (d as Row[]) : []));
+  }, [org, showCreateInvoice]);
+
   const selectTab = (id: string) => {
     setSearch("");
     setStatus("");
@@ -1981,6 +2077,7 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
   const openNewClient = () => { setFormError(""); setShowNewClient(true); };
   const openReview = (r: Row) => { setFormError(""); setShowDraftReview(r); };
   const openRecordPayment = () => { setFormError(""); setShowRecordPayment(true); };
+  const openCreateInvoice = () => { setFormError(""); setShowCreateInvoice(true); };
 
   async function submitNewInstruction(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -2063,6 +2160,24 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
     }
   }
 
+  async function submitCreateInvoice(payload: Record<string, unknown>) {
+    setBusy(true);
+    setFormError("");
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/valuation/invoices/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, org);
+    setBusy(false);
+    if (res.ok) {
+      setShowCreateInvoice(false);
+      loadData();
+    } else {
+      setFormError(await readError(res));
+    }
+  }
+
   const runTransition = useCallback(async (row: Row, target: string): Promise<boolean> => {
     setError("");
     await apiFetch("/auth/csrf/");
@@ -2136,7 +2251,7 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
         ) : tab === "final-reports" ? (
           <FinalReportsView rows={rows} search={search} setSearch={setSearch} />
         ) : tab === "invoices" ? (
-          <InvoicesView rows={rows} search={search} setSearch={setSearch} setShowRecordPayment={openRecordPayment} />
+          <InvoicesView rows={rows} search={search} setSearch={setSearch} setShowRecordPayment={openRecordPayment} setShowCreateInvoice={openCreateInvoice} />
         ) : tab === "payments" ? (
           <PaymentsView rows={rows} search={search} setSearch={setSearch} canFinance={canFinance} openRecordPayment={openRecordPayment} />
         ) : tab === "clients" ? (
@@ -2154,6 +2269,7 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       {showNewClient ? <NewClientModal key="new-client" error={formError} onSubmit={submitNewClient} onClose={() => setShowNewClient(false)} /> : null}
       {showDraftReview ? <DraftReviewModal key={`review-${String(showDraftReview.id)}`} report={showDraftReview} error={formError} busy={busy} onSubmit={(action, notes) => { void submitDraftReview(showDraftReview, action, notes); }} onClose={() => setShowDraftReview(null)} /> : null}
       {showRecordPayment ? <RecordPaymentModal key="record-payment" invoices={invoiceOptions} error={formError} busy={busy} onSubmit={submitRecordPayment} onClose={() => setShowRecordPayment(false)} /> : null}
+      {showCreateInvoice ? <CreateInvoiceModal key="create-invoice" finalReports={createInvoiceOptions} invoices={rows} error={formError} busy={busy} onSubmit={(p) => { void submitCreateInvoice(p); }} onClose={() => setShowCreateInvoice(false)} /> : null}
     </ModuleShell>
   );
 }

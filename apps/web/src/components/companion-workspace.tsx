@@ -120,8 +120,16 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [staffOptions, setStaffOptions] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [dateFilter, setDateFilter] = useState({ from: "", to: "" });
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState("daily");
 
   const isManager = can("companion.assign") || can("companion.performance.view") || can("*");
+
+  const inputStyle = { width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" };
 
   const load = useCallback(async () => {
     if (!org) return;
@@ -133,7 +141,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
         if (res.ok) setDash(await res.json());
         else setDash(null);
       } else if (tab === "performance") {
-        const res = await apiFetch("/companion/performance/?from=&to=", {}, org);
+        const res = await apiFetch(`/companion/performance/?from=${dateFilter.from}&to=${dateFilter.to}`, {}, org);
         if (res.ok) {
           const data = await res.json();
           setDash(data);
@@ -143,7 +151,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
           setDash(null);
         }
       } else if (tab === "staff") {
-        const res = await apiFetch("/companion/performance/?from=&to=", {}, org);
+        const res = await apiFetch(`/companion/performance/?from=${dateFilter.from}&to=${dateFilter.to}`, {}, org);
         if (res.ok) {
           const data = await res.json();
           setStaff(Array.isArray(data.staff) ? data.staff : []);
@@ -173,7 +181,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
     } finally {
       setLoading(false);
     }
-  }, [tab, search, org]);
+  }, [tab, search, org, dateFilter]);
 
   useEffect(() => {
     const timer = setTimeout(load, 0);
@@ -225,25 +233,39 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   async function submitAssignTask(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!org) return;
+    if (selectedAssignees.length === 0) {
+      setMsg("Please select at least one staff member to assign this task to.");
+      return;
+    }
     const form = new FormData(e.currentTarget);
     setBusy(true);
     setMsg("");
     try {
       await apiFetch("/auth/csrf/");
-      const res = await apiFetch("/companion/tasks/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify({
-          ...Object.fromEntries(form.entries()),
-          assigned_by: session?.user.id,
-        }),
-      }, org);
-      if (res.ok) {
+      const base = Object.fromEntries(form.entries());
+      const payload = {
+        ...base,
+        assigned_by: session?.user.id,
+        ...(isRecurring ? { is_recurring: true, recurrence_rule: recurrenceRule } : {}),
+      };
+      let created = 0;
+      for (const assigneeId of selectedAssignees) {
+        const res = await apiFetch("/companion/tasks/", {
+          method: "POST",
+          headers: { "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({ ...payload, assignee: assigneeId }),
+        }, org);
+        if (res.ok) created++;
+      }
+      if (created > 0) {
         setShowAssign(false);
+        setSelectedAssignees([]);
+        setIsRecurring(false);
+        setRecurrenceRule("daily");
+        setMsg(`Assigned to ${created} staff member${created > 1 ? "s" : ""}.`);
         load();
       } else {
-        const body = await res.json().catch(() => ({}));
-        setMsg(String(body?.detail ?? "Task assignment failed."));
+        setMsg("Task assignment failed for all selected staff.");
       }
     } catch {
       setMsg("Task assignment failed.");
@@ -350,7 +372,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                     <button className="btn ghost sm" onClick={() => setTab("my-tasks")}>View all →</button>
                   </div>
                   {loading ? <LoadingState rows={4} /> : recentTasks.length === 0 ? (
-                    <EmptyState icon="✅" title="All clear" description="No companion tasks are pending for you right now." />
+                    <EmptyState icon="✅" title="All clear" description="No companion tasks are pending for you right now. Tasks assigned to you will appear here." />
                   ) : (
                     <div className="table-scroll">
                       <table>
@@ -418,7 +440,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               <SearchInput value={search} onChange={setSearch} placeholder="Search tasks by title, reference, source…" />
             </div>
             {loading ? <LoadingState rows={5} /> : rows.length === 0 ? (
-              <EmptyState icon="🗂️" title="No tasks" description={tab === "my-tasks" ? "You have no tasks matching this view." : "Assign a task to get started."} action={isManager ? <button className="btn primary sm" onClick={() => { if (isManager) loadStaffOptions(); setShowAssign(true); }}>+ Assign Task</button> : null} />
+              <EmptyState icon="🗂️" title="No tasks found" description={tab === "my-tasks" ? "You have no tasks matching this filter. Check back later or ask your manager to assign work." : tab === "delegations" ? "No tasks have been delegated to others yet. Use the delegate action on any task to reassign it." : "No tasks have been created yet. Assign a task to a staff member to get started."} action={isManager ? <button className="btn primary sm" onClick={() => { if (isManager) loadStaffOptions(); setShowAssign(true); }}>+ Assign Task</button> : null} />
             ) : (
               <div className="card" style={{ padding: 18 }}>
                 <div className="table-scroll">
@@ -457,7 +479,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               <SearchInput value={search} onChange={setSearch} placeholder="Search templates…" />
             </div>
             {loading ? <LoadingState rows={4} /> : templates.length === 0 ? (
-              <EmptyState icon="📋" title="No templates" description="Reusable task templates appear here." action={<button className="btn primary sm" onClick={() => setShowTemplate(true)}>+ Template</button>} />
+              <EmptyState icon="📋" title="No templates yet" description="Create reusable task templates to quickly assign common work like inspections, approvals, or recurring duties." action={<button className="btn primary sm" onClick={() => setShowTemplate(true)}>+ Create Template</button>} />
             ) : (
               <div className="card" style={{ padding: 18 }}>
                 <div className="table-scroll">
@@ -487,6 +509,13 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : (
               <>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ fontSize: 12, fontWeight: 600 }}>From:</label>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+                  <label style={{ fontSize: 12, fontWeight: 600 }}>To:</label>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+                  <button className="btn ghost sm" onClick={() => setDateFilter({ from: dateFrom, to: dateTo })}>Apply</button>
+                </div>
                 <KpiStrip>
                   <KpiCard icon="👥" label="Daily Active Users" value={String(kpis.dailyActiveUsers ?? 0)} sub={`${kpis.totalStaff ?? 0} staff`} onClick={() => setTab("staff")} />
                   <KpiCard icon="📝" label="Tasks Assigned" value={String(kpis.tasksAssigned ?? 0)} sub="All time" />
@@ -539,7 +568,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
         {tab === "staff" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : staff.length === 0 ? (
-              <EmptyState icon="👥" title="No staff" description="Staff analytics require an administrator or manager role." />
+              <EmptyState icon="👥" title="No staff data available" description="Staff performance analytics require an administrator or manager role. Ensure you have the correct permissions to view team productivity metrics." />
             ) : (
               <div className="card" style={{ padding: 18 }}>
                 <div className="table-scroll">
@@ -573,7 +602,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               <SearchInput value={search} onChange={setSearch} placeholder="Search tasks…" />
             </div>
             {loading ? <LoadingState rows={5} /> : rows.length === 0 ? (
-              <EmptyState icon="📜" title="No events" description="Task events appear here as work is acknowledged, completed and escalated." />
+              <EmptyState icon="📜" title="No audit events yet" description="Task events will appear here as work is created, acknowledged, started, completed, delegated, and escalated — providing a full audit trail of all task activity." />
             ) : (
               <div className="card" style={{ padding: 18 }}>
                 <div className="table-scroll">
@@ -682,25 +711,34 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
         {showAssign && (
           <Modal title="Assign Task" onClose={() => setShowAssign(false)} wide>
             <form onSubmit={submitAssignTask} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="Title" required>
-                  <input name="title" required placeholder="e.g. Approve payment voucher #PV-2041" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
-                </Field>
-                <Field label="Assignee" required>
-                  <select name="assignee" required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}>
-                    <option value="">Select staff…</option>
-                    {staffOptions.map((s) => (
-                      <option key={String(s.user_id)} value={String(s.user_id)}>{String(s.name)}</option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
+              <Field label="Title" required>
+                <input name="title" required placeholder="e.g. Approve payment voucher #PV-2041" style={inputStyle} />
+              </Field>
+              <Field label="Assign to" required>
+                <div style={{ maxHeight: 140, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6, padding: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {staffOptions.length === 0 ? (
+                    <div className="muted" style={{ fontSize: 12, padding: 4 }}>Loading staff…</div>
+                  ) : staffOptions.map((s) => (
+                    <label key={String(s.user_id)} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedAssignees.includes(String(s.user_id))}
+                        onChange={(e) => {
+                          const uid = String(s.user_id);
+                          setSelectedAssignees(prev => e.target.checked ? [...prev, uid] : prev.filter(id => id !== uid));
+                        }}
+                      />
+                      {String(s.name)}
+                    </label>
+                  ))}
+                </div>
+              </Field>
               <Field label="Description">
-                <textarea name="description" rows={3} placeholder="Describe the work…" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
+                <textarea name="description" rows={3} placeholder="Describe the work…" style={inputStyle} />
               </Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                 <Field label="Priority" required>
-                  <select name="priority" defaultValue="normal" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}>
+                  <select name="priority" defaultValue="normal" style={inputStyle}>
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
                     <option value="high">High</option>
@@ -708,23 +746,40 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                   </select>
                 </Field>
                 <Field label="Due date">
-                  <input name="due_at" type="datetime-local" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
+                  <input name="due_at" type="datetime-local" style={inputStyle} />
                 </Field>
                 <Field label="SLA due">
-                  <input name="sla_due_at" type="datetime-local" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
+                  <input name="sla_due_at" type="datetime-local" style={inputStyle} />
                 </Field>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Field label="Source module">
-                  <input name="source_module" placeholder="e.g. property" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
+                  <input name="source_module" placeholder="e.g. property" style={inputStyle} />
                 </Field>
                 <Field label="Source reference">
-                  <input name="source_ref" placeholder="e.g. lease LS-2026-0128" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
+                  <input name="source_ref" placeholder="e.g. lease LS-2026-0128" style={inputStyle} />
                 </Field>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                  <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} />
+                  Recurring task
+                </label>
+                {isRecurring && (
+                  <Field label="Frequency">
+                    <select value={recurrenceRule} onChange={e => setRecurrenceRule(e.target.value)} style={inputStyle}>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </Field>
+                )}
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn ghost" onClick={() => setShowAssign(false)}>Cancel</button>
-                <button type="submit" className="btn primary" disabled={busy}>{busy ? "Assigning…" : "Assign Task"}</button>
+                <button type="submit" className="btn primary" disabled={busy || selectedAssignees.length === 0}>
+                  {busy ? "Assigning…" : selectedAssignees.length > 0 ? `Assign to ${selectedAssignees.length} staff` : "Assign Task"}
+                </button>
               </div>
             </form>
           </Modal>

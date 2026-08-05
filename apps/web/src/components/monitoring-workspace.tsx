@@ -109,7 +109,14 @@ type Tab =
   | "audit-log"
   | "role-pm"
   | "role-finance"
-  | "role-site";
+  | "role-site"
+  | "role-dev"
+  | "role-sales"
+  | "role-marketing"
+  | "role-clerk"
+  | "role-valuer"
+  | "role-facilities"
+  | "role-admin";
 
 const tabLabels: Record<Tab, string> = {
   overview: "Command Center Overview",
@@ -163,6 +170,13 @@ const tabLabels: Record<Tab, string> = {
   "role-pm": "Project Manager Dashboard",
   "role-finance": "Finance Dashboard",
   "role-site": "Site Agent Dashboard",
+  "role-dev": "Project Developer Dashboard",
+  "role-sales": "Sales Dashboard",
+  "role-marketing": "Buyer / Marketing Dashboard",
+  "role-clerk": "Clerk Dashboard",
+  "role-valuer": "Valuer Dashboard",
+  "role-facilities": "Facilities Dashboard",
+  "role-admin": "Administrator Dashboard",
 };
 
 /** Exact horizontal navigation items aligned with MonitoringERP */
@@ -459,6 +473,530 @@ function SiteAgentDashboard() {
   );
 }
 
+function RoleDevDashboard() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const pid = sessionStorage.getItem("activeProject") || "";
+    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
+  }, []);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const projects = (d.projects ?? {}) as Record<string, unknown>;
+  const cost = (d.cost ?? {}) as Record<string, unknown>;
+  const activeProjects = Number(projects.total ?? 0);
+  const portfolioProjects = Number(projects.total ?? 0);
+  const totalBudget = Number(cost.budget ?? 0);
+  const certifiedValue = Number(cost.certified_to_date ?? 0);
+  const budgetUtilization = totalBudget > 0 ? Math.round((certifiedValue / totalBudget) * 100) : 0;
+  const openRisks = Number(d.tickets_open ?? 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Project Developer Dashboard</h2>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Portfolio overview for project developers and committee members.</p>
+      {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[
+          { label: "Active Projects", value: String(activeProjects), color: "#7c3aed" },
+          { label: "Portfolio Projects", value: String(portfolioProjects), color: "#2563eb" },
+          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "#059669" },
+          { label: "High Risks", value: String(openRisks), color: openRisks > 0 ? "#dc2626" : "#059669" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Project Portfolio</span>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead><tr><th>Project</th><th>Stage</th><th>Progress</th></tr></thead>
+            <tbody>
+              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No active projects.</td></tr>
+              ) : (
+                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
+                  const pr = p as Record<string, unknown>;
+                  return (
+                    <tr key={String(pr.id ?? i)}>
+                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.stage ?? pr.status ?? "active")}</span></td>
+                      <td>
+                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.physical_progress ?? pr.progress ?? 0)}%` }} /></div>
+                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.physical_progress ?? pr.progress ?? 0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleSalesDashboard() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const pid = sessionStorage.getItem("activeProject") || "";
+    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
+  }, []);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const projects = (d.projects ?? {}) as Record<string, unknown>;
+  const cost = (d.cost ?? {}) as Record<string, unknown>;
+  const totalProjects = Number(projects.total ?? 0);
+  const certifiedValue = Number(cost.certified_to_date ?? 0);
+  const paidValue = Number(cost.paid_to_date ?? 0);
+  const outstanding = certifiedValue - paidValue;
+  const openRisks = Number(d.tickets_open ?? 0);
+  const pendingVerifications = Number(d.pending_verifications ?? 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Sales Dashboard</h2>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Sales pipeline and project activity overview.</p>
+      {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[
+          { label: "Total Projects", value: String(totalProjects), color: "#7c3aed" },
+          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#2563eb" },
+          { label: "Outstanding", value: `KES ${(outstanding / 1e6).toFixed(1)}M`, color: outstanding > 0 ? "#d97706" : "#059669" },
+          { label: "Open Risks", value: String(openRisks), color: openRisks > 0 ? "#dc2626" : "#059669" },
+          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Project Sales Summary</span>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
+            <tbody>
+              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects found.</td></tr>
+              ) : (
+                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
+                  const pr = p as Record<string, unknown>;
+                  return (
+                    <tr key={String(pr.id ?? i)}>
+                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
+                      <td>
+                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
+                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleMarketingDashboard() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const pid = sessionStorage.getItem("activeProject") || "";
+    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
+  }, []);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const projects = (d.projects ?? {}) as Record<string, unknown>;
+  const cost = (d.cost ?? {}) as Record<string, unknown>;
+  const totalProjects = Number(projects.total ?? 0);
+  const certifiedValue = Number(cost.certified_to_date ?? 0);
+  const totalBudget = Number(cost.budget ?? 0);
+  const budgetUtilization = totalBudget > 0 ? Math.round((certifiedValue / totalBudget) * 100) : 0;
+  const openIssues = Number(d.tickets_open ?? 0);
+  const milestonesDue = Number(d.milestones_due_today ?? 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Buyer / Marketing Dashboard</h2>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Marketing and buyer engagement overview.</p>
+      {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[
+          { label: "Project Count", value: String(totalProjects), color: "#7c3aed" },
+          { label: "Lead Pipeline", value: String(totalProjects), color: "#2563eb" },
+          { label: "Marketing Spend", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#d97706" },
+          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "#059669" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Projects Overview</span>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
+            <tbody>
+              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects found.</td></tr>
+              ) : (
+                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
+                  const pr = p as Record<string, unknown>;
+                  return (
+                    <tr key={String(pr.id ?? i)}>
+                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
+                      <td>
+                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
+                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {milestonesDue > 0 && (
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Upcoming Deadlines</div>
+          <div style={{ fontSize: 12 }} className="muted">{milestonesDue} milestones due today. {openIssues} open issues to review.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoleClerkDashboard() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const pid = sessionStorage.getItem("activeProject") || "";
+    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
+  }, []);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const projects = (d.projects ?? {}) as Record<string, unknown>;
+  const cost = (d.cost ?? {}) as Record<string, unknown>;
+  const totalProjects = Number(projects.total ?? 0);
+  const pendingVerifications = Number(d.pending_verifications ?? 0);
+  const openTickets = Number(d.tickets_open ?? 0);
+  const paidValue = Number(cost.paid_to_date ?? 0);
+  const certifiedValue = Number(cost.certified_to_date ?? 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Clerk Dashboard</h2>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Document management and administrative tasks overview.</p>
+      {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[
+          { label: "Total Projects", value: String(totalProjects), color: "#7c3aed" },
+          { label: "Pending Approvals", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
+          { label: "Open Tickets", value: String(openTickets), color: openTickets > 0 ? "#dc2626" : "#059669" },
+          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#2563eb" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Document Activity</span>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
+            <tbody>
+              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects found.</td></tr>
+              ) : (
+                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
+                  const pr = p as Record<string, unknown>;
+                  return (
+                    <tr key={String(pr.id ?? i)}>
+                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
+                      <td>
+                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
+                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Payment Summary</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+          <div><span className="muted">Certified:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(certifiedValue / 1e6).toFixed(1)}M</span></div>
+          <div><span className="muted">Paid:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(paidValue / 1e6).toFixed(1)}M</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleValuerDashboard() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const pid = sessionStorage.getItem("activeProject") || "";
+    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
+  }, []);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const projects = (d.projects ?? {}) as Record<string, unknown>;
+  const cost = (d.cost ?? {}) as Record<string, unknown>;
+  const totalProjects = Number(projects.total ?? 0);
+  const totalBudget = Number(cost.budget ?? 0);
+  const certifiedValue = Number(cost.certified_to_date ?? 0);
+  const costVariance = Number(cost.cost_variance ?? 0);
+  const pendingVerifications = Number(d.pending_verifications ?? 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Valuer Dashboard</h2>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Valuation and progress verification overview.</p>
+      {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[
+          { label: "Projects", value: String(totalProjects), color: "#7c3aed" },
+          { label: "Total Budget", value: `KES ${(totalBudget / 1e6).toFixed(1)}M`, color: "#2563eb" },
+          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#059669" },
+          { label: "Cost Variance", value: `${costVariance > 0 ? "+" : ""}${costVariance}%`, color: costVariance > 0 ? "#dc2626" : "#059669" },
+          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="data-panel" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Valuation Summary</div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 20, height: 120, padding: "0 12px" }}>
+          {[
+            { label: "Budget", value: totalBudget, color: "#7c3aed" },
+            { label: "Certified", value: certifiedValue, color: "#2563eb" },
+          ].map((bar) => (
+            <div key={bar.label} style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ background: bar.color, borderRadius: 4, height: `${totalBudget > 0 ? Math.max(4, (bar.value / totalBudget) * 100) : 4}%`, minHeight: 4, transition: "height 0.3s" }} title={`KES ${(bar.value / 1e6).toFixed(1)}M`} />
+              <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>{bar.label}</div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>{`KES ${(bar.value / 1e6).toFixed(1)}M`}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Projects Requiring Verification</span>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
+            <tbody>
+              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects requiring verification.</td></tr>
+              ) : (
+                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 6).map((p, i) => {
+                  const pr = p as Record<string, unknown>;
+                  return (
+                    <tr key={String(pr.id ?? i)}>
+                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
+                      <td>
+                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
+                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleFacilitiesDashboard() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const pid = sessionStorage.getItem("activeProject") || "";
+    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
+  }, []);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const projects = (d.projects ?? {}) as Record<string, unknown>;
+  const cost = (d.cost ?? {}) as Record<string, unknown>;
+  const totalProjects = Number(projects.total ?? 0);
+  const totalBudget = Number(cost.budget ?? 0);
+  const paidValue = Number(cost.paid_to_date ?? 0);
+  const openTickets = Number(d.tickets_open ?? 0);
+  const safetyScore = Number(d.safety_score ?? 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Facilities Dashboard</h2>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Facilities management and operational overview.</p>
+      {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[
+          { label: "Active Facilities", value: String(totalProjects), color: "#7c3aed" },
+          { label: "Maintenance Requests", value: String(openTickets), color: openTickets > 0 ? "#d97706" : "#059669" },
+          { label: "Utilization Rate", value: `${totalBudget > 0 ? Math.round((paidValue / totalBudget) * 100) : 0}%`, color: "#2563eb" },
+          { label: "Safety Score", value: `${safetyScore}%`, color: safetyScore >= 90 ? "#059669" : safetyScore >= 70 ? "#d97706" : "#dc2626" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Facilities Overview</span>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead><tr><th>Facility</th><th>Status</th><th>Progress</th></tr></thead>
+            <tbody>
+              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No facilities found.</td></tr>
+              ) : (
+                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
+                  const pr = p as Record<string, unknown>;
+                  return (
+                    <tr key={String(pr.id ?? i)}>
+                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
+                      <td>
+                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
+                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Budget Summary</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+          <div><span className="muted">Total Budget:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(totalBudget / 1e6).toFixed(1)}M</span></div>
+          <div><span className="muted">Spent:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(paidValue / 1e6).toFixed(1)}M</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleAdminDashboard() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const pid = sessionStorage.getItem("activeProject") || "";
+    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
+  }, []);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const projects = (d.projects ?? {}) as Record<string, unknown>;
+  const cost = (d.cost ?? {}) as Record<string, unknown>;
+  const team = (d.team ?? {}) as Record<string, unknown>;
+  const totalProjects = Number(projects.total ?? 0);
+  const teamMembers = Number(team.total ?? 0);
+  const totalBudget = Number(cost.budget ?? 0);
+  const openTickets = Number(d.tickets_open ?? 0);
+  const pendingVerifications = Number(d.pending_verifications ?? 0);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Administrator Dashboard</h2>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>System administration and user management overview.</p>
+      {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[
+          { label: "Total Projects", value: String(totalProjects), color: "#7c3aed" },
+          { label: "Team Members", value: String(teamMembers), color: "#2563eb" },
+          { label: "System Health", value: `${openTickets === 0 ? "100" : Math.max(0, 100 - openTickets)}%`, color: openTickets === 0 ? "#059669" : "#d97706" },
+          { label: "Pending Tasks", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="data-panel">
+        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>Recent Audit Activity</span>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
+            <tbody>
+              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No recent activity.</td></tr>
+              ) : (
+                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
+                  const pr = p as Record<string, unknown>;
+                  return (
+                    <tr key={String(pr.id ?? i)}>
+                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
+                      <td>
+                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
+                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
+                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Budget Overview</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+          <div><span className="muted">Total Budget:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(totalBudget / 1e6).toFixed(1)}M</span></div>
+          <div><span className="muted">Open Tickets:</span> <span className="mono" style={{ fontWeight: 700 }}>{openTickets}</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorkspaceContent() {
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
@@ -546,6 +1084,13 @@ function WorkspaceContent() {
         {tab === "role-pm" && <ProjectManagerDashboard />}
         {tab === "role-finance" && <FinanceDashboard />}
         {tab === "role-site" && <SiteAgentDashboard />}
+        {tab === "role-dev" && <RoleDevDashboard />}
+        {tab === "role-sales" && <RoleSalesDashboard />}
+        {tab === "role-marketing" && <RoleMarketingDashboard />}
+        {tab === "role-clerk" && <RoleClerkDashboard />}
+        {tab === "role-valuer" && <RoleValuerDashboard />}
+        {tab === "role-facilities" && <RoleFacilitiesDashboard />}
+        {tab === "role-admin" && <RoleAdminDashboard />}
       </div>
     </ModuleShell>
   );

@@ -295,6 +295,13 @@ export const constructionNav: ModuleNavGroup[] = [  {
       { id: "role-pm", label: "Project Manager" },
       { id: "role-finance", label: "Finance" },
       { id: "role-site", label: "Site Agent" },
+      { id: "role-dev", label: "Project Developer" },
+      { id: "role-sales", label: "Sales" },
+      { id: "role-marketing", label: "Buyer / Marketing" },
+      { id: "role-clerk", label: "Clerk" },
+      { id: "role-valuer", label: "Valuer" },
+      { id: "role-facilities", label: "Facilities" },
+      { id: "role-admin", label: "Administrator" },
     ],
   },
 ];
