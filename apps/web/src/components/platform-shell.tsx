@@ -7,6 +7,8 @@ import { modules } from "@/lib/modules";
 import { useAuth } from "@/components/auth-provider";
 import type { DemoIdentityGroup } from "@/lib/api";
 
+import { AppSidebar } from "@/components/app-sidebar";
+
 const QUICK_JUMP_ROUTES = [
   { name: "Projects Directory", href: "/monitoring/projects", module: "monitoring", icon: "🏗️", detail: "Active project workspaces & budgets" },
   { name: "Programme & Gantt Schedule", href: "/monitoring/projects/1/programme", module: "monitoring", icon: "📊", detail: "Critical path schedule & S-curves" },
@@ -169,122 +171,14 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`platform ${moduleWorkspaceActive ? "module-workspace-active" : ""}`}>
-      {/* Outer Sidebar: ONLY rendered on Main Workspace Selector Page (/), NEVER inside module workspaces */}
-      {!moduleWorkspaceActive && (
-        <aside className={`sidebar ${menuOpen ? "mobile-open" : ""}`}>
-          <div className="platform-brand-header" style={{ padding: "18px 16px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 10 }}>
-            <img src="/logo.png" alt="CeEst Logo" style={{ height: 34, width: "auto", objectFit: "contain" }} />
-            <div>
-              <strong style={{ fontSize: 16, fontWeight: 900, color: "#ffffff", letterSpacing: "-0.02em", display: "block", lineHeight: 1.1 }}>CeEst</strong>
-              <small style={{ color: "#ef4444", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                CENTER ESTATES TASK TRACKER
-              </small>
-            </div>
-          </div>
-
-          <nav aria-label="Command Center Navigation" style={{ padding: "12px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
-
-            {/* WORKPLACE section */}
-            <p style={{ padding: "6px 10px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", margin: 0 }}>WORKPLACE</p>
-
-            <Link
-              className={`nav-link ${(pathname === "/workspaces" || pathname === "/") ? "active" : ""}`}
-              href="/workspaces"
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 6, background: (pathname === "/workspaces" || pathname === "/") ? "#e52e2e" : "transparent", color: "#ffffff", fontWeight: 700, textDecoration: "none", fontSize: 13 }}
-              onClick={() => setMenuOpen(false)}
-            >
-              <span style={{ fontSize: 14 }}>🏠</span>
-              <span>Dashboard</span>
-            </Link>
-
-            <Link className="nav-link" href="/monitoring" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 14 }}>⚡</span>
-              <span>Operations Center</span>
-            </Link>
-
-            <Link className="nav-link" href="/companion?tab=my-tasks" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 14 }}>📋</span>
-                <span>My Tasks</span>
-              </div>
-              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>18</span>
-            </Link>
-
-            <Link className="nav-link" href="/companion?tab=approvals" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 14 }}>☑</span>
-                <span>Approvals</span>
-              </div>
-              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>7</span>
-            </Link>
-
-            <Link className="nav-link" href="/monitoring?tab=calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 14 }}>📅</span>
-              <span>Calendar</span>
-            </Link>
-
-            {/* MODULES section */}
-            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
-            <p style={{ padding: "0 10px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", margin: 0 }}>MODULES</p>
-
-            {modules
-              .filter((m) => allowed.has(m.slug))
-              .map((m) => (
-                <Link
-                  key={m.slug}
-                  className={`nav-link ${pathname.startsWith(`/${m.slug}`) ? "active" : ""}`}
-                  href={`/${m.slug}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    background: pathname.startsWith(`/${m.slug}`) ? "#e52e2e" : "transparent",
-                    color: pathname.startsWith(`/${m.slug}`) ? "#fff" : "#b8c8d7",
-                    textDecoration: "none",
-                    fontSize: 13,
-                    fontWeight: pathname.startsWith(`/${m.slug}`) ? 700 : 400,
-                  }}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <span style={{ fontSize: 14 }}>{m.icon}</span>
-                  <span>{m.name}</span>
-                </Link>
-              ))
-            }
-
-            {/* SETTINGS section */}
-            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
-            <p style={{ padding: "0 10px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", margin: 0 }}>SETTINGS</p>
-
-            <Link className="nav-link" href="/admin" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 14 }}>🛡</span>
-              <span>Administration</span>
-            </Link>
-
-            <Link className="nav-link" href="/companion" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", color: "#b8c8d7", textDecoration: "none", fontSize: 13, borderRadius: 6 }}>
-              <span style={{ fontSize: 14 }}>⚙</span>
-              <span>System Settings</span>
-            </Link>
-          </nav>
-
-          <div className="sidebar-support" style={{ marginTop: "auto", margin: "14px 10px 10px", padding: 12, background: "rgba(255,255,255,0.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span style={{ fontSize: 16 }}>🎧</span>
-              <strong style={{ fontSize: 12, color: "white" }}>Quick Support</strong>
-            </div>
-            <span style={{ display: "block", fontSize: 11, color: "#e2e8f0", fontWeight: 600 }}>0722 574 400</span>
-            <span style={{ display: "block", fontSize: 11, color: "#94a3b8" }}>support@ceest.co.ke</span>
-            <small style={{ display: "block", fontSize: 10, color: "#64748b", marginTop: 2 }}>Mon - Fri 8:00AM - 6:00PM</small>
-          </div>
-
-          <button className="logout-button" onClick={() => logout()} style={{ margin: "0 10px 14px", padding: "10px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "white", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-            <span>⏮</span> Collapse Menu
-          </button>
-        </aside>
-      )}
+    <div className="platform" style={{ display: "flex", minHeight: "100vh", width: "100vw", overflowX: "hidden" }}>
+      {/* UNIFIED PERSISTENT APP SIDEBAR FOR ALL PAGES */}
+      <AppSidebar
+        pathname={pathname}
+        allowedSlugs={allowedSlugs}
+        menuOpen={menuOpen}
+        onCloseMobile={() => setMenuOpen(false)}
+      />
 
       {menuOpen && !moduleWorkspaceActive && (
         <button className="mobile-nav-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />

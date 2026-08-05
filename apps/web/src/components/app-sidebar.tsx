@@ -1,0 +1,468 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { modules } from "@/lib/modules";
+import type { ModuleNavGroup } from "./module-shell";
+
+type AppSidebarProps = {
+  pathname: string;
+  allowedSlugs: string[];
+  menuOpen: boolean;
+  onCloseMobile: () => void;
+  activeModuleNavGroups?: ModuleNavGroup[];
+  activeModuleSection?: string;
+  onSelectSection?: (id: string) => void;
+};
+
+export function AppSidebar({
+  pathname,
+  allowedSlugs,
+  menuOpen,
+  onCloseMobile,
+  activeModuleNavGroups,
+  activeModuleSection,
+  onSelectSection,
+}: AppSidebarProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  const allowedSet = new Set(allowedSlugs);
+  const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
+
+  return (
+    <>
+      {menuOpen && (
+        <button
+          className="mobile-nav-scrim"
+          aria-label="Close navigation"
+          onClick={onCloseMobile}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(4px)",
+            zIndex: 90,
+            border: 0,
+          }}
+        />
+      )}
+
+      <aside
+        className={`platform-sidebar ${menuOpen ? "mobile-open" : ""} ${collapsed ? "collapsed" : ""}`}
+        style={{
+          width: collapsed ? 72 : 260,
+          minWidth: collapsed ? 72 : 260,
+          height: "100vh",
+          position: "sticky",
+          top: 0,
+          background: "#0f172a",
+          borderRight: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          flexDirection: "column",
+          zIndex: 100,
+          transition: "width 0.2s ease, min-width 0.2s ease",
+          userSelect: "none",
+          flexShrink: 0,
+        }}
+      >
+        {/* Brand Header */}
+        <div
+          className="platform-brand-header"
+          style={{
+            padding: collapsed ? "16px 12px" : "16px",
+            minHeight: 64,
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            boxSizing: "border-box",
+            justifyContent: collapsed ? "center" : "flex-start",
+          }}
+        >
+          <img
+            src="/logo.png"
+            alt="CeEst Logo"
+            style={{ height: 32, width: "auto", objectFit: "contain", flexShrink: 0 }}
+          />
+          {!collapsed && (
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <strong
+                style={{
+                  fontSize: 15,
+                  fontWeight: 900,
+                  color: "#ffffff",
+                  letterSpacing: "-0.02em",
+                  display: "block",
+                  lineHeight: 1.1,
+                }}
+              >
+                CeEst
+              </strong>
+              <small
+                style={{
+                  color: "#ef4444",
+                  fontSize: 9,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                CENTER ESTATES TASK TRACKER
+              </small>
+            </div>
+          )}
+        </div>
+
+        {/* Scrollable Nav Items */}
+        <div
+          className="platform-sidebar-scroll"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: collapsed ? "12px 6px" : "12px 10px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          {/* WORKPLACE SECTION */}
+          {!collapsed && (
+            <p
+              style={{
+                padding: "6px 10px 4px",
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "rgba(255,255,255,0.35)",
+                margin: 0,
+              }}
+            >
+              WORKPLACE
+            </p>
+          )}
+
+          <Link
+            className={`nav-link ${(pathname === "/workspaces" || pathname === "/") ? "active" : ""}`}
+            href="/workspaces"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius: 6,
+              background: (pathname === "/workspaces" || pathname === "/") ? "#e52e2e" : "transparent",
+              color: "#ffffff",
+              fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
+              textDecoration: "none",
+              fontSize: 13,
+            }}
+            onClick={onCloseMobile}
+            title="Dashboard"
+          >
+            <span style={{ fontSize: 15 }}>🏠</span>
+            {!collapsed && <span>Dashboard</span>}
+          </Link>
+
+          <Link
+            className={`nav-link ${pathname.startsWith("/monitoring") ? "active" : ""}`}
+            href="/monitoring"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius: 6,
+              color: pathname.startsWith("/monitoring") ? "#fff" : "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 13,
+            }}
+            onClick={onCloseMobile}
+            title="Operations Center"
+          >
+            <span style={{ fontSize: 15 }}>⚡</span>
+            {!collapsed && <span>Operations Center</span>}
+          </Link>
+
+          <Link
+            className="nav-link"
+            href="/companion?tab=my-tasks"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "space-between",
+              padding: collapsed ? "10px" : "9px 12px",
+              color: "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 13,
+              borderRadius: 6,
+            }}
+            onClick={onCloseMobile}
+            title="My Tasks"
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 15 }}>📋</span>
+              {!collapsed && <span>My Tasks</span>}
+            </div>
+            {!collapsed && (
+              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
+                18
+              </span>
+            )}
+          </Link>
+
+          <Link
+            className="nav-link"
+            href="/companion?tab=approvals"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "space-between",
+              padding: collapsed ? "10px" : "9px 12px",
+              color: "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 13,
+              borderRadius: 6,
+            }}
+            onClick={onCloseMobile}
+            title="Approvals"
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 15 }}>☑</span>
+              {!collapsed && <span>Approvals</span>}
+            </div>
+            {!collapsed && (
+              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
+                7
+              </span>
+            )}
+          </Link>
+
+          <Link
+            className="nav-link"
+            href="/monitoring?tab=calendar"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              color: "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 13,
+              borderRadius: 6,
+            }}
+            onClick={onCloseMobile}
+            title="Calendar"
+          >
+            <span style={{ fontSize: 15 }}>📅</span>
+            {!collapsed && <span>Calendar</span>}
+          </Link>
+
+          {/* MODULES SECTION */}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
+          {!collapsed && (
+            <p
+              style={{
+                padding: "0 10px 4px",
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "rgba(255,255,255,0.35)",
+                margin: 0,
+              }}
+            >
+              MODULES
+            </p>
+          )}
+
+          {modules
+            .filter((m) => allowedSet.has(m.slug))
+            .map((m) => {
+              const isModuleActive = activeModuleSlug === m.slug;
+              return (
+                <div key={m.slug} style={{ display: "flex", flexDirection: "column" }}>
+                  <Link
+                    className={`nav-link ${isModuleActive ? "active" : ""}`}
+                    href={`/${m.slug}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: collapsed ? "10px" : "9px 12px",
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      borderRadius: 6,
+                      background: isModuleActive ? "#e52e2e" : "transparent",
+                      color: isModuleActive ? "#fff" : "#b8c8d7",
+                      textDecoration: "none",
+                      fontSize: 13,
+                      fontWeight: isModuleActive ? 700 : 400,
+                    }}
+                    onClick={onCloseMobile}
+                    title={m.name}
+                  >
+                    <span style={{ fontSize: 15, flexShrink: 0 }}>{m.icon}</span>
+                    {!collapsed && <span style={{ flex: 1 }}>{m.name}</span>}
+                    {!collapsed && isModuleActive && <span style={{ fontSize: 10 }}>▼</span>}
+                  </Link>
+
+                  {/* If this module is active and we have sub-navigation items, expand them beneath! */}
+                  {!collapsed && isModuleActive && activeModuleNavGroups && activeModuleNavGroups.length > 0 && (
+                    <div
+                      className="module-subnav-tree"
+                      style={{
+                        margin: "4px 0 8px 16px",
+                        paddingLeft: 10,
+                        borderLeft: "2px solid rgba(229, 46, 46, 0.4)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      {activeModuleNavGroups.flatMap((group) => group.items).map((item) => {
+                        const isSectionActive = activeModuleSection === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => onSelectSection?.(item.id)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "6px 10px",
+                              borderRadius: 4,
+                              background: isSectionActive ? "rgba(255,255,255,0.12)" : "transparent",
+                              color: isSectionActive ? "#ffffff" : "rgba(255,255,255,0.65)",
+                              border: 0,
+                              fontSize: 12,
+                              fontWeight: isSectionActive ? 700 : 400,
+                              cursor: "pointer",
+                              textAlign: "left",
+                              width: "100%",
+                            }}
+                          >
+                            {item.icon && <span style={{ fontSize: 13 }}>{item.icon}</span>}
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+          {/* SETTINGS SECTION */}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
+          {!collapsed && (
+            <p
+              style={{
+                padding: "0 10px 4px",
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "rgba(255,255,255,0.35)",
+                margin: 0,
+              }}
+            >
+              SETTINGS
+            </p>
+          )}
+
+          <Link
+            className="nav-link"
+            href="/admin"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              color: "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 13,
+              borderRadius: 6,
+            }}
+            onClick={onCloseMobile}
+            title="Administration"
+          >
+            <span style={{ fontSize: 15 }}>🛡</span>
+            {!collapsed && <span>Administration</span>}
+          </Link>
+
+          <Link
+            className="nav-link"
+            href="/companion"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              color: "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 13,
+              borderRadius: 6,
+            }}
+            onClick={onCloseMobile}
+            title="System Settings"
+          >
+            <span style={{ fontSize: 15 }}>⚙</span>
+            {!collapsed && <span>System Settings</span>}
+          </Link>
+        </div>
+
+        {/* Support & Collapse Footer */}
+        {!collapsed && (
+          <div
+            className="sidebar-support"
+            style={{
+              margin: "auto 10px 10px",
+              padding: 10,
+              background: "rgba(255,255,255,0.04)",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+              <span style={{ fontSize: 14 }}>🎧</span>
+              <strong style={{ fontSize: 11, color: "white" }}>Quick Support</strong>
+            </div>
+            <span style={{ display: "block", fontSize: 11, color: "#e2e8f0", fontWeight: 600 }}>0722 574 400</span>
+            <span style={{ display: "block", fontSize: 10, color: "#94a3b8" }}>support@ceest.co.ke</span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="logout-button"
+          onClick={() => setCollapsed(!collapsed)}
+          style={{
+            margin: "0 10px 12px",
+            padding: "8px 12px",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 8,
+            color: "white",
+            fontSize: 12,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: collapsed ? "center" : "flex-start",
+            gap: 8,
+            cursor: "pointer",
+          }}
+          title={collapsed ? "Expand Menu" : "Collapse Menu"}
+        >
+          <span>{collapsed ? "⏭" : "⏮"}</span>
+          {!collapsed && <span>Collapse Menu</span>}
+        </button>
+      </aside>
+    </>
+  );
+}
