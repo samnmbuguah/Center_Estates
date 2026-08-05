@@ -1,5 +1,9 @@
+import csv
+
 from django.db import transaction
 from django.db.models import Count, Sum
+from django.db.models.functions import TruncMonth
+from django.http import HttpResponse
 from django.utils import timezone
 import calendar
 from decimal import Decimal
@@ -364,3 +368,73 @@ class FacilityDashboardViewSet(ViewSet):
             'assetCategories': list(assets.values('category').annotate(count=Count('id')).order_by('-count')),
             'dueMaintenance': PreventiveScheduleSerializer(due_schedules[:5], many=True).data,
         })
+
+
+class FacilityAnalyticsViewSet(ViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.FACILITY
+
+    def list(self, request):
+        organization = get_active_organization(request)
+        assets = FacilityAsset.objects.for_organization(organization)
+        work_orders = WorkOrder.objects.for_organization(organization)
+        inspections = Inspection.objects.for_organization(organization)
+        contractors = Contractor.objects.for_organization(organization)
+        readings = MeterReading.objects.for_organization(organization)
+
+        return Response({
+            'summary': {
+                'total_assets': assets.count(),
+                'active_assets': assets.filter(is_active=True).count(),
+                'total_work_orders': work_orders.count(),
+                'completed_work_orders': work_orders.filter(status='completed').count(),
+                'open_work_orders': work_orders.exclude(status__in=('completed', 'cancelled')).count(),
+                'total_inspections': inspections.count(),
+                'completed_inspections': inspections.filter(status='completed').count(),
+                'total_contractors': contractors.count(),
+                'active_contractors': contractors.filter(status='active').count(),
+                'total_meter_readings': readings.count(),
+                'total_consumption': float(readings.aggregate(total=Sum('consumption'))['total'] or 0),
+                'total_utility_cost': float(readings.aggregate(total=Sum('cost'))['total'] or 0),
+            },
+            'work_orders_by_status': list(work_orders.values('status').annotate(count=Count('id')).order_by('status')),
+            'work_orders_by_priority': list(work_orders.values('priority').annotate(count=Count('id')).order_by('priority')),
+            'assets_by_category': list(assets.values('category').annotate(count=Count('id')).order_by('-count')[:10]),
+            'inspections_by_month': [
+                {'month': m['month'].isoformat(), 'count': m['count']}
+                for m in (
+                    inspections.filter(completed_on__isnull=False)
+                    .annotate(month=TruncMonth('completed_on'))
+                    .values('month').annotate(count=Count('id'))
+                    .order_by('month')[:12]
+                )
+            ],
+        })
+
+    @action(detail=False, methods=('get',))
+    def exports(self, request):
+        organization = get_active_organization(request)
+        export_type = request.query_params.get('type', '')
+
+        if export_type == 'assets':
+            rows = FacilityAsset.objects.for_organization(organization).values_list('code', 'name', 'category', 'condition', 'is_active')
+            header = ['Code', 'Name', 'Category', 'Condition', 'Active']
+        elif export_type == 'work-orders':
+            rows = WorkOrder.objects.for_organization(organization).values_list('number', 'title', 'priority', 'status', 'reported_at')
+            header = ['Number', 'Title', 'Priority', 'Status', 'Reported']
+        elif export_type == 'inspections':
+            rows = Inspection.objects.for_organization(organization).values_list('reference', 'title', 'status', 'completed_on')
+            header = ['Reference', 'Title', 'Status', 'Completed']
+        elif export_type == 'contractors':
+            rows = Contractor.objects.for_organization(organization).values_list('name', 'category', 'status', 'rating')
+            header = ['Name', 'Category', 'Status', 'Rating']
+        else:
+            return Response({'error': 'Unknown export type. Use: assets, work-orders, inspections, contractors'}, status=400)
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="facility-{export_type}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(header)
+        for row in rows:
+            writer.writerow(row)
+        return response

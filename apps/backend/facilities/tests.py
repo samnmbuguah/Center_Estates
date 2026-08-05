@@ -186,3 +186,22 @@ class FacilityApiTests(TestCase):
         self.assertEqual(reading.cost, Decimal('5000'))
         self.assertTrue(reading.is_anomaly)
         self.assertEqual(self.client.delete(f'/api/v1/facility/meter-readings/{reading.id}/', **self.headers).status_code, 400)
+
+    def test_facility_analytics(self):
+        response = self.client.get('/api/v1/facility/analytics/', **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('summary', response.data)
+        self.assertIn('work_orders_by_status', response.data)
+        self.assertIn('work_orders_by_priority', response.data)
+        self.assertIn('assets_by_category', response.data)
+        self.assertIn('inspections_by_month', response.data)
+        self.assertEqual(response.data['summary']['total_assets'], 1)
+        self.assertEqual(response.data['summary']['active_assets'], 1)
+        self.assertEqual(response.data['summary']['total_work_orders'], 1)
+        self.assertEqual(response.data['summary']['open_work_orders'], 1)
+
+    def test_facility_export_assets(self):
+        response = self.client.get('/api/v1/facility/analytics/exports/?type=assets', **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertIn('facility-assets.csv', response['Content-Disposition'])
