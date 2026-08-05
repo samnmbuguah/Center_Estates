@@ -353,6 +353,15 @@ class Command(BaseCommand):
                 'verified_at': timezone.now() - timedelta(days=89),
             },
         )
+        TenantDocument.objects.update_or_create(
+            organization=organization, tenant=tenant_two,
+            document_type='business_registration', document_number='BR-BLUEBIRD-2026',
+            defaults={
+                'file_url': '/media/tenant-documents/bluebird-registration.pdf',
+                'issued_on': today - timedelta(days=45), 'expires_on': today + timedelta(days=320),
+                'status': TenantDocument.Status.PENDING,
+            },
+        )
         RentSchedule.objects.update_or_create(
             organization=organization, invoice=invoice_two,
             defaults={
@@ -538,6 +547,14 @@ class Command(BaseCommand):
                 'completed_on': today - timedelta(days=5), 'status': Inspection.Status.FOLLOW_UP,
                 'score': Decimal('86.00'), 'findings': 'One fire extinguisher service tag has expired.',
                 'violations': 1, 'follow_up_work_order': work_order,
+            },
+        )
+        Inspection.objects.update_or_create(
+            organization=organization, reference='INS-2026-0082',
+            defaults={
+                'title': 'Quarterly electrical distribution inspection', 'inspection_type': 'Electrical',
+                'property': prop, 'inspector': user, 'scheduled_on': today + timedelta(days=3),
+                'status': Inspection.Status.SCHEDULED,
             },
         )
         ServiceRequest.objects.update_or_create(

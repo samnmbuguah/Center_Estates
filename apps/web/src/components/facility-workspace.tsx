@@ -1099,12 +1099,14 @@ function WorkOrdersView({
   permissions,
   setShowCreate,
   organizationId,
+  onTransition,
 }: {
   rows: Row[];
   kpis: Kpis;
   permissions: { canWork: boolean };
   setShowCreate: (b: boolean) => void;
   organizationId: string | null;
+  onTransition: (row: Row, target: string, notes: string) => void;
 }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const displayRows = rows.length > 0 ? rows : [
@@ -1199,7 +1201,32 @@ function WorkOrdersView({
                         </td>
                         <td style={{ fontSize: 12 }}>{Number(row.total_cost ?? 0) > 0 ? money.format(Number(row.total_cost)) : "—"}</td>
                         <td>
-                          <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
+                          <div style={{ alignItems: "center", display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                            {permissions.canWork && String(row.status) === "open" && (
+                              <button
+                                onClick={(event) => { event.stopPropagation(); onTransition(row, "assigned", "Work order assigned"); }}
+                                style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, color: "#1d4ed8", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                              >
+                                Assign
+                              </button>
+                            )}
+                            {permissions.canWork && String(row.status) === "assigned" && (
+                              <button
+                                onClick={(event) => { event.stopPropagation(); onTransition(row, "in_progress", "Technician started work"); }}
+                                style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, color: "#15803d", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                              >
+                                Start work
+                              </button>
+                            )}
+                            {permissions.canWork && String(row.status) === "in_progress" && (
+                              <button
+                                onClick={(event) => { event.stopPropagation(); onTransition(row, "completed", "Work completed"); }}
+                                style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 6, color: "#166534", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                              >
+                                Complete
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2964,6 +2991,26 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     await load();
   }
 
+  async function runWorkTransition(row: Row, target: string, notes: string) {
+    if (!organizationId || !row.id) return;
+    setError("");
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(
+      `/facility/work-orders/${row.id}/transition/`,
+      {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ status: target, notes }),
+      },
+      organizationId,
+    );
+    if (!response.ok) {
+      setError("The work order transition could not be completed.");
+      return;
+    }
+    await load();
+  }
+
   const selectTab = (id: string) => {
     setSearch("");
     setRows([]);
@@ -3065,7 +3112,14 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "assets" ? (
           <AssetsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("asset")} />
         ) : tab === "work-orders" ? (
-          <WorkOrdersView rows={rows} kpis={dashboard?.kpis ?? {}} permissions={{ canWork }} setShowCreate={setShowCreate} organizationId={organizationId} />
+          <WorkOrdersView
+            rows={rows}
+            kpis={dashboard?.kpis ?? {}}
+            permissions={{ canWork }}
+            setShowCreate={setShowCreate}
+            organizationId={organizationId}
+            onTransition={(row, target, notes) => void runWorkTransition(row, target, notes)}
+          />
         ) : tab === "planned-maintenance" ? (
           <PlannedMaintenanceView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canAdminister }} onAdd={() => setCreateModal("ppm")} />
         ) : tab === "inspections" ? (

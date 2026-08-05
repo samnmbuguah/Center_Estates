@@ -15,6 +15,47 @@ async function openTab(page: Page, name: string) {
   await page.locator(".module-tabs-workspace").getByRole("button", { name, exact: true }).click();
 }
 
+async function openModuleSection(page: Page, name: string) {
+  const tabAliases: Record<string, string> = {
+    "Receipt allocations": "Allocations", "Credit notes": "Credit Notes",
+    "Bank reconciliation": "Bank Reconciliation", "Charge allocations": "Allocations",
+    "Rent & invoices": "Invoices", "Rent schedules": "Rent Roll",
+    Budgets: "Budgets & Estimates", Expenses: "Property Expenses",
+  };
+  const tabs = page.locator(".module-tabs-workspace");
+  if (await tabs.count()) {
+    const requestedTab = tabs.getByRole("button", { name: tabAliases[name] ?? name, exact: true });
+    if (await requestedTab.count()) {
+      await requestedTab.click();
+      return;
+    }
+  }
+  const sidebarSection = page.locator(".module-subnav-tree").getByText(name, { exact: true });
+  if (await sidebarSection.count()) {
+    await sidebarSection.click();
+    return;
+  }
+  const propertyParents: Record<string, string> = {
+    "Property Register": "Properties", Buildings: "Properties",
+    "Unit Occupancy": "Occupancy", "Property Projects": "Occupancy",
+    "Tenant documents": "Tenants",
+    Invoices: "Rent Collection", "Rent & invoices": "Rent Collection", "Rent Roll": "Rent Collection", "Rent schedules": "Rent Collection", Arrears: "Rent Collection",
+    Reminders: "Rent Collection", Receipts: "Rent Collection", Allocations: "Rent Collection",
+    "Receipt allocations": "Rent Collection", "Bank Reconciliation": "Rent Collection",
+    "Bank reconciliation": "Rent Collection", "Credit Notes": "Rent Collection", "Credit notes": "Rent Collection",
+    "Charge Setup": "Service Charge", "Charge allocations": "Service Charge", Reconciliations: "Service Charge",
+    "Budgets & Estimates": "Income & Expenses", "Property Expenses": "Income & Expenses", "Fee Invoicing": "Income & Expenses",
+    Budgets: "Income & Expenses", Expenses: "Income & Expenses",
+  };
+  const parent = propertyParents[name];
+  if (parent) {
+    await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
+    await page.locator(".module-tabs-workspace").getByRole("button", { name: tabAliases[name] ?? name, exact: true }).click();
+    return;
+  }
+  await page.getByRole("button", { name, exact: true }).first().click();
+}
+
 const moduleCases = [
   ["property", "Property", "Property Management"],
   ["facility", "Facility", "Facility Management"],
@@ -127,8 +168,8 @@ test("@role:admin @module:platform @story:ROLE-ADMIN-SWITCH admin can open demo 
 });
 
 const businessControlCases = [
-  ["leasing-officer", "/property", "+ Add property", false, "Record receipt", false],
-  ["property-accountant", "/property", "+ Add property", false, "Record receipt", true],
+  ["leasing-officer", "/property", "+ Add Property", false, "+ Record Receipt", false],
+  ["property-accountant", "/property", "+ Add Property", false, "+ Record Receipt", true],
   ["facility-technician", "/facility", "+ New work order", true, "", false],
   ["facility-inspector", "/facility", "+ New work order", true, "", false],
   ["technical-author", "/tender", "+ Register invitation", false, "", false],
@@ -149,3 +190,119 @@ for (const [role, path, primary, primaryVisible, secondary, secondaryVisible] of
     }
   });
 }
+
+test("@role:leasing-officer @module:property @story:ROLE-LEASING-OFFICER leasing officer can onboard and verify tenants but not administer or collect", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant races");
+  await signInAs(page, "role-leasing-officer");
+  await page.goto("/property");
+  await expect(page.getByRole("button", { name: "+ Add Property", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Record Receipt", exact: true })).toHaveCount(0);
+
+  await openModuleSection(page, "Tenants");
+  await page.getByRole("button", { name: "+ Add Tenant", exact: true }).last().click();
+  const dialog = page.getByRole("dialog", { name: "Add New Tenant Profile" });
+  const suffix = Date.now();
+  await dialog.getByLabel("Tenant code").fill(`LSE-${suffix}`);
+  await dialog.getByLabel("Full Name / Company").fill(`Leasing Prospect ${suffix}`);
+  await dialog.getByLabel("Registration Number").fill(`REG-${suffix}`);
+  await dialog.getByLabel("KRA PIN / Tax ID").fill(`P${String(suffix).slice(-8)}Z`);
+  await dialog.getByLabel("Email Address").fill(`prospect-${suffix}@example.test`);
+  await dialog.getByRole("button", { name: "Register Tenant" }).click();
+  await expect(page.getByText(`Leasing Prospect ${suffix}`, { exact: true })).toBeVisible();
+
+  await openModuleSection(page, "Tenant documents");
+  const pendingRow = page.getByRole("row").filter({ hasText: "BR-BLUEBIRD-2026" });
+  await expect(pendingRow).toContainText("pending");
+  await pendingRow.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(page.getByText("BR-BLUEBIRD-2026", { exact: true }).first()).toBeVisible();
+  await expect(pendingRow).toContainText("verified");
+});
+
+test("@role:property-accountant @module:property @story:ROLE-PROPERTY-ACCOUNTANT accountant issues invoices and posts receipts but cannot administer", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel finance races");
+  await signInAs(page, "role-property-accountant");
+  await page.goto("/property");
+  await expect(page.getByRole("button", { name: "+ Add Property", exact: true })).toHaveCount(0);
+
+  await openModuleSection(page, "Invoices");
+  const draftRow = page.getByRole("row").filter({ hasText: "INV-2026-DRAFT" });
+  await expect(draftRow).toContainText("draft");
+  await draftRow.getByRole("button", { name: "Issue", exact: true }).click();
+  await expect(page.getByText("INV-2026-DRAFT", { exact: true }).first()).toBeVisible();
+  await expect(draftRow).toContainText("issued");
+
+  await openModuleSection(page, "Receipts");
+  await page.getByRole("button", { name: "+ Record Receipt", exact: true }).last().click();
+  const receipt = page.getByRole("dialog", { name: "Record Rent Payment Receipt" });
+  const receiptNumber = `RCT-ROLE-${Date.now()}`;
+  await receipt.getByLabel("Receipt Number").fill(receiptNumber);
+  await receipt.getByLabel("Received On").fill("2026-08-05");
+  await receipt.getByLabel("Tenant").selectOption({ index: 1 });
+  await receipt.getByLabel("Amount (KES)").fill("5000");
+  await receipt.getByRole("button", { name: "Post Receipt" }).click();
+  await expect(page.getByText(receiptNumber, { exact: true }).first()).toBeVisible();
+});
+
+test("@role:facility-technician @module:facility @story:ROLE-FACILITY-TECHNICIAN technician creates work and starts assigned work but cannot administer", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel work order races");
+  await signInAs(page, "role-facility-technician");
+  await page.goto("/facility");
+  await page.getByRole("button", { name: "+ New Work Order", exact: true }).click();
+  const create = page.locator(".form-modal").filter({ hasText: "New Work Order" });
+  const number = `WO-ROLE-${Date.now()}`;
+  await create.getByLabel("Work order number").fill(number);
+  await create.getByLabel("Issue title").fill(`Technician test work order ${number}`);
+  await create.getByLabel("Category").fill("Plumbing");
+  await create.getByLabel("Property").selectOption({ index: 1 });
+  await create.getByLabel("Description").fill("Created from the technician role journey.");
+  await create.getByRole("button", { name: "Create Work Order" }).click();
+  await expect(page.getByText(number, { exact: true }).first()).toBeVisible();
+
+  await openTab(page, "Work Orders");
+  const assignedRow = page.getByRole("row").filter({ hasText: "WO-2026-1789" });
+  await expect(assignedRow.getByRole("button", { name: "Start work", exact: true })).toBeVisible();
+  await assignedRow.getByRole("button", { name: "Start work", exact: true }).click();
+  await expect(assignedRow).toContainText("in progress");
+
+  await page.getByRole("button", { name: "Contractors", exact: true }).click();
+  await expect(page.getByRole("button", { name: "+ Add Contractor", exact: true })).toHaveCount(0);
+});
+
+test("@role:facility-inspector @module:facility @story:ROLE-FACILITY-INSPECTOR inspector completes inspections and triggers corrective work but cannot administer", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel inspection races");
+  await signInAs(page, "role-facility-inspector");
+  await page.goto("/facility");
+  await openTab(page, "Inspections");
+  const inspectionRow = page.getByRole("row").filter({ hasText: "INS-2026-0082" });
+  await expect(inspectionRow).toContainText("scheduled");
+  await inspectionRow.getByRole("button", { name: "Complete", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Complete Inspection" });
+  await dialog.getByLabel("Inspection score").fill("45");
+  await dialog.getByLabel("Violations").fill("2");
+  await dialog.getByLabel("Findings").fill("Corroded distribution board contacts found during inspection.");
+  await dialog.getByRole("button", { name: "Complete Inspection", exact: true }).click();
+  await expect(inspectionRow).toContainText("follow-up");
+
+  await openTab(page, "Work Orders");
+  await expect(page.getByText(/INS-2026-0082/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Contractors", exact: true }).click();
+  await expect(page.getByRole("button", { name: "+ Add Contractor", exact: true })).toHaveCount(0);
+});
+
+test("@role:facility-occupant @module:facility @story:ROLE-FACILITY-OCCUPANT occupant submits and follows only own service requests", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel occupant request races");
+  await signInAs(page, "role-facility-occupant");
+  await page.goto("/facility-portal");
+  await expect(page.getByRole("heading", { name: /Good morning, Acacia Consulting Ltd/ })).toBeVisible();
+  const requestTitle = `E2E occupant request ${Date.now()}`;
+  await page.getByRole("button", { name: "Report an issue", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Report an issue" });
+  await dialog.getByLabel("Subject").fill(requestTitle);
+  await dialog.getByLabel("Category").fill("Electrical");
+  await dialog.getByLabel("Description").fill("Occupant role journey request.");
+  await dialog.getByRole("button", { name: "Submit request" }).click();
+  await expect(page.getByText(requestTitle, { exact: true })).toBeVisible();
+
+  await page.goto("/facility");
+  await expect(page.getByRole("button", { name: "+ New Work Order", exact: true })).toHaveCount(0);
+});
