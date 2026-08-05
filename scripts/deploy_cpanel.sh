@@ -52,6 +52,14 @@ ssh "${REMOTE_HOST}" "
   export OPENCODE_API_KEY='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'
   export OPENAI_API_KEY='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'
   
+  # Seed demo data (users, organization, modules, demo records)
+  export DJANGO_DEBUG='false'
+  export SEED_DEMO_DATA='true'
+  export SEED_ADMIN_USERNAME='admin'
+  export SEED_ADMIN_PASSWORD='S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f'
+  python apps/backend/manage.py seed_platform || true
+  python apps/backend/manage.py seed_construction || true
+  
   mkdir -p tmp
   touch tmp/restart.txt
 "
