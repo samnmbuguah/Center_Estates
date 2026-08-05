@@ -1717,11 +1717,13 @@ _VIEW_CONSOLE = """
               <p style="color:var(--muted);font-size:0.85rem;margin-top:2px">Real-time immutable event stream across your active organization.</p>
             </div>
             <button onclick="refreshAuditFeed()" class="btn btn-secondary btn-sm">Refresh Stream 🔄</button>
-          </div>
-          <div id="audit-feed-list" style="display:flex;flex-direction:column;gap:12px">
-            <div style="color:var(--muted);font-size:0.9rem">Loading live activity feed...</div>
-          </div>
         </div>
+
+      </main>
+
+    </div>
+  </div>
+"""
 
 _VIEW_WORKSPACE = """
   <!-- ========== WORKSPACE SWITCHER VIEW ========== -->
