@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { modules } from "@/lib/modules";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+import { BrandLogo } from "@/components/brand-logo";
 import type { ModuleNavGroup } from "./module-shell";
 import {
   propertyNav,
@@ -15,7 +16,7 @@ import {
   constructionNav,
   companionNav,
 } from "@/lib/module-nav";
-import { LayoutDashboard, HardHat, ClipboardCheck, CalendarDays, ClipboardList, Wrench, Shield, Settings, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { LayoutDashboard, HardHat, ClipboardCheck, CalendarDays, ClipboardList, Wrench, Shield, Settings, HelpCircle, ChevronDown, ChevronRight, Menu, X } from "lucide-react";
 
 const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   property: propertyNav,
@@ -49,12 +50,28 @@ export function AppSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState({ tasks: 0, approvals: 0 });
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => setMounted(true), []);
+  
   const { session } = useAuth();
   const allowedSet = new Set(allowedSlugs);
   const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
 
   const currentTab = mounted ? new URLSearchParams(window.location.search).get("tab") : null;
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setCollapsed(false);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const displayName = session?.user.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
@@ -76,6 +93,96 @@ export function AppSidebar({
 
   return (
     <>
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <nav
+          className="mobile-bottom-nav"
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: "#0f172a",
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+            display: "flex",
+            justifyContent: "space-around",
+            padding: "8px 0",
+            zIndex: 1000,
+            paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+          }}
+        >
+          <Link
+            href="/workspaces"
+            onClick={onCloseMobile}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              color: pathname === "/workspaces" || pathname === "/" ? "#e23b3b" : "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 10,
+              fontWeight: pathname === "/workspaces" || pathname === "/" ? 700 : 500,
+            }}
+          >
+            <LayoutDashboard size={20} />
+            <span>Home</span>
+          </Link>
+          <Link
+            href="/facility"
+            onClick={onCloseMobile}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              color: pathname.startsWith("/facility") ? "#e23b3b" : "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 10,
+              fontWeight: pathname.startsWith("/facility") ? 700 : 500,
+            }}
+          >
+            <HardHat size={20} />
+            <span>Ops</span>
+          </Link>
+          <Link
+            href="/companion"
+            onClick={onCloseMobile}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              color: pathname.startsWith("/companion") ? "#e23b3b" : "#b8c8d7",
+              textDecoration: "none",
+              fontSize: 10,
+              fontWeight: pathname.startsWith("/companion") ? 700 : 500,
+            }}
+          >
+            <ClipboardCheck size={20} />
+            <span>Tasks</span>
+          </Link>
+          <button
+            onClick={() => setMenuOpen(true)}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              color: "#b8c8d7",
+              background: "none",
+              border: "none",
+              fontSize: 10,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            <Menu size={20} />
+            <span>More</span>
+          </button>
+        </nav>
+      )}
+
       {menuOpen && (
         <button
           className="mobile-nav-scrim"
@@ -97,17 +204,18 @@ export function AppSidebar({
         role="navigation"
         aria-label="Main navigation"
         style={{
-          width: collapsed ? 72 : 260,
-          minWidth: collapsed ? 72 : 260,
+          width: isMobile ? "100%" : (collapsed ? 72 : 260),
+          minWidth: isMobile ? "100%" : (collapsed ? 72 : 260),
           height: "100vh",
-          position: "sticky",
+          position: isMobile ? "fixed" : "sticky",
           top: 0,
+          left: isMobile ? (menuOpen ? 0 : "-100%") : 0,
           background: "#0f172a",
           borderRight: "1px solid rgba(255,255,255,0.08)",
           display: "flex",
           flexDirection: "column",
-          zIndex: 100,
-          transition: "width 0.2s ease, min-width 0.2s ease",
+          zIndex: isMobile ? 1000 : 100,
+          transition: isMobile ? "transform 0.3s ease" : "width 0.2s ease, min-width 0.2s ease",
           userSelect: "none",
           flexShrink: 0,
         }}
@@ -116,62 +224,36 @@ export function AppSidebar({
         <div
           className="platform-brand-header"
           style={{
-            padding: collapsed ? "16px 12px" : "14px 16px",
+            padding: isMobile ? "16px" : (collapsed ? "16px 12px" : "14px 16px"),
             minHeight: 64,
             borderBottom: "1px solid rgba(255,255,255,0.08)",
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: 10,
             boxSizing: "border-box",
-            justifyContent: collapsed ? "center" : "flex-start",
           }}
         >
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
-              flexShrink: 0,
-              display: "grid",
-              placeItems: "center",
-              background: "linear-gradient(145deg, #e52e2e, #b91c1c)",
-              boxShadow: "0 4px 12px rgba(229,46,46,0.35)",
-              color: "#fff",
-              fontWeight: 900,
-              fontSize: 14,
-              letterSpacing: "-0.02em",
-            }}
-            aria-hidden="true"
-          >
-            CE
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {collapsed && !isMobile ? (
+              <BrandLogo size="sm" showWordmark={false} dark />
+            ) : (
+              <BrandLogo size="sm" showWordmark dark />
+            )}
           </div>
-          {!collapsed && (
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <strong
-                style={{
-                  fontSize: 15,
-                  fontWeight: 900,
-                  color: "#ffffff",
-                  letterSpacing: "-0.02em",
-                  display: "block",
-                  lineHeight: 1.1,
-                }}
-              >
-                Center Estates
-              </strong>
-              <small
-                style={{
-                  color: "#ef4444",
-                  fontSize: 9,
-                  fontWeight: 800,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                ESTATE ERP · WORKPLACE
-              </small>
-            </div>
+          {isMobile && (
+            <button
+              onClick={onCloseMobile}
+              style={{
+                background: "none",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+                padding: 8,
+              }}
+            >
+              <X size={24} />
+            </button>
           )}
         </div>
 
@@ -181,14 +263,14 @@ export function AppSidebar({
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: collapsed ? "12px 6px" : "12px 10px",
+            padding: isMobile ? "16px" : (collapsed ? "12px 6px" : "12px 10px"),
             display: "flex",
             flexDirection: "column",
             gap: 2,
           }}
         >
           {/* WORKPLACE SECTION */}
-          {!collapsed && (
+          {!collapsed && !isMobile && (
             <p
               style={{
                 padding: "6px 10px 4px",
@@ -211,20 +293,20 @@ export function AppSidebar({
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
+              padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
               justifyContent: collapsed ? "center" : "flex-start",
               borderRadius: 6,
               background: (pathname === "/workspaces" || pathname === "/") ? "#e52e2e" : "transparent",
               color: "#ffffff",
               fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: isMobile ? 16 : 13,
             }}
             onClick={onCloseMobile}
             title="Dashboard"
           >
-            <span style={{ fontSize: 15 }}><LayoutDashboard size={18} /></span>
-            {!collapsed && <span>Dashboard</span>}
+            <span style={{ fontSize: isMobile ? 20 : 15 }}><LayoutDashboard size={isMobile ? 24 : 18} /></span>
+            {(!collapsed || isMobile) && <span>Dashboard</span>}
           </Link>
 
           <Link
@@ -234,18 +316,18 @@ export function AppSidebar({
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
+              padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
               justifyContent: collapsed ? "center" : "flex-start",
               borderRadius: 6,
               color: pathname.startsWith("/facility") ? "#fff" : "#b8c8d7",
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: isMobile ? 16 : 13,
             }}
             onClick={onCloseMobile}
             title="Operations Center"
           >
-            <span style={{ fontSize: 15 }}><HardHat size={18} /></span>
-            {!collapsed && <span>Operations Center</span>}
+            <span style={{ fontSize: isMobile ? 20 : 15 }}><HardHat size={isMobile ? 24 : 18} /></span>
+            {(!collapsed || isMobile) && <span>Operations Center</span>}
           </Link>
 
           <Link
@@ -255,20 +337,20 @@ export function AppSidebar({
               display: "flex",
               alignItems: "center",
               justifyContent: collapsed ? "center" : "space-between",
-              padding: collapsed ? "10px" : "9px 12px",
+              padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
               color: "#b8c8d7",
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: isMobile ? 16 : 13,
               borderRadius: 6,
             }}
             onClick={onCloseMobile}
             title="My Companion"
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 15 }}><ClipboardCheck size={18} /></span>
-              {!collapsed && <span>My Companion</span>}
+              <span style={{ fontSize: isMobile ? 20 : 15 }}><ClipboardCheck size={isMobile ? 24 : 18} /></span>
+              {(!collapsed || isMobile) && <span>My Companion</span>}
             </div>
-            {!collapsed && badgeCounts.tasks > 0 && (
+            {(!collapsed || isMobile) && badgeCounts.tasks > 0 && (
               <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
                 {badgeCounts.tasks}
               </span>
@@ -370,7 +452,7 @@ export function AppSidebar({
 
           {/* MODULES SECTION */}
           <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
-          {!collapsed && (
+          {!collapsed && !isMobile && (
             <p
               style={{
                 padding: "0 10px 4px",
@@ -401,30 +483,30 @@ export function AppSidebar({
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
-                      padding: collapsed ? "10px" : "9px 12px",
+                      padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
                       justifyContent: collapsed ? "center" : "flex-start",
                       borderRadius: 6,
                       background: isModuleActive ? "#e52e2e" : "transparent",
                       color: isModuleActive ? "#fff" : "#b8c8d7",
                       textDecoration: "none",
-                      fontSize: 13,
+                      fontSize: isMobile ? 16 : 13,
                       fontWeight: isModuleActive ? 700 : 400,
                     }}
                     onClick={onCloseMobile}
                     title={m.name}
                   >
-                    <span style={{ fontSize: 15, flexShrink: 0 }}>{m.icon}</span>
-                    {!collapsed && <span style={{ flex: 1 }}>{m.name}</span>}
-                    {!collapsed && isModuleActive && <span style={{ fontSize: 10 }}>▼</span>}
+                    <span style={{ fontSize: isMobile ? 20 : 15, flexShrink: 0 }}>{m.icon}</span>
+                    {(!collapsed || isMobile) && <span style={{ flex: 1 }}>{m.name}</span>}
+                    {(!collapsed || isMobile) && isModuleActive && <span style={{ fontSize: 10 }}>▼</span>}
                   </Link>
 
                   {/* If this module is active, automatically expand its nav items! */}
-                  {!collapsed && isModuleActive && moduleNav && moduleNav.length > 0 && (
+                  {(!collapsed || isMobile) && isModuleActive && moduleNav && moduleNav.length > 0 && (
                     <div
                       className="module-subnav-tree"
                       style={{
-                        margin: "4px 0 8px 16px",
-                        paddingLeft: 10,
+                        margin: isMobile ? "8px 0" : "4px 0 8px 16px",
+                        paddingLeft: isMobile ? 16 : 10,
                         borderLeft: "2px solid rgba(229, 46, 46, 0.4)",
                         display: "flex",
                         flexDirection: "column",
@@ -445,16 +527,16 @@ export function AppSidebar({
                               display: "flex",
                               alignItems: "center",
                               gap: 8,
-                              padding: "6px 10px",
+                              padding: isMobile ? "12px 16px" : "6px 10px",
                               borderRadius: 4,
                               background: isSectionActive ? "rgba(255,255,255,0.15)" : "transparent",
                               color: isSectionActive ? "#ffffff" : "rgba(255,255,255,0.75)",
                               textDecoration: "none",
-                              fontSize: 12,
+                              fontSize: isMobile ? 14 : 12,
                               fontWeight: isSectionActive ? 700 : 400,
                             }}
                           >
-                            {item.icon && <span style={{ fontSize: 13 }}>{item.icon}</span>}
+                            {item.icon && <span style={{ fontSize: isMobile ? 16 : 13 }}>{item.icon}</span>}
                             <span>{item.label}</span>
                           </Link>
                         );
@@ -467,7 +549,7 @@ export function AppSidebar({
 
           {/* SETTINGS SECTION */}
           <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
-          {!collapsed && (
+          {!collapsed && !isMobile && (
             <p
               style={{
                 padding: "0 10px 4px",

@@ -113,7 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(body.detail || "Unable to switch demo identity.");
     }
     await loadSession(organizationId);
-    router.replace("/");
+    // Stay in the command center so the role-filtered sidebar remains visible.
+    router.replace("/workspaces");
   }, [loadSession, router]);
 
   const stopImpersonate = useCallback(async () => {
@@ -133,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(body.detail || "Unable to return to administrator.");
     }
     await loadSession(organizationId);
-    router.replace("/");
+    router.replace("/workspaces");
   }, [loadSession, router]);
 
   const loadDemoIdentities = useCallback(async () => {

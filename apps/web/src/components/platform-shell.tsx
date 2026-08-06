@@ -12,20 +12,20 @@ import { HardHat, Search, Moon, Sun, ChevronDown, Building2, Settings, LogOut, H
 import { AppSidebar } from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { TourLauncher } from "@/components/tour-launcher";
+import { BrandLogo } from "@/components/brand-logo";
 
 const QUICK_JUMP_ROUTES = [
-  { name: "Projects Directory", href: "/monitoring/projects", module: "monitoring", icon: "🏗️", detail: "Active project workspaces & budgets" },
-  { name: "Programme & Gantt Schedule", href: "/monitoring/projects/1/programme", module: "monitoring", icon: "📊", detail: "Critical path schedule & S-curves" },
-  { name: "3D BIM Model Inspector", href: "/monitoring/projects/1/bim", module: "monitoring", icon: "🏢", detail: "WebGL 3D model & IFC GUID linking" },
-  { name: "IPC Payment Builder", href: "/monitoring/projects/1/ipc", module: "monitoring", icon: "📄", detail: "Interim payment certificates & retention" },
-  { name: "5x5 Risk Matrix & Heatmap", href: "/monitoring/projects/1/risks", module: "monitoring", icon: "⚠️", detail: "Risk likelihood vs impact matrix" },
-  { name: "Property Portfolio Register", href: "/property/properties", module: "property", icon: "🏢", detail: "Properties, buildings & units" },
-  { name: "Tenant Profiles & Accounts", href: "/property/tenants", module: "property", icon: "👥", detail: "Tenant directory & lease agreements" },
-  { name: "Equipment & Asset Register", href: "/facility/assets", module: "facility", icon: "🔧", detail: "HVAC, elevators & generators" },
-  { name: "Work Orders Dispatch Board", href: "/facility/work-orders", module: "facility", icon: "📋", detail: "Maintenance work orders & technicians" },
-  { name: "Buyer CRM Directory", href: "/sales/buyers", module: "sales", icon: "🤝", detail: "Property buyers & KYC documents" },
-  { name: "Tender RFP Register", href: "/tender/invitations", module: "tender", icon: "💼", detail: "Public & private tender invitations" },
-  { name: "Valuation Instructions", href: "/valuation/instructions", module: "valuation", icon: "📜", detail: "Valuation jobs & inspection logs" },
+  { name: "Property Portfolio Register", href: "/property?tab=properties", module: "property", icon: "🏢", detail: "Properties, buildings & units" },
+  { name: "Occupancy & Units", href: "/property?tab=units", module: "property", icon: "📐", detail: "Occupancy register & lettable area" },
+  { name: "Tenant Profiles & Accounts", href: "/property?tab=tenants", module: "property", icon: "👥", detail: "Tenant directory & lease agreements" },
+  { name: "Rent Collection", href: "/property?tab=rent", module: "property", icon: "💰", detail: "Invoices, receipts & arrears" },
+  { name: "Critical Dates", href: "/property?tab=critical-dates", module: "property", icon: "📅", detail: "Lease, contract & inspection deadlines" },
+  { name: "Equipment & Asset Register", href: "/facility?tab=assets", module: "facility", icon: "🔧", detail: "HVAC, elevators & generators" },
+  { name: "Work Orders", href: "/facility?tab=work-orders", module: "facility", icon: "📋", detail: "Maintenance work orders & technicians" },
+  { name: "Service Requests", href: "/facility?tab=service-requests", module: "facility", icon: "🎫", detail: "Raise & track service requests" },
+  { name: "Valuation Instructions", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Valuation jobs & inspection logs" },
+  { name: "My Companion", href: "/companion?tab=my-tasks", module: "companion", icon: "🧭", detail: "Personal task list" },
+  { name: "Performance Dashboard", href: "/companion?tab=performance", module: "companion", icon: "📊", detail: "Staff productivity & adoption" },
 ];
 
 export function PlatformShell({ children }: { children: React.ReactNode }) {
@@ -99,6 +99,14 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     return base.filter((module) =>
       [module.name, module.description, ...module.features].join(" ").toLowerCase().includes(term),
     );
+  }, [allowedSlugs, query]);
+
+  const filteredQuickJumps = useMemo(() => {
+    const allowedSet = new Set(allowedSlugs);
+    const term = query.trim().toLowerCase();
+    const base = QUICK_JUMP_ROUTES.filter((r) => allowedSet.has(r.module));
+    if (!term) return base;
+    return base.filter((r) => `${r.name} ${r.detail}`.toLowerCase().includes(term));
   }, [allowedSlugs, query]);
 
   useEffect(() => {
@@ -212,88 +220,87 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   return (
     <TelemetryProvider>
       <div className="platform" style={{ display: "flex", minHeight: "100vh", width: "100vw", overflowX: "hidden" }}>
-      {/* UNIFIED PERSISTENT APP SIDEBAR FOR ALL PAGES — hidden inside module workspaces so the
-          ModuleShell sidebar is the single left navigation (MonitoringERP pattern) */}
-      {!moduleWorkspaceActive && (
-        <AppSidebar
-          pathname={pathname}
-          allowedSlugs={allowedSlugs}
-          menuOpen={menuOpen}
-          onCloseMobile={() => setMenuOpen(false)}
-        />
-      )}
+      {/* UNIFIED PERSISTENT APP SIDEBAR FOR ALL PAGES */}
+      <AppSidebar
+        pathname={pathname}
+        allowedSlugs={allowedSlugs}
+        menuOpen={menuOpen}
+        onCloseMobile={() => setMenuOpen(false)}
+      />
 
-      {menuOpen && !moduleWorkspaceActive && (
+      {menuOpen && (
         <button className="mobile-nav-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />
       )}
 
-      <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: moduleWorkspaceActive ? 248 : 0 }}>
+      <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>
         {/* MONITORING ERP TOPBAR HEADER — starts where the fixed module sidebar ends */}
-        <header className="topbar" role="banner" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 60, width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
+        <header className="topbar header-responsive" role="banner" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", height: "clamp(56px, 8vw, 60px)", width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
           <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <Link href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 8,
-                  display: "grid",
-                  placeItems: "center",
-                  background: "linear-gradient(145deg, #e52e2e, #b91c1c)",
-                  boxShadow: "0 3px 10px rgba(229,46,46,0.3)",
-                  color: "#fff",
-                  fontWeight: 900,
-                  fontSize: 12,
-                }}
-                aria-hidden="true"
-              >
-                CE
-              </div>
-              <span style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
-                Center Estates
-              </span>
-            </Link>
-
-            {moduleWorkspaceActive && (
-              <Link href="/workspaces" className="btn ghost sm" style={{ fontSize: 12, padding: "5px 12px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-                <span>←</span> Switch Workspace
-              </Link>
-            )}
+            <BrandLogo size="sm" href="/" showWordmark={true} />
           </div>
 
-          <label className="global-search" style={{ flex: 1, maxWidth: 520, margin: "0 24px", position: "relative", display: "flex", alignItems: "center" }}>
+          <label className="global-search search-responsive" style={{ flex: 1, margin: "0 16px", position: "relative", display: "flex", alignItems: "center" }}>
             <span aria-hidden="true" style={{ position: "absolute", left: 12, color: "var(--muted)", fontSize: 14 }}><Search size={14} /></span>
             <input
               ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search modules, projects, documents, sub-routes… (Ctrl+K)"
+              placeholder="Search modules, properties, tenants… (Ctrl+K)"
               aria-label="Search modules"
-              style={{ width: "100%", padding: "7px 12px 7px 34px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, outline: "none" }}
+              className="input-touch"
+              style={{ width: "100%", padding: "10px 12px 10px 34px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 14, outline: "none" }}
             />
             {query && (
-              <div className="global-search-results" role="listbox" style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, zIndex: 100, marginTop: 4, boxShadow: "0 10px 25px rgba(0,0,0,0.15)" }}>
-                {filteredModules.map((module) => (
-                  <Link
-                    key={module.slug}
-                    href={`/${module.slug}`}
-                    role="option"
-                    style={{ padding: "10px 14px", display: "flex", gap: 10, textDecoration: "none", color: "var(--text)", borderBottom: "1px solid var(--border)" }}
-                    onClick={() => {
-                      setQuery("");
-                      setMenuOpen(false);
-                    }}
-                  >
-                    <span style={{ color: module.accent, fontSize: 16 }}>{module.icon}</span>
-                    <span>
-                      <strong style={{ display: "block", fontSize: 13 }}>{module.name}</strong>
-                      <small style={{ color: "var(--muted)", fontSize: 11 }}>{module.description}</small>
-                    </span>
-                  </Link>
-                ))}
-                {filteredModules.length === 0 && query && (
+              <div className="global-search-results" role="listbox" style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, zIndex: 100, marginTop: 4, boxShadow: "0 10px 25px rgba(0,0,0,0.15)", maxHeight: 420, overflowY: "auto" }}>
+                {filteredModules.length > 0 && (
+                  <>
+                    <div style={{ padding: "8px 14px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>Modules</div>
+                    {filteredModules.map((module) => (
+                      <Link
+                        key={module.slug}
+                        href={`/${module.slug}`}
+                        role="option"
+                        style={{ padding: "12px 14px", display: "flex", gap: 10, textDecoration: "none", color: "var(--text)", borderBottom: "1px solid var(--border)", minHeight: "48px", alignItems: "center" }}
+                        onClick={() => {
+                          setQuery("");
+                          setMenuOpen(false);
+                        }}
+                      >
+                        <span style={{ color: module.accent, fontSize: 16 }}>{module.icon}</span>
+                        <span>
+                          <strong style={{ display: "block", fontSize: 13 }}>{module.name}</strong>
+                          <small style={{ color: "var(--muted)", fontSize: 11 }}>{module.description}</small>
+                        </span>
+                      </Link>
+                    ))}
+                  </>
+                )}
+                {filteredQuickJumps.length > 0 && (
+                  <>
+                    <div style={{ padding: "8px 14px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>Quick Jumps</div>
+                    {filteredQuickJumps.map((r) => (
+                      <Link
+                        key={r.href}
+                        href={r.href}
+                        role="option"
+                        style={{ padding: "12px 14px", display: "flex", gap: 10, textDecoration: "none", color: "var(--text)", borderBottom: "1px solid var(--border)", minHeight: "48px", alignItems: "center" }}
+                        onClick={() => {
+                          setQuery("");
+                          setMenuOpen(false);
+                        }}
+                      >
+                        <span style={{ fontSize: 16 }}>{r.icon}</span>
+                        <span>
+                          <strong style={{ display: "block", fontSize: 13 }}>{r.name}</strong>
+                          <small style={{ color: "var(--muted)", fontSize: 11 }}>{r.detail}</small>
+                        </span>
+                      </Link>
+                    ))}
+                  </>
+                )}
+                {filteredModules.length === 0 && filteredQuickJumps.length === 0 && (
                   <div style={{ padding: "16px 14px", textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
-                    No modules found for &quot;{query}&quot;
+                    No results for &quot;{query}&quot;
                   </div>
                 )}
               </div>
@@ -303,7 +310,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <TourLauncher />
             <Link
-              href="/monitoring"
+              href="/facility"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -320,10 +327,10 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
               }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-              title="Construction Monitoring — Projects, Programme, Finance, Risks"
+              title="Facility Operations — Assets, Work Orders, Maintenance"
             >
               <HardHat size={14} style={{ color: "var(--primary)" }} />
-              Construction
+              Operations
             </Link>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>

@@ -2338,96 +2338,43 @@ HTML_APP_TEMPLATE = (
 # ---------------------------------------------------------------------------
 
 _NEXT_STATIC_DIR = os.path.abspath(os.path.join(settings.BASE_DIR, '../web/.next/static'))
+_NEXT_SERVER_DIR = os.path.abspath(os.path.join(settings.BASE_DIR, '../web/.next/server/app'))
 
 def serve_nextjs_static(request, path):
     return serve(request, path, document_root=_NEXT_STATIC_DIR)
 
-def _get_latest_chunk(pattern_dir, prefix, suffix='.js'):
-    """Return the first filename in pattern_dir that starts with prefix and ends with suffix."""
-    if not os.path.exists(pattern_dir):
-        return ''
-    for f in sorted(os.listdir(pattern_dir)):
-        if f.startswith(prefix) and f.endswith(suffix):
-            return f
-    return ''
-
-def _get_all_chunks(pattern_dir, suffix='.js'):
-    """Return all JS filenames in a directory (no subdirs), sorted."""
-    if not os.path.exists(pattern_dir):
-        return []
-    return sorted(
-        f for f in os.listdir(pattern_dir)
-        if f.endswith(suffix) and os.path.isfile(os.path.join(pattern_dir, f))
-    )
-
 @ensure_csrf_cookie
 def root_web_view(request):
+    """
+    Serve pre-rendered Next.js HTML from .next/server/app/.
+    These files are complete — they include the RSC payload (self.__next_f.push),
+    all correct script tags, CSS links, and the full hydration data.
+    """
     raw_path = request.path.strip('/')
-    page_sub = raw_path if raw_path and raw_path != 'console' else 'workspaces'
+    # Resolve logical page name
+    if not raw_path or raw_path == 'console':
+        page_slug = 'workspaces'
+    else:
+        # e.g. "property/properties" -> try that, fall back to top-level "property"
+        page_slug = raw_path
 
-    chunks_dir = os.path.join(_NEXT_STATIC_DIR, 'chunks')
-    app_chunks_dir = os.path.join(chunks_dir, 'app')
-    page_chunk_dir = os.path.join(app_chunks_dir, page_sub)
-    css_dir = os.path.join(_NEXT_STATIC_DIR, 'css')
+    # Try exact match first, then top-level segment as fallback
+    candidates = [
+        os.path.join(_NEXT_SERVER_DIR, f'{page_slug}.html'),
+        os.path.join(_NEXT_SERVER_DIR, page_slug.split('/')[0] + '.html'),
+        os.path.join(_NEXT_SERVER_DIR, 'workspaces.html'),
+        os.path.join(_NEXT_SERVER_DIR, 'index.html'),
+    ]
 
-    # Critical bootstrap chunks - must load in this exact order
-    polyfills_chunk  = _get_latest_chunk(chunks_dir, 'polyfills-')
-    framework_chunk  = _get_latest_chunk(chunks_dir, 'framework-')
-    main_pages_chunk = _get_latest_chunk(chunks_dir, 'main-')   # main-*.js (pages router bootstrap)
-    webpack_chunk    = _get_latest_chunk(chunks_dir, 'webpack-')
-    main_app_chunk   = _get_latest_chunk(chunks_dir, 'main-app-')  # app router bootstrap
+    for html_path in candidates:
+        if os.path.exists(html_path):
+            with open(html_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            response = HttpResponse(content, content_type='text/html; charset=utf-8')
+            get_token(request)
+            return response
 
-    # App-router chunks
-    layout_chunk = _get_latest_chunk(app_chunks_dir, 'layout-')
-    page_chunk   = _get_latest_chunk(page_chunk_dir, 'page-')
-
-    # CSS
-    css_file = _get_latest_chunk(css_dir, '', suffix='.css')
-
-    def script(path):
-        return f'<script src="{path}"></script>'
-
-    def async_script(path):
-        return f'<script src="{path}" async=""></script>'
-
-    css_link = f'<link rel="stylesheet" href="/_next/static/css/{css_file}"/>' if css_file else ''
-
-    # Build script tags in correct Next.js bootstrap order
-    scripts = []
-    if polyfills_chunk:
-        scripts.append(script(f'/_next/static/chunks/{polyfills_chunk}'))
-    if framework_chunk:
-        scripts.append(script(f'/_next/static/chunks/{framework_chunk}'))
-    # skip main-*.js (pages router) - not needed for app router
-    if webpack_chunk:
-        scripts.append(script(f'/_next/static/chunks/{webpack_chunk}'))
-    if main_app_chunk:
-        scripts.append(async_script(f'/_next/static/chunks/{main_app_chunk}'))
-    if layout_chunk:
-        scripts.append(async_script(f'/_next/static/chunks/app/{layout_chunk}'))
-    if page_chunk:
-        scripts.append(async_script(f'/_next/static/chunks/app/{page_sub}/{page_chunk}'))
-
-    scripts_html = '\n  '.join(scripts)
-
-    html = f"""<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Center Estates ERP</title>
-  <meta name="description" content="Unified estate and property operations platform"/>
-  <link rel="icon" href="/favicon.ico" type="image/x-icon"/>
-  {css_link}
-</head>
-<body>
-  <div id="__next"></div>
-  {scripts_html}
-</body>
-</html>"""
-    response = HttpResponse(html, content_type="text/html; charset=utf-8")
-    get_token(request)
-    return response
+    return HttpResponse(HTML_APP_TEMPLATE, content_type="text/html; charset=utf-8")
 
 
 _ROBOTS_TXT = """User-agent: *

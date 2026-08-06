@@ -306,3 +306,40 @@ test("@role:facility-occupant @module:facility @story:ROLE-FACILITY-OCCUPANT occ
   await page.goto("/facility");
   await expect(page.getByRole("button", { name: "+ New Work Order", exact: true })).toHaveCount(0);
 });
+
+test("@role:switch @story:ROLE-SWITCH-COMMAND-CENTER role switch keeps sidebar in command center", async ({ page }) => {
+  await signInAs(page, "admin");
+  await page.goto("/workspaces");
+  await page.waitForTimeout(2000);
+  // Sidebar visible as admin
+  await expect(page.locator(".platform-sidebar")).toBeVisible();
+  const adminLinks = await page.locator(".platform-sidebar a").count();
+  expect(adminLinks).toBeGreaterThan(5);
+
+  // Switch to facility-manager via the profile dropdown
+  await page.locator(".profile-trigger").click();
+  await page.waitForTimeout(2500);
+  const roleBtn = page.locator('[role="menu"] button').filter({ hasText: "@role-facility-manager" }).first();
+  await roleBtn.click();
+  await page.waitForTimeout(6000);
+
+  // Should land in command center, sidebar still visible but filtered
+  await expect(page).toHaveURL(/workspaces/);
+  await expect(page.locator(".platform-sidebar")).toBeVisible();
+  const roleLinks = await page.locator(".platform-sidebar a").count();
+  expect(roleLinks).toBeGreaterThan(0);
+  expect(roleLinks).toBeLessThan(adminLinks);
+});
+
+test("@role:companion @module:companion @story:ROLE-COMPANION-VIEW companion viewer can access companion but not facility", async ({ page }) => {
+  await signInAs(page, "role-companion-viewer");
+  await page.goto("/companion");
+  await page.waitForTimeout(3000);
+  await expect(page.locator(".module-side-nav")).toBeVisible();
+  // Companion viewer should NOT see facility module mutations
+  await page.goto("/facility");
+  await page.waitForTimeout(3000);
+  const hasUnavailable = await page.evaluate(() => document.body.innerText.includes("Module unavailable"));
+  const hasCreate = await page.locator('[data-testid="facility-create-work-order-btn"]').count();
+  expect(hasUnavailable || hasCreate === 0).toBeTruthy();
+});

@@ -3628,76 +3628,10 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
   };
 
   /**
-   * TWO-LEVEL NAVIGATION for Facility Management:
-   * - Left sidebar uses `section` (top-level items matching spec)
-   * - Horizontal tabs show sub-pages within a section
+   * SIMPLIFIED NAVIGATION:
+   * - All navigation items shown as horizontal tabs (no left sidebar)
+   * - `tab` drives content rendering directly
    */
-  const SECTION_SUB_TABS: Record<string, { id: string; label: string }[]> = {
-    overview:           [],
-    buildings:          [],
-    assets:             [],
-    "work-orders": [
-      { id: "work-orders",         label: "Work Orders" },
-      { id: "service-requests",    label: "Service Requests" },
-      { id: "planned-maintenance", label: "Planned Maintenance (PPM)" },
-    ],
-    "planned-maintenance": [],
-    "service-requests":    [],
-    inspections:           [],
-    meters:                [],
-    contractors:           [],
-    reports:               [],
-    expenditure:           [],
-    "spare-parts":         [],
-    consumables:           [],
-  };
-
-  const SECTION_FOR_TAB: Record<string, string> = {
-    overview: "overview",
-    buildings: "buildings",
-    assets: "assets",
-    "work-orders": "work-orders",
-    "work-order-events": "work-order-events",
-    "work-order-cost-items": "work-order-cost-items",
-    "work-order-attachments": "work-order-attachments",
-    "service-requests": "work-orders",
-    "planned-maintenance": "work-orders",
-    inspections: "inspections",
-    meters: "meters",
-    contractors: "contractors",
-    reports: "reports",
-    expenditure: "expenditure",
-    "spare-parts": "spare-parts",
-    consumables: "consumables",
-  };
-
-  const DEFAULT_TAB_FOR_FACILITY_SECTION: Record<string, string> = {
-    overview: "overview",
-    buildings: "buildings",
-    assets: "assets",
-    "work-orders": "work-orders",
-    "work-order-events": "work-order-events",
-    "work-order-cost-items": "work-order-cost-items",
-    "work-order-attachments": "work-order-attachments",
-    "planned-maintenance": "planned-maintenance",
-    "service-requests": "service-requests",
-    inspections: "inspections",
-    meters: "meters",
-    contractors: "contractors",
-    reports: "reports",
-    expenditure: "expenditure",
-    "spare-parts": "spare-parts",
-    consumables: "consumables",
-  };
-
-  const activeFacilitySection = SECTION_FOR_TAB[tab] ?? tab;
-  const facilitySubTabs = SECTION_SUB_TABS[activeFacilitySection] ?? [];
-
-  const handleSelectFacilitySection = (sectionId: string) => {
-    const defaultTab = DEFAULT_TAB_FOR_FACILITY_SECTION[sectionId] ?? sectionId;
-    selectTab(defaultTab);
-  };
-
   return (
     <ModuleShell
       moduleKey="facility"
@@ -3707,11 +3641,8 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       subtitle="Assets, maintenance, compliance, services and utility performance."
       accent="#e23b3b"
       groups={facilityNav}
-      activeId={activeFacilitySection}
-      onSelect={handleSelectFacilitySection}
-      subTabs={facilitySubTabs}
-      activeSubId={facilitySubTabs.length > 0 ? tab : undefined}
-      onSelectSub={selectTab}
+      activeId={tab}
+      onSelect={selectTab}
       actions={
         canWork ? (
           <button className="primary-action" onClick={() => setShowCreate(true)}>
