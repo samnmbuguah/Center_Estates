@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Building2, HardHat, ClipboardCheck } from "lucide-react";
+import { ArrowLeft, Building2, HardHat, ClipboardCheck, Users2, FileText, Wallet, PieChart } from "lucide-react";
 import { usePropertyContext } from "@/lib/property-context";
 
 /**
@@ -18,7 +18,11 @@ export function PropertyContextBar() {
   if (!activeProperty) return null;
 
   const tabs = [
-    { label: "Property", path: "/property", icon: <Building2 size={13} /> },
+    { label: "Overview", path: "/property", icon: <Building2 size={13} /> },
+    { label: "Tenants", path: "/property?tab=tenants", icon: <Users2 size={13} /> },
+    { label: "Leases", path: "/property?tab=leases", icon: <FileText size={13} /> },
+    { label: "Rent & Invoices", path: "/property?tab=rent", icon: <Wallet size={13} /> },
+    { label: "Service Charge", path: "/property?tab=service-charges", icon: <PieChart size={13} /> },
     { label: "Facility", path: "/facility", icon: <HardHat size={13} /> },
     { label: "Companion", path: "/companion", icon: <ClipboardCheck size={13} /> },
   ];

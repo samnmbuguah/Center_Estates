@@ -3482,7 +3482,7 @@ function CriticalDatesView({ leases, contractors, inspections, serviceCharges, l
 export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
-  const { selectProperty } = usePropertyContext();
+  const { selectProperty, activeProperty } = usePropertyContext();
   const canOperate = can("property.operations");
   const canLease = can("property.leasing");
   const canFinance = can("property.finance");
@@ -3492,6 +3492,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       const q = new URLSearchParams(window.location.search).get("tab");
       if (q && labels[q as PropertyTab]) return q as PropertyTab;
     }
+    // No explicit tab and no active property context → land on the property
+    // selector so the user picks a property before accessing its data.
+    if (!activeProperty && typeof window !== "undefined") return "properties";
     return (initialTab as PropertyTab) || "overview";
   });
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -3511,7 +3514,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
 
   // Selecting a property row sets the global property context (visible across
-  // Property / Facility / Companion modules via PropertyContextBar).
+  // Property / Facility / Companion modules via PropertyContextBar) and opens
+  // the property dashboard.
   const handleSelectRow = (row: Row) => {
     setSelectedRow(row);
     if (row && (row.property_type !== undefined || row.code || row.occupied !== undefined)) {
@@ -3522,6 +3526,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         status: String(row.status ?? "Active"),
         location: String(row.city ?? row.location ?? ""),
       });
+      handleSelectTab("overview");
     }
   };
 
