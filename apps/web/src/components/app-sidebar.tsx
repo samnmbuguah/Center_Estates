@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { BrandLogo } from "@/components/brand-logo";
+import { apiFetch } from "@/lib/api";
 import type { ModuleNavGroup } from "./module-shell";
 import {
   propertyNav,
