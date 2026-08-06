@@ -58,7 +58,7 @@ ssh "${REMOTE_HOST}" "
   export SEED_ADMIN_USERNAME='admin'
   export SEED_ADMIN_PASSWORD='S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f'
   COMPANION_SUB=$(python apps/backend/manage.py shell -c "from subscriptions.models import Subscription; from core.models import Module; print(Subscription.objects.filter(module=Module.COMPANION).exists())" 2>/dev/null | tail -1)
-  if [ "$COMPANION_SUB" != "True" ]; then
+  if [ "${COMPANION_SUB:-False}" != "True" ]; then
     echo "Missing module subscriptions detected — seeding demo data..."
     export SEED_DEMO_DATA='true'
     python apps/backend/manage.py seed_platform || true
