@@ -93,22 +93,22 @@ export function AppSidebar({
 
   return (
     <>
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation - Only show Dashboard and More when in module */}
       {isMobile && (
-        <nav
+        <div
           className="mobile-bottom-nav"
           style={{
             position: "fixed",
             bottom: 0,
             left: 0,
             right: 0,
-            background: "#0f172a",
+            background: "#0b1727",
             borderTop: "1px solid rgba(255,255,255,0.1)",
             display: "flex",
             justifyContent: "space-around",
             padding: "8px 0",
             zIndex: 1000,
-            paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+            paddingBottom: "env(safe-area-inset-bottom, 8px)",
           }}
         >
           <Link
@@ -119,49 +119,56 @@ export function AppSidebar({
               flexDirection: "column",
               alignItems: "center",
               gap: 4,
-              color: pathname === "/workspaces" || pathname === "/" ? "#e23b3b" : "#b8c8d7",
+              color: (pathname === "/workspaces" || pathname === "/") ? "#e23b3b" : "#b8c8d7",
               textDecoration: "none",
               fontSize: 10,
-              fontWeight: pathname === "/workspaces" || pathname === "/" ? 700 : 500,
+              fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
             }}
           >
             <LayoutDashboard size={20} />
-            <span>Home</span>
+            <span>Dashboard</span>
           </Link>
-          <Link
-            href="/facility"
-            onClick={onCloseMobile}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 4,
-              color: pathname.startsWith("/facility") ? "#e23b3b" : "#b8c8d7",
-              textDecoration: "none",
-              fontSize: 10,
-              fontWeight: pathname.startsWith("/facility") ? 700 : 500,
-            }}
-          >
-            <HardHat size={20} />
-            <span>Ops</span>
-          </Link>
-          <Link
-            href="/companion"
-            onClick={onCloseMobile}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 4,
-              color: pathname.startsWith("/companion") ? "#e23b3b" : "#b8c8d7",
-              textDecoration: "none",
-              fontSize: 10,
-              fontWeight: pathname.startsWith("/companion") ? 700 : 500,
-            }}
-          >
-            <ClipboardCheck size={20} />
-            <span>Tasks</span>
-          </Link>
+          
+          {/* Only show Ops and Tasks on dashboard, not in modules */}
+          {!activeModuleSlug && (
+            <>
+              <Link
+                href="/facility"
+                onClick={onCloseMobile}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  color: pathname.startsWith("/facility") ? "#e23b3b" : "#b8c8d7",
+                  textDecoration: "none",
+                  fontSize: 10,
+                  fontWeight: pathname.startsWith("/facility") ? 700 : 500,
+                }}
+              >
+                <HardHat size={20} />
+                <span>Ops</span>
+              </Link>
+              <Link
+                href="/companion"
+                onClick={onCloseMobile}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  color: pathname.startsWith("/companion") ? "#e23b3b" : "#b8c8d7",
+                  textDecoration: "none",
+                  fontSize: 10,
+                  fontWeight: pathname.startsWith("/companion") ? 700 : 500,
+                }}
+              >
+                <ClipboardCheck size={20} />
+                <span>Tasks</span>
+              </Link>
+            </>
+          )}
+          
           <button
             onClick={() => {
               // Trigger mobile menu open by calling the parent's menu open handler
@@ -185,7 +192,7 @@ export function AppSidebar({
             <Menu size={20} />
             <span>More</span>
           </button>
-        </nav>
+        </div>
       )}
 
       {menuOpen && (
@@ -274,8 +281,8 @@ export function AppSidebar({
             gap: 2,
           }}
         >
-          {/* WORKPLACE SECTION */}
-          {!collapsed && !isMobile && (
+          {/* WORKPLACE SECTION - Only show on dashboard/workspaces */}
+          {!collapsed && !isMobile && !activeModuleSlug && (
             <p
               style={{
                 padding: "6px 10px 4px",
@@ -291,6 +298,7 @@ export function AppSidebar({
             </p>
           )}
 
+          {/* Dashboard link - always visible */}
           <Link
             className={`nav-link ${(pathname === "/workspaces" || pathname === "/") ? "active" : ""}`}
             href="/workspaces"
@@ -314,53 +322,59 @@ export function AppSidebar({
             {(!collapsed || isMobile) && <span>Dashboard</span>}
           </Link>
 
-          <Link
-            className={`nav-link ${pathname.startsWith("/facility") ? "active" : ""}`}
-            href="/facility"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
-              justifyContent: collapsed ? "center" : "flex-start",
-              borderRadius: 6,
-              color: pathname.startsWith("/facility") ? "#fff" : "#b8c8d7",
-              textDecoration: "none",
-              fontSize: isMobile ? 16 : 13,
-            }}
-            onClick={onCloseMobile}
-            title="Operations Center"
-          >
-            <span style={{ fontSize: isMobile ? 20 : 15 }}><HardHat size={isMobile ? 24 : 18} /></span>
-            {(!collapsed || isMobile) && <span>Operations Center</span>}
-          </Link>
+          {/* Operations Center - Only show on dashboard */}
+          {!activeModuleSlug && (
+            <Link
+              className={`nav-link ${pathname.startsWith("/facility") ? "active" : ""}`}
+              href="/facility"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
+                justifyContent: collapsed ? "center" : "flex-start",
+                borderRadius: 6,
+                color: pathname.startsWith("/facility") ? "#fff" : "#b8c8d7",
+                textDecoration: "none",
+                fontSize: isMobile ? 16 : 13,
+              }}
+              onClick={onCloseMobile}
+              title="Operations Center"
+            >
+              <span style={{ fontSize: isMobile ? 20 : 15 }}><HardHat size={isMobile ? 24 : 18} /></span>
+              {(!collapsed || isMobile) && <span>Operations Center</span>}
+            </Link>
+          )}
 
-          <Link
-            className="nav-link"
-            href="/companion"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: collapsed ? "center" : "space-between",
-              padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
-              color: "#b8c8d7",
-              textDecoration: "none",
-              fontSize: isMobile ? 16 : 13,
-              borderRadius: 6,
-            }}
-            onClick={onCloseMobile}
-            title="My Companion"
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: isMobile ? 20 : 15 }}><ClipboardCheck size={isMobile ? 24 : 18} /></span>
-              {(!collapsed || isMobile) && <span>My Companion</span>}
-            </div>
-            {(!collapsed || isMobile) && badgeCounts.tasks > 0 && (
-              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
-                {badgeCounts.tasks}
-              </span>
-            )}
-          </Link>
+          {/* My Companion - Only show on dashboard */}
+          {!activeModuleSlug && (
+            <Link
+              className="nav-link"
+              href="/companion"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: collapsed ? "center" : "space-between",
+                padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
+                color: "#b8c8d7",
+                textDecoration: "none",
+                fontSize: isMobile ? 16 : 13,
+                borderRadius: 6,
+              }}
+              onClick={onCloseMobile}
+              title="My Companion"
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: isMobile ? 20 : 15 }}><ClipboardCheck size={isMobile ? 24 : 18} /></span>
+                {(!collapsed || isMobile) && <span>My Companion</span>}
+              </div>
+              {(!collapsed || isMobile) && badgeCounts.tasks > 0 && (
+                <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
+                  {badgeCounts.tasks}
+                </span>
+              )}
+            </Link>
+          )}
 
           <Link
             className="nav-link"
