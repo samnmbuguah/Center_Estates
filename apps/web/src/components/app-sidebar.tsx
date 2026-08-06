@@ -16,7 +16,7 @@ import {
   constructionNav,
   companionNav,
 } from "@/lib/module-nav";
-import { LayoutDashboard, HardHat, ClipboardCheck, Menu, X } from "lucide-react";
+import { LayoutDashboard, HardHat, ClipboardCheck, Menu, X, CalendarDays } from "lucide-react";
 
 const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   property: propertyNav,

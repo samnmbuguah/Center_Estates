@@ -116,6 +116,7 @@ export default function LoginPage() {
             <div>
               <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 6 }}>Username or Email</label>
               <input
+                id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -130,6 +131,7 @@ export default function LoginPage() {
               <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 6 }}>Password</label>
               <div style={{ position: "relative" }}>
                 <input
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
