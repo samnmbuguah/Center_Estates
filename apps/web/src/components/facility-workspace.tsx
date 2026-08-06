@@ -1754,7 +1754,7 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
-              <input placeholder="Search inspections…" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
+              <input placeholder="Search inspections…" data-testid="insp-search-input" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
               {["All Buildings", "All Categories", "All Types", "All Status"].map((f) => (
                 <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
               ))}
@@ -1762,7 +1762,7 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
             <div className="fc-table-toolbar-right">
               <button className="fc-toolbar-btn">Filters</button>
               <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "inspections.csv")}>↓ Export</button>
-              <button className="fc-toolbar-btn primary" onClick={onAdd}>+ New Inspection</button>
+              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-inspection-btn">+ New Inspection</button>
             </div>
           </div>
           <div className="table-scroll">
@@ -1916,7 +1916,7 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
     </>
   );
 }
-function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canWork: boolean } }) {
+function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canWork: boolean }; onAdd: () => void }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [subTab, setSubTab] = useState("all");
 
@@ -1977,10 +1977,13 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions }: { rows: Row[
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
-              <input placeholder="Search requests…" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 180 }} />
+              <input placeholder="Search requests…" data-testid="sr-search-input" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 180 }} />
               {["All Buildings", "All Categories", "All Priority", "All Status"].map((f) => (
                 <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
               ))}
+            </div>
+            <div className="fc-table-toolbar-right">
+              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-request-btn">+ New Service Request</button>
             </div>
           </div>
           <div className="table-scroll">
@@ -2832,7 +2835,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
   const [showCreate, setShowCreate] = useState(false);
   const [properties, setProperties] = useState<Row[]>([]);
   const [assets, setAssets] = useState<Row[]>([]);
-  const [createModal, setCreateModal] = useState<"asset" | "contractor" | "inspection" | "ppm" | null>(null);
+  const [createModal, setCreateModal] = useState<"asset" | "contractor" | "inspection" | "service-request" | "ppm" | null>(null);
   const [actionModal, setActionModal] = useState<ActionModal>(null);
 
 
@@ -2909,11 +2912,22 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       asset: "/facility/assets/",
       contractor: "/facility/contractors/",
       inspection: "/facility/inspections/",
+      "service-request": "/facility/service-requests/",
       ppm: "/facility/planned-maintenance/",
     }[createModal];
-    const payload = Object.fromEntries(
-      Object.entries(Object.fromEntries(form.entries())).filter(([, value]) => String(value).trim() !== "")
-    );
+    const raw = Object.fromEntries(form.entries());
+    const payload =
+      createModal === "service-request"
+        ? {
+            reference: String(raw.reference ?? "").trim() || `SR-${Date.now()}`,
+            subject: String(raw.subject ?? "").trim(),
+            description: String(raw.description ?? "").trim(),
+            category: String(raw.category ?? "").trim() || "General",
+            priority: String(raw.priority ?? "medium"),
+            property: String(raw.property ?? properties[0]?.id ?? ""),
+            submitted_at: String(raw.submitted_at ?? "").trim() || new Date().toISOString(),
+          }
+        : Object.fromEntries(Object.entries(raw).filter(([, value]) => String(value).trim() !== ""));
     await apiFetch("/auth/csrf/");
     const response = await apiFetch(
       path,
@@ -3125,7 +3139,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "inspections" ? (
           <InspectionsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canInspect }} onAdd={() => setCreateModal("inspection")} />
         ) : tab === "service-requests" ? (
-          <ServiceRequestsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canWork }} />
+          <ServiceRequestsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canWork }} onAdd={() => setCreateModal("service-request")} />
         ) : tab === "meters" ? (
           <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} />
         ) : tab === "contractors" ? (
@@ -3342,11 +3356,16 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
                   <input name="reference" required placeholder="INSP-2026-0057" />
                 </Field>
                 <Field label="Type" required>
-                  <input name="inspection_type" required placeholder="routine" />
+                  <select name="inspection_type" defaultValue="routine" data-testid="insp-type-select">
+                    <option value="compliance">Compliance</option>
+                    <option value="statutory">Statutory</option>
+                    <option value="routine">Routine</option>
+                    <option value="preventive">Preventive</option>
+                  </select>
                 </Field>
               </div>
               <Field label="Title" required>
-                <input name="title" required placeholder="Fire Extinguisher Check" />
+                <input name="title" required placeholder="Fire Extinguisher Check" data-testid="insp-title-input" />
               </Field>
               <div className="grid-2">
                 <Field label="Property" required>
@@ -3371,7 +3390,61 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
               </Field>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setCreateModal(null)}>Cancel</button>
-                <button type="submit" className="btn primary">Create Inspection</button>
+                <button type="submit" className="btn primary" data-testid="insp-submit-btn">Create Inspection</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {/* Create service request modal */}
+        {createModal === "service-request" && (
+          <Modal title="New Service Request" onClose={() => setCreateModal(null)}>
+            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="Subject / Title" required>
+                <input name="subject" required placeholder="e.g. AC not cooling – Office 38" data-testid="sr-title-input" />
+              </Field>
+              <div className="grid-2">
+                <Field label="Category">
+                  <select name="category" defaultValue="General" data-testid="sr-category-input">
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="HVAC">HVAC</option>
+                    <option value="Fire Safety">Fire Safety</option>
+                    <option value="Carpentry">Carpentry</option>
+                    <option value="General">General</option>
+                  </select>
+                </Field>
+                <Field label="Priority">
+                  <select name="priority" defaultValue="medium" data-testid="sr-priority-select">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="grid-2">
+                <Field label="Reference">
+                  <input name="reference" placeholder="e.g. SR-2026-0188" />
+                </Field>
+                <Field label="Property">
+                  <select name="property" defaultValue="">
+                    <option value="" disabled>Select property</option>
+                    {properties.map((row) => (
+                      <option key={String(row.id)} value={String(row.id)}>{String(row.name)}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Reported on">
+                <input name="submitted_at" type="date" />
+              </Field>
+              <Field label="Description">
+                <textarea name="description" rows={3} placeholder="What needs attention?" />
+              </Field>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => setCreateModal(null)}>Cancel</button>
+                <button type="submit" className="btn primary" data-testid="sr-submit-btn">Create Request</button>
               </div>
             </form>
           </Modal>

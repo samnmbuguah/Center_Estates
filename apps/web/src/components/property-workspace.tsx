@@ -320,10 +320,10 @@ function exportLeaseICS(leases: Row[]) {
 /* ─── shared layout primitives ─── */
 
 function ViewToolbar({
-  title, subtitle, search, onSearch, placeholder = "Search records…", children,
+  title, subtitle, search, onSearch, placeholder = "Search records…", searchTestid, children,
 }: {
   title: string; subtitle?: string; search: string; onSearch: (v: string) => void;
-  placeholder?: string; children?: ReactNode;
+  placeholder?: string; searchTestid?: string; children?: ReactNode;
 }) {
   return (
     <div className="card" style={{ padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -332,7 +332,18 @@ function ViewToolbar({
         {subtitle && <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>{subtitle}</p>}
       </div>
       <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-        <SearchInput value={search} onChange={onSearch} placeholder={placeholder} />
+        {searchTestid ? (
+          <input
+            type="text"
+            data-testid={searchTestid}
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder={placeholder ?? "Search records…"}
+            style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, minWidth: 240 }}
+          />
+        ) : (
+          <SearchInput value={search} onChange={onSearch} placeholder={placeholder} />
+        )}
         {children}
       </div>
     </div>
@@ -728,7 +739,7 @@ function PropertiesView({
         <KpiCard icon="▣" iconBg="#e0f2fe" iconColor="#0284c7" label="Occupancy %" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
       </KpiStrip>
 
-      <ViewToolbar title="Property Register" subtitle="Manage all properties across your portfolio" search={search} onSearch={setSearch} placeholder="Search by name, code or city…">
+      <ViewToolbar title="Property Register" subtitle="Manage all properties across your portfolio" search={search} onSearch={setSearch} searchTestid="property-search-input" placeholder="Search by name, code or city…">
         <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selStyle}>
           <option value="">All Types</option>
           {types.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -1025,7 +1036,7 @@ function TenantsView({
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Combined arrears" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
-      <ViewToolbar title="Tenant Register" subtitle="Manage all tenants across your properties" search={search} onSearch={setSearch} placeholder="Search tenant name, email, phone…">
+      <ViewToolbar title="Tenant Register" subtitle="Manage all tenants across your properties" search={search} onSearch={setSearch} searchTestid="tenant-search-input" placeholder="Search tenant name, email, phone…">
         <select value={filterProperty} onChange={(e) => setFilterProperty(e.target.value)} style={selStyle}>
           <option value="">All Properties</option>
           {propertyNames.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -4327,9 +4338,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       actions={
         <div className="row" style={{ gap: 10, alignItems: "center" }}>
           <span className="muted" style={{ fontSize: 12 }}>📅 {todayStr}</span>
-          {canFinance && <button className="btn ghost sm" onClick={() => openRecordReceipt()}>+ Record Receipt</button>}
-          {canLease && <button className="btn ghost sm" onClick={() => setShowAddTenant(true)}>+ Add Tenant</button>}
-          {canOperate && <button className="btn primary sm" onClick={() => setShowAddProperty(true)}>+ Add Property</button>}
+          {canFinance && <button className="btn ghost sm" data-testid="property-record-receipt-btn" onClick={() => openRecordReceipt()}>+ Record Receipt</button>}
+          {canLease && <button className="btn ghost sm" data-testid="property-add-tenant-btn" onClick={() => setShowAddTenant(true)}>+ Add Tenant</button>}
+          {canOperate && <button className="btn primary sm" data-testid="property-add-prop-btn" onClick={() => setShowAddProperty(true)}>+ Add Property</button>}
         </div>
       }
     >
@@ -4376,15 +4387,15 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                 <p className="muted" style={{ margin: 0, fontSize: 12 }}>Step 1 of 3 — Basic Information</p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <Field label="Property Code" required>
-                    <input name="code" required style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.code ?? ""} onChange={(e) => setPropertyData({ ...propertyData, code: e.target.value })} />
+                    <input name="code" required data-testid="prop-code-input" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.code ?? ""} onChange={(e) => setPropertyData({ ...propertyData, code: e.target.value })} />
                   </Field>
                   <Field label="Property Name" required>
-                    <input name="name" required style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.name ?? ""} onChange={(e) => setPropertyData({ ...propertyData, name: e.target.value })} />
+                    <input name="name" required data-testid="prop-name-input" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.name ?? ""} onChange={(e) => setPropertyData({ ...propertyData, name: e.target.value })} />
                   </Field>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <Field label="Type" required>
-                    <select name="type" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.type ?? "commercial"} onChange={(e) => setPropertyData({ ...propertyData, type: e.target.value })}>
+                    <select name="type" data-testid="prop-type-select" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.type ?? "commercial"} onChange={(e) => setPropertyData({ ...propertyData, type: e.target.value })}>
                       <option value="commercial">Commercial</option>
                       <option value="residential">Residential</option>
                       <option value="mixed_use">Mixed Use</option>
@@ -4392,7 +4403,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                     </select>
                   </Field>
                   <Field label="City" required>
-                    <input name="city" required style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.city ?? ""} onChange={(e) => setPropertyData({ ...propertyData, city: e.target.value })} />
+                    <input name="city" required data-testid="prop-city-input" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.city ?? ""} onChange={(e) => setPropertyData({ ...propertyData, city: e.target.value })} />
                   </Field>
                 </div>
                 <Field label="Address">
@@ -4403,7 +4414,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                 </Field>
                 <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                   <button type="button" className="btn ghost" onClick={() => { setShowAddProperty(false); setWizardStep(1); }}>Cancel</button>
-                  <button type="button" className="btn primary" onClick={() => setWizardStep(2)}>Next →</button>
+                  <button type="button" className="btn primary" data-testid="prop-wizard-next" onClick={() => setWizardStep(2)}>Next →</button>
                 </div>
               </div>
             )}
@@ -4429,7 +4440,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                 <div className="muted" style={{ fontSize: 12 }}>Total Units: {unitMix.reduce((s, u) => s + u.count, 0)} · Total Area: {unitMix.reduce((s, u) => s + u.count * u.size, 0).toLocaleString()} sqft</div>
                 <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                   <button type="button" className="btn ghost" onClick={() => setWizardStep(1)}>← Back</button>
-                  <button type="button" className="btn primary" onClick={() => setWizardStep(3)}>Next →</button>
+                  <button type="button" className="btn primary" data-testid="prop-wizard-next" onClick={() => setWizardStep(3)}>Next →</button>
                 </div>
               </div>
             )}
@@ -4489,7 +4500,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                 </div>
                 <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                   <button type="button" className="btn ghost" onClick={() => setWizardStep(2)}>← Back</button>
-                  <button type="button" className="btn primary" onClick={() => void submitAddProperty()}>Create Property</button>
+                  <button type="button" className="btn primary" data-testid="prop-wizard-create" onClick={() => void submitAddProperty()}>Create Property</button>
                 </div>
               </div>
             )}
@@ -4501,21 +4512,21 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
             <form onSubmit={submitAddTenant} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="grid-2">
                 <Field label="Tenant Code" required>
-                  <input name="code" required placeholder="e.g. TNT-006" />
+                  <input name="code" required placeholder="e.g. TNT-006" data-testid="tenant-code-input" />
                 </Field>
                 <Field label="Full Name / Company" required>
-                  <input name="name" required placeholder="e.g. Apex Holdings Ltd" />
+                  <input name="name" required placeholder="e.g. Apex Holdings Ltd" data-testid="tenant-name-input" />
                 </Field>
               </div>
               <div className="grid-2">
                 <Field label="Tenant Type">
-                  <select name="tenant_type" defaultValue="company">
+                  <select name="tenant_type" defaultValue="company" data-testid="tenant-type-select">
                     <option value="company">Company</option>
                     <option value="individual">Individual</option>
                   </select>
                 </Field>
                 <Field label="Status">
-                  <select name="status" defaultValue="prospect">
+                  <select name="status" defaultValue="prospect" data-testid="tenant-status-select">
                     <option value="prospect">Prospect</option>
                     <option value="active">Active</option>
                     <option value="former">Former</option>
@@ -4525,10 +4536,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </div>
               <div className="grid-2">
                 <Field label="Email Address">
-                  <input name="email" type="email" placeholder="info@company.co.ke" />
+                  <input name="email" type="email" placeholder="info@company.co.ke" data-testid="tenant-email-input" />
                 </Field>
                 <Field label="Phone Number">
-                  <input name="phone" placeholder="+254 700 000 000" />
+                  <input name="phone" placeholder="+254 700 000 000" data-testid="tenant-phone-input" />
                 </Field>
               </div>
               <div className="grid-2">
@@ -4548,7 +4559,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </Field>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowAddTenant(false)}>Cancel</button>
-                <button type="submit" className="btn primary">Register Tenant</button>
+                <button type="submit" className="btn primary" data-testid="tenant-save-btn">Register Tenant</button>
               </div>
             </form>
           </Modal>
@@ -4680,7 +4691,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </Field>
               <div className="grid-2">
                 <Field label="Amount (KES)" required>
-                  <input name="amount" type="number" min={1} required placeholder="0" />
+                  <input name="amount" type="number" min={1} required placeholder="0" data-testid="receipt-amount-input" />
                 </Field>
                 <Field label="Payment Method">
                   <select name="payment_method" defaultValue="bank_transfer">
@@ -4704,7 +4715,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </Field>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowRecordReceipt(false)}>Cancel</button>
-                <button type="submit" className="btn primary">Post Receipt</button>
+                <button type="submit" className="btn primary" data-testid="receipt-save-btn">Post Receipt</button>
               </div>
             </form>
           </Modal>
