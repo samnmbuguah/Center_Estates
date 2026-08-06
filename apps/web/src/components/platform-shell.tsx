@@ -9,7 +9,7 @@ import { apiFetch, csrfFromCookie, type DemoIdentityGroup } from "@/lib/api";
 import { useCallback } from "react";
 
 import { HardHat, Search, Moon, Sun, ChevronDown, Building2, Settings, LogOut, HelpCircle, ClipboardCheck, FileSpreadsheet } from "lucide-react";
-import { AppSidebar } from "@/components/app-sidebar";
+import AppSidebar from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";

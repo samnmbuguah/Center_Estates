@@ -16,7 +16,7 @@ import {
   constructionNav,
   companionNav,
 } from "@/lib/module-nav";
-import { LayoutDashboard, HardHat, ClipboardCheck, Menu, X, CalendarDays } from "lucide-react";
+import { LayoutDashboard, HardHat, ClipboardCheck, Menu, X, CalendarDays, ClipboardList, Wrench, Shield, Settings, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 
 const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   property: propertyNav,
@@ -487,11 +487,9 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
             </p>
           )}
 
-          {modules
-            .filter((m) => allowedSet.has(m.slug))
-            .map((m) => {
+          {modules.map((m) => {
               const isModuleActive = activeModuleSlug === m.slug;
-              const moduleNav = activeModuleNavGroups || MODULE_NAV_MAP[m.slug];
+              const moduleNav = MODULE_NAV_MAP[m.slug];
               return (
                 <div key={m.slug} style={{ display: "flex", flexDirection: "column" }}>
                   <Link
@@ -534,7 +532,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
                     >
                       {/* Only show top-level navigation items, not all sub-items */}
                       {moduleNav.slice(0, 1).flatMap((group) => group.items.slice(0, 4)).map((item) => {
-                        const isSectionActive = activeModuleSection === item.id || currentTab === item.id;
+                        const isSectionActive = currentTab === item.id;
                         return (
                           <button
                             key={item.id}
