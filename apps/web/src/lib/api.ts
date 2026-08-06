@@ -37,6 +37,8 @@ export type Session = {
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {
   const headers = new Headers(init.headers);
   if (organizationId) headers.set("X-Organization-ID", organizationId);
+  const csrf = csrfFromCookie();
+  if (csrf && !headers.has("X-CSRFToken")) headers.set("X-CSRFToken", csrf);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
   let p = path.replace(/\/+/g, "/");

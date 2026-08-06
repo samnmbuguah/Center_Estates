@@ -32,12 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadSession = useCallback(async (organizationId?: string | null) => {
     const selected = organizationId ?? localStorage.getItem("ce_organization");
-    let response = await apiFetch("/auth/me/", {}, selected);
-    if (response.status === 401) {
-      await apiFetch("/auth/csrf/");
-      const refresh = await apiFetch("/auth/refresh/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } });
-      if (refresh.ok) response = await apiFetch("/auth/me/", {}, selected);
-    }
+    const response = await apiFetch("/auth/me/", {}, selected);
     if (!response.ok) {
       setSession(null);
       return false;

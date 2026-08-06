@@ -445,7 +445,10 @@ class PerformanceViewSet(ViewSet):
 
 
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
+@method_decorator(csrf_exempt, name='dispatch')
 class TelemetryViewSet(ViewSet):
     def get_permissions(self):
         if self.action == 'create':

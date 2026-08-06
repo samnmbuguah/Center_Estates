@@ -1,5 +1,4 @@
 "use client";
-
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { ModuleShell } from "@/components/module-shell";
