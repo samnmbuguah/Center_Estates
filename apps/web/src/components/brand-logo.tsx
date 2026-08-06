@@ -44,11 +44,11 @@ export function BrandLogo({
         CE
       </div>
       {showWordmark && (
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05, minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, minWidth: 0, marginLeft: 2 }}>
           <span style={{ fontSize: size === "lg" ? 18 : 15, fontWeight: 900, color: wordmarkColor, letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
             Center Estates
           </span>
-          <span style={{ fontSize: size === "lg" ? 10 : 9, fontWeight: 800, color: subColor, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: size === "lg" ? 10 : 9, fontWeight: 800, color: subColor, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap", marginTop: -1 }}>
             Estate ERP · Workplace
           </span>
         </div>

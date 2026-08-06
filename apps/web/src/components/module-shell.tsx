@@ -94,24 +94,24 @@ export function ModuleShell({
               alignItems: "center",
               gap: 6,
               margin: "0 0 12px",
-              fontSize: 12,
-              color: "var(--muted)",
+              fontSize: 13,
+              color: "var(--text-secondary)",
               fontWeight: 500,
             }}
           >
-            <Link href="/workspaces" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</Link>
+            <Link href="/workspaces" style={{ color: "var(--text-secondary)", textDecoration: "none" }}>Home</Link>
             <span aria-hidden="true" style={{ opacity: 0.6 }}>&gt;</span>
-            <span>{moduleName}</span>
+            <span style={{ color: "var(--text-primary)" }}>{moduleName}</span>
           </nav>
 
           {/* Page heading */}
           <section className="page-head portfolio-head" style={{ marginBottom: 16, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <p className="eyebrow" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: accent, margin: "0 0 4px" }}>
+              <p className="eyebrow" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--brand-primary)", margin: "0 0 4px", fontWeight: 600 }}>
                 {eyebrow}
               </p>
-              <h1 style={{ fontSize: 24, fontWeight: 800, margin: "2px 0 4px", color: "var(--text)", lineHeight: 1.2 }}>{title}</h1>
-              {subtitle ? <p className="muted" style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>{subtitle}</p> : null}
+              <h1 style={{ fontSize: 24, fontWeight: 800, margin: "2px 0 4px", color: "var(--text-primary)", lineHeight: 1.2 }}>{title}</h1>
+              {subtitle ? <p className="muted" style={{ fontSize: 14, margin: 0, color: "var(--text-secondary)", lineHeight: 1.4 }}>{subtitle}</p> : null}
             </div>
             {actions ? <div className="portfolio-toolbar" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>{actions}</div> : null}
           </section>
@@ -120,30 +120,30 @@ export function ModuleShell({
           {entities && entities.length > 0 && (
             <div
               className="module-entity-context-bar"
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "10px 16px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, marginBottom: 14 }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "10px 16px", background: "var(--bg-app)", border: "1px solid var(--border-color)", borderRadius: 8, marginBottom: 14 }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-secondary)" }}>
                   Viewing {entityLabel}:
                 </span>
-                <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}>
+                <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>
                   {entities.find((e) => e.id === activeEntityId)?.name ?? `All ${entityLabel}s`}
                 </strong>
-                <span style={{ fontSize: 11, padding: "2px 8px", background: "#dcfce7", color: "#15803d", fontWeight: 700, borderRadius: 12 }}>
+                <span style={{ fontSize: 11, padding: "2px 8px", background: "var(--success-bg)", color: "var(--success)", fontWeight: 700, borderRadius: 12 }}>
                   {entities.find((e) => e.id === activeEntityId)?.status ?? "Active"}
                 </span>
                 {entities.find((e) => e.id === activeEntityId)?.location && (
-                  <small style={{ fontSize: 11, color: "var(--muted)" }}>
+                  <small style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                     📍 {entities.find((e) => e.id === activeEntityId)?.location}
                   </small>
                 )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>Switch {entityLabel}:</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>Switch {entityLabel}:</label>
                 <select
                   value={activeEntityId ?? ""}
                   onChange={(e) => onSelectEntity?.(e.target.value)}
-                  style={{ fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 6, border: `1.5px solid ${accent}`, background: "var(--surface)", color: "var(--text)", cursor: "pointer", outline: "none" }}
+                  style={{ fontSize: 13, fontWeight: 700, padding: "5px 12px", borderRadius: 6, border: `1.5px solid var(--brand-primary)`, background: "var(--bg-surface)", color: "var(--text-primary)", cursor: "pointer", outline: "none" }}
                 >
                   <option value="">All {entityLabel}s</option>
                   {entities.map((item) => (

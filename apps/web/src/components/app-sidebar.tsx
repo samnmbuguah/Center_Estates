@@ -618,9 +618,9 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
               gap: 10,
               padding: collapsed ? "10px" : "9px 12px",
               justifyContent: collapsed ? "center" : "flex-start",
-              color: "#b8c8d7",
+              color: "#ffffff",
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: 14,
               borderRadius: 6,
             }}
             onClick={onCloseMobile}
@@ -628,6 +628,27 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
           >
             <span style={{ fontSize: 15 }}><Settings size={18} /></span>
             {!collapsed && <span>System Settings</span>}
+          </Link>
+
+          <Link
+            className="nav-link"
+            href="/companion"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              color: "#ffffff",
+              textDecoration: "none",
+              fontSize: 14,
+              borderRadius: 6,
+            }}
+            onClick={onCloseMobile}
+            title="Administration"
+          >
+            <span style={{ fontSize: 15 }}><Shield size={18} /></span>
+            {!collapsed && <span>Administration</span>}
           </Link>
         </div>
 
@@ -659,11 +680,11 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-              <HelpCircle size={14} style={{ color: "white" }} />
-              <strong style={{ fontSize: 11, color: "white" }}>Quick Support</strong>
+              <HelpCircle size={14} style={{ color: "#ffffff" }} />
+              <strong style={{ fontSize: 12, color: "#ffffff", fontWeight: 700 }}>Quick Support</strong>
             </div>
-            <span style={{ display: "block", fontSize: 11, color: "#e2e8f0", fontWeight: 600 }}>0722 574 400</span>
-            <span style={{ display: "block", fontSize: 10, color: "#94a3b8" }}>support@ceest.co.ke</span>
+            <span style={{ display: "block", fontSize: 12, color: "#ffffff", fontWeight: 600 }}>0722 574 400</span>
+            <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.8)" }}>support@ceest.co.ke</span>
           </div>
         )}
 
