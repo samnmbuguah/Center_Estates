@@ -519,7 +519,7 @@ export function AppSidebar({
                     {(!collapsed || isMobile) && isModuleActive && <span style={{ fontSize: 10 }}>▼</span>}
                   </Link>
 
-                  {/* If this module is active, automatically expand its nav items! */}
+                  {/* If this module is active, show minimal sub-navigation - only key sections */}
                   {(!collapsed || isMobile) && isModuleActive && moduleNav && moduleNav.length > 0 && (
                     <div
                       className="module-subnav-tree"
@@ -532,7 +532,8 @@ export function AppSidebar({
                         gap: 2,
                       }}
                     >
-                      {moduleNav.flatMap((group) => group.items).map((item) => {
+                      {/* Only show top-level navigation items, not all sub-items */}
+                      {moduleNav.slice(0, 1).flatMap((group) => group.items.slice(0, 4)).map((item) => {
                         const isSectionActive = activeModuleSection === item.id || currentTab === item.id;
                         return (
                           <Link

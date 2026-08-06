@@ -2,19 +2,19 @@
 
 :root {
   /* Light Mode Colors - High Contrast */
-  --ink: #1a1a2e;
-  --muted: #4a5568;
-  --line: #e2e8f0;
-  --surface: #f7fafc;
-  --surface-2: #edf2f7;
+  --ink: #0f172a;
+  --muted: #334155;
+  --line: #cbd5e1;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
   --brand: #e23b3b;
   --brand-deep: #c92727;
   --navy: #0b1727;
   --navy-2: #101c30;
   --sidebar: #0b1727;
-  --text: #1a1a2e;
-  --text-secondary: #4a5568;
-  --text-tertiary: #718096;
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #475569;
   
   /* Responsive breakpoints */
   --breakpoint-sm: 640px;
@@ -1113,30 +1113,23 @@ html {
 }
 
 /* Improved Color Contrast for Small Text */
-small, .text-sm, .text-xs, .text-caption {
+small, .text-sm, .text-xs, .text-caption, .muted {
   color: var(--text-secondary) !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  small, .text-sm, .text-xs, .text-caption {
-    color: var(--text-secondary) !important;
-  }
+/* Force higher contrast for all text elements */
+p, span, div, li, td, th, label {
+  color: var(--text) !important;
 }
 
-/* High Contrast for Muted Text */
-.muted, [style*="color: var(--muted)"] {
+/* Specific overrides for muted text */
+[style*="color: var(--muted)"] {
   color: var(--text-secondary) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  .muted, [style*="color: var(--muted)"] {
-    color: var(--text-secondary) !important;
-  }
 }
 
 /* Sidebar Text Contrast */
 .sidebar a, .sidebar button, .sidebar span {
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
 .sidebar a:hover, .sidebar button:hover {
@@ -1145,7 +1138,7 @@ small, .text-sm, .text-xs, .text-caption {
 
 /* Mobile Bottom Nav Text */
 .mobile-bottom-nav a, .mobile-bottom-nav button {
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
 .mobile-bottom-nav a:hover, .mobile-bottom-nav button:hover {
