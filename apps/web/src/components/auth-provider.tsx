@@ -71,7 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       headers: { "X-CSRFToken": csrfFromCookie() },
       body: JSON.stringify({ username, password }),
     });
-    if (!response.ok) throw new Error(response.status === 401 ? "Incorrect username or password." : "Unable to sign in.");
+    if (!response.ok) {
+      let message = response.status === 401 ? "Incorrect username or password." : "Unable to sign in. Please try again.";
+      try {
+        const body = await response.json();
+        if (body?.detail && typeof body.detail === "string") message = body.detail;
+      } catch { /* non-JSON error body */ }
+      throw new Error(message);
+    }
     await loadSession(null);
     router.replace("/");
   }, [loadSession, router]);

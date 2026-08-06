@@ -3788,3 +3788,16 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
   margin-left: auto;
   color: var(--muted);
 }
+
+/* Collapse the two-column module workspace so the sidebar stacks above content */
+@media (max-width: 900px) {
+  .module-workspace[class] {
+    grid-template-columns: 1fr !important;
+  }
+  .module-side-nav {
+    position: relative !important;
+    top: auto !important;
+    height: auto !important;
+    max-height: 42vh;
+  }
+}
