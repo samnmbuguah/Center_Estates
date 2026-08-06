@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Building2, HardHat, ClipboardCheck, Users2, FileText, Wallet, PieChart } from "lucide-react";
 import { usePropertyContext } from "@/lib/property-context";
 
@@ -13,18 +13,19 @@ import { usePropertyContext } from "@/lib/property-context";
  */
 export function PropertyContextBar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { activeProperty } = usePropertyContext();
 
   if (!activeProperty) return null;
 
   const tabs = [
-    { label: "Overview", path: "/property", icon: <Building2 size={13} /> },
-    { label: "Tenants", path: "/property?tab=tenants", icon: <Users2 size={13} /> },
-    { label: "Leases", path: "/property?tab=leases", icon: <FileText size={13} /> },
-    { label: "Rent & Invoices", path: "/property?tab=rent", icon: <Wallet size={13} /> },
-    { label: "Service Charge", path: "/property?tab=service-charges", icon: <PieChart size={13} /> },
-    { label: "Facility", path: "/facility", icon: <HardHat size={13} /> },
-    { label: "Companion", path: "/companion", icon: <ClipboardCheck size={13} /> },
+    { label: "Overview", path: "/property", tab: undefined, icon: <Building2 size={13} /> },
+    { label: "Tenants", path: "/property", tab: "tenants", icon: <Users2 size={13} /> },
+    { label: "Leases", path: "/property", tab: "leases", icon: <FileText size={13} /> },
+    { label: "Rent & Invoices", path: "/property", tab: "rent", icon: <Wallet size={13} /> },
+    { label: "Service Charge", path: "/property", tab: "service-charges", icon: <PieChart size={13} /> },
+    { label: "Facility", path: "/facility", tab: undefined, icon: <HardHat size={13} /> },
+    { label: "Companion", path: "/companion", tab: undefined, icon: <ClipboardCheck size={13} /> },
   ];
 
   return (
@@ -89,13 +90,20 @@ export function PropertyContextBar() {
         style={{ display: "flex", gap: 0, padding: "6px 12px", overflowX: "auto" }}
       >
         {tabs.map((tab) => {
-          const isActive = pathname.startsWith(tab.path);
+          const href = tab.tab ? `${tab.path}?tab=${tab.tab}` : tab.path;
+          const currentTab =
+            typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
+          const isActive = tab.tab ? pathname === tab.path && currentTab === tab.tab : pathname === tab.path;
           return (
             <Link
-              key={tab.path}
-              href={tab.path}
+              key={href}
+              href={href}
               role="tab"
               aria-current={isActive ? "page" : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                router.push(href);
+              }}
               style={{
                 display: "inline-flex",
                 alignItems: "center",

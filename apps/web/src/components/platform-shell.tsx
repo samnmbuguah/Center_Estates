@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { modules, ACTIVE_MODULES } from "@/lib/modules";
+import { modules, ACTIVE_MODULES, activeModules } from "@/lib/modules";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie, type DemoIdentityGroup } from "@/lib/api";
 import { useCallback } from "react";
@@ -231,8 +231,27 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         {/* MONITORING ERP TOPBAR HEADER — starts where the fixed module sidebar ends */}
         <header className="topbar" role="banner" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 60, width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
           <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <Link className="brand" href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
-              <img src="/logo.png" alt="Center Estates" style={{ height: 32, width: "auto", objectFit: "contain" }} />
+            <Link href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  display: "grid",
+                  placeItems: "center",
+                  background: "linear-gradient(145deg, #e52e2e, #b91c1c)",
+                  boxShadow: "0 3px 10px rgba(229,46,46,0.3)",
+                  color: "#fff",
+                  fontWeight: 900,
+                  fontSize: 12,
+                }}
+                aria-hidden="true"
+              >
+                CE
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
+                Center Estates
+              </span>
             </Link>
 
             {moduleWorkspaceActive && (
@@ -471,6 +490,40 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
                       </div>
                     </div>
                   )}
+
+                  {/* Quick module switcher (active modules) */}
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
+                    <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", margin: "0 0 8px" }}>
+                      Quick Modules
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {activeModules.filter((m) => allowed.has(m.slug)).map((m) => (
+                        <Link
+                          key={m.slug}
+                          href={`/${m.slug}`}
+                          onClick={() => setProfileOpen(false)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "7px 10px",
+                            borderRadius: 8,
+                            background: "var(--surface-2)",
+                            border: "1px solid var(--border)",
+                            color: "var(--text)",
+                            textDecoration: "none",
+                            fontSize: 12,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ fontSize: 13 }}>{m.icon}</span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {m.name.replace(" Management", "")}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Menu items */}
                   <div style={{ padding: 6 }}>

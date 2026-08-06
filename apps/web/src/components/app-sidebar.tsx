@@ -116,7 +116,7 @@ export function AppSidebar({
         <div
           className="platform-brand-header"
           style={{
-            padding: collapsed ? "16px 12px" : "16px",
+            padding: collapsed ? "16px 12px" : "14px 16px",
             minHeight: 64,
             borderBottom: "1px solid rgba(255,255,255,0.08)",
             display: "flex",
@@ -126,11 +126,25 @@ export function AppSidebar({
             justifyContent: collapsed ? "center" : "flex-start",
           }}
         >
-          <img
-            src="/logo.png"
-            alt="CeEst Logo"
-            style={{ height: 32, width: "auto", objectFit: "contain", flexShrink: 0 }}
-          />
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              flexShrink: 0,
+              display: "grid",
+              placeItems: "center",
+              background: "linear-gradient(145deg, #e52e2e, #b91c1c)",
+              boxShadow: "0 4px 12px rgba(229,46,46,0.35)",
+              color: "#fff",
+              fontWeight: 900,
+              fontSize: 14,
+              letterSpacing: "-0.02em",
+            }}
+            aria-hidden="true"
+          >
+            CE
+          </div>
           {!collapsed && (
             <div style={{ minWidth: 0, flex: 1 }}>
               <strong
@@ -143,7 +157,7 @@ export function AppSidebar({
                   lineHeight: 1.1,
                 }}
               >
-                CeEst
+                Center Estates
               </strong>
               <small
                 style={{
@@ -155,7 +169,7 @@ export function AppSidebar({
                   whiteSpace: "nowrap",
                 }}
               >
-                CENTER ESTATES TASK TRACKER
+                ESTATE ERP · WORKPLACE
               </small>
             </div>
           )}
@@ -471,7 +485,7 @@ export function AppSidebar({
 
           <Link
             className="nav-link"
-            href="/admin"
+            href="/companion"
             style={{
               display: "flex",
               alignItems: "center",

@@ -222,10 +222,7 @@ export function CommandCenterWorkspace() {
   const quickLinks = [
     { href: "/property", label: "Add New Property", icon: "🏢", show: allowed.has("property") },
     { href: "/facility", label: "New Maintenance Request", icon: "🔧", show: allowed.has("facility") },
-    { href: "/sales", label: "Register Buyer", icon: "🏷️", show: allowed.has("sales") },
     { href: "/valuation", label: "New Valuation Instruction", icon: "📐", show: allowed.has("valuation") },
-    { href: "/monitoring", label: "Open Construction Control", icon: "🏗️", show: allowed.has("monitoring") },
-    { href: "/tender", label: "Review Tender Pipeline", icon: "📋", show: allowed.has("tender") },
   ].filter((item) => item.show);
 
   const severityClass = (severity: string) => {
@@ -437,7 +434,6 @@ export function CommandCenterWorkspace() {
                 <small>Access is filtered by subscription and role.</small>
               </p>
             </div>
-            {allowed.has("monitoring") && <Link href="/monitoring">Open construction control room →</Link>}
           </section>
         </aside>
       </div>
