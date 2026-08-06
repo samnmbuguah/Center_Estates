@@ -52,18 +52,20 @@ ssh "${REMOTE_HOST}" "
   export OPENCODE_API_KEY='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'
   export OPENAI_API_KEY='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'
   
-  # Seed demo data ONLY on a fresh install (skip if marker exists — keeps deploys fast)
+  # Seed demo data: idempotent (update_or_create). Skips the heavy work once
+  # seeded, but self-heals if a new module subscription is missing.
   export DJANGO_DEBUG='false'
   export SEED_ADMIN_USERNAME='admin'
   export SEED_ADMIN_PASSWORD='S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f'
-  if [ ! -f tmp/.seeded ]; then
-    echo "Fresh install detected — seeding demo data..."
+  COMPANION_SUB=$(python apps/backend/manage.py shell -c "from subscriptions.models import Subscription; from core.models import Module; print(Subscription.objects.filter(module=Module.COMPANION).exists())" 2>/dev/null | tail -1)
+  if [ "$COMPANION_SUB" != "True" ]; then
+    echo "Missing module subscriptions detected — seeding demo data..."
     export SEED_DEMO_DATA='true'
     python apps/backend/manage.py seed_platform || true
     python apps/backend/manage.py seed_construction || true
     mkdir -p tmp
     touch tmp/.seeded
-    echo "Seed complete — marker created."
+    echo "Seed complete."
   else
     echo "Data already seeded — skipping seed for fast deploy."
     export SEED_DEMO_DATA='false'
