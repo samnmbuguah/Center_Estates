@@ -4,6 +4,7 @@ import { PlatformShell } from "@/components/platform-shell";
 import { AuthProvider } from "@/components/auth-provider";
 import { ToastProvider } from "@/components/monitoring/hooks/useToast";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { PropertyWorkspaceProvider } from "@/lib/property-context";
 
 export const metadata: Metadata = {
   title: "Center Estates ERP",
@@ -20,11 +21,13 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <ToastProvider>
-            <PlatformShell>
-              <ErrorBoundary moduleName="Application">
-                {children}
-              </ErrorBoundary>
-            </PlatformShell>
+            <PropertyWorkspaceProvider>
+              <PlatformShell>
+                <ErrorBoundary moduleName="Application">
+                  {children}
+                </ErrorBoundary>
+              </PlatformShell>
+            </PropertyWorkspaceProvider>
           </ToastProvider>
         </AuthProvider>
       </body>

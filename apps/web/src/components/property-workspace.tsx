@@ -2,6 +2,7 @@
 
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { usePropertyContext } from "@/lib/property-context";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { propertyNav } from "@/lib/module-nav";
@@ -3481,6 +3482,7 @@ function CriticalDatesView({ leases, contractors, inspections, serviceCharges, l
 export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
+  const { selectProperty } = usePropertyContext();
   const canOperate = can("property.operations");
   const canLease = can("property.leasing");
   const canFinance = can("property.finance");
@@ -3507,6 +3509,21 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [rentSection, setRentSection] = useState<RentSection>("invoices");
   const [scSection, setScSection] = useState<ScSection>("setup");
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
+
+  // Selecting a property row sets the global property context (visible across
+  // Property / Facility / Companion modules via PropertyContextBar).
+  const handleSelectRow = (row: Row) => {
+    setSelectedRow(row);
+    if (row && (row.property_type !== undefined || row.code || row.occupied !== undefined)) {
+      selectProperty({
+        id: String(row.id),
+        name: String(row.name ?? row.property_name ?? "Property"),
+        code: String(row.code ?? ""),
+        status: String(row.status ?? "Active"),
+        location: String(row.city ?? row.location ?? ""),
+      });
+    }
+  };
 
   const [showAddProperty, setShowAddProperty] = useState(false);
   const [showAddTenant, setShowAddTenant] = useState(false);
@@ -4348,7 +4365,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {error && <ErrorBanner message={error} onRetry={() => { setError(""); loadData(); }} />}
 
         {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} />}
-        {tab === "properties" && <PropertiesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddProperty(true)} onSelectRow={setSelectedRow} />}
+        {tab === "properties" && <PropertiesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddProperty(true)} onSelectRow={handleSelectRow} />}
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "projects" && <ProjectsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
