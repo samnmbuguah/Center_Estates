@@ -3353,7 +3353,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
             <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="grid-2">
                 <Field label="Reference" required>
-                  <input name="reference" required placeholder="INSP-2026-0057" />
+                  <input name="reference" required placeholder="INSP-2026-0057" data-testid="insp-ref-input" />
                 </Field>
                 <Field label="Type" required>
                   <select name="inspection_type" defaultValue="routine" data-testid="insp-type-select">
@@ -3369,7 +3369,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
               </Field>
               <div className="grid-2">
                 <Field label="Property" required>
-                  <select name="property" required defaultValue="">
+                  <select name="property" required defaultValue="" data-testid="insp-property-select">
                     <option value="" disabled>Select property</option>
                     {properties.map((row) => (
                       <option key={String(row.id)} value={String(row.id)}>{String(row.name)}</option>
@@ -3377,7 +3377,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
                   </select>
                 </Field>
                 <Field label="Asset">
-                  <select name="asset" defaultValue="">
+                  <select name="asset" defaultValue="" data-testid="insp-asset-select">
                     <option value="">None</option>
                     {assets.map((row) => (
                       <option key={String(row.id)} value={String(row.id)}>{String(row.code)} – {String(row.name)}</option>
@@ -3386,7 +3386,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
                 </Field>
               </div>
               <Field label="Scheduled on" required>
-                <input name="scheduled_on" type="date" required />
+                <input name="scheduled_on" type="date" required data-testid="insp-date-input" />
               </Field>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setCreateModal(null)}>Cancel</button>

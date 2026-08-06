@@ -115,8 +115,13 @@ test("facility inspection user story: create an inspection", async ({ page }) =>
   await page.getByTestId("insp-title-input").waitFor({ timeout: 20000 });
 
   const unique = `E2E Inspection ${Date.now()}`;
+  await page.getByTestId("insp-ref-input").fill(`INSP-E2E-${Date.now()}`);
   await page.getByTestId("insp-title-input").fill(unique);
   await page.getByTestId("insp-type-select").selectOption("compliance");
+  const inspProp = page.getByTestId("insp-property-select");
+  const inspOptCount = await inspProp.locator("option").count();
+  if (inspOptCount > 1) await inspProp.selectOption({ index: 1 });
+  await page.getByTestId("insp-date-input").fill("2026-08-20");
   await page.getByTestId("insp-submit-btn").click();
   await page.waitForTimeout(3000);
   const bodyText = await page.evaluate(() => document.body.innerText);
@@ -150,6 +155,10 @@ test("property add property user story: create a property via the wizard", async
   await page.getByTestId("prop-type-select").selectOption("commercial");
   await page.getByTestId("prop-wizard-next").click();
   await page.waitForTimeout(1000);
+  // Step 2 of 3 — Unit Mix: add a unit type row so the wizard can generate units
+  await page.getByTestId("prop-wizard-next").click();
+  await page.waitForTimeout(1000);
+  // Step 3 of 3 — Review & Save
   await page.getByTestId("prop-wizard-create").click();
   await page.waitForTimeout(3000);
   const bodyText = await page.evaluate(() => document.body.innerText);
