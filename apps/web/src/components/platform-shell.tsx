@@ -227,8 +227,8 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         <button className="mobile-nav-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />
       )}
 
-      <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {/* MONITORING ERP FULL-WIDTH TOPBAR HEADER */}
+      <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: moduleWorkspaceActive ? 248 : 0 }}>
+        {/* MONITORING ERP TOPBAR HEADER — starts where the fixed module sidebar ends */}
         <header className="topbar" role="banner" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 60, width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
           <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <Link className="brand" href="/" style={{ margin: 0, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>

@@ -85,14 +85,15 @@ export function ModuleShell({
   return (
     <div
       className={`module-workspace module-workspace-${moduleKey}`}
-      style={{ display: "grid", gridTemplateColumns: "248px minmax(0, 1fr)", gap: 0, flex: 1, width: "100%", minHeight: 0 }}
+      style={{ display: "block", width: "100%", minHeight: "100vh", position: "relative" }}
     >
-      {/* LEFT SIDEBAR NAVIGATION (from groups) */}
+      {/* LEFT SIDEBAR NAVIGATION (from groups) — fixed to page top so it spans
+          the full height and the content (incl. the global topbar) starts beside it */}
       {hasGroups && (
         <aside
           className="module-side-nav"
           aria-label={`${moduleName} sections`}
-          style={{ background: "#0b1727", borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", overflow: "hidden", overflowY: "auto" }}
+          style={{ position: "fixed", top: 0, left: 0, bottom: 0, width: 248, background: "#0b1727", borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", overflow: "hidden", overflowY: "auto", zIndex: 40 }}
         >
           <div
             className="module-side-nav-title"
@@ -164,7 +165,7 @@ export function ModuleShell({
         </aside>
       )}
 
-      {/* MAIN CONTENT */}
+      {/* MAIN CONTENT — the workspace column is already offset right of the fixed sidebar */}
       <div className="module-workspace-main main" style={{ width: "100%", minWidth: 0, padding: "20px 24px" }}>
         <div className="module-workspace-body" style={{ width: "100%" }}>
 
