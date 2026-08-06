@@ -28,21 +28,30 @@ const QUICK_JUMP_ROUTES = [
   { name: "Performance Dashboard", href: "/companion?tab=performance", module: "companion", icon: "📊", detail: "Staff productivity & adoption" },
 ];
 
-export function PlatformShell({ children }: { children: React.ReactNode }) {
+export default function PlatformShell({ session, children }: { session: any; children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(null);
+
+  // Listen for custom event to open mobile menu
+  useEffect(() => {
+    const handleOpenMobileMenu = () => setMenuOpen(true);
+    window.addEventListener('open-mobile-menu', handleOpenMobileMenu);
+    return () => window.removeEventListener('open-mobile-menu', handleOpenMobileMenu);
+  }, []);
+
   const [identityGroups, setIdentityGroups] = useState<DemoIdentityGroup[]>([]);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [subModalOpen, setSubModalOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [subscriptionsList, setSubscriptionsList] = useState<Array<{ id: string; module: string; is_active: boolean }>>([]);
   const [updatingSub, setUpdatingSub] = useState<string | null>(null);
 
   const profileRef = useRef<HTMLDivElement | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchSubscriptions = useCallback(async () => {
     try {

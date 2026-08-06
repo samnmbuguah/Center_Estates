@@ -163,7 +163,12 @@ export function AppSidebar({
             <span>Tasks</span>
           </Link>
           <button
-            onClick={() => setMenuOpen(true)}
+            onClick={() => {
+              // Trigger mobile menu open by calling the parent's menu open handler
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('open-mobile-menu'));
+              }
+            }}
             style={{
               display: "flex",
               flexDirection: "column",
