@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import PlatformShell from "@/components/platform-shell";
 import { AuthProvider } from "@/components/auth-provider";
@@ -17,16 +18,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased" data-theme="dark">
+    <html lang="en" className="h-full antialiased" data-theme="light">
       <body>
         <AuthProvider>
           <ToastProvider>
             <PropertyWorkspaceProvider>
-              <PlatformShell>
-                <ErrorBoundary moduleName="Application">
-                  {children}
-                </ErrorBoundary>
-              </PlatformShell>
+              <Suspense fallback={null}>
+                <PlatformShell>
+                  <ErrorBoundary moduleName="Application">
+                    {children}
+                  </ErrorBoundary>
+                </PlatformShell>
+              </Suspense>
             </PropertyWorkspaceProvider>
           </ToastProvider>
         </AuthProvider>

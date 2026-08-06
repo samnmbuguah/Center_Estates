@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const BASE = process.env.E2E_BASE_URL || "https://erp.169-58-102-217.sslip.io";
+const BASE = process.env.E2E_BASE_URL || "https://monitoringerp.com";
 const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
 const PASS = process.env.E2E_ADMIN_PASSWORD || "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f";
 

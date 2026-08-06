@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  /* Light Mode Colors - High Contrast */
+  /* Light Mode Colors - Professional Enterprise Palette */
   --ink: #0f172a;
-  --muted: #334155;
+  --muted: #1e293b;
   --line: #cbd5e1;
   --surface: #ffffff;
-  --surface-2: #f1f5f9;
+  --surface-2: #f8fafc;
   --brand: #e23b3b;
   --brand-deep: #c92727;
   --navy: #0b1727;
   --navy-2: #101c30;
   --sidebar: #0b1727;
   --text: #0f172a;
-  --text-secondary: #334155;
-  --text-tertiary: #475569;
+  --text-secondary: #1e293b;
+  --text-tertiary: #334155;
   
   /* Responsive breakpoints */
   --breakpoint-sm: 640px;
@@ -36,42 +36,51 @@
   --space-16: 4rem;
   --space-20: 5rem;
   --space-24: 6rem;
+  
+  /* Typography scale - Increased for desktop legibility */
+  --font-xs: 0.875rem;
+  --font-sm: 1rem;
+  --font-base: 1.125rem;
+  --font-lg: 1.25rem;
+  --font-xl: 1.5rem;
+  --font-2xl: 1.875rem;
+  --font-3xl: 2.25rem;
 }
 
-/* Dark Mode Colors - High Contrast */
+/* Dark Mode Colors - High Contrast Professional */
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #f7fafc;
-    --muted: #a0aec0;
-    --line: #4a5568;
-    --surface: #1a202c;
-    --surface-2: #2d3748;
+    --ink: #f8fafc;
+    --muted: #cbd5e1;
+    --line: #475569;
+    --surface: #0f172a;
+    --surface-2: #1e293b;
     --brand: #e23b3b;
     --brand-deep: #c92727;
     --navy: #0b1727;
     --navy-2: #101c30;
     --sidebar: #0b1727;
-    --text: #f7fafc;
+    --text: #f8fafc;
     --text-secondary: #e2e8f0;
-    --text-tertiary: #a0aec0;
+    --text-tertiary: #cbd5e1;
   }
 }
 
 /* Force dark mode via data attribute */
 [data-theme="dark"] {
-  --ink: #f7fafc;
-  --muted: #a0aec0;
-  --line: #4a5568;
-  --surface: #1a202c;
-  --surface-2: #2d3748;
+  --ink: #f8fafc;
+  --muted: #cbd5e1;
+  --line: #475569;
+  --surface: #0f172a;
+  --surface-2: #1e293b;
   --brand: #e23b3b;
   --brand-deep: #c92727;
   --navy: #0b1727;
   --navy-2: #101c30;
   --sidebar: #0b1727;
-  --text: #f7fafc;
+  --text: #f8fafc;
   --text-secondary: #e2e8f0;
-  --text-tertiary: #a0aec0;
+  --text-tertiary: #cbd5e1;
 }
 
 * { box-sizing: border-box; }
@@ -161,38 +170,61 @@ body {
   .py-responsive { padding-top: var(--space-8); padding-bottom: var(--space-8); }
 }
 
-/* Responsive Typography */
+/* Responsive Typography - Increased for desktop legibility */
 .text-responsive {
-  font-size: 0.875rem;
+  font-size: var(--font-sm);
   line-height: 1.5;
 }
 
 @media (min-width: 768px) {
-  .text-responsive { font-size: 1rem; }
+  .text-responsive { font-size: var(--font-base); }
 }
 @media (min-width: 1024px) {
-  .text-responsive { font-size: 1.125rem; }
+  .text-responsive { font-size: var(--font-lg); }
 }
 
 .text-responsive-sm {
-  font-size: 0.75rem;
+  font-size: var(--font-xs);
   line-height: 1.4;
 }
 
 @media (min-width: 768px) {
-  .text-responsive-sm { font-size: 0.875rem; }
+  .text-responsive-sm { font-size: var(--font-sm); }
 }
 
 .text-responsive-lg {
-  font-size: 1rem;
+  font-size: var(--font-base);
   line-height: 1.5;
 }
 
 @media (min-width: 768px) {
-  .text-responsive-lg { font-size: 1.25rem; }
+  .text-responsive-lg { font-size: var(--font-xl); }
 }
 @media (min-width: 1024px) {
-  .text-responsive-lg { font-size: 1.5rem; }
+  .text-responsive-lg { font-size: var(--font-2xl); }
+}
+
+/* Base Typography - Minimum sizes for legibility */
+body, p, span, div, li, td, th, label {
+  font-size: var(--font-sm) !important;
+}
+
+@media (min-width: 768px) {
+  body, p, span, div, li, td, th, label {
+    font-size: var(--font-base) !important;
+  }
+}
+
+/* Small text minimum sizes */
+small, .text-sm, .text-xs, .text-caption {
+  font-size: var(--font-xs) !important;
+  color: var(--text-secondary) !important;
+}
+
+@media (min-width: 768px) {
+  small, .text-sm, .text-xs, .text-caption {
+    font-size: var(--font-sm) !important;
+  }
 }
 
 /* Responsive Width Utilities */
@@ -1112,7 +1144,7 @@ html {
   }
 }
 
-/* Improved Color Contrast for Small Text */
+/* Improved Color Contrast for All Text */
 small, .text-sm, .text-xs, .text-caption, .muted {
   color: var(--text-secondary) !important;
 }
@@ -1127,23 +1159,169 @@ p, span, div, li, td, th, label {
   color: var(--text-secondary) !important;
 }
 
-/* Sidebar Text Contrast */
+/* Sidebar Text Contrast - Always legible */
 .sidebar a, .sidebar button, .sidebar span {
   color: rgba(255, 255, 255, 0.95) !important;
+  font-size: var(--font-sm) !important;
+}
+
+@media (min-width: 768px) {
+  .sidebar a, .sidebar button, .sidebar span {
+    font-size: var(--font-base) !important;
+  }
 }
 
 .sidebar a:hover, .sidebar button:hover {
   color: #ffffff !important;
 }
 
-/* Mobile Bottom Nav Text */
+/* Mobile Bottom Nav Text - Always legible */
 .mobile-bottom-nav a, .mobile-bottom-nav button {
   color: rgba(255, 255, 255, 0.95) !important;
+  font-size: var(--font-sm) !important;
 }
 
 .mobile-bottom-nav a:hover, .mobile-bottom-nav button:hover {
   color: #ffffff !important;
 }
+
+/* Ensure all backgrounds respect theme */
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .mobile-bottom-nav {
+  background: var(--sidebar) !important;
+}
+
+/* Fix light backgrounds in dark mode */
+[data-theme="dark"] [style*="background: #ffffff"],
+[data-theme="dark"] [style*="background: #f8fafc"],
+[data-theme="dark"] [style*="background: #f1f5f9"] {
+  background: var(--surface-2) !important;
+}
+
+[data-theme="dark"] [style*="background: white"] {
+  background: var(--surface) !important;
+}
+
+/* Consistent Design System - Button Styles */
+.btn {
+  font-size: var(--font-sm) !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.5rem !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+@media (min-width: 768px) {
+  .btn {
+    font-size: var(--font-base) !important;
+    padding: 0.625rem 1.25rem !important;
+  }
+}
+
+.btn.sm {
+  font-size: var(--font-xs) !important;
+  padding: 0.375rem 0.75rem !important;
+}
+
+@media (min-width: 768px) {
+  .btn.sm {
+    font-size: var(--font-sm) !important;
+    padding: 0.5rem 1rem !important;
+  }
+}
+
+.btn.primary {
+  background: var(--brand) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.btn.primary:hover {
+  background: var(--brand-deep) !important;
+}
+
+.btn.ghost {
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  color: var(--text) !important;
+}
+
+.btn.ghost:hover {
+  background: var(--surface-2) !important;
+}
+
+/* Consistent Card Styles */
+.card {
+  background: var(--surface) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 0.75rem !important;
+  padding: 1.25rem !important;
+}
+
+[data-theme="dark"] .card {
+  background: var(--surface-2) !important;
+}
+
+/* Consistent Input Styles */
+input, select, textarea {
+  font-size: var(--font-sm) !important;
+  padding: 0.625rem 0.875rem !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 0.5rem !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+@media (min-width: 768px) {
+  input, select, textarea {
+    font-size: var(--font-base) !important;
+    padding: 0.75rem 1rem !important;
+  }
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--brand) !important;
+  outline-offset: 1px !important;
+}
+
+/* Consistent Table Styles */
+table {
+  font-size: var(--font-sm) !important;
+}
+
+@media (min-width: 768px) {
+  table {
+    font-size: var(--font-base) !important;
+  }
+}
+
+th {
+  font-weight: 700 !important;
+  color: var(--text) !important;
+  padding: 0.75rem 1rem !important;
+  text-align: left !important;
+}
+
+td {
+  padding: 0.75rem 1rem !important;
+  color: var(--text) !important;
+}
+
+/* Consistent Badge Styles */
+.badge, .pill {
+  font-size: var(--font-xs) !important;
+  padding: 0.25rem 0.625rem !important;
+  border-radius: 9999px !important;
+  font-weight: 600 !important;
+}
+
+@media (min-width: 768px) {
+  .badge, .pill {
+    font-size: var(--font-sm) !important;
+    padding: 0.375rem 0.75rem !important;
+  }
+}
+
 a { color: inherit; text-decoration: none; }
 .platform { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
 .sidebar {

@@ -119,7 +119,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   }, [allowedSlugs, query]);
 
   useEffect(() => {
-    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "dark";
+    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "light";
     document.documentElement.setAttribute("data-theme", savedTheme);
     setTheme(savedTheme);
   }, []);
