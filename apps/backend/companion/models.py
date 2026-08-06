@@ -101,7 +101,7 @@ class TaskEvent(OrganizationOwnedModel):
         REMINDED = 'reminded', 'Reminded'
         UPDATED = 'updated', 'Updated'
 
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='events')
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='events', null=True, blank=True)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     action = models.CharField(max_length=16, choices=Action.choices)
     note = models.TextField(blank=True, default='')
