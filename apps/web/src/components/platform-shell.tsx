@@ -231,8 +231,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
       <div className="platform" style={{ display: "flex", minHeight: "100vh", width: "100vw", overflowX: "hidden" }}>
       {/* UNIFIED PERSISTENT APP SIDEBAR FOR ALL PAGES */}
       <AppSidebar
-        pathname={pathname}
-        allowedSlugs={allowedSlugs}
         menuOpen={menuOpen}
         onCloseMobile={() => setMenuOpen(false)}
       />

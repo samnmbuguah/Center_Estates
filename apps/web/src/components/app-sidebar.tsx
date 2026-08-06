@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { modules } from "@/lib/modules";
-import { apiFetch } from "@/lib/api";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { BrandLogo } from "@/components/brand-logo";
 import type { ModuleNavGroup } from "./module-shell";
@@ -16,7 +15,7 @@ import {
   constructionNav,
   companionNav,
 } from "@/lib/module-nav";
-import { LayoutDashboard, HardHat, ClipboardCheck, CalendarDays, ClipboardList, Wrench, Shield, Settings, HelpCircle, ChevronDown, ChevronRight, Menu, X } from "lucide-react";
+import { LayoutDashboard, HardHat, ClipboardCheck, Menu, X } from "lucide-react";
 
 const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   property: propertyNav,
@@ -28,36 +27,36 @@ const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   companion: companionNav,
 };
 
+const modules = [
+  { slug: "property", name: "Property", icon: "🏢", accent: "#e23b3b" },
+  { slug: "facility", name: "Facility", icon: "🔧", accent: "#00a3ff" },
+  { slug: "sales", name: "Sales", icon: "💰", accent: "#10b981" },
+  { slug: "tender", name: "Tender", icon: "📋", accent: "#f59e0b" },
+  { slug: "valuation", name: "Valuation", icon: "📜", accent: "#8b5cf6" },
+  { slug: "monitoring", name: "Monitoring", icon: "📊", accent: "#06b6d4" },
+  { slug: "companion", name: "Companion", icon: "🧭", accent: "#ec4899" },
+];
+
 type AppSidebarProps = {
-  pathname: string;
-  allowedSlugs: string[];
   menuOpen: boolean;
   onCloseMobile: () => void;
-  activeModuleNavGroups?: ModuleNavGroup[];
-  activeModuleSection?: string;
   onSelectSection?: (id: string) => void;
 };
 
-export function AppSidebar({
-  pathname,
-  allowedSlugs,
-  menuOpen,
-  onCloseMobile,
-  activeModuleNavGroups,
-  activeModuleSection,
-  onSelectSection,
-}: AppSidebarProps) {
+export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }: AppSidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { session } = useAuth();
+  const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState({ tasks: 0, approvals: 0 });
   const [mounted, setMounted] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => setMounted(true), []);
-  
-  const { session } = useAuth();
-  const allowedSet = new Set(allowedSlugs);
-  const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
 
-  const currentTab = mounted ? new URLSearchParams(window.location.search).get("tab") : null;
+  useEffect(() => setMounted(true), []);
+
+  const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
+  const currentTab = searchParams.get("tab");
 
   // Detect mobile screen size
   useEffect(() => {
@@ -536,12 +535,13 @@ export function AppSidebar({
                       {moduleNav.slice(0, 1).flatMap((group) => group.items.slice(0, 4)).map((item) => {
                         const isSectionActive = activeModuleSection === item.id || currentTab === item.id;
                         return (
-                          <Link
+                          <button
                             key={item.id}
-                            href={`/${m.slug}?tab=${item.id}`}
                             onClick={() => {
                               onSelectSection?.(item.id);
                               onCloseMobile();
+                              // Use Next.js router for client-side navigation
+                              router.push(`/${m.slug}?tab=${item.id}`);
                             }}
                             style={{
                               display: "flex",
@@ -554,11 +554,15 @@ export function AppSidebar({
                               textDecoration: "none",
                               fontSize: isMobile ? 14 : 12,
                               fontWeight: isSectionActive ? 700 : 400,
+                              border: "none",
+                              cursor: "pointer",
+                              width: "100%",
+                              textAlign: "left",
                             }}
                           >
                             {item.icon && <span style={{ fontSize: isMobile ? 16 : 13 }}>{item.icon}</span>}
                             <span>{item.label}</span>
-                          </Link>
+                          </button>
                         );
                       })}
                     </div>
