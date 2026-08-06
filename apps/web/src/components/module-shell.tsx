@@ -71,6 +71,17 @@ export function ModuleShell({
   const hasSubTabs = Array.isArray(subTabs) && subTabs.length > 0;
   const hasGroups = Array.isArray(groups) && groups.length > 0;
 
+  // MonitoringERP-style horizontal tabs: use explicit subTabs if provided,
+  // otherwise derive a horizontal strip from the top-level view of each group.
+  const horizontalTabs: SubTab[] = hasSubTabs
+    ? subTabs!
+    : hasGroups
+      ? groups
+          .map((g) => g.items[0])
+          .filter((item): item is ModuleNavItem => Boolean(item && item.id))
+      : [];
+  const hasHorizontalTabs = horizontalTabs.length > 0;
+
   return (
     <div
       className={`module-workspace module-workspace-${moduleKey}`}
@@ -209,15 +220,15 @@ export function ModuleShell({
             </div>
           )}
 
-          {/* HORIZONTAL SUB-TABS */}
-          {hasSubTabs && (
+          {/* HORIZONTAL SUB-TABS (primary sections, MonitoringERP style) */}
+          {hasHorizontalTabs && (
             <nav
               className="module-tabs-workspace"
               aria-label="Section sub-pages"
               style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--border)", marginBottom: 20, overflowX: "auto" }}
             >
-              {subTabs!.map((tab) => {
-                const isActive = activeSubId === tab.id;
+              {horizontalTabs.map((tab) => {
+                const isActive = hasSubTabs ? activeSubId === tab.id : activeId === tab.id;
                 return (
                   <button
                     key={tab.id}
@@ -225,7 +236,7 @@ export function ModuleShell({
                     role="tab"
                     aria-selected={isActive}
                     aria-current={isActive ? "page" : undefined}
-                    onClick={() => onSelectSub?.(tab.id)}
+                    onClick={() => (hasSubTabs ? onSelectSub?.(tab.id) : onSelect?.(tab.id))}
                     style={{
                       padding: "10px 18px",
                       background: "none",
