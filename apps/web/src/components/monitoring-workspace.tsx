@@ -1026,7 +1026,6 @@ function WorkspaceContent() {
       title="Construction Management Workspace"
       subtitle="Full lifecycle site monitoring, commercial controls, BIM/GIS, progress certification, and risk engineering."
       accent="#00a3ff"
-      groups={constructionNav}
       activeId={tab}
       onSelect={handleSelectTab}
     >

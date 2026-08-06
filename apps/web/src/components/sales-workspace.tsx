@@ -2765,7 +2765,6 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
       title="Sales Management"
       subtitle="Multi-project unit sales, buyer onboarding, payments, site visits & commissions."
       accent="#ea580c"
-      groups={salesNav}
       activeId={tab}
       onSelect={selectTab}
       actions={

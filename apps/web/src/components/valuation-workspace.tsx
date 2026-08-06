@@ -2242,7 +2242,6 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       title="Valuation Management"
       subtitle="Valuation instructions, site inspections, comparable sales, draft reports & fee invoicing."
       accent="#0891b2"
-      groups={valuationNav}
       activeId={tab}
       onSelect={selectTab}
       actions={

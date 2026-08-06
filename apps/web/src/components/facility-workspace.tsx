@@ -3640,7 +3640,6 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       title="Facility Management"
       subtitle="Assets, maintenance, compliance, services and utility performance."
       accent="#e23b3b"
-      groups={facilityNav}
       activeId={tab}
       onSelect={selectTab}
       actions={

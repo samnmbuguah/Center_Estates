@@ -2195,7 +2195,6 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
       title="Tender Management"
       subtitle="Controlled 11-step bid production from invitation & AI analysis to packaging and award."
       accent="#7c3aed"
-      groups={tenderNav}
       activeId={tab}
       onSelect={selectTab}
       actions={

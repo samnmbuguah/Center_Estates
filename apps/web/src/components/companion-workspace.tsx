@@ -412,7 +412,6 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       title="Companion & Staff Performance"
       subtitle="Daily work, task assignment and staff productivity — SLA and adoption analytics."
       accent="#0d9488"
-      groups={companionNav}
       activeId={tab}
       onSelect={(id) => { setSearch(""); setTab(id as CompanionTab); }}
       actions={

@@ -4676,7 +4676,6 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       title="Property Management"
       subtitle="Tenants, occupancy, lease agreements, rent collections & property accounting."
       accent="#e23b3b"
-      groups={propertyNav}
       activeId={tab}
       onSelect={handleSelectTab}
       actions={
