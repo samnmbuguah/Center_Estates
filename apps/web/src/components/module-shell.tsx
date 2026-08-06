@@ -24,7 +24,7 @@ export type EntityOption = {
   status?: string;
 };
 
-export type SubTab = { id: string; label: string };
+export type SubTab = { id: string; label: string; icon?: string };
 
 type ModuleShellProps = {
   moduleKey: string;
@@ -227,7 +227,7 @@ export function ModuleShell({
                       alignItems: "center",
                     }}
                   >
-                    {tab.icon && <span style={{ marginRight: 8, fontSize: 16 }}>{tab.icon}</span>}
+                    {"icon" in tab && tab.icon && <span style={{ marginRight: 8, fontSize: 16 }}>{tab.icon}</span>}
                     {tab.label}
                   </button>
                 );
