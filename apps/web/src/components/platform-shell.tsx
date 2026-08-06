@@ -314,19 +314,22 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
             )}
           </label>
 
-          <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <TourLauncher />
+            
+            {/* Hide Operations link on smaller screens */}
             <Link
               href="/facility"
+              className="desktop-only"
               style={{
-                display: "inline-flex",
+                display: "none",
                 alignItems: "center",
                 gap: 6,
-                padding: "5px 14px",
+                padding: "6px 12px",
                 borderRadius: 8,
                 background: "var(--surface-2)",
                 color: "var(--text)",
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 600,
                 textDecoration: "none",
                 border: "1px solid var(--border)",
@@ -337,16 +340,16 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
               title="Facility Operations — Assets, Work Orders, Maintenance"
             >
               <HardHat size={14} style={{ color: "var(--primary)" }} />
-              Operations
+              <span style={{ display: "none" }}>Operations</span>
             </Link>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <small style={{ fontSize: 9, color: "var(--faint)", textTransform: "uppercase", fontWeight: 800 }}>Organization</small>
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 140 }}>
+              <small style={{ fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", fontWeight: 700 }}>Organization</small>
               <select
                 aria-label="Active organization"
                 value={activeOrganization?.id ?? ""}
                 onChange={(event) => selectOrganization(event.target.value)}
-                style={{ padding: "4px 10px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+                style={{ padding: "6px 10px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", minWidth: 140 }}
               >
                 {session.organizations.map((organization) => (
                   <option value={organization.id} key={organization.id}>
@@ -366,20 +369,21 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                 background: "var(--surface-2)",
                 border: "1px solid var(--border)",
                 borderRadius: 8,
-                padding: "6px 12px",
-                fontSize: 12,
+                padding: "8px 12px",
+                fontSize: 13,
                 fontWeight: 700,
                 cursor: "pointer",
                 color: "var(--text)",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6
+                gap: 6,
+                flexShrink: 0,
               }}
             >
-              {theme === "dark" ? <><Sun size={14} /> Light</> : <><Moon size={14} /> Dark</>}
+              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
             </button>
 
-            <div className="profile-menu" ref={profileRef} style={{ position: "relative" }}>
+            <div className="profile-menu" ref={profileRef} style={{ position: "relative", flexShrink: 0 }}>
               <button
                 type="button"
                 className={`profile-trigger ${profileOpen ? "open" : ""}`}
@@ -388,14 +392,14 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                 onClick={() => setProfileOpen((open) => !open)}
                 style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: 0, cursor: "pointer", padding: 0 }}
               >
-                <div className="profile" title={session.user.username} style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>
+                <div className="profile" title={session.user.username} style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>
                   {initials}
                 </div>
-                <div className="profile-copy" style={{ textAlign: "left", maxWidth: 130, overflow: "hidden" }}>
-                  <strong style={{ display: "block", fontSize: 12, color: "var(--text)", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</strong>
-                  <small style={{ display: "block", fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayRole}</small>
+                <div className="profile-copy desktop-only" style={{ textAlign: "left", maxWidth: 140, overflow: "hidden", display: "none" }}>
+                  <strong style={{ display: "block", fontSize: 13, color: "var(--text)", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</strong>
+                  <small style={{ display: "block", fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayRole}</small>
                 </div>
-                <span className="profile-chevron" aria-hidden="true" style={{ fontSize: 10, color: "var(--muted)" }}>
+                <span className="profile-chevron desktop-only" aria-hidden="true" style={{ fontSize: 11, color: "var(--text-secondary)", display: "none" }}>
                   <ChevronDown size={14} />
                 </span>
               </button>

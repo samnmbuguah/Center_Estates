@@ -119,10 +119,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
               flexDirection: "column",
               alignItems: "center",
               gap: 4,
-              color: (pathname === "/workspaces" || pathname === "/") ? "#e23b3b" : "#b8c8d7",
+              color: (pathname === "/workspaces" || pathname === "/") ? "#e23b3b" : "#ffffff",
               textDecoration: "none",
-              fontSize: 10,
-              fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
+              fontSize: 12,
+              fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 600,
             }}
           >
             <LayoutDashboard size={20} />
@@ -140,10 +140,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
                   flexDirection: "column",
                   alignItems: "center",
                   gap: 4,
-                  color: pathname.startsWith("/facility") ? "#e23b3b" : "#b8c8d7",
+                  color: pathname.startsWith("/facility") ? "#e23b3b" : "#ffffff",
                   textDecoration: "none",
-                  fontSize: 10,
-                  fontWeight: pathname.startsWith("/facility") ? 700 : 500,
+                  fontSize: 12,
+                  fontWeight: pathname.startsWith("/facility") ? 700 : 600,
                 }}
               >
                 <HardHat size={20} />
@@ -157,10 +157,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
                   flexDirection: "column",
                   alignItems: "center",
                   gap: 4,
-                  color: pathname.startsWith("/companion") ? "#e23b3b" : "#b8c8d7",
+                  color: pathname.startsWith("/companion") ? "#e23b3b" : "#ffffff",
                   textDecoration: "none",
-                  fontSize: 10,
-                  fontWeight: pathname.startsWith("/companion") ? 700 : 500,
+                  fontSize: 12,
+                  fontWeight: pathname.startsWith("/companion") ? 700 : 600,
                 }}
               >
                 <ClipboardCheck size={20} />
@@ -181,11 +181,11 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
               flexDirection: "column",
               alignItems: "center",
               gap: 4,
-              color: "#b8c8d7",
+              color: "#ffffff",
               background: "none",
               border: "none",
-              fontSize: 10,
-              fontWeight: 500,
+              fontSize: 12,
+              fontWeight: 600,
               cursor: "pointer",
             }}
           >
@@ -412,9 +412,9 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
               gap: 10,
               padding: collapsed ? "10px" : "9px 12px",
               justifyContent: collapsed ? "center" : "flex-start",
-              color: "#b8c8d7",
+              color: "#ffffff",
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: 14,
               borderRadius: 6,
             }}
             onClick={onCloseMobile}
@@ -435,10 +435,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
               padding: collapsed ? "10px" : "9px 12px",
               justifyContent: collapsed ? "center" : "flex-start",
               borderRadius: 6,
-              color: pathname === "/facility" && currentTab === "service-requests" ? "#fff" : "#b8c8d7",
+              color: pathname === "/facility" && currentTab === "service-requests" ? "#fff" : "#ffffff",
               background: pathname === "/facility" && currentTab === "service-requests" ? "rgba(229,46,46,0.35)" : "transparent",
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: 14,
             }}
             onClick={onCloseMobile}
             title="Service Requests"
@@ -457,10 +457,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
               padding: collapsed ? "10px" : "9px 12px",
               justifyContent: collapsed ? "center" : "flex-start",
               borderRadius: 6,
-              color: pathname === "/facility" && currentTab === "assets" ? "#fff" : "#b8c8d7",
+              color: pathname === "/facility" && currentTab === "assets" ? "#fff" : "#ffffff",
               background: pathname === "/facility" && currentTab === "assets" ? "rgba(229,46,46,0.35)" : "transparent",
               textDecoration: "none",
-              fontSize: 13,
+              fontSize: 14,
             }}
             onClick={onCloseMobile}
             title="Building & Asset Onboarding"
@@ -504,10 +504,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
                       justifyContent: collapsed ? "center" : "flex-start",
                       borderRadius: 6,
                       background: isModuleActive ? "#e52e2e" : "transparent",
-                      color: isModuleActive ? "#fff" : "#b8c8d7",
+                      color: isModuleActive ? "#fff" : "#ffffff",
                       textDecoration: "none",
-                      fontSize: isMobile ? 16 : 13,
-                      fontWeight: isModuleActive ? 700 : 400,
+                      fontSize: isMobile ? 16 : 14,
+                      fontWeight: isModuleActive ? 700 : 600,
                     }}
                     onClick={onCloseMobile}
                     title={m.name}
@@ -549,10 +549,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
                               padding: isMobile ? "12px 16px" : "6px 10px",
                               borderRadius: 4,
                               background: isSectionActive ? "rgba(255,255,255,0.15)" : "transparent",
-                              color: isSectionActive ? "#ffffff" : "rgba(255,255,255,0.75)",
+                              color: isSectionActive ? "#ffffff" : "rgba(255,255,255,0.9)",
                               textDecoration: "none",
-                              fontSize: isMobile ? 14 : 12,
-                              fontWeight: isSectionActive ? 700 : 400,
+                              fontSize: isMobile ? 14 : 13,
+                              fontWeight: isSectionActive ? 700 : 600,
                               border: "none",
                               cursor: "pointer",
                               width: "100%",

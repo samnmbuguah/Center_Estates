@@ -1150,13 +1150,27 @@ small, .text-sm, .text-xs, .text-caption, .muted {
 }
 
 /* Force higher contrast for all text elements */
-p, span, div, li, td, th, label {
+p, span, div, li, td, th, label, h1, h2, h3, h4, h5, h6 {
   color: var(--text) !important;
 }
 
 /* Specific overrides for muted text */
 [style*="color: var(--muted)"] {
   color: var(--text-secondary) !important;
+}
+
+/* Fix light mode specific color issues */
+[data-theme="light"] [style*="color: #64748b"],
+[data-theme="light"] [style*="color: #6b7280"],
+[data-theme="light"] [style*="color: #94a3b8"],
+[data-theme="light"] [style*="color: #8fa0b8"],
+[data-theme="light"] [style*="color: #8a96a7"] {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="light"] [style*="color: #b8c8d7"],
+[data-theme="light"] [style*="color: #cbd5e1"] {
+  color: var(--text-tertiary) !important;
 }
 
 /* Sidebar Text Contrast - Always legible */
@@ -1305,6 +1319,35 @@ th {
 td {
   padding: 0.75rem 1rem !important;
   color: var(--text) !important;
+}
+
+/* Responsive display utilities */
+.desktop-only {
+  display: none !important;
+}
+
+@media (min-width: 1024px) {
+  .desktop-only {
+    display: flex !important;
+  }
+  
+  .desktop-only-inline {
+    display: inline-flex !important;
+  }
+  
+  .desktop-only-block {
+    display: block !important;
+  }
+}
+
+.mobile-only {
+  display: flex !important;
+}
+
+@media (min-width: 1024px) {
+  .mobile-only {
+    display: none !important;
+  }
 }
 
 /* Consistent Badge Styles */
