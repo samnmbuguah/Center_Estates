@@ -17,9 +17,11 @@ export type PropertyTab =
   | "buildings"
   | "units"
   | "projects"
+  | "tenancy"
   | "tenants"
   | "tenant-documents"
   | "leases"
+  | "financials"
   | "rent-schedules"
   | "rent"
   | "arrears"
@@ -48,9 +50,11 @@ const labels: Record<PropertyTab, string> = {
   buildings: "Buildings",
   units: "Occupancy",
   projects: "Projects",
+  tenancy: "Tenancy",
   tenants: "Tenants",
   "tenant-documents": "Tenant Documents",
   leases: "Leases",
+  financials: "Financials",
   "rent-schedules": "Rent Schedules",
   rent: "Rent & Invoices",
   arrears: "Arrears",
@@ -218,6 +222,8 @@ interface DashboardData {
 
 type RentSection = "invoices" | "receipts" | "arrears" | "reminders" | "ledger";
 type ScSection = "setup" | "allocations" | "reconciliations" | "budget";
+type TenancySection = "tenants" | "leases" | "documents";
+type FinancialsSection = "schedules" | "invoices" | "receipts" | "allocations" | "reconciliation" | "credit-notes";
 
 /* ─── formatting helpers ─── */
 
@@ -411,6 +417,36 @@ const detailFields: Partial<Record<PropertyTab, { label: string; key: string; mo
     { label: "Outstanding", key: "outstanding", money: true },
     { label: "Oldest Debt (days)", key: "oldest_days" },
     { label: "Registered", key: "created_at", date: true },
+  ],
+  tenancy: [
+    { label: "Code", key: "code" },
+    { label: "Name / Tenant", key: "name" },
+    { label: "Tenant Type", key: "tenant_type" },
+    { label: "Email", key: "email" },
+    { label: "Phone", key: "phone" },
+    { label: "Status", key: "status" },
+    { label: "Property", key: "property" },
+    { label: "Unit", key: "unit" },
+    { label: "Lease Ref", key: "reference" },
+    { label: "Lease Start", key: "starts_on", date: true },
+    { label: "Lease End", key: "ends_on", date: true },
+    { label: "Monthly Rent", key: "monthly_rent", money: true },
+    { label: "Outstanding", key: "outstanding", money: true },
+    { label: "Created", key: "created_at", date: true },
+  ],
+  financials: [
+    { label: "Number", key: "number" },
+    { label: "Tenant", key: "tenant_name" },
+    { label: "Lease Ref", key: "lease_reference" },
+    { label: "Period", key: "period_start", date: true },
+    { label: "Due", key: "due_on", date: true },
+    { label: "Issued", key: "issued_on", date: true },
+    { label: "Received", key: "received_on", date: true },
+    { label: "Amount", key: "amount", money: true },
+    { label: "Balance", key: "balance", money: true },
+    { label: "Status", key: "status" },
+    { label: "Payment Method", key: "payment_method" },
+    { label: "Reference", key: "external_reference" },
   ],
   leases: [
     { label: "Reference", key: "reference" },
@@ -881,28 +917,80 @@ function BuildingsView({ rows, loading, search, setSearch, setTab }: {
   );
 }
 
-/* ─── UNITS ─── */
+/* ─── UNITS / OCCUPANCY ─── */
 
 function UnitsView({ rows, loading, search, setSearch, setTab }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
 }) {
+  const [view, setView] = useState<"commercial" | "residential">("residential");
   const units = rows as UnitRow[];
   const occupied = units.filter((u) => u.status === "occupied").length;
   const available = units.filter((u) => u.status === "available").length;
-  const totalArea = units.reduce((s, u) => s + Number(u.area ?? 0), 0);
+  const totalAreaSqft = units.reduce((s, u) => s + Number(u.area ?? 0), 0);
+  const totalAreaM2 = totalAreaSqft / 10.7639;
+  const typologyCounts = units.reduce<Record<string, number>>((acc, u) => {
+    const t = String(u.unit_type ?? "").trim() || "—";
+    acc[t] = (acc[t] ?? 0) + 1;
+    return acc;
+  }, {});
+  const typologyTotal = Object.values(typologyCounts).reduce((s, c) => s + c, 0);
+  const areaCount = units.filter((u) => u.area !== undefined && u.area !== null).length;
 
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Units" value={kN(units.length)} sub="Registered units" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied" value={kN(occupied)} sub={`${pct(occupied, units.length)}% occupied`} link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="◌" iconBg="#fef3c7" iconColor="#d97706" label="Available" value={kN(available)} sub="Vacant units" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="📐" iconBg="#e0f2fe" iconColor="#0284c7" label="Total Area" value={`${kN(totalArea)} m²`} sub="Lettable floor area" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Units" value={kN(units.length)} sub="Registered units" link="View occupancy" onClick={() => setTab("units")} />
+        <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied" value={kN(occupied)} sub={`${pct(occupied, units.length)}% occupied`} link="View occupancy" onClick={() => setTab("units")} />
+        <KpiCard icon="◌" iconBg="#fef3c7" iconColor="#d97706" label="Available" value={kN(available)} sub="Vacant units" link="View occupancy" onClick={() => setTab("units")} />
+        {view === "commercial" ? (
+          <KpiCard icon="📐" iconBg="#e0f2fe" iconColor="#0284c7" label="Total Area" value={`${kN(totalAreaSqft)} sqft`} sub={`${kN(totalAreaM2)} m² lettable`} link="View occupancy" onClick={() => setTab("units")} />
+        ) : (
+          <KpiCard icon="🗂" iconBg="#e0f2fe" iconColor="#0284c7" label="Typologies" value={kN(Object.keys(typologyCounts).length)} sub={`${kN(typologyTotal)} units`} link="View occupancy" onClick={() => setTab("units")} />
+        )}
       </KpiStrip>
 
-      <ViewToolbar title="Unit Register" subtitle="Every lettable and non-lettable unit across your properties" search={search} onSearch={setSearch} placeholder="Search by code, type or property…" />
+      <ViewToolbar title="Occupancy Register" subtitle="Lettable and non-lettable units with area and typology across your properties" search={search} onSearch={setSearch} placeholder="Search by code, type or property…">
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className={`btn sm ${view === "residential" ? "primary" : "ghost"}`} data-testid="occupancy-residential-btn" onClick={() => setView("residential")}>Residential View</button>
+          <button type="button" className={`btn sm ${view === "commercial" ? "primary" : "ghost"}`} data-testid="occupancy-commercial-btn" onClick={() => setView("commercial")}>Commercial View</button>
+        </div>
+      </ViewToolbar>
 
-      <Panel title="Units">
+      {view === "residential" ? (
+        <Panel title="Unit Typology Breakdown">
+          {Object.keys(typologyCounts).length > 0 ? (
+            <div style={{ padding: "14px 18px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+              {Object.entries(typologyCounts).map(([type, count]) => (
+                <div key={type} className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+                  <strong style={{ fontSize: 18 }}>{kN(count)}</strong>
+                  <div className="muted" style={{ fontSize: 11 }}>{type}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState icon="🗂" title="No typology data" description="Unit type / typology (e.g. 1BD, 2BD, 3BD) will appear here once units are registered." />
+          )}
+        </Panel>
+      ) : (
+        <Panel title="Lettable Area Summary">
+          <div style={{ padding: "14px 18px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+            <div className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+              <strong style={{ fontSize: 18 }}>{kN(totalAreaSqft)}</strong>
+              <div className="muted" style={{ fontSize: 11 }}>Total area (sq.ft)</div>
+            </div>
+            <div className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+              <strong style={{ fontSize: 18 }}>{kN(totalAreaM2)}</strong>
+              <div className="muted" style={{ fontSize: 11 }}>Total area (m²)</div>
+            </div>
+            <div className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+              <strong style={{ fontSize: 18 }}>{kN(areaCount)}</strong>
+              <div className="muted" style={{ fontSize: 11 }}>Units with area</div>
+            </div>
+          </div>
+        </Panel>
+      )}
+
+      <Panel title={view === "commercial" ? "Commercial Units" : "Residential Units"}>
         <ListState loading={loading} empty={units.length === 0} emptyTitle="No units found" emptyDesc="Generate units from a property or register them individually.">
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -912,9 +1000,14 @@ function UnitsView({ rows, loading, search, setSearch, setTab }: {
                   <th>Property</th>
                   <th>Building</th>
                   <th>Floor</th>
-                  <th>Type</th>
-                  <th>Size m²</th>
-                  <th>Rent</th>
+                  {view === "commercial" ? (
+                    <>
+                      <th>Area (sq.ft)</th>
+                      <th>Area (m²)</th>
+                    </>
+                  ) : (
+                    <th>Typology</th>
+                  )}
                   <th>Status</th>
                   <th>Tenant</th>
                 </tr>
@@ -922,17 +1015,23 @@ function UnitsView({ rows, loading, search, setSearch, setTab }: {
               <tbody>
                 {units.map((u) => {
                   const rent = (u.metadata as Record<string, unknown> | undefined)?.rent;
+                  const area = u.area === undefined || u.area === null ? null : Number(u.area);
                   return (
                     <tr key={String(u.id)}>
                       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(u.code ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String(u.property_name ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String(u.building_name ?? "—")}</td>
                       <td className="mono" style={{ fontSize: 12 }}>{String(u.floor ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(u.unit_type ?? "—")}</td>
-                      <td className="mono">{u.area === undefined || u.area === null ? "—" : kN(u.area)}</td>
-                      <td className="mono">{rent === undefined ? "—" : kM(rent)}</td>
+                      {view === "commercial" ? (
+                        <>
+                          <td className="mono">{area === null ? "—" : kN(area)}</td>
+                          <td className="mono">{area === null ? "—" : kN(area / 10.7639)}</td>
+                        </>
+                      ) : (
+                        <td style={{ fontSize: 12 }}>{String(u.unit_type ?? "—")}</td>
+                      )}
                       <td><StatusPill value={String(u.status ?? "—")} /></td>
-                      <td style={{ fontSize: 12 }}>{String((u.metadata as Record<string, unknown> | undefined)?.tenant ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String((u.metadata as Record<string, unknown> | undefined)?.tenant ?? "—")} {rent !== undefined ? <span className="muted" style={{ fontSize: 11 }}>· {kM(rent)}/mo</span> : null}</td>
                     </tr>
                   );
                 })}
@@ -1006,10 +1105,11 @@ function ProjectsView({ rows, loading, search, setSearch }: {
 /* ─── TENANTS ─── */
 
 function TenantsView({
-  rows, loading, search, setSearch, setTab, onAdd, onUploadDoc, onSelectRow,
+  rows, loading, search, setSearch, setTab, onAdd, onUploadDoc, onSelectRow, onOpenPortal,
 }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAdd: () => void; onUploadDoc: () => void; onSelectRow: (r: Row) => void;
+  onOpenPortal: (r: Row) => void;
 }) {
   const [filterProperty, setFilterProperty] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -1093,6 +1193,7 @@ function TenantsView({
                     <td className="mono" style={{ color: Number(t.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{t.outstanding === undefined ? "—" : kM(t.outstanding)}</td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
+                        <button className="btn ghost sm" data-testid="tenant-portal-btn" onClick={(e) => { e.stopPropagation(); onOpenPortal(t); }}>Portal</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("leases"); }}>Leases</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onUploadDoc(); }}>Docs</button>
                       </div>
@@ -1299,6 +1400,227 @@ function LeasesView({
         </ListState>
       </Panel>
     </>
+  );
+}
+
+/* ─── TENANCY (consolidated Tenants / Leases / Documents) ─── */
+
+function TenancyView({
+  tenantsRows, leasesRows, documentsRows, loading, search, setSearch, setTab,
+  onAddTenant, onUploadDoc, onAddLease, onDownloadTemplate, onLeaseAction,
+  onSelectTenantRow, onSelectLeaseRow, onDownloadDocument, onVerifyDocument, onRejectDocument,
+  onOpenPortal,
+}: {
+  tenantsRows: Row[]; leasesRows: Row[]; documentsRows: Row[];
+  loading: boolean; search: string; setSearch: (v: string) => void;
+  setTab: (t: PropertyTab) => void;
+  onAddTenant: () => void; onUploadDoc: () => void; onAddLease: () => void;
+  onDownloadTemplate: () => void;
+  onLeaseAction: (r: LeaseRow, action: "activate" | "renew" | "terminate") => void;
+  onSelectTenantRow: (r: Row) => void; onSelectLeaseRow: (r: Row) => void;
+  onDownloadDocument: (r: Row) => void;
+  onVerifyDocument: (r: TenantDocumentRow) => void; onRejectDocument: (r: TenantDocumentRow) => void;
+  onOpenPortal: (r: Row) => void;
+}) {
+  const [section, setSection] = useState<TenancySection>("tenants");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+      <SubTabs
+        active={section}
+        onChange={(id) => setSection(id as TenancySection)}
+        tabs={[
+          { id: "tenants", label: "Tenants" },
+          { id: "leases", label: "Leases" },
+          { id: "documents", label: "Documents" },
+        ]}
+      />
+      {section === "tenants" && (
+        <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} />
+      )}
+      {section === "leases" && (
+        <LeasesView rows={leasesRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAddLease={onAddLease} onDownloadTemplate={onDownloadTemplate} onLeaseAction={onLeaseAction} onSelectRow={onSelectLeaseRow} />
+      )}
+      {section === "documents" && (
+        <TenantDocumentsView rows={documentsRows} loading={loading} search={search} setSearch={setSearch} onUpload={onUploadDoc} onDownload={onDownloadDocument} onVerify={onVerifyDocument} onReject={onRejectDocument} />
+      )}
+    </div>
+  );
+}
+
+/* ─── TENANT PORTAL DRAWER ─── */
+
+function TenantPortalDrawer({ tenant, organizationId, onClose }: {
+  tenant: TenantRow; organizationId: string | null; onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [tenantDetail, setTenantDetail] = useState<Row | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const [statement, setStatement] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      if (!organizationId) { setLoading(false); return; }
+      const tId = String(tenant.id);
+      const tName = String(tenant.name ?? "");
+      const [portalRes, tenantRes, invoiceRes, receiptRes] = await Promise.all([
+        apiFetch(`/property/portal/${tId}/`, {}, organizationId),
+        apiFetch(`/property/tenants/${tId}/`, {}, organizationId),
+        apiFetch("/property/invoices/?search=", {}, organizationId),
+        apiFetch("/property/receipts/?search=", {}, organizationId),
+      ]);
+      if (!active) return;
+
+      let portalInvoices: InvoiceRow[] = [];
+      let portalReceipts: ReceiptRow[] = [];
+      let portalStatement: Record<string, unknown> | null = null;
+      if (portalRes.ok) {
+        const body = await portalRes.json().catch(() => null);
+        if (body && typeof body === "object") {
+          const b = body as { invoices?: unknown; receipts?: unknown; statement?: unknown; tenant?: unknown };
+          if (Array.isArray(b.invoices)) portalInvoices = b.invoices as InvoiceRow[];
+          if (Array.isArray(b.receipts)) portalReceipts = b.receipts as ReceiptRow[];
+          if (b.statement && typeof b.statement === "object") portalStatement = b.statement as Record<string, unknown>;
+          if (b.tenant && typeof b.tenant === "object") setTenantDetail(b.tenant as Row);
+        }
+      }
+      if (tenantRes.ok && !tenantDetail) {
+        const detail = await tenantRes.json().catch(() => null);
+        if (detail && typeof detail === "object") setTenantDetail(detail as Row);
+      }
+
+      if (portalInvoices.length === 0 && invoiceRes.ok) {
+        const list = await invoiceRes.json().catch(() => []);
+        const arr = Array.isArray(list) ? list as InvoiceRow[] : [];
+        portalInvoices = arr.filter((i) => String(i.tenant_id ?? "") === tId || String(i.tenant ?? "") === tId || String(i.tenant_name ?? "") === tName);
+      }
+      if (portalReceipts.length === 0 && receiptRes.ok) {
+        const list = await receiptRes.json().catch(() => []);
+        const arr = Array.isArray(list) ? list as ReceiptRow[] : [];
+        portalReceipts = arr.filter((r) => String(r.tenant ?? "") === tId || String(r.tenant_name ?? "") === tName);
+      }
+      if (active) {
+        setInvoices(portalInvoices);
+        setReceipts(portalReceipts);
+        setStatement(portalStatement);
+        setLoading(false);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [tenant.id, tenant.name, organizationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const detail = tenantDetail ?? (tenant as unknown as Row);
+  const totalBilled = invoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
+  const totalPaid = receipts.reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const outstanding = invoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
+  const statementBalance = statement?.balance !== undefined ? Number(statement.balance) : outstanding;
+  const statementBilled = statement?.total_billed !== undefined ? Number(statement.total_billed) : totalBilled;
+  const statementPaid = statement?.total_paid !== undefined ? Number(statement.total_paid) : totalPaid;
+
+  return (
+    <DetailDrawer title={`Tenant Portal — ${String(tenant.name ?? tenant.code ?? "Tenant")}`} onClose={onClose} width={520}>
+      {loading ? <LoadingState rows={5} /> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span className="muted">Tenant</span><strong>{String(detail.name ?? tenant.name ?? "—")}</strong>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span className="muted">Code</span><strong className="mono">{String(detail.code ?? "—")}</strong>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span className="muted">Contact</span><strong style={{ textAlign: "right" }}>{String(detail.email ?? tenant.email ?? "—")} {detail.phone || tenant.phone ? `· ${String(detail.phone ?? tenant.phone)}` : ""}</strong>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span className="muted">Property / Unit</span><strong>{String(detail.property ?? tenant.property ?? "—")}{detail.unit || tenant.unit ? ` · ${String(detail.unit ?? tenant.unit)}` : ""}</strong>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+              <span className="muted">Status</span><StatusPill value={String(detail.status ?? tenant.status ?? "—")} />
+            </div>
+          </div>
+
+          <Panel title="Statement">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ background: "var(--surface-2)", borderRadius: 8, padding: 10 }}>
+                <small className="muted" style={{ display: "block", fontSize: 11 }}>Total Billed</small>
+                <strong className="mono" style={{ fontSize: 13 }}>{kM(statementBilled)}</strong>
+              </div>
+              <div style={{ background: "var(--surface-2)", borderRadius: 8, padding: 10 }}>
+                <small className="muted" style={{ display: "block", fontSize: 11 }}>Total Paid</small>
+                <strong className="mono" style={{ fontSize: 13, color: "#16a34a" }}>{kM(statementPaid)}</strong>
+              </div>
+              <div style={{ background: "var(--surface-2)", borderRadius: 8, padding: 10 }}>
+                <small className="muted" style={{ display: "block", fontSize: 11 }}>Outstanding</small>
+                <strong className="mono" style={{ fontSize: 13, color: Number(statementBalance) > 0 ? "var(--danger)" : "#16a34a" }}>{kM(statementBalance)}</strong>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Invoices" badge={invoices.length}>
+            {invoices.length > 0 ? (
+              <div className="table-scroll">
+                <table className="fc-data-table">
+                  <thead>
+                    <tr>
+                      <th>Invoice</th>
+                      <th>Due</th>
+                      <th>Amount</th>
+                      <th>Balance</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((inv) => (
+                      <tr key={String(inv.id)}>
+                        <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(inv.number ?? "—")}</td>
+                        <td style={{ fontSize: 12 }}>{fmtDate(inv.due_on)}</td>
+                        <td className="mono">{kM(inv.amount)}</td>
+                        <td className="mono" style={{ color: Number(inv.balance ?? 0) > 0 ? "var(--danger)" : "#16a34a" }}>{kM(inv.balance)}</td>
+                        <td><StatusPill value={String(inv.status ?? "—")} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState icon="🧾" title="No invoices" description="Invoices for this tenant appear here once issued." />
+            )}
+          </Panel>
+
+          <Panel title="Receipts" badge={receipts.length}>
+            {receipts.length > 0 ? (
+              <div className="table-scroll">
+                <table className="fc-data-table">
+                  <thead>
+                    <tr>
+                      <th>Receipt</th>
+                      <th>Date</th>
+                      <th>Method</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receipts.map((r) => (
+                      <tr key={String(r.id)}>
+                        <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(r.number ?? "—")}</td>
+                        <td style={{ fontSize: 12 }}>{fmtDate(r.received_on)}</td>
+                        <td style={{ fontSize: 12 }}>{String(r.payment_method ?? "—").replace(/_/g, " ")}</td>
+                        <td className="mono">{kM(r.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState icon="🧾" title="No receipts" description="Recorded payments for this tenant appear here." />
+            )}
+          </Panel>
+        </div>
+      )}
+    </DetailDrawer>
   );
 }
 
@@ -2127,6 +2449,46 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab, onAdd }: {
         </ListState>
       </Panel>
     </>
+  );
+}
+
+/* ─── FINANCIALS (consolidated collection interfaces) ─── */
+
+function FinancialsView({
+  financialsSection, setFinancialsSection, rows, rentInvoices, analytics, creditNotes, loading,
+  search, setSearch, setTab, rentSection, setRentSection,
+  onGenerateInvoice, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onMatch, onAddCreditNote,
+}: {
+  financialsSection: FinancialsSection; setFinancialsSection: (s: FinancialsSection) => void;
+  rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null; creditNotes: Row[];
+  loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
+  rentSection: RentSection; setRentSection: (s: RentSection) => void;
+  onGenerateInvoice: (r: RentScheduleRow) => void; onRecordReceipt: (invoiceId?: ID) => void;
+  onSendReminder: (row: InvoiceRow) => void;
+  onInvoiceAction: (row: InvoiceRow, action: "issue" | "void") => void; onSelectRow: (r: Row) => void;
+  onMatch: (r: Row) => void; onAddCreditNote: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+      <SubTabs
+        active={financialsSection}
+        onChange={(id) => setFinancialsSection(id as FinancialsSection)}
+        tabs={[
+          { id: "schedules", label: "Schedules" },
+          { id: "invoices", label: "Invoices" },
+          { id: "receipts", label: "Receipts" },
+          { id: "allocations", label: "Allocations" },
+          { id: "reconciliation", label: "Reconciliation" },
+          { id: "credit-notes", label: "Credit Notes" },
+        ]}
+      />
+      {financialsSection === "schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={onGenerateInvoice} />}
+      {financialsSection === "invoices" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={setTab} onRecordReceipt={onRecordReceipt} onSendReminder={onSendReminder} onInvoiceAction={onInvoiceAction} onSelectRow={onSelectRow} />}
+      {financialsSection === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={onRecordReceipt} />}
+      {financialsSection === "allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
+      {financialsSection === "reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={onMatch} />}
+      {financialsSection === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddCreditNote} />}
+    </div>
   );
 }
 
@@ -3511,7 +3873,12 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [error, setError] = useState("");
   const [rentSection, setRentSection] = useState<RentSection>("invoices");
   const [scSection, setScSection] = useState<ScSection>("setup");
+  const [financialsSection, setFinancialsSection] = useState<FinancialsSection>("schedules");
+  const [tenantsRows, setTenantsRows] = useState<Row[]>([]);
+  const [leasesRows, setLeasesRows] = useState<Row[]>([]);
+  const [tenantDocsRows, setTenantDocsRows] = useState<Row[]>([]);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
+  const [portalTenant, setPortalTenant] = useState<TenantRow | null>(null);
 
   // Selecting a property row sets the global property context (visible across
   // Property / Facility / Companion modules via PropertyContextBar) and opens
@@ -3594,6 +3961,15 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     return "service-charges";
   };
 
+  const financialEndpoint = (s: FinancialsSection): string => {
+    if (s === "schedules") return "rent-schedules";
+    if (s === "receipts") return "receipts";
+    if (s === "allocations") return "receipt-allocations";
+    if (s === "reconciliation") return "bank-transactions";
+    if (s === "credit-notes") return "credit-notes";
+    return "invoices";
+  };
+
   const loadData = useCallback(async () => {
     if (!organizationId) return;
     const version = ++loadVersion.current;
@@ -3630,7 +4006,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const data = await res.json();
         if (version !== loadVersion.current) return;
         setRows((data as { reports?: Row[] }).reports ?? []);
-      } else if (tab === "rent") {
+      } else if (tab === "rent" || (tab === "financials" && financialsSection === "invoices")) {
         if (rentSection === "arrears") {
           const agingRes = await apiFetch("/property/analytics/aging/?search=", {}, organizationId);
           if (!agingRes.ok) { fail(); return; }
@@ -3665,7 +4041,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(listData) ? listData as Row[] : []);
         setFinancial(finData as FinancialAnalytics);
-      } else if (tab === "receipts") {
+      } else if (tab === "receipts" || (tab === "financials" && financialsSection === "receipts")) {
         const [listRes, cnRes] = await Promise.all([
           apiFetch(`/property/receipts/?search=${q}`, {}, organizationId),
           apiFetch("/property/credit-notes/?search=", {}, organizationId),
@@ -3676,6 +4052,41 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(listData) ? listData as Row[] : []);
         setCreditNotes(Array.isArray(cnData) ? cnData as Row[] : []);
+      } else if (tab === "tenancy") {
+        const [tenantsRes, leasesRes, docsRes, ageRes] = await Promise.all([
+          apiFetch(`/property/tenants/?search=${q}`, {}, organizationId),
+          apiFetch(`/property/leases/?search=${q}`, {}, organizationId),
+          apiFetch(`/property/tenant-documents/?search=${q}`, {}, organizationId),
+          apiFetch("/property/analytics/aging/?search=", {}, organizationId),
+        ]);
+        if (!tenantsRes.ok || !leasesRes.ok || !docsRes.ok) { fail(); return; }
+        const tenantsData = await tenantsRes.json();
+        const leasesData = await leasesRes.json();
+        const docsData = await docsRes.json();
+        if (version !== loadVersion.current) return;
+        const tenantsList = Array.isArray(tenantsData) ? tenantsData as Row[] : [];
+        const leasesList = Array.isArray(leasesData) ? leasesData as Row[] : [];
+        const docsList = Array.isArray(docsData) ? docsData as Row[] : [];
+        if (ageRes.ok) {
+          const ageData = await ageRes.json();
+          const ageTenants = (ageData as AgingAnalytics).tenants ?? [];
+          const byName = new Map(ageTenants.map((t) => [String(t.tenant), t]));
+          const merged = tenantsList.map((r) => ({ ...r, ...(byName.get(String((r as TenantRow).name)) ?? {}) }));
+          setTenantsRows(merged);
+        } else {
+          setTenantsRows(tenantsList);
+        }
+        setLeasesRows(leasesList);
+        setTenantDocsRows(docsList);
+      } else if (tab === "financials") {
+        const ep = financialEndpoint(financialsSection);
+        const res = await apiFetch(`/property/${ep}/?search=${q}`, {}, organizationId);
+        if (!res.ok) { fail(); return; }
+        const data = await res.json();
+        if (version !== loadVersion.current) return;
+        const list = Array.isArray(data) ? data as Row[] : [];
+        setRows(list);
+        if (financialsSection === "credit-notes") setCreditNotes(list);
       } else if (tab === "properties") {
         const [listRes, dashRes] = await Promise.all([
           apiFetch(`/property/properties/?search=${q}`, {}, organizationId),
@@ -3755,7 +4166,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, organizationId, rentSection, scSection]);
+  }, [tab, search, organizationId, rentSection, scSection, financialsSection]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);
@@ -4230,6 +4641,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     setShowRecordReceipt(true);
   };
 
+  const openTenantPortal = (row: Row) => {
+    setPortalTenant(row as TenantRow);
+  };
+
   const downloadDocument = (row: Row) => {
     const url = String(row.file_url ?? "");
     if (!url) {
@@ -4261,14 +4676,20 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       { id: "buildings", label: "Buildings" },
     ],
     units: [
-      { id: "units", label: "Unit Occupancy" },
+      { id: "units", label: "Occupancy" },
       { id: "projects", label: "Property Projects" },
+    ],
+    tenancy: [
+      { id: "tenancy", label: "Tenancy" },
     ],
     tenants: [
       { id: "tenants", label: "Tenants" },
       { id: "tenant-documents", label: "Tenant documents" },
     ],
     leases:          [],
+    financials: [
+      { id: "financials", label: "Financials" },
+    ],
     rent: [
       { id: "rent",                 label: "Invoices" },
       { id: "rent-schedules",       label: "Rent Roll" },
@@ -4303,6 +4724,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     tenants: "tenants",
     "tenant-documents": "tenants",
     leases: "leases",
+    tenancy: "tenancy",
+    financials: "financials",
     "rent-schedules": "rent",
     rent: "rent",
     arrears: "rent",
@@ -4329,8 +4752,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     overview: "overview",
     properties: "properties",
     units: "units",
+    tenancy: "tenancy",
     tenants: "tenants",
     leases: "leases",
+    financials: "financials",
     rent: "rent",
     "service-charges": "service-charges",
     expenses: "expenses",
@@ -4374,9 +4799,11 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "projects" && <ProjectsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
-        {tab === "tenants" && <TenantsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onSelectRow={setSelectedRow} />}
+        {tab === "tenants" && <TenantsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onSelectRow={setSelectedRow} onOpenPortal={openTenantPortal} />}
+        {tab === "tenancy" && <TenancyView tenantsRows={tenantsRows} leasesRows={leasesRows} documentsRows={tenantDocsRows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddTenant={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectTenantRow={setSelectedRow} onSelectLeaseRow={setSelectedRow} onDownloadDocument={downloadDocument} onVerifyDocument={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onRejectDocument={setDocumentRejectTarget} onOpenPortal={openTenantPortal} />}
         {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onReject={setDocumentRejectTarget} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
+        {tab === "financials" && <FinancialsView financialsSection={financialsSection} setFinancialsSection={setFinancialsSection} rows={rows} rentInvoices={rentInvoices} analytics={analytics} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} rentSection={rentSection} setRentSection={setRentSection} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} onAddCreditNote={() => setFinancialIntake("credit-note")} />}
         {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} />}
         {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} />}
         {tab === "arrears" && <ArrearsView rows={rows} analytics={analytics} loading={loading} search={search} setSearch={setSearch} onNavigateReminders={navigateRemindersForTenant} />}
@@ -4400,6 +4827,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
           <DetailDrawer title={labels[tab]} onClose={() => setSelectedRow(null)} width={400}>
             <RowDetailPanel tab={tab} row={selectedRow} />
           </DetailDrawer>
+        )}
+
+        {portalTenant && (
+          <TenantPortalDrawer tenant={portalTenant} organizationId={organizationId} onClose={() => setPortalTenant(null)} />
         )}
 
         {showAddProperty && (

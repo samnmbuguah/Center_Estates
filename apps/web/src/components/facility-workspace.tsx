@@ -20,7 +20,10 @@ type Tab =
   | "service-requests"
   | "meters"
   | "contractors"
-  | "reports";
+  | "reports"
+  | "expenditure"
+  | "spare-parts"
+  | "consumables";
 
 type Row = Record<string, string | number | boolean | null>;
 type Kpis = Dashboard["kpis"];
@@ -48,6 +51,9 @@ const labels: Record<Tab, string> = {
   meters: "Utility Management",
   contractors: "Contractors",
   reports: "Reports & BI",
+  expenditure: "Expenditure & Floats",
+  "spare-parts": "Spare Parts",
+  consumables: "Consumables",
 };
 
 /* ─── helpers ─── */
@@ -905,9 +911,10 @@ function WorkOrderDetail({
   onBack: () => void;
   organizationId: string | null;
 }) {
-  const [detailTab, setDetailTab] = useState<"overview" | "details" | "tasks">("overview");
+  const [detailTab, setDetailTab] = useState<"overview" | "history" | "parts" | "media">("overview");
   const [events, setEvents] = useState<Row[]>([]);
   const [costItems, setCostItems] = useState<Row[]>([]);
+  const [attachments, setAttachments] = useState<Row[]>([]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -918,6 +925,10 @@ function WorkOrderDetail({
     apiFetch(`/facility/work-order-cost-items/?search=${encodeURIComponent(String(row.number ?? ""))}`, {}, organizationId)
       .then((r) => (r.ok ? r.json() : []))
       .then(setCostItems)
+      .catch(() => {});
+    apiFetch(`/facility/work-order-attachments/?search=${encodeURIComponent(String(row.number ?? ""))}`, {}, organizationId)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAttachments)
       .catch(() => {});
   }, [row.number, organizationId]);
 
@@ -960,12 +971,19 @@ function WorkOrderDetail({
         </div>
       </div>
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {(["overview", "details", "tasks"] as const).map((t) => (
-          <button key={t} onClick={() => setDetailTab(t)} style={{ background: "transparent", border: 0, borderBottom: detailTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: detailTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", textTransform: "capitalize" }}>
-            {t === "tasks" ? "Tasks & Updates" : t.charAt(0).toUpperCase() + t.slice(1)}
+        {([
+          { id: "overview", label: "Overview" },
+          { id: "history", label: `History${events.length ? ` (${events.length})` : ""}` },
+          { id: "parts", label: `Parts & Labor${costItems.length ? ` (${costItems.length})` : ""}` },
+          { id: "media", label: `Media${attachments.length ? ` (${attachments.length})` : ""}` },
+        ] as const).map((t) => (
+          <button key={t.id} onClick={() => setDetailTab(t.id)} style={{ background: "transparent", border: 0, borderBottom: detailTab === t.id ? "2px solid #e23b3b" : "2px solid transparent", color: detailTab === t.id ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", textTransform: "capitalize" }}>
+            {t.label}
           </button>
         ))}
       </div>
+
+      {detailTab === "overview" && (
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 340px" }}>
         <div style={{ display: "grid", gap: 16 }}>
           <div className="data-panel" style={{ padding: "16px 18px" }}>
@@ -974,7 +992,7 @@ function WorkOrderDetail({
               { label: "Priority", value: <span className="fc-priority-chip"><i style={{ background: priorityColors[priority] ?? "#9ca3af" }} /><span style={{ color: priorityColors[priority] ?? "#9ca3af", textTransform: "capitalize" }}>{priority}</span></span> },
               { label: "SLA Response Time", value: "Within 4 hours" },
               { label: "SLA Resolution Time", value: "Within 48 hours" },
-              { label: "Assigned To", value: "James Kariuki" },
+              { label: "Assigned To", value: String(row.assigned_to_name ?? "James Kariuki") },
               { label: "Reported At", value: String(row.reported_at ?? "—") },
               { label: "Scheduled For", value: String(row.scheduled_for ?? "—") },
               { label: "Progress", value: `${String(row.progress ?? 0)}%` },
@@ -1088,6 +1106,107 @@ function WorkOrderDetail({
           </div>
         </div>
       </div>
+      )}
+
+      {detailTab === "history" && (
+        <div className="data-panel" style={{ padding: "16px 18px" }}>
+          <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Order History / Events</strong>
+          {events.length > 0 ? (
+            <div style={{ display: "grid", gap: 14 }}>
+              {events.map((evt, i, arr) => (
+                <div key={String(evt.id ?? i)} style={{ display: "flex", gap: 10 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div style={{ background: i === 0 ? "#e23b3b" : "#d7dce5", borderRadius: "50%", height: 10, width: 10 }} />
+                    {i < arr.length - 1 && <div style={{ background: "#edf0f5", flex: 1, width: 2, marginTop: 4 }} />}
+                  </div>
+                  <div style={{ paddingBottom: 12 }}>
+                    <div style={{ alignItems: "center", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <strong style={{ fontSize: 13 }}>{String(evt.event_type ?? "—").replace(/_/g, " ")}</strong>
+                      {(evt.from_status || evt.to_status) && (
+                        <span style={{ fontSize: 11, color: "#6b7890" }}>
+                          {String(evt.from_status ?? "—").replace(/_/g, " ")} → {String(evt.to_status ?? "—").replace(/_/g, " ")}
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ color: "#8a96a7", fontSize: 11 }}>{String(evt.created_at ?? "—")} · by {String(evt.actor_name ?? "—")}</span>
+                    {evt.notes && <p style={{ color: "#4b5563", fontSize: 12, margin: "6px 0 0" }}>{String(evt.notes)}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No events recorded for this work order yet." />
+          )}
+        </div>
+      )}
+
+      {detailTab === "parts" && (
+        <div className="data-panel">
+          <div className="fc-table-toolbar">
+            <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Labor & Parts Cost Items</span>
+            <button className="fc-toolbar-btn" onClick={() => exportCsv(costItems, `work-order-${String(row.number ?? "cost")}-items.csv`)}>↓ Export</button>
+          </div>
+          <div className="table-scroll">
+            <table className="fc-data-table">
+              <thead>
+                <tr><th>Type</th><th>Description</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th>Supplier</th><th>Reference</th><th>Added By</th></tr>
+              </thead>
+              <tbody>
+                {costItems.length > 0 ? costItems.map((item, idx) => (
+                  <tr key={idx}>
+                    <td><FcStatus value={String(item.kind ?? "other")} /></td>
+                    <td style={{ fontSize: 12 }}>{String(item.description ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{String(item.quantity ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{money.format(Number(item.unit_cost ?? 0))}</td>
+                    <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</td>
+                    <td style={{ fontSize: 12, color: "#6b7890" }}>{String(item.supplier ?? "—")}</td>
+                    <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(item.reference ?? "—")}</td>
+                    <td style={{ fontSize: 12, color: "#6b7890" }}>{String(item.added_by_name ?? "—")}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={8}><EmptyState message="No cost items recorded for this work order yet." /></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {detailTab === "media" && (
+        <div className="data-panel" style={{ padding: "16px 18px" }}>
+          <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Media / Attachments</strong>
+          {attachments.length > 0 ? (
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+              {attachments.map((att, idx) => {
+                const url = String(att.file_url ?? "");
+                const isImage = /\.(png|jpe?g|gif|webp|svg|avif)(\?.*)?$/i.test(url) || String(att.media_type ?? "").startsWith("image");
+                return (
+                  <div key={String(att.id ?? idx)} style={{ background: "#f8fafc", border: "1px solid #eef1f5", borderRadius: 10, overflow: "hidden" }}>
+                    {isImage ? (
+                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "#eef1f5" }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={String(att.caption ?? att.file_name ?? "attachment")} style={{ height: "100%", width: "100%", objectFit: "cover" }} />
+                      </div>
+                    ) : (
+                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "#eef1f5", color: "#6b7890", fontSize: 32 }}>📄</div>
+                    )}
+                    <div style={{ padding: "10px 12px" }}>
+                      <strong style={{ display: "block", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(att.file_name ?? "—")}</strong>
+                      <small style={{ color: "#8a96a7", fontSize: 10 }}>{String(att.caption ?? att.media_type ?? "—")}</small>
+                      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                        {url && <a href={url} target="_blank" rel="noreferrer" style={{ color: "#e23b3b", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>Open →</a>}
+                        <span style={{ color: "#8a96a7", fontSize: 10, marginLeft: "auto" }}>{String(att.uploaded_by_name ?? "—")}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState message="No media attached to this work order yet." />
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -1331,8 +1450,81 @@ function WorkOrdersView({
 }
 
 /* ─── Planned Maintenance tab ─── */
-function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canAdminister: boolean }; onAdd: () => void }) {
+function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd, organizationId, reload }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canAdminister: boolean }; onAdd: () => void; organizationId: string | null; reload: () => void }) {
   const [subTab, setSubTab] = useState("calendar");
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkAssets, setBulkAssets] = useState<Row[]>([]);
+  const [bulkGrid, setBulkGrid] = useState<Record<string, Record<number, string>>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState("");
+  const bulkMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  function openBulkSchedule() {
+    setBulkMessage("");
+    setBulkGrid({});
+    setShowBulk(true);
+    if (organizationId) {
+      apiFetch("/facility/assets/", {}, organizationId)
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setBulkAssets)
+        .catch(() => {});
+    }
+  }
+
+  function setBulkDate(assetId: string, monthIndex: number, value: string) {
+    setBulkGrid((prev) => {
+      const next = { ...prev };
+      next[assetId] = { ...(next[assetId] ?? {}) };
+      if (value) next[assetId][monthIndex] = value;
+      else delete next[assetId][monthIndex];
+      if (Object.keys(next[assetId]).length === 0) delete next[assetId];
+      return next;
+    });
+  }
+
+  async function saveBulkSchedule() {
+    if (!organizationId) return;
+    const year = new Date().getFullYear();
+    const entries: { asset: Row; date: string; monthIndex: number }[] = [];
+    Object.entries(bulkGrid).forEach(([assetId, monthMap]) => {
+      const asset = bulkAssets.find((a) => String(a.id) === assetId);
+      if (!asset) return;
+      Object.entries(monthMap).forEach(([mi, date]) => {
+        entries.push({ asset, date, monthIndex: Number(mi) });
+      });
+    });
+    if (entries.length === 0) {
+      setBulkMessage("Select at least one asset/month date before saving.");
+      return;
+    }
+    setBulkSaving(true);
+    setBulkMessage("");
+    await apiFetch("/auth/csrf/");
+    let failed = 0;
+    for (const entry of entries) {
+      const monthName = bulkMonths[entry.monthIndex];
+      const payload = {
+        code: `PPM-${String(entry.asset.code ?? "AST")}-${year}${String(entry.monthIndex + 1).padStart(2, "0")}`,
+        name: `Annual Maintenance — ${String(entry.asset.name ?? "Asset")} (${monthName})`,
+        asset: entry.asset.id,
+        frequency: "annual",
+        next_due_on: entry.date,
+        estimated_hours: 1,
+        is_active: true,
+      };
+      const response = await apiFetch(
+        "/facility/planned-maintenance/",
+        { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload) },
+        organizationId
+      );
+      if (!response.ok) failed++;
+    }
+    setBulkSaving(false);
+    setBulkMessage(failed ? `${entries.length - failed}/${entries.length} schedules saved — ${failed} failed.` : `${entries.length} annual schedule${entries.length > 1 ? "s" : ""} saved.`);
+    setShowBulk(false);
+    setBulkGrid({});
+    reload();
+  }
   const days = ["Mon 12 May", "Tue 13 May", "Wed 14 May", "Thu 15 May", "Fri 16 May", "Sat 17 May", "Sun 18 May"];
   const calEvents = [
     [
@@ -1646,7 +1838,14 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
           <article className="data-panel">
             <div style={{ borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px" }}>
               <strong style={{ fontSize: 14 }}>Upcoming PPM Tasks</strong>
-              <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {permissions.canAdminister && (
+                  <button onClick={openBulkSchedule} style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 6, color: "#92400e", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "5px 12px" }}>
+                    ▦ Bulk Schedule
+                  </button>
+                )}
+                <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all</button>
+              </div>
             </div>
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -1691,6 +1890,57 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd }: { 
           </article>
         </div>
       </div>
+
+      {/* Bulk annual scheduling grid modal */}
+      {showBulk && (
+        <Modal title="Bulk Annual Schedule" onClose={() => setShowBulk(false)} wide>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ color: "#4b5563", fontSize: 12, margin: 0 }}>
+              Set the scheduled annual maintenance date for each asset and month. Each filled cell creates one annual{" "}
+              <code>PreventiveSchedule</code> via <code>/facility/planned-maintenance/</code> (backend has no bulk endpoint, so one create per asset).
+            </p>
+            {bulkMessage && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, color: "#15803d", fontSize: 12, padding: "8px 12px" }}>{bulkMessage}</div>}
+            <div className="table-scroll" style={{ maxHeight: 420 }}>
+              <table className="fc-data-table" style={{ minWidth: 1240 }}>
+                <thead>
+                  <tr>
+                    <th style={{ position: "sticky", left: 0, background: "#fff", zIndex: 2, minWidth: 180 }}>Asset</th>
+                    {bulkMonths.map((m) => <th key={m}>{m}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkAssets.length > 0 ? bulkAssets.map((asset) => (
+                    <tr key={String(asset.id)}>
+                      <td style={{ position: "sticky", left: 0, background: "#fff", fontSize: 12, minWidth: 180 }}>
+                        <strong>{String(asset.name ?? "—")}</strong>
+                        <small style={{ color: "#8a96a7", display: "block", fontSize: 10 }}>{String(asset.code ?? "—")}</small>
+                      </td>
+                      {bulkMonths.map((m, mi) => (
+                        <td key={m} style={{ padding: "6px 4px" }}>
+                          <input
+                            type="date"
+                            value={bulkGrid[String(asset.id)]?.[mi] ?? ""}
+                            onChange={(e) => setBulkDate(String(asset.id), mi, e.target.value)}
+                            style={{ border: "1px solid #d7dce5", borderRadius: 6, fontSize: 11, padding: "4px 6px", width: "100%", minWidth: 120 }}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={13}><EmptyState message="No assets available to schedule." /></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+              <button type="button" className="btn ghost" onClick={() => setShowBulk(false)}>Cancel</button>
+              <button type="button" className="btn primary" onClick={() => void saveBulkSchedule()} disabled={bulkSaving}>
+                {bulkSaving ? "Saving…" : "Save Annual Schedule"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }
@@ -2427,6 +2677,19 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
     ? (rows.reduce((s, r) => s + Number(r.rating ?? 0), 0) / rows.length).toFixed(1)
     : "4.3";
 
+  const [nowMs] = useState(() => Date.now());
+  const daysUntil = (value: string | number | boolean | null | undefined): number | null => {
+    if (!value) return null;
+    const d = new Date(String(value));
+    if (Number.isNaN(d.getTime())) return null;
+    return Math.ceil((d.getTime() - nowMs) / 86400000);
+  };
+  const isExpiringRow = (r: Row) => {
+    const days = daysUntil(r.insurance_expires_on ?? r.license_expires_on);
+    return days !== null && days >= 0 && days <= 30;
+  };
+  const expiringCount = hasData ? displayRows.filter(isExpiringRow).length : 4;
+
   return (
     <>
       <div className="fc-kpi-strip six-col">
@@ -2434,17 +2697,20 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
         <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active Contractors" value={String(activeContractors)} sub={totalContractors ? `${Math.round((activeContractors / totalContractors) * 100)}% of total` : "0% of total"} />
         <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Average Rating" value={`${avgRating} / 5`} sub="Across all contractors" />
         <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="—" sub="No data available" />
-        <FcKpiCard icon="📄" iconBg="#fef3c7" iconColor="#92400e" label="Contracts Expiring" value="—" sub="No data available" />
+        <FcKpiCard icon="📄" iconBg="#fee2e2" iconColor="#b91c1c" label="Contracts Expiring" value={String(expiringCount)} sub={expiringCount ? "Within 30 days" : "No expirations"} />
         <FcKpiCard icon="💰" iconBg="#fdf4ff" iconColor="#9333ea" label="Total Spend (YTD)" value="—" sub="No data available" />
       </div>
 
       {/* Tabs */}
       <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {(["all", "category", "performance", "approved", "blacklisted"] as const).map((t) => {
-          const tabLabels: Record<string, string> = { all: "All Contractors", category: "By Category", performance: "By Performance", approved: "Approved", blacklisted: "Blacklisted" };
+        {(["all", "category", "performance", "approved", "expiring", "blacklisted"] as const).map((t) => {
+          const tabLabels: Record<string, string> = { all: "All Contractors", category: "By Category", performance: "By Performance", approved: "Approved", expiring: "Expiring Soon", blacklisted: "Blacklisted" };
           return (
             <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 14px", whiteSpace: "nowrap" }}>
               {tabLabels[t]}
+              {t === "expiring" && expiringCount > 0 && (
+                <span style={{ background: "#fee2e2", borderRadius: 99, color: "#b91c1c", fontSize: 10, fontWeight: 800, marginLeft: 6, padding: "1px 7px" }}>{expiringCount}</span>
+              )}
             </button>
           );
         })}
@@ -2457,6 +2723,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
         const filteredRows = subTab === "all" ? displayRows
           : subTab === "approved" ? displayRows.filter((r) => String(r.status) === "active")
           : subTab === "blacklisted" ? displayRows.filter((r) => String(r.status) === "blacklisted")
+          : subTab === "expiring" ? displayRows.filter(isExpiringRow)
           : subTab === "category" ? displayRows
           : subTab === "performance" ? displayRows.filter((r) => Number(r.rating ?? 0) >= 4.0)
           : displayRows;
@@ -2493,12 +2760,18 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
                   const rating = Number(row.rating ?? 0);
                   const statusStr = String(row.status ?? "active");
                   const cat = String(row.specialty ?? "General");
+                  const expiring = isExpiringRow(row);
                   return (
-                    <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
+                    <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)} data-testid={expiring ? "contractor-expiring" : undefined}>
                       <td>
                         <div style={{ display: "grid", gap: 1 }}>
                           <strong style={{ fontSize: 13 }}>{String(row.name ?? "—")}</strong>
                           <small style={{ color: "#8a96a7", fontSize: 11 }}>{String(row.contact_name ?? "—")}</small>
+                          {expiring && (
+                            <span style={{ alignItems: "center", background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 99, color: "#b91c1c", display: "inline-flex", fontSize: 10, fontWeight: 800, gap: 4, marginTop: 4, padding: "2px 8px", width: "fit-content" }}>
+                              ⚠ Expiring soon{(() => { const d = daysUntil(row.insurance_expires_on ?? row.license_expires_on); return d !== null ? ` (${d}d)` : ""; })()}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -2618,6 +2891,323 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
         )}
       </div>
       ); })()}
+    </>
+  );
+}
+
+/* ─── Expenditure Management & Landlord Floats ─── */
+type LocalExpenditure = {
+  id: string;
+  date: string;
+  category: string;
+  description: string;
+  amount: number;
+  float_ref: string;
+  status: string;
+};
+
+function ExpenditureView({ rows, organizationId }: { rows: Row[]; organizationId: string | null }) {
+  const storageKey = organizationId ? `facility-expenditures-${organizationId}` : "facility-expenditures";
+  const floatKey = organizationId ? `facility-float-${organizationId}` : "facility-float";
+  const defaultFloat = 5000000;
+
+  const [localExpenditures, setLocalExpenditures] = useState<LocalExpenditure[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
+      return Array.isArray(parsed) ? (parsed as LocalExpenditure[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [floatAllocated, setFloatAllocated] = useState<number>(() => {
+    if (typeof window === "undefined") return defaultFloat;
+    try {
+      const stored = Number(window.localStorage.getItem(floatKey) ?? String(defaultFloat));
+      return Number.isFinite(stored) && stored > 0 ? stored : defaultFloat;
+    } catch {
+      return defaultFloat;
+    }
+  });
+  const [showRecord, setShowRecord] = useState(false);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(localExpenditures));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [localExpenditures, storageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(floatKey, String(floatAllocated));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [floatAllocated, floatKey]);
+
+  const costItemsSpent = rows.reduce((sum, r) => sum + Number(r.total ?? 0), 0);
+  const localSpent = localExpenditures.reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
+  const spent = costItemsSpent + localSpent;
+  const remaining = floatAllocated - spent;
+  const spentPct = floatAllocated > 0 ? Math.max(0, Math.min(100, Math.round((spent / floatAllocated) * 100))) : 0;
+
+  const expenditures: Row[] = [
+    ...localExpenditures.map((e) => ({ id: e.id, date: e.date, category: e.category, description: e.description, amount: e.amount, float_ref: e.float_ref, status: e.status })),
+    ...rows.map((r) => ({
+      id: `cost-${String(r.id)}`,
+      date: String(r.created_at ?? "—"),
+      category: String(r.kind ?? "other").replace(/_/g, " "),
+      description: String(r.description ?? "—"),
+      amount: Number(r.total ?? 0),
+      float_ref: String(r.reference ?? "—"),
+      status: "approved",
+    })),
+  ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+  async function recordExpenditure(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const entry: LocalExpenditure = {
+      id: `exp-${Date.now()}`,
+      date: String(form.get("date") ?? new Date().toISOString().slice(0, 10)),
+      category: String(form.get("category") ?? "General"),
+      description: String(form.get("description") ?? ""),
+      amount: Number(form.get("amount") ?? 0),
+      float_ref: String(form.get("float_ref") ?? `FLT-${new Date().getFullYear()}`),
+      status: "pending",
+    };
+    setLocalExpenditures((prev) => [...prev, entry]);
+    setShowRecord(false);
+  }
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <h2 style={{ fontSize: 20, margin: 0, letterSpacing: "-.02em" }}>Expenditure & Landlord Floats</h2>
+          <p style={{ color: "#8a96a7", fontSize: 13, margin: "4px 0 0" }}>
+            Track the landlord float cash-flow advance against facilities expenditure.
+          </p>
+        </div>
+        <button className="fc-toolbar-btn primary" onClick={() => setShowRecord(true)}>+ Record Expenditure</button>
+      </div>
+
+      {/* Landlord Float balance card */}
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(4, minmax(0,1fr))", marginBottom: 16 }}>
+        <div className="data-panel" style={{ background: "linear-gradient(135deg, #0f2744, #1e3a5f)", border: 0 }}>
+          <span style={{ color: "rgba(255,255,255,0.6)", display: "block", fontSize: 11, marginBottom: 8 }}>LANDLORD FLOAT ALLOCATED</span>
+          <strong style={{ color: "#fff", display: "block", fontSize: 26 }}>{money.format(floatAllocated)}</strong>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10 }}>
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              defaultValue={floatAllocated}
+              onBlur={(e) => { const v = Number(e.target.value); if (Number.isFinite(v) && v >= 0) setFloatAllocated(v); }}
+              style={{ width: "100%", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 6, color: "#fff", fontSize: 12, padding: "6px 10px" }}
+              aria-label="Float allocation amount"
+            />
+          </div>
+        </div>
+        <div className="data-panel">
+          <span style={{ color: "#8a96a7", display: "block", fontSize: 11, marginBottom: 8 }}>SPENT</span>
+          <strong style={{ display: "block", fontSize: 26, color: "#b91c1c" }}>{money.format(spent)}</strong>
+          <span style={{ color: "#6b7280", fontSize: 11 }}>{spentPct}% of allocated float</span>
+        </div>
+        <div className="data-panel">
+          <span style={{ color: "#8a96a7", display: "block", fontSize: 11, marginBottom: 8 }}>REMAINING BALANCE</span>
+          <strong style={{ display: "block", fontSize: 26, color: remaining < 0 ? "#b91c1c" : "#15803d" }}>{money.format(Math.max(remaining, 0))}</strong>
+          {remaining < 0 && <span style={{ color: "#b91c1c", fontSize: 11, fontWeight: 700 }}>Float exceeded by {money.format(Math.abs(remaining))}</span>}
+        </div>
+        <div className="data-panel">
+          <span style={{ color: "#8a96a7", display: "block", fontSize: 11, marginBottom: 8 }}>FLOAT UTILIZATION</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
+            <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 10, overflow: "hidden" }}>
+              <i style={{ background: spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${spentPct}%` }} />
+            </div>
+            <strong style={{ fontSize: 16 }}>{spentPct}%</strong>
+          </div>
+          <span style={{ color: "#6b7280", fontSize: 11 }}>remaining = float − sum(spent)</span>
+        </div>
+      </div>
+
+      {/* Note about backend */}
+      <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, color: "#92400e", fontSize: 12, marginBottom: 16, padding: "10px 14px" }}>
+        The backend has no dedicated <code>/facility/expenses/</code> endpoint, so this ledger is derived from{" "}
+        <code>/facility/work-order-cost-items/</code> (approved spend) plus expenditures recorded locally in this browser. When a
+        backend expenses model is added, point this view at it for organization-wide tracking.
+      </div>
+
+      {/* Expenditure table */}
+      <div className="data-panel">
+        <div className="fc-table-toolbar">
+          <div className="fc-table-toolbar-left">
+            <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Expenditures ({expenditures.length})</span>
+          </div>
+          <div className="fc-table-toolbar-right">
+            <button className="fc-toolbar-btn" onClick={() => exportCsv(expenditures, "facility-expenditures.csv")}>↓ Export</button>
+          </div>
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Float Reference</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expenditures.length > 0 ? expenditures.map((e) => (
+                <tr key={String(e.id)}>
+                  <td style={{ fontSize: 11, color: "#6b7890" }}>{String(e.date ?? "—")}</td>
+                  <td style={{ fontSize: 12, textTransform: "capitalize" }}>{String(e.category ?? "—")}</td>
+                  <td style={{ fontSize: 12 }}>{String(e.description ?? "—")}</td>
+                  <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(e.amount ?? 0))}</td>
+                  <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(e.float_ref ?? "—")}</td>
+                  <td><FcStatus value={String(e.status ?? "pending")} /></td>
+                </tr>
+              )) : (
+                <tr><td colSpan={6}><EmptyState message="No expenditures recorded yet." /></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Record expenditure modal (frontend-only ledger) */}
+      {showRecord && (
+        <Modal title="Record Expenditure" onClose={() => setShowRecord(false)}>
+          <form onSubmit={recordExpenditure} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="grid-2">
+              <Field label="Date" required>
+                <input name="date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} />
+              </Field>
+              <Field label="Category" required>
+                <select name="category" defaultValue="General">
+                  <option value="Repairs">Repairs</option>
+                  <option value="Parts">Parts / Materials</option>
+                  <option value="Labor">Labor</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="General">General</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Description" required>
+              <input name="description" required placeholder="e.g. Generator oil top-up" />
+            </Field>
+            <div className="grid-2">
+              <Field label="Amount" required>
+                <input name="amount" type="number" min={0} step={1} required placeholder="0" />
+              </Field>
+              <Field label="Float reference">
+                <input name="float_ref" placeholder={`FLT-${new Date().getFullYear()}`} />
+              </Field>
+            </div>
+            <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, color: "#92400e", fontSize: 12, padding: "8px 12px" }}>
+              Recorded locally — no backend expenses endpoint exists yet.
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+              <button type="button" className="btn ghost" onClick={() => setShowRecord(false)}>Cancel</button>
+              <button type="submit" className="btn primary">Record Expenditure</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/* ─── Generic inventory table (Spare Parts / Consumables) ─── */
+function InventoryTableView({ variant, rows }: { variant: "spare-parts" | "consumables"; rows: Row[] }) {
+  const [selected, setSelected] = useState<Row | null>(null);
+  const isSpare = variant === "spare-parts";
+  const title = isSpare ? "Spare Parts" : "Consumables";
+  const matchCategories = isSpare ? ["spare", "part"] : ["consum", "general"];
+
+  const filtered = rows.filter((r) => {
+    const cat = String(r.category ?? "").toLowerCase();
+    return matchCategories.some((c) => cat.includes(c));
+  });
+  const displayRows = filtered.length > 0 ? filtered : rows;
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <h2 style={{ fontSize: 20, margin: 0, letterSpacing: "-.02em" }}>{title}</h2>
+          <p style={{ color: "#8a96a7", fontSize: 13, margin: "4px 0 0" }}>
+            Derived from the asset register — the backend has no dedicated inventory model.
+          </p>
+        </div>
+        <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, `${variant}.csv`)}>↓ Export</button>
+      </div>
+
+      <div className="data-panel">
+        <div className="fc-table-toolbar">
+          <div className="fc-table-toolbar-left">
+            <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>{title} ({displayRows.length})</span>
+          </div>
+          {filtered.length === 0 && (
+            <span style={{ color: "#92400e", fontSize: 11, fontWeight: 600 }}>
+              No assets matched the {isSpare ? "“spare” / “part”" : "“consumable” / “general”"} category — showing all assets. Categorize assets to enable the split.
+            </span>
+          )}
+        </div>
+        <div className="table-scroll">
+          <table className="fc-data-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Qty on Hand</th>
+                <th>Location</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayRows.length > 0 ? displayRows.map((row) => {
+                const qty = Number(row.quantity ?? (row.is_active === false ? 0 : 1));
+                return (
+                  <tr
+                    key={String(row.id)}
+                    className={selected?.id === row.id ? "selected" : ""}
+                    onClick={() => setSelected(selected?.id === row.id ? null : row)}
+                  >
+                    <td style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(row.code ?? "—")}</td>
+                    <td><strong style={{ fontSize: 12 }}>{String(row.name ?? "—")}</strong></td>
+                    <td style={{ fontSize: 12 }}>{String(row.category ?? "—")}</td>
+                    <td style={{ fontSize: 12 }}>{qty}</td>
+                    <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.property_name ?? "—")}</td>
+                    <td><FcStatus value={String(row.is_active === false ? "inactive" : (row.condition ?? "active"))} /></td>
+                  </tr>
+                );
+              }) : (
+                <tr><td colSpan={6}><EmptyState message={`No ${title.toLowerCase()} available.`} /></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {selected && (
+        <DetailDrawer title={`${title} — Details`} onClose={() => setSelected(null)}>
+          <div style={{ display: "grid", gap: 12 }}>
+            <Field label="Code"><span>{String(selected.code ?? "—")}</span></Field>
+            <Field label="Name"><span>{String(selected.name ?? "—")}</span></Field>
+            <Field label="Category"><span>{String(selected.category ?? "—")}</span></Field>
+            <Field label="Qty on Hand"><span>{String(selected.quantity ?? "1")}</span></Field>
+            <Field label="Location"><span>{String(selected.property_name ?? "—")}</span></Field>
+            <Field label="Condition"><span>{String(selected.condition ?? "good")}</span></Field>
+          </div>
+        </DetailDrawer>
+      )}
     </>
   );
 }
@@ -2844,10 +3434,16 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     setLoading(true);
     setError("");
     const apiTab = tab === "buildings" ? "assets" : tab;
-    const path =
-      tab === "overview" || tab === "reports"
-        ? "/facility/dashboard/"
-        : `/facility/${apiTab}/?search=${encodeURIComponent(search)}`;
+    let path: string;
+    if (tab === "overview" || tab === "reports") {
+      path = "/facility/dashboard/";
+    } else if (tab === "spare-parts" || tab === "consumables") {
+      path = `/facility/assets/?search=${encodeURIComponent(search)}`;
+    } else if (tab === "expenditure") {
+      path = `/facility/work-order-cost-items/?search=${encodeURIComponent(search)}`;
+    } else {
+      path = `/facility/${apiTab}/?search=${encodeURIComponent(search)}`;
+    }
     const response = await apiFetch(path, {}, organizationId);
     if (!response.ok) {
       setError("Facility data could not be loaded. Please retry.");
@@ -3051,6 +3647,9 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     meters:                [],
     contractors:           [],
     reports:               [],
+    expenditure:           [],
+    "spare-parts":         [],
+    consumables:           [],
   };
 
   const SECTION_FOR_TAB: Record<string, string> = {
@@ -3058,12 +3657,18 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     buildings: "buildings",
     assets: "assets",
     "work-orders": "work-orders",
+    "work-order-events": "work-order-events",
+    "work-order-cost-items": "work-order-cost-items",
+    "work-order-attachments": "work-order-attachments",
     "service-requests": "work-orders",
     "planned-maintenance": "work-orders",
     inspections: "inspections",
     meters: "meters",
     contractors: "contractors",
     reports: "reports",
+    expenditure: "expenditure",
+    "spare-parts": "spare-parts",
+    consumables: "consumables",
   };
 
   const DEFAULT_TAB_FOR_FACILITY_SECTION: Record<string, string> = {
@@ -3071,12 +3676,18 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     buildings: "buildings",
     assets: "assets",
     "work-orders": "work-orders",
+    "work-order-events": "work-order-events",
+    "work-order-cost-items": "work-order-cost-items",
+    "work-order-attachments": "work-order-attachments",
     "planned-maintenance": "planned-maintenance",
     "service-requests": "service-requests",
     inspections: "inspections",
     meters: "meters",
     contractors: "contractors",
     reports: "reports",
+    expenditure: "expenditure",
+    "spare-parts": "spare-parts",
+    consumables: "consumables",
   };
 
   const activeFacilitySection = SECTION_FOR_TAB[tab] ?? tab;
@@ -3135,7 +3746,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
             onTransition={(row, target, notes) => void runWorkTransition(row, target, notes)}
           />
         ) : tab === "planned-maintenance" ? (
-          <PlannedMaintenanceView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canAdminister }} onAdd={() => setCreateModal("ppm")} />
+          <PlannedMaintenanceView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canAdminister }} onAdd={() => setCreateModal("ppm")} organizationId={organizationId} reload={() => void load()} />
         ) : tab === "inspections" ? (
           <InspectionsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canInspect }} onAdd={() => setCreateModal("inspection")} />
         ) : tab === "service-requests" ? (
@@ -3146,6 +3757,12 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
           <ContractorsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("contractor")} />
         ) : tab === "reports" ? (
           <ReportsView dashboard={dashboard!} />
+        ) : tab === "expenditure" ? (
+          <ExpenditureView rows={rows} organizationId={organizationId} />
+        ) : tab === "spare-parts" ? (
+          <InventoryTableView variant="spare-parts" rows={rows} />
+        ) : tab === "consumables" ? (
+          <InventoryTableView variant="consumables" rows={rows} />
         ) : (
           <GenericListView tab={tab} rows={rows} />
         )}

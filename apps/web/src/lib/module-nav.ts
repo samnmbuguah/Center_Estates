@@ -10,25 +10,57 @@ import type { ModuleNavGroup } from "@/components/module-shell";
 
 export const propertyNav: ModuleNavGroup[] = [
   {
-    label: "PROPERTY MANAGEMENT",
+    label: "OVERVIEW",
     items: [
-      { id: "overview",        label: "Overview",          icon: "▦" },
-      { id: "properties",      label: "Properties",        icon: "🏢" },
-      { id: "units",           label: "Occupancy",         icon: "🪟" },
-      { id: "tenants",         label: "Tenants",           icon: "👥" },
-      { id: "leases",          label: "Leases",            icon: "📄" },
-      { id: "rent",            label: "Rent Collection",   icon: "💰" },
-      { id: "service-charges", label: "Service Charge",    icon: "⚡" },
-      { id: "expenses",        label: "Income & Expenses", icon: "📊" },
-      { id: "reports",         label: "Reports",           icon: "📈" },
+      { id: "overview",   label: "Overview",   icon: "▦" },
+      { id: "properties", label: "Properties", icon: "🏢" },
+    ],
+  },
+  {
+    label: "OCCUPANCY",
+    items: [
+      { id: "units", label: "Occupancy", icon: "🪟" },
+    ],
+  },
+  {
+    label: "TENANCY",
+    items: [
+      { id: "tenancy", label: "Tenancy", icon: "👥" },
+      { id: "tenants", label: "Tenants", icon: "👤" },
+      { id: "leases",  label: "Leases",  icon: "📄" },
+    ],
+  },
+  {
+    label: "COLLECTIONS",
+    items: [
+      { id: "financials", label: "Financials",      icon: "💰" },
+      { id: "rent",       label: "Rent Collection", icon: "💵" },
+    ],
+  },
+  {
+    label: "SERVICE CHARGE",
+    items: [
+      { id: "service-charges", label: "Service Charge", icon: "⚡" },
+    ],
+  },
+  {
+    label: "INCOME & EXPENSES",
+    items: [
+      { id: "expenses", label: "Income & Expenses", icon: "📊" },
+    ],
+  },
+  {
+    label: "REPORTS",
+    items: [
+      { id: "reports", label: "Reports", icon: "📈" },
     ],
   },
   {
     label: "INSIGHTS",
     items: [
       { id: "owner-portal", label: "Owner Portal" },
-      { id: "forecast", label: "5-Year Forecast" },
-      { id: "critical-dates",  label: "Critical Dates",     icon: "📅" },
+      { id: "forecast",     label: "5-Year Forecast" },
+      { id: "critical-dates", label: "Critical Dates", icon: "📅" },
     ],
   },
 ];
@@ -41,12 +73,28 @@ export const facilityNav: ModuleNavGroup[] = [
       { id: "buildings",         label: "Buildings & Locations",icon: "🏢" },
       { id: "assets",            label: "Assets & Inventory",  icon: "📦" },
       { id: "work-orders",       label: "Maintenance",         icon: "🔧" },
+      { id: "work-order-events", label: "Work History",        icon: "🕘" },
+      { id: "work-order-cost-items", label: "Labor & Parts",   icon: "🧾" },
+      { id: "work-order-attachments", label: "Work Media",     icon: "📎" },
       { id: "planned-maintenance",label: "Planned Maintenance",icon: "📅" },
       { id: "service-requests",  label: "Service Requests",    icon: "🎫" },
       { id: "inspections",       label: "Inspections",         icon: "🔍" },
       { id: "meters",            label: "Energy & Utilities",  icon: "⚡" },
       { id: "contractors",       label: "Vendors & Contracts", icon: "🤝" },
       { id: "reports",           label: "Reports & BI",        icon: "📈" },
+    ],
+  },
+  {
+    label: "INVENTORY",
+    items: [
+      { id: "spare-parts",       label: "Spare Parts",         icon: "🔩" },
+      { id: "consumables",       label: "Consumables",         icon: "🧴" },
+    ],
+  },
+  {
+    label: "FINANCE",
+    items: [
+      { id: "expenditure",       label: "Expenditure & Floats", icon: "💰" },
     ],
   },
 ];

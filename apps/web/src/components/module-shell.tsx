@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type ReactNode } from "react";
 
 export type ModuleNavItem = {
@@ -81,6 +82,15 @@ export function ModuleShell({
           .filter((item): item is ModuleNavItem => Boolean(item && item.id))
       : [];
   const hasHorizontalTabs = horizontalTabs.length > 0;
+
+  const findItemLabel = (id: string | undefined, list: { id: string; label: string }[] | undefined) =>
+    id && list ? list.find((item) => item.id === id)?.label : undefined;
+
+  const activeSectionLabel =
+    findItemLabel(activeSubId, subTabs) ??
+    findItemLabel(activeId, groups?.flatMap((g) => g.items)) ??
+    findItemLabel(activeId, horizontalTabs) ??
+    undefined;
 
   return (
     <div
@@ -168,6 +178,31 @@ export function ModuleShell({
       {/* MAIN CONTENT — the workspace column is already offset right of the fixed sidebar */}
       <div className="module-workspace-main main" style={{ width: "100%", minWidth: 0, padding: "20px 24px" }}>
         <div className="module-workspace-body" style={{ width: "100%" }}>
+
+          {/* Breadcrumb */}
+          <nav
+            className="module-breadcrumb"
+            aria-label="Breadcrumb"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              margin: "0 0 12px",
+              fontSize: 12,
+              color: "var(--muted)",
+              fontWeight: 500,
+            }}
+          >
+            <Link href="/workspaces" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</Link>
+            <span aria-hidden="true" style={{ opacity: 0.6 }}>&gt;</span>
+            <span>{moduleName}</span>
+            {activeSectionLabel && activeSectionLabel !== moduleName && (
+              <>
+                <span aria-hidden="true" style={{ opacity: 0.6 }}>&gt;</span>
+                <span style={{ color: "var(--text)", fontWeight: 600 }}>{activeSectionLabel}</span>
+              </>
+            )}
+          </nav>
 
           {/* Page heading */}
           <section className="page-head portfolio-head" style={{ marginBottom: 16, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>

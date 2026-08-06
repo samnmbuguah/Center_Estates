@@ -15,7 +15,7 @@ import {
   constructionNav,
   companionNav,
 } from "@/lib/module-nav";
-import { LayoutDashboard, HardHat, ClipboardCheck, CalendarDays, Shield, Settings, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { LayoutDashboard, HardHat, ClipboardCheck, CalendarDays, ClipboardList, Wrench, Shield, Settings, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 
 const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   property: propertyNav,
@@ -214,8 +214,8 @@ export function AppSidebar({
           </Link>
 
           <Link
-            className={`nav-link ${pathname.startsWith("/monitoring") ? "active" : ""}`}
-            href="/monitoring"
+            className={`nav-link ${pathname.startsWith("/facility") ? "active" : ""}`}
+            href="/facility"
             style={{
               display: "flex",
               alignItems: "center",
@@ -223,7 +223,7 @@ export function AppSidebar({
               padding: collapsed ? "10px" : "9px 12px",
               justifyContent: collapsed ? "center" : "flex-start",
               borderRadius: 6,
-              color: pathname.startsWith("/monitoring") ? "#fff" : "#b8c8d7",
+              color: pathname.startsWith("/facility") ? "#fff" : "#b8c8d7",
               textDecoration: "none",
               fontSize: 13,
             }}
@@ -236,7 +236,7 @@ export function AppSidebar({
 
           <Link
             className="nav-link"
-            href="/companion?tab=my-tasks"
+            href="/companion"
             style={{
               display: "flex",
               alignItems: "center",
@@ -248,11 +248,11 @@ export function AppSidebar({
               borderRadius: 6,
             }}
             onClick={onCloseMobile}
-            title="My Tasks"
+            title="My Companion"
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 15 }}><ClipboardCheck size={18} /></span>
-              {!collapsed && <span>My Tasks</span>}
+              {!collapsed && <span>My Companion</span>}
             </div>
             {!collapsed && badgeCounts.tasks > 0 && (
               <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
@@ -290,7 +290,7 @@ export function AppSidebar({
 
           <Link
             className="nav-link"
-            href="/monitoring?tab=calendar"
+            href="/property?tab=critical-dates"
             style={{
               display: "flex",
               alignItems: "center",
@@ -307,6 +307,51 @@ export function AppSidebar({
           >
             <span style={{ fontSize: 15 }}><CalendarDays size={18} /></span>
             {!collapsed && <span>Calendar</span>}
+          </Link>
+
+          {/* CROSS-MODULE HUBS */}
+          <Link
+            className="nav-link"
+            href="/facility?tab=service-requests"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius: 6,
+              color: pathname === "/facility" && currentTab === "service-requests" ? "#fff" : "#b8c8d7",
+              background: pathname === "/facility" && currentTab === "service-requests" ? "rgba(229,46,46,0.35)" : "transparent",
+              textDecoration: "none",
+              fontSize: 13,
+            }}
+            onClick={onCloseMobile}
+            title="Service Requests"
+          >
+            <span style={{ fontSize: 15 }}><ClipboardList size={18} /></span>
+            {!collapsed && <span>Service Requests</span>}
+          </Link>
+
+          <Link
+            className="nav-link"
+            href="/facility?tab=assets"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "10px" : "9px 12px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius: 6,
+              color: pathname === "/facility" && currentTab === "assets" ? "#fff" : "#b8c8d7",
+              background: pathname === "/facility" && currentTab === "assets" ? "rgba(229,46,46,0.35)" : "transparent",
+              textDecoration: "none",
+              fontSize: 13,
+            }}
+            onClick={onCloseMobile}
+            title="Building & Asset Onboarding"
+          >
+            <span style={{ fontSize: 15 }}><Wrench size={18} /></span>
+            {!collapsed && <span>Building &amp; Asset Onboarding</span>}
           </Link>
 
           {/* MODULES SECTION */}
