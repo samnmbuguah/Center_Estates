@@ -13,11 +13,11 @@ export default defineConfig({
   ],
   outputDir: "artifacts/test-results",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "https://erp.169-58-102-217.sslip.io",
+    baseURL: process.env.E2E_BASE_URL ?? "https://monitoringerp.com",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    ignoreHTTPSErrors: false,
+    ignoreHTTPSErrors: true,
   },
   projects: [
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },

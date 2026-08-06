@@ -11,6 +11,7 @@ import { useCallback } from "react";
 import { HardHat, Search, Moon, Sun, ChevronDown, Building2, Settings, LogOut, HelpCircle, ClipboardCheck, FileSpreadsheet } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
+import { TourLauncher } from "@/components/tour-launcher";
 
 const QUICK_JUMP_ROUTES = [
   { name: "Projects Directory", href: "/monitoring/projects", module: "monitoring", icon: "🏗️", detail: "Active project workspaces & budgets" },
@@ -278,6 +279,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           </label>
 
           <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <TourLauncher />
             <Link
               href="/monitoring"
               style={{

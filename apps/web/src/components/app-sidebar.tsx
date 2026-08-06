@@ -337,6 +337,7 @@ export function AppSidebar({
                   <Link
                     className={`nav-link ${isModuleActive ? "active" : ""}`}
                     href={`/${m.slug}`}
+                    data-testid={`module-nav-${m.slug}`}
                     style={{
                       display: "flex",
                       alignItems: "center",

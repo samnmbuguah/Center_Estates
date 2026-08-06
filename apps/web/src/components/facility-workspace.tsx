@@ -1135,7 +1135,7 @@ function WorkOrdersView({
         <div style={{ display: "flex", gap: 10 }}>
           <button className="fc-toolbar-btn">Quick Actions</button>
           {permissions.canWork && (
-            <button className="fc-toolbar-btn primary" onClick={() => setShowCreate(true)}>+ Create Work Order</button>
+            <button className="fc-toolbar-btn primary" onClick={() => setShowCreate(true)} data-testid="facility-create-work-order-btn">+ Create Work Order</button>
           )}
         </div>
       </div>
@@ -1154,7 +1154,7 @@ function WorkOrdersView({
           <article className="data-panel">
             <div className="fc-table-toolbar">
               <div className="fc-table-toolbar-left">
-                <input placeholder="Search work orders…" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 220 }} />
+                <input placeholder="Search work orders…" data-testid="wo-register-search" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 220 }} />
                 {["All Buildings", "All Categories", "All Priority", "All Status"].map((opt) => (
                   <select key={opt} className="fc-toolbar-select"><option>{opt}</option></select>
                 ))}
@@ -3155,26 +3155,26 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
                   </label>
                   <label>
                     Priority
-                    <select name="priority" defaultValue="medium">
-                      <option>low</option>
-                      <option>medium</option>
-                      <option>high</option>
-                      <option>critical</option>
+                    <select name="priority" defaultValue="medium" data-testid="wo-priority-select">
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                      <option value="critical">critical</option>
                     </select>
                   </label>
                 </div>
                 <label>
                   Issue title
-                  <input name="title" required placeholder="Describe the maintenance issue" />
+                    <input name="title" required placeholder="Describe the maintenance issue" data-testid="wo-title-input" />
                 </label>
                 <div className="form-row">
                   <label>
                     Category
-                    <input name="category" required placeholder="Mechanical" />
+                    <input name="category" required placeholder="Mechanical" data-testid="wo-category-input" />
                   </label>
                   <label>
                     Property
-                    <select name="property" required defaultValue="">
+                    <select name="property" required defaultValue="" data-testid="wo-property-select">
                       <option value="" disabled>Select property</option>
                       {properties.map((row) => (
                         <option key={String(row.id)} value={String(row.id)}>
@@ -3186,12 +3186,12 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
                 </div>
                 <label>
                   Description
-                  <textarea name="description" rows={4} />
+                  <textarea name="description" rows={4} data-testid="wo-description-input" />
                 </label>
                 <input type="hidden" name="status" value="open" />
                 <div className="form-actions">
                   <button type="button" onClick={() => setShowCreate(false)}>Cancel</button>
-                  <button className="primary-action">Create Work Order</button>
+                  <button className="primary-action" data-testid="wo-submit-btn">Create Work Order</button>
                 </div>
               </form>
             </div>
