@@ -48,11 +48,13 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState({ tasks: 0, approvals: 0 });
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const { session } = useAuth();
   const allowedSet = new Set(allowedSlugs);
   const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
 
-  const currentTab = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
+  const currentTab = mounted ? new URLSearchParams(window.location.search).get("tab") : null;
 
   const displayName = session?.user.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
@@ -465,7 +467,7 @@ export function AppSidebar({
         </div>
 
         {/* User Profile Card */}
-        {session?.user && (
+        {mounted && session?.user && (
           <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
               {userInitials}
