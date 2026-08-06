@@ -29,7 +29,11 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) setActiveProperty(JSON.parse(raw) as PropertyContextValue);
+      if (raw) {
+        // Deliberate storage hydration on mount (not a cascading render).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setActiveProperty(JSON.parse(raw) as PropertyContextValue);
+      }
     } catch {
       /* ignore */
     }
