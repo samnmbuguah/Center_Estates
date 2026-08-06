@@ -185,3 +185,78 @@ test("property add property user story: create a property via the wizard", async
   const bodyText = await page.evaluate(() => document.body.innerText);
   expect(bodyText).toContain(unique);
 });
+
+test("create lease user story: create a lease", async ({ page }) => {
+  await gotoModuleTab(page, "property", "leases");
+  await page.getByTestId("property-add-lease-btn").waitFor({ timeout: 30000 });
+  await page.getByTestId("property-add-lease-btn").click();
+  await page.getByTestId("lease-ref-input").waitFor({ timeout: 20000 });
+
+  const uniqueRef = `LS-E2E-${Date.now()}`;
+  const iso = (y: number, m: number, dd: number) => `${y}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  const today = new Date();
+  const startIso = iso(today.getFullYear(), today.getMonth() + 1, today.getDate() + 1);
+  const endIso = iso(today.getFullYear() + 1, 1, 1);
+
+  await page.getByTestId("lease-ref-input").fill(uniqueRef);
+  await page.getByTestId("lease-tenant-select").waitFor({ timeout: 15000 });
+  await page.waitForFunction(() => {
+    const sel = document.querySelector('[data-testid="lease-tenant-select"]') as HTMLSelectElement | null;
+    return sel ? sel.options.length > 1 : false;
+  }, undefined, { timeout: 15000 });
+  await page.getByTestId("lease-tenant-select").selectOption({ index: 1 });
+  await page.waitForFunction(() => {
+    const sel = document.querySelector('[data-testid="lease-unit-select"]') as HTMLSelectElement | null;
+    return sel ? sel.options.length > 1 : false;
+  }, undefined, { timeout: 15000 });
+  await page.getByTestId("lease-unit-select").selectOption({ index: 1 });
+  await page.getByTestId("lease-start-input").fill(startIso);
+  await page.getByTestId("lease-end-input").fill(endIso);
+  await page.getByTestId("lease-rent-input").fill("75000");
+  await page.getByTestId("lease-deposit-input").fill("225000");
+  await page.getByTestId("lease-save-btn").click();
+  await page.waitForTimeout(3000);
+
+  // Verify via API that the lease was persisted
+  const created = await page.evaluate(async (ref) => {
+    try {
+      const r = await fetch(`/api/v1/property/leases/?search=${encodeURIComponent(ref)}`, { credentials: "include" });
+      if (!r.ok) return false;
+      const data = await r.json();
+      const list = Array.isArray(data) ? data : data.results ?? [];
+      return list.some((l: Record<string, unknown>) => String(l.reference ?? "").includes(ref));
+    } catch { return false; }
+  }, uniqueRef);
+  expect(created).toBe(true);
+});
+
+test("assign companion task user story", async ({ page }) => {
+  await gotoModuleTab(page, "companion", "tasks");
+  await page.getByTestId("companion-assign-btn").waitFor({ timeout: 30000 });
+  await page.getByTestId("companion-assign-btn").click();
+  await page.getByTestId("assign-title-input").waitFor({ timeout: 20000 });
+
+  const uniqueTitle = `E2E Companion Task ${Date.now()}`;
+  await page.getByTestId("assign-title-input").fill(uniqueTitle);
+  await page.getByTestId("assign-priority-select").selectOption("high");
+
+  // Assignee selection is required — check the first available staff member
+  const firstAssignee = page.locator('[data-testid^="assign-assignee-"]').first();
+  await firstAssignee.waitFor({ timeout: 15000 });
+  await firstAssignee.check();
+  await page.getByTestId("assign-submit-btn").waitFor({ timeout: 15000 });
+  await page.getByTestId("assign-submit-btn").click();
+  await page.waitForTimeout(3000);
+
+  // Verify via API that the task was persisted
+  const created = await page.evaluate(async (title) => {
+    try {
+      const r = await fetch(`/api/v1/companion/tasks/?search=${encodeURIComponent(title)}`, { credentials: "include" });
+      if (!r.ok) return false;
+      const data = await r.json();
+      const list = Array.isArray(data) ? data : data.results ?? [];
+      return list.some((t: Record<string, unknown>) => String(t.title ?? "").includes(title));
+    } catch { return false; }
+  }, uniqueTitle);
+  expect(created).toBe(true);
+});

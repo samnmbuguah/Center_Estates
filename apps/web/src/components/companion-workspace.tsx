@@ -419,7 +419,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
         isManager ? (
           <div className="row" style={{ gap: 8 }}>
             <button className="btn ghost sm" onClick={() => setShowTemplate(true)}>+ Template</button>
-            <button className="btn primary sm" onClick={() => { if (isManager) loadStaffOptions(); setShowAssign(true); }}>+ Assign Task</button>
+            <button className="btn primary sm" data-testid="companion-assign-btn" onClick={() => { if (isManager) loadStaffOptions(); setShowAssign(true); }}>+ Assign Task</button>
           </div>
         ) : null
       }
@@ -886,7 +886,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
           <Modal title="Assign Task" onClose={() => setShowAssign(false)} wide>
             <form onSubmit={submitAssignTask} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <Field label="Title" required>
-                <input name="title" required placeholder="e.g. Approve payment voucher #PV-2041" style={inputStyle} />
+                <input name="title" required placeholder="e.g. Approve payment voucher #PV-2041" data-testid="assign-title-input" style={inputStyle} />
               </Field>
               <Field label="Assign to" required>
                 <div style={{ maxHeight: 140, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6, padding: 6, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -896,6 +896,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                     <label key={String(s.user_id)} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
                       <input
                         type="checkbox"
+                        data-testid={`assign-assignee-${String(s.user_id)}`}
                         checked={selectedAssignees.includes(String(s.user_id))}
                         onChange={(e) => {
                           const uid = String(s.user_id);
@@ -912,7 +913,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               </Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                 <Field label="Priority" required>
-                  <select name="priority" defaultValue="normal" style={inputStyle}>
+                  <select name="priority" defaultValue="normal" data-testid="assign-priority-select" style={inputStyle}>
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
                     <option value="high">High</option>
@@ -951,7 +952,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn ghost" onClick={() => setShowAssign(false)}>Cancel</button>
-                <button type="submit" className="btn primary" disabled={busy || selectedAssignees.length === 0}>
+                <button type="submit" className="btn primary" data-testid="assign-submit-btn" disabled={busy || selectedAssignees.length === 0}>
                   {busy ? "Assigning…" : selectedAssignees.length > 0 ? `Assign to ${selectedAssignees.length} staff` : "Assign Task"}
                 </button>
               </div>

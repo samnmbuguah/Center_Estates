@@ -6,6 +6,11 @@
  */
 import { registerTour } from "./tourService";
 
+const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+const now = new Date();
+const leaseStartIso = iso(now.getFullYear(), now.getMonth() + 1, now.getDate() + 1);
+const leaseEndIso = iso(now.getFullYear() + 1, 1, 1);
+
 registerTour({
   id: "create-work-order",
   label: "Create & Submit a Work Order",
@@ -296,6 +301,121 @@ registerTour({
         setTimeout(done, 60);
         setTimeout(() => {
           if (document.querySelector('[data-testid="prop-wizard-create"]')) clickCreate();
+        }, 120);
+      },
+    },
+  ],
+});
+
+registerTour({
+  id: "create-lease",
+  label: "Create a Lease",
+  steps: [
+    {
+      testid: "module-nav-property",
+      title: "Property Management",
+      description:
+        "This tour demonstrates creating a lease agreement for a tenant and unit — the flow covered by the property E2E acceptance tests.",
+    },
+    {
+      testid: "property-add-lease-btn",
+      title: "Add a Lease",
+      description:
+        "Click '+ Add Single Lease' to open the lease intake form. The demo auto-fills the agreement details.",
+      actions: [{ type: "click", testid: "property-add-lease-btn" }],
+    },
+    {
+      testid: "lease-ref-input",
+      title: "Lease reference",
+      description:
+        "A unique reference links the agreement to invoices, rent schedules and the tenant ledger.",
+      actions: [{ type: "fill", testid: "lease-ref-input", value: `LS-DEMO-${Date.now().toString().slice(-6)}` }],
+    },
+    {
+      testid: "lease-tenant-select",
+      title: "Select tenant",
+      description:
+        "Choose the tenant who holds this lease. The demo selects the first registered tenant.",
+      onNext: () => {
+        const sel = document.querySelector<HTMLSelectElement>('[data-testid="lease-tenant-select"]');
+        if (sel && sel.options.length > 1) sel.value = sel.options[1].value;
+        sel?.dispatchEvent(new Event("change", { bubbles: true }));
+      },
+    },
+    {
+      testid: "lease-unit-select",
+      title: "Select unit",
+      description:
+        "Attach the lease to a unit. The demo selects the first lettable unit.",
+      onNext: () => {
+        const sel = document.querySelector<HTMLSelectElement>('[data-testid="lease-unit-select"]');
+        if (sel && sel.options.length > 1) sel.value = sel.options[1].value;
+        sel?.dispatchEvent(new Event("change", { bubbles: true }));
+      },
+    },
+    {
+      testid: "lease-start-input",
+      title: "Start date",
+      description:
+        "The tenancy start date drives the first rent schedule and billing cycle.",
+      actions: [{ type: "fill", testid: "lease-start-input", value: leaseStartIso }],
+    },
+    {
+      testid: "lease-end-input",
+      title: "End date",
+      description:
+        "The expiry date feeds the lease renewal and critical-date alerts.",
+      actions: [{ type: "fill", testid: "lease-end-input", value: leaseEndIso }],
+    },
+    {
+      testid: "lease-rent-input",
+      title: "Monthly rent",
+      description:
+        "The contracted monthly rent is invoiced against this lease's rent schedule.",
+      actions: [{ type: "fill", testid: "lease-rent-input", value: "75000" }],
+      onNext: () => {
+        const btn = document.querySelector<HTMLElement>('[data-testid="lease-save-btn"]');
+        btn?.click();
+      },
+    },
+  ],
+});
+
+registerTour({
+  id: "assign-companion-task",
+  label: "Assign a Companion Task",
+  steps: [
+    {
+      testid: "module-nav-companion",
+      title: "Companion Task Assignment",
+      description:
+        "This tour demonstrates assigning a task to a staff member — the flow covered by the companion E2E acceptance tests.",
+    },
+    {
+      testid: "companion-assign-btn",
+      title: "Assign a Task",
+      description:
+        "Click '+ Assign Task' to open the assignment form. The demo auto-fills a realistic task.",
+      actions: [{ type: "click", testid: "companion-assign-btn" }],
+    },
+    {
+      testid: "assign-title-input",
+      title: "Task title",
+      description:
+        "A clear title helps the assignee triage and keeps the SLA tracker accurate.",
+      actions: [{ type: "fill", testid: "assign-title-input", value: `Demo: Follow up rent arrears ${Date.now().toString().slice(-6)}` }],
+    },
+    {
+      testid: "assign-priority-select",
+      title: "Set priority",
+      description:
+        "Priority drives the SLA response window and workload scoring.",
+      actions: [{ type: "select", testid: "assign-priority-select", value: "high" }],
+      onNext: () => {
+        const assignee = document.querySelector<HTMLElement>('[data-testid^="assign-assignee-"]');
+        assignee?.click();
+        setTimeout(() => {
+          document.querySelector<HTMLElement>('[data-testid="assign-submit-btn"]')?.click();
         }, 120);
       },
     },

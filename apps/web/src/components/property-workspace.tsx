@@ -1238,7 +1238,7 @@ function LeasesView({
           </div>
           <div className="row" style={{ gap: 10 }}>
             <button className="btn ghost sm" onClick={onDownloadTemplate}>📥 Download Template</button>
-            <button className="btn primary sm" onClick={onAddLease}>+ Add Single Lease</button>
+            <button className="btn primary sm" data-testid="property-add-lease-btn" onClick={onAddLease}>+ Add Single Lease</button>
           </div>
         </div>
       </div>
@@ -1584,7 +1584,7 @@ function RentView({
         </Panel>
       )}
 
-      <Panel title="Collection Performance" action={<button className="btn ghost sm" onClick={() => setRentSection("invoices")}>Invoices →</button>}>
+      <Panel title="Collection Performance" action={<button className="btn ghost sm" data-testid="property-invoices-btn" onClick={() => setRentSection("invoices")}>Invoices →</button>}>
         <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "18px 20px" }}>
           <div style={{ width: 120, height: 120, borderRadius: "50%", background: `conic-gradient(var(--primary) 0% ${collectionRate}%, var(--surface-3) ${collectionRate}% 100%)`, display: "grid", placeItems: "center", flexShrink: 0 }}>
             <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 700 }}>{collectionRate}%</div>
@@ -4570,7 +4570,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
             <form onSubmit={submitAddLease} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="grid-2">
                 <Field label="Lease Reference" required>
-                  <input name="reference" required placeholder="e.g. LSE-2026-0001" />
+                  <input name="reference" required placeholder="e.g. LSE-2026-0001" data-testid="lease-ref-input" />
                 </Field>
                 <Field label="Billing Day">
                   <input name="billing_day" type="number" min={1} max={28} defaultValue={1} />
@@ -4578,7 +4578,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </div>
               <div className="grid-2">
                 <Field label="Tenant" required>
-                  <select name="tenant" required defaultValue="">
+                  <select name="tenant" required defaultValue="" data-testid="lease-tenant-select">
                     <option value="" disabled>Select tenant</option>
                     {tenantOptions.map((t) => (
                       <option key={String(t.id)} value={String(t.id)}>{String(t.name)}</option>
@@ -4586,7 +4586,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
                   </select>
                 </Field>
                 <Field label="Unit" required>
-                  <select name="unit" required defaultValue="">
+                  <select name="unit" required defaultValue="" data-testid="lease-unit-select">
                     <option value="" disabled>Select unit</option>
                     {unitOptions.map((u) => (
                       <option key={String(u.id)} value={String(u.id)}>{String(u.code)} · {String(u.property_name ?? "")}</option>
@@ -4596,18 +4596,18 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </div>
               <div className="grid-2">
                 <Field label="Start Date" required>
-                  <input name="starts_on" type="date" required />
+                  <input name="starts_on" type="date" required data-testid="lease-start-input" />
                 </Field>
                 <Field label="End Date" required>
-                  <input name="ends_on" type="date" required />
+                  <input name="ends_on" type="date" required data-testid="lease-end-input" />
                 </Field>
               </div>
               <div className="grid-3">
                 <Field label="Monthly Rent (KES)" required>
-                  <input name="monthly_rent" type="number" min={1} required />
+                  <input name="monthly_rent" type="number" min={1} required data-testid="lease-rent-input" />
                 </Field>
                 <Field label="Deposit (KES)">
-                  <input name="deposit" type="number" min={0} defaultValue={0} />
+                  <input name="deposit" type="number" min={0} defaultValue={0} data-testid="lease-deposit-input" />
                 </Field>
                 <Field label="Escalation %">
                   <input name="escalation_percent" type="number" min={0} defaultValue={0} />
@@ -4615,7 +4615,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </div>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowAddLease(false)}>Cancel</button>
-                <button type="submit" className="btn primary">Save Lease</button>
+                <button type="submit" className="btn primary" data-testid="lease-save-btn">Save Lease</button>
               </div>
             </form>
           </Modal>
