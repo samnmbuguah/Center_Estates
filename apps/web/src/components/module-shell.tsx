@@ -72,23 +72,8 @@ export function ModuleShell({
   const hasSubTabs = Array.isArray(subTabs) && subTabs.length > 0;
   const hasGroups = Array.isArray(groups) && groups.length > 0;
 
-  // Enhanced horizontal tabs: use explicit subTabs if provided,
-  // otherwise derive horizontal tabs from ALL items in all navigation groups
-  const horizontalTabs: SubTab[] = hasSubTabs
-    ? subTabs!
-    : hasGroups
-      ? groups.flatMap((g) => g.items).filter((item): item is ModuleNavItem => Boolean(item && item.id))
-      : [];
-  const hasHorizontalTabs = horizontalTabs.length > 0;
-
-  const findItemLabel = (id: string | undefined, list: { id: string; label: string }[] | undefined) =>
-    id && list ? list.find((item) => item.id === id)?.label : undefined;
-
-  const activeSectionLabel =
-    findItemLabel(activeSubId, subTabs) ??
-    findItemLabel(activeId, groups?.flatMap((g) => g.items)) ??
-    findItemLabel(activeId, horizontalTabs) ??
-    undefined;
+  // Navigation is handled by the app sidebar - no horizontal tabs needed
+  // This eliminates duplication between sidebar and horizontal navigation
 
 
   return (
@@ -117,12 +102,6 @@ export function ModuleShell({
             <Link href="/workspaces" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</Link>
             <span aria-hidden="true" style={{ opacity: 0.6 }}>&gt;</span>
             <span>{moduleName}</span>
-            {activeSectionLabel && activeSectionLabel !== moduleName && (
-              <>
-                <span aria-hidden="true" style={{ opacity: 0.6 }}>&gt;</span>
-                <span style={{ color: "var(--text)", fontWeight: 600 }}>{activeSectionLabel}</span>
-              </>
-            )}
           </nav>
 
           {/* Page heading */}
@@ -175,64 +154,6 @@ export function ModuleShell({
                 </select>
               </div>
             </div>
-          )}
-
-          {/* HORIZONTAL SUB-TABS (primary sections, MonitoringERP style) */}
-          {hasHorizontalTabs && (
-            <nav
-              className="module-tabs-workspace"
-              aria-label="Section sub-pages"
-              style={{
-                display: "flex",
-                gap: 0,
-                borderBottom: "2px solid var(--border)",
-                marginBottom: 20,
-                overflowX: "auto",
-                overflowY: "hidden",
-                WebkitOverflowScrolling: "touch",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                padding: "0 4px",
-              }}
-            >
-              <style jsx>{`
-                .module-tabs-workspace::-webkit-scrollbar {
-                  display: none;
-                }
-              `}</style>
-              {horizontalTabs.map((tab) => {
-                const isActive = hasSubTabs ? activeSubId === tab.id : activeId === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-current={isActive ? "page" : undefined}
-                    onClick={() => (hasSubTabs ? onSelectSub?.(tab.id) : onSelect?.(tab.id))}
-                    style={{
-                      flex: "0 0 auto",
-                      padding: "clamp(10px, 2vw, 14px) clamp(16px, 3vw, 24px)",
-                      background: isActive ? "var(--surface)" : "transparent",
-                      border: "none",
-                      borderBottom: isActive ? "3px solid var(--brand)" : "3px solid transparent",
-                      color: isActive ? "var(--ink)" : "var(--muted)",
-                      fontSize: "clamp(13px, 2.5vw, 14px)",
-                      fontWeight: isActive ? 700 : 500,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      transition: "all 0.15s ease",
-                      minHeight: "48px",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    {"icon" in tab && tab.icon && <span style={{ marginRight: 8, fontSize: 16 }}>{tab.icon}</span>}
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
           )}
 
           <div className="module-workspace-content" style={{ width: "100%" }}>{children}</div>
