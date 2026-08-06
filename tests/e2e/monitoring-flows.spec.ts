@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { openTab } from "./helpers";
 
 const BASE = process.env.E2E_BASE_URL || "https://erp.169-58-102-217.sslip.io";
 const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
@@ -14,13 +15,6 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => signIn(page));
 
-async function openTab(page: Page, name: string) {
-  const btn = page.locator(".module-side-nav button, .module-side-nav a").filter({ hasText: name });
-  if (await btn.count() > 0) {
-    await btn.first().click();
-    await page.waitForTimeout(500);
-  }
-}
 
 async function openSubTab(page: Page, name: string) {
   const btn = page.locator(".project-workspace-tabs button, a").filter({ hasText: name });
@@ -219,7 +213,14 @@ test("role dashboards render project manager/finance/site agent views", async ({
   await page.goto("/monitoring");
   await page.waitForTimeout(500);
 
-  const roleDashboardsBtn = page.locator(".module-side-nav button, .module-side-nav a").filter({ hasText: "Role Dashboards" });
+  // Construction/Monitoring is disabled in the current scope — role dashboards live under
+  // the horizontal tabs when the module is enabled. Tolerate the unavailable state.
+  const unavailable = await page.evaluate(() => document.body.innerText.includes("Module unavailable"));
+  if (unavailable) {
+    test.skip(true, "Construction Monitoring is disabled in the active scope.");
+    return;
+  }
+  const roleDashboardsBtn = page.locator(".module-tabs-workspace button").filter({ hasText: "Role Dashboards" });
   if (await roleDashboardsBtn.count() > 0) {
     await roleDashboardsBtn.first().click();
     await page.waitForTimeout(500);

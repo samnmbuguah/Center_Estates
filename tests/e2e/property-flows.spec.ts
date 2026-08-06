@@ -1,4 +1,5 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
+import { openTab } from "./helpers";
 
 const BASE = process.env.E2E_BASE_URL || "https://erp.169-58-102-217.sslip.io";
 const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
@@ -14,13 +15,6 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => signIn(page));
 
-async function openTab(page: Page, name: string) {
-  const btn = page.locator(".module-side-nav button, .module-side-nav a").filter({ hasText: name });
-  if (await btn.count() > 0) {
-    await btn.first().click();
-    await page.waitForTimeout(500);
-  }
-}
 
 test("property overview renders all KPIs and charts correctly", async ({ page }) => {
   const errors: string[] = [];

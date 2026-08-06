@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openModuleSection, openTab } from "./helpers";
 
 const rolePassword = process.env.E2E_ROLE_PASSWORD ?? process.env.E2E_ADMIN_PASSWORD;
 
@@ -9,51 +10,6 @@ async function signInAs(page: Page, username: string) {
   await page.locator("#password").fill(rolePassword);
   await page.locator("button[type=submit]").click();
   await expect(page).toHaveURL(/(\/|\/workspaces)$/);
-}
-
-async function openTab(page: Page, name: string) {
-  await page.locator(".module-tabs-workspace").getByRole("button", { name, exact: true }).click();
-}
-
-async function openModuleSection(page: Page, name: string) {
-  const tabAliases: Record<string, string> = {
-    "Receipt allocations": "Allocations", "Credit notes": "Credit Notes",
-    "Bank reconciliation": "Bank Reconciliation", "Charge allocations": "Allocations",
-    "Rent & invoices": "Invoices", "Rent schedules": "Rent Roll",
-    Budgets: "Budgets & Estimates", Expenses: "Property Expenses",
-  };
-  const tabs = page.locator(".module-tabs-workspace");
-  if (await tabs.count()) {
-    const requestedTab = tabs.getByRole("button", { name: tabAliases[name] ?? name, exact: true });
-    if (await requestedTab.count()) {
-      await requestedTab.click();
-      return;
-    }
-  }
-  const sidebarSection = page.locator(".module-subnav-tree").getByText(name, { exact: true });
-  if (await sidebarSection.count()) {
-    await sidebarSection.click();
-    return;
-  }
-  const propertyParents: Record<string, string> = {
-    "Property Register": "Properties", Buildings: "Properties",
-    "Unit Occupancy": "Occupancy", "Property Projects": "Occupancy",
-    "Tenant documents": "Tenants",
-    Invoices: "Rent Collection", "Rent & invoices": "Rent Collection", "Rent Roll": "Rent Collection", "Rent schedules": "Rent Collection", Arrears: "Rent Collection",
-    Reminders: "Rent Collection", Receipts: "Rent Collection", Allocations: "Rent Collection",
-    "Receipt allocations": "Rent Collection", "Bank Reconciliation": "Rent Collection",
-    "Bank reconciliation": "Rent Collection", "Credit Notes": "Rent Collection", "Credit notes": "Rent Collection",
-    "Charge Setup": "Service Charge", "Charge allocations": "Service Charge", Reconciliations: "Service Charge",
-    "Budgets & Estimates": "Income & Expenses", "Property Expenses": "Income & Expenses", "Fee Invoicing": "Income & Expenses",
-    Budgets: "Income & Expenses", Expenses: "Income & Expenses",
-  };
-  const parent = propertyParents[name];
-  if (parent) {
-    await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
-    await page.locator(".module-tabs-workspace").getByRole("button", { name: tabAliases[name] ?? name, exact: true }).click();
-    return;
-  }
-  await page.getByRole("button", { name, exact: true }).first().click();
 }
 
 const moduleCases = [
@@ -335,7 +291,8 @@ test("@role:companion @module:companion @story:ROLE-COMPANION-VIEW companion vie
   await signInAs(page, "role-companion-viewer");
   await page.goto("/companion");
   await page.waitForTimeout(3000);
-  await expect(page.locator(".module-side-nav")).toBeVisible();
+  // Companion module renders its horizontal tabs (single-sidebar navigation model)
+  await expect(page.locator(".module-tabs-workspace").first()).toBeVisible();
   // Companion viewer should NOT see facility module mutations
   await page.goto("/facility");
   await page.waitForTimeout(3000);

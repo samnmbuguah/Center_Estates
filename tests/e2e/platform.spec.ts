@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { openModuleSection } from "./helpers";
 
 const password = process.env.E2E_ADMIN_PASSWORD;
 
@@ -13,56 +14,6 @@ async function signIn(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => signIn(page));
-
-/** Prefer horizontal module tabs to avoid dual-nav strict-mode collisions. */
-async function openModuleSection(page: Page, name: string, testInfo?: TestInfo) {
-  const tabAliases: Record<string, string> = {
-    "Receipt allocations": "Allocations", "Credit notes": "Credit Notes",
-    "Bank reconciliation": "Bank Reconciliation", "Charge allocations": "Allocations",
-    "Rent & invoices": "Invoices", "Rent schedules": "Rent Roll",
-    Budgets: "Budgets & Estimates", Expenses: "Property Expenses",
-  };
-  const isMobile = Boolean(testInfo?.project.name.startsWith("mobile"));
-  if (isMobile) {
-    const openNav = page.getByRole("button", { name: "Open module navigation" });
-    if (await openNav.isVisible().catch(() => false)) await openNav.click();
-    await page.locator(".module-side-nav").getByRole("button", { name, exact: true }).click();
-    return;
-  }
-  const tabs = page.locator(".module-tabs-workspace");
-  if (await tabs.count()) {
-    const requestedTab = tabs.getByRole("button", { name: tabAliases[name] ?? name, exact: true });
-    if (await requestedTab.count()) {
-      await requestedTab.click();
-      return;
-    }
-  }
-  const sidebarAliases: Record<string, string> = { "Service charge": "Service Charge" };
-  const sidebarSection = page.locator(".module-subnav-tree").getByText(sidebarAliases[name] ?? name, { exact: true });
-  if (await sidebarSection.count()) {
-    await sidebarSection.click();
-    return;
-  }
-  const propertyParents: Record<string, string> = {
-    "Property Register": "Properties", Buildings: "Properties",
-    "Unit Occupancy": "Occupancy", "Property Projects": "Occupancy",
-    "Tenant documents": "Tenants",
-    Invoices: "Rent Collection", "Rent & invoices": "Rent Collection", "Rent Roll": "Rent Collection", "Rent schedules": "Rent Collection", Arrears: "Rent Collection",
-    Reminders: "Rent Collection", Receipts: "Rent Collection", Allocations: "Rent Collection",
-    "Receipt allocations": "Rent Collection", "Bank Reconciliation": "Rent Collection",
-    "Bank reconciliation": "Rent Collection", "Credit Notes": "Rent Collection", "Credit notes": "Rent Collection",
-    "Charge Setup": "Service Charge", "Charge allocations": "Service Charge", Reconciliations: "Service Charge",
-    "Budgets & Estimates": "Income & Expenses", "Property Expenses": "Income & Expenses", "Fee Invoicing": "Income & Expenses",
-    Budgets: "Income & Expenses", Expenses: "Income & Expenses",
-  };
-  const parent = propertyParents[name];
-  if (parent) {
-    await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
-    await page.locator(".module-tabs-workspace").getByRole("button", { name: tabAliases[name] ?? name, exact: true }).click();
-    return;
-  }
-  await page.getByRole("button", { name, exact: true }).first().click();
-}
 
 async function openConstructionSection(page: Page, testInfo: TestInfo, name: string) {
   await openModuleSection(page, name, testInfo);
@@ -636,9 +587,15 @@ test("construction role dashboards render without errors", async ({ page }) => {
   // Navigate to monitoring first, then check role dashboards
   await page.goto("/monitoring");
   await page.waitForLoadState("networkidle");
-  
+
+  // Construction/Monitoring is disabled in the current scope — tolerate the unavailable state.
+  const unavailable = await page.evaluate(() => document.body.innerText.includes("Module unavailable"));
+  if (unavailable) {
+    test.skip(true, "Construction Monitoring is disabled in the active scope.");
+    return;
+  }
   // Test the role dashboard nav items
-  for (const roleTab of page.locator(".module-side-nav button").filter({ hasText: /Project Manager|Finance|Site Agent/ })) {
+  for (const roleTab of page.locator(".module-tabs-workspace button").filter({ hasText: /Project Manager|Finance|Site Agent/ })) {
     if (await roleTab.isVisible()) {
       await roleTab.click();
       await page.waitForTimeout(100);

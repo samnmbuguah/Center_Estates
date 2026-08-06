@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { openModuleSection } from "./helpers";
 
 const password = process.env.E2E_ADMIN_PASSWORD;
 
@@ -14,21 +15,7 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => signIn(page));
 
-async function openFacilityTab(page: Page, name: string, testInfo?: TestInfo) {
-  const isMobile = Boolean(testInfo?.project.name.startsWith("mobile"));
-  if (isMobile) {
-    const openNav = page.getByRole("button", { name: "Open module navigation" });
-    if (await openNav.isVisible().catch(() => false)) await openNav.click();
-    await page.locator(".module-side-nav").getByRole("button", { name, exact: true }).click();
-    return;
-  }
-  const tabs = page.locator(".module-tabs-workspace");
-  if (await tabs.count()) {
-    await tabs.getByRole("button", { name, exact: true }).click();
-    return;
-  }
-  await page.getByRole("button", { name, exact: true }).first().click();
-}
+const openFacilityTab = openModuleSection;
 
 test("facility overview renders dashboard components", async ({ page }) => {
   await page.goto("/facility");

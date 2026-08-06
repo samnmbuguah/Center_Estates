@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { openTab } from "./helpers";
 
 const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
 const PASS = process.env.E2E_ADMIN_PASSWORD || "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f";
@@ -13,10 +14,6 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => signIn(page));
 
-async function openTab(page: Page, name: string) {
-  const btn = page.locator(".module-side-nav button, .module-side-nav a").filter({ hasText: name });
-  if (await btn.count() > 0) { await btn.first().click(); await page.waitForTimeout(500); }
-}
 
 test("valuation overview renders dashboard with KPIs and charts", async ({ page }) => {
   await page.goto("/valuation");
