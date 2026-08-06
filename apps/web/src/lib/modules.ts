@@ -1,3 +1,11 @@
+/**
+ * ERP module catalogue.
+ *
+ * SCOPE RESTRICTION: Only the four approved core domains are ACTIVE.
+ * Disabled modules (sales, tender, construction/monitoring) are kept in the
+ * catalogue and their routes/code remain intact, but are hidden from all users
+ * unless a feature flag or granular role permission explicitly enables them.
+ */
 export const modules = [
   { slug: "property", name: "Property Management", description: "Manage properties, leases, tenants, billing and collections.", accent: "#e23b3b", icon: "🏢", features: ["Properties", "Tenants", "Leases", "Rent collection", "Service charges", "Reports"], stats: [{ label: "Focus", value: "Leases & rent" }, { label: "Ledger", value: "Live billing" }] },
   { slug: "facility", name: "Facility Management", description: "Assets, maintenance, compliance, utilities and sustainability.", accent: "#16a34a", icon: "🔧", features: ["Buildings", "Assets", "Work orders", "Planned maintenance", "Inspections", "Utilities"], stats: [{ label: "Focus", value: "Work orders" }, { label: "Control", value: "PPM & SLA" }] },
@@ -8,7 +16,23 @@ export const modules = [
   { slug: "companion", name: "Companion & Staff Performance", description: "Personal task command center, task assignment and staff productivity analytics.", accent: "#0d9488", icon: "🧭", features: ["My Companion", "Task assignment", "Delegation", "Performance dashboard", "SLA escalation", "Adoption analytics"], stats: [{ label: "Focus", value: "Daily work" }, { label: "Control", value: "SLA & TAT" }] },
 ] as const;
 
+/** Modules currently enabled for the whole system (scope restriction). */
+export const ACTIVE_MODULES: readonly string[] = ["property", "facility", "valuation", "companion"];
+
+/** Modules kept in the catalogue but hidden unless explicitly enabled by flag/role. */
+export const DISABLED_MODULES: readonly string[] = modules
+  .map((m) => m.slug)
+  .filter((slug) => !ACTIVE_MODULES.includes(slug));
+
 export type ErpModule = (typeof modules)[number];
+
+/** The modules surfaced to the UI (sidebar, workspace cards, route guards). */
+export const activeModules = modules.filter((module) => ACTIVE_MODULES.includes(module.slug));
+
+export function isModuleActive(slug: string): boolean {
+  return ACTIVE_MODULES.includes(slug);
+}
+
 export function getModule(slug: string): ErpModule | undefined {
   return modules.find((module) => module.slug === slug);
 }

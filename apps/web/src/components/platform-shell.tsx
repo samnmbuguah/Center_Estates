@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { modules } from "@/lib/modules";
+import { modules, ACTIVE_MODULES } from "@/lib/modules";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie, type DemoIdentityGroup } from "@/lib/api";
 import { useCallback } from "react";
@@ -87,7 +87,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   } = useAuth();
 
   const allowedSlugs = useMemo(
-    () => session?.modules.map((module) => module.slug) ?? [],
+    () => (session?.modules.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug)),
     [session?.modules],
   );
 
@@ -538,8 +538,8 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
           {isKnownModule && !allowed.has(requestedModule) ? (
             <div className="page-wrap" style={{ padding: 24 }}>
               <div className="notice" style={{ padding: 16, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <strong>Module unavailable.</strong> Your active organization is not subscribed to this module.{" "}
-                <Link href="/">Return to workspace selection.</Link>
+                <strong>Module unavailable.</strong> This module is not part of the active workspace.{" "}
+                <Link href="/workspaces">Return to workspace selection.</Link>
               </div>
             </div>
           ) : (

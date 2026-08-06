@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
-import { modules } from "@/lib/modules";
+import { modules, ACTIVE_MODULES } from "@/lib/modules";
 
 function greeting() {
   const hour = new Date().getHours();
@@ -30,7 +30,9 @@ const money = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES
 
 export function CommandCenterWorkspace() {
   const { session } = useAuth();
-  const allowed = new Set(session?.modules?.map((module) => module.slug) ?? modules.map((m) => m.slug));
+  const allowed = new Set(
+    (session?.modules?.map((module) => module.slug) ?? modules.map((m) => m.slug)).filter((slug) => ACTIVE_MODULES.includes(slug)),
+  );
   const subscribedModules = modules.filter((module) => allowed.has(module.slug));
   const name = session?.user?.firstName || session?.user?.username || "there";
   const organization = session?.organizations?.find((item) => item.id === session?.activeOrganizationId);
