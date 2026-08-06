@@ -28,7 +28,7 @@ const QUICK_JUMP_ROUTES = [
   { name: "Performance Dashboard", href: "/companion?tab=performance", module: "companion", icon: "📊", detail: "Staff productivity & adoption" },
 ];
 
-export default function PlatformShell({ session, children }: { session: any; children: React.ReactNode }) {
+export default function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
