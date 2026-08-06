@@ -3165,7 +3165,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
                 <div className="form-row">
                   <label>
                     Work order number
-                    <input name="number" required placeholder="WO-2026-1790" />
+                    <input name="number" required placeholder="WO-2026-1790" data-testid="wo-number-input" />
                   </label>
                   <label>
                     Priority
