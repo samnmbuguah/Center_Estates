@@ -248,9 +248,13 @@ class PropertyApiTests(TestCase):
             self.assertEqual(response.data['status'], expected)
 
     def test_rent_schedule_generates_one_invoice_idempotently(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        today = timezone.localdate()
         schedule = RentSchedule.objects.create(
             organization=self.organization, lease=self.lease,
-            period_start='2026-08-01', period_end='2026-09-01', due_on='2026-08-05',
+            period_start=today.isoformat(), period_end=(today + timedelta(days=30)).isoformat(),
+            due_on=(today + timedelta(days=5)).isoformat(),
             base_rent=Decimal('1000'), escalation_amount=Decimal('0'),
             service_charge=Decimal('100'), total=Decimal('1100'),
         )

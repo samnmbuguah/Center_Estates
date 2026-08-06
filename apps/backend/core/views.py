@@ -81,10 +81,13 @@ class LoginView(APIView):
 
     def post(self, request):
         serializer = TokenObtainPairSerializer(data=request.data)
-        if not serializer.is_valid():
-            errors = serializer.errors
-            if 'no_active_account' in errors:
-                return Response({'detail': 'Incorrect username or password.'}, status=401)
+        try:
+            valid = serializer.is_valid()
+        except Exception:
+            # simplejwt's TokenObtainPairSerializer raises AuthenticationFailed
+            # on bad credentials inside is_valid(); map it to a clean 401.
+            return Response({'detail': 'Incorrect username or password.'}, status=401)
+        if not valid:
             return Response({'detail': 'Unable to sign in. Please check your credentials.'}, status=401)
         response = Response({'detail': 'Signed in.'})
         _set_token_cookie(response, settings.JWT_ACCESS_COOKIE, serializer.validated_data['access'], 15 * 60, '/api/v1/')

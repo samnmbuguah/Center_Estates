@@ -231,8 +231,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '1000/hour',
         'user': '10000/hour',
-        'login': os.environ.get('AUTH_LOGIN_RATE', '600/minute'),
-        'token_refresh': os.environ.get('AUTH_REFRESH_RATE', '600/minute'),
+        'login': os.environ.get('AUTH_LOGIN_RATE', '10/minute'),
+        'token_refresh': os.environ.get('AUTH_REFRESH_RATE', '30/minute'),
         'password_reset': '100/hour',
         'api_write': '1000/hour',
     },
