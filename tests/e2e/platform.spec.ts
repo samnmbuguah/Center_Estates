@@ -595,7 +595,7 @@ test("construction role dashboards render without errors", async ({ page }) => {
     return;
   }
   // Test the role dashboard nav items
-  for (const roleTab of page.locator(".module-tabs-workspace button").filter({ hasText: /Project Manager|Finance|Site Agent/ })) {
+  for (const roleTab of page.locator(".module-nav-bar button").filter({ hasText: /Project Manager|Finance|Site Agent/ })) {
     if (await roleTab.isVisible()) {
       await roleTab.click();
       await page.waitForTimeout(100);

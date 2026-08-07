@@ -292,7 +292,7 @@ test("@role:companion @module:companion @story:ROLE-COMPANION-VIEW companion vie
   await page.goto("/companion");
   await page.waitForTimeout(3000);
   // Companion module renders its horizontal tabs (single-sidebar navigation model)
-  await expect(page.locator(".module-tabs-workspace").first()).toBeVisible();
+  await expect(page.locator(".module-nav-bar").first()).toBeVisible();
   // Companion viewer should NOT see facility module mutations
   await page.goto("/facility");
   await page.waitForTimeout(3000);

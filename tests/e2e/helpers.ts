@@ -4,7 +4,7 @@ import { expect, type Page, type TestInfo } from "@playwright/test";
  * Shared navigation helpers for E2E specs.
  *
  * Single-sidebar navigation model:
- * - Horizontal module tabs: `.module-tabs-workspace`
+ * - Horizontal module nav bar: `.module-nav-bar`
  * - App sidebar sub-nav tree: `.module-subnav-tree` (expandable when a module is active)
  * - Mobile: app-sidebar drawer toggled via the "Open module navigation" / hamburger button
  */
@@ -79,7 +79,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 
 /** Open a horizontal module tab directly. */
 export async function openTab(page: Page, name: string) {
-  await page.locator(".module-tabs-workspace").getByRole("button", { name, exact: true }).click();
+  await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^(?:\\S+ )?${name}$`) }).click();
 }
 
 /** Sign in with a generous navigation timeout (slower under parallel load). */

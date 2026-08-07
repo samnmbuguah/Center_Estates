@@ -220,7 +220,7 @@ test("role dashboards render project manager/finance/site agent views", async ({
     test.skip(true, "Construction Monitoring is disabled in the active scope.");
     return;
   }
-  const roleDashboardsBtn = page.locator(".module-tabs-workspace button").filter({ hasText: "Role Dashboards" });
+  const roleDashboardsBtn = page.locator(".module-nav-bar button").filter({ hasText: "Role Dashboards" });
   if (await roleDashboardsBtn.count() > 0) {
     await roleDashboardsBtn.first().click();
     await page.waitForTimeout(500);

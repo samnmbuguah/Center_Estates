@@ -56,5 +56,5 @@ test("horizontal module tabs remain reachable on mobile via drawer", async ({ pa
   await page.goto("/companion");
   await page.waitForTimeout(2500);
   await openModuleSection(page, "Tasks", testInfo);
-  await expect(page.locator(".module-tabs-workspace").first()).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".module-nav-bar").first()).toBeVisible({ timeout: 15000 });
 });

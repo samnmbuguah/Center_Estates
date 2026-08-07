@@ -90,7 +90,7 @@ test("rent receipt user story: record a payment against an invoice", async ({ pa
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   // The rent view should render without page errors
-  await expect(page.locator(".module-tabs-workspace").first()).toBeVisible({ timeout: 30000 });
+  await expect(page.locator(".module-nav-bar").first()).toBeVisible({ timeout: 30000 });
   await page.waitForTimeout(2000);
   expect(errors).toEqual([]);
 });
