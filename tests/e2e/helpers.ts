@@ -14,6 +14,7 @@ const TAB_ALIASES: Record<string, string> = {
   "Bank reconciliation": "Bank Reconciliation", "Charge allocations": "Allocations",
   "Rent & invoices": "Invoices", "Rent schedules": "Rent Roll",
   Budgets: "Budgets & Estimates", Expenses: "Property Expenses",
+  "Work orders": "Maintenance", Contractors: "Vendors & Contracts",
 };
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
