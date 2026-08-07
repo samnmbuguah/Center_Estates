@@ -31,8 +31,8 @@ test("companion renders overview with greeting and KPIs", async ({ page }) => {
   await page.goto("/companion");
   await page.waitForTimeout(500);
 
-  await expect(page.locator("h1")).toBeVisible();
-  await expect(page.getByText(/Companion|Command Center/i)).toBeVisible();
+  await expect(page.locator("h1").first()).toBeVisible();
+  await expect(page.locator("h1").first()).toContainText(/Companion|Command Center/i);
 
   const greeting = page.locator("text=/Good morning|Good afternoon|Good evening/i").first();
   if (await greeting.count() > 0) await expect(greeting).toBeVisible();

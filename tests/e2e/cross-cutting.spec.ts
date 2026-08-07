@@ -36,8 +36,8 @@ test("all modules navigate through the sidebar without page errors", async ({ pa
       if (heading) {
         await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
       } else {
-        await expect(page.locator("h1")).toBeVisible();
-        await expect(page.getByText(/Companion/i)).toBeVisible();
+        await expect(page.locator("h1").first()).toBeVisible();
+        await expect(page.locator("h1").first()).toContainText(/Companion/i);
       }
     }
   }
