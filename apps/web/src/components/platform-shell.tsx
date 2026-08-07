@@ -14,18 +14,8 @@ import { TelemetryProvider } from "@/components/telemetry-provider";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
 
-const QUICK_JUMP_ROUTES = [
-  { name: "Property Portfolio Register", href: "/property?tab=properties", module: "property", icon: "🏢", detail: "Properties, buildings & units" },
-  { name: "Occupancy & Units", href: "/property?tab=units", module: "property", icon: "📐", detail: "Occupancy register & lettable area" },
-  { name: "Tenant Profiles & Accounts", href: "/property?tab=tenants", module: "property", icon: "👥", detail: "Tenant directory & lease agreements" },
-  { name: "Rent Collection", href: "/property?tab=rent", module: "property", icon: "💰", detail: "Invoices, receipts & arrears" },
-  { name: "Critical Dates", href: "/property?tab=critical-dates", module: "property", icon: "📅", detail: "Lease, contract & inspection deadlines" },
-  { name: "Equipment & Asset Register", href: "/facility?tab=assets", module: "facility", icon: "🔧", detail: "HVAC, elevators & generators" },
-  { name: "Work Orders", href: "/facility?tab=work-orders", module: "facility", icon: "📋", detail: "Maintenance work orders & technicians" },
-  { name: "Service Requests", href: "/facility?tab=service-requests", module: "facility", icon: "🎫", detail: "Raise & track service requests" },
-  { name: "Valuation Instructions", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Valuation jobs & inspection logs" },
-  { name: "My Companion", href: "/companion?tab=my-tasks", module: "companion", icon: "🧭", detail: "Personal task list" },
-  { name: "Performance Dashboard", href: "/companion?tab=performance", module: "companion", icon: "📊", detail: "Staff productivity & adoption" },
+const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string }> = [
+  // Removed - duplicates sidebar navigation
 ];
 
 export default function PlatformShell({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
 import { ModuleShell } from "@/components/module-shell";
@@ -3848,6 +3849,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const canOperate = can("property.operations");
   const canLease = can("property.leasing");
   const canFinance = can("property.finance");
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [tab, setTab] = useState<PropertyTab>(() => {
     if (typeof window !== "undefined") {
@@ -4659,6 +4662,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     setSelectedRow(null);
     setRows([]);
     setTab(id as PropertyTab);
+    // Update URL without full page reload
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", id);
+    router.push(`?${params.toString()}`, { scroll: false });
   };
 
   const todayStr = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });

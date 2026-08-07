@@ -98,9 +98,11 @@ class TelemetryEngine {
             },
             timestamp: payload.timestamp,
           }),
-        }).catch(() => {});
-      } catch {
-        /* silent failure */
+        }).catch((err) => {
+          console.error("PostHog telemetry error:", err);
+        });
+      } catch (err) {
+        console.error("PostHog telemetry error:", err);
       }
     }
   }
