@@ -284,6 +284,41 @@ class FacilityRolePermissionApiTests(TestCase):
                     403,
                 )
 
+    def test_technician_records_meter_readings_and_completes_work_order(self):
+        self._grant('facility.view', 'facility.work', 'facility.read_meters')
+        meter = UtilityMeter.objects.create(
+            organization=self.organization, code='FR-ELEC', name='Role meter',
+            property=self.property, utility_type=UtilityMeter.Utility.ELECTRICITY,
+            tariff=Decimal('25.0000'),
+        )
+        MeterReading.objects.create(
+            organization=self.organization, meter=meter,
+            read_at=timezone.now() - timezone.timedelta(days=1),
+            value=Decimal('500'), consumption=Decimal('0'), cost=Decimal('0'),
+        )
+        reading = self.client.post('/api/v1/facility/meter-readings/', {
+            'meter': str(meter.id), 'read_at': timezone.now().isoformat(), 'value': '560',
+            'consumption': '0', 'cost': '0',
+        }, format='json', **self.headers)
+        self.assertEqual(reading.status_code, 201, reading.data)
+        saved = MeterReading.objects.order_by('-read_at').first()
+        self.assertEqual(saved.consumption, Decimal('60'))
+        self.assertEqual(saved.cost, Decimal('1500'))
+
+        completed = self.client.post(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/transition/',
+            {'status': 'in_progress', 'notes': 'Started'}, format='json', **self.headers,
+        )
+        self.assertEqual(completed.status_code, 200, completed.data)
+        finished = self.client.post(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/transition/',
+            {'status': 'completed', 'notes': 'Done'}, format='json', **self.headers,
+        )
+        self.assertEqual(finished.status_code, 200, finished.data)
+        self.work_order.refresh_from_db()
+        self.assertEqual(self.work_order.status, WorkOrder.Status.COMPLETED)
+        self.assertIsNotNone(self.work_order.completed_at)
+
     def test_inspector_executes_inspections_and_creates_corrective_work_but_cannot_administer(self):
         self._grant('facility.view', 'facility.inspect', 'facility.work')
         created = self.client.post('/api/v1/facility/inspections/', {

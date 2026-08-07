@@ -167,10 +167,10 @@ export default function Home() {
           <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#6366f1", letterSpacing: "0.05em", textTransform: "uppercase" }}>
             EXECUTIVE COMMAND CENTER
           </span>
-          <h1 style={{ margin: "4px 0 0 0", fontSize: "1.75rem", fontWeight: 800, color: "#0f172a" }}>
+          <h1 style={{ margin: "4px 0 0 0", fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)" }}>
             {greeting()}, {name}
           </h1>
-          <p style={{ margin: "2px 0 0 0", fontSize: "0.875rem", color: "#64748b" }}>
+          <p style={{ margin: "2px 0 0 0", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
             Active Scope: <strong>{organization?.name || "Center Estates Enterprise"}</strong> · Restricted Scope Architecture
           </p>
         </div>
@@ -198,7 +198,7 @@ export default function Home() {
         {/* Left Column: Active Core Modules */}
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "#0f172a" }}>
+            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)" }}>
               Active Operating Modules ({displayedModules.length})
             </h3>
             <span style={{ fontSize: "0.75rem", background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: 12, fontWeight: 700 }}>
@@ -228,13 +228,13 @@ export default function Home() {
                       ACTIVE
                     </span>
                   </div>
-                  <h4 style={{ margin: "0 0 6px 0", fontSize: "1.05rem", fontWeight: 700, color: "#0f172a" }}>{m.name}</h4>
-                  <p style={{ margin: "0 0 14px 0", fontSize: "0.825rem", color: "#64748b", lineHeight: 1.4 }}>{m.description}</p>
+                  <h4 style={{ margin: "0 0 6px 0", fontSize: "1.05rem", fontWeight: 700, color: "var(--text-primary)" }}>{m.name}</h4>
+                  <p style={{ margin: "0 0 14px 0", fontSize: "0.825rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>{m.description}</p>
                 </div>
 
                 <div>
                   {/* Live Pulse Metric Preview */}
-                  <div style={{ background: "#f8fafc", padding: 10, borderRadius: 8, marginBottom: 14, fontSize: "0.8rem", color: "#475569" }}>
+                  <div style={{ background: "#f8fafc", padding: 10, borderRadius: 8, marginBottom: 14, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
                     {m.slug === "property" && (
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span>Occupancy: <strong>{pulse.property?.occupancy || 94}%</strong></span>
@@ -290,8 +290,8 @@ export default function Home() {
             <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20, marginBottom: 32 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: "0.95rem", color: "#0f172a" }}>⚙️ Super Admin Module Activation Console</h4>
-                  <small style={{ color: "#64748b" }}>Toggle dormant modules on/off for your organization. Enabled modules become instantly available.</small>
+                  <h4 style={{ margin: 0, fontSize: "0.95rem", color: "var(--text-primary)" }}>⚙️ Super Admin Module Activation Console</h4>
+                  <small style={{ color: "var(--text-secondary)" }}>Toggle dormant modules on/off for your organization. Enabled modules become instantly available.</small>
                 </div>
               </div>
 
@@ -313,7 +313,7 @@ export default function Home() {
                       }}
                     >
                       <div>
-                        <strong style={{ fontSize: "0.85rem", color: "#0f172a" }}>{m.icon} {m.name}</strong>
+                        <strong style={{ fontSize: "0.85rem", color: "var(--text-primary)" }}>{m.icon} {m.name}</strong>
                         {isDefaultCore && <span style={{ display: "block", fontSize: "0.7rem", color: "#16a34a", fontWeight: 700 }}>Core Client Scope</span>}
                       </div>
 
@@ -322,7 +322,7 @@ export default function Home() {
                         onClick={() => toggleModuleActivation(m.slug)}
                         style={{
                           background: isActive ? "#2563eb" : "#e2e8f0",
-                          color: isActive ? "#fff" : "#475569",
+                          color: isActive ? "#fff" : "var(--text-secondary)",
                           border: "none",
                           padding: "4px 10px",
                           borderRadius: 12,
@@ -345,11 +345,11 @@ export default function Home() {
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* PostHog & Telemetry Status Panel */}
           <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 18 }}>
-            <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", color: "#0f172a" }}>📊 Telemetry & PostHog Analytics</h4>
-            <p style={{ fontSize: "0.8rem", color: "#64748b", margin: "0 0 12px 0", lineHeight: 1.4 }}>
+            <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", color: "var(--text-primary)" }}>📊 Telemetry & PostHog Analytics</h4>
+            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 12px 0", lineHeight: 1.4 }}>
               User pageviews, click interactions, and task completion metrics are tracked locally and forwarded to PostHog.
             </p>
-            <div style={{ background: "#f1f5f9", padding: 10, borderRadius: 6, fontSize: "0.75rem", fontFamily: "monospace", color: "#334155", marginBottom: 12 }}>
+            <div style={{ background: "#f1f5f9", padding: 10, borderRadius: 6, fontSize: "0.75rem", fontFamily: "monospace", color: "var(--text-secondary)", marginBottom: 12 }}>
               PostHog Host: app.posthog.com<br />
               Audit Endpoint: /api/v1/companion/telemetry/<br />
               Status: <strong>Active & Logging</strong>
@@ -384,7 +384,7 @@ export default function Home() {
 
           {/* Quick Sub-Route Jump Navigator */}
           <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 18 }}>
-            <h4 style={{ margin: "0 0 10px 0", fontSize: "0.95rem", color: "#0f172a" }}>🚀 Quick Sub-Route Shortcuts</h4>
+            <h4 style={{ margin: "0 0 10px 0", fontSize: "0.95rem", color: "var(--text-primary)" }}>🚀 Quick Sub-Route Shortcuts</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {[
                 { name: "Property Register", href: "/property/properties", icon: "🏢" },
@@ -396,7 +396,7 @@ export default function Home() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  style={{ textDecoration: "none", color: "#334155", fontSize: "0.825rem", padding: "6px 10px", borderRadius: 6, background: "#f8fafc", display: "flex", alignItems: "center", gap: 8 }}
+                  style={{ textDecoration: "none", color: "var(--text-primary)", fontSize: "0.825rem", padding: "6px 10px", borderRadius: 6, background: "#f8fafc", display: "flex", alignItems: "center", gap: 8 }}
                 >
                   <span>{link.icon}</span>
                   <span style={{ fontWeight: 600 }}>{link.name}</span>
@@ -412,8 +412,8 @@ export default function Home() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
           <div style={{ background: "#ffffff", width: "100%", maxWidth: 480, borderRadius: 12, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#0f172a" }}>👤 Onboard New Team User</h3>
-              <button onClick={() => setShowOnboardModal(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#64748b" }}>✕</button>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--text-primary)" }}>👤 Onboard New Team User</h3>
+              <button onClick={() => setShowOnboardModal(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--text-secondary)" }}>✕</button>
             </div>
 
             {onboardSuccess ? (
@@ -424,7 +424,7 @@ export default function Home() {
               <form onSubmit={handleUserOnboardSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>
-                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#475569", marginBottom: 4 }}>First Name</label>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>First Name</label>
                     <input
                       type="text"
                       required
@@ -435,7 +435,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#475569", marginBottom: 4 }}>Last Name</label>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Last Name</label>
                     <input
                       type="text"
                       required
@@ -448,7 +448,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#475569", marginBottom: 4 }}>Work Email</label>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Work Email</label>
                   <input
                     type="email"
                     required
@@ -460,7 +460,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#475569", marginBottom: 4 }}>Assigned Role</label>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Assigned Role</label>
                   <select
                     value={onboardForm.role}
                     onChange={(e) => setOnboardForm({ ...onboardForm, role: e.target.value })}
@@ -494,10 +494,10 @@ export default function Home() {
           <div style={{ background: "#ffffff", width: "100%", maxWidth: 760, maxHeight: "85vh", overflow: "hidden", borderRadius: 12, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#0f172a" }}>📊 Page Telemetry & Audit Console</h3>
-                <small style={{ color: "#64748b" }}>Switch between pages to inspect live interaction events, pageviews, and user activity.</small>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--text-primary)" }}>📊 Page Telemetry & Audit Console</h3>
+                <small style={{ color: "var(--text-secondary)" }}>Switch between pages to inspect live interaction events, pageviews, and user activity.</small>
               </div>
-              <button onClick={() => setShowTelemetryModal(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "#64748b" }}>✕</button>
+              <button onClick={() => setShowTelemetryModal(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--text-secondary)" }}>✕</button>
             </div>
 
             {/* Page/Module Switcher Bar */}
@@ -520,7 +520,7 @@ export default function Home() {
                     onClick={() => setSelectedTelemetryModule(tab.id)}
                     style={{
                       background: isSelected ? "#0f172a" : "#f1f5f9",
-                      color: isSelected ? "#ffffff" : "#475569",
+                      color: isSelected ? "#fff" : "var(--text-secondary)",
                       border: "none",
                       padding: "6px 12px",
                       borderRadius: 20,
@@ -544,11 +544,11 @@ export default function Home() {
             {/* System User Filter Bar */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, background: "#f8fafc", padding: "8px 12px", borderRadius: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>👤 Filter by System User:</span>
+                <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-primary)" }}>👤 Filter by System User:</span>
                 <select
                   value={selectedTelemetryUser}
                   onChange={(e) => setSelectedTelemetryUser(e.target.value)}
-                  style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 10px", fontSize: "0.75rem", fontWeight: 600, color: "#0f172a" }}
+                  style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 10px", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}
                 >
                   <option value="all">All Users ({Object.values(telemetryUserCounts).reduce((a, b) => a + b, 0)})</option>
                   {Object.keys(telemetryUserCounts).map((u) => (
@@ -559,7 +559,7 @@ export default function Home() {
                 </select>
               </div>
 
-              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                 Showing <strong>{telemetryEvents.length}</strong> events
               </span>
             </div>
@@ -567,9 +567,9 @@ export default function Home() {
             {/* Event List */}
             <div style={{ flex: 1, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 8, padding: 12, background: "#fafafa" }}>
               {loadingTelemetry ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#64748b", fontSize: "0.85rem" }}>Loading page telemetry...</div>
+                <div style={{ textAlign: "center", padding: 30, color: "var(--text-secondary)", fontSize: "0.85rem" }}>Loading page telemetry...</div>
               ) : telemetryEvents.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#64748b", fontSize: "0.85rem" }}>
+                <div style={{ textAlign: "center", padding: 30, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                   No telemetry events recorded for <strong>{selectedTelemetryModule}</strong> page yet.
                 </div>
               ) : (
@@ -577,10 +577,10 @@ export default function Home() {
                   {telemetryEvents.map((event) => (
                     <div key={event.id} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "10px 14px", fontSize: "0.8rem" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <strong style={{ color: "#0f172a" }}>👤 {event.actor}</strong>
-                        <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{new Date(event.created_at).toLocaleTimeString()}</span>
+                        <strong style={{ color: "var(--text-primary)" }}>👤 {event.actor}</strong>
+                        <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>{new Date(event.created_at).toLocaleTimeString()}</span>
                       </div>
-                      <div style={{ color: "#334155", fontFamily: "monospace", fontSize: "0.75rem" }}>{event.note}</div>
+                      <div style={{ color: "var(--text-secondary)", fontFamily: "monospace", fontSize: "0.75rem" }}>{event.note}</div>
                     </div>
                   ))}
                 </div>
