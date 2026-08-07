@@ -102,8 +102,10 @@ test("daily logs tab shows log entries", async ({ page }) => {
 
   await openTab(page, "Daily logs");
 
-  const logEntry = page.locator(".site-diary-list article, table, [role=table], text=/No logs|no logs|empty|No data/i").first();
+  const logEntry = page.locator(".site-diary-list article, table, [role=table]").first();
   if (await logEntry.count() > 0) await expect(logEntry).toBeVisible();
+  const noLogs = page.getByText(/No logs|no logs|empty|No data/i).first();
+  if (await noLogs.count() > 0) await expect(noLogs).toBeVisible();
 
   const dateCol = page.getByRole("columnheader", { name: /Date|date/i }).first();
   if (await dateCol.count() > 0) await expect(dateCol).toBeVisible();
@@ -160,8 +162,10 @@ test("quality tests tab renders without errors", async ({ page }) => {
 
   await openTab(page, "Quality");
 
-  const tableOrEmpty = page.locator("table, [role=table], text=/No quality|no quality|empty|No tests/i").first();
+  const tableOrEmpty = page.locator("table, [role=table]").first();
   if (await tableOrEmpty.count() > 0) await expect(tableOrEmpty).toBeVisible();
+  const noQuality = page.getByText(/No quality|no quality|empty|No tests/i).first();
+  if (await noQuality.count() > 0) await expect(noQuality).toBeVisible();
 
   await expect(page.locator("h1").first()).toBeVisible();
 

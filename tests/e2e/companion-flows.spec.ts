@@ -180,8 +180,10 @@ test("templates tab shows template entries", async ({ page }) => {
 
   await openTab(page, "Templates");
 
-  const tableOrEmpty = page.locator("table, [role=table], text=/No templates|no templates|empty/i").first();
+  const tableOrEmpty = page.locator("table, [role=table]").first();
   if (await tableOrEmpty.count() > 0) await expect(tableOrEmpty).toBeVisible();
+  const emptyText = page.getByText(/No templates|no templates|empty/i).first();
+  if (await emptyText.count() > 0) await expect(emptyText).toBeVisible();
 
   const addBtn = page.getByRole("button", { name: "+ Template" });
   if (await addBtn.count() > 0) await expect(addBtn.first()).toBeVisible();
@@ -236,8 +238,10 @@ test("delegations tab shows delegated tasks", async ({ page }) => {
 
   await openTab(page, "Delegations");
 
-  const tableOrEmpty = page.locator("table, [role=table], text=/No delegations|no delegations|empty|No data/i").first();
+  const tableOrEmpty = page.locator("table, [role=table]").first();
   if (await tableOrEmpty.count() > 0) await expect(tableOrEmpty).toBeVisible();
+  const noDelegations = page.getByText(/No delegations|no delegations|empty|No data/i).first();
+  if (await noDelegations.count() > 0) await expect(noDelegations).toBeVisible();
 
   await expect(page.locator(".form-error")).toHaveCount(0);
 
@@ -253,8 +257,10 @@ test("audit events tab shows task history", async ({ page }) => {
 
   await openTab(page, "Audit trail");
 
-  const tableOrEmpty = page.locator("table, [role=table], text=/No audit|no audit|empty|No events/i").first();
+  const tableOrEmpty = page.locator("table, [role=table]").first();
   if (await tableOrEmpty.count() > 0) await expect(tableOrEmpty).toBeVisible();
+  const noAudit = page.getByText(/No audit|no audit|empty|No events/i).first();
+  if (await noAudit.count() > 0) await expect(noAudit).toBeVisible();
 
   const taskCol = page.getByRole("columnheader", { name: /Task|task/i }).first();
   if (await taskCol.count() > 0) await expect(taskCol).toBeVisible();
