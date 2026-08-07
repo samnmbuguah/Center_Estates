@@ -54,9 +54,12 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   const navBar = page.locator(".module-nav-bar");
   await navBar.first().waitFor({ state: "attached", timeout: 20000 }).catch(() => {});
   if (await navBar.count()) {
-    const requestedTab = navBar.getByRole("button").filter({ hasText: TAB_ALIASES[name] ?? name });
+    const target = TAB_ALIASES[name] ?? name;
+    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Accessible name is "<icon> Label" or just "Label"; anchor to exact label.
+    const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`) });
     if (await requestedTab.count()) {
-      await requestedTab.click();
+      await requestedTab.first().click();
       return;
     }
   }
@@ -72,7 +75,9 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   const parent = PROPERTY_PARENTS[name];
   if (parent) {
     await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
-    await page.locator(".module-nav-bar").getByRole("button").filter({ hasText: TAB_ALIASES[name] ?? name }).click();
+    const target = TAB_ALIASES[name] ?? name;
+    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`) }).first().click();
     return;
   }
 
@@ -81,7 +86,8 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 
 /** Open a horizontal module tab directly. */
 export async function openTab(page: Page, name: string) {
-  await page.locator(".module-nav-bar").getByRole("button").filter({ hasText: name }).click();
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`) }).first().click();
 }
 
 /** Sign in with a generous navigation timeout (slower under parallel load). */
