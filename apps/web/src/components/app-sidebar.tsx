@@ -17,6 +17,14 @@ import {
   companionNav,
 } from "@/lib/module-nav";
 import { LayoutDashboard, HardHat, ClipboardCheck, Menu, X, CalendarDays, ClipboardList, Wrench, Shield, Settings, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Box,
+  Typography,
+  Divider,
+  Badge,
+  Avatar,
+  IconButton,
+} from "@mui/material";
 
 const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
   property: propertyNav,
@@ -233,69 +241,64 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
         }}
       >
         {/* Brand Header */}
-        <div
+        <Box
           className="platform-brand-header"
-          style={{
-            padding: isMobile ? "16px" : (collapsed ? "16px 12px" : "14px 16px"),
+          sx={{
+            padding: isMobile ? 2 : (collapsed ? "16px 12px" : "14px 16px"),
             minHeight: 64,
             borderBottom: "1px solid rgba(255,255,255,0.08)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: 10,
+            gap: 1,
             boxSizing: "border-box",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {collapsed && !isMobile ? (
               <BrandLogo size="sm" showWordmark={false} dark />
             ) : (
               <BrandLogo size="sm" showWordmark dark />
             )}
-          </div>
+          </Box>
           {isMobile && (
-            <button
+            <IconButton
               onClick={onCloseMobile}
-              style={{
-                background: "none",
-                border: "none",
-                color: "white",
-                cursor: "pointer",
-                padding: 8,
-              }}
+              aria-label="Close navigation"
+              sx={{ color: "white" }}
             >
               <X size={24} />
-            </button>
+            </IconButton>
           )}
-        </div>
+        </Box>
 
         {/* Scrollable Nav Items */}
-        <div
+        <Box
           className="platform-sidebar-scroll"
-          style={{
+          sx={{
             flex: 1,
             overflowY: "auto",
-            padding: isMobile ? "16px" : (collapsed ? "12px 6px" : "12px 10px"),
+            padding: isMobile ? 2 : (collapsed ? "12px 6px" : "12px 10px"),
             display: "flex",
             flexDirection: "column",
-            gap: 2,
+            gap: 0.5,
           }}
         >
           {/* WORKPLACE SECTION - Only show on dashboard/workspaces */}
           {!collapsed && !isMobile && !activeModuleSlug && (
-            <p
-              style={{
+            <Typography
+              sx={{
                 padding: "6px 10px 4px",
                 fontSize: 10,
                 fontWeight: 800,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
                 color: "rgba(255,255,255,0.35)",
-                margin: 0,
+                lineHeight: 1.4,
               }}
             >
               WORKPLACE
-            </p>
+            </Typography>
           )}
 
           {/* Dashboard link - always visible */}
@@ -369,9 +372,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
                 {(!collapsed || isMobile) && <span>My Companion</span>}
               </div>
               {(!collapsed || isMobile) && badgeCounts.tasks > 0 && (
-                <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
-                  {badgeCounts.tasks}
-                </span>
+                <Badge badgeContent={badgeCounts.tasks} color="error" sx={{ '& .MuiBadge-badge': { fontSize: 10, minWidth: 18, height: 18 } }} />
               )}
             </Link>
           )}
@@ -397,9 +398,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
               {!collapsed && <span>Approvals</span>}
             </div>
             {!collapsed && badgeCounts.approvals > 0 && (
-              <span style={{ background: "#e52e2e", color: "white", borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "2px 6px" }}>
-                {badgeCounts.approvals}
-              </span>
+              <Badge badgeContent={badgeCounts.approvals} color="error" sx={{ '& .MuiBadge-badge': { fontSize: 10, minWidth: 18, height: 18 } }} />
             )}
           </Link>
 
@@ -470,21 +469,21 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
           </Link>
 
           {/* SETTINGS SECTION */}
-          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
+          <Divider sx={{ background: "rgba(255,255,255,0.08)", my: 1 }} />
           {!collapsed && !isMobile && (
-            <p
-              style={{
+            <Typography
+              sx={{
                 padding: "0 10px 4px",
                 fontSize: 10,
                 fontWeight: 800,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
                 color: "rgba(255,255,255,0.35)",
-                margin: 0,
+                lineHeight: 1.4,
               }}
             >
               SETTINGS
-            </p>
+            </Typography>
           )}
 
           <Link
@@ -549,42 +548,43 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
             <span style={{ fontSize: 15 }}><Shield size={18} /></span>
             {!collapsed && <span>Administration</span>}
           </Link>
-        </div>
+        </Box>
 
         {/* User Profile Card */}
         {mounted && session?.user && (
-          <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+          <Box sx={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 1 }}>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
               {userInitials}
-            </div>
+            </Avatar>
             {!collapsed && (
-              <div style={{ overflow: "hidden", minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayRole}</div>
-              </div>
+              <Box sx={{ overflow: "hidden", minWidth: 0 }}>
+                <Typography noWrap sx={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{displayName}</Typography>
+                <Typography noWrap sx={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>{displayRole}</Typography>
+              </Box>
             )}
-          </div>
+          </Box>
         )}
 
         {/* Support & Collapse Footer */}
         {!collapsed && (
-          <div
+          <Box
             className="sidebar-support"
-            style={{
-              margin: "0 10px 10px",
-              padding: 10,
+            sx={{
+              mx: 1,
+              mb: 1,
+              p: 1,
               background: "rgba(255,255,255,0.04)",
-              borderRadius: 8,
+              borderRadius: 1,
               border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.25 }}>
               <HelpCircle size={14} style={{ color: "#ffffff" }} />
-              <strong style={{ fontSize: 12, color: "#ffffff", fontWeight: 700 }}>Quick Support</strong>
-            </div>
-            <span style={{ display: "block", fontSize: 12, color: "#ffffff", fontWeight: 600 }}>0722 574 400</span>
-            <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.8)" }}>support@ceest.co.ke</span>
-          </div>
+              <Typography component="strong" sx={{ fontSize: 12, color: "#ffffff", fontWeight: 700 }}>Quick Support</Typography>
+            </Box>
+            <Typography component="span" sx={{ display: "block", fontSize: 12, color: "#ffffff", fontWeight: 600 }}>0722 574 400</Typography>
+            <Typography component="span" sx={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.8)" }}>support@ceest.co.ke</Typography>
+          </Box>
         )}
 
         <button
