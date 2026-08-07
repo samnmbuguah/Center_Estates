@@ -514,58 +514,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
                   >
                     <span style={{ fontSize: isMobile ? 20 : 15, flexShrink: 0 }}>{m.icon}</span>
                     {(!collapsed || isMobile) && <span style={{ flex: 1 }}>{m.name}</span>}
-                    {(!collapsed || isMobile) && isModuleActive && <span style={{ fontSize: 10 }}>▼</span>}
                   </Link>
-
-                  {/* If this module is active, show minimal sub-navigation - only key sections */}
-                  {(!collapsed || isMobile) && isModuleActive && moduleNav && moduleNav.length > 0 && (
-                    <div
-                      className="module-subnav-tree"
-                      style={{
-                        margin: isMobile ? "8px 0" : "4px 0 8px 16px",
-                        paddingLeft: isMobile ? 16 : 10,
-                        borderLeft: "2px solid rgba(229, 46, 46, 0.4)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      {/* Only show top-level navigation items, not all sub-items */}
-                      {moduleNav.slice(0, 1).flatMap((group) => group.items.slice(0, 4)).map((item) => {
-                        const isSectionActive = currentTab === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              onSelectSection?.(item.id);
-                              onCloseMobile();
-                              // Use Next.js router for client-side navigation
-                              router.push(`/${m.slug}?tab=${item.id}`);
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              padding: isMobile ? "12px 16px" : "6px 10px",
-                              borderRadius: 4,
-                              background: isSectionActive ? "rgba(255,255,255,0.15)" : "transparent",
-                              color: isSectionActive ? "#ffffff" : "rgba(255,255,255,0.9)",
-                              textDecoration: "none",
-                              fontSize: isMobile ? 14 : 13,
-                              fontWeight: isSectionActive ? 700 : 600,
-                              border: "none",
-                              cursor: "pointer",
-                              width: "100%",
-                              textAlign: "left",
-                            }}
-                          >
-                            {item.icon && <span style={{ fontSize: isMobile ? 16 : 13 }}>{item.icon}</span>}
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
             })}
