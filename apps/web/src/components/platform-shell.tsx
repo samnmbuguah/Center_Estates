@@ -14,6 +14,25 @@ import { TelemetryProvider } from "@/components/telemetry-provider";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
 import { useTheme } from "@/theme/theme-provider";
+import {
+  AppBar,
+  Toolbar,
+  TextField,
+  IconButton,
+  Box,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Avatar,
+  Chip,
+  Select,
+  FormControl,
+  InputLabel,
+  Paper,
+  Typography,
+} from "@mui/material";
 
 const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string }> = [
   // Removed - duplicates sidebar navigation
@@ -226,383 +245,213 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
       )}
 
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>
-        {/* MONITORING ERP TOPBAR HEADER — starts where the fixed module sidebar ends */}
-        <header className="topbar header-responsive" role="banner" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", height: "clamp(56px, 8vw, 60px)", width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
-          <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        {/* MUI AppBar Header */}
+        <AppBar position="sticky" elevation={1} color="inherit" sx={{ height: 60, display: "flex", alignItems: "center" }}>
+          <Toolbar variant="dense" sx={{ width: "100%", height: "100%", gap: 2 }}>
             <BrandLogo size="sm" href="/" showWordmark={false} />
-          </div>
 
-          <label className="global-search search-responsive" style={{ flex: 1, margin: "0 16px", position: "relative", display: "flex", alignItems: "center" }}>
-            <span aria-hidden="true" style={{ position: "absolute", left: 12, color: "var(--muted)", fontSize: 14 }}><Search size={14} /></span>
-            <input
-              ref={searchInputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search modules, properties, tenants… (Ctrl+K)"
-              aria-label="Search modules"
-              className="input-touch"
-              style={{ width: "100%", padding: "10px 12px 10px 34px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 14, outline: "none" }}
-            />
-            {query && (
-              <div className="global-search-results" role="listbox" style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, zIndex: 100, marginTop: 4, boxShadow: "0 10px 25px rgba(0,0,0,0.15)", maxHeight: 420, overflowY: "auto" }}>
-                {filteredModules.length > 0 && (
-                  <>
-                    <div style={{ padding: "8px 14px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>Modules</div>
-                    {filteredModules.map((module) => (
-                      <Link
-                        key={module.slug}
-                        href={`/${module.slug}`}
-                        role="option"
-                        style={{ padding: "12px 14px", display: "flex", gap: 10, textDecoration: "none", color: "var(--text)", borderBottom: "1px solid var(--border)", minHeight: "48px", alignItems: "center" }}
-                        onClick={() => {
-                          setQuery("");
-                          setMenuOpen(false);
-                        }}
-                      >
-                        <span style={{ color: module.accent, fontSize: 16 }}>{module.icon}</span>
-                        <span>
-                          <strong style={{ display: "block", fontSize: 13 }}>{module.name}</strong>
-                          <small style={{ color: "var(--muted)", fontSize: 11 }}>{module.description}</small>
-                        </span>
-                      </Link>
-                    ))}
-                  </>
-                )}
-                {filteredQuickJumps.length > 0 && (
-                  <>
-                    <div style={{ padding: "8px 14px 4px", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>Quick Jumps</div>
-                    {filteredQuickJumps.map((r) => (
-                      <Link
-                        key={r.href}
-                        href={r.href}
-                        role="option"
-                        style={{ padding: "12px 14px", display: "flex", gap: 10, textDecoration: "none", color: "var(--text)", borderBottom: "1px solid var(--border)", minHeight: "48px", alignItems: "center" }}
-                        onClick={() => {
-                          setQuery("");
-                          setMenuOpen(false);
-                        }}
-                      >
-                        <span style={{ fontSize: 16 }}>{r.icon}</span>
-                        <span>
-                          <strong style={{ display: "block", fontSize: 13 }}>{r.name}</strong>
-                          <small style={{ color: "var(--muted)", fontSize: 11 }}>{r.detail}</small>
-                        </span>
-                      </Link>
-                    ))}
-                  </>
-                )}
-                {filteredModules.length === 0 && filteredQuickJumps.length === 0 && (
-                  <div style={{ padding: "16px 14px", textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
-                    No results for &quot;{query}&quot;
-                  </div>
-                )}
-              </div>
-            )}
-          </label>
-
-          <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <TourLauncher />
-            
-            {/* Hide Operations link on smaller screens */}
-            <Link
-              href="/facility"
-              className="desktop-only"
-              style={{
-                display: "none",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "var(--surface-2)",
-                color: "var(--text)",
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-                border: "1px solid var(--border)",
-                transition: "border-color 0.15s ease",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-              title="Facility Operations — Assets, Work Orders, Maintenance"
-            >
-              <HardHat size={14} style={{ color: "var(--primary)" }} />
-              <span style={{ display: "none" }}>Operations</span>
-            </Link>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 140 }}>
-              <small style={{ fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", fontWeight: 700 }}>Organization</small>
-              <select
-                aria-label="Active organization"
-                value={activeOrganization?.id ?? ""}
-                onChange={(event) => selectOrganization(event.target.value)}
-                style={{ padding: "6px 10px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", minWidth: 140 }}
-              >
-                {session.organizations.map((organization) => (
-                  <option value={organization.id} key={organization.id}>
-                    {organization.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="button"
-              className="theme-toggle-btn"
-              onClick={toggleThemeHandler}
-              title={`Switch to ${mode === "dark" ? "Light" : "Dark"} Mode`}
-              aria-label="Toggle Theme"
-              style={{
-                background: "var(--surface-2)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                padding: "8px 12px",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                color: "var(--text)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                flexShrink: 0,
-              }}
-            >
-              {mode === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
-
-            <div className="profile-menu" ref={profileRef} style={{ position: "relative", flexShrink: 0 }}>
-              <button
-                type="button"
-                className={`profile-trigger ${profileOpen ? "open" : ""}`}
-                aria-expanded={profileOpen}
-                aria-haspopup="menu"
-                onClick={() => setProfileOpen((open) => !open)}
-                style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: 0, cursor: "pointer", padding: 0 }}
-              >
-                <div className="profile" title={session.user.username} style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>
-                  {initials}
-                </div>
-                <div className="profile-copy desktop-only" style={{ textAlign: "left", maxWidth: 140, overflow: "hidden", display: "none" }}>
-                  <strong style={{ display: "block", fontSize: 13, color: "var(--text)", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</strong>
-                  <small style={{ display: "block", fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayRole}</small>
-                </div>
-                <span className="profile-chevron desktop-only" aria-hidden="true" style={{ fontSize: 11, color: "var(--text-secondary)", display: "none" }}>
-                  <ChevronDown size={14} />
-                </span>
-              </button>
-              {profileOpen && (
-                <div
-                  className="profile-dropdown"
-                  role="menu"
-                  style={{
+            <Box sx={{ flex: 1, position: "relative" }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search modules, properties, tenants… (Ctrl+K)"
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <Box sx={{ color: "text.secondary", mr: 1, display: "flex", alignItems: "center" }}>
+                        <Search size={16} />
+                      </Box>
+                    ),
+                  },
+                }}
+                inputRef={searchInputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+                    e.preventDefault();
+                    searchInputRef.current?.focus();
+                  }
+                }}
+              />
+              {query && (
+                <Paper
+                  elevation={3}
+                  sx={{
                     position: "absolute",
                     top: "100%",
+                    left: 0,
                     right: 0,
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                    width: 280,
+                    mt: 1,
+                    maxHeight: 420,
+                    overflow: "auto",
                     zIndex: 100,
-                    marginTop: 8,
-                    boxShadow: "0 12px 30px rgba(0,0,0,0.2)",
-                    overflow: "hidden",
                   }}
                 >
-                  {/* User info header */}
-                  <div style={{ padding: 16, background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>{initials}</div>
-                      <div>
-                        <strong style={{ fontSize: 13, color: "var(--text)", display: "block" }}>{displayName}</strong>
-                        <span style={{ fontSize: 11, color: "var(--muted)" }}>{session.user.email || session.user.username}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "rgba(13, 148, 136, 0.12)", color: "#0d9488", fontWeight: 700 }}>{displayRole}</span>
-                      {session.organizations.length > 1 && (
-                        <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "var(--surface)", border: "1px solid var(--border)", fontWeight: 600 }}>{activeOrganization?.name}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Identity switcher */}
-                  {session.impersonating && (
-                    <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-                      <button
-                        type="button"
-                        disabled={switching}
-                        onClick={onReturnAdmin}
-                        style={{
-                          width: "100%",
-                          padding: "8px 12px",
-                          background: "#dc2626",
-                          color: "white",
-                          border: 0,
-                          borderRadius: 8,
-                          fontWeight: 700,
-                          fontSize: 12,
-                          cursor: "pointer",
-                        }}
-                      >
-                        ↩ Return to Admin User
-                      </button>
-                    </div>
-                  )}
-
-                  {switchError && (
-                    <div style={{ padding: "6px 12px", background: "var(--danger-bg)", color: "var(--danger)", fontSize: 11, borderRadius: 6, margin: "8px 16px 0" }}>
-                      {switchError}
-                    </div>
-                  )}
-
-                  {/* ROLE & IDENTITY SWITCHER */}
-                  {session.canSwitchIdentity && (
-                    <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-                      <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", margin: "0 0 6px" }}>
-                        {requestedModule && isKnownModule
-                          ? `Switch Role (${modules.find((m) => m.slug === requestedModule)?.name ?? requestedModule})`
-                          : "Switch Role / Identity"}
-                      </p>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        {identityGroups
-                          .filter((group) => !requestedModule || !isKnownModule || group.module === requestedModule)
-                          .flatMap((group) =>
-                            group.identities.map((identity) => (
-                              <button
-                                key={identity.username}
-                                type="button"
-                                disabled={switching || identity.username === session.user.username}
-                                onClick={() => void onSwitchIdentity(identity.username)}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  textAlign: "left",
-                                  padding: "6px 10px",
-                                  borderRadius: 6,
-                                  border: "1px solid var(--border)",
-                                  background: identity.username === session.user.username ? "var(--surface-2)" : "transparent",
-                                  cursor: identity.username === session.user.username ? "default" : "pointer",
-                                  opacity: identity.username === session.user.username ? 0.7 : 1,
-                                }}
-                              >
-                                <strong style={{ fontSize: 12, color: "var(--text)" }}>{identity.label}</strong>
-                                <small style={{ fontSize: 10, color: "var(--muted)", fontWeight: 600 }}>@{identity.username}</small>
-                              </button>
-                            )),
-                          )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Quick module switcher (active modules) */}
-                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-                    <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", margin: "0 0 8px" }}>
-                      Quick Modules
-                    </p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                      {activeModules.filter((m) => allowed.has(m.slug)).map((m) => (
-                        <Link
-                          key={m.slug}
-                          href={`/${m.slug}`}
-                          onClick={() => setProfileOpen(false)}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "7px 10px",
-                            borderRadius: 8,
-                            background: "var(--surface-2)",
-                            border: "1px solid var(--border)",
-                            color: "var(--text)",
-                            textDecoration: "none",
-                            fontSize: 12,
-                            fontWeight: 600,
-                          }}
+                  {filteredModules.length > 0 && (
+                    <>
+                      <Typography variant="overline" sx={{ px: 2, py: 1, color: "text.secondary", fontSize: 10 }}>
+                        Modules
+                      </Typography>
+                      {filteredModules.map((module) => (
+                        <MenuItem
+                          key={module.slug}
+                          component={Link}
+                          href={`/${module.slug}`}
+                          onClick={() => { setQuery(""); setMenuOpen(false); }}
                         >
-                          <span style={{ fontSize: 13 }}>{m.icon}</span>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {m.name.replace(" Management", "")}
-                          </span>
-                        </Link>
+                          <Box sx={{ mr: 2, fontSize: 16, color: module.accent }}>{module.icon}</Box>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{module.name}</Typography>
+                            <Typography variant="caption" color="text.secondary">{module.description}</Typography>
+                          </Box>
+                        </MenuItem>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Menu items */}
-                  <div style={{ padding: 6 }}>
-                    <Link href="/companion?tab=my-tasks" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, color: "var(--text)", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      onClick={() => setProfileOpen(false)}>
-                      <ClipboardCheck size={15} style={{ color: "var(--muted)" }} /> My Tasks
-                    </Link>
-                    <Link href="/workspaces" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, color: "var(--text)", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      onClick={() => setProfileOpen(false)}>
-                      <Building2 size={15} style={{ color: "var(--muted)" }} /> All Workspaces
-                    </Link>
-                    <div style={{ height: 1, background: "var(--border)", margin: "6px 12px" }} />
-                    <Link href="/companion" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, color: "var(--text)", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      onClick={() => setProfileOpen(false)}>
-                      <Settings size={15} style={{ color: "var(--muted)" }} /> Settings
-                    </Link>
-                    <button
-                      type="button"
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "none", border: 0, color: "var(--text)", fontSize: 13, fontWeight: 500, width: "100%", textAlign: "left", cursor: "pointer" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      onClick={() => { setProfileOpen(false); window.location.href = "/companion?tab=performance"; }}
-                    >
-                      <HelpCircle size={15} style={{ color: "var(--muted)" }} /> Help &amp; Support
-                    </button>
-                    {session.canSwitchIdentity && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileOpen(false);
-                          setSubModalOpen(true);
-                          void fetchSubscriptions();
-                        }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "none", border: 0, color: "var(--text)", fontSize: 13, fontWeight: 500, width: "100%", textAlign: "left", cursor: "pointer" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      >
-                        <FileSpreadsheet size={15} style={{ color: "var(--muted)" }} /> Module Access
-                      </button>
-                    )}
-                    <div style={{ height: 1, background: "var(--border)", margin: "6px 12px" }} />
-                    <button
-                      type="button"
-                      onClick={() => { setProfileOpen(false); logout(); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "none", border: 0, color: "#dc2626", fontSize: 13, fontWeight: 600, width: "100%", textAlign: "left", cursor: "pointer" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.06)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <LogOut size={15} /> Sign out
-                    </button>
-                  </div>
-                </div>
+                    </>
+                  )}
+                  {filteredQuickJumps.length > 0 && (
+                    <>
+                      <Typography variant="overline" sx={{ px: 2, py: 1, color: "text.secondary", fontSize: 10 }}>
+                        Quick Jumps
+                      </Typography>
+                      {filteredQuickJumps.map((r) => (
+                        <MenuItem
+                          key={r.href}
+                          component={Link}
+                          href={r.href}
+                          onClick={() => { setQuery(""); setMenuOpen(false); }}
+                        >
+                          <Box sx={{ mr: 2, fontSize: 16 }}>{r.icon}</Box>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.name}</Typography>
+                            <Typography variant="caption" color="text.secondary">{r.detail}</Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </>
+                  )}
+                  {filteredModules.length === 0 && filteredQuickJumps.length === 0 && (
+                    <Typography variant="body2" sx={{ px: 2, py: 2, textAlign: "center", color: "text.secondary" }}>
+                      No results for "{query}"
+                    </Typography>
+                  )}
+                </Paper>
               )}
-            </div>
-          </div>
-        </header>
+            </Box>
 
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%", minWidth: 0 }}>
-          {isKnownModule && !allowed.has(requestedModule) ? (
-            <div className="page-wrap" style={{ padding: 24 }}>
-              <div className="notice" style={{ padding: 16, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <strong>Module unavailable.</strong> This module is not part of the active workspace.{" "}
-                <Link href="/workspaces">Return to workspace selection.</Link>
-              </div>
-            </div>
-          ) : (
-            children
-          )}
-        </main>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <TourLauncher />
+
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Organization</InputLabel>
+                <Select
+                  value={activeOrganization?.id ?? ""}
+                  label="Organization"
+                  onChange={(e) => selectOrganization(e.target.value)}
+                >
+                  {session.organizations.map((organization) => (
+                    <MenuItem value={organization.id} key={organization.id}>
+                      {organization.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <IconButton onClick={toggleThemeHandler} title={`Switch to ${mode === "dark" ? "Light" : "Dark"} Mode`}>
+                {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </IconButton>
+
+              <Box ref={profileRef} sx={{ position: "relative" }}>
+                <IconButton onClick={() => setProfileOpen((open) => !open)} aria-haspopup="menu">
+                  <Avatar sx={{ width: 36, height: 36, background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", fontWeight: 800 }}>
+                    {initials}
+                  </Avatar>
+                </IconButton>
+                <Menu
+                  anchorEl={profileRef.current}
+                  open={profileOpen}
+                  onClose={() => setProfileOpen(false)}
+                  slotProps={{
+                    paper: {
+                      sx: { width: 280, borderRadius: 3 }
+                    }
+                  }}
+                >
+                  <Box sx={{ px: 2, py: 1.5, bgcolor: "background.default", borderBottom: 1, borderColor: "divider" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
+                      <Avatar sx={{ width: 40, height: 40, background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", fontWeight: 800 }}>
+                        {initials}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{displayName}</Typography>
+                        <Typography variant="caption" color="text.secondary">{session.user.email || session.user.username}</Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                      <Chip size="small" label={displayRole} sx={{ fontSize: 10, height: 24 }} />
+                      {session.organizations.length > 1 && (
+                        <Chip size="small" label={activeOrganization?.name} variant="outlined" sx={{ fontSize: 10, height: 24 }} />
+                      )}
+                    </Box>
+                  </Box>
+                  <Divider />
+                  {session?.canSwitchIdentity && identityGroups.length > 0 && (
+                    <>
+                      <Box sx={{ px: 2, py: 1 }}>
+                        <Typography variant="overline" sx={{ fontSize: 10, color: "text.secondary" }}>Switch Identity</Typography>
+                      </Box>
+                      {identityGroups.map((group) => (
+                        <Box key={group.label} sx={{ mb: 1 }}>
+                          <Typography variant="caption" sx={{ px: 2, fontSize: 10, color: "text.secondary", fontWeight: 700, textTransform: "uppercase" }}>
+                            {group.label}
+                          </Typography>
+                          {group.identities.map((identity) => (
+                            <MenuItem
+                              key={identity.username}
+                              onClick={() => onSwitchIdentity(identity.username)}
+                              disabled={switching}
+                              dense
+                            >
+                              <ListItemIcon>
+                                <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
+                                  {identity.username.slice(0, 2).toUpperCase()}
+                                </Avatar>
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={identity.label || identity.username}
+                              />
+                            </MenuItem>
+                          ))}
+                        </Box>
+                      ))}
+                      {switchError && (
+                        <Typography variant="caption" color="error" sx={{ px: 2, py: 1 }}>
+                          {switchError}
+                        </Typography>
+                      )}
+                      <Divider />
+                    </>
+                  )}
+                  {session?.impersonating && (
+                    <>
+                      <MenuItem onClick={onReturnAdmin} disabled={switching}>
+                        <ListItemIcon><LogOut size={18} /></ListItemIcon>
+                        <ListItemText>Return to Administrator</ListItemText>
+                      </MenuItem>
+                      <Divider />
+                    </>
+                  )}
+                  <MenuItem onClick={logout}>
+                    <ListItemIcon><LogOut size={18} /></ListItemIcon>
+                    <ListItemText>Sign Out</ListItemText>
+                  </MenuItem>
+                </Menu>
+              </Box>
+            </Box>
+          </Toolbar>
+        </AppBar>
+
+        {children}
       </div>
     </div>
 
