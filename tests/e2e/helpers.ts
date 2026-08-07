@@ -15,6 +15,8 @@ const TAB_ALIASES: Record<string, string> = {
   "Rent & invoices": "Invoices", "Rent schedules": "Rent Roll",
   Budgets: "Budgets & Estimates", Expenses: "Property Expenses",
   "Work orders": "Maintenance", Contractors: "Vendors & Contracts",
+  Buildings: "Buildings & Locations", Assets: "Assets & Inventory",
+  Utilities: "Energy & Utilities",
 };
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
@@ -57,7 +59,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
     const target = TAB_ALIASES[name] ?? name;
     const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // Accessible name is "<icon> Label" or just "Label"; anchor to exact label.
-    const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`) });
+    const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
     if (await requestedTab.count()) {
       await requestedTab.first().click();
       return;
@@ -77,7 +79,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
     await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
     const target = TAB_ALIASES[name] ?? name;
     const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`) }).first().click();
+    await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") }).first().click();
     return;
   }
 
@@ -87,7 +89,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 /** Open a horizontal module tab directly. */
 export async function openTab(page: Page, name: string) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`) }).first().click();
+  await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") }).first().click();
 }
 
 /** Sign in with a generous navigation timeout (slower under parallel load). */
