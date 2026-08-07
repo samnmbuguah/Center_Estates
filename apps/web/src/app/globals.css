@@ -187,13 +187,38 @@
 [data-theme="dark"] [style*="background: #fff7ed"],
 [data-theme="dark"] [style*="background: #ffedd5"],
 [data-theme="dark"] [style*="background: #e0e7ff"],
-[data-theme="dark"] [style*="background: #e2e8f0"] {
+[data-theme="dark"] [style*="background: #e2e8f0"],
+[data-theme="dark"] [style*="background: #fafafa"],
+[data-theme="dark"] [style*="background: #f3f4f6"],
+[data-theme="dark"] [style*="background: #f9fafb"],
+[data-theme="dark"] [style*="background: #fff"],
+[data-theme="dark"] [style*="background: #fee2e2"],
+[data-theme="dark"] [style*="background: #fee2e2"],
+[data-theme="dark"] [style*="background: #fecaca"],
+[data-theme="dark"] [style*="background: #bbf7d0"],
+[data-theme="dark"] [style*="background: #86efac"],
+[data-theme="dark"] [style*="background: #93c5fd"],
+[data-theme="dark"] [style*="background: #bfdbfe"],
+[data-theme="dark"] [style*="background: #fcd34d"],
+[data-theme="dark"] [style*="background: #fde68a"],
+[data-theme="dark"] [style*="background: #ddd6fe"],
+[data-theme="dark"] [style*="background: #c4b5fd"],
+[data-theme="dark"] [style*="background: #fed7aa"],
+[data-theme="dark"] [style*="background: #fdba74"] {
   background: var(--bg-surface) !important;
 }
 
 [data-theme="dark"] [style*="border: #e2e8f0"],
 [data-theme="dark"] [style*="border: #cbd5e1"],
-[data-theme="dark"] [style*="border: #f1f5f9"] {
+[data-theme="dark"] [style*="border: #f1f5f9"],
+[data-theme="dark"] [style*="border: #e5e7eb"],
+[data-theme="dark"] [style*="border: #d1d5db"],
+[data-theme="dark"] [style*="border: #e0e7ff"],
+[data-theme="dark"] [style*="border: #dbeafe"],
+[data-theme="dark"] [style*="border: #dcfce7"],
+[data-theme="dark"] [style*="border: #fef3c7"],
+[data-theme="dark"] [style*="border: #ede9fe"],
+[data-theme="dark"] [style*="border: #fff7ed"] {
   border-color: var(--border-color) !important;
 }
 
@@ -201,14 +226,42 @@
 [data-theme="dark"] [style*="color: #0f172a"],
 [data-theme="dark"] [style*="color: #334155"],
 [data-theme="dark"] [style*="color: #1e293b"],
-[data-theme="dark"] [style*="color: #475569"] {
+[data-theme="dark"] [style*="color: #475569"],
+[data-theme="dark"] [style*="color: #111827"],
+[data-theme="dark"] [style*="color: #1f2937"],
+[data-theme="dark"] [style*="color: #374151"] {
   color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] [style*="color: #64748b"],
 [data-theme="dark"] [style*="color: #94a3b8"],
-[data-theme="dark"] [style*="color: #8a96a7"] {
+[data-theme="dark"] [style*="color: #8a96a7"],
+[data-theme="dark"] [style*="color: #9ca3af"],
+[data-theme="dark"] [style*="color: #6b7280"],
+[data-theme="dark"] [style*="color: #9ca3af"],
+[data-theme="dark"] [style*="color: #4b5563"],
+[data-theme="dark"] [style*="color: #6b7280"] {
   color: var(--text-secondary) !important;
+}
+
+/* Fix specific component backgrounds in dark mode */
+[data-theme="dark"] .card,
+[data-theme="dark"] [class*="card"],
+[data-theme="dark"] [class*="panel"],
+[data-theme="dark"] [class*="Panel"] {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] table,
+[data-theme="dark"] [class*="table"] {
+  background: var(--bg-surface) !important;
+}
+
+[data-theme="dark"] td,
+[data-theme="dark"] th {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
 }
 
 * { box-sizing: border-box; }
