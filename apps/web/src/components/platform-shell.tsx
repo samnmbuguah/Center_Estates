@@ -13,6 +13,7 @@ import AppSidebar from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
+import { useTheme } from "@/theme/theme-provider";
 
 const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string }> = [
   // Removed - duplicates sidebar navigation
@@ -35,7 +36,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const [identityGroups, setIdentityGroups] = useState<DemoIdentityGroup[]>([]);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [subModalOpen, setSubModalOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [subscriptionsList, setSubscriptionsList] = useState<Array<{ id: string; module: string; is_active: boolean }>>([]);
@@ -84,6 +84,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     stopImpersonate,
     loadDemoIdentities,
   } = useAuth();
+  const { mode, toggleTheme } = useTheme();
 
   const allowedSlugs = useMemo(
     () => (session?.modules.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug)),
@@ -109,16 +110,11 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   }, [allowedSlugs, query]);
 
   useEffect(() => {
-    const savedTheme = (localStorage.getItem("ce-theme") as "dark" | "light") || "light";
-    document.documentElement.setAttribute("data-theme", savedTheme);
-    setTheme(savedTheme);
+    // Theme is now managed by useTheme hook
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", nextTheme);
-    localStorage.setItem("ce-theme", nextTheme);
-    setTheme(nextTheme);
+  const toggleThemeHandler = () => {
+    toggleTheme();
   };
 
   useEffect(() => {
@@ -352,8 +348,8 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
             <button
               type="button"
               className="theme-toggle-btn"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
+              onClick={toggleThemeHandler}
+              title={`Switch to ${mode === "dark" ? "Light" : "Dark"} Mode`}
               aria-label="Toggle Theme"
               style={{
                 background: "var(--surface-2)",
@@ -370,7 +366,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                 flexShrink: 0,
               }}
             >
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+              {mode === "dark" ? <Sun size={14} /> : <Moon size={14} />}
             </button>
 
             <div className="profile-menu" ref={profileRef} style={{ position: "relative", flexShrink: 0 }}>
