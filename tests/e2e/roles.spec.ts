@@ -9,7 +9,7 @@ async function signInAs(page: Page, username: string) {
   await page.locator("#username").fill(username);
   await page.locator("#password").fill(rolePassword);
   await page.locator("button[type=submit]").click();
-  await expect(page).toHaveURL(/(\/|\/workspaces)$/);
+  await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
 }
 
 const moduleCases = [

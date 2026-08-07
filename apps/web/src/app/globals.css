@@ -1241,60 +1241,23 @@ small, .text-sm, .text-xs, .text-caption, .muted {
   color: var(--text-secondary) !important;
 }
 
-/* Force higher contrast for all text elements */
-p, span, div, li, td, th, label, h1, h2, h3, h4, h5, h6, strong, b {
-  color: var(--text-primary) !important;
-}
-
-/* Specific overrides for muted text */
+/* Remove overly aggressive global text color override - was breaking UI */
+/* Specific overrides for muted text only */
 [style*="color: var(--muted)"] {
   color: var(--text-secondary) !important;
 }
 
-/* Fix light mode specific color issues */
-[data-theme="light"] [style*="color: #64748b"],
-[data-theme="light"] [style*="color: #6b7280"],
-[data-theme="light"] [style*="color: #94a3b8"],
-[data-theme="light"] [style*="color: #8fa0b8"],
-[data-theme="light"] [style*="color: #8a96a7"],
-[data-theme="light"] [style*="color: #475569"] {
+/* Fix light mode specific color issues - only for known problematic colors */
+[data-theme="light"] [style*="color: #b8c8d7"] {
   color: var(--text-secondary) !important;
 }
 
-[data-theme="light"] [style*="color: #b8c8d7"],
-[data-theme="light"] [style*="color: #cbd5e1"] {
-  color: var(--text-tertiary) !important;
-}
-
-/* Fix dark mode specific color issues */
-[data-theme="dark"] [style*="color: #64748b"],
-[data-theme="dark"] [style*="color: #6b7280"],
-[data-theme="dark"] [style*="color: #94a3b8"],
-[data-theme="dark"] [style*="color: #8fa0b8"],
-[data-theme="dark"] [style*="color: #8a96a7"] {
+/* Fix dark mode specific color issues - only for known problematic colors */
+[data-theme="dark"] [style*="color: #b8c8d7"] {
   color: var(--text-secondary) !important;
 }
 
-/* Fix hardcoded background colors */
-[data-theme="light"] [style*="background: #e0e7ff"],
-[data-theme="light"] [style*="background: #dbeafe"],
-[data-theme="light"] [style*="background: #dcfce7"],
-[data-theme="light"] [style*="background: #fff7ed"],
-[data-theme="light"] [style*="background: #fee2e2"],
-[data-theme="light"] [style*="background: #e0f2fe"],
-[data-theme="light"] [style*="background: #fdf4ff"] {
-  background: var(--bg-app) !important;
-}
-
-[data-theme="dark"] [style*="background: #e0e7ff"],
-[data-theme="dark"] [style*="background: #dbeafe"],
-[data-theme="dark"] [style*="background: #dcfce7"],
-[data-theme="dark"] [style*="background: #fff7ed"],
-[data-theme="dark"] [style*="background: #fee2e2"],
-[data-theme="dark"] [style*="background: #e0f2fe"],
-[data-theme="dark"] [style*="background: #fdf4ff"] {
-  background: var(--bg-surface) !important;
-}
+/* Remove aggressive background color overrides - were breaking UI */
 
 /* Sidebar Text Contrast - Always legible */
 .sidebar a, .sidebar button, .sidebar span {

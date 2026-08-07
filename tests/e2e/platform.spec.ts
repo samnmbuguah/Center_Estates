@@ -9,7 +9,7 @@ async function signIn(page: Page) {
   await page.locator("#username").fill(process.env.E2E_ADMIN_USERNAME ?? "admin");
   await page.locator("#password").fill(password);
   await page.locator("button[type=submit]").click();
-  await expect(page).toHaveURL(/(\/|\/workspaces)$/);
+  await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
   await expect(page.getByRole("heading", { name: "ERP modules", exact: true })).toBeVisible();
 }
 

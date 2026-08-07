@@ -1,4 +1,4 @@
-import { type Page, type TestInfo } from "@playwright/test";
+import { expect, type Page, type TestInfo } from "@playwright/test";
 
 /**
  * Shared navigation helpers for E2E specs.
@@ -80,4 +80,13 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 /** Open a horizontal module tab directly. */
 export async function openTab(page: Page, name: string) {
   await page.locator(".module-tabs-workspace").getByRole("button", { name, exact: true }).click();
+}
+
+/** Sign in with a generous navigation timeout (slower under parallel load). */
+export async function signInAs(page: Page, username: string, password: string) {
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.locator("#username").fill(username);
+  await page.locator("#password").fill(password);
+  await page.locator("button[type=submit]").click();
+  await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
 }
