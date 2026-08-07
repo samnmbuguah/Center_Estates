@@ -51,6 +51,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 
   // Desktop: horizontal nav bar (grouped buttons) first
   const navBar = page.locator(".module-nav-bar");
+  await navBar.first().waitFor({ state: "attached", timeout: 20000 }).catch(() => {});
   if (await navBar.count()) {
     const requestedTab = navBar.getByRole("button").filter({ hasText: TAB_ALIASES[name] ?? name });
     if (await requestedTab.count()) {
