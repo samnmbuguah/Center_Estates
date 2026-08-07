@@ -49,7 +49,7 @@ export function BrandLogo({
             Center Estates
           </span>
           <span style={{ fontSize: size === "lg" ? 10 : 9, fontWeight: 800, color: subColor, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap", marginTop: -1 }}>
-            Estate ERP · Workplace
+            Estate ERP
           </span>
         </div>
       )}

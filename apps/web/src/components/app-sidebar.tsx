@@ -469,56 +469,6 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
             {!collapsed && <span>Building &amp; Asset Onboarding</span>}
           </Link>
 
-          {/* MODULES SECTION */}
-          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
-          {!collapsed && !isMobile && (
-            <p
-              style={{
-                padding: "0 10px 4px",
-                fontSize: 10,
-                fontWeight: 800,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "rgba(255,255,255,0.35)",
-                margin: 0,
-              }}
-            >
-              MODULES
-            </p>
-          )}
-
-          {modules.map((m) => {
-              const isModuleActive = activeModuleSlug === m.slug;
-              const moduleNav = MODULE_NAV_MAP[m.slug];
-              return (
-                <div key={m.slug} style={{ display: "flex", flexDirection: "column" }}>
-                  <Link
-                    className={`nav-link ${isModuleActive ? "active" : ""}`}
-                    href={`/${m.slug}`}
-                    data-testid={`module-nav-${m.slug}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
-                      justifyContent: collapsed ? "center" : "flex-start",
-                      borderRadius: 6,
-                      background: isModuleActive ? "#e52e2e" : "transparent",
-                      color: isModuleActive ? "#fff" : "#ffffff",
-                      textDecoration: "none",
-                      fontSize: isMobile ? 16 : 14,
-                      fontWeight: isModuleActive ? 700 : 600,
-                    }}
-                    onClick={onCloseMobile}
-                    title={m.name}
-                  >
-                    <span style={{ fontSize: isMobile ? 20 : 15, flexShrink: 0 }}>{m.icon}</span>
-                    {(!collapsed || isMobile) && <span style={{ flex: 1 }}>{m.name}</span>}
-                  </Link>
-                </div>
-              );
-            })}
-
           {/* SETTINGS SECTION */}
           <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
           {!collapsed && !isMobile && (

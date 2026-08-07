@@ -233,7 +233,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
         {/* MONITORING ERP TOPBAR HEADER — starts where the fixed module sidebar ends */}
         <header className="topbar header-responsive" role="banner" style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", height: "clamp(56px, 8vw, 60px)", width: "100%", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxSizing: "border-box", margin: 0 }}>
           <div className="topbar-left" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <BrandLogo size="sm" href="/" showWordmark={true} />
+            <BrandLogo size="sm" href="/" showWordmark={false} />
           </div>
 
           <label className="global-search search-responsive" style={{ flex: 1, margin: "0 16px", position: "relative", display: "flex", alignItems: "center" }}>
