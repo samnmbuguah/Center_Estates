@@ -497,7 +497,7 @@ function RowDetailPanel({ tab, row }: { tab: PropertyTab; row: Row }) {
 
 /* ─── OVERVIEW ─── */
 
-function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData | null; loading: boolean; setTab: (t: PropertyTab) => void }) {
+function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFinance }: { dashboard: DashboardData | null; loading: boolean; setTab: (t: PropertyTab) => void; canOperate: boolean; canLease: boolean; canFinance: boolean }) {
   if (loading && !dashboard) return <LoadingState rows={8} />;
   if (!dashboard) {
     return <EmptyState icon="🏢" title="Dashboard unavailable" description="Add properties, units and leases to unlock portfolio, collection and occupancy analytics." />;
@@ -524,9 +524,44 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
     ? `conic-gradient(#22c55e 0% ${collectionRate}%, #ef4444 ${collectionRate}% 100%)`
     : "conic-gradient(#e5e7eb 0% 100%)";
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
-      <KpiStrip>
+  // Role-specific KPI cards
+  const getKpiCards = () => {
+    if (canFinance) {
+      // Finance dashboard - focus on collections and arrears
+      return (
+        <>
+          <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Outstanding Rent" value={kM(outstanding)} sub="Uncollected balance" link="View arrears" onClick={() => setTab("arrears")} />
+          <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub={`${kM(collected)} collected YTD`} link="View collections" onClick={() => setTab("rent")} />
+          <KpiCard icon="💵" iconBg="#dcfce7" iconColor="#16a34a" label="Monthly Rent" value={kM(monthlyRent)} sub="Portfolio monthly rent" link="View rent" onClick={() => setTab("rent")} />
+          <KpiCard icon="📊" iconBg="#fef3c7" iconColor="#d97706" label="Arrears Aging" value={kM(agingTotal)} sub="Total arrears balance" link="View arrears" onClick={() => setTab("arrears")} />
+        </>
+      );
+    }
+    if (canLease) {
+      // Leasing dashboard - focus on occupancy and leases
+      return (
+        <>
+          <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
+          <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
+          <KpiCard icon="▣" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy Rate" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
+          <KpiCard icon="📋" iconBg="#dbeafe" iconColor="#2563eb" label="Active Leases" value={kN(k.activeLeases ?? 0)} sub="Lease agreements" link="View leases" onClick={() => setTab("leases")} />
+        </>
+      );
+    }
+    if (canOperate) {
+      // Operations dashboard - focus on properties and units
+      return (
+        <>
+          <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
+          <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(units)} sub={`${kN(occupied)} occupied`} link="View units" onClick={() => setTab("units")} />
+          <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
+          <KpiCard icon="📦" iconBg="#fef3c7" iconColor="#d97706" label="Vacant Units" value={kN(units - occupied)} sub="Available for lease" link="View units" onClick={() => setTab("units")} />
+        </>
+      );
+    }
+    // Default - show all KPIs
+    return (
+      <>
         <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
         <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(units)} sub={`${kN(occupied)} occupied`} link="View units" onClick={() => setTab("units")} />
         <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
@@ -534,6 +569,14 @@ function OverviewView({ dashboard, loading, setTab }: { dashboard: DashboardData
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding Rent" value={kM(outstanding)} sub="Uncollected balance" link="View arrears" onClick={() => setTab("arrears")} />
         <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub={`${kM(collected)} collected YTD`} link="View collections" onClick={() => setTab("rent")} />
         <KpiCard icon="▣" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
+      </>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
+      <KpiStrip>
+        {getKpiCards()}
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, width: "100%" }}>
@@ -4698,7 +4741,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       <div className="property-workspace" style={{ padding: "16px 24px", width: "100%", boxSizing: "border-box" }}>
         {error && <ErrorBanner message={error} onRetry={() => { setError(""); loadData(); }} />}
 
-        {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} />}
+        {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} />}
         {tab === "properties" && <PropertiesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddProperty(true)} onSelectRow={handleSelectRow} />}
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}

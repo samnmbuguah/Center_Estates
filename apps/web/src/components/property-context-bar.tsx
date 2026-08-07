@@ -1,32 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Building2, HardHat, ClipboardCheck, Users2, FileText, Wallet, PieChart } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { usePropertyContext } from "@/lib/property-context";
 
 /**
  * MonitoringERP-style persistent property context bar.
  * Rendered above module workspaces (Property / Facility / Companion) so a
- * selected property stays in context while working across modules, with
- * horizontal cross-module tabs.
+ * selected property stays in context while working across modules.
  */
 export function PropertyContextBar() {
-  const pathname = usePathname();
-  const router = useRouter();
   const { activeProperty } = usePropertyContext();
 
   if (!activeProperty) return null;
-
-  const tabs = [
-    { label: "Overview", path: "/property", tab: undefined, icon: <Building2 size={13} /> },
-    { label: "Tenants", path: "/property", tab: "tenants", icon: <Users2 size={13} /> },
-    { label: "Leases", path: "/property", tab: "leases", icon: <FileText size={13} /> },
-    { label: "Rent & Invoices", path: "/property", tab: "rent", icon: <Wallet size={13} /> },
-    { label: "Service Charge", path: "/property", tab: "service-charges", icon: <PieChart size={13} /> },
-    { label: "Facility", path: "/facility", tab: undefined, icon: <HardHat size={13} /> },
-    { label: "Companion", path: "/companion", tab: undefined, icon: <ClipboardCheck size={13} /> },
-  ];
 
   return (
     <section
@@ -43,7 +29,6 @@ export function PropertyContextBar() {
       <div
         style={{
           padding: "10px 16px",
-          borderBottom: "1px solid var(--border)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -81,48 +66,6 @@ export function PropertyContextBar() {
             <small style={{ fontSize: 11, color: "var(--muted)" }}>📍 {activeProperty.location}</small>
           )}
         </div>
-      </div>
-
-      {/* Horizontal cross-module tabs */}
-      <div
-        role="tablist"
-        aria-label="Property navigation"
-        style={{ display: "flex", gap: 0, padding: "6px 12px", overflowX: "auto" }}
-      >
-        {tabs.map((tab) => {
-          const href = tab.tab ? `${tab.path}?tab=${tab.tab}` : tab.path;
-          const currentTab =
-            typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
-          const isActive = tab.tab ? pathname === tab.path && currentTab === tab.tab : pathname === tab.path;
-          return (
-            <Link
-              key={href}
-              href={href}
-              role="tab"
-              aria-current={isActive ? "page" : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                router.push(href);
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "6px 14px",
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: isActive ? 700 : 600,
-                color: isActive ? "#fff" : "var(--muted)",
-                background: isActive ? "var(--primary)" : "transparent",
-                transition: "all 0.15s ease",
-                textDecoration: "none",
-              }}
-            >
-              {tab.icon}
-              {tab.label}
-            </Link>
-          );
-        })}
       </div>
     </section>
   );

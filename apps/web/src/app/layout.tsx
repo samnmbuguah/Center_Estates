@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { ToastProvider } from "@/components/monitoring/hooks/useToast";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { PropertyWorkspaceProvider } from "@/lib/property-context";
+import { ThemeProvider } from "@/theme/theme-provider";
 
 export const metadata: Metadata = {
   title: "Center Estates ERP",
@@ -21,17 +22,19 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased" data-theme="light">
       <body>
         <AuthProvider>
-          <ToastProvider>
-            <PropertyWorkspaceProvider>
-              <Suspense fallback={null}>
-                <PlatformShell>
-                  <ErrorBoundary moduleName="Application">
-                    {children}
-                  </ErrorBoundary>
-                </PlatformShell>
-              </Suspense>
-            </PropertyWorkspaceProvider>
-          </ToastProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <PropertyWorkspaceProvider>
+                <Suspense fallback={null}>
+                  <PlatformShell>
+                    <ErrorBoundary moduleName="Application">
+                      {children}
+                    </ErrorBoundary>
+                  </PlatformShell>
+                </Suspense>
+              </PropertyWorkspaceProvider>
+            </ToastProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>
