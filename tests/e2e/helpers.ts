@@ -49,10 +49,10 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
     return;
   }
 
-  // Desktop: horizontal tabs first
-  const tabs = page.locator(".module-tabs-workspace");
-  if (await tabs.count()) {
-    const requestedTab = tabs.getByRole("button", { name: TAB_ALIASES[name] ?? name, exact: true });
+  // Desktop: horizontal nav bar (grouped buttons) first
+  const navBar = page.locator(".module-nav-bar");
+  if (await navBar.count()) {
+    const requestedTab = navBar.getByRole("button", { name: new RegExp(`^(?:\\S+ )?${TAB_ALIASES[name] ?? name}$`) });
     if (await requestedTab.count()) {
       await requestedTab.click();
       return;
@@ -70,7 +70,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   const parent = PROPERTY_PARENTS[name];
   if (parent) {
     await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
-    await page.locator(".module-tabs-workspace").getByRole("button", { name: TAB_ALIASES[name] ?? name, exact: true }).click();
+    await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^(?:\\S+ )?${TAB_ALIASES[name] ?? name}$`) }).click();
     return;
   }
 

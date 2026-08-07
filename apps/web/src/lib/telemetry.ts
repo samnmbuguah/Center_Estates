@@ -83,8 +83,9 @@ class TelemetryEngine {
       });
     }
 
-    // 2. PostHog Telemetry dispatch if PostHog Key is configured
-    if (this.posthogKey && typeof window !== "undefined") {
+    // 2. PostHog Telemetry dispatch if a valid project API key (phc_) is configured.
+    //    Personal keys (phx_) and other key types are rejected by /e/ with 401.
+    if (this.posthogKey?.startsWith("phc_") && typeof window !== "undefined") {
       try {
         fetch(`${this.posthogHost}/e/`, {
           method: "POST",

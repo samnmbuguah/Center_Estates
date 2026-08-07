@@ -2,6 +2,25 @@
 
 import Link from "next/link";
 import { type ReactNode } from "react";
+import {
+  propertyNav,
+  facilityNav,
+  salesNav,
+  tenderNav,
+  valuationNav,
+  constructionNav,
+  companionNav,
+} from "@/lib/module-nav";
+
+const MODULE_NAV_BY_KEY: Record<string, ModuleNavGroup[]> = {
+  property: propertyNav,
+  facility: facilityNav,
+  sales: salesNav,
+  tender: tenderNav,
+  valuation: valuationNav,
+  construction: constructionNav,
+  companion: companionNav,
+};
 
 export type ModuleNavItem = {
   id: string;
@@ -70,18 +89,15 @@ export function ModuleShell({
   onSelectEntity,
 }: ModuleShellProps) {
   const hasSubTabs = Array.isArray(subTabs) && subTabs.length > 0;
-  const hasGroups = Array.isArray(groups) && groups.length > 0;
-
-  // Navigation is handled by the app sidebar - no horizontal tabs needed
-  // This eliminates duplication between sidebar and horizontal navigation
-
+  const resolvedGroups = groups ?? MODULE_NAV_BY_KEY[moduleKey];
+  const hasGroups = Array.isArray(resolvedGroups) && resolvedGroups.length > 0;
 
   return (
     <div
       className={`module-workspace module-workspace-${moduleKey}`}
       style={{ display: "block", width: "100%", minHeight: "100vh", position: "relative" }}
     >
-      {/* MAIN CONTENT — no module sidebar, using app sidebar for navigation */}
+      {/* MAIN CONTENT — with horizontal navigation bar */}
       <div className="module-workspace-main main" style={{ width: "100%", minWidth: 0, padding: "clamp(16px, 4vw, 24px)" }}>
         <div className="module-workspace-body" style={{ width: "100%" }}>
 
@@ -115,6 +131,61 @@ export function ModuleShell({
             </div>
             {actions ? <div className="portfolio-toolbar" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>{actions}</div> : null}
           </section>
+
+          {/* Horizontal Navigation Bar - MonitoringERP style */}
+          {hasGroups && (
+            <div
+              className="module-nav-bar"
+              style={{
+                display: "flex",
+                gap: 8,
+                overflowX: "auto",
+                borderBottom: "2px solid var(--border-color)",
+                paddingBottom: 8,
+                marginBottom: 20,
+                scrollbarWidth: "thin",
+              }}
+            >
+              {resolvedGroups.map((group) => (
+                <div key={group.label} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      color: "var(--text-muted)",
+                      padding: "8px 0",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {group.label}
+                  </span>
+                  {group.items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => onSelect?.(item.id)}
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: 6,
+                        background: activeId === item.id ? accent : "var(--bg-surface)",
+                        color: activeId === item.id ? "#fff" : "var(--text-primary)",
+                        textDecoration: "none",
+                        fontWeight: activeId === item.id ? "bold" : 600,
+                        fontSize: "0.85rem",
+                        border: "none",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {item.icon ? `${item.icon} ` : ""}{item.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Entity context switcher */}
           {entities && entities.length > 0 && (
