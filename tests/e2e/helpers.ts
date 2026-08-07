@@ -52,7 +52,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   // Desktop: horizontal nav bar (grouped buttons) first
   const navBar = page.locator(".module-nav-bar");
   if (await navBar.count()) {
-    const requestedTab = navBar.getByRole("button", { name: new RegExp(`^(?:\\S+ )?${TAB_ALIASES[name] ?? name}$`) });
+    const requestedTab = navBar.getByRole("button").filter({ hasText: TAB_ALIASES[name] ?? name });
     if (await requestedTab.count()) {
       await requestedTab.click();
       return;
@@ -70,7 +70,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   const parent = PROPERTY_PARENTS[name];
   if (parent) {
     await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
-    await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^(?:\\S+ )?${TAB_ALIASES[name] ?? name}$`) }).click();
+    await page.locator(".module-nav-bar").getByRole("button").filter({ hasText: TAB_ALIASES[name] ?? name }).click();
     return;
   }
 
@@ -79,7 +79,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 
 /** Open a horizontal module tab directly. */
 export async function openTab(page: Page, name: string) {
-  await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^(?:\\S+ )?${name}$`) }).click();
+  await page.locator(".module-nav-bar").getByRole("button").filter({ hasText: name }).click();
 }
 
 /** Sign in with a generous navigation timeout (slower under parallel load). */

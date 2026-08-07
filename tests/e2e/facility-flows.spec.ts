@@ -21,9 +21,9 @@ test("facility overview renders dashboard components", async ({ page }) => {
   await page.goto("/facility");
   await expect(page.getByRole("heading", { name: "Facility Management" })).toBeVisible();
 
-  await expect(page.getByText("Buildings", { exact: true })).toBeVisible();
-  await expect(page.getByText("Assets", { exact: true })).toBeVisible();
-  await expect(page.getByText("Work Orders", { exact: true })).toBeVisible();
+  await expect(page.getByText("Total Buildings", { exact: true })).toBeVisible();
+  await expect(page.getByText("Active Assets", { exact: true })).toBeVisible();
+  await expect(page.getByText("Open Work Orders", { exact: true }).first()).toBeVisible();
 
   await expect(page.getByText("Work Orders Overview", { exact: true })).toBeVisible();
   await expect(page.getByText("Recent Work Orders", { exact: true }).first()).toBeVisible();
