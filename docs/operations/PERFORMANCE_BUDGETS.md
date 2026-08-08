@@ -54,9 +54,11 @@ process allowance before increasing concurrent production traffic.
 ## Current bundle baseline
 
 - Total emitted browser chunks: approximately 3.6 MB uncompressed.
-- Largest route chunk: Monitoring, approximately 338 KB uncompressed.
-- Largest shared/vendor chunk: approximately 413 KB uncompressed.
+- Monitoring's initial route chunk is 55.8 KB raw and 9.7 KB gzip, reduced
+  from approximately 338 KB raw by loading workspace pages at tab boundaries.
+- The largest deferred/shared chunk is approximately 401 KB uncompressed.
 
-The next frontend performance pass should split the Monitoring charts and
-detail tooling at tab boundaries, then add compressed route-level budgets to
-CI. These sizes are diagnostic baselines, not completion targets.
+`npm run check:bundles` enforces an 80 KB raw and 15 KB gzip ceiling for the
+Monitoring route after a production build. Both frontend CI workflows run this
+gate. Heavy charts and specialist registers remain available as deferred
+chunks and are fetched only when their workspace surface is opened.

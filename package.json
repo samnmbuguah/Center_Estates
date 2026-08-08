@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "npm run dev --workspace=web",
     "build": "npm run build --workspace=web",
+    "check:bundles": "node scripts/check_frontend_bundles.mjs",
     "lint": "npm run lint --workspace=web",
     "e2e": "playwright test",
     "e2e:roles": "playwright test tests/e2e/roles.spec.ts --project=desktop-chromium",

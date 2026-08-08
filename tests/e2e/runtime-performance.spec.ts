@@ -48,3 +48,27 @@ test("facility boot coalesces dashboard reads and batches interaction telemetry"
   expect(requests.get("GET /api/v1/companion/dashboard/") ?? 0).toBeLessThanOrEqual(1);
   expect(requests.get("POST /api/v1/companion/telemetry/") ?? 0).toBeLessThanOrEqual(1);
 });
+
+test("monitoring workspace loads specialist tab chunks without runtime failures", async ({ page }) => {
+  if (!password) throw new Error("E2E_ADMIN_PASSWORD is required");
+  await signInAs(page, process.env.E2E_ADMIN_USERNAME ?? "admin", password);
+
+  const pageErrors: string[] = [];
+  const failedChunks: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (url.pathname.includes("/_next/static/chunks/") && response.status() >= 400) {
+      failedChunks.push(`${response.status()} ${url.pathname}`);
+    }
+  });
+
+  for (const tab of ["projects", "calendar", "boq", "reports"]) {
+    await page.goto(`/monitoring?tab=${tab}`);
+    await expect(page.locator(".monitoring-workspace-container")).toBeVisible();
+    await expect(page.locator(".monitoring-workspace-container .data-loading")).toHaveCount(0);
+  }
+
+  expect(failedChunks).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});

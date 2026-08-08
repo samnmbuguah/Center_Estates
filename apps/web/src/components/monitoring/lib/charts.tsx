@@ -2,21 +2,21 @@
  * Reusable chart components for dashboards. Thin wrappers around Recharts so
  * pages stay readable and chart styling is consistent.
  */
-import * as Recharts from "recharts";
-
-const ResponsiveContainer = Recharts.ResponsiveContainer as any;
-const BarChart = Recharts.BarChart as any;
-const Bar = Recharts.Bar as any;
-const XAxis = Recharts.XAxis as any;
-const YAxis = Recharts.YAxis as any;
-const CartesianGrid = Recharts.CartesianGrid as any;
-const Tooltip = Recharts.Tooltip as any;
-const PieChart = Recharts.PieChart as any;
-const Pie = Recharts.Pie as any;
-const Cell = Recharts.Cell as any;
-const LineChart = Recharts.LineChart as any;
-const Line = Recharts.Line as any;
-const Legend = Recharts.Legend as any;
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const COLORS = ["var(--accent, #2563eb)", "var(--danger, #dc2626)", "var(--warning, #f59e0b)", "var(--success, #16a34a)"];
 

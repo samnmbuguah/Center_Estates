@@ -4,16 +4,6 @@ import { BarChart3, Coins, TrendingUp, TrendingDown, AlertTriangle, FileDown, Fi
 import { get, fetchCashFlowForecast } from "../api";
 import { ErrorBanner } from "../components";
 import { SimpleBarChart } from "../lib/charts";
-import * as Recharts from "recharts";
-
-const ResponsiveContainer = Recharts.ResponsiveContainer as any;
-const BarChart = Recharts.BarChart as any;
-const Bar = Recharts.Bar as any;
-const XAxis = Recharts.XAxis as any;
-const YAxis = Recharts.YAxis as any;
-const CartesianGrid = Recharts.CartesianGrid as any;
-const Tooltip = Recharts.Tooltip as any;
-const Legend = Recharts.Legend as any;
 
 import type { CashFlowForecast } from "../api";
 
@@ -94,17 +84,14 @@ function CashFlowTab({ id }: { id: string }) {
       {cfView === "chart" ? (
         <div className="card mb-md">
           <h3 style={{ marginTop: 0 }}>Planned vs Actual (KES millions)</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #334155)" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="var(--muted, #94a3b8)" />
-              <YAxis tick={{ fontSize: 11 }} stroke="var(--muted, #94a3b8)" />
-              <Tooltip contentStyle={{ background: "var(--card-bg, #1e293b)", border: "1px solid var(--border, #334155)", borderRadius: 8 }} />
-              <Legend />
-              <Bar dataKey="Planned" fill="var(--accent, #2563eb)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Actual" fill="var(--success, #16a34a)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <SimpleBarChart
+            data={chartData}
+            bars={[
+              { key: "Planned", color: "var(--accent, #2563eb)" },
+              { key: "Actual", color: "var(--success, #16a34a)" },
+            ]}
+            height={250}
+          />
         </div>
       ) : (
         <div className="card mb-md" style={{ overflowX: "auto" }}>

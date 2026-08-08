@@ -38,6 +38,9 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
+      - name: Enforce frontend bundle budgets
+        working-directory: .
+        run: node scripts/check_frontend_bundles.mjs
 
   deploy:
     needs: [backend-test, frontend-test]
