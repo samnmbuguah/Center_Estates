@@ -66,6 +66,19 @@ test("property command center renders live portfolio intelligence", async ({ pag
   await expect(page.locator(".chart-month")).toHaveCount(new Date().getMonth() + 1);
 });
 
+test("property navigation uses the client-approved consolidated hierarchy", async ({ page }) => {
+  await page.goto("/property?tab=overview");
+  const navigation = page.locator(".module-nav-bar");
+  await expect(navigation.getByRole("button", { name: /Tenants & Occupancy$/ })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: /Financials$/ })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: /Management Fees$/ })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: /Rent Collection$/ })).toHaveCount(0);
+  await navigation.getByRole("button", { name: /Tenants & Occupancy$/ }).click();
+  for (const label of ["Occupancy", "Tenants", "Leases", "Documents"]) {
+    await expect(page.locator(".property-workspace").getByRole("tab", { name: label, exact: true })).toBeVisible();
+  }
+});
+
 test("property tenant onboarding and compliance dialogs are connected", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant-code races");
   await page.goto("/property");

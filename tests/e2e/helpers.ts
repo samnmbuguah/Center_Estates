@@ -24,10 +24,10 @@ const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Cha
 
 const PROPERTY_PARENTS: Record<string, string> = {
   "Property Register": "Properties", Buildings: "Properties",
-  "Unit Occupancy": "Occupancy", "Property Projects": "Occupancy",
-  "Tenant documents": "Tenancy",
-  Invoices: "Rent Collection", "Rent & invoices": "Rent Collection", "Rent Roll": "Financials", "Rent schedules": "Financials", Arrears: "Rent Collection",
-  Reminders: "Rent Collection",
+  "Unit Occupancy": "Tenants & Occupancy", Occupancy: "Tenants & Occupancy",
+  Tenants: "Tenants & Occupancy", Leases: "Tenants & Occupancy", "Tenant documents": "Tenants & Occupancy",
+  Invoices: "Financials", "Rent & invoices": "Financials", "Rent Roll": "Financials", "Rent schedules": "Financials", Arrears: "Financials",
+  Reminders: "Financials",
   Receipts: "Financials", Allocations: "Financials", "Receipt allocations": "Financials",
   "Bank Reconciliation": "Financials", "Bank reconciliation": "Financials",
   "Credit Notes": "Financials", "Credit notes": "Financials",
@@ -87,9 +87,18 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
       await expect(parentSidebarLink, `Navigation parent "${parent}" should be available`).toHaveCount(1);
       await parentSidebarLink.click();
     }
+    if (parent === "Financials" && (name === "Rent & invoices" || name === "Arrears" || name === "Reminders")) {
+      const invoicesButton = page.locator(".property-workspace").getByRole("tab", { name: "Invoices", exact: true }).first();
+      await expect(invoicesButton).toBeVisible();
+      await invoicesButton.click();
+      if (name === "Rent & invoices") return;
+    }
     const target = TAB_ALIASES[name] ?? name;
     const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const childButton = page.locator(".property-workspace").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
+    const childScope = page.locator(".property-workspace");
+    const childName = new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i");
+    let childButton = childScope.getByRole("tab", { name: childName });
+    if (await childButton.count() === 0) childButton = childScope.getByRole("button", { name: childName });
     await expect(childButton, `Navigation child "${target}" should be available`).toHaveCount(1);
     await childButton.first().click();
     if (name === "Budgets") {

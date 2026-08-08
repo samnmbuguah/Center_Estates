@@ -2,6 +2,7 @@
 
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Paper, Tab, Tabs } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
 import { ModuleShell } from "@/components/module-shell";
@@ -223,7 +224,7 @@ interface DashboardData {
 
 type RentSection = "invoices" | "receipts" | "arrears" | "reminders" | "ledger";
 type ScSection = "setup" | "allocations" | "reconciliations" | "budget";
-type TenancySection = "tenants" | "leases" | "documents";
+type TenancySection = "occupancy" | "tenants" | "leases" | "documents";
 type FinancialsSection = "schedules" | "invoices" | "receipts" | "allocations" | "reconciliation" | "credit-notes";
 
 /* ─── formatting helpers ─── */
@@ -372,18 +373,21 @@ function ListState({
 
 function SubTabs({ tabs, active, onChange }: { tabs: { id: string; label: string }[]; active: string; onChange: (id: string) => void }) {
   return (
-    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          className={`btn sm ${active === t.id ? "primary" : "ghost"}`}
-          onClick={() => onChange(t.id)}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
+    <Paper
+      variant="outlined"
+      sx={{ borderColor: "divider", borderRadius: 2, overflow: "hidden", width: "fit-content", maxWidth: "100%" }}
+    >
+      <Tabs
+        value={active}
+        onChange={(_, value: string) => onChange(value)}
+        variant="scrollable"
+        scrollButtons="auto"
+        aria-label="Workspace sections"
+        sx={{ minHeight: 42, "& .MuiTab-root": { minHeight: 42, px: 2, py: 1, fontSize: 13, fontWeight: 700, textTransform: "none" } }}
+      >
+        {tabs.map((t) => <Tab key={t.id} value={t.id} label={t.label} />)}
+      </Tabs>
+    </Paper>
   );
 }
 
@@ -1450,12 +1454,12 @@ function LeasesView({
 /* ─── TENANCY (consolidated Tenants / Leases / Documents) ─── */
 
 function TenancyView({
-  tenantsRows, leasesRows, documentsRows, loading, search, setSearch, setTab,
+  unitsRows, tenantsRows, leasesRows, documentsRows, loading, search, setSearch, setTab,
   onAddTenant, onUploadDoc, onAddLease, onDownloadTemplate, onLeaseAction,
   onSelectTenantRow, onSelectLeaseRow, onDownloadDocument, onVerifyDocument, onRejectDocument,
   onOpenPortal,
 }: {
-  tenantsRows: Row[]; leasesRows: Row[]; documentsRows: Row[];
+  unitsRows: Row[]; tenantsRows: Row[]; leasesRows: Row[]; documentsRows: Row[];
   loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void;
   onAddTenant: () => void; onUploadDoc: () => void; onAddLease: () => void;
@@ -1474,11 +1478,15 @@ function TenancyView({
         active={section}
         onChange={(id) => setSection(id as TenancySection)}
         tabs={[
+          { id: "occupancy", label: "Occupancy" },
           { id: "tenants", label: "Tenants" },
           { id: "leases", label: "Leases" },
           { id: "documents", label: "Documents" },
         ]}
       />
+      {section === "occupancy" && (
+        <UnitsView rows={unitsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} />
+      )}
       {section === "tenants" && (
         <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} />
       )}
@@ -3923,6 +3931,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [tenantsRows, setTenantsRows] = useState<Row[]>([]);
   const [leasesRows, setLeasesRows] = useState<Row[]>([]);
   const [tenantDocsRows, setTenantDocsRows] = useState<Row[]>([]);
+  const [tenancyUnitsRows, setTenancyUnitsRows] = useState<Row[]>([]);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [portalTenant, setPortalTenant] = useState<TenantRow | null>(null);
 
@@ -4116,13 +4125,15 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         setRows(Array.isArray(listData) ? listData as Row[] : []);
         setCreditNotes(Array.isArray(cnData) ? cnData as Row[] : []);
       } else if (tab === "tenancy") {
-        const [tenantsRes, leasesRes, docsRes, ageRes] = await Promise.all([
+        const [unitsRes, tenantsRes, leasesRes, docsRes, ageRes] = await Promise.all([
+          apiFetch(`/property/units/?search=${q}`, {}, organizationId),
           apiFetch(`/property/tenants/?search=${q}`, {}, organizationId),
           apiFetch(`/property/leases/?search=${q}`, {}, organizationId),
           apiFetch(`/property/tenant-documents/?search=${q}`, {}, organizationId),
           apiFetch("/property/analytics/aging/?search=", {}, organizationId),
         ]);
-        if (!tenantsRes.ok || !leasesRes.ok || !docsRes.ok) { fail(); return; }
+        if (!unitsRes.ok || !tenantsRes.ok || !leasesRes.ok || !docsRes.ok) { fail(); return; }
+        const unitsData = await unitsRes.json();
         const tenantsData = await tenantsRes.json();
         const leasesData = await leasesRes.json();
         const docsData = await docsRes.json();
@@ -4130,6 +4141,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         const tenantsList = Array.isArray(tenantsData) ? tenantsData as Row[] : [];
         const leasesList = Array.isArray(leasesData) ? leasesData as Row[] : [];
         const docsList = Array.isArray(docsData) ? docsData as Row[] : [];
+        setTenancyUnitsRows(Array.isArray(unitsData) ? unitsData as Row[] : []);
         if (ageRes.ok) {
           const ageData = await ageRes.json();
           const ageTenants = (ageData as AgingAnalytics).tenants ?? [];
@@ -4764,7 +4776,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "projects" && <ProjectsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "tenants" && <TenantsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onSelectRow={setSelectedRow} onOpenPortal={openTenantPortal} />}
-        {tab === "tenancy" && <TenancyView tenantsRows={tenantsRows} leasesRows={leasesRows} documentsRows={tenantDocsRows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddTenant={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectTenantRow={setSelectedRow} onSelectLeaseRow={setSelectedRow} onDownloadDocument={downloadDocument} onVerifyDocument={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onRejectDocument={setDocumentRejectTarget} onOpenPortal={openTenantPortal} />}
+        {tab === "tenancy" && <TenancyView unitsRows={tenancyUnitsRows} tenantsRows={tenantsRows} leasesRows={leasesRows} documentsRows={tenantDocsRows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddTenant={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectTenantRow={setSelectedRow} onSelectLeaseRow={setSelectedRow} onDownloadDocument={downloadDocument} onVerifyDocument={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onRejectDocument={setDocumentRejectTarget} onOpenPortal={openTenantPortal} />}
         {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onReject={setDocumentRejectTarget} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
         {tab === "financials" && <FinancialsView financialsSection={financialsSection} setFinancialsSection={setFinancialsSection} rows={rows} rentInvoices={rentInvoices} analytics={analytics} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} rentSection={rentSection} setRentSection={setRentSection} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} onAddCreditNote={() => setFinancialIntake("credit-note")} />}

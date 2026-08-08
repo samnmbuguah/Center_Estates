@@ -17,36 +17,22 @@ export const propertyNav: ModuleNavGroup[] = [
     ],
   },
   {
-    label: "OCCUPANCY",
-    items: [
-      { id: "units", label: "Occupancy", icon: "🪟" },
-    ],
-  },
-  {
     label: "TENANCY",
     items: [
-      { id: "tenancy", label: "Tenancy", icon: "👥" },
-      { id: "tenants", label: "Tenants", icon: "👤" },
-      { id: "leases",  label: "Leases",  icon: "📄" },
+      { id: "tenancy", label: "Tenants & Occupancy", icon: "👥" },
     ],
   },
   {
     label: "COLLECTIONS",
     items: [
       { id: "financials", label: "Financials",      icon: "💰" },
-      { id: "rent",       label: "Rent Collection", icon: "💵" },
+      { id: "fees",       label: "Management Fees", icon: "🧾" },
     ],
   },
   {
     label: "SERVICE CHARGE",
     items: [
       { id: "service-charges", label: "Service Charge", icon: "⚡" },
-    ],
-  },
-  {
-    label: "INCOME & EXPENSES",
-    items: [
-      { id: "expenses", label: "Income & Expenses", icon: "📊" },
     ],
   },
   {
