@@ -32,13 +32,14 @@ test("monitoring overview renders executive dashboard", async ({ page }) => {
   await page.waitForTimeout(500);
 
   await expect(page.locator("h1")).toBeVisible();
-  const heading = page.getByText(/Executive Dashboard|Command Center|Project monitoring/i).first();
-  if (await heading.count() > 0) await expect(heading).toBeVisible();
+  // Super administrators land on the operations dashboard by default.
+  const adminHeading = page.getByText(/Administrator Dashboard|System administration/i).first();
+  if (await adminHeading.count() > 0) await expect(adminHeading).toBeVisible();
 
-  const projectCard = page.locator(".construction-project-card, .project-card").first();
-  if (await projectCard.count() > 0) await expect(projectCard).toBeVisible();
+  const kpi = page.locator(".kpi-card, .stat-card, .metric-card").first();
+  if (await kpi.count() > 0) await expect(kpi).toBeVisible();
 
-  const portfolioText = page.getByText(/portfolio|Portfolio/i).first();
+  const portfolioText = page.getByText(/portfolio|Portfolio|Total Projects/i).first();
   if (await portfolioText.count() > 0) await expect(portfolioText).toBeVisible();
 
   await expect(page.locator(".form-error")).toHaveCount(0);
@@ -181,8 +182,10 @@ test("rfi list tab renders correctly", async ({ page }) => {
 
   await openTab(page, "RFIs");
 
-  const tableOrEmpty = page.locator("table, [role=table], text=/No RFIs|no RFIs|empty|No data/i").first();
+  const tableOrEmpty = page.locator("table, [role=table]").first();
   if (await tableOrEmpty.count() > 0) await expect(tableOrEmpty).toBeVisible();
+  const noRfis = page.getByText(/No RFIs|no RFIs|empty|No data/i).first();
+  if (await noRfis.count() > 0) await expect(noRfis).toBeVisible();
 
   await expect(page.locator("h1").first()).toBeVisible();
 

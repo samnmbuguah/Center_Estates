@@ -32,6 +32,9 @@ const WorkspaceContext = createContext<WorkspaceContextType>({
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string>(() => {
+    // SSR-safe: sessionStorage is only available on the client. Reading it
+    // during hydration would produce a server/client render mismatch (#418).
+    if (typeof window === "undefined") return "";
     return sessionStorage.getItem("activeProject") || "";
   });
   const [loading, setLoading] = useState(true);

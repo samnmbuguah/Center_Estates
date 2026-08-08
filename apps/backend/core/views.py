@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
 
 from core.serializers import MembershipSerializer, serialize_modules
 from core.tenancy import get_active_membership, get_active_organization
@@ -79,6 +80,10 @@ class LoginView(APIView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'login'
 
+    @extend_schema(
+        request=TokenObtainPairSerializer,
+        responses={200: {'type': 'object'}, 401: {'type': 'object'}},
+    )
     def post(self, request):
         serializer = TokenObtainPairSerializer(data=request.data)
         try:
@@ -110,6 +115,10 @@ class MobileTokenView(APIView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'login'
 
+    @extend_schema(
+        request=MobileTokenSerializer,
+        responses={200: MobileTokenSerializer},
+    )
     def post(self, request):
         serializer = MobileTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -127,6 +136,10 @@ class RefreshView(APIView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'token_refresh'
 
+    @extend_schema(
+        request=TokenRefreshSerializer,
+        responses={200: {'type': 'object'}},
+    )
     def post(self, request):
         serializer = TokenRefreshSerializer(data={'refresh': request.COOKIES.get(settings.JWT_REFRESH_COOKIE)})
         serializer.is_valid(raise_exception=True)
@@ -141,6 +154,7 @@ class RefreshView(APIView):
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={204: None})
     def post(self, request):
         response = Response(status=204)
         response.delete_cookie(settings.JWT_ACCESS_COOKIE, path='/api/v1/')
@@ -152,6 +166,7 @@ class LogoutView(APIView):
 class MeView(APIView):
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     def get(self, request):
         memberships = Membership.objects.active().filter(user=request.user).select_related('organization')
         organization = get_active_organization(request, required=False)
@@ -192,6 +207,7 @@ class DemoIdentitiesView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     def get(self, request):
         organization = get_active_organization(request, required=False)
         if not organization:
@@ -255,6 +271,7 @@ class ImpersonateView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}, 400: {'type': 'object'}})
     def post(self, request):
         organization = get_active_organization(request, required=False)
         username = str(request.data.get('username') or '').strip()
@@ -297,6 +314,7 @@ class StopImpersonateView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}, 400: {'type': 'object'}})
     def post(self, request):
         impersonator_id = request.COOKIES.get(IMPERSONATOR_COOKIE)
         if not impersonator_id:
@@ -317,6 +335,7 @@ class WorkspaceInboxView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     def get(self, request):
         from decimal import Decimal
 
@@ -482,6 +501,7 @@ class WorkspacePulseView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     def get(self, request):
         from decimal import Decimal
 
@@ -588,6 +608,7 @@ class WorkspacePulseView(APIView):
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
+@extend_schema(request=None, responses={200: {'type': 'object'}})
 def security_audit(request):
     return Response({
         'debug': settings.DEBUG,
@@ -607,6 +628,7 @@ class RegisterView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
 
+    @extend_schema(request=None, responses={201: {'type': 'object'}, 400: {'type': 'object'}})
     def post(self, request):
         User = get_user_model()
         data = request.data
@@ -676,6 +698,7 @@ class PasswordResetRequestView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     def post(self, request):
         email = str(request.data.get('email', '')).strip()
         if email:
