@@ -13,7 +13,7 @@ class DecisionSerializer(Base):
 class TaskSerializer(Base):
  owner_name=serializers.CharField(source='owner.get_full_name',read_only=True)
  tender_title=serializers.CharField(source='tender.title',read_only=True)
- class Meta: model=TenderTask; exclude=('organization',); read_only_fields=('status','progress')
+ class Meta: model=TenderTask; exclude=('organization',); read_only_fields=('status','progress'); ref_name='TenderTask'
 class CompanyDocumentSerializer(Base):
  class Meta: model=CompanyDocument; exclude=('organization',)
 class ProposalSectionSerializer(Base):

@@ -6,6 +6,7 @@ import { constructionNav } from "@/lib/module-nav";
 import { WorkspaceProvider, useWorkspace } from "@/components/monitoring/context/WorkspaceContext";
 import { fetchDashboard, fetchTickets, fetchDailyLogs, fetchRequisitions, type Ticket, type DailyLog, type Requisition } from "@/components/monitoring/api";
 import { usePropertyContext } from "@/lib/property-context";
+import { useAuth } from "@/components/auth-provider";
 
 const Projects = lazy(() => import("@/components/monitoring/pages/Projects").then(m => ({ default: m.Projects })));
 const ProjectWorkspace = lazy(() => import("@/components/monitoring/pages/ProjectWorkspace").then(m => ({ default: m.ProjectWorkspace })));
@@ -1000,11 +1001,15 @@ function RoleAdminDashboard() {
 
 function WorkspaceContent() {
   const { activeProperty } = usePropertyContext();
+  const { session } = useAuth();
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
       if (q && tabLabels[q]) return q;
     }
+    // Super administrators land on the operations dashboard, not the
+    // client-facing Command Center overview.
+    if (session?.user.isSuperuser) return "role-admin";
     return "overview";
   });
 

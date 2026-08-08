@@ -36,6 +36,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
         exclude = ('organization',)
+        ref_name = 'PropertyProject'
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -95,6 +96,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         exclude = ('organization',)
         read_only_fields = ('balance', 'status', 'tax_amount', 'prepared_by', 'reviewed_by', 'reviewed_at', 'issued_by', 'issued_at')
+        ref_name = 'PropertyInvoice'
         extra_kwargs = {'amount': {'required': False}, 'subtotal': {'required': False}}
 
     def validate_amount(self, value):

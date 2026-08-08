@@ -19,6 +19,7 @@ const TAB_ALIASES: Record<string, string> = {
   Buildings: "Buildings & Locations", Assets: "Assets & Inventory",
   Utilities: "Energy & Utilities",
   Invoicing: "Client invoicing", Inspections: "Site inspections",
+  Projects: "Project Portfolio", Milestones: "Progress",
 };
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };

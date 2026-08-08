@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 
 from .models import (
     Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule,
@@ -33,7 +34,9 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkOrder
         exclude = ('organization', 'reported_by')
+        ref_name = 'FacilityWorkOrder'
 
+    @extend_schema_field(serializers.DecimalField(max_digits=14, decimal_places=2))
     def get_total_cost(self, obj):
         return obj.labor_cost + obj.parts_cost + obj.other_cost
 
@@ -87,6 +90,7 @@ class UtilityMeterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('The utility rate cannot be negative.')
         return value
 
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_latest_reading(self, obj):
         reading = obj.readings.first()
         return MeterReadingSerializer(reading).data if reading else None
@@ -94,30 +98,37 @@ class UtilityMeterSerializer(serializers.ModelSerializer):
     def _latest(self, obj):
         return obj.readings.first()
 
+    @extend_schema_field(serializers.DecimalField(max_digits=16, decimal_places=3, allow_null=True))
     def get_current_reading(self, obj):
         reading = self._latest(obj)
         return reading.value if reading else None
 
+    @extend_schema_field(serializers.DecimalField(max_digits=16, decimal_places=3, allow_null=True))
     def get_previous_reading(self, obj):
         reading = self._latest(obj)
         return reading.previous_value if reading else None
 
+    @extend_schema_field(serializers.DecimalField(max_digits=14, decimal_places=3, allow_null=True))
     def get_consumption(self, obj):
         reading = self._latest(obj)
         return reading.consumption if reading else None
 
+    @extend_schema_field(serializers.DecimalField(max_digits=14, decimal_places=2, allow_null=True))
     def get_cost(self, obj):
         reading = self._latest(obj)
         return reading.cost if reading else None
 
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_read_at(self, obj):
         reading = self._latest(obj)
         return reading.read_at if reading else None
 
+    @extend_schema_field(serializers.CharField(allow_blank=True))
     def get_reading_status(self, obj):
         reading = self._latest(obj)
         return reading.status if reading else 'not_read'
 
+    @extend_schema_field(serializers.BooleanField())
     def get_reading_is_anomaly(self, obj):
         reading = self._latest(obj)
         return reading.is_anomaly if reading else False

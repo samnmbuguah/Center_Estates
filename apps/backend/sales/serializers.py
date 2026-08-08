@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
@@ -32,7 +34,7 @@ class PropertySaleSerializer(serializers.ModelSerializer):
         exclude = ('organization',)
         read_only_fields = ('status', 'reserved_at', 'contracted_on', 'cancellation_reason')
 
-    def get_paid_amount(self, obj):
+    def get_paid_amount(self, obj) -> Decimal:
         return sum((payment.amount for payment in obj.payments.all() if payment.status == SalePayment.Status.VERIFIED), start=0)
 
 

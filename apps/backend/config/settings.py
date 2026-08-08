@@ -206,6 +206,9 @@ SPECTACULAR_SETTINGS = {
     'SWAGGER_UI_DIST': 'SIDECAR',
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
     'REDOC_DIST': 'SIDECAR',
+    # Disambiguate component names shared across modules (identical schema shapes
+    # defined in multiple serializer modules) so the OpenAPI schema stays correct.
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(

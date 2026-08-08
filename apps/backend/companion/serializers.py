@@ -16,7 +16,7 @@ class TaskSerializer(serializers.ModelSerializer):
         exclude = ('organization',)
         read_only_fields = ('reference', 'status', 'acknowledged_at', 'completed_at', 'escalated', 'escalated_at', 'delegated_from')
 
-    def get_overdue(self, obj):
+    def get_overdue(self, obj) -> bool:
         if obj.status in (Task.Status.COMPLETED, Task.Status.CANCELLED):
             return False
         return bool(obj.due_at and obj.due_at < __import__('django').utils.timezone.now())

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import (
@@ -178,7 +180,7 @@ class PurchaseOrderSerializer(OrganizationScopedSerializer):
         model = PurchaseOrder
         fields = "__all__"
         read_only_fields = ("created_by", "created_at", "received_at", "status")
-    def get_total(self, obj):
+    def get_total(self, obj) -> Decimal:
         return sum(line.quantity * line.unit_price for line in obj.lines.all())
 
 
