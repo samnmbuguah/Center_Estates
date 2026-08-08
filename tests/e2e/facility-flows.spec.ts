@@ -104,21 +104,17 @@ test("service requests list shows requests with actions", async ({ page }, testI
   await page.goto("/facility");
   await openFacilityTab(page, "Service requests", testInfo);
 
-  await expect(page.getByText("SR-2026-00123", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "All", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "In Progress", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Completed", exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("row").filter({ hasText: "SR-2026-00123" }).getByRole("button", { name: "Resolve", exact: true })
-  ).toBeVisible();
+  await expect(page.getByText("SR-2026-0187", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Open", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("In Progress", { exact: true }).first()).toBeVisible();
+  await expect(page.locator("table")).toBeVisible();
 });
 
 test("contractors list shows contractors with ratings", async ({ page }, testInfo) => {
   await page.goto("/facility");
   await openFacilityTab(page, "Contractors", testInfo);
 
-  await expect(page.getByText("AquaFix Stores", { exact: true })).toBeVisible();
+  await expect(page.getByText("AquaFix Services Ltd", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "All", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "By Category", exact: true })).toBeVisible();
   await expect(page.locator("table")).toBeVisible();

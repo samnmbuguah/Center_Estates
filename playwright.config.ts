@@ -15,7 +15,7 @@ export default defineConfig({
   ],
   outputDir: "artifacts/test-results",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "https://monitoringerp.com",
+    baseURL: process.env.E2E_BASE_URL ?? "https://centerestates.com",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
