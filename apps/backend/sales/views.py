@@ -1,5 +1,5 @@
 import csv
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from decimal import Decimal
 
 from django.db import transaction
@@ -474,6 +474,7 @@ class SalesAnalyticsViewSet(ViewSet):
             ],
         })
 
+    @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
     @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
     def export(self, request, report_kind=None):
         organization = self._organization()

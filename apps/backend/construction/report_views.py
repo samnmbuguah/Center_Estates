@@ -6,6 +6,7 @@ from decimal import Decimal
 from django.http import HttpResponse
 from django.db.models import Sum
 from rest_framework.decorators import api_view, permission_classes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework.response import Response
 
 from core.models import Module
@@ -39,6 +40,7 @@ def iso_week_from_date(value):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def project_report(request, project_id):
     organization = get_active_organization(request)
     project = Project.objects.filter(id=project_id, organization=organization).first()
@@ -108,6 +110,7 @@ def _scoped_project(request, project_id):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def weekly_report(request):
     project_id = request.query_params.get("project") or request.query_params.get("project_id")
     if not project_id:
@@ -117,6 +120,7 @@ def weekly_report(request):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def monthly_report(request):
     project_id = request.query_params.get("project") or request.query_params.get("project_id")
     if not project_id:
@@ -155,6 +159,7 @@ def _csv_response(filename):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def export_boq_csv(request, project_id):
     project = _scoped_project(request, project_id)
     if not project: return Response({"detail": "Project not found."}, status=404)
@@ -167,6 +172,7 @@ def export_boq_csv(request, project_id):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def export_milestones_csv(request, project_id):
     project = _scoped_project(request, project_id)
     if not project: return Response({"detail": "Project not found."}, status=404)
@@ -179,6 +185,7 @@ def export_milestones_csv(request, project_id):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def export_cost_csv(request, project_id):
     project = _scoped_project(request, project_id)
     if not project: return Response({"detail": "Project not found."}, status=404)
@@ -242,6 +249,7 @@ def build_scurve(project, organization):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def project_scurve(request, project_id):
     """Planned vs actual progress series for the project S-curve chart."""
     project = _scoped_project(request, project_id)
@@ -252,6 +260,7 @@ def project_scurve(request, project_id):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def project_workspace(request, project_id):
     """Unified project command-center payload (MonitoringERP ProjectWorkspace parity)."""
     project = _scoped_project(request, project_id)

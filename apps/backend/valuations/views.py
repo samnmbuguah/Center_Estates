@@ -1,5 +1,5 @@
 import csv
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from decimal import Decimal
 
 from django.db import transaction
@@ -205,6 +205,7 @@ class ValuationAnalyticsViewSet(ViewSet):
  def list(self,request):
   org=get_active_organization(request);instructions=scope_model_queryset(ValuationInstruction,request,org);invoices=scope_model_queryset(ValuationInvoice,request,org);today=timezone.localdate();overdue=invoices.filter(due_on__lt=today).exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID))
   return Response({'teamPerformance':list(instructions.values('valuer__username','valuer__first_name','valuer__last_name').annotate(instructions=Count('id'),averageFee=Avg('quoted_fee'),delivered=Count('id',filter=Q(status=ValuationInstruction.Status.DELIVERED))).order_by('-instructions')),'aging':{'overdueInvoices':overdue.count(),'overdueBalance':overdue.aggregate(v=Sum('balance'))['v'] or 0},'reports':[{'key':'instructions','name':'Instruction pipeline and SLA'},{'key':'inspections','name':'Inspection evidence register'},{'key':'comparables','name':'Comparable evidence analysis'},{'key':'reports','name':'Final valuation reports'},{'key':'fees','name':'Fees, payments and aging'}]})
+ @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
  @action(detail=False,methods=('get',),url_path=r'exports/(?P<report_kind>[^/.]+)')
  def export(self,request,report_kind=None):
   org=get_active_organization(request);response=HttpResponse(content_type='text/csv');response['Content-Disposition']=f'attachment; filename="valuation-{report_kind}.csv"';writer=csv.writer(response)

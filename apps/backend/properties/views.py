@@ -1,5 +1,5 @@
 import csv
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -915,6 +915,7 @@ class PropertyAnalyticsViewSet(ViewSet):
     def _organization(self):
         return get_active_organization(self.request)
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     @action(detail=False, methods=('get',))
     def aging(self, request):
         today = timezone.localdate()
@@ -943,6 +944,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             'tenants': sorted(tenants.values(), key=lambda row: row['outstanding'], reverse=True),
         })
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     @action(detail=False, methods=('get',), url_path='income-expenses')
     def income_expenses(self, request):
         organization = self._organization()
@@ -977,6 +979,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             {'key': 'critical-dates', 'name': 'Critical dates register', 'category': 'Compliance & Risk'},
         ]})
 
+    @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
     @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
     def export(self, request, report_kind=None):
         organization = self._organization()

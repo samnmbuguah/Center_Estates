@@ -3,6 +3,7 @@ from time import time
 
 from django.db import transaction
 from rest_framework.decorators import api_view, parser_classes, permission_classes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -28,6 +29,7 @@ class ConstructionSubscription(HasModuleSubscription):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def mobile_me(request):
     organization = get_active_organization(request)
     membership = organization.memberships.filter(user=request.user, status="active").first()
@@ -81,6 +83,7 @@ def _is_mobile(request):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def pull(request):
     organization = get_active_organization(request)
     try:
@@ -178,6 +181,7 @@ def _seal_milestones(ids, organization, timestamp):
 
 @api_view(["POST"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def push(request):
     if not _is_mobile(request):
         return Response({"error": "A mobile client token is required."}, status=403)
@@ -204,6 +208,7 @@ def push(request):
 @api_view(["POST"])
 @permission_classes([ConstructionSubscription])
 @parser_classes([MultiPartParser])
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def media_upload(request):
     if not _is_mobile(request):
         return Response({"error": "A mobile client token is required."}, status=403)
@@ -221,6 +226,7 @@ def media_upload(request):
 
 @api_view(["POST"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def register_device(request):
     if not _is_mobile(request):
         return Response({"error": "A mobile client token is required."}, status=403)
@@ -238,6 +244,7 @@ def register_device(request):
 
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("milestone_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def verify_submission(request, milestone_id):
     organization = get_active_organization(request)
     entry = MilestoneEntry.objects.filter(id=milestone_id, organization=organization).first()

@@ -1,5 +1,5 @@
 from django.db import transaction
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 import csv
 from decimal import Decimal
 
@@ -190,6 +190,7 @@ class TenderAnalyticsViewSet(ViewSet):
  def list(self,request):
   org=get_active_organization(request); tenders=scope_model_queryset(Tender,request,org); submitted=tenders.filter(stage__in=(Tender.Stage.SUBMITTED,Tender.Stage.AWARDED,Tender.Stage.REGRETTED)); closed=tenders.filter(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
   return Response({'outcomes':list(closed.values('stage').annotate(count=Count('id'),value=Sum('estimated_value')).order_by('stage')),'metrics':{'submitted':submitted.count(),'awarded':closed.filter(stage=Tender.Stage.AWARDED).count(),'regretted':closed.filter(stage=Tender.Stage.REGRETTED).count(),'winRate':round(closed.filter(stage=Tender.Stage.AWARDED).count()/closed.count()*100,2) if closed.exists() else 0},'reports':[{'key':'pipeline','name':'Tender pipeline and deadlines'},{'key':'requirements','name':'Requirement compliance matrix'},{'key':'tasks','name':'Bid plan and workload'},{'key':'pricing','name':'Financial proposal'},{'key':'outcomes','name':'Awards, regrets and lessons'}]})
+ @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
  @action(detail=False,methods=('get',),url_path=r'exports/(?P<report_kind>[^/.]+)')
  def export(self,request,report_kind=None):
   org=get_active_organization(request); response=HttpResponse(content_type='text/csv'); response['Content-Disposition']=f'attachment; filename="tender-{report_kind}.csv"'; writer=csv.writer(response)
