@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase, override_settings
@@ -18,6 +20,23 @@ class HealthEndpointTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'ok')
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
+class ApiSchemaAuthenticationTests(TestCase):
+    def test_schema_documents_bearer_and_cookie_authentication_as_alternatives(self):
+        response = self.client.get('/api/v1/schema/', HTTP_ACCEPT='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        schema = json.loads(response.content)
+        schemes = schema['components']['securitySchemes']
+        self.assertEqual(schemes['jwtAuth']['scheme'], 'bearer')
+        self.assertEqual(schemes['cookieAuth']['name'], 'ce_access')
+        self.assertIn('X-CSRFToken', schemes['cookieAuth']['description'])
+        self.assertEqual(
+            schema['paths']['/api/v1/auth/me/']['get']['security'],
+            [{'jwtAuth': []}, {'cookieAuth': []}],
+        )
 
 
 class OrganizationContextTests(TestCase):
