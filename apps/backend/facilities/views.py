@@ -106,7 +106,8 @@ class WorkOrderViewSet(FacilityModelViewSet):
     @transaction.atomic
     def transition(self, request, pk=None):
         organization = get_active_organization(request)
-        work_order = WorkOrder.objects.select_for_update().filter(pk=pk, organization=organization).first()
+        scoped_pk = self.get_queryset().filter(pk=pk).values_list('pk', flat=True).first()
+        work_order = WorkOrder.objects.select_for_update().filter(pk=scoped_pk).first() if scoped_pk else None
         if not work_order:
             return Response({'detail': 'Work order not found.'}, status=404)
         target = str(request.data.get('status', '')).strip()
@@ -178,7 +179,12 @@ class WorkOrderAttachmentViewSet(FacilityModelViewSet):
     search_fields = ('work_order__number', 'file_name', 'caption')
 
     def perform_create(self, serializer):
-        serializer.save(organization=self._validate_organization(serializer), uploaded_by=self.request.user)
+        organization = self._validate_organization(serializer)
+        attachment = serializer.save(organization=organization, uploaded_by=self.request.user)
+        WorkOrderEvent.objects.create(
+            organization=organization, work_order=attachment.work_order,
+            event_type='attachment_added', notes=attachment.file_name, actor=self.request.user,
+        )
 
 
 class PreventiveScheduleViewSet(FacilityModelViewSet):
@@ -272,6 +278,10 @@ class InspectionViewSet(FacilityModelViewSet):
 
 class ServiceRequestViewSet(FacilityModelViewSet):
     write_permission = 'facility.work'
+    permission_map = {
+        'approve': 'facility.approve', 'reject': 'facility.approve',
+        'convert': 'facility.work', 'resolve': 'facility.work',
+    }
     queryset = ServiceRequest.objects.select_related('property', 'unit', 'tenant', 'work_order')
     serializer_class = ServiceRequestSerializer
     search_fields = ('reference', 'subject', 'category', 'property__name', 'tenant__name')
@@ -283,12 +293,55 @@ class ServiceRequestViewSet(FacilityModelViewSet):
         if 'status' in serializer.validated_data: raise ValidationError({'status': 'Use the transition action.'})
         super().perform_update(serializer)
 
+    def _locked_scoped_request(self, pk):
+        """Lock a request after the tenant/property-scoped query authorizes it.
+
+        Property scoping uses DISTINCT, which PostgreSQL cannot combine with
+        SELECT FOR UPDATE. Resolve the authorized primary key first, then lock
+        the base row inside the caller's transaction.
+        """
+        scoped_pk = self.get_queryset().filter(pk=pk).values_list('pk', flat=True).first()
+        if not scoped_pk:
+            return None
+        return ServiceRequest.objects.select_for_update().filter(pk=scoped_pk).first()
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def approve(self, request, pk=None):
+        service_request = self._locked_scoped_request(pk)
+        if not service_request or service_request.status != ServiceRequest.Status.NEW:
+            raise ValidationError({'status': 'Only a new service request can be approved.'})
+        service_request.status = ServiceRequest.Status.APPROVED
+        service_request.decision_notes = str(request.data.get('notes', '')).strip()
+        service_request.decided_by = request.user
+        service_request.decided_at = timezone.now()
+        service_request.save(update_fields=('status', 'decision_notes', 'decided_by', 'decided_at', 'updated_at'))
+        return Response(self.get_serializer(service_request).data)
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def reject(self, request, pk=None):
+        service_request = self._locked_scoped_request(pk)
+        notes = str(request.data.get('notes', '')).strip()
+        if not service_request or service_request.status != ServiceRequest.Status.NEW:
+            raise ValidationError({'status': 'Only a new service request can be rejected.'})
+        if not notes:
+            raise ValidationError({'notes': 'A rejection reason is required.'})
+        service_request.status = ServiceRequest.Status.REJECTED
+        service_request.decision_notes = notes
+        service_request.decided_by = request.user
+        service_request.decided_at = timezone.now()
+        service_request.save(update_fields=('status', 'decision_notes', 'decided_by', 'decided_at', 'updated_at'))
+        return Response(self.get_serializer(service_request).data)
+
     @action(detail=True, methods=('post',))
     @transaction.atomic
     def convert(self, request, pk=None):
-        service_request = ServiceRequest.objects.select_for_update().filter(pk=pk, organization=get_active_organization(request)).first()
+        service_request = self._locked_scoped_request(pk)
         if not service_request or service_request.work_order_id:
             raise ValidationError({'request': 'The service request is missing or already converted.'})
+        if service_request.status != ServiceRequest.Status.APPROVED:
+            raise ValidationError({'status': 'Approve the service request before creating a work order.'})
         work_order = WorkOrder.objects.create(
             organization=service_request.organization, number=f'SR-{service_request.reference}', title=service_request.subject,
             description=service_request.description, category=service_request.category, property=service_request.property,
@@ -302,6 +355,8 @@ class ServiceRequestViewSet(FacilityModelViewSet):
     def resolve(self, request, pk=None):
         service_request = self.get_object()
         if service_request.status not in (ServiceRequest.Status.ASSIGNED, ServiceRequest.Status.IN_PROGRESS): raise ValidationError({'status': 'Only assigned or active requests can be resolved.'})
+        if not service_request.work_order_id or service_request.work_order.status != WorkOrder.Status.COMPLETED:
+            raise ValidationError({'work_order': 'Complete the linked work order before resolving the service request.'})
         score = request.data.get('satisfaction_score')
         if score is not None and (int(score) < 1 or int(score) > 5): raise ValidationError({'satisfaction_score': 'Score must be 1-5.'})
         service_request.status = ServiceRequest.Status.RESOLVED; service_request.resolved_at = timezone.now(); service_request.satisfaction_score = score

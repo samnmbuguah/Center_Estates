@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import (
@@ -58,10 +60,11 @@ class ServiceRequestSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
     tenant_name = serializers.CharField(source='tenant.name', read_only=True, default='')
     unit_code = serializers.CharField(source='unit.code', read_only=True, default='')
+    decided_by_name = serializers.CharField(source='decided_by.get_full_name', read_only=True, default='')
     class Meta:
         model = ServiceRequest
         exclude = ('organization',)
-        read_only_fields = ('status', 'submitted_at', 'resolved_at', 'work_order')
+        read_only_fields = ('status', 'submitted_at', 'resolved_at', 'work_order', 'decision_notes', 'decided_by', 'decided_at')
 
 
 class UtilityMeterSerializer(serializers.ModelSerializer):
@@ -144,6 +147,20 @@ class WorkOrderCostItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkOrderCostItem
         exclude = ('organization', 'added_by')
+        read_only_fields = ('total',)
+
+    def validate(self, attrs):
+        quantity = attrs.get('quantity')
+        unit_cost = attrs.get('unit_cost')
+        if quantity is not None and quantity <= 0:
+            raise serializers.ValidationError({'quantity': 'Quantity must be greater than zero.'})
+        if unit_cost is not None and unit_cost < 0:
+            raise serializers.ValidationError({'unit_cost': 'Unit cost cannot be negative.'})
+        return attrs
+
+    def create(self, validated_data):
+        validated_data['total'] = (validated_data['quantity'] * validated_data['unit_cost']).quantize(Decimal('0.01'))
+        return super().create(validated_data)
 
 
 class WorkOrderAttachmentSerializer(serializers.ModelSerializer):

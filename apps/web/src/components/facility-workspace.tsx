@@ -27,7 +27,10 @@ type Tab =
 
 type Row = Record<string, string | number | boolean | null>;
 type Kpis = Dashboard["kpis"];
-type ActionModal = { type: "inspection" | "resolve"; row: Row } | null;
+type ActionModal =
+  | { type: "inspection" | "resolve"; row: Row }
+  | { type: "request-decision"; row: Row; decision: "approve" | "reject" }
+  | null;
 type Dashboard = {
   kpis: Record<string, string | number>;
   recentWorkOrders: Row[];
@@ -906,31 +909,69 @@ function WorkOrderDetail({
   row,
   onBack,
   organizationId,
+  canWork,
 }: {
   row: Row;
   onBack: () => void;
   organizationId: string | null;
+  canWork: boolean;
 }) {
   const [detailTab, setDetailTab] = useState<"overview" | "history" | "parts" | "media">("overview");
   const [events, setEvents] = useState<Row[]>([]);
   const [costItems, setCostItems] = useState<Row[]>([]);
   const [attachments, setAttachments] = useState<Row[]>([]);
+  const [showCostForm, setShowCostForm] = useState(false);
+  const [showMediaForm, setShowMediaForm] = useState(false);
+  const [detailError, setDetailError] = useState("");
 
-  useEffect(() => {
+  const loadEvidence = useCallback(async () => {
     if (!organizationId) return;
-    apiFetch(`/facility/work-order-events/?search=${encodeURIComponent(String(row.number ?? ""))}`, {}, organizationId)
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setEvents)
-      .catch(() => {});
-    apiFetch(`/facility/work-order-cost-items/?search=${encodeURIComponent(String(row.number ?? ""))}`, {}, organizationId)
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setCostItems)
-      .catch(() => {});
-    apiFetch(`/facility/work-order-attachments/?search=${encodeURIComponent(String(row.number ?? ""))}`, {}, organizationId)
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setAttachments)
-      .catch(() => {});
+    const query = encodeURIComponent(String(row.number ?? ""));
+    const [eventResponse, costResponse, attachmentResponse] = await Promise.all([
+      apiFetch(`/facility/work-order-events/?search=${query}`, {}, organizationId),
+      apiFetch(`/facility/work-order-cost-items/?search=${query}`, {}, organizationId),
+      apiFetch(`/facility/work-order-attachments/?search=${query}`, {}, organizationId),
+    ]);
+    setEvents(eventResponse.ok ? await eventResponse.json() : []);
+    setCostItems(costResponse.ok ? await costResponse.json() : []);
+    setAttachments(attachmentResponse.ok ? await attachmentResponse.json() : []);
   }, [row.number, organizationId]);
+
+  useEffect(() => { void loadEvidence(); }, [loadEvidence]);
+
+  async function submitCostItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organizationId) return;
+    const form = new FormData(event.currentTarget);
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/facility/work-order-cost-items/", {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ work_order: row.id, ...Object.fromEntries(form.entries()) }),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setDetailError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The cost item could not be recorded.");
+      return;
+    }
+    setDetailError(""); setShowCostForm(false); await loadEvidence();
+  }
+
+  async function submitAttachment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organizationId) return;
+    const form = new FormData(event.currentTarget);
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/facility/work-order-attachments/", {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ work_order: row.id, ...Object.fromEntries(form.entries()) }),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setDetailError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The work evidence could not be attached.");
+      return;
+    }
+    setDetailError(""); setShowMediaForm(false); await loadEvidence();
+  }
 
   const priority = String(row.priority ?? "low");
   const status = String(row.status ?? "open");
@@ -992,7 +1033,7 @@ function WorkOrderDetail({
               { label: "Priority", value: <span className="fc-priority-chip"><i style={{ background: priorityColors[priority] ?? "#9ca3af" }} /><span style={{ color: priorityColors[priority] ?? "#9ca3af", textTransform: "capitalize" }}>{priority}</span></span> },
               { label: "SLA Response Time", value: "Within 4 hours" },
               { label: "SLA Resolution Time", value: "Within 48 hours" },
-              { label: "Assigned To", value: String(row.assigned_to_name ?? "James Kariuki") },
+              { label: "Assigned To", value: String(row.assigned_to_name ?? "Unassigned") },
               { label: "Reported At", value: String(row.reported_at ?? "—") },
               { label: "Scheduled For", value: String(row.scheduled_for ?? "—") },
               { label: "Progress", value: `${String(row.progress ?? 0)}%` },
@@ -1023,19 +1064,7 @@ function WorkOrderDetail({
                           <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</td>
                         </tr>
                       ))
-                    : [
-                        { code: "PIP-CRVEAN-2IN", desc: "PVC Pipe 2 inch", qty: 10, unit: 350, total: 3500 },
-                        { code: "PIP-ELEOW-2IN", desc: "PVC Elbow 2 inch", qty: 10, unit: 120, total: 1200 },
-                        { code: "CLAMP-2IN", desc: "Pipe Clamp 2 inch", qty: 10, unit: 80, total: 800 },
-                      ].map((p) => (
-                        <tr key={p.code}>
-                          <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{p.code}</td>
-                          <td style={{ fontSize: 12 }}>{p.desc}</td>
-                          <td style={{ fontSize: 12 }}>{p.qty} Piece</td>
-                          <td style={{ fontSize: 12 }}>{money.format(p.unit)}</td>
-                          <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(p.total)}</td>
-                        </tr>
-                      ))
+                    : <tr><td colSpan={5}><EmptyState message="No parts have been recorded for this work order." /></td></tr>
                   }
                 </tbody>
               </table>
@@ -1061,35 +1090,16 @@ function WorkOrderDetail({
         </div>
         <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
           <div className="data-panel" style={{ padding: "16px 18px" }}>
-            <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Approval</strong>
-            <div style={{ alignItems: "center", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, display: "flex", gap: 10, marginBottom: 12, padding: "10px 14px" }}>
-              <span style={{ color: "#ea580c" }}>⏳</span>
-              <span style={{ color: "#92400e", fontSize: 12 }}>Pending approval from Resident Manager</span>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Workflow status</strong>
+            <div style={{ alignItems: "center", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, display: "flex", gap: 10, padding: "10px 14px" }}>
+              <FcStatus value={status.replace("_", "-")} />
+              <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{status === "completed" ? "Resolution evidence recorded" : "Use the register action to advance this work order"}</span>
             </div>
-            <button
-              onClick={async () => {
-                if (!organizationId) return;
-                await apiFetch("/auth/csrf/");
-                await apiFetch(`/facility/work-orders/${row.id}/transition/`, {
-                  method: "POST",
-                  headers: { "X-CSRFToken": csrfFromCookie() },
-                  body: JSON.stringify({ status: "assigned", notes: "Approval requested" }),
-                }, organizationId);
-              }}
-              style={{ background: "#e23b3b", border: 0, borderRadius: 8, color: "white", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: "10px 16px", width: "100%" }}
-            >
-              Request Approval
-            </button>
           </div>
           <div className="data-panel" style={{ padding: "16px 18px" }}>
             <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Order Timeline</strong>
             <div style={{ display: "grid", gap: 12 }}>
-              {(events.length > 0 ? events : [
-                { event_type: "Work order created", created_at: String(row.reported_at ?? "—"), notes: "Initial report submitted" },
-                { event_type: "Assigned to technician", created_at: "—", notes: "James Kariuki" },
-                { event_type: "Inspection completed", created_at: "—", notes: "Site inspection done" },
-                { event_type: "Repair in progress", created_at: "—", notes: "Expect completion within hours" },
-              ]).slice(0, 6).map((evt, i, arr) => (
+              {events.slice(0, 6).map((evt, i, arr) => (
                 <div key={i} style={{ display: "flex", gap: 10 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                     <div style={{ background: i === 0 ? "#e23b3b" : "#d7dce5", borderRadius: "50%", height: 8, width: 8 }} />
@@ -1102,6 +1112,7 @@ function WorkOrderDetail({
                   </div>
                 </div>
               ))}
+              {events.length === 0 && <span className="muted" style={{ fontSize: 12 }}>No audited work-order events yet.</span>}
             </div>
           </div>
         </div>
@@ -1144,7 +1155,10 @@ function WorkOrderDetail({
         <div className="data-panel">
           <div className="fc-table-toolbar">
             <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Labor & Parts Cost Items</span>
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(costItems, `work-order-${String(row.number ?? "cost")}-items.csv`)}>↓ Export</button>
+            <div className="row" style={{ gap: 8 }}>
+              <button className="fc-toolbar-btn" onClick={() => exportCsv(costItems, `work-order-${String(row.number ?? "cost")}-items.csv`)}>↓ Export</button>
+              {canWork && <button className="fc-toolbar-btn primary" onClick={() => setShowCostForm(true)}>+ Add Cost Item</button>}
+            </div>
           </div>
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -1174,7 +1188,10 @@ function WorkOrderDetail({
 
       {detailTab === "media" && (
         <div className="data-panel" style={{ padding: "16px 18px" }}>
-          <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Media / Attachments</strong>
+          <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+            <strong style={{ fontSize: 13 }}>Work Media / Attachments</strong>
+            {canWork && <button className="btn primary sm" onClick={() => setShowMediaForm(true)}>+ Attach Evidence</button>}
+          </div>
           {attachments.length > 0 ? (
             <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
               {attachments.map((att, idx) => {
@@ -1207,6 +1224,37 @@ function WorkOrderDetail({
           )}
         </div>
       )}
+      {detailError && <div className="form-error">{detailError}</div>}
+      {showCostForm && (
+        <Modal title={`Add Cost Item · ${String(row.number ?? "Work order")}`} onClose={() => setShowCostForm(false)}>
+          <form onSubmit={submitCostItem} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="grid-2">
+              <Field label="Cost type" required><select name="kind" required defaultValue="part"><option value="labor">Labor</option><option value="part">Part / material</option><option value="other">Other</option></select></Field>
+              <Field label="Reference"><input name="reference" placeholder="Receipt, stock or timesheet ref" /></Field>
+            </div>
+            <Field label="Description" required><input name="description" required placeholder="Technician hours or replacement part" /></Field>
+            <div className="grid-2">
+              <Field label="Quantity" required><input name="quantity" type="number" min="0.001" step="0.001" defaultValue="1" required /></Field>
+              <Field label="Unit cost (KES)" required><input name="unit_cost" type="number" min="0" step="0.01" required /></Field>
+            </div>
+            <Field label="Supplier / technician"><input name="supplier" /></Field>
+            <div className="modal-actions"><button type="button" className="btn ghost" onClick={() => setShowCostForm(false)}>Cancel</button><button className="btn primary">Record Cost</button></div>
+          </form>
+        </Modal>
+      )}
+      {showMediaForm && (
+        <Modal title={`Attach Work Evidence · ${String(row.number ?? "Work order")}`} onClose={() => setShowMediaForm(false)}>
+          <form onSubmit={submitAttachment} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Field label="File URL" required><input name="file_url" type="url" required placeholder="https://… or an uploaded media URL" /></Field>
+            <div className="grid-2">
+              <Field label="File name" required><input name="file_name" required placeholder="repair-after.jpg" /></Field>
+              <Field label="Media type"><input name="media_type" placeholder="image/jpeg" /></Field>
+            </div>
+            <Field label="Caption"><textarea name="caption" rows={3} placeholder="Describe the condition or completed work" /></Field>
+            <div className="modal-actions"><button type="button" className="btn ghost" onClick={() => setShowMediaForm(false)}>Cancel</button><button className="btn primary">Attach Evidence</button></div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }
@@ -1228,20 +1276,14 @@ function WorkOrdersView({
   onTransition: (row: Row, target: string, notes: string) => void;
 }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
-  const displayRows = rows.length > 0 ? rows : [
-    { id: 1, number: "WO-2026-1789", title: "Lift not functioning – Finance House", property_name: "Finance House", priority: "high", status: "overdue", progress: 0, total_cost: 0 },
-    { id: 2, number: "WO-2026-1788", title: "AMC Service – Generator (Utalii House)", property_name: "Utalii House", priority: "high", status: "in_progress", progress: 60, total_cost: 45000 },
-    { id: 3, number: "WO-2026-1787", title: "Water leakage – Basement Parking", property_name: "Cradle Building", priority: "medium", status: "open", progress: 0, total_cost: 0 },
-    { id: 4, number: "WO-2026-1786", title: "AC not cooling – Office 3B", property_name: "Cradle Building", priority: "low", status: "completed", progress: 100, total_cost: 12500 },
-    { id: 5, number: "WO-2026-1785", title: "Fire extinguisher inspection", property_name: "Finance House", priority: "low", status: "completed", progress: 100, total_cost: 8000 },
-  ];
+  const displayRows = rows;
 
   const priorityColors: Record<string, string> = {
     critical: "#b91c1c", high: "#c2410c", medium: "#a16207", low: "#15803d",
   };
 
   if (selectedRow) {
-    return <WorkOrderDetail row={selectedRow} onBack={() => setSelectedRow(null)} organizationId={organizationId} />;
+    return <WorkOrderDetail row={selectedRow} onBack={() => setSelectedRow(null)} organizationId={organizationId} canWork={permissions.canWork} />;
   }
 
   return (
@@ -1350,17 +1392,12 @@ function WorkOrdersView({
                       </tr>
                     );
                   })}
+                  {displayRows.length === 0 && <tr><td colSpan={8}><EmptyState message="No work orders have been recorded for this property." /></td></tr>}
                 </tbody>
               </table>
             </div>
             <div className="fc-pagination">
               <span className="fc-pager-info">Showing 1 to {displayRows.length} of {String(kpis.openWorkOrders ?? displayRows.length)} work orders</span>
-              <div className="fc-pager">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
-                ))}
-                <button className="fc-page-btn">›</button>
-              </div>
             </div>
           </article>
         </div>
@@ -2067,6 +2104,7 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
                     </tr>
                   );
                 })}
+                {filteredRows.length === 0 && <tr><td colSpan={10}><EmptyState message="No service requests have been recorded for this property." /></td></tr>}
               </tbody>
             </table>
           </div>
@@ -2166,28 +2204,21 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
     </>
   );
 }
-function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canWork: boolean }; onAdd: () => void }) {
+function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { rows: Row[]; kpis: Kpis; onAction: (row: Row, action: string) => void; permissions: { canWork: boolean; canApprove: boolean }; onAdd: () => void }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [subTab, setSubTab] = useState("all");
 
-  const displayRows = rows.length > 0 ? rows : [
-    { id: 1, reference: "SR-2026-0187", subject: "Toilet flush not working", tenant_name: "John Mwangi (Tenant)", property_name: "Cradle Building – 3rd Floor", priority: "high", status: "in_progress", submitted_at: "18 May 2026, 09:15 AM" },
-    { id: 2, reference: "SR-2026-0186", subject: "LED light flickering", tenant_name: "Mary Wanjiku", property_name: "Cradle Building – Ground Floor", priority: "medium", status: "open", submitted_at: "18 May 2026, 08:40 AM" },
-    { id: 3, reference: "SR-2026-0185", subject: "AC not cooling properly", tenant_name: "Peter Ndungu", property_name: "Cradle Building – 2nd Floor", priority: "high", status: "in_progress", submitted_at: "18 May 2026, 08:05 AM" },
-    { id: 4, reference: "SR-2026-0184", subject: "Door closer damaged", tenant_name: "Security Office", property_name: "Cradle Building – Ground Floor", priority: "low", status: "open", submitted_at: "17 May 2026, 06:30 PM" },
-    { id: 5, reference: "SR-2026-0183", subject: "Fire extinguisher gauge low", tenant_name: "David Ochieng", property_name: "Cradle Building – All Floors", priority: "high", status: "in_progress", submitted_at: "17 May 2026, 03:20 PM" },
-    { id: 6, reference: "SR-2026-0182", subject: "Water leakage on ceiling", tenant_name: "James Kariuki", property_name: "Cradle Building – Parking P2", priority: "high", status: "open", submitted_at: "17 May 2026, 02:15 PM" },
-  ];
+  const displayRows = rows;
 
   const priorityColors: Record<string, string> = { high: "#b91c1c", medium: "#a16207", low: "#15803d" };
   const catIcons: Record<string, string> = { "Plumbing": "💧", "Electrical": "⚡", "HVAC": "❄️", "Fire Safety": "🔥", "Carpentry": "🪚", "General": "🔧" };
 
   const hasData = rows.length > 0;
   const totalReq = Number(kpis.openRequests ?? 0);
-  const openReq = hasData ? rows.filter((r) => String(r.status) === "open").length : 38;
-  const inProgressReq = hasData ? rows.filter((r) => String(r.status) === "in_progress").length : 45;
-  const completedReq = hasData ? rows.filter((r) => ["resolved", "closed"].includes(String(r.status))).length : 40;
-  const overdueReq = hasData ? rows.filter((r) => String(r.status) === "overdue").length : 5;
+  const openReq = rows.filter((r) => ["new", "approved", "assigned"].includes(String(r.status))).length;
+  const inProgressReq = rows.filter((r) => String(r.status) === "in_progress").length;
+  const completedReq = rows.filter((r) => ["resolved", "closed"].includes(String(r.status))).length;
+  const overdueReq = rows.filter((r) => Boolean(r.response_due_at) && new Date(String(r.response_due_at)).getTime() < Date.now() && !["resolved", "closed", "rejected"].includes(String(r.status))).length;
 
   return (
     <>
@@ -2257,8 +2288,7 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { row
                   const priority = String(row.priority ?? "low");
                   const status = String(row.status ?? "open");
                   const ref = String(row.reference ?? "");
-                  const catMap: Record<string, string> = { "SR-2026-0187": "Plumbing", "SR-2026-0186": "Electrical", "SR-2026-0185": "HVAC", "SR-2026-0184": "Carpentry", "SR-2026-0183": "Fire Safety", "SR-2026-0182": "Plumbing" };
-                  const cat = catMap[ref] ?? "General";
+                  const cat = String(row.category ?? "General");
                   return (
                     <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
                       <td>
@@ -2281,10 +2311,14 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { row
                       <td><FcStatus value={status.replace("_", "-")} /></td>
                       <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.tenant_name ?? "—")}</td>
                       <td style={{ fontSize: 11, color: "#6b7890" }}>{String(row.submitted_at ?? "—")}</td>
-                      <td><span style={{ color: "#16a34a", fontSize: 11, fontWeight: 700 }}>1h 45m Remaining</span></td>
+                      <td><span style={{ color: "var(--text-muted)", fontSize: 11, fontWeight: 700 }}>{row.response_due_at ? String(row.response_due_at) : "Not configured"}</span></td>
                       <td>
                         <div style={{ display: "flex", gap: 6 }}>
-                          {permissions.canWork && !row.work_order && (
+                          {permissions.canApprove && status === "new" && <>
+                            <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(row, "approve"); }}>Approve</button>
+                            <button className="btn danger sm" onClick={(e) => { e.stopPropagation(); onAction(row, "reject"); }}>Reject</button>
+                          </>}
+                          {permissions.canWork && status === "approved" && !row.work_order && (
                             <button onClick={(e) => { e.stopPropagation(); onAction(row, "convert"); }} style={{ background: "#e23b3b", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
                               Create WO
                             </button>
@@ -2294,7 +2328,6 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { row
                               Resolve
                             </button>
                           )}
-                          <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
                         </div>
                       </td>
                     </tr>
@@ -2305,14 +2338,6 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { row
           </div>
           <div className="fc-pagination">
             <span className="fc-pager-info">Showing 1 to {filteredRows.length} of {totalReq || filteredRows.length} requests</span>
-            <div className="fc-pager">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
-              ))}
-              <button className="fc-page-btn">…</button>
-              <button className="fc-page-btn">16</button>
-              <button className="fc-page-btn">›</button>
-            </div>
           </div>
         </article>
 
@@ -3654,6 +3679,10 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       setActionModal({ type: "resolve", row });
       return;
     }
+    if (tab === "service-requests" && (action === "approve" || action === "reject")) {
+      setActionModal({ type: "request-decision", row, decision: action });
+      return;
+    }
     await apiFetch("/auth/csrf/");
     let path = "";
     const payload: Record<string, string | number | boolean> = {};
@@ -3678,9 +3707,10 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     const { type, row } = actionModal;
     const form = new FormData(event.currentTarget);
     await apiFetch("/auth/csrf/");
-    const path =
-      type === "inspection"
-        ? `/facility/inspections/${row.id}/complete/`
+    const path = type === "inspection"
+      ? `/facility/inspections/${row.id}/complete/`
+      : type === "request-decision"
+        ? `/facility/service-requests/${row.id}/${actionModal.decision}/`
         : `/facility/service-requests/${row.id}/resolve/`;
     const payload: Record<string, string | number | boolean> =
       type === "inspection"
@@ -3690,7 +3720,9 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
             findings: String(form.get("findings") ?? ""),
             create_work_order: form.get("create_work_order") === "on",
           }
-        : { satisfaction_score: Number(form.get("satisfaction_score")) };
+        : type === "request-decision"
+          ? { notes: String(form.get("notes") ?? "") }
+          : { satisfaction_score: Number(form.get("satisfaction_score")) };
     const response = await apiFetch(
       path,
       { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload) },
@@ -3784,7 +3816,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "inspections" ? (
           <InspectionsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canInspect }} onAdd={() => setCreateModal("inspection")} />
         ) : tab === "service-requests" ? (
-          <ServiceRequestsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canWork }} onAdd={() => setCreateModal("service-request")} />
+          <ServiceRequestsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canWork, canApprove }} onAdd={() => setCreateModal("service-request")} />
         ) : tab === "meters" ? (
           <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} organizationId={organizationId} canWork={canWork} canApprove={canApprove} canAdminister={canAdminister} reload={load} />
         ) : tab === "contractors" ? (
@@ -3863,10 +3895,14 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
           </div>
         )}
 
-        {/* Action modal — inspection complete / service request resolve */}
+        {/* Action modal — inspections and service-request decisions */}
         {actionModal && (
           <Modal
-            title={actionModal.type === "inspection" ? "Complete Inspection" : "Resolve Service Request"}
+            title={actionModal.type === "inspection"
+              ? "Complete Inspection"
+              : actionModal.type === "request-decision"
+                ? `${actionModal.decision === "approve" ? "Approve" : "Reject"} Service Request · ${String(actionModal.row.reference ?? "")}`
+                : "Resolve Service Request"}
             onClose={() => setActionModal(null)}
           >
             <form onSubmit={submitActionModal} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -3886,6 +3922,10 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
                     Create a corrective work order when the inspection fails
                   </label>
                 </>
+              ) : actionModal.type === "request-decision" ? (
+                <Field label={actionModal.decision === "reject" ? "Rejection reason" : "Approval notes"} required={actionModal.decision === "reject"}>
+                  <textarea name="notes" rows={4} required={actionModal.decision === "reject"} placeholder={actionModal.decision === "reject" ? "Explain why this request will not proceed" : "Budget, priority or assignment instructions"} />
+                </Field>
               ) : (
                 <Field label="Satisfaction score" required>
                   <input type="number" name="satisfaction_score" min={1} max={5} step={1} required placeholder="1–5" />
@@ -3893,8 +3933,12 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
               )}
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setActionModal(null)}>Cancel</button>
-                <button type="submit" className="btn primary">
-                  {actionModal.type === "inspection" ? "Complete Inspection" : "Resolve Request"}
+                <button type="submit" className={`btn ${actionModal.type === "request-decision" && actionModal.decision === "reject" ? "danger" : "primary"}`}>
+                  {actionModal.type === "inspection"
+                    ? "Complete Inspection"
+                    : actionModal.type === "request-decision"
+                      ? `${actionModal.decision === "approve" ? "Approve" : "Reject"} Request`
+                      : "Resolve Request"}
                 </button>
               </div>
             </form>

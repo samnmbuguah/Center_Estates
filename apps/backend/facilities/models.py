@@ -235,6 +235,8 @@ class Inspection(OrganizationOwnedModel):
 class ServiceRequest(OrganizationOwnedModel):
     class Status(models.TextChoices):
         NEW = 'new', 'New'
+        APPROVED = 'approved', 'Approved for work'
+        REJECTED = 'rejected', 'Rejected'
         ASSIGNED = 'assigned', 'Assigned'
         IN_PROGRESS = 'in_progress', 'In progress'
         RESOLVED = 'resolved', 'Resolved'
@@ -254,6 +256,9 @@ class ServiceRequest(OrganizationOwnedModel):
     resolved_at = models.DateTimeField(null=True, blank=True)
     satisfaction_score = models.PositiveSmallIntegerField(null=True, blank=True)
     work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, related_name='service_requests', null=True, blank=True)
+    decision_notes = models.TextField(blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='decided_facility_requests', null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ('-submitted_at',)

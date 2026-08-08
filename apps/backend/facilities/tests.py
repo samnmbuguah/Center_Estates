@@ -115,12 +115,19 @@ class FacilityApiTests(TestCase):
         response = self.client.post('/api/v1/facility/work-order-cost-items/', {
             'work_order': str(self.work_order.id), 'kind': WorkOrderCostItem.Kind.PART,
             'description': 'Lift door roller', 'quantity': '2.000',
-            'unit_cost': '3500.00', 'total': '7000.00', 'supplier': 'Lift Parts Kenya',
+            'unit_cost': '3500.00', 'total': '1.00', 'supplier': 'Lift Parts Kenya',
         }, format='json', **self.headers)
         self.assertEqual(response.status_code, 201, response.data)
         self.work_order.refresh_from_db()
         self.assertEqual(self.work_order.parts_cost, Decimal('7000.00'))
         self.assertTrue(WorkOrderEvent.objects.filter(work_order=self.work_order, event_type='cost_added').exists())
+        self.assertEqual(Decimal(response.data['total']), Decimal('7000.00'))
+        attachment = self.client.post('/api/v1/facility/work-order-attachments/', {
+            'work_order': str(self.work_order.id), 'file_url': '/media/work-orders/lift-after.jpg',
+            'file_name': 'lift-after.jpg', 'media_type': 'image/jpeg', 'caption': 'Lift returned to service',
+        }, format='json', **self.headers)
+        self.assertEqual(attachment.status_code, 201, attachment.data)
+        self.assertTrue(WorkOrderEvent.objects.filter(work_order=self.work_order, event_type='attachment_added').exists())
 
     def test_preventive_schedule_generates_idempotent_work_order_and_advances_recurrence(self):
         schedule = PreventiveSchedule.objects.create(
@@ -160,14 +167,35 @@ class FacilityApiTests(TestCase):
             submitted_at=timezone.now(),
         )
         url = f'/api/v1/facility/service-requests/{service_request.id}/'
+        self.assertEqual(self.client.post(f'{url}convert/', {}, format='json', **self.headers).status_code, 400)
+        approved = self.client.post(f'{url}approve/', {'notes': 'Budget threshold accepted'}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], ServiceRequest.Status.APPROVED)
         converted = self.client.post(f'{url}convert/', {}, format='json', **self.headers)
         self.assertEqual(converted.status_code, 200, converted.data)
         self.assertEqual(self.client.post(f'{url}convert/', {}, format='json', **self.headers).status_code, 400)
+        self.assertEqual(self.client.post(f'{url}resolve/', {'satisfaction_score': 5}, format='json', **self.headers).status_code, 400)
+        service_request.refresh_from_db()
+        service_request.work_order.status = WorkOrder.Status.COMPLETED
+        service_request.work_order.completed_at = timezone.now()
+        service_request.work_order.save(update_fields=('status', 'completed_at', 'updated_at'))
         resolved = self.client.post(f'{url}resolve/', {'satisfaction_score': 5}, format='json', **self.headers)
         self.assertEqual(resolved.status_code, 200, resolved.data)
         service_request.refresh_from_db()
         self.assertEqual(service_request.status, ServiceRequest.Status.RESOLVED)
         self.assertEqual(service_request.satisfaction_score, 5)
+
+    def test_service_request_rejection_requires_reason_and_blocks_conversion(self):
+        service_request = ServiceRequest.objects.create(
+            organization=self.organization, reference='SR-REJECT', subject='Cosmetic repaint', category='Decor',
+            property=self.property, status=ServiceRequest.Status.NEW, submitted_at=timezone.now(),
+        )
+        url = f'/api/v1/facility/service-requests/{service_request.id}/'
+        self.assertEqual(self.client.post(f'{url}reject/', {}, format='json', **self.headers).status_code, 400)
+        rejected = self.client.post(f'{url}reject/', {'notes': 'Tenant alteration, not common-area maintenance.'}, format='json', **self.headers)
+        self.assertEqual(rejected.status_code, 200, rejected.data)
+        self.assertEqual(rejected.data['status'], ServiceRequest.Status.REJECTED)
+        self.assertEqual(self.client.post(f'{url}convert/', {}, format='json', **self.headers).status_code, 400)
 
     def test_meter_readings_compute_consumption_cost_and_anomaly_server_side(self):
         unit = Unit.objects.create(organization=self.organization, property=self.property, code='101')
@@ -387,6 +415,23 @@ class FacilityRolePermissionApiTests(TestCase):
         self.work_order.refresh_from_db()
         self.assertEqual(self.work_order.status, WorkOrder.Status.COMPLETED)
         self.assertIsNotNone(self.work_order.completed_at)
+
+    def test_service_request_approval_is_separate_from_technician_conversion(self):
+        self._grant('facility.view', 'facility.work')
+        service_request = ServiceRequest.objects.create(
+            organization=self.organization, reference='FR-REQ-APPROVAL', subject='Replace common-area light',
+            category='Electrical', property=self.property, priority=WorkOrder.Priority.MEDIUM,
+            status=ServiceRequest.Status.NEW, submitted_at=timezone.now(),
+        )
+        url = f'/api/v1/facility/service-requests/{service_request.id}/'
+        self.assertEqual(self.client.post(f'{url}approve/', {}, format='json', **self.headers).status_code, 403)
+        self.assertEqual(self.client.post(f'{url}convert/', {}, format='json', **self.headers).status_code, 400)
+        self._grant('facility.approve')
+        approved = self.client.post(f'{url}approve/', {'notes': 'Approved by resident manager'}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        converted = self.client.post(f'{url}convert/', {}, format='json', **self.headers)
+        self.assertEqual(converted.status_code, 200, converted.data)
+        self.assertEqual(converted.data['status'], ServiceRequest.Status.ASSIGNED)
 
     def test_inspector_executes_inspections_and_creates_corrective_work_but_cannot_administer(self):
         self._grant('facility.view', 'facility.inspect', 'facility.work')
