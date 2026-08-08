@@ -1,7 +1,7 @@
 # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
-PassengerAppRoot "/home2/monitori/monitoringerp.com"
+PassengerAppRoot "/home2/monitori/centerestates.com"
 PassengerBaseURI "/"
-PassengerPython "/home2/monitori/virtualenv/monitoringerp.com/3.9/bin/python"
+PassengerPython "/home2/monitori/virtualenv/centerestates.com/3.9/bin/python"
 # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
 
 # Force HTTPS

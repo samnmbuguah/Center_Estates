@@ -43,7 +43,7 @@ SECRET_KEY = secret_setting(
 DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() in {'1', 'true', 'yes'}
 
 env_hosts = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
-ALLOWED_HOSTS = list(set(['*', 'localhost', '127.0.0.1', 'monitoringerp.com', 'www.monitoringerp.com', 'erp.169-58-102-217.sslip.io'] + env_hosts))
+ALLOWED_HOSTS = list(set(['*', 'localhost', '127.0.0.1', 'centerestates.com', 'www.centerestates.com', 'erp.169-58-102-217.sslip.io'] + env_hosts))
 
 
 # Application definition
@@ -209,11 +209,11 @@ SPECTACULAR_SETTINGS = {
 }
 
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(
-    'CORS_ALLOWED_ORIGINS', 'https://monitoringerp.com,https://www.monitoringerp.com,http://localhost:3000,http://localhost:4300'
+    'CORS_ALLOWED_ORIGINS', 'https://centerestates.com,https://www.centerestates.com,http://localhost:3000,http://localhost:4300'
 ).split(',') if origin.strip()]
 
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get(
-    'CSRF_TRUSTED_ORIGINS', 'https://monitoringerp.com,https://www.monitoringerp.com,http://localhost:3000,http://localhost:4300'
+    'CSRF_TRUSTED_ORIGINS', 'https://centerestates.com,https://www.centerestates.com,http://localhost:3000,http://localhost:4300'
 ).split(',') if origin.strip()]
 
 REST_FRAMEWORK = {

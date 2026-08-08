@@ -46,6 +46,19 @@ Web: `http://localhost:3000`. API health: `http://localhost:8000/api/v1/health/`
 
 See [architecture](docs/architecture/PLATFORM_ARCHITECTURE.md) and [Monitoring migration](docs/migration/MONITORING_ERP.md).
 
+## Production deployment
+
+The primary cPanel/Passenger release is served at
+[`https://centerestates.com`](https://centerestates.com). The deployment script
+preserves cPanel's generated `.htaccess`, production environment, database and
+media while publishing only the Django runtime and compiled Next.js assets.
+
+```bash
+scripts/deploy_cpanel.sh host centerestates.com
+```
+
+The Docker VM remains the pre-production/fallback environment.
+
 ## VM deployment
 
 The production-like VM stack is defined in `docker-compose.yml`: PostgreSQL 17,

@@ -45,6 +45,36 @@ Update `docker-compose.yml` with your production domain and set `SEED_DEMO_DATA:
 
 ## 3. Initial deployment
 
+### cPanel Passenger production
+
+The primary domain is `https://centerestates.com`, with application root
+`/home2/monitori/centerestates.com` and Python environment
+`/home2/monitori/virtualenv/centerestates.com/3.9`.
+
+```bash
+scripts/deploy_cpanel.sh host centerestates.com
+curl -fsS https://centerestates.com/api/v1/health/
+```
+
+The release archive deliberately excludes `.htaccess`, `.env`, SQLite data,
+media and collected static output. Never replace cPanel's generated Passenger
+configuration or production state with files from a developer checkout. For a
+repeat deployment of an already verified local Next build, set `SKIP_BUILD=1`.
+
+Create a checksummed state backup before subsequent releases:
+
+```bash
+scripts/backup_cpanel.sh host centerestates.com
+```
+
+After deployment, run the focused production acceptance suite:
+
+```bash
+E2E_BASE_URL=https://centerestates.com \
+E2E_ADMIN_PASSWORD="$(tr -d '\n' < infrastructure/docker/secrets/seed_admin_password)" \
+npx playwright test tests/e2e/platform.spec.ts --project=desktop-chromium
+```
+
 ```bash
 # Build images
 docker compose build backend web

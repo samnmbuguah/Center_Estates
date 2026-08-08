@@ -1,79 +1,50 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Center Estates ERP - cPanel Deployment Automation Script
-# Target Host: host
-# Target Path: /home2/monitori/monitoringerp.com
-# Virtualenv: /home2/monitori/virtualenv/monitoringerp.com/3.9/bin/activate
-# ==============================================================================
+# Center Estates ERP cPanel/Passenger deployment.
+# Usage: scripts/deploy_cpanel.sh [ssh-host] [domain]
 
-set -e
+set -euo pipefail
 
 REMOTE_HOST="${1:-host}"
-REMOTE_PATH="${2:-/home2/monitori/monitoringerp.com}"
-VENV_PATH="/home2/monitori/virtualenv/monitoringerp.com/3.9/bin/activate"
+DOMAIN="${2:-centerestates.com}"
+REMOTE_PATH="/home2/monitori/${DOMAIN}"
+VENV_PATH="/home2/monitori/virtualenv/${DOMAIN}/3.9/bin/activate"
+ARCHIVE="$(mktemp /tmp/center-estates-deploy.XXXXXX.tar.gz)"
+trap 'rm -f "$ARCHIVE"' EXIT
 
-echo "🚀 Starting deployment of Center Estates ERP to cPanel [${REMOTE_HOST}:${REMOTE_PATH}]..."
+echo "Deploying Center Estates ERP to ${REMOTE_HOST}:${REMOTE_PATH}"
 
-# 1. Build Next.js Production Web Application
-echo "📦 Step 1: Building Next.js Web Application..."
-cd apps/web
-npm run build
-cd ../..
+if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
+  npm --prefix apps/web run build
+fi
 
-# 2. Package codebase into lightweight archive
-echo "📦 Step 2: Packaging application archive..."
-tar -czf /tmp/deploy.tar.gz \
-  --exclude='.git' \
-  --exclude='.github' \
-  --exclude='.next/cache' \
-  --exclude='node_modules' \
+tar -czf "$ARCHIVE" \
+  --exclude='apps/backend/.env' \
   --exclude='__pycache__' \
   --exclude='*.pyc' \
-  --exclude='.env' \
-  .
+  --exclude='apps/backend/db.sqlite3' \
+  --exclude='apps/backend/media' \
+  --exclude='apps/backend/staticfiles' \
+  passenger_wsgi.py \
+  apps/backend \
+  apps/web/.next \
+  apps/web/public \
+  apps/web/package.json
 
-# 3. Upload archive to cPanel server
-echo "📤 Step 3: Uploading archive to ${REMOTE_HOST}:${REMOTE_PATH}..."
-scp /tmp/deploy.tar.gz "${REMOTE_HOST}:${REMOTE_PATH}/deploy.tar.gz"
+scp "$ARCHIVE" "${REMOTE_HOST}:${REMOTE_PATH}/deploy.tar.gz"
 
-# 4. Extract and initialize environment on remote server
-echo "⚙️ Step 4: Extracting files, installing dependencies, and running migrations..."
-ssh "${REMOTE_HOST}" "
-  source ${VENV_PATH}
-  cd ${REMOTE_PATH}
+ssh "$REMOTE_HOST" "
+  set -e
+  source '${VENV_PATH}'
+  cd '${REMOTE_PATH}'
   tar -xzf deploy.tar.gz
   rm -f deploy.tar.gz
-  pip install --quiet --upgrade pip
-  pip install --quiet -r apps/backend/requirements.txt PyMySQL
-  python apps/backend/manage.py migrate --noinput || true
-  python apps/backend/manage.py collectstatic --noinput || true
-  
-  # Set AI / QM API key for the Companion module
-  export OPENCODE_API_KEY='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'
-  export OPENAI_API_KEY='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'
-  
-  # Seed demo data: idempotent (update_or_create). Skips the heavy work once
-  # seeded, but self-heals if a new module subscription is missing.
-  export DJANGO_DEBUG='false'
-  export SEED_ADMIN_USERNAME='admin'
-  export SEED_ADMIN_PASSWORD='S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f'
-  COMPANION_SUB=$(python apps/backend/manage.py shell -c "from subscriptions.models import Subscription; from core.models import Module; print(Subscription.objects.filter(module=Module.COMPANION).exists())" 2>/dev/null | tail -1)
-  if [ "${COMPANION_SUB:-False}" != "True" ]; then
-    echo "Missing module subscriptions detected — seeding demo data..."
-    export SEED_DEMO_DATA='true'
-    python apps/backend/manage.py seed_platform || true
-    python apps/backend/manage.py seed_construction || true
-    mkdir -p tmp
-    touch tmp/.seeded
-    echo "Seed complete."
-  else
-    echo "Data already seeded — skipping seed for fast deploy."
-    export SEED_DEMO_DATA='false'
-  fi
-  
+  python -m pip install --quiet --upgrade pip
+  python -m pip install --quiet -r apps/backend/requirements.txt PyMySQL
+  python apps/backend/manage.py migrate --noinput
+  python apps/backend/manage.py collectstatic --noinput
+  python apps/backend/manage.py check --deploy
   mkdir -p tmp
   touch tmp/restart.txt
 "
 
-echo "✅ Deployment complete! Phusion Passenger restarted."
-echo "🌐 Verify live site at: https://monitoringerp.com"
+echo "Deployment complete: https://${DOMAIN}"

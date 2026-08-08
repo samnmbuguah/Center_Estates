@@ -25,7 +25,7 @@ _BASE_HEAD = """<!DOCTYPE html>
   <!-- ═══ PRIMARY SEO ═══════════════════════════════════════════════════════ -->
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
   <meta name="googlebot" content="index, follow">
-  <link rel="canonical" href="https://monitoringerp.com/">
+  <link rel="canonical" href="https://centerestates.com/">
   <meta name="theme-color" content="#6366f1">
   <meta name="color-scheme" content="dark">
 
@@ -39,10 +39,10 @@ _BASE_HEAD = """<!DOCTYPE html>
   <!-- ═══ OPEN GRAPH (Facebook, LinkedIn, WhatsApp preview) ════════════════ -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Center Estates ERP">
-  <meta property="og:url" content="https://monitoringerp.com/">
+  <meta property="og:url" content="https://centerestates.com/">
   <meta property="og:title" content="Center Estates ERP — Enterprise Real Estate &amp; Asset Platform">
   <meta property="og:description" content="Unified enterprise platform for property portfolio management, facility maintenance, RICS valuations, construction oversight and field staff telemetry. Built for real estate professionals in Africa.">
-  <meta property="og:image" content="https://monitoringerp.com/static/images/hero.jpg">
+  <meta property="og:image" content="https://centerestates.com/static/images/hero.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:locale" content="en_KE">
@@ -51,7 +51,7 @@ _BASE_HEAD = """<!DOCTYPE html>
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Center Estates ERP — Enterprise Real Estate Platform">
   <meta name="twitter:description" content="Manage property portfolios, facility maintenance, RICS valuations, construction and field staff — all in one enterprise console.">
-  <meta name="twitter:image" content="https://monitoringerp.com/static/images/hero.jpg">
+  <meta name="twitter:image" content="https://centerestates.com/static/images/hero.jpg">
 
   <!-- ═══ STRUCTURED DATA: Organization Schema ══════════════════════════════ -->
   <script type="application/ld+json">
@@ -59,8 +59,8 @@ _BASE_HEAD = """<!DOCTYPE html>
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Center Estates ERP",
-    "url": "https://monitoringerp.com",
-    "logo": "https://monitoringerp.com/static/images/favicon-512.png",
+    "url": "https://centerestates.com",
+    "logo": "https://centerestates.com/static/images/favicon-512.png",
     "description": "Enterprise Real Estate and Asset Operations Platform for property management, facility maintenance, valuations, tenders, construction monitoring and field staff telemetry.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -73,7 +73,7 @@ _BASE_HEAD = """<!DOCTYPE html>
     "creator": {
       "@type": "Organization",
       "name": "Center Estates",
-      "url": "https://monitoringerp.com"
+      "url": "https://centerestates.com"
     },
     "featureList": [
       "Property Portfolio Management",
@@ -498,7 +498,7 @@ _FOOTER = """
         <div style="display:flex;flex-direction:column;gap:10px">
           <button onclick="showView('about')" class="nav-link" style="text-align:left;font-size:0.85rem">About Us</button>
           <button onclick="showView('contact')" class="nav-link" style="text-align:left;font-size:0.85rem">Contact</button>
-          <a href="mailto:support@monitoringerp.com" class="nav-link" style="font-size:0.85rem">Support</a>
+          <a href="mailto:support@centerestates.com" class="nav-link" style="font-size:0.85rem">Support</a>
         </div>
       </div>
       <div>
@@ -753,9 +753,9 @@ _SCRIPTS = """
       const ogDesc = document.querySelector('meta[property="og:description"]');
       if (ogDesc) ogDesc.setAttribute('content', seo.desc);
       const ogUrl = document.querySelector('meta[property="og:url"]');
-      if (ogUrl) ogUrl.setAttribute('content', 'https://monitoringerp.com' + path);
+      if (ogUrl) ogUrl.setAttribute('content', 'https://centerestates.com' + path);
       const canonical = document.querySelector('link[rel="canonical"]');
-      if (canonical) canonical.setAttribute('href', 'https://monitoringerp.com' + path);
+      if (canonical) canonical.setAttribute('href', 'https://centerestates.com' + path);
     }
 
     async function loadModuleWorkspace(moduleKey) {
@@ -2151,7 +2151,7 @@ _VIEW_CONTACT = """
                 <div class="feat-icon" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);width:48px;height:48px;font-size:1.2rem;margin-bottom:0">&#128231;</div>
                 <div>
                   <div style="font-weight:700;margin-bottom:2px">Email Support</div>
-                  <a href="mailto:support@monitoringerp.com" style="color:var(--accent);font-size:0.9rem">support@monitoringerp.com</a>
+                  <a href="mailto:support@centerestates.com" style="color:var(--accent);font-size:0.9rem">support@centerestates.com</a>
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:16px">
@@ -2390,39 +2390,39 @@ Allow: /static/
 Disallow: /admin/
 Disallow: /api/
 
-Sitemap: https://monitoringerp.com/sitemap.xml
+Sitemap: https://centerestates.com/sitemap.xml
 """
 
 _SITEMAP_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://monitoringerp.com/</loc>
+    <loc>https://centerestates.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://monitoringerp.com/modules</loc>
+    <loc>https://centerestates.com/modules</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://monitoringerp.com/pricing</loc>
+    <loc>https://centerestates.com/pricing</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://monitoringerp.com/about</loc>
+    <loc>https://centerestates.com/about</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://monitoringerp.com/contact</loc>
+    <loc>https://centerestates.com/contact</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://monitoringerp.com/login</loc>
+    <loc>https://centerestates.com/login</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
