@@ -125,6 +125,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="e.g. admin or john.doe"
                 autoComplete="username"
+                disabled={!hydrated}
                 required
                 style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "12px 14px", color: "#ffffff", fontSize: "0.9rem", outline: "none" }}
               />
@@ -140,6 +141,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   autoComplete="current-password"
+                  disabled={!hydrated}
                   required
                   style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "12px 40px 12px 14px", color: "#ffffff", fontSize: "0.9rem", outline: "none" }}
                 />
