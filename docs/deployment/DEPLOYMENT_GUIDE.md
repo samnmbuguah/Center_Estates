@@ -60,6 +60,10 @@ The release archive deliberately excludes `.htaccess`, `.env`, SQLite data,
 media and collected static output. Never replace cPanel's generated Passenger
 configuration or production state with files from a developer checkout. For a
 repeat deployment of an already verified local Next build, set `SKIP_BUILD=1`.
+For a backend-only hotfix, use
+`DEPLOY_SCOPE=backend scripts/deploy_cpanel.sh host centerestates.com`; this
+publishes Django, runs migrations/checks and restarts Passenger without
+rebuilding or retransferring Next.js.
 
 Create a checksummed state backup before subsequent releases:
 

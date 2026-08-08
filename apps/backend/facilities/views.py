@@ -287,7 +287,12 @@ class ServiceRequestViewSet(FacilityModelViewSet):
     search_fields = ('reference', 'subject', 'category', 'property__name', 'tenant__name')
 
     def perform_create(self, serializer):
-        serializer.save(organization=self._validate_organization(serializer), status=ServiceRequest.Status.NEW, submitted_at=timezone.now())
+        serializer.save(
+            organization=self._validate_organization(serializer),
+            status=ServiceRequest.Status.NEW,
+            submitted_at=timezone.now(),
+            decision_notes='',
+        )
 
     def perform_update(self, serializer):
         if 'status' in serializer.validated_data: raise ValidationError({'status': 'Use the transition action.'})

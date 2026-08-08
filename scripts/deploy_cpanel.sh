@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Center Estates ERP cPanel/Passenger deployment.
 # Usage: scripts/deploy_cpanel.sh [ssh-host] [domain]
+# Set DEPLOY_SCOPE=backend for a backend-only hotfix without a Next.js rebuild.
 
 set -euo pipefail
 
@@ -9,12 +10,23 @@ DOMAIN="${2:-centerestates.com}"
 REMOTE_PATH="/home2/monitori/${DOMAIN}"
 VENV_PATH="/home2/monitori/virtualenv/${DOMAIN}/3.9/bin/activate"
 ARCHIVE="$(mktemp /tmp/center-estates-deploy.XXXXXX.tar.gz)"
+DEPLOY_SCOPE="${DEPLOY_SCOPE:-full}"
 trap 'rm -f "$ARCHIVE"' EXIT
+
+if [[ "$DEPLOY_SCOPE" != "full" && "$DEPLOY_SCOPE" != "backend" ]]; then
+  echo "DEPLOY_SCOPE must be 'full' or 'backend'." >&2
+  exit 2
+fi
 
 echo "Deploying Center Estates ERP to ${REMOTE_HOST}:${REMOTE_PATH}"
 
-if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
+if [[ "$DEPLOY_SCOPE" == "full" && "${SKIP_BUILD:-0}" != "1" ]]; then
   npm --prefix apps/web run build
+fi
+
+archive_paths=(passenger_wsgi.py apps/backend)
+if [[ "$DEPLOY_SCOPE" == "full" ]]; then
+  archive_paths+=(apps/web/.next apps/web/public apps/web/package.json)
 fi
 
 tar -czf "$ARCHIVE" \
@@ -28,11 +40,7 @@ tar -czf "$ARCHIVE" \
   --exclude='apps/web/.next/dev' \
   --exclude='apps/web/.next/types' \
   --exclude='apps/web/.next/trace' \
-  passenger_wsgi.py \
-  apps/backend \
-  apps/web/.next \
-  apps/web/public \
-  apps/web/package.json
+  "${archive_paths[@]}"
 
 scp "$ARCHIVE" "${REMOTE_HOST}:${REMOTE_PATH}/deploy.tar.gz"
 

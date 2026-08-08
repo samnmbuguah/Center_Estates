@@ -55,6 +55,9 @@ media while publishing only the Django runtime and compiled Next.js assets.
 
 ```bash
 scripts/deploy_cpanel.sh host centerestates.com
+
+# Backend-only hotfix; skips the Next.js build and frontend transfer
+DEPLOY_SCOPE=backend scripts/deploy_cpanel.sh host centerestates.com
 ```
 
 The Docker VM remains the pre-production/fallback environment.
