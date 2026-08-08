@@ -175,7 +175,10 @@ export function DailyLogs() {
     load();
   }, [load]);
 
-  const today = todayISO();
+  const [today, setToday] = useState(() => (typeof window === "undefined" ? "" : todayISO()));
+  useEffect(() => {
+    setToday(todayISO());
+  }, []);
   const logsToday = useMemo(
     () => logs.filter((l) => l.log_date === today),
     [logs, today],

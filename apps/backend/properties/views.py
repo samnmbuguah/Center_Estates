@@ -1,4 +1,5 @@
 import csv
+from drf_spectacular.utils import extend_schema
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -843,6 +844,7 @@ class PropertyDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         properties = scope_model_queryset(Property, request, organization)
@@ -960,6 +962,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             'incomeByMethod': income_by_method, 'expensesByCategory': expense_by_category,
         })
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         return Response({'reports': [
             {'key': 'aging', 'name': 'Outstanding aging', 'category': 'Financial'},
@@ -1073,6 +1076,7 @@ class TenantPortalViewSet(ViewSet):
             raise PermissionDenied('No active tenant portal profile is linked to this account.')
         return access
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         from facilities.models import ServiceRequest
         from notifications.models import Notification

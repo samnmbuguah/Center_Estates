@@ -79,6 +79,7 @@ test("milestones tab shows progress data", async ({ page }) => {
   await page.waitForTimeout(500);
 
   await openTab(page, "Progress");
+  await page.waitForTimeout(4000);
 
   const progressIndicator = page.locator(".progress-bar, .progress-indicator, [role=progressbar], .milestone-progress").first();
   if (await progressIndicator.count() > 0) await expect(progressIndicator).toBeVisible();

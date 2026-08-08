@@ -1,4 +1,5 @@
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
 from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 from rest_framework import status
@@ -260,6 +261,7 @@ class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         now = timezone.now()
@@ -388,6 +390,7 @@ class PerformanceViewSet(ViewSet):
         if not (membership and (membership.is_organization_admin or membership.has_permission('companion.performance.view'))):
             raise ValidationError('Performance analytics are available to administrators and managers only.')
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         self._require_manager(request)
         organization = get_active_organization(request)
@@ -484,6 +487,7 @@ from rest_framework.permissions import IsAuthenticated
 class TelemetryViewSet(ViewSet):
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         module_param = request.query_params.get('module', '').strip()

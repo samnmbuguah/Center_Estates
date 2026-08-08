@@ -1,4 +1,5 @@
 import csv
+from drf_spectacular.utils import extend_schema
 from decimal import Decimal
 
 from django.db import transaction
@@ -407,6 +408,7 @@ class SalesDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.SALES
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         listings = scope_model_queryset(SaleListing, request, organization)
@@ -442,6 +444,7 @@ class SalesAnalyticsViewSet(ViewSet):
     def _organization(self):
         return get_active_organization(self.request)
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = self._organization()
         performance = scope_model_queryset(PropertySale, request, organization).values(

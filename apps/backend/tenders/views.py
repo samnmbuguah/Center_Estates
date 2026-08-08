@@ -1,4 +1,5 @@
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
 import csv
 from decimal import Decimal
 
@@ -177,6 +178,7 @@ class TenderAuditEventViewSet(Scoped):
  queryset=TenderAuditEvent.objects.select_related('tender','actor'); serializer_class=TenderAuditEventSerializer; http_method_names=('get','head','options'); search_fields=('tender__reference','event_type','notes')
 class DashboardViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER
+ @extend_schema(request=None, responses={200: {"type": "object"}})
  def list(self,request):
   org=get_active_organization(request); now=timezone.now(); tenders=scope_model_queryset(Tender,request,org); tasks=scope_model_queryset(TenderTask,request,org); docs=CompanyDocument.objects.for_organization(org)
   active=tenders.exclude(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
@@ -184,6 +186,7 @@ class DashboardViewSet(ViewSet):
 
 class TenderAnalyticsViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER
+ @extend_schema(request=None, responses={200: {"type": "object"}})
  def list(self,request):
   org=get_active_organization(request); tenders=scope_model_queryset(Tender,request,org); submitted=tenders.filter(stage__in=(Tender.Stage.SUBMITTED,Tender.Stage.AWARDED,Tender.Stage.REGRETTED)); closed=tenders.filter(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
   return Response({'outcomes':list(closed.values('stage').annotate(count=Count('id'),value=Sum('estimated_value')).order_by('stage')),'metrics':{'submitted':submitted.count(),'awarded':closed.filter(stage=Tender.Stage.AWARDED).count(),'regretted':closed.filter(stage=Tender.Stage.REGRETTED).count(),'winRate':round(closed.filter(stage=Tender.Stage.AWARDED).count()/closed.count()*100,2) if closed.exists() else 0},'reports':[{'key':'pipeline','name':'Tender pipeline and deadlines'},{'key':'requirements','name':'Requirement compliance matrix'},{'key':'tasks','name':'Bid plan and workload'},{'key':'pricing','name':'Financial proposal'},{'key':'outcomes','name':'Awards, regrets and lessons'}]})

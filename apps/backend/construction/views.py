@@ -1,4 +1,5 @@
 from decimal import Decimal
+from drf_spectacular.utils import extend_schema
 from django.db import transaction
 from django.db.models import Count, Sum
 from time import time
@@ -921,6 +922,7 @@ class DashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.MONITORING
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         projects = Project.objects.filter(organization=organization, archived=False)

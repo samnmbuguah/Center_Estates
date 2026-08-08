@@ -1,4 +1,5 @@
 import csv
+from drf_spectacular.utils import extend_schema
 from decimal import Decimal
 
 from django.db import transaction
@@ -191,6 +192,7 @@ class AuditEventViewSet(Scoped):
  queryset=ValuationAuditEvent.objects.select_related('instruction','actor');serializer_class=AuditEventSerializer;http_method_names=('get','head','options');search_fields=('instruction__reference','event_type','notes')
 class DashboardViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,);required_module=Module.VALUATION
+ @extend_schema(request=None, responses={200: {"type": "object"}})
  def list(self,request):
   org=get_active_organization(request);today=timezone.localdate();ins=scope_model_queryset(ValuationInstruction,request,org);inv=scope_model_queryset(ValuationInvoice,request,org);pay=scope_model_queryset(ValuationPayment,request,org)
   active=ins.exclude(status__in=(ValuationInstruction.Status.DELIVERED,ValuationInstruction.Status.CANCELLED))
@@ -199,6 +201,7 @@ class DashboardViewSet(ViewSet):
 
 class ValuationAnalyticsViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,);required_module=Module.VALUATION
+ @extend_schema(request=None, responses={200: {"type": "object"}})
  def list(self,request):
   org=get_active_organization(request);instructions=scope_model_queryset(ValuationInstruction,request,org);invoices=scope_model_queryset(ValuationInvoice,request,org);today=timezone.localdate();overdue=invoices.filter(due_on__lt=today).exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID))
   return Response({'teamPerformance':list(instructions.values('valuer__username','valuer__first_name','valuer__last_name').annotate(instructions=Count('id'),averageFee=Avg('quoted_fee'),delivered=Count('id',filter=Q(status=ValuationInstruction.Status.DELIVERED))).order_by('-instructions')),'aging':{'overdueInvoices':overdue.count(),'overdueBalance':overdue.aggregate(v=Sum('balance'))['v'] or 0},'reports':[{'key':'instructions','name':'Instruction pipeline and SLA'},{'key':'inspections','name':'Inspection evidence register'},{'key':'comparables','name':'Comparable evidence analysis'},{'key':'reports','name':'Final valuation reports'},{'key':'fees','name':'Fees, payments and aging'}]})

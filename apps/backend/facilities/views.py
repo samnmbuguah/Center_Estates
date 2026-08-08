@@ -1,4 +1,5 @@
 import csv
+from drf_spectacular.utils import extend_schema
 import uuid
 
 from django.db import transaction
@@ -399,6 +400,7 @@ class FacilityPortalViewSet(ViewSet):
             tenant=access.tenant, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
         ).select_related('unit__property').first()
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         access = self._access()
         requests = ServiceRequest.objects.for_organization(access.organization).filter(
@@ -518,6 +520,7 @@ class FacilityDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         now = timezone.now()
@@ -555,6 +558,7 @@ class FacilityAnalyticsViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         assets = scope_model_queryset(FacilityAsset, request, organization)
