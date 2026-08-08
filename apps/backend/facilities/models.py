@@ -275,6 +275,7 @@ class UtilityMeter(OrganizationOwnedModel):
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=160)
     property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='utility_meters')
+    property_unit = models.ForeignKey('properties.Unit', on_delete=models.PROTECT, related_name='utility_meters', null=True, blank=True)
     utility_type = models.CharField(max_length=16, choices=Utility.choices)
     unit = models.CharField(max_length=20, default='kWh')
     tariff = models.DecimalField(max_digits=10, decimal_places=4, default=0)
@@ -284,15 +285,31 @@ class UtilityMeter(OrganizationOwnedModel):
         ordering = ('name',)
         constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_meter_code')]
 
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Utility meter property must belong to the same organization.')
+        if self.property_unit_id and self.property_unit.property_id != self.property_id:
+            raise ValidationError({'property_unit': 'The metered unit must belong to the selected property.'})
+
 
 class MeterReading(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending review'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
     meter = models.ForeignKey(UtilityMeter, on_delete=models.CASCADE, related_name='readings')
     read_at = models.DateTimeField()
     value = models.DecimalField(max_digits=16, decimal_places=3)
+    previous_value = models.DecimalField(max_digits=16, decimal_places=3, default=0)
     consumption = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     is_anomaly = models.BooleanField(default=False)
     notes = models.CharField(max_length=250, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='reviewed_meter_readings', null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.CharField(max_length=250, blank=True)
 
     class Meta:
         ordering = ('-read_at',)

@@ -385,14 +385,14 @@ class FacilityPortalViewSet(ViewSet):
 
 class UtilityMeterViewSet(FacilityModelViewSet):
     write_permission = 'facility.administer'
-    queryset = UtilityMeter.objects.select_related('property').prefetch_related('readings')
+    queryset = UtilityMeter.objects.select_related('property', 'property_unit').prefetch_related('readings')
     serializer_class = UtilityMeterSerializer
     search_fields = ('code', 'name', 'property__name')
 
 
 class MeterReadingViewSet(FacilityModelViewSet):
     write_permission = 'facility.work'
-    queryset = MeterReading.objects.select_related('meter')
+    queryset = MeterReading.objects.select_related('meter', 'meter__property_unit', 'reviewed_by')
     serializer_class = MeterReadingSerializer
     search_fields = ('meter__name', 'notes')
 
@@ -404,7 +404,41 @@ class MeterReadingViewSet(FacilityModelViewSet):
         consumption = value - previous.value if previous else Decimal(0)
         anomaly = bool(previous and previous.consumption > 0 and consumption > previous.consumption * Decimal('1.5'))
         cost = (consumption * meter.tariff).quantize(Decimal('0.01'))
-        serializer.save(organization=organization, consumption=consumption, cost=cost, is_anomaly=anomaly)
+        serializer.save(
+            organization=organization,
+            previous_value=previous.value if previous else Decimal(0),
+            consumption=consumption,
+            cost=cost,
+            is_anomaly=anomaly,
+            status=MeterReading.Status.PENDING,
+        )
+
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        reading = self.get_object()
+        if reading.status != MeterReading.Status.PENDING:
+            raise ValidationError({'status': 'Only pending meter readings can be approved.'})
+        reading.status = MeterReading.Status.APPROVED
+        reading.reviewed_by = request.user
+        reading.reviewed_at = timezone.now()
+        reading.review_notes = str(request.data.get('notes', '')).strip()
+        reading.save(update_fields=('status', 'reviewed_by', 'reviewed_at', 'review_notes', 'updated_at'))
+        return Response(self.get_serializer(reading).data)
+
+    @action(detail=True, methods=('post',))
+    def reject(self, request, pk=None):
+        reading = self.get_object()
+        if reading.status != MeterReading.Status.PENDING:
+            raise ValidationError({'status': 'Only pending meter readings can be rejected.'})
+        notes = str(request.data.get('notes', '')).strip()
+        if not notes:
+            raise ValidationError({'notes': 'A rejection reason is required.'})
+        reading.status = MeterReading.Status.REJECTED
+        reading.reviewed_by = request.user
+        reading.reviewed_at = timezone.now()
+        reading.review_notes = notes
+        reading.save(update_fields=('status', 'reviewed_by', 'reviewed_at', 'review_notes', 'updated_at'))
+        return Response(self.get_serializer(reading).data)
 
     def perform_update(self, serializer): raise ValidationError({'reading': 'Meter readings are immutable.'})
     def perform_destroy(self, instance): raise ValidationError({'reading': 'Meter readings cannot be deleted.'})

@@ -66,7 +66,15 @@ class ServiceRequestSerializer(serializers.ModelSerializer):
 
 class UtilityMeterSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
+    unit_code = serializers.CharField(source='property_unit.code', read_only=True, default='')
     latest_reading = serializers.SerializerMethodField()
+    current_reading = serializers.SerializerMethodField()
+    previous_reading = serializers.SerializerMethodField()
+    consumption = serializers.SerializerMethodField()
+    cost = serializers.SerializerMethodField()
+    read_at = serializers.SerializerMethodField()
+    reading_status = serializers.SerializerMethodField()
+    reading_is_anomaly = serializers.SerializerMethodField()
     class Meta:
         model = UtilityMeter
         exclude = ('organization',)
@@ -75,13 +83,46 @@ class UtilityMeterSerializer(serializers.ModelSerializer):
         reading = obj.readings.first()
         return MeterReadingSerializer(reading).data if reading else None
 
+    def _latest(self, obj):
+        return obj.readings.first()
+
+    def get_current_reading(self, obj):
+        reading = self._latest(obj)
+        return reading.value if reading else None
+
+    def get_previous_reading(self, obj):
+        reading = self._latest(obj)
+        return reading.previous_value if reading else None
+
+    def get_consumption(self, obj):
+        reading = self._latest(obj)
+        return reading.consumption if reading else None
+
+    def get_cost(self, obj):
+        reading = self._latest(obj)
+        return reading.cost if reading else None
+
+    def get_read_at(self, obj):
+        reading = self._latest(obj)
+        return reading.read_at if reading else None
+
+    def get_reading_status(self, obj):
+        reading = self._latest(obj)
+        return reading.status if reading else 'not_read'
+
+    def get_reading_is_anomaly(self, obj):
+        reading = self._latest(obj)
+        return reading.is_anomaly if reading else False
+
 
 class MeterReadingSerializer(serializers.ModelSerializer):
     meter_name = serializers.CharField(source='meter.name', read_only=True)
+    unit_code = serializers.CharField(source='meter.property_unit.code', read_only=True, default='')
+    reviewed_by_name = serializers.CharField(source='reviewed_by.username', read_only=True, default='')
     class Meta:
         model = MeterReading
         exclude = ('organization',)
-        read_only_fields = ('consumption', 'cost', 'is_anomaly')
+        read_only_fields = ('previous_value', 'consumption', 'cost', 'is_anomaly', 'status', 'reviewed_by', 'reviewed_at', 'review_notes')
 
 
 class WorkOrderEventSerializer(serializers.ModelSerializer):

@@ -170,9 +170,11 @@ class FacilityApiTests(TestCase):
         self.assertEqual(service_request.satisfaction_score, 5)
 
     def test_meter_readings_compute_consumption_cost_and_anomaly_server_side(self):
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='101')
         meter = UtilityMeter.objects.create(
             organization=self.organization, code='ELEC-01', name='Main electricity meter',
-            property=self.property, utility_type=UtilityMeter.Utility.ELECTRICITY, tariff=Decimal('25.0000'),
+            property=self.property, property_unit=unit,
+            utility_type=UtilityMeter.Utility.ELECTRICITY, tariff=Decimal('25.0000'),
         )
         MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=2), value=Decimal('1000'), consumption=Decimal('100'), cost=Decimal('2500'))
         MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=1), value=Decimal('1100'), consumption=Decimal('100'), cost=Decimal('2500'))
@@ -184,8 +186,32 @@ class FacilityApiTests(TestCase):
         reading = MeterReading.objects.order_by('-read_at').first()
         self.assertEqual(reading.consumption, Decimal('200'))
         self.assertEqual(reading.cost, Decimal('5000'))
+        self.assertEqual(reading.previous_value, Decimal('1100'))
+        self.assertEqual(reading.status, MeterReading.Status.PENDING)
         self.assertTrue(reading.is_anomaly)
+        approved = self.client.post(
+            f'/api/v1/facility/meter-readings/{reading.id}/approve/',
+            {'notes': 'Consumption checked against the caretaker sheet.'}, format='json', **self.headers,
+        )
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], MeterReading.Status.APPROVED)
+        self.assertEqual(approved.data['unit_code'], '101')
+        self.assertEqual(self.client.post(
+            f'/api/v1/facility/meter-readings/{reading.id}/approve/', {}, format='json', **self.headers,
+        ).status_code, 400)
+        backwards = self.client.post('/api/v1/facility/meter-readings/', {
+            'meter': str(meter.id), 'read_at': (timezone.now() + timezone.timedelta(days=1)).isoformat(), 'value': '1200',
+        }, format='json', **self.headers)
+        self.assertEqual(backwards.status_code, 400)
         self.assertEqual(self.client.delete(f'/api/v1/facility/meter-readings/{reading.id}/', **self.headers).status_code, 400)
+
+        meter_register = self.client.get('/api/v1/facility/meters/', **self.headers)
+        self.assertEqual(meter_register.status_code, 200)
+        registered = next(row for row in meter_register.data if row['code'] == 'ELEC-01')
+        self.assertEqual(registered['unit_code'], '101')
+        self.assertEqual(Decimal(registered['current_reading']), Decimal('1300'))
+        self.assertEqual(Decimal(registered['previous_reading']), Decimal('1100'))
+        self.assertEqual(registered['reading_status'], MeterReading.Status.APPROVED)
 
     def test_facility_analytics(self):
         response = self.client.get('/api/v1/facility/analytics/', **self.headers)

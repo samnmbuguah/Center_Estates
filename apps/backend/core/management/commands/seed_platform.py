@@ -570,7 +570,7 @@ class Command(BaseCommand):
         meter, _ = UtilityMeter.objects.update_or_create(
             organization=organization, code='ELC-TA-MAIN',
             defaults={
-                'name': 'Tower A Main Electricity Meter', 'property': prop,
+                'name': 'Tower A Unit 101 Electricity Meter', 'property': prop, 'property_unit': units[101],
                 'utility_type': UtilityMeter.Utility.ELECTRICITY, 'unit': 'kWh',
                 'tariff': Decimal('27.4500'), 'is_active': True,
             },
@@ -578,8 +578,10 @@ class Command(BaseCommand):
         MeterReading.objects.update_or_create(
             organization=organization, meter=meter, read_at=timezone.now().replace(minute=0, second=0, microsecond=0),
             defaults={
-                'value': Decimal('198420.000'), 'consumption': Decimal('1245.000'),
-                'cost': Decimal('34175.25'), 'is_anomaly': False,
+                'value': Decimal('198420.000'), 'previous_value': Decimal('197175.000'),
+                'consumption': Decimal('1245.000'), 'cost': Decimal('34175.25'),
+                'is_anomaly': False, 'status': MeterReading.Status.APPROVED,
+                'reviewed_by': user, 'reviewed_at': timezone.now(), 'review_notes': 'Seeded verified reading.',
             },
         )
         listing_one, _ = SaleListing.objects.update_or_create(

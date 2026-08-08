@@ -4,7 +4,6 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
-import { facilityNav } from "@/lib/module-nav";
 import { DetailDrawer, Field, Modal, money } from "@/components/module-ui";
 
 type Tab =
@@ -2407,49 +2406,105 @@ function UtilityBarChart({
 }
 
 /* ─── Utilities tab ─── */
-function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
+function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, reload }: {
+  rows: Row[]; kpis: Kpis; organizationId: string | null; canWork: boolean; canAdminister: boolean; reload: () => Promise<void>;
+}) {
   const [subTab, setSubTab] = useState("overview");
+  const [readingMeter, setReadingMeter] = useState<Row | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<{ reading: Row; decision: "approve" | "reject" } | null>(null);
+  const [utilityError, setUtilityError] = useState("");
   const sparkData = [30, 45, 38, 55, 48, 62, 50, 70, 58, 75, 65, 80];
   const maxSpark = Math.max(...sparkData);
-  const energyKwh = Number(kpis.utilityConsumption ?? 125430).toLocaleString();
-  const utilityCost = Number(kpis.utilityCost ?? 645780).toLocaleString();
+  const utilityConsumption = Number(kpis.utilityConsumption ?? 0);
+  const utilityCostValue = Number(kpis.utilityCost ?? 0);
+  const energyKwh = utilityConsumption.toLocaleString();
+  const utilityCost = utilityCostValue.toLocaleString();
+  const consumptionByType = (type: string) => rows
+    .filter((row) => String(row.utility_type ?? "") === type)
+    .reduce((sum, row) => sum + Number(row.consumption ?? 0), 0);
+  const costByType = (type: string) => rows
+    .filter((row) => String(row.utility_type ?? "") === type)
+    .reduce((sum, row) => sum + Number(row.cost ?? 0), 0);
 
   const trendMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const consumptionByMonth = rows.length > 0
     ? (() => {
         const buckets: Record<string, number> = {};
         rows.forEach((r) => {
-          const d = String(r.read_at ?? "");
-          const m = d.slice(0, 3) || "Jan";
+          const date = new Date(String(r.read_at ?? ""));
+          const m = Number.isNaN(date.getTime()) ? "" : trendMonths[date.getMonth()];
+          if (!m) return;
           buckets[m] = (buckets[m] ?? 0) + Number(r.consumption ?? 0);
         });
         return trendMonths.map((m) => buckets[m] ?? 0);
       })()
-    : [8200, 9100, 8800, 9500, 10200, 9800, 10500, 11000, 10300, 10800, 11200, 11500];
+    : trendMonths.map(() => 0);
   const costByMonth = rows.length > 0
     ? (() => {
         const buckets: Record<string, number> = {};
         rows.forEach((r) => {
-          const d = String(r.read_at ?? "");
-          const m = d.slice(0, 3) || "Jan";
+          const date = new Date(String(r.read_at ?? ""));
+          const m = Number.isNaN(date.getTime()) ? "" : trendMonths[date.getMonth()];
+          if (!m) return;
           buckets[m] = (buckets[m] ?? 0) + Number(r.cost ?? 0);
         });
         return trendMonths.map((m) => buckets[m] ?? 0);
       })()
-    : [52000, 58000, 55000, 60000, 65000, 62000, 68000, 72000, 67000, 70000, 74000, 76000];
+    : trendMonths.map(() => 0);
   const totalConsumption = consumptionByMonth.reduce((s, v) => s + v, 0);
   const totalCost = costByMonth.reduce((s, v) => s + v, 0);
+  const utilityAlerts = rows.filter((row) => Boolean(row.reading_is_anomaly) || ["pending", "rejected"].includes(String(row.reading_status ?? "")));
+
+  async function submitReading(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!readingMeter || !organizationId) return;
+    const form = new FormData(event.currentTarget);
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/facility/meter-readings/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ meter: readingMeter.id, read_at: form.get("read_at"), value: form.get("value"), notes: form.get("notes") }),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setUtilityError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The meter reading could not be saved.");
+      return;
+    }
+    setUtilityError("");
+    setReadingMeter(null);
+    await reload();
+  }
+
+  async function submitReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reviewTarget || !organizationId) return;
+    const notes = String(new FormData(event.currentTarget).get("notes") ?? "").trim();
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(`/facility/meter-readings/${reviewTarget.reading.id}/${reviewTarget.decision}/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ notes }),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setUtilityError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The review decision could not be saved.");
+      return;
+    }
+    setUtilityError("");
+    setReviewTarget(null);
+    await reload();
+  }
 
   return (
     <>
       <div className="fc-kpi-strip six-col">
         {[
           { icon: "⚡", bg: "#e0e7ff", color: "#4f46e5", label: "Total Energy (kWh)", value: energyKwh, trend: "YTD consumption", up: false },
-          { icon: "💧", bg: "#dbeafe", color: "#2563eb", label: "Water Consumption (m³)", value: "1,245", trend: "↓ 5.3%", up: true },
-          { icon: "⛽", bg: "#dcfce7", color: "#16a34a", label: "Generator Fuel (L)", value: "3,240", trend: "↑ 12.1%", up: false },
-          { icon: "🔥", bg: "#fff7ed", color: "#ea580c", label: "Gas Consumption (kg)", value: "620", trend: "↓ 3.6%", up: true },
+          { icon: "💧", bg: "#dbeafe", color: "#2563eb", label: "Water Consumption (m³)", value: consumptionByType("water").toLocaleString(), trend: "Recorded YTD", up: true },
+          { icon: "⛽", bg: "#dcfce7", color: "#16a34a", label: "Generator Fuel (L)", value: consumptionByType("fuel").toLocaleString(), trend: "Recorded YTD", up: true },
+          { icon: "🔥", bg: "#fff7ed", color: "#ea580c", label: "Gas Consumption (kg)", value: consumptionByType("gas").toLocaleString(), trend: "Recorded YTD", up: true },
           { icon: "💰", bg: "#fdf4ff", color: "#9333ea", label: "Utility Cost (KES)", value: utilityCost, trend: "YTD spend", up: false },
-          { icon: "🌱", bg: "#f0fdf4", color: "#15803d", label: "Carbon Savings (kg CO₂)", value: "2,340", trend: "↑ 9.4%", up: true },
+          { icon: "🌱", bg: "#f0fdf4", color: "#15803d", label: "Meters Reporting", value: String(rows.filter((row) => row.read_at).length), trend: "Current register", up: true },
         ].map((kpi) => (
           <div key={kpi.label} className="fc-kpi-card" style={{ cursor: "default" }}>
             <div className="fc-kpi-top">
@@ -2504,6 +2559,7 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
                     <th>Consumption</th>
                     <th>Date & Time</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2516,35 +2572,27 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
                               <span style={{ fontSize: 12, textTransform: "capitalize" }}>{String(row.utility_type ?? "—")} ({String(row.unit ?? "")})</span>
                             </div>
                           </td>
-                          <td style={{ fontSize: 12 }}>{String(row.name ?? "—")}<br /><span style={{ color: "#8a96a7", fontSize: 10 }}>{String(row.property_name ?? "")}</span></td>
+                          <td style={{ fontSize: 12 }}>{String(row.name ?? "—")}<br /><span style={{ color: "#8a96a7", fontSize: 10 }}>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</span></td>
                           <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.current_reading ?? "—")}</td>
                           <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.previous_reading ?? "—")}</td>
                           <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.consumption ?? "—")} {String(row.unit ?? "")}</td>
                           <td style={{ fontSize: 11, color: "#6b7890" }}>{String(row.read_at ?? "—")}</td>
-                          <td><FcStatus value="good" /></td>
-                        </tr>
-                      ))
-                    : [
-                        { id: 1, type: "⚡", label: "Electricity (kWh)", meter: "Main Incomer – EM-01", loc: "Ground Floor", curr: "54,678.20", prev: "53,210.45", cons: "1,467.75 kWh", date: "18 May 2026, 08:00 AM", status: "good" },
-                        { id: 2, type: "💧", label: "Water (m³)", meter: "Main Water Meter – WM-01", loc: "Basement", curr: "12,345.80", prev: "12,201.60", cons: "144.20 m³", date: "18 May 2026, 07:45 AM", status: "good" },
-                        { id: 3, type: "⛽", label: "Generator Fuel (L)", meter: "Gen Fuel Tank – GF-01", loc: "Generator Room", curr: "1,260.00", prev: "1,460.00", cons: "200.00 L", date: "18 May 2026, 07:30 AM", status: "low" },
-                        { id: 4, type: "🔥", label: "Gas (kg)", meter: "Gas Meter – GM-01", loc: "Kitchen", curr: "2,340.00", prev: "2,410.00", cons: "70.00 kg", date: "18 May 2026, 07:20 AM", status: "good" },
-                      ].map((m) => (
-                        <tr key={m.id}>
+                          <td><FcStatus value={String(row.reading_status ?? "not_read")} /></td>
                           <td>
-                            <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
-                              <span>{m.type}</span>
-                              <span style={{ fontSize: 12 }}>{m.label}</span>
+                            <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                              {canWork && <button className="btn ghost sm" onClick={() => setReadingMeter(row)}>Record Reading</button>}
+                              {canAdminister && row.reading_status === "pending" && (() => {
+                                const reading = (row.latest_reading ?? {}) as Row;
+                                return <>
+                                  <button className="btn primary sm" onClick={() => setReviewTarget({ reading, decision: "approve" })}>Approve</button>
+                                  <button className="btn danger sm" onClick={() => setReviewTarget({ reading, decision: "reject" })}>Reject</button>
+                                </>;
+                              })()}
                             </div>
                           </td>
-                          <td style={{ fontSize: 12 }}>{m.meter}<br /><span style={{ color: "#8a96a7", fontSize: 10 }}>{m.loc}</span></td>
-                          <td style={{ fontSize: 12, fontWeight: 700 }}>{m.curr}</td>
-                          <td style={{ fontSize: 12, color: "#6b7890" }}>{m.prev}</td>
-                          <td style={{ fontSize: 12, fontWeight: 700 }}>{m.cons}</td>
-                          <td style={{ fontSize: 11, color: "#6b7890" }}>{m.date}</td>
-                          <td><FcStatus value={m.status} /></td>
                         </tr>
-                      ))}
+                      ))
+                    : <tr><td colSpan={8} style={{ color: "#6b7890", padding: 24, textAlign: "center" }}>No utility meters or readings have been recorded yet.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2598,25 +2646,17 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
           <article className="data-panel">
             <PanelHeader title="Active Alerts" />
             <div className="fc-alert-list">
-              {[
-                { type: "danger", icon: "⚠", title: "High Electricity Usage", sub: "Consumption 18% above baseline", loc: "Cradle Building – Ground Floor", time: "08:15 AM" },
-                { type: "warning", icon: "💧", title: "Possible Water Leak", sub: "Continuous flow for 3+ hours", loc: "Cradle Building – Basement", time: "07:45 AM" },
-                { type: "danger", icon: "⛽", title: "Generator Fuel Low", sub: "Fuel level below 15%", loc: "Cradle Building – Generator Room", time: "Yesterday" },
-                { type: "info", icon: "📅", title: "Water Tank Cleaning Due", sub: "Scheduled on 22 May 2026", loc: "Cradle Building – Roof", time: "Yesterday" },
-              ].map((alert) => (
-                <button key={alert.title} className="fc-alert-item">
-                  <span className={`fc-alert-icon ${alert.type}`}>{alert.icon}</span>
+              {utilityAlerts.length > 0 ? utilityAlerts.map((row) => (
+                <div key={String(row.id)} className="fc-alert-item">
+                  <span className={`fc-alert-icon ${row.reading_status === "rejected" || row.reading_is_anomaly ? "danger" : "warning"}`}>{row.reading_is_anomaly ? "⚠" : "◷"}</span>
                   <div className="fc-alert-body">
-                    <strong>{alert.title}</strong>
-                    <small>{alert.sub}</small>
-                    <small>{alert.loc}</small>
+                    <strong>{row.reading_is_anomaly ? "Consumption anomaly" : `Reading ${String(row.reading_status ?? "pending")}`}</strong>
+                    <small>{String(row.name ?? row.code ?? "Utility meter")}</small>
+                    <small>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</small>
                   </div>
-                  <span style={{ color: "#9aacbf", fontSize: 10 }}>{alert.time}</span>
-                </button>
-              ))}
-              <div style={{ padding: "10px 18px" }}>
-                <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all alerts →</button>
-              </div>
+                  <span style={{ color: "#9aacbf", fontSize: 10 }}>{String(row.read_at ?? "")}</span>
+                </div>
+              )) : <div style={{ color: "#6b7890", fontSize: 12, padding: 18 }}>No utility anomalies or readings awaiting review.</div>}
             </div>
           </article>
 
@@ -2632,17 +2672,15 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
                 <span style={{ color: "#ef4444", fontSize: 11 }}> YTD</span>
               </div>
               {[
-                { icon: "⚡", label: "Electricity", value: "KES 412,560", trend: "↑ 7.9%", up: false },
-                { icon: "💧", label: "Water", value: "KES 98,450", trend: "↓ 3.2%", up: true },
-                { icon: "⛽", label: "Generator Fuel", value: "KES 76,540", trend: "↑ 12.1%", up: false },
-                { icon: "🔥", label: "Gas", value: "KES 38,760", trend: "↓ 3.6%", up: true },
-                { icon: "♻", label: "Waste", value: "KES 19,470", trend: "↑ 5.3%", up: false },
+                { icon: "⚡", label: "Electricity", value: `KES ${costByType("electricity").toLocaleString()}` },
+                { icon: "💧", label: "Water", value: `KES ${costByType("water").toLocaleString()}` },
+                { icon: "⛽", label: "Generator Fuel", value: `KES ${costByType("fuel").toLocaleString()}` },
+                { icon: "🔥", label: "Gas", value: `KES ${costByType("gas").toLocaleString()}` },
               ].map((item) => (
                 <div key={item.label} style={{ alignItems: "center", borderBottom: "1px solid #f0f2f6", display: "flex", gap: 10, padding: "9px 0" }}>
                   <span>{item.icon}</span>
                   <span style={{ color: "#4b5563", flex: 1, fontSize: 12 }}>{item.label}</span>
                   <span style={{ fontSize: 12, fontWeight: 700 }}>{item.value}</span>
-                  <span style={{ color: item.up ? "#16a34a" : "#ef4444", fontSize: 10, fontWeight: 700 }}>{item.trend}</span>
                 </div>
               ))}
             </div>
@@ -2650,6 +2688,30 @@ function UtilitiesView({ rows, kpis }: { rows: Row[]; kpis: Kpis }) {
         </div>
       </div>
       ); })()}
+      {utilityError && <div className="form-error">{utilityError}</div>}
+      {readingMeter && (
+        <Modal title={`Record Reading · ${String(readingMeter.name ?? readingMeter.code ?? "Meter")}`} onClose={() => setReadingMeter(null)}>
+          <form onSubmit={submitReading} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="grid-2">
+              <Field label="Previous reading"><input value={String(readingMeter.current_reading ?? 0)} readOnly /></Field>
+              <Field label={`Current reading (${String(readingMeter.unit ?? "units")})`} required><input name="value" type="number" min={Number(readingMeter.current_reading ?? 0)} step="0.001" required /></Field>
+            </div>
+            <Field label="Reading date and time" required><input name="read_at" type="datetime-local" required /></Field>
+            <Field label="Caretaker notes"><textarea name="notes" rows={3} /></Field>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn ghost" onClick={() => setReadingMeter(null)}>Cancel</button><button className="btn primary">Submit for Review</button></div>
+          </form>
+        </Modal>
+      )}
+      {reviewTarget && (
+        <Modal title={`${reviewTarget.decision === "approve" ? "Approve" : "Reject"} Meter Reading`} onClose={() => setReviewTarget(null)}>
+          <form onSubmit={submitReview} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Field label="Previous reading"><input value={String(reviewTarget.reading.previous_value ?? "—")} readOnly /></Field>
+            <Field label="Current reading"><input value={String(reviewTarget.reading.value ?? "—")} readOnly /></Field>
+            <Field label={reviewTarget.decision === "reject" ? "Rejection reason" : "Review notes"} required={reviewTarget.decision === "reject"}><textarea name="notes" rows={3} required={reviewTarget.decision === "reject"} /></Field>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn ghost" onClick={() => setReviewTarget(null)}>Cancel</button><button className={`btn ${reviewTarget.decision === "approve" ? "primary" : "danger"}`}>{reviewTarget.decision === "approve" ? "Approve Reading" : "Reject Reading"}</button></div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }
@@ -3682,7 +3744,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "service-requests" ? (
           <ServiceRequestsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canWork }} onAdd={() => setCreateModal("service-request")} />
         ) : tab === "meters" ? (
-          <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} />
+          <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} organizationId={organizationId} canWork={canWork} canAdminister={canAdminister} reload={load} />
         ) : tab === "contractors" ? (
           <ContractorsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("contractor")} />
         ) : tab === "reports" ? (
