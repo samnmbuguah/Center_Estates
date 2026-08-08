@@ -34,6 +34,19 @@ test("subscribed modules navigate through the unified shell", async ({ page }) =
   }
 });
 
+test("global workflow search renders MUI results without crashing", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.goto("/workspaces");
+  const search = page.getByRole("searchbox", { name: "Search modules and workflows" });
+  await search.fill("maintenance");
+  const results = page.getByRole("menu", { name: "Search results" });
+  await expect(results.getByRole("menuitem", { name: /Facility Management/ })).toBeVisible();
+  expect(pageErrors).toEqual([]);
+  await results.getByRole("menuitem", { name: /Facility Management/ }).click();
+  await expect(page).toHaveURL(/\/facility$/);
+});
+
 test("property rent ledger registers and receipt dialog are usable", async ({ page }) => {
   await page.goto("/property?tab=overview");
   await expect(page.getByText("Outstanding Rent", { exact: true })).toBeVisible();
@@ -124,9 +137,20 @@ test("property context persists between modules and scopes horizontal-tab data",
   await expect(page.getByText("Central Air Handling Unit", { exact: true })).toHaveCount(0);
 });
 
+test("property switching refreshes data without resetting module navigation state", async ({ page }) => {
+  await page.goto("/facility?tab=assets");
+  await openModuleSection(page, "Planned Maintenance");
+  await expect(page.locator('.module-nav-pages button[aria-current="page"]')).toContainText("Planned Maintenance");
+  const selector = page.getByLabel("Current property");
+  const target = await selector.locator("option").nth(1).getAttribute("value");
+  await selector.selectOption(target ?? "");
+  await expect(page.locator('.module-nav-pages button[aria-current="page"]')).toContainText("Planned Maintenance");
+  await expect(page).toHaveURL(/tab=assets/);
+});
+
 test("horizontal navigation remains legible in light and dark themes", async ({ page }) => {
   await page.goto("/facility?tab=assets");
-  const navButton = page.locator(".module-nav-pages button").first();
+  const navButton = page.locator(".module-nav-pages button.active");
   await expect(navButton).toBeVisible();
 
   const contrast = async () => navButton.evaluate((element) => {
@@ -148,19 +172,37 @@ test("horizontal navigation remains legible in light and dark themes", async ({ 
     };
     const style = getComputedStyle(element);
     const foreground = luminance(parse(style.color));
-    const background = luminance(parse(getComputedStyle(element.closest(".module-nav-bar")!).backgroundColor));
+    const background = luminance(parse(style.backgroundColor));
     return {
       ratio: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
       foreground: style.color,
-      background: getComputedStyle(element.closest(".module-nav-bar")!).backgroundColor,
+      background: style.backgroundColor,
     };
   });
 
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  await page.waitForTimeout(250);
   expect((await contrast()).ratio).toBeGreaterThanOrEqual(4.5);
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await page.waitForTimeout(250);
   const darkContrast = await contrast();
   expect(darkContrast.ratio, JSON.stringify(darkContrast)).toBeGreaterThanOrEqual(4.5);
+});
+
+test("property invoice composer previews VAT before creating a reviewable draft", async ({ page }) => {
+  await page.goto("/property?tab=financials");
+  await page.getByRole("tab", { name: "Invoices", exact: true }).click();
+  await page.getByRole("button", { name: "+ New invoice", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Create invoice draft" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByTestId("invoice-lease").selectOption({ index: 1 });
+  await dialog.getByTestId("invoice-subtotal").fill("1000");
+  await dialog.getByTestId("invoice-vat").selectOption("16");
+  await dialog.getByTestId("invoice-preview-btn").click();
+  const preview = dialog.getByTestId("invoice-preview");
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText("1,160");
+  await expect(dialog.getByTestId("invoice-save-draft")).toBeEnabled();
 });
 
 test("property tenant onboarding and compliance dialogs are connected", async ({ page }, testInfo) => {

@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { tenderNav } from "@/lib/module-nav";
+import { usePropertyContext } from "@/lib/property-context";
 import {
   Badge,
   DetailDrawer,
@@ -1885,6 +1886,7 @@ function UploadCompanyDocumentModal({ open, onClose, onSubmit, error }: {
 
 export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
   const { session, can } = useAuth();
+  const { activeProperty } = usePropertyContext();
   const org = session?.activeOrganizationId ?? null;
 
   const [tab, setTab] = useState<TenderTab>(() => (initialTab in labels ? (initialTab as TenderTab) : "overview"));
@@ -1926,7 +1928,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
     } catch {
       /* tenders index is optional enrichment */
     }
-  }, [org]);
+  }, [org, activeProperty?.id]);
 
   const loadData = useCallback(async () => {
     if (!org) return;
@@ -1963,7 +1965,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, org]);
+  }, [tab, search, org, activeProperty?.id]);
 
   useEffect(() => {
     if (!org) return;
@@ -1975,7 +1977,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [org]);
+  }, [org, activeProperty?.id]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);

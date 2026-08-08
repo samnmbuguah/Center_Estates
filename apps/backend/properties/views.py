@@ -248,6 +248,10 @@ class LeaseViewSet(OrganizationModelViewSet):
 
 class InvoiceViewSet(OrganizationModelViewSet):
     write_permission = 'property.finance'
+    permission_map = {
+        'submit_review': 'property.finance', 'approve': 'property.approve',
+        'reject': 'property.approve', 'issue': 'property.approve',
+    }
     queryset = Invoice.objects.select_related('lease__tenant')
     serializer_class = InvoiceSerializer
     search_fields = ('number', 'lease__tenant__name')
@@ -255,7 +259,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
         amount = serializer.validated_data['amount']
-        serializer.save(organization=organization, balance=amount, status=Invoice.Status.DRAFT)
+        serializer.save(organization=organization, balance=amount, status=Invoice.Status.DRAFT, prepared_by=self.request.user)
 
     def perform_update(self, serializer):
         invoice = serializer.instance
@@ -265,16 +269,84 @@ class InvoiceViewSet(OrganizationModelViewSet):
         amount = serializer.validated_data.get('amount', invoice.amount)
         serializer.save(balance=amount)
 
+    @action(detail=False, methods=('post',))
+    def preview(self, request):
+        organization = get_active_organization(request)
+        lease = Lease.objects.for_organization(organization).select_related('tenant', 'unit__property').filter(pk=request.data.get('lease')).first()
+        if not lease:
+            raise ValidationError({'lease': 'Select a lease in the active organization.'})
+        subtotal = Decimal(str(request.data.get('subtotal') or request.data.get('amount') or '0'))
+        tax_rate = Decimal(str(request.data.get('tax_rate', '0')))
+        if subtotal <= 0:
+            raise ValidationError({'subtotal': 'Invoice subtotal must be greater than zero.'})
+        if tax_rate not in (0, 16):
+            raise ValidationError({'tax_rate': 'Supported VAT rates are 0% and 16%.'})
+        tax_amount = (subtotal * tax_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return Response({
+            'lease': str(lease.pk), 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
+            'unit': lease.unit.code, 'invoice_type': request.data.get('invoice_type', 'rent'),
+            'subtotal': subtotal, 'tax_rate': tax_rate, 'tax_amount': tax_amount,
+            'total': subtotal + tax_amount, 'due_on': request.data.get('due_on'),
+        })
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='submit-review')
+    def submit_review(self, request, pk=None):
+        invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
+        if invoice.status != Invoice.Status.DRAFT:
+            raise ValidationError({'status': 'Only draft invoices can be submitted for review.'})
+        invoice.status = Invoice.Status.REVIEW
+        invoice.save(update_fields=('status', 'updated_at'))
+        return Response(self.get_serializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
+        if invoice.status != Invoice.Status.REVIEW:
+            raise ValidationError({'status': 'Only invoices in review can be approved.'})
+        invoice.status = Invoice.Status.APPROVED
+        invoice.reviewed_by = request.user
+        invoice.reviewed_at = timezone.now()
+        invoice.save(update_fields=('status', 'reviewed_by', 'reviewed_at', 'updated_at'))
+        return Response(self.get_serializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def reject(self, request, pk=None):
+        invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
+        if invoice.status != Invoice.Status.REVIEW:
+            raise ValidationError({'status': 'Only invoices in review can be returned.'})
+        reason = str(request.data.get('reason', '')).strip()
+        if not reason:
+            raise ValidationError({'reason': 'A return reason is required.'})
+        invoice.status = Invoice.Status.DRAFT
+        invoice.metadata = {**invoice.metadata, 'review_return_reason': reason}
+        invoice.save(update_fields=('status', 'metadata', 'updated_at'))
+        return Response(self.get_serializer(invoice).data)
+
     @transaction.atomic
     @action(detail=True, methods=('post',))
     def issue(self, request, pk=None):
+        from notifications.models import Notification
+
         invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
-        if invoice.status != Invoice.Status.DRAFT:
-            raise ValidationError({'status': 'Only draft invoices can be issued.'})
-        # Issuance is an explicit workflow event. Aging jobs may mark an issued
-        # invoice overdue afterwards; issuing must never skip the issued state.
+        if invoice.status != Invoice.Status.APPROVED:
+            raise ValidationError({'status': 'Only approved invoices can be issued.'})
         invoice.status = Invoice.Status.ISSUED
-        invoice.save(update_fields=('status', 'updated_at'))
+        invoice.issued_by = request.user
+        invoice.issued_at = timezone.now()
+        invoice.save(update_fields=('status', 'issued_by', 'issued_at', 'updated_at'))
+        tenant = invoice.lease.tenant
+        preference = str(tenant.metadata.get('billing_preference', 'portal'))
+        channel = preference if preference in InvoiceReminder.Channel.values else InvoiceReminder.Channel.PORTAL
+        recipient = tenant.email if channel == InvoiceReminder.Channel.EMAIL else tenant.phone if channel == InvoiceReminder.Channel.SMS else tenant.name
+        if recipient:
+            message = f'Invoice {invoice.number} for {invoice.amount} is due {invoice.due_on}.'
+            InvoiceReminder.objects.create(organization=invoice.organization, invoice=invoice, channel=channel, recipient=recipient, message=message, sent_at=timezone.now(), sent_by=request.user)
+            access = TenantPortalAccess.objects.for_organization(invoice.organization).filter(tenant=tenant, is_active=True).select_related('user').first()
+            if access:
+                Notification.objects.create(organization=invoice.organization, recipient=access.user, title=f'New invoice: {invoice.number}', message=message, level=Notification.Level.INFO, action_url='/tenant-portal', metadata={'invoice_id': str(invoice.id)})
         return Response(self.get_serializer(invoice).data)
 
     @transaction.atomic
@@ -655,29 +727,78 @@ class RentScheduleViewSet(OrganizationModelViewSet):
             raise ValidationError({'rent_schedule': 'Only upcoming schedule items can be deleted.'})
         instance.delete()
 
-    @transaction.atomic
-    @action(detail=True, methods=('post',), url_path='generate-invoice')
-    def generate_invoice(self, request, pk=None):
-        schedule = RentSchedule.objects.select_for_update().get(pk=self.get_object().pk)
+    def _draft_invoice(self, schedule, tax_rate, actor):
+        if tax_rate not in (0, 16):
+            raise ValidationError({'tax_rate': 'Supported VAT rates are 0% and 16%.'})
         if schedule.status == RentSchedule.Status.WAIVED:
             raise ValidationError({'status': 'A waived rent schedule cannot be invoiced.'})
         if schedule.invoice_id:
-            return Response(self.get_serializer(schedule).data)
+            return schedule.invoice, False
+        tax_amount = (schedule.total * tax_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         invoice = Invoice.objects.create(
             organization=schedule.organization,
             number=f'RENT-{schedule.lease.reference}-{schedule.period_start:%Y%m%d}',
-            lease=schedule.lease,
-            invoice_type='rent',
-            issued_on=timezone.localdate(),
-            due_on=schedule.due_on,
-            amount=schedule.total,
-            balance=schedule.total,
-            status=Invoice.Status.OVERDUE if schedule.due_on < timezone.localdate() else Invoice.Status.ISSUED,
+            lease=schedule.lease, invoice_type='rent', issued_on=timezone.localdate(),
+            due_on=max(schedule.due_on, timezone.localdate()), subtotal=schedule.total,
+            tax_rate=tax_rate, tax_amount=tax_amount, amount=schedule.total + tax_amount,
+            balance=schedule.total + tax_amount, status=Invoice.Status.DRAFT,
+            prepared_by=actor,
+            metadata={'source': 'rent_schedule', 'schedule_id': str(schedule.pk)},
         )
         schedule.invoice = invoice
         schedule.status = RentSchedule.Status.INVOICED
         schedule.save(update_fields=('invoice', 'status', 'updated_at'))
-        return Response(self.get_serializer(schedule).data, status=201)
+        return invoice, True
+
+    @action(detail=True, methods=('post',))
+    def preview(self, request, pk=None):
+        schedule = self.get_object()
+        tax_rate = Decimal(str(request.data.get('tax_rate', '0')))
+        if tax_rate not in (0, 16):
+            raise ValidationError({'tax_rate': 'Supported VAT rates are 0% and 16%.'})
+        tax_amount = (schedule.total * tax_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return Response({
+            'schedule': str(schedule.pk), 'lease': schedule.lease.reference,
+            'tenant': schedule.lease.tenant.name, 'period_start': schedule.period_start,
+            'period_end': schedule.period_end, 'base_rent': schedule.base_rent,
+            'escalation_amount': schedule.escalation_amount, 'service_charge': schedule.service_charge,
+            'subtotal': schedule.total, 'tax_rate': tax_rate, 'tax_amount': tax_amount,
+            'total': schedule.total + tax_amount,
+        })
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk-generate-invoices')
+    def bulk_generate_invoices(self, request):
+        ids = request.data.get('schedule_ids')
+        if not isinstance(ids, list) or not ids:
+            raise ValidationError({'schedule_ids': 'Select at least one rent schedule.'})
+        tax_rate = Decimal(str(request.data.get('tax_rate', '0')))
+        if tax_rate not in (0, 16):
+            raise ValidationError({'tax_rate': 'Supported VAT rates are 0% and 16%.'})
+        # Lock only rent-schedule rows. The list queryset joins the nullable
+        # invoice relation for display, which PostgreSQL cannot lock through an
+        # outer join.
+        schedules = list(
+            self.filter_queryset(self.get_queryset())
+            .select_related(None)
+            .select_for_update()
+            .filter(pk__in=ids)
+        )
+        if len(schedules) != len(set(map(str, ids))):
+            raise ValidationError({'schedule_ids': 'One or more schedules are unavailable in the selected property.'})
+        created = []
+        existing = []
+        for schedule in schedules:
+            invoice, was_created = self._draft_invoice(schedule, tax_rate, request.user)
+            (created if was_created else existing).append(InvoiceSerializer(invoice).data)
+        return Response({'created': created, 'existing': existing, 'created_count': len(created), 'existing_count': len(existing)}, status=201 if created else 200)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='generate-invoice')
+    def generate_invoice(self, request, pk=None):
+        schedule = RentSchedule.objects.select_for_update().get(pk=self.get_object().pk)
+        _, created = self._draft_invoice(schedule, Decimal(str(request.data.get('tax_rate', '0'))), request.user)
+        return Response(self.get_serializer(schedule).data, status=201 if created else 200)
 
 
 class ReceiptAllocationViewSet(OrganizationModelViewSet):

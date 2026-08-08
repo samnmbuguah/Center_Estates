@@ -130,8 +130,14 @@ interface RentScheduleRow extends Row {
 
 interface InvoiceRow extends Row {
   id: ID; number?: string; lease?: ID; invoice_type?: string; issued_on?: string;
-  due_on?: string; amount?: number; balance?: number; status?: string;
-  tenant_name?: string; tenant_id?: ID;
+  due_on?: string; subtotal?: number; tax_rate?: number; tax_amount?: number; amount?: number; balance?: number; status?: string;
+  tenant_name?: string; tenant_id?: ID; prepared_by?: ID; reviewed_by?: ID; reviewed_at?: string;
+  issued_by?: ID; issued_at?: string;
+}
+
+interface InvoicePreview {
+  lease: ID; tenant: string; property: string; unit: string; invoice_type: string;
+  subtotal: number; tax_rate: number; tax_amount: number; total: number; due_on?: string;
 }
 
 interface ReceiptRow extends Row {
@@ -449,11 +455,19 @@ const detailFields: Partial<Record<PropertyTab, { label: string; key: string; mo
     { label: "Due", key: "due_on", date: true },
     { label: "Issued", key: "issued_on", date: true },
     { label: "Received", key: "received_on", date: true },
+    { label: "Subtotal", key: "subtotal", money: true },
+    { label: "VAT Rate", key: "tax_rate" },
+    { label: "VAT Amount", key: "tax_amount", money: true },
     { label: "Amount", key: "amount", money: true },
     { label: "Balance", key: "balance", money: true },
     { label: "Status", key: "status" },
     { label: "Payment Method", key: "payment_method" },
     { label: "Reference", key: "external_reference" },
+    { label: "Prepared By", key: "prepared_by" },
+    { label: "Reviewed By", key: "reviewed_by" },
+    { label: "Reviewed At", key: "reviewed_at", date: true },
+    { label: "Issued By", key: "issued_by" },
+    { label: "Issued At", key: "issued_at", date: true },
   ],
   leases: [
     { label: "Reference", key: "reference" },
@@ -1680,21 +1694,59 @@ function TenantPortalDrawer({ tenant, organizationId, onClose }: {
 
 /* ─── RENT SCHEDULES ─── */
 
-function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice }: {
-  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; onGenerateInvoice: (r: RentScheduleRow) => void;
+function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice, onRefresh, canFinance }: {
+  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
+  onGenerateInvoice: (r: RentScheduleRow, taxRate?: number) => void; onRefresh: () => void; canFinance: boolean;
 }) {
+  const { session } = useAuth();
+  const organizationId = session?.activeOrganizationId ?? null;
   const schedules = rows as RentScheduleRow[];
+  const [selected, setSelected] = useState<string[]>([]);
+  const [taxRate, setTaxRate] = useState("0");
+  const [preview, setPreview] = useState<(InvoicePreview & { schedule: ID; base_rent?: number; escalation_amount?: number; service_charge?: number }) | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const available = schedules.filter((schedule) => !schedule.invoice && schedule.status !== "waived");
+  const toggleSelected = (id: string) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+
+  async function previewSchedule(schedule: RentScheduleRow) {
+    if (!organizationId) return;
+    setBusy(true);
+    const response = await apiFetch(`/property/rent-schedules/${schedule.id}/preview/`, {
+      method: "POST", body: JSON.stringify({ tax_rate: Number(taxRate) }),
+    }, organizationId);
+    if (response.ok) setPreview(await response.json());
+    setBusy(false);
+  }
+
+  async function bulkCreateDrafts() {
+    if (!organizationId || selected.length === 0) return;
+    setBusy(true);
+    const response = await apiFetch("/property/rent-schedules/bulk-generate-invoices/", {
+      method: "POST", body: JSON.stringify({ schedule_ids: selected, tax_rate: Number(taxRate) }),
+    }, organizationId);
+    if (response.ok) {
+      setSelected([]);
+      setPreview(null);
+      onRefresh();
+    }
+    setBusy(false);
+  }
 
   return (
     <>
       <ViewToolbar title="Rent Roll" subtitle="Unit-by-unit rent schedule with escalation and service charge" search={search} onSearch={setSearch} placeholder="Search by lease reference or tenant…" />
 
-      <Panel title="Rent Schedule (Rent Roll)">
+      <Panel title="Rent Schedule (Rent Roll)" action={canFinance ? <div className="row" style={{ gap: 8 }}>
+        <label className="row" style={{ gap: 6, fontSize: 12 }}><span className="muted">VAT</span><select aria-label="Rent schedule VAT" value={taxRate} onChange={(event) => { setTaxRate(event.target.value); setPreview(null); }} style={{ width: 110 }}><option value="0">0%</option><option value="16">16%</option></select></label>
+        <button className="btn primary sm" disabled={selected.length === 0 || busy} onClick={() => void bulkCreateDrafts()} data-testid="bulk-invoice-drafts">Create {selected.length || "selected"} draft{selected.length === 1 ? "" : "s"}</button>
+      </div> : undefined}>
         <ListState loading={loading} empty={schedules.length === 0} emptyTitle="No rent schedules found" emptyDesc="Generate rent schedules from active leases to build the rent roll.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
                 <tr>
+                  {canFinance && <th><input type="checkbox" aria-label="Select all available schedules" checked={available.length > 0 && selected.length === available.length} onChange={(event) => setSelected(event.target.checked ? available.map((row) => String(row.id)) : [])} /></th>}
                   <th>Lease Ref</th>
                   <th>Tenant</th>
                   <th>Period</th>
@@ -1710,6 +1762,7 @@ function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice
               <tbody>
                 {schedules.map((s) => (
                   <tr key={String(s.id)}>
+                    {canFinance && <td><input type="checkbox" aria-label={`Select schedule ${String(s.lease_reference ?? s.id)}`} disabled={Boolean(s.invoice) || s.status === "waived"} checked={selected.includes(String(s.id))} onChange={() => toggleSelected(String(s.id))} /></td>}
                     <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(s.lease_reference ?? "—")}</td>
                     <td><strong style={{ fontSize: 12 }}>{String(s.tenant_name ?? "—")}</strong></td>
                     <td style={{ fontSize: 12 }}>{fmtDate(s.period_start)} — {fmtDate(s.period_end)}</td>
@@ -1719,7 +1772,7 @@ function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice
                     <td className="mono">{s.service_charge ? kM(s.service_charge) : "—"}</td>
                     <td className="mono"><strong>{kM(s.total)}</strong></td>
                     <td><StatusPill value={String(s.status ?? "—")} /></td>
-                    <td>{!s.invoice && s.status !== "waived" ? <button className="btn primary sm" onClick={() => onGenerateInvoice(s)}>Generate invoice</button> : <span className="muted">Invoiced</span>}</td>
+                    <td>{!s.invoice && s.status !== "waived" && canFinance ? <button className="btn ghost sm" disabled={busy} onClick={() => void previewSchedule(s)}>Preview</button> : <span className="muted">{s.invoice ? "Invoiced" : s.status === "waived" ? "Waived" : "View only"}</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1727,13 +1780,30 @@ function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice
           </div>
         </ListState>
       </Panel>
+      {preview && (
+        <Modal title="Review scheduled rent invoice" onClose={() => setPreview(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="schedule-invoice-preview">
+            <div><strong>{preview.tenant}</strong><p className="muted" style={{ margin: "3px 0 0" }}>{String(preview.lease)} · scheduled rent breakdown</p></div>
+            <div className="grid-2">
+              <div><span className="muted">Base rent</span><div className="mono">{kM(preview.base_rent)}</div></div>
+              <div><span className="muted">Escalation</span><div className="mono">{kM(preview.escalation_amount)}</div></div>
+              <div><span className="muted">Service charge</span><div className="mono">{kM(preview.service_charge)}</div></div>
+              <div><span className="muted">Subtotal</span><div className="mono">{kM(preview.subtotal)}</div></div>
+              <div><span className="muted">VAT ({preview.tax_rate}%)</span><div className="mono">{kM(preview.tax_amount)}</div></div>
+              <div><span className="muted">Draft total</span><div className="mono"><strong>{kM(preview.total)}</strong></div></div>
+            </div>
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>Confirming creates a draft only. It must still be submitted, approved and issued.</p>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}><button className="btn ghost" onClick={() => setPreview(null)}>Cancel</button><button className="btn primary" onClick={() => { const schedule = schedules.find((row) => String(row.id) === String(preview.schedule)); if (schedule) onGenerateInvoice(schedule, Number(taxRate)); setPreview(null); }}>Create draft</button></div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }
 
 /* ─── RENT & INVOICES ─── */
 
-function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onRemind: (row: InvoiceRow) => void, onAction: (row: InvoiceRow, action: "issue" | "void") => void, onSelect: (r: Row) => void) {
+function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onRemind: (row: InvoiceRow) => void, onAction: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void, onSelect: (r: Row) => void, canFinance: boolean, canApprove: boolean) {
   return invoices.map((inv) => (
     <tr key={String(inv.id)} onClick={() => onSelect(inv)}>
       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(inv.number ?? "—")}</td>
@@ -1749,7 +1819,9 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
         <div className="row" style={{ gap: 6 }}>
           {Number(inv.balance ?? 0) > 0 && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onPay(String(inv.id)); }}>Pay</button>}
           {Number(inv.balance ?? 0) > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onRemind(inv); }}>Send reminder</button>}
-          {inv.status === "draft" && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "issue"); }}>Issue</button>}
+          {inv.status === "draft" && canFinance && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "submit-review"); }}>Submit review</button>}
+          {inv.status === "review" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "approve"); }}>Approve</button>}
+          {inv.status === "approved" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "issue"); }}>Issue</button>}
           {(["draft", "issued", "overdue"].includes(String(inv.status))) && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "void"); }}>Void</button>}
         </div>
       </td>
@@ -1759,13 +1831,15 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
 
 function RentView({
   rows, rentInvoices, analytics, rentSection, setRentSection, loading,
-  setTab, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow,
+  setTab, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onAddInvoice, canFinance, canApprove,
 }: {
   rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null;
   rentSection: RentSection; setRentSection: (s: RentSection) => void; loading: boolean;
   setTab: (t: PropertyTab) => void;
   onRecordReceipt: (invoiceId?: ID) => void; onSendReminder: (row: InvoiceRow) => void;
-  onInvoiceAction: (row: InvoiceRow, action: "issue" | "void") => void; onSelectRow: (r: Row) => void;
+  onInvoiceAction: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void; onSelectRow: (r: Row) => void;
+  canFinance: boolean; canApprove: boolean;
+  onAddInvoice: () => void;
 }) {
   const totalBilled = rentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = rentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
@@ -1813,7 +1887,7 @@ function RentView({
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
 
       {rentSection === "invoices" && (
-        <Panel title="Rent Invoices & Collection Ledger" action={<button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Rent Payment</button>}>
+        <Panel title="Rent Invoices & Collection Ledger" action={<div className="row" style={{ gap: 8 }}>{canFinance && <button className="btn ghost sm" onClick={onAddInvoice}>+ New invoice</button>}<button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Rent Payment</button></div>}>
           <ListState loading={loading} empty={rows.length === 0} emptyTitle="No invoices found" emptyDesc="Generate invoices from rent schedules or issue draft invoices.">
             <div className="table-scroll">
               <table className="fc-data-table">
@@ -1829,7 +1903,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, canFinance, canApprove)}</tbody>
               </table>
             </div>
           </ListState>
@@ -1855,7 +1929,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, canFinance, canApprove)}</tbody>
               </table>
             </div>
           </ListState>
@@ -2511,16 +2585,18 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab, onAdd }: {
 function FinancialsView({
   financialsSection, setFinancialsSection, rows, rentInvoices, analytics, creditNotes, loading,
   search, setSearch, setTab, rentSection, setRentSection,
-  onGenerateInvoice, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onMatch, onAddCreditNote,
+  onGenerateInvoice, onRefresh, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onMatch, onAddCreditNote, onAddInvoice, canFinance, canApprove,
 }: {
   financialsSection: FinancialsSection; setFinancialsSection: (s: FinancialsSection) => void;
   rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null; creditNotes: Row[];
   loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
   rentSection: RentSection; setRentSection: (s: RentSection) => void;
-  onGenerateInvoice: (r: RentScheduleRow) => void; onRecordReceipt: (invoiceId?: ID) => void;
+  onGenerateInvoice: (r: RentScheduleRow, taxRate?: number) => void; onRefresh: () => void; onRecordReceipt: (invoiceId?: ID) => void;
   onSendReminder: (row: InvoiceRow) => void;
-  onInvoiceAction: (row: InvoiceRow, action: "issue" | "void") => void; onSelectRow: (r: Row) => void;
+  onInvoiceAction: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void; onSelectRow: (r: Row) => void;
   onMatch: (r: Row) => void; onAddCreditNote: () => void;
+  canFinance: boolean; canApprove: boolean;
+  onAddInvoice: () => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
@@ -2536,8 +2612,8 @@ function FinancialsView({
           { id: "credit-notes", label: "Credit Notes" },
         ]}
       />
-      {financialsSection === "schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={onGenerateInvoice} />}
-      {financialsSection === "invoices" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={setTab} onRecordReceipt={onRecordReceipt} onSendReminder={onSendReminder} onInvoiceAction={onInvoiceAction} onSelectRow={onSelectRow} />}
+      {financialsSection === "schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={onGenerateInvoice} onRefresh={onRefresh} canFinance={canFinance} />}
+      {financialsSection === "invoices" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={setTab} onRecordReceipt={onRecordReceipt} onSendReminder={onSendReminder} onInvoiceAction={onInvoiceAction} onSelectRow={onSelectRow} onAddInvoice={onAddInvoice} canFinance={canFinance} canApprove={canApprove} />}
       {financialsSection === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={onRecordReceipt} />}
       {financialsSection === "allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
       {financialsSection === "reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={onMatch} />}
@@ -3902,6 +3978,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const canOperate = can("property.operations");
   const canLease = can("property.leasing");
   const canFinance = can("property.finance");
+  const canApprove = can("property.approve");
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -3958,6 +4035,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [showAddTenant, setShowAddTenant] = useState(false);
   const [showAddLease, setShowAddLease] = useState(false);
   const [showRecordReceipt, setShowRecordReceipt] = useState(false);
+  const [showInvoiceComposer, setShowInvoiceComposer] = useState(false);
   const [showUploadDoc, setShowUploadDoc] = useState(false);
   const [showAddServiceCharge, setShowAddServiceCharge] = useState(false);
   const [financialIntake, setFinancialIntake] = useState<"budget" | "expense" | "credit-note" | null>(null);
@@ -3978,6 +4056,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [invoiceOptions, setInvoiceOptions] = useState<Row[]>([]);
   const [receiptOptions, setReceiptOptions] = useState<Row[]>([]);
   const [propertyOptions, setPropertyOptions] = useState<Row[]>([]);
+  const [leaseOptions, setLeaseOptions] = useState<LeaseRow[]>([]);
+  const [invoicePreview, setInvoicePreview] = useState<InvoicePreview | null>(null);
+  const [invoiceDraft, setInvoiceDraft] = useState({ number: "", lease: "", invoice_type: "rent", issued_on: "", due_on: "", subtotal: "", tax_rate: "0" });
 
   // The global sidebar uses query-string links so it can navigate directly to
   // a workspace section without remounting the module. Keep the local tab state
@@ -4248,7 +4329,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, organizationId, rentSection, scSection, financialsSection]);
+  }, [tab, search, organizationId, activeProperty?.id, rentSection, scSection, financialsSection]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);
@@ -4268,6 +4349,11 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       void apiFetch("/property/tenants/?search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setTenantOptions(Array.isArray(d) ? d : []));
+    }
+    if (showInvoiceComposer) {
+      void apiFetch("/property/leases/?search=", {}, organizationId)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setLeaseOptions(Array.isArray(d) ? d : []));
     }
     if (showAddServiceCharge || financialIntake === "budget" || financialIntake === "expense") {
       void apiFetch("/property/properties/?search=", {}, organizationId)
@@ -4294,7 +4380,76 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setReceiptOptions(Array.isArray(d) ? d : []));
     }
-  }, [showAddLease, showUploadDoc, showRecordReceipt, showAddServiceCharge, financialIntake, matchTarget, organizationId]);
+  }, [showAddLease, showUploadDoc, showRecordReceipt, showInvoiceComposer, showAddServiceCharge, financialIntake, matchTarget, organizationId, activeProperty?.id]);
+
+  const openInvoiceComposer = () => {
+    const issued = new Date();
+    const due = new Date(issued);
+    due.setDate(due.getDate() + 30);
+    setInvoiceDraft({
+      number: `INV-${issued.getFullYear()}-${String(Date.now()).slice(-6)}`,
+      lease: "", invoice_type: "rent",
+      issued_on: issued.toISOString().slice(0, 10), due_on: due.toISOString().slice(0, 10),
+      subtotal: "", tax_rate: "0",
+    });
+    setInvoicePreview(null);
+    setShowInvoiceComposer(true);
+  };
+
+  const updateInvoiceDraft = (field: keyof typeof invoiceDraft, value: string) => {
+    setInvoiceDraft((current) => ({ ...current, [field]: value }));
+    setInvoicePreview(null);
+  };
+
+  async function previewInvoice() {
+    if (!organizationId || !invoiceDraft.lease || Number(invoiceDraft.subtotal) <= 0) {
+      setError("Select a lease and enter a positive subtotal before previewing the invoice.");
+      return;
+    }
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/property/invoices/preview/", {
+      method: "POST",
+      body: JSON.stringify({
+        lease: invoiceDraft.lease, invoice_type: invoiceDraft.invoice_type,
+        subtotal: Number(invoiceDraft.subtotal), tax_rate: Number(invoiceDraft.tax_rate), due_on: invoiceDraft.due_on,
+      }),
+    }, organizationId);
+    if (response.ok) {
+      setInvoicePreview(await response.json() as InvoicePreview);
+      setError("");
+    } else {
+      const body = await response.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Invoice preview failed.");
+    }
+  }
+
+  async function submitInvoiceDraft(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!organizationId || !invoicePreview) {
+      setError("Preview the calculated invoice before saving it for review.");
+      return;
+    }
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/property/invoices/", {
+      method: "POST",
+      body: JSON.stringify({
+        number: invoiceDraft.number.trim(), lease: invoiceDraft.lease,
+        invoice_type: invoiceDraft.invoice_type, issued_on: invoiceDraft.issued_on,
+        due_on: invoiceDraft.due_on, subtotal: Number(invoiceDraft.subtotal),
+        tax_rate: Number(invoiceDraft.tax_rate), metadata: { source: "manual", property_name: invoicePreview.property },
+      }),
+    }, organizationId);
+    if (response.ok) {
+      setShowInvoiceComposer(false);
+      setInvoicePreview(null);
+      setFinancialsSection("invoices");
+      setRentSection("invoices");
+      await loadData();
+    } else {
+      const body = await response.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Invoice draft could not be saved.");
+    }
+  }
 
   async function submitAddProperty() {
     const payload = {
@@ -4599,10 +4754,11 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }
   }
 
-  async function runPropertyAction(endpoint: string, id: ID, action: string, failureMessage: string) {
+  async function runPropertyAction(endpoint: string, id: ID, action: string, failureMessage: string, payload: Record<string, unknown> = {}) {
+    if (!id) { await loadData(); return; }
     await apiFetch("/auth/csrf/");
     const res = await apiFetch(`/property/${endpoint}/${id}/${action}/`, {
-      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload),
     }, organizationId);
     if (res.ok) {
       await loadData();
@@ -4787,9 +4943,9 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "tenancy" && <TenancyView unitsRows={tenancyUnitsRows} tenantsRows={tenantsRows} leasesRows={leasesRows} documentsRows={tenantDocsRows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddTenant={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectTenantRow={setSelectedRow} onSelectLeaseRow={setSelectedRow} onDownloadDocument={downloadDocument} onVerifyDocument={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onRejectDocument={setDocumentRejectTarget} onOpenPortal={openTenantPortal} />}
         {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onReject={setDocumentRejectTarget} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
-        {tab === "financials" && <FinancialsView financialsSection={financialsSection} setFinancialsSection={setFinancialsSection} rows={rows} rentInvoices={rentInvoices} analytics={analytics} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} rentSection={rentSection} setRentSection={setRentSection} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} onAddCreditNote={() => setFinancialIntake("credit-note")} />}
-        {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.")} />}
-        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} />}
+        {tab === "financials" && <FinancialsView financialsSection={financialsSection} setFinancialsSection={setFinancialsSection} rows={rows} rentInvoices={rentInvoices} analytics={analytics} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} rentSection={rentSection} setRentSection={setRentSection} onGenerateInvoice={(row, taxRate = 0) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.", { tax_rate: taxRate })} onRefresh={() => void loadData()} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} onAddCreditNote={() => setFinancialIntake("credit-note")} onAddInvoice={openInvoiceComposer} canFinance={canFinance} canApprove={canApprove} />}
+        {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row, taxRate = 0) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.", { tax_rate: taxRate })} onRefresh={() => void loadData()} canFinance={canFinance} />}
+        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onAddInvoice={openInvoiceComposer} canFinance={canFinance} canApprove={canApprove} />}
         {tab === "arrears" && <ArrearsView rows={rows} analytics={analytics} loading={loading} search={search} setSearch={setSearch} onNavigateReminders={navigateRemindersForTenant} />}
         {tab === "reminders" && <RemindersView rows={rows} loading={loading} search={search} setSearch={setSearch} onSendReminder={sendReminder} setTab={handleSelectTab} />}
         {tab === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={openRecordReceipt} />}
@@ -5156,6 +5312,60 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowRecordReceipt(false)}>Cancel</button>
                 <button type="submit" className="btn primary" data-testid="receipt-save-btn">Post Receipt</button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {showInvoiceComposer && (
+          <Modal title="Create invoice draft" onClose={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }} wide>
+            <form onSubmit={submitInvoiceDraft} style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="invoice-composer">
+              <div className="grid-2">
+                <Field label="Invoice number" required>
+                  <input required value={invoiceDraft.number} onChange={(e) => updateInvoiceDraft("number", e.target.value)} data-testid="invoice-number" />
+                </Field>
+                <Field label="Lease" required>
+                  <select required value={invoiceDraft.lease} onChange={(e) => updateInvoiceDraft("lease", e.target.value)} data-testid="invoice-lease">
+                    <option value="" disabled>Select active lease</option>
+                    {leaseOptions.map((lease) => <option key={String(lease.id)} value={String(lease.id)}>{String(lease.reference)} · {String(lease.tenant_name)} · {String(lease.unit_code)}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <div className="grid-2">
+                <Field label="Invoice type" required>
+                  <select value={invoiceDraft.invoice_type} onChange={(e) => updateInvoiceDraft("invoice_type", e.target.value)}>
+                    <option value="rent">Rent</option><option value="move_in">Move-in charges</option>
+                    <option value="service_charge">Service charge</option><option value="utility">Utility</option><option value="other">Other</option>
+                  </select>
+                </Field>
+                <Field label="VAT" required>
+                  <select value={invoiceDraft.tax_rate} onChange={(e) => updateInvoiceDraft("tax_rate", e.target.value)} data-testid="invoice-vat">
+                    <option value="0">No VAT (0%)</option><option value="16">VAT (16%)</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="grid-2">
+                <Field label="Issue date" required><input type="date" required value={invoiceDraft.issued_on} onChange={(e) => updateInvoiceDraft("issued_on", e.target.value)} /></Field>
+                <Field label="Due date" required><input type="date" required min={invoiceDraft.issued_on} value={invoiceDraft.due_on} onChange={(e) => updateInvoiceDraft("due_on", e.target.value)} /></Field>
+              </div>
+              <Field label="Subtotal before VAT" required>
+                <input type="number" min="0.01" step="0.01" required value={invoiceDraft.subtotal} onChange={(e) => updateInvoiceDraft("subtotal", e.target.value)} data-testid="invoice-subtotal" />
+              </Field>
+              {invoicePreview && (
+                <section className="card" style={{ padding: 14, background: "var(--surface-2)" }} aria-live="polite" data-testid="invoice-preview">
+                  <strong>{invoicePreview.tenant} · {invoicePreview.property} · Unit {invoicePreview.unit}</strong>
+                  <div className="grid-3" style={{ marginTop: 10 }}>
+                    <div><span className="muted">Subtotal</span><div className="mono">{kM(invoicePreview.subtotal)}</div></div>
+                    <div><span className="muted">VAT ({invoicePreview.tax_rate}%)</span><div className="mono">{kM(invoicePreview.tax_amount)}</div></div>
+                    <div><span className="muted">Invoice total</span><div className="mono"><strong>{kM(invoicePreview.total)}</strong></div></div>
+                  </div>
+                </section>
+              )}
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>The invoice is saved as a draft. A finance user submits it for independent approval before it can be issued and sent to the tenant.</p>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" className="btn ghost" onClick={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }}>Cancel</button>
+                <button type="button" className="btn ghost" onClick={() => void previewInvoice()} data-testid="invoice-preview-btn">Preview invoice</button>
+                <button type="submit" className="btn primary" disabled={!invoicePreview} data-testid="invoice-save-draft">Save reviewable draft</button>
               </div>
             </form>
           </Modal>

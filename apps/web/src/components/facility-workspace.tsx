@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { DetailDrawer, Field, Modal, money } from "@/components/module-ui";
+import { usePropertyContext } from "@/lib/property-context";
 
 type Tab =
   | "overview"
@@ -3467,6 +3468,7 @@ function ReportsView({ dashboard }: { dashboard: Dashboard }) {
 /* ─── Main page ─── */
 export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Tab }) {
   const { session, can } = useAuth();
+  const { activeProperty } = usePropertyContext();
   const organizationId = session?.activeOrganizationId ?? null;
   const canWork = can("facility.work") || can("facility.manage");
   const canInspect = can("facility.inspect") || can("facility.manage");
@@ -3516,7 +3518,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
     if (tab === "overview" || tab === "reports") setDashboard(data);
     else setRows(data);
     setLoading(false);
-  }, [organizationId, search, tab]);
+  }, [organizationId, activeProperty?.id, search, tab]);
 
   useEffect(() => {
     const timer = setTimeout(load, search ? 250 : 0);

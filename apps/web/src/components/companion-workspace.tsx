@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { companionNav } from "@/lib/module-nav";
+import { usePropertyContext } from "@/lib/property-context";
 import {
   Badge,
   DetailDrawer,
@@ -155,6 +156,7 @@ function TaskActions({ row, onAction }: { row: Row; onAction: (task: Row, action
 
 export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
   const { session, can } = useAuth();
+  const { activeProperty } = usePropertyContext();
   const org = session?.activeOrganizationId ?? null;
   const [tab, setTab] = useState<CompanionTab>(() => {
     if (typeof window !== "undefined") {
@@ -264,7 +266,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
     } finally {
       setLoading(false);
     }
-  }, [tab, search, org, dateFilter]);
+  }, [tab, search, org, activeProperty?.id, dateFilter]);
 
   useEffect(() => {
     const timer = setTimeout(load, 0);
@@ -282,7 +284,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
     } catch {
       /* ignore */
     }
-  }, [org]);
+  }, [org, activeProperty?.id]);
 
   async function runTaskAction(task: Row, action: string) {
     if (!org) return;

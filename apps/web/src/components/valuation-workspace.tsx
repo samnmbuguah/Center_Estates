@@ -15,6 +15,7 @@ import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { valuationNav } from "@/lib/module-nav";
+import { usePropertyContext } from "@/lib/property-context";
 import {
   Badge,
   DetailDrawer,
@@ -1981,6 +1982,7 @@ function CreateInvoiceModal({ finalReports, invoices, error, busy, onSubmit, onC
 
 export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
   const { session, can } = useAuth();
+  const { activeProperty } = usePropertyContext();
   const org = session?.activeOrganizationId ?? null;
 
   const [tab, setTab] = useState<ValuationTab>(() => (initialTab in labels ? (initialTab as ValuationTab) : "overview"));
@@ -2061,7 +2063,7 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, org]);
+  }, [tab, search, org, activeProperty?.id]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);

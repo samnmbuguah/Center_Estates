@@ -25,6 +25,8 @@ import {
   Box,
   Menu,
   MenuItem,
+  MenuList,
+  ListSubheader,
   ListItemIcon,
   ListItemText,
   Divider,
@@ -246,7 +248,8 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
               <TextField
                 fullWidth
                 size="small"
-                placeholder="Search modules, properties, tenants… (Ctrl+K)"
+                placeholder="Search modules and workflows… (Ctrl+K)"
+                type="search"
                 slotProps={{
                   input: {
                     startAdornment: (
@@ -255,6 +258,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                       </Box>
                     ),
                   },
+                  htmlInput: { "aria-label": "Search modules and workflows" },
                 }}
                 inputRef={searchInputRef}
                 value={query}
@@ -268,6 +272,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
               />
               {query && (
                 <Paper
+                  role="presentation"
                   elevation={3}
                   sx={{
                     position: "absolute",
@@ -280,11 +285,10 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                     zIndex: 100,
                   }}
                 >
-                  {filteredModules.length > 0 && (
-                    <>
-                      <Typography variant="overline" sx={{ px: 2, py: 1, color: "text.secondary", fontSize: 10 }}>
-                        Modules
-                      </Typography>
+                  <MenuList dense aria-label="Search results">
+                    {filteredModules.length > 0 && (
+                      <>
+                      <ListSubheader sx={{ lineHeight: "32px", fontSize: 10, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>Modules</ListSubheader>
                       {filteredModules.map((module) => (
                         <MenuItem
                           key={module.slug}
@@ -299,13 +303,11 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                           </Box>
                         </MenuItem>
                       ))}
-                    </>
-                  )}
-                  {filteredQuickJumps.length > 0 && (
-                    <>
-                      <Typography variant="overline" sx={{ px: 2, py: 1, color: "text.secondary", fontSize: 10 }}>
-                        Quick Jumps
-                      </Typography>
+                      </>
+                    )}
+                    {filteredQuickJumps.length > 0 && (
+                      <>
+                      <ListSubheader sx={{ lineHeight: "32px", fontSize: 10, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>Quick jumps</ListSubheader>
                       {filteredQuickJumps.map((r) => (
                         <MenuItem
                           key={r.href}
@@ -320,13 +322,12 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                           </Box>
                         </MenuItem>
                       ))}
-                    </>
-                  )}
-                  {filteredModules.length === 0 && filteredQuickJumps.length === 0 && (
-                    <Typography variant="body2" sx={{ px: 2, py: 2, textAlign: "center", color: "text.secondary" }}>
-                      No results for "{query}"
-                    </Typography>
-                  )}
+                      </>
+                    )}
+                    {filteredModules.length === 0 && filteredQuickJumps.length === 0 && (
+                      <li><Typography variant="body2" sx={{ px: 2, py: 2, textAlign: "center", color: "text.secondary" }}>No results for &quot;{query}&quot;</Typography></li>
+                    )}
+                  </MenuList>
                 </Paper>
               )}
             </Box>
@@ -444,7 +445,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
         </AppBar>
 
         {moduleWorkspaceActive ? <PropertyContextBar /> : null}
-        <div key={activeProperty?.id ?? "portfolio"} className="property-scoped-route">
+        <div className="property-scoped-route">
           {children}
         </div>
       </div>

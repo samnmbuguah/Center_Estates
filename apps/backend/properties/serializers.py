@@ -94,12 +94,30 @@ class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         exclude = ('organization',)
-        read_only_fields = ('balance', 'status')
+        read_only_fields = ('balance', 'status', 'tax_amount', 'prepared_by', 'reviewed_by', 'reviewed_at', 'issued_by', 'issued_at')
+        extra_kwargs = {'amount': {'required': False}, 'subtotal': {'required': False}}
 
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError('Invoice amount must be greater than zero.')
         return value
+
+    def validate_tax_rate(self, value):
+        if value not in (0, 16):
+            raise serializers.ValidationError('Supported VAT rates are 0% and 16%.')
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        subtotal = attrs.get('subtotal') or attrs.get('amount') or getattr(self.instance, 'subtotal', None)
+        if subtotal is None or subtotal <= 0:
+            raise serializers.ValidationError({'subtotal': 'Invoice subtotal must be greater than zero.'})
+        tax_rate = attrs.get('tax_rate', getattr(self.instance, 'tax_rate', 0))
+        tax_amount = (subtotal * tax_rate / 100).quantize(__import__('decimal').Decimal('0.01'))
+        attrs['subtotal'] = subtotal
+        attrs['tax_amount'] = tax_amount
+        attrs['amount'] = subtotal + tax_amount
+        return attrs
 
 
 class ReceiptSerializer(serializers.ModelSerializer):

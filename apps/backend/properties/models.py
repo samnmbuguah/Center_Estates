@@ -217,6 +217,8 @@ class Lease(OrganizationOwnedModel):
 class Invoice(OrganizationOwnedModel):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
+        REVIEW = 'review', 'In review'
+        APPROVED = 'approved', 'Approved'
         ISSUED = 'issued', 'Issued'
         PARTIAL = 'partial', 'Partially paid'
         PAID = 'paid', 'Paid'
@@ -228,16 +230,26 @@ class Invoice(OrganizationOwnedModel):
     invoice_type = models.CharField(max_length=40, default='rent')
     issued_on = models.DateField()
     due_on = models.DateField()
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     balance = models.DecimalField(max_digits=14, decimal_places=2)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     metadata = models.JSONField(default=dict, blank=True)
+    prepared_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='prepared_property_invoices')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_property_invoices')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='issued_property_invoices')
+    issued_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ('-issued_on',)
         constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_invoice_number')]
 
     def clean(self):
+        if self.subtotal == 0 and self.amount > 0 and self.tax_amount == 0:
+            self.subtotal = self.amount
         if self.lease_id and self.lease.organization_id != self.organization_id:
             raise ValidationError('Invoice lease must belong to the same organization.')
         if self.amount <= 0:
@@ -246,6 +258,10 @@ class Invoice(OrganizationOwnedModel):
             raise ValidationError({'balance': 'Invoice balance must be between zero and the invoice amount.'})
         if self.due_on < self.issued_on:
             raise ValidationError({'due_on': 'Due date cannot be before the issue date.'})
+        if self.tax_rate not in (0, 16):
+            raise ValidationError({'tax_rate': 'Supported VAT rates are 0% and 16%.'})
+        if self.subtotal + self.tax_amount != self.amount:
+            raise ValidationError({'amount': 'Invoice total must equal subtotal plus tax.'})
 
 
 class Receipt(OrganizationOwnedModel):

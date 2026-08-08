@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { salesNav } from "@/lib/module-nav";
+import { usePropertyContext } from "@/lib/property-context";
 import {
   Badge,
   DetailDrawer,
@@ -2467,6 +2468,7 @@ function TransitionModal({ title, row, options, onClose, onSubmit, error }: {
 
 export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
   const { session, can } = useAuth();
+  const { activeProperty } = usePropertyContext();
   const org = session?.activeOrganizationId ?? null;
   const canSell = can("sales.selling");
   const canVisit = can("sales.visits");
@@ -2537,7 +2539,7 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, status, org]);
+  }, [tab, search, status, org, activeProperty?.id]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);

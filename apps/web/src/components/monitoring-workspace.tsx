@@ -5,6 +5,7 @@ import { ModuleShell } from "@/components/module-shell";
 import { constructionNav } from "@/lib/module-nav";
 import { WorkspaceProvider, useWorkspace } from "@/components/monitoring/context/WorkspaceContext";
 import { fetchDashboard, fetchTickets, fetchDailyLogs, fetchRequisitions, type Ticket, type DailyLog, type Requisition } from "@/components/monitoring/api";
+import { usePropertyContext } from "@/lib/property-context";
 
 const Projects = lazy(() => import("@/components/monitoring/pages/Projects").then(m => ({ default: m.Projects })));
 const ProjectWorkspace = lazy(() => import("@/components/monitoring/pages/ProjectWorkspace").then(m => ({ default: m.ProjectWorkspace })));
@@ -999,6 +1000,7 @@ function RoleAdminDashboard() {
 }
 
 function WorkspaceContent() {
+  const { activeProperty } = usePropertyContext();
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
@@ -1030,7 +1032,7 @@ function WorkspaceContent() {
       onSelect={handleSelectTab}
     >
       <Suspense fallback={<div className="data-loading">Loading...</div>}>
-        <div className="monitoring-workspace-container" style={{ padding: "8px 0" }}>
+        <div key={activeProperty?.id ?? "portfolio"} className="monitoring-workspace-container" style={{ padding: "8px 0" }}>
         {tab === "overview" && <ExecutiveDashboard />}
         {tab === "projects" && <Projects />}
         {tab === "project-memberships" && <ProjectWorkspace />}

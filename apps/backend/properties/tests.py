@@ -283,9 +283,16 @@ class PropertyApiTests(TestCase):
             'received_on': '2026-08-01', 'amount': '100.00', 'payment_method': 'cash',
         }, format='json', **self.headers)
         self.assertEqual(rejected.status_code, 400)
+        premature_issue = self.client.post(f"/api/v1/property/invoices/{created.data['id']}/issue/", {}, format='json', **self.headers)
+        self.assertEqual(premature_issue.status_code, 400)
+        submitted = self.client.post(f"/api/v1/property/invoices/{created.data['id']}/submit-review/", {}, format='json', **self.headers)
+        self.assertEqual(submitted.data['status'], Invoice.Status.REVIEW)
+        approved = self.client.post(f"/api/v1/property/invoices/{created.data['id']}/approve/", {}, format='json', **self.headers)
+        self.assertEqual(approved.data['status'], Invoice.Status.APPROVED)
         issued = self.client.post(f"/api/v1/property/invoices/{created.data['id']}/issue/", {}, format='json', **self.headers)
         self.assertEqual(issued.status_code, 200, issued.data)
-        self.assertIn(issued.data['status'], (Invoice.Status.ISSUED, Invoice.Status.OVERDUE))
+        self.assertEqual(issued.data['status'], Invoice.Status.ISSUED)
+        self.assertTrue(InvoiceReminder.objects.filter(invoice_id=created.data['id']).exists())
 
     def test_expense_requires_submit_approval_before_payment(self):
         created = self.client.post('/api/v1/property/expenses/', {
@@ -321,6 +328,35 @@ class PropertyApiTests(TestCase):
         schedule.refresh_from_db()
         self.assertEqual(schedule.status, RentSchedule.Status.INVOICED)
         self.assertEqual(Invoice.objects.filter(rent_schedule_item=schedule).count(), 1)
+
+    def test_invoice_preview_and_bulk_generation_apply_vat_and_create_reviewable_drafts(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        today = timezone.localdate()
+        schedules = [RentSchedule.objects.create(
+            organization=self.organization, lease=self.lease,
+            period_start=today + timedelta(days=index * 31), period_end=today + timedelta(days=index * 31 + 30),
+            due_on=today + timedelta(days=index * 31 + 5), base_rent=Decimal('1000'),
+            escalation_amount=Decimal('0'), service_charge=Decimal('100'), total=Decimal('1100'),
+        ) for index in range(2)]
+        preview = self.client.post(
+            f'/api/v1/property/rent-schedules/{schedules[0].id}/preview/', {'tax_rate': '16'}, format='json', **self.headers,
+        )
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(Decimal(preview.data['tax_amount']), Decimal('176.00'))
+        self.assertEqual(Decimal(preview.data['total']), Decimal('1276.00'))
+        generated = self.client.post('/api/v1/property/rent-schedules/bulk-generate-invoices/', {
+            'schedule_ids': [str(schedule.id) for schedule in schedules], 'tax_rate': '16',
+        }, format='json', **self.headers)
+        self.assertEqual(generated.status_code, 201, generated.data)
+        self.assertEqual(generated.data['created_count'], 2)
+        invoices = Invoice.objects.filter(rent_schedule_item__in=schedules)
+        self.assertEqual(invoices.filter(status=Invoice.Status.DRAFT, tax_rate=16, tax_amount=Decimal('176')).count(), 2)
+        repeated = self.client.post('/api/v1/property/rent-schedules/bulk-generate-invoices/', {
+            'schedule_ids': [str(schedule.id) for schedule in schedules], 'tax_rate': '16',
+        }, format='json', **self.headers)
+        self.assertEqual(repeated.data['created_count'], 0)
+        self.assertEqual(repeated.data['existing_count'], 2)
 
     def test_service_charge_allocations_and_reconciliation_are_calculated_server_side(self):
         self.unit.area = Decimal('100')
@@ -567,9 +603,9 @@ class PropertyRolePermissionApiTests(TestCase):
         }, format='json', **self.headers)
         self.assertEqual(draft.status_code, 201, draft.data)
         self.assertEqual(draft.data['status'], Invoice.Status.DRAFT)
-        issued = self.client.post(
-            f"/api/v1/property/invoices/{draft.data['id']}/issue/", {}, format='json', **self.headers,
-        )
+        self.client.post(f"/api/v1/property/invoices/{draft.data['id']}/submit-review/", {}, format='json', **self.headers)
+        self.client.post(f"/api/v1/property/invoices/{draft.data['id']}/approve/", {}, format='json', **self.headers)
+        issued = self.client.post(f"/api/v1/property/invoices/{draft.data['id']}/issue/", {}, format='json', **self.headers)
         self.assertEqual(issued.status_code, 200, issued.data)
         self.assertEqual(issued.data['status'], Invoice.Status.ISSUED)
 
@@ -606,3 +642,26 @@ class PropertyRolePermissionApiTests(TestCase):
             self.client.post('/api/v1/property/tenants/', {}, format='json', **self.headers).status_code,
             403,
         )
+
+    def test_invoice_preparer_can_submit_but_cannot_approve_or_issue(self):
+        self._grant('property.view', 'property.finance')
+        draft = self.client.post('/api/v1/property/invoices/', {
+            'number': 'ROLE-INV-SEPARATION', 'lease': str(self.lease.id),
+            'issued_on': '2026-08-01', 'due_on': '2026-08-07',
+            'subtotal': '1000.00', 'tax_rate': '16',
+        }, format='json', **self.headers)
+        self.assertEqual(draft.status_code, 201, draft.data)
+        submitted = self.client.post(
+            f"/api/v1/property/invoices/{draft.data['id']}/submit-review/", {},
+            format='json', **self.headers,
+        )
+        self.assertEqual(submitted.status_code, 200, submitted.data)
+        self.assertEqual(submitted.data['status'], Invoice.Status.REVIEW)
+        self.assertEqual(self.client.post(
+            f"/api/v1/property/invoices/{draft.data['id']}/approve/", {},
+            format='json', **self.headers,
+        ).status_code, 403)
+        self.assertEqual(self.client.post(
+            f"/api/v1/property/invoices/{draft.data['id']}/issue/", {},
+            format='json', **self.headers,
+        ).status_code, 403)

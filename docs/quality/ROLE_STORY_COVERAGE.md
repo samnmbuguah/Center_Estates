@@ -56,7 +56,7 @@ The backend permission suite independently covers safe-read allow, mutation deny
 | Platform | Super / organization administrator | Subscribe modules, manage access, demo-switch identities | PASS |
 | Property | Property manager | Manage properties, units, leases, service charges and operational reports | ADMIN-PASS |
 | Property | Leasing officer | Onboard property-scoped tenants with validated organization cards, verify documents, activate and renew leases without finance approval rights | PARTIAL |
-| Property | Accountant | Issue invoices, allocate receipts, reconcile bank entries, approve/pay expenses and export finance reports | PARTIAL |
+| Property | Accountant / approver | Prepare VAT invoices, submit for independent review, approve/issue with tenant notification, allocate receipts, reconcile bank entries, approve/pay expenses and export finance reports | API-PASS / UI-PARTIAL |
 | Property | Tenant | View own lease/invoices/receipts/notices and submit a maintenance request | PASS |
 | Facility | Facility manager | Plan maintenance, assign/transition work, manage assets/contractors and review BI | ADMIN-PASS |
 | Facility | Technician | View assigned work, update progress, labour/parts/media, but cannot approve or administer | PARTIAL |
