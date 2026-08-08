@@ -16,7 +16,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, Toke
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.serializers import MembershipSerializer, serialize_modules
-from core.tenancy import get_active_organization
+from core.tenancy import get_active_membership, get_active_organization
 from organizations.models import Membership
 
 IMPERSONATOR_COOKIE = getattr(settings, 'JWT_IMPERSONATOR_COOKIE', 'ce_impersonator')
@@ -473,6 +473,119 @@ class WorkspaceInboxView(APIView):
         })
 
 
+class WorkspacePulseView(APIView):
+    """Small portfolio KPIs for every entitled command-center module.
+
+    Keeping this aggregation behind one authenticated request avoids a burst
+    of seven parallel WSGI requests on constrained cPanel runtimes.
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        from decimal import Decimal
+
+        from django.db.models import Count, Q, Sum
+        from django.utils import timezone
+
+        from companion.models import Task
+        from construction.models import Disbursement, Project, Risk, Ticket
+        from core.models import Module
+        from facilities.models import FacilityAsset, PreventiveSchedule, WorkOrder
+        from properties.models import Invoice, Property, Tenant, Unit
+        from sales.models import PropertySale, SaleListing, SalePayment
+        from tenders.models import Tender
+        from valuations.models import ValuationInstruction, ValuationInvoice
+
+        organization = get_active_organization(request, required=False)
+        if not organization:
+            return Response({'pulse': {}})
+        membership = get_active_membership(request, organization)
+        entitled = {item['slug'] for item in serialize_modules(organization, membership)}
+        pulse = {}
+
+        if Module.PROPERTY in entitled:
+            unit_totals = Unit.objects.for_organization(organization).aggregate(
+                total=Count('id'), occupied=Count('id', filter=Q(status=Unit.Status.OCCUPIED)),
+            )
+            outstanding = Invoice.objects.for_organization(organization).exclude(
+                status__in=(Invoice.Status.PAID, Invoice.Status.VOID),
+            ).aggregate(total=Sum('balance'))['total'] or Decimal('0')
+            pulse['property'] = {
+                'properties': Property.objects.for_organization(organization).count(),
+                'outstanding': outstanding,
+                'occupancy': round(unit_totals['occupied'] / unit_totals['total'] * 100, 1) if unit_totals['total'] else 0,
+                'tenants': Tenant.objects.for_organization(organization).filter(status=Tenant.Status.ACTIVE).count(),
+            }
+
+        if Module.FACILITY in entitled:
+            now = timezone.localdate()
+            work_orders = WorkOrder.objects.for_organization(organization)
+            schedules = PreventiveSchedule.objects.for_organization(organization).filter(is_active=True)
+            schedule_totals = schedules.aggregate(
+                total=Count('id'), overdue=Count('id', filter=Q(next_due_on__lte=now)),
+            )
+            pulse['facility'] = {
+                'openWorkOrders': work_orders.exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED)).count(),
+                'compliance': round((schedule_totals['total'] - schedule_totals['overdue']) / schedule_totals['total'] * 100, 1) if schedule_totals['total'] else 100,
+                'assets': FacilityAsset.objects.for_organization(organization).filter(is_active=True).count(),
+            }
+
+        if Module.SALES in entitled:
+            listings = SaleListing.objects.for_organization(organization)
+            pulse['sales'] = {
+                'availableUnits': listings.filter(status=SaleListing.Status.AVAILABLE).count(),
+                'salesValue': PropertySale.objects.for_organization(organization).exclude(
+                    status=PropertySale.Status.CANCELLED,
+                ).aggregate(total=Sum('agreed_price'))['total'] or Decimal('0'),
+                'pendingPayments': SalePayment.objects.for_organization(organization).filter(status=SalePayment.Status.PENDING).count(),
+            }
+
+        if Module.MONITORING in entitled:
+            projects = Project.objects.filter(organization=organization, archived=False)
+            total_budget = projects.aggregate(value=Sum('budget'))['value'] or Decimal('0')
+            spent = Disbursement.objects.filter(
+                organization=organization, status='paid',
+            ).aggregate(value=Sum('amount'))['value'] or Decimal('0')
+            pulse['monitoring'] = {
+                'activeProjects': projects.filter(stage='active').count(),
+                'openTickets': Ticket.objects.filter(organization=organization).exclude(status__in=('closed', 'resolved')).count(),
+                'highRisks': Risk.objects.filter(organization=organization, likelihood__gte=4, impact__gte=4).exclude(status='closed').count(),
+                'budgetUtilization': round(float(spent / total_budget * 100), 1) if total_budget else 0,
+            }
+
+        if Module.TENDER in entitled:
+            tenders = Tender.objects.for_organization(organization)
+            active = tenders.exclude(stage__in=(Tender.Stage.AWARDED, Tender.Stage.REGRETTED))
+            pulse['tender'] = {
+                'activeTenders': active.count(),
+                'pipelineValue': active.aggregate(value=Sum('estimated_value'))['value'] or Decimal('0'),
+            }
+
+        if Module.VALUATION in entitled:
+            active = ValuationInstruction.objects.for_organization(organization).exclude(
+                status__in=(ValuationInstruction.Status.DELIVERED, ValuationInstruction.Status.CANCELLED),
+            )
+            outstanding = ValuationInvoice.objects.for_organization(organization).exclude(
+                status__in=(ValuationInvoice.Status.PAID, ValuationInvoice.Status.VOID),
+            ).aggregate(value=Sum('balance'))['value'] or Decimal('0')
+            pulse['valuation'] = {'activeInstructions': active.count(), 'outstanding': outstanding}
+
+        if Module.COMPANION in entitled:
+            active = Task.objects.for_organization(organization).filter(assignee=request.user).exclude(
+                status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED),
+            )
+            now = timezone.now()
+            totals = active.aggregate(
+                dueToday=Count('id', filter=Q(due_at__date=now.date())),
+                overdue=Count('id', filter=Q(due_at__lt=now)),
+                escalated=Count('id', filter=Q(escalated=True)),
+            )
+            pulse['companion'] = totals
+
+        return Response({'pulse': pulse})
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def security_audit(request):
@@ -574,4 +687,3 @@ class PasswordResetRequestView(APIView):
                 import logging
                 logging.getLogger(__name__).info('Password reset requested for %s', email)
         return Response({'detail': 'If an account with that email exists, you will receive a reset link shortly.'})
-

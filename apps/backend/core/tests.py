@@ -92,6 +92,16 @@ class AuthenticationApiTests(TestCase):
         self.assertTrue(all(response.status_code != 429 for response in responses[:10]))
         self.assertEqual(responses[-1].status_code, 429)
 
+    def test_workspace_pulse_returns_one_entitlement_scoped_payload(self):
+        self.client.force_authenticate(self.user)
+        response = self.client.get(
+            '/api/v1/workspace/pulse/', HTTP_X_ORGANIZATION_ID=str(self.organization.id),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(set(response.data['pulse']), {Module.PROPERTY})
+        self.assertEqual(response.data['pulse'][Module.PROPERTY]['properties'], 0)
+        self.assertEqual(response.data['pulse'][Module.PROPERTY]['occupancy'], 0)
+
 # Create your tests here.
 
 
@@ -142,6 +152,12 @@ class ModuleRolePermissionApiTests(TestCase):
             self.client.post('/api/v1/property/properties/', {}, format='json', **self.headers).status_code,
             403,
         )
+
+    def test_workspace_pulse_includes_every_entitled_module(self):
+        response = self.client.get('/api/v1/workspace/pulse/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(set(response.data['pulse']), {module for module, _label in Module.choices})
+        self.assertEqual(response.data['pulse'][Module.FACILITY]['compliance'], 100)
 
     def test_approval_action_requires_separate_approval_permission(self):
         manage = Permission.objects.create(key='sales.manage', label='Manage sales', module=Module.SALES)

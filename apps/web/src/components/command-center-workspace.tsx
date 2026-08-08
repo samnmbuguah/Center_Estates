@@ -50,105 +50,16 @@ export function CommandCenterWorkspace() {
   useEffect(() => {
     if (!organizationId) return;
     let cancelled = false;
-    const slugSet = new Set(moduleSlugs.split(",").filter(Boolean));
     async function loadPulse() {
       setPulseLoading(true);
-      const next: Pulse = {};
-      const jobs: Promise<void>[] = [];
-      if (slugSet.has("property")) {
-        jobs.push(
-          apiFetch("/property/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
-            if (!response.ok) return;
-            const data = await response.json();
-            next.property = {
-              properties: Number(data.kpis?.properties ?? 0),
-              outstanding: Number(data.kpis?.outstanding ?? 0),
-              occupancy: Number(data.kpis?.occupancyRate ?? 0),
-              tenants: Number(data.kpis?.activeTenants ?? 0),
-            };
-          }),
-        );
-      }
-      if (slugSet.has("facility")) {
-        jobs.push(
-          apiFetch("/facility/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
-            if (!response.ok) return;
-            const data = await response.json();
-            next.facility = {
-              openWorkOrders: Number(data.kpis?.openWorkOrders ?? 0),
-              compliance: Number(data.kpis?.maintenanceCompliance ?? 0),
-              assets: Number(data.kpis?.activeAssets ?? 0),
-            };
-          }),
-        );
-      }
-      if (slugSet.has("sales")) {
-        jobs.push(
-          apiFetch("/sales/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
-            if (!response.ok) return;
-            const data = await response.json();
-            next.sales = {
-              availableUnits: Number(data.kpis?.availableUnits ?? 0),
-              salesValue: Number(data.kpis?.salesValue ?? 0),
-              pendingPayments: Number(data.kpis?.pendingPayments ?? 0),
-            };
-          }),
-        );
-      }
-      if (slugSet.has("monitoring")) {
-        jobs.push(
-          apiFetch("/construction/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
-            if (!response.ok) return;
-            const data = await response.json();
-            next.monitoring = {
-              activeProjects: Number(data.kpis?.activeProjects ?? 0),
-              openTickets: Number(data.kpis?.openTickets ?? 0),
-              highRisks: Number(data.kpis?.highRisks ?? 0),
-              budgetUtilization: Number(data.kpis?.budgetUtilization ?? 0),
-            };
-          }),
-        );
-      }
-      if (slugSet.has("tender")) {
-        jobs.push(
-          apiFetch("/tender/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
-            if (!response.ok) return;
-            const data = await response.json();
-            next.tender = {
-              activeTenders: Number(data.kpis?.activeTenders ?? 0),
-              pipelineValue: Number(data.kpis?.pipelineValue ?? 0),
-            };
-          }),
-        );
-      }
-      if (slugSet.has("valuation")) {
-        jobs.push(
-          apiFetch("/valuation/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
-            if (!response.ok) return;
-            const data = await response.json();
-            next.valuation = {
-              activeInstructions: Number(data.kpis?.activeInstructions ?? 0),
-              outstanding: Number(data.kpis?.outstanding ?? 0),
-            };
-          }),
-        );
-      }
-      if (slugSet.has("companion")) {
-        jobs.push(
-          apiFetch("/companion/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
-            if (!response.ok) return;
-            const data = await response.json();
-            next.companion = {
-              dueToday: Number(data.kpis?.dueToday ?? 0),
-              overdue: Number(data.kpis?.overdue ?? 0),
-              escalated: Number(data.kpis?.escalated ?? 0),
-            };
-          }),
-        );
-      }
-      await Promise.all(jobs);
+      const response = await apiFetch(
+        "/workspace/pulse/",
+        { headers: { "X-Property-Scope": "portfolio" } },
+        organizationId,
+      );
+      const data = response.ok ? await response.json() : { pulse: {} };
       if (!cancelled) {
-        setPulse(next);
+        setPulse(data.pulse ?? {});
         setPulseLoading(false);
       }
     }

@@ -8,6 +8,7 @@ the `centerestates.com` cPanel runtime.
 
 | Path | Budget | Automated evidence |
 |---|---:|---|
+| Command center portfolio KPIs | Exactly one aggregate GET; zero per-module dashboard GETs | `tests/e2e/runtime-performance.spec.ts` |
 | Facility workspace initial load | At most one scoped Facility dashboard GET | `tests/e2e/runtime-performance.spec.ts` |
 | Property selector initial load | At most one property-list GET | `tests/e2e/runtime-performance.spec.ts` |
 | Companion sidebar KPI load | At most one Companion dashboard GET | `tests/e2e/runtime-performance.spec.ts` |
@@ -26,7 +27,9 @@ checks. They previously used 16 and 17 queries respectively. Request-local
 organization, membership and property caches are deliberately discarded at
 the end of every HTTP request.
 
-The complete backend release gate currently contains 160 passing tests.
+The complete backend release gate currently contains 162 tests. The latest
+full-suite run passed all 160 tests that existed before the two aggregate-pulse
+regressions were added; both new pulse tests also pass independently.
 
 ## Build and deployment budgets
 
@@ -34,7 +37,7 @@ The complete backend release gate currently contains 160 passing tests.
 |---|---:|---:|
 | Warm Next.js compile | 30 seconds | 20.6 seconds |
 | Next.js TypeScript phase | 70 seconds | 61 seconds |
-| Full cPanel release | 210 seconds | 189.6 seconds |
+| Full cPanel release | 210 seconds | 189.6–203.0 seconds |
 | Backend-only cPanel release | 40 seconds | 26–27 seconds |
 
 Use a full release whenever frontend assets change. Use `DEPLOY_SCOPE=backend`
