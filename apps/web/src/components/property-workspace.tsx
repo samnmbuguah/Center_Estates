@@ -3968,6 +3968,23 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const [receiptOptions, setReceiptOptions] = useState<Row[]>([]);
   const [propertyOptions, setPropertyOptions] = useState<Row[]>([]);
 
+  // The global sidebar uses query-string links so it can navigate directly to
+  // a workspace section without remounting the module. Keep the local tab state
+  // synchronized with that URL (including browser back/forward navigation).
+  useEffect(() => {
+    const requested = searchParams.get("tab") as PropertyTab | null;
+    if (!requested || !labels[requested]) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSearch("");
+      setSelectedRow(null);
+      setRows([]);
+      setTab(requested);
+    });
+    return () => { cancelled = true; };
+  }, [searchParams]);
+
   const loadVersion = useRef(0);
   const failCount = useRef(0);
 

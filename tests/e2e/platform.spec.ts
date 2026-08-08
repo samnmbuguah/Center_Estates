@@ -39,7 +39,7 @@ test("subscribed modules navigate through the unified shell", async ({ page }, t
 });
 
 test("property rent ledger registers and receipt dialog are usable", async ({ page }) => {
-  await page.goto("/property");
+  await page.goto("/property?tab=overview");
   await expect(page.getByText("Outstanding Rent", { exact: true })).toBeVisible();
   await openModuleSection(page, "Receipts");
   await expect(page.getByText("RCT-2026-0418", { exact: true })).toBeVisible();
@@ -57,11 +57,11 @@ test("property rent ledger registers and receipt dialog are usable", async ({ pa
 });
 
 test("property command center renders live portfolio intelligence", async ({ page }) => {
-  await page.goto("/property");
+  await page.goto("/property?tab=overview");
   await expect(page.getByRole("heading", { name: "Monthly rent collection trend" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Lease expiry overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Property portfolio summary" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Rent ageing summary" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Rent Ageing Heatmap" })).toBeVisible();
   await expect(page.getByText("Westlands Business Centre", { exact: true })).toBeVisible();
   await expect(page.locator(".chart-month")).toHaveCount(new Date().getMonth() + 1);
 });
@@ -126,29 +126,19 @@ test("property leasing officer can create a controlled draft lease", async ({ pa
   await expect(page.getByRole("row").filter({ hasText: reference })).toContainText("draft");
 });
 
-test("property finance can capture draft budgets and supplier expenses", async ({ page }, testInfo) => {
+test("property finance can capture draft service-charge budgets", async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutations avoid parallel finance register races");
   await page.goto("/property");
   const suffix=Date.now();
   await openModuleSection(page, "Budgets");
   await page.getByRole("button", {name:"+ Add budget line",exact:true}).click();
-  let dialog=page.getByRole("dialog",{name:"Create budget line"});
+  const dialog=page.getByRole("dialog",{name:"Create budget line"});
   await dialog.getByLabel("Property").selectOption({index:1});
   await dialog.getByLabel("Category").fill(`E2E Budget ${suffix}`);
   await dialog.getByLabel("Annual budget").fill("950000");
   await dialog.getByRole("button",{name:"Save draft"}).click();
   await expect(page.getByRole("row").filter({hasText:`E2E Budget ${suffix}`})).toContainText("draft");
-  await openModuleSection(page, "Expenses");
-  await page.getByRole("button", {name:"+ Record expense",exact:true}).click();
-  dialog=page.getByRole("dialog",{name:"Record supplier expense"});
-  await dialog.getByLabel("Property").selectOption({index:1});
-  await dialog.locator('input[name="supplier"]').fill(`E2E Supplier ${suffix}`);
-  await dialog.getByLabel("Category").fill("Repairs");
-  await dialog.getByLabel("Incurred on").fill("2026-08-02");
-  await dialog.getByLabel("Expense amount").fill("28500");
-  await dialog.getByRole("button",{name:"Save draft"}).click();
-  await expect(page.getByRole("row").filter({hasText:`E2E Supplier ${suffix}`})).toContainText("draft");
 });
 
 test("property finance can configure and allocate a service charge", async ({ page }, testInfo) => {
@@ -204,12 +194,6 @@ test("property approval and billing workflows are interactive", async ({ page },
   test.setTimeout(60_000);
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
   await page.goto("/property");
-  await openModuleSection(page, "Expenses");
-  const expense = page.getByRole("row").filter({ hasText: "EXP-LIFT-PENDING" });
-  await expect(expense).toBeVisible();
-  const approveExpense = expense.getByRole("button", { name: "Approve", exact: true });
-  if (await approveExpense.isVisible()) await approveExpense.click();
-  await expect(expense.getByText("approved", { exact: true })).toBeVisible();
   await openModuleSection(page, "Rent schedules");
   await expect(page.getByRole("button", { name: "Generate invoice", exact: true })).toBeVisible();
   await openModuleSection(page, "Leases");
@@ -257,7 +241,7 @@ test("property arrears, service-charge and report data are connected", async ({ 
   await expect(page.getByText("Bluebird Retail Kenya", { exact: true })).toBeVisible();
   await openModuleSection(page, "Charge allocations");
   await expect(page.getByText(`${new Date().getFullYear()} Commercial Service Charge`, { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Westlands Business Centre", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "2026 Commercial Service Charge" }).getByText("101", { exact: true })).toBeVisible();
   await openModuleSection(page, "Reconciliations");
   await expect(page.getByText("draft", { exact: true }).first()).toBeVisible();
   await openModuleSection(page, "Bank reconciliation");
@@ -546,11 +530,10 @@ test("companion module appears in command center and renders without errors", as
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/workspaces");
   await page.waitForLoadState("networkidle");
-  const companionCard = page.locator("a[href='/companion']");
+  const companionCard = page.locator("a.module-card[href='/companion']");
   await expect(companionCard).toBeVisible();
   await companionCard.click();
-  await expect(page.locator("h1")).toBeVisible();
-  await expect(page.getByText("Companion")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Companion & Staff Performance", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

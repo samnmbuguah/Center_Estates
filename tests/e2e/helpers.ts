@@ -11,9 +11,10 @@ import { expect, type Page, type TestInfo } from "@playwright/test";
 
 const TAB_ALIASES: Record<string, string> = {
   "Receipt allocations": "Allocations", "Credit notes": "Credit Notes",
-  "Bank reconciliation": "Bank Reconciliation", "Charge allocations": "Allocations",
-  "Rent & invoices": "Invoices", "Rent schedules": "Rent Roll",
-  Budgets: "Budgets & Estimates", Expenses: "Property Expenses",
+  "Bank reconciliation": "Reconciliation", "Bank Reconciliation": "Reconciliation", "Charge allocations": "Allocations",
+  "Rent & invoices": "Invoices", "Rent schedules": "Schedules",
+  Budgets: "Budget & Estimate", Expenses: "Property Expenses",
+  "Tenant documents": "Documents",
   "Work orders": "Maintenance", Contractors: "Vendors & Contracts",
   Buildings: "Buildings & Locations", Assets: "Assets & Inventory",
   Utilities: "Energy & Utilities",
@@ -24,14 +25,15 @@ const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Cha
 const PROPERTY_PARENTS: Record<string, string> = {
   "Property Register": "Properties", Buildings: "Properties",
   "Unit Occupancy": "Occupancy", "Property Projects": "Occupancy",
-  "Tenant documents": "Tenants",
-  Invoices: "Rent Collection", "Rent & invoices": "Rent Collection", "Rent Roll": "Rent Collection", "Rent schedules": "Rent Collection", Arrears: "Rent Collection",
-  Reminders: "Rent Collection", Receipts: "Rent Collection", Allocations: "Rent Collection",
-  "Receipt allocations": "Rent Collection", "Bank Reconciliation": "Rent Collection",
-  "Bank reconciliation": "Rent Collection", "Credit Notes": "Rent Collection", "Credit notes": "Rent Collection",
+  "Tenant documents": "Tenancy",
+  Invoices: "Rent Collection", "Rent & invoices": "Rent Collection", "Rent Roll": "Financials", "Rent schedules": "Financials", Arrears: "Rent Collection",
+  Reminders: "Rent Collection",
+  Receipts: "Financials", Allocations: "Financials", "Receipt allocations": "Financials",
+  "Bank Reconciliation": "Financials", "Bank reconciliation": "Financials",
+  "Credit Notes": "Financials", "Credit notes": "Financials",
   "Charge Setup": "Service Charge", "Charge allocations": "Service Charge", Reconciliations: "Service Charge",
-  "Budgets & Estimates": "Income & Expenses", "Property Expenses": "Income & Expenses", "Fee Invoicing": "Income & Expenses",
-  Budgets: "Income & Expenses", Expenses: "Income & Expenses",
+  "Budgets & Estimates": "Service Charge", Budgets: "Service Charge",
+  "Property Expenses": "Income & Expenses", "Fee Invoicing": "Income & Expenses", Expenses: "Income & Expenses",
 };
 
 /** Open a module section by name, preferring horizontal tabs, then the sidebar sub-nav tree. */
@@ -76,10 +78,25 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   // Property parent-group navigation (e.g. "Rent Roll" lives under "Rent Collection")
   const parent = PROPERTY_PARENTS[name];
   if (parent) {
-    await page.locator(".module-subnav-tree").getByText(parent, { exact: true }).click();
+    const parentEscaped = parent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parentButton = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${parentEscaped}$`, "i") });
+    if (await parentButton.count()) {
+      await parentButton.first().click();
+    } else {
+      const parentSidebarLink = page.locator(".module-subnav-tree").getByText(parent, { exact: true });
+      await expect(parentSidebarLink, `Navigation parent "${parent}" should be available`).toHaveCount(1);
+      await parentSidebarLink.click();
+    }
     const target = TAB_ALIASES[name] ?? name;
     const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") }).first().click();
+    const childButton = page.locator(".property-workspace").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
+    await expect(childButton, `Navigation child "${target}" should be available`).toHaveCount(1);
+    await childButton.first().click();
+    if (name === "Budgets") {
+      const openBudgetRegister = page.getByRole("button", { name: "Open Budgets →", exact: true });
+      await expect(openBudgetRegister).toBeVisible();
+      await openBudgetRegister.click();
+    }
     return;
   }
 

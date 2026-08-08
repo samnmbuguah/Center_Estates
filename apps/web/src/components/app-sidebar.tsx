@@ -2,39 +2,18 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { BrandLogo } from "@/components/brand-logo";
 import { apiFetch } from "@/lib/api";
-import type { ModuleNavGroup } from "./module-shell";
-import {
-  propertyNav,
-  facilityNav,
-  salesNav,
-  tenderNav,
-  valuationNav,
-  constructionNav,
-  companionNav,
-} from "@/lib/module-nav";
-import { LayoutDashboard, HardHat, ClipboardCheck, Menu, X, CalendarDays, ClipboardList, Wrench, Shield, Settings, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { LayoutDashboard, ClipboardCheck, Menu, X, CalendarDays, Wrench, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Box,
   Typography,
-  Divider,
   Badge,
   Avatar,
   IconButton,
 } from "@mui/material";
-
-const MODULE_NAV_MAP: Record<string, ModuleNavGroup[]> = {
-  property: propertyNav,
-  facility: facilityNav,
-  sales: salesNav,
-  tender: tenderNav,
-  valuation: valuationNav,
-  monitoring: constructionNav,
-  companion: companionNav,
-};
 
 const modules = [
   { slug: "property", name: "Property", icon: "🏢", accent: "#e23b3b" },
@@ -52,17 +31,13 @@ type AppSidebarProps = {
   onSelectSection?: (id: string) => void;
 };
 
-export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }: AppSidebarProps) {
+export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { session } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [badgeCounts, setBadgeCounts] = useState({ tasks: 0, approvals: 0 });
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const [badgeCounts, setBadgeCounts] = useState({ tasks: 0 });
 
   const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
   const currentTab = searchParams.get("tab");
@@ -94,7 +69,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
     apiFetch("/companion/dashboard/", {}, session.activeOrganizationId)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d?.kpis) setBadgeCounts({ tasks: d.kpis.overdue + d.kpis.dueToday, approvals: d.kpis.escalated });
+        if (d?.kpis) setBadgeCounts({ tasks: d.kpis.overdue + d.kpis.dueToday });
       })
       .catch(() => {});
   }, [session?.activeOrganizationId]);
@@ -137,26 +112,9 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
             <span>Dashboard</span>
           </Link>
           
-          {/* Only show Ops and Tasks on dashboard, not in modules */}
+          {/* Companion is the daily task hub; facility operations remain in its module. */}
           {!activeModuleSlug && (
             <>
-              <Link
-                href="/facility"
-                onClick={onCloseMobile}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4,
-                  color: pathname.startsWith("/facility") ? "#e23b3b" : "#ffffff",
-                  textDecoration: "none",
-                  fontSize: 12,
-                  fontWeight: pathname.startsWith("/facility") ? 700 : 600,
-                }}
-              >
-                <HardHat size={20} />
-                <span>Ops</span>
-              </Link>
               <Link
                 href="/companion"
                 onClick={onCloseMobile}
@@ -325,30 +283,6 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
             {(!collapsed || isMobile) && <span>Dashboard</span>}
           </Link>
 
-          {/* Operations Center - Only show on dashboard */}
-          {!activeModuleSlug && (
-            <Link
-              className={`nav-link ${pathname.startsWith("/facility") ? "active" : ""}`}
-              href="/facility"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
-                justifyContent: collapsed ? "center" : "flex-start",
-                borderRadius: 6,
-                color: pathname.startsWith("/facility") ? "#fff" : "#b8c8d7",
-                textDecoration: "none",
-                fontSize: isMobile ? 16 : 13,
-              }}
-              onClick={onCloseMobile}
-              title="Operations Center"
-            >
-              <span style={{ fontSize: isMobile ? 20 : 15 }}><HardHat size={isMobile ? 24 : 18} /></span>
-              {(!collapsed || isMobile) && <span>Operations Center</span>}
-            </Link>
-          )}
-
           {/* My Companion - Only show on dashboard */}
           {!activeModuleSlug && (
             <Link
@@ -379,31 +313,6 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
 
           <Link
             className="nav-link"
-            href="/companion?tab=approvals"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: collapsed ? "center" : "space-between",
-              padding: collapsed ? "10px" : "9px 12px",
-              color: "#b8c8d7",
-              textDecoration: "none",
-              fontSize: 13,
-              borderRadius: 6,
-            }}
-            onClick={onCloseMobile}
-            title="Approvals"
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 15 }}><ClipboardCheck size={18} /></span>
-              {!collapsed && <span>Approvals</span>}
-            </div>
-            {!collapsed && badgeCounts.approvals > 0 && (
-              <Badge badgeContent={badgeCounts.approvals} color="error" sx={{ '& .MuiBadge-badge': { fontSize: 10, minWidth: 18, height: 18 } }} />
-            )}
-          </Link>
-
-          <Link
-            className="nav-link"
             href="/property?tab=critical-dates"
             style={{
               display: "flex",
@@ -421,29 +330,6 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
           >
             <span style={{ fontSize: 15 }}><CalendarDays size={18} /></span>
             {!collapsed && <span>Calendar</span>}
-          </Link>
-
-          {/* CROSS-MODULE HUBS */}
-          <Link
-            className="nav-link"
-            href="/facility?tab=service-requests"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
-              justifyContent: collapsed ? "center" : "flex-start",
-              borderRadius: 6,
-              color: pathname === "/facility" && currentTab === "service-requests" ? "#fff" : "#ffffff",
-              background: pathname === "/facility" && currentTab === "service-requests" ? "rgba(229,46,46,0.35)" : "transparent",
-              textDecoration: "none",
-              fontSize: 14,
-            }}
-            onClick={onCloseMobile}
-            title="Service Requests"
-          >
-            <span style={{ fontSize: 15 }}><ClipboardList size={18} /></span>
-            {!collapsed && <span>Service Requests</span>}
           </Link>
 
           <Link
@@ -468,90 +354,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile, onSelectSection }:
             {!collapsed && <span>Building &amp; Asset Onboarding</span>}
           </Link>
 
-          {/* SETTINGS SECTION */}
-          <Divider sx={{ background: "rgba(255,255,255,0.08)", my: 1 }} />
-          {!collapsed && !isMobile && (
-            <Typography
-              sx={{
-                padding: "0 10px 4px",
-                fontSize: 10,
-                fontWeight: 800,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "rgba(255,255,255,0.35)",
-                lineHeight: 1.4,
-              }}
-            >
-              SETTINGS
-            </Typography>
-          )}
-
-          <Link
-            className="nav-link"
-            href="/companion"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
-              justifyContent: collapsed ? "center" : "flex-start",
-              color: "#b8c8d7",
-              textDecoration: "none",
-              fontSize: 13,
-              borderRadius: 6,
-            }}
-            onClick={onCloseMobile}
-            title="Administration"
-          >
-            <span style={{ fontSize: 15 }}><Shield size={18} /></span>
-            {!collapsed && <span>Administration</span>}
-          </Link>
-
-          <Link
-            className="nav-link"
-            href="/companion"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
-              justifyContent: collapsed ? "center" : "flex-start",
-              color: "#ffffff",
-              textDecoration: "none",
-              fontSize: 14,
-              borderRadius: 6,
-            }}
-            onClick={onCloseMobile}
-            title="System Settings"
-          >
-            <span style={{ fontSize: 15 }}><Settings size={18} /></span>
-            {!collapsed && <span>System Settings</span>}
-          </Link>
-
-          <Link
-            className="nav-link"
-            href="/companion"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
-              justifyContent: collapsed ? "center" : "flex-start",
-              color: "#ffffff",
-              textDecoration: "none",
-              fontSize: 14,
-              borderRadius: 6,
-            }}
-            onClick={onCloseMobile}
-            title="Administration"
-          >
-            <span style={{ fontSize: 15 }}><Shield size={18} /></span>
-            {!collapsed && <span>Administration</span>}
-          </Link>
         </Box>
 
         {/* User Profile Card */}
-        {mounted && session?.user && (
+        {session?.user && (
           <Box sx={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 1 }}>
             <Avatar sx={{ width: 32, height: 32, bgcolor: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
               {userInitials}
