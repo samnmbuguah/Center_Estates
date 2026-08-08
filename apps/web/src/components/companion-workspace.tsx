@@ -26,6 +26,7 @@ export type CompanionTab =
   | "my-tasks"
   | "templates"
   | "delegations"
+  | "meter-readings"
   | "performance"
   | "staff"
   | "audit-events";
@@ -36,6 +37,7 @@ const labels: Record<CompanionTab, string> = {
   "my-tasks": "My Tasks",
   templates: "Task Templates",
   delegations: "Delegations",
+  "meter-readings": "Meter Readings",
   performance: "Performance Dashboard",
   staff: "Staff History",
   "audit-events": "Audit Trail",
@@ -178,6 +180,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [staffDetail, setStaffDetail] = useState<CompanionDash | null>(null);
   const [showAssign, setShowAssign] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
+  const [readingMeter, setReadingMeter] = useState<Row | null>(null);
   const [staffOptions, setStaffOptions] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -213,6 +216,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [recurrenceRule, setRecurrenceRule] = useState("daily");
 
   const isManager = can("companion.assign") || can("companion.performance.view") || can("*");
+  const canRecordMeters = can("facility.work") || can("facility.manage") || can("*");
 
   const inputStyle = { width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" };
 
@@ -252,6 +256,13 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
           const data = (await res.json()) as Row[];
           setRows(data);
         }
+      } else if (tab === "meter-readings") {
+        const res = await apiFetch(`/facility/meters/?search=${encodeURIComponent(search)}`, {}, org);
+        if (res.ok) setRows((await res.json()) as Row[]);
+        else {
+          setRows([]);
+          setError("Meter entry requires an active Facility subscription and meter-reading permission.");
+        }
       } else {
         const endpoint =
           tab === "my-tasks" ? `/companion/tasks/?scope=mine&search=${encodeURIComponent(search)}`
@@ -267,6 +278,39 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       setLoading(false);
     }
   }, [tab, search, org, activeProperty?.id, dateFilter]);
+
+  async function submitMeterReading(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!org || !readingMeter) return;
+    const form = new FormData(e.currentTarget);
+    setBusy(true);
+    setMsg("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch("/facility/meter-readings/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({
+          meter: readingMeter.id,
+          value: form.get("value"),
+          read_at: form.get("read_at"),
+          notes: form.get("notes"),
+        }),
+      }, org);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setMsg(Object.values(body as Record<string, unknown>).flat().join(" ") || "The reading could not be submitted.");
+        return;
+      }
+      setReadingMeter(null);
+      setMsg("Meter reading submitted for manager review.");
+      await load();
+    } catch {
+      setMsg("The reading could not be submitted.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(load, 0);
@@ -679,6 +723,42 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
           </div>
         )}
 
+        {tab === "meter-readings" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>Property Meter Readings</h3>
+                <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>Capture unit readings in the field. A Facility manager reviews them before approval.</p>
+              </div>
+              <SearchInput value={search} onChange={setSearch} placeholder="Search property meters…" />
+            </div>
+            {error ? <ErrorBanner message={error} onRetry={load} /> : loading ? <LoadingState rows={5} /> : rows.length === 0 ? (
+              <EmptyState icon="⚡" title="No meters for this property" description="Switch property or ask a Facility administrator to configure its electricity and water meters." />
+            ) : (
+              <div className="card" style={{ padding: 18 }}>
+                <div className="table-scroll">
+                  <table>
+                    <thead><tr><th>Meter</th><th>Unit</th><th>Utility</th><th>Previous reading</th><th>Last captured</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                      {rows.map((meter) => (
+                        <tr key={String(meter.id)}>
+                          <td><strong style={{ fontSize: 13 }}>{String(meter.name ?? meter.code ?? "Meter")}</strong><div className="mono muted" style={{ fontSize: 11 }}>{String(meter.code ?? "")}</div></td>
+                          <td>{meter.unit_code ? `Unit ${String(meter.unit_code)}` : "Common area"}</td>
+                          <td style={{ textTransform: "capitalize" }}>{String(meter.utility_type ?? "—")} ({String(meter.unit ?? "units")})</td>
+                          <td className="mono">{String(meter.current_reading ?? "—")}</td>
+                          <td>{fmtDateTime(meter.read_at)}</td>
+                          <td><StatusPill value={String(meter.reading_status ?? "not read")} /></td>
+                          <td><button className="btn primary sm" disabled={!canRecordMeters || meter.reading_status === "pending"} onClick={() => setReadingMeter(meter)}>{meter.reading_status === "pending" ? "Awaiting Review" : "Record Reading"}</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* PERFORMANCE DASHBOARD */}
         {tab === "performance" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -842,6 +922,21 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                 {busy ? "Delegating…" : "Delegate Task"}
               </button>
             </div>
+          </Modal>
+        )}
+
+        {readingMeter && (
+          <Modal title={`Record Reading · ${String(readingMeter.name ?? readingMeter.code ?? "Meter")}`} onClose={() => setReadingMeter(null)}>
+            <form onSubmit={submitMeterReading} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="grid-2">
+                <Field label="Property / unit"><input value={`${String(readingMeter.property_name ?? "")}${readingMeter.unit_code ? ` · Unit ${String(readingMeter.unit_code)}` : " · Common area"}`} readOnly /></Field>
+                <Field label="Previous reading"><input value={String(readingMeter.current_reading ?? 0)} readOnly /></Field>
+              </div>
+              <Field label={`Current reading (${String(readingMeter.unit ?? "units")})`} required><input name="value" type="number" min={Number(readingMeter.current_reading ?? 0)} step="0.001" required /></Field>
+              <Field label="Reading date and time" required><input name="read_at" type="datetime-local" required /></Field>
+              <Field label="Field notes"><textarea name="notes" rows={3} placeholder="Meter condition, access issue or photo reference" /></Field>
+              <div className="modal-actions"><button type="button" className="btn ghost" onClick={() => setReadingMeter(null)}>Cancel</button><button className="btn primary" disabled={busy}>{busy ? "Submitting…" : "Submit for Review"}</button></div>
+            </form>
           </Modal>
         )}
 

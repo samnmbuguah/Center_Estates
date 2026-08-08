@@ -79,6 +79,11 @@ class UtilityMeterSerializer(serializers.ModelSerializer):
         model = UtilityMeter
         exclude = ('organization',)
 
+    def validate_tariff(self, value):
+        if value < 0:
+            raise serializers.ValidationError('The utility rate cannot be negative.')
+        return value
+
     def get_latest_reading(self, obj):
         reading = obj.readings.first()
         return MeterReadingSerializer(reading).data if reading else None

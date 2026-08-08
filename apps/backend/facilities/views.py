@@ -400,8 +400,16 @@ class MeterReadingViewSet(FacilityModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        organization = self._validate_organization(serializer); meter = serializer.validated_data['meter']; value = serializer.validated_data['value']
-        previous = MeterReading.objects.select_for_update().filter(organization=organization, meter=meter).order_by('-read_at').first()
+        organization = self._validate_organization(serializer); meter = serializer.validated_data['meter']; value = serializer.validated_data['value']; read_at = serializer.validated_data['read_at']
+        readings = MeterReading.objects.select_for_update().filter(organization=organization, meter=meter)
+        previous = readings.filter(status=MeterReading.Status.APPROVED).order_by('-read_at').first()
+        pending = readings.filter(status=MeterReading.Status.PENDING)
+        if previous:
+            pending = pending.filter(read_at__gt=previous.read_at)
+        if pending.exists():
+            raise ValidationError({'meter': 'Approve or reject the pending reading before recording another.'})
+        if previous and read_at <= previous.read_at:
+            raise ValidationError({'read_at': 'The reading date and time must be later than the previous reading.'})
         if previous and value < previous.value: raise ValidationError({'value': 'Meter readings cannot move backwards.'})
         consumption = value - previous.value if previous else Decimal(0)
         anomaly = bool(previous and previous.consumption > 0 and consumption > previous.consumption * Decimal('1.5'))

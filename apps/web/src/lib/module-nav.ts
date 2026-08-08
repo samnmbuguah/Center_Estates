@@ -325,6 +325,11 @@ export const companionNav: ModuleNavGroup[] = [
     ],
   },
   {
+    label: "Field work",
+    icon: "⌁",
+    items: [{ id: "meter-readings", label: "Meter readings" }],
+  },
+  {
     label: "Performance",
     icon: "◌",
     items: [

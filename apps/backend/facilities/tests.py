@@ -176,8 +176,8 @@ class FacilityApiTests(TestCase):
             property=self.property, property_unit=unit,
             utility_type=UtilityMeter.Utility.ELECTRICITY, tariff=Decimal('25.0000'),
         )
-        MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=2), value=Decimal('1000'), consumption=Decimal('100'), cost=Decimal('2500'))
-        MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=1), value=Decimal('1100'), consumption=Decimal('100'), cost=Decimal('2500'))
+        MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=2), value=Decimal('1000'), consumption=Decimal('100'), cost=Decimal('2500'), status=MeterReading.Status.APPROVED)
+        MeterReading.objects.create(organization=self.organization, meter=meter, read_at=timezone.now() - timezone.timedelta(days=1), value=Decimal('1100'), consumption=Decimal('100'), cost=Decimal('2500'), status=MeterReading.Status.APPROVED)
         created = self.client.post('/api/v1/facility/meter-readings/', {
             'meter': str(meter.id), 'read_at': timezone.now().isoformat(), 'value': '1300',
             'consumption': '1', 'cost': '1', 'is_anomaly': False,
@@ -203,6 +203,11 @@ class FacilityApiTests(TestCase):
             'meter': str(meter.id), 'read_at': (timezone.now() + timezone.timedelta(days=1)).isoformat(), 'value': '1200',
         }, format='json', **self.headers)
         self.assertEqual(backwards.status_code, 400)
+        out_of_sequence = self.client.post('/api/v1/facility/meter-readings/', {
+            'meter': str(meter.id), 'read_at': (reading.read_at - timezone.timedelta(hours=1)).isoformat(), 'value': '1400',
+        }, format='json', **self.headers)
+        self.assertEqual(out_of_sequence.status_code, 400)
+        self.assertIn('read_at', out_of_sequence.data)
         self.assertEqual(self.client.delete(f'/api/v1/facility/meter-readings/{reading.id}/', **self.headers).status_code, 400)
 
         meter_register = self.client.get('/api/v1/facility/meters/', **self.headers)
@@ -212,6 +217,28 @@ class FacilityApiTests(TestCase):
         self.assertEqual(Decimal(registered['current_reading']), Decimal('1300'))
         self.assertEqual(Decimal(registered['previous_reading']), Decimal('1100'))
         self.assertEqual(registered['reading_status'], MeterReading.Status.APPROVED)
+        self.assertEqual(self.client.patch(
+            f'/api/v1/facility/meters/{meter.id}/', {'tariff': '-1'}, format='json', **self.headers,
+        ).status_code, 400)
+        updated_rate = self.client.patch(
+            f'/api/v1/facility/meters/{meter.id}/', {'tariff': '27.5000'}, format='json', **self.headers,
+        )
+        self.assertEqual(updated_rate.status_code, 200, updated_rate.data)
+        self.assertEqual(Decimal(updated_rate.data['tariff']), Decimal('27.5000'))
+        MeterReading.objects.create(
+            organization=self.organization, meter=meter,
+            read_at=reading.read_at + timezone.timedelta(hours=1), value=Decimal('9999'),
+            previous_value=Decimal('1300'), consumption=Decimal('8699'), cost=Decimal('0'),
+            status=MeterReading.Status.REJECTED,
+        )
+        after_rejection = self.client.post('/api/v1/facility/meter-readings/', {
+            'meter': str(meter.id),
+            'read_at': (reading.read_at + timezone.timedelta(hours=2)).isoformat(),
+            'value': '1350',
+        }, format='json', **self.headers)
+        self.assertEqual(after_rejection.status_code, 201, after_rejection.data)
+        self.assertEqual(Decimal(after_rejection.data['previous_value']), Decimal('1300'))
+        self.assertEqual(Decimal(after_rejection.data['consumption']), Decimal('50'))
 
     def test_facility_analytics(self):
         response = self.client.get('/api/v1/facility/analytics/', **self.headers)
@@ -321,6 +348,7 @@ class FacilityRolePermissionApiTests(TestCase):
             organization=self.organization, meter=meter,
             read_at=timezone.now() - timezone.timedelta(days=1),
             value=Decimal('500'), consumption=Decimal('0'), cost=Decimal('0'),
+            status=MeterReading.Status.APPROVED,
         )
         reading = self.client.post('/api/v1/facility/meter-readings/', {
             'meter': str(meter.id), 'read_at': timezone.now().isoformat(), 'value': '560',
@@ -330,6 +358,21 @@ class FacilityRolePermissionApiTests(TestCase):
         saved = MeterReading.objects.order_by('-read_at').first()
         self.assertEqual(saved.consumption, Decimal('60'))
         self.assertEqual(saved.cost, Decimal('1500'))
+        approval_url = f'/api/v1/facility/meter-readings/{saved.id}/approve/'
+        self.assertEqual(self.client.post(approval_url, {}, format='json', **self.headers).status_code, 403)
+        self._grant('facility.approve')
+        self.assertEqual(self.client.post(
+            approval_url, {'notes': 'Manager verified'}, format='json', **self.headers,
+        ).status_code, 200)
+        next_reading = self.client.post('/api/v1/facility/meter-readings/', {
+            'meter': str(meter.id), 'read_at': (timezone.now() + timezone.timedelta(hours=1)).isoformat(), 'value': '580',
+        }, format='json', **self.headers)
+        self.assertEqual(next_reading.status_code, 201, next_reading.data)
+        blocked_pending = self.client.post('/api/v1/facility/meter-readings/', {
+            'meter': str(meter.id), 'read_at': (timezone.now() + timezone.timedelta(hours=2)).isoformat(), 'value': '590',
+        }, format='json', **self.headers)
+        self.assertEqual(blocked_pending.status_code, 400)
+        self.assertIn('meter', blocked_pending.data)
 
         completed = self.client.post(
             f'/api/v1/facility/work-orders/{self.work_order.id}/transition/',

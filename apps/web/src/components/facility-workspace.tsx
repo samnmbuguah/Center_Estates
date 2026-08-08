@@ -2407,12 +2407,14 @@ function UtilityBarChart({
 }
 
 /* ─── Utilities tab ─── */
-function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, reload }: {
-  rows: Row[]; kpis: Kpis; organizationId: string | null; canWork: boolean; canAdminister: boolean; reload: () => Promise<void>;
+function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdminister, reload }: {
+  rows: Row[]; kpis: Kpis; organizationId: string | null; canWork: boolean; canApprove: boolean; canAdminister: boolean; reload: () => Promise<void>;
 }) {
   const [subTab, setSubTab] = useState("overview");
   const [readingMeter, setReadingMeter] = useState<Row | null>(null);
   const [reviewTarget, setReviewTarget] = useState<{ reading: Row; decision: "approve" | "reject" } | null>(null);
+  const [rateMeter, setRateMeter] = useState<Row | null>(null);
+  const [showAllMeters, setShowAllMeters] = useState(false);
   const [utilityError, setUtilityError] = useState("");
   const sparkData = [30, 45, 38, 55, 48, 62, 50, 70, 58, 75, 65, 80];
   const maxSpark = Math.max(...sparkData);
@@ -2496,6 +2498,26 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, rel
     await reload();
   }
 
+  async function submitRate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!rateMeter || !organizationId) return;
+    const tariff = String(new FormData(event.currentTarget).get("tariff") ?? "");
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(`/facility/meters/${rateMeter.id}/`, {
+      method: "PATCH",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ tariff }),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setUtilityError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The utility rate could not be updated.");
+      return;
+    }
+    setUtilityError("");
+    setRateMeter(null);
+    await reload();
+  }
+
   return (
     <>
       <div className="fc-kpi-strip six-col">
@@ -2558,6 +2580,7 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, rel
                     <th>Current Reading</th>
                     <th>Previous Reading</th>
                     <th>Consumption</th>
+                    <th>Rate</th>
                     <th>Date & Time</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -2565,7 +2588,7 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, rel
                 </thead>
                 <tbody>
                   {filteredRows.length > 0
-                    ? filteredRows.slice(0, 5).map((row) => (
+                    ? (showAllMeters ? filteredRows : filteredRows.slice(0, 5)).map((row) => (
                         <tr key={String(row.id)}>
                           <td>
                             <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
@@ -2577,12 +2600,14 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, rel
                           <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.current_reading ?? "—")}</td>
                           <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.previous_reading ?? "—")}</td>
                           <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.consumption ?? "—")} {String(row.unit ?? "")}</td>
+                          <td style={{ fontSize: 12 }}>KES {Number(row.tariff ?? 0).toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
                           <td style={{ fontSize: 11, color: "#6b7890" }}>{String(row.read_at ?? "—")}</td>
                           <td><FcStatus value={String(row.reading_status ?? "not_read")} /></td>
                           <td>
                             <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                               {canWork && <button className="btn ghost sm" onClick={() => setReadingMeter(row)}>Record Reading</button>}
-                              {canAdminister && row.reading_status === "pending" && (() => {
+                              {canAdminister && <button className="btn ghost sm" onClick={() => setRateMeter(row)}>Edit Rate</button>}
+                              {canApprove && row.reading_status === "pending" && (() => {
                                 const reading = (row.latest_reading ?? {}) as Row;
                                 return <>
                                   <button className="btn primary sm" onClick={() => setReviewTarget({ reading, decision: "approve" })}>Approve</button>
@@ -2593,12 +2618,12 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, rel
                           </td>
                         </tr>
                       ))
-                    : <tr><td colSpan={8} style={{ color: "#6b7890", padding: 24, textAlign: "center" }}>No utility meters or readings have been recorded yet.</td></tr>}
+                    : <tr><td colSpan={9} style={{ color: "#6b7890", padding: 24, textAlign: "center" }}>No utility meters or readings have been recorded yet.</td></tr>}
                 </tbody>
               </table>
             </div>
             <div style={{ padding: "12px 18px" }}>
-              <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View All Meters →</button>
+              {filteredRows.length > 5 && <button type="button" onClick={() => setShowAllMeters((value) => !value)} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{showAllMeters ? "Show Recent Meters ↑" : `View All ${filteredRows.length} Meters →`}</button>}
             </div>
           </article>
 
@@ -2710,6 +2735,19 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canAdminister, rel
             <Field label="Current reading"><input value={String(reviewTarget.reading.value ?? "—")} readOnly /></Field>
             <Field label={reviewTarget.decision === "reject" ? "Rejection reason" : "Review notes"} required={reviewTarget.decision === "reject"}><textarea name="notes" rows={3} required={reviewTarget.decision === "reject"} /></Field>
             <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn ghost" onClick={() => setReviewTarget(null)}>Cancel</button><button className={`btn ${reviewTarget.decision === "approve" ? "primary" : "danger"}`}>{reviewTarget.decision === "approve" ? "Approve Reading" : "Reject Reading"}</button></div>
+          </form>
+        </Modal>
+      )}
+      {rateMeter && (
+        <Modal title={`Edit Utility Rate · ${String(rateMeter.name ?? rateMeter.code ?? "Meter")}`} onClose={() => setRateMeter(null)}>
+          <form onSubmit={submitRate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="grid-2">
+              <Field label="Utility"><input value={String(rateMeter.utility_type ?? "—")} readOnly /></Field>
+              <Field label="Measurement unit"><input value={String(rateMeter.unit ?? "—")} readOnly /></Field>
+            </div>
+            <Field label="Rate per unit (KES)" required><input name="tariff" type="number" min="0" step="0.0001" defaultValue={String(rateMeter.tariff ?? 0)} required /></Field>
+            <p className="form-hint">The new rate applies to readings recorded after this update. Existing reading costs remain unchanged.</p>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn ghost" onClick={() => setRateMeter(null)}>Cancel</button><button className="btn primary">Save Rate</button></div>
           </form>
         </Modal>
       )}
@@ -3473,6 +3511,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
   const canWork = can("facility.work") || can("facility.manage");
   const canInspect = can("facility.inspect") || can("facility.manage");
   const canAdminister = can("facility.administer") || can("facility.manage");
+  const canApprove = can("facility.approve") || can("facility.manage");
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
@@ -3747,7 +3786,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "service-requests" ? (
           <ServiceRequestsView rows={rows} kpis={dashboard?.kpis ?? {}} onAction={runAction} permissions={{ canWork }} onAdd={() => setCreateModal("service-request")} />
         ) : tab === "meters" ? (
-          <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} organizationId={organizationId} canWork={canWork} canAdminister={canAdminister} reload={load} />
+          <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} organizationId={organizationId} canWork={canWork} canApprove={canApprove} canAdminister={canAdminister} reload={load} />
         ) : tab === "contractors" ? (
           <ContractorsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("contractor")} />
         ) : tab === "reports" ? (
