@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { ModuleShell } from "@/components/module-shell";
 import { constructionNav } from "@/lib/module-nav";
 import { WorkspaceProvider, useWorkspace } from "@/components/monitoring/context/WorkspaceContext";
@@ -1007,11 +1007,20 @@ function WorkspaceContent() {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
       if (q && tabLabels[q]) return q;
     }
-    // Super administrators land on the operations dashboard, not the
-    // client-facing Command Center overview.
-    if (session?.user.isSuperuser) return "role-admin";
     return "overview";
   });
+
+  // Super administrators land on the operations dashboard, not the
+  // client-facing Command Center overview. Applied after mount so the
+  // SSR render (session is null server-side) matches the client hydration.
+  const initialTabRef = useRef(true);
+  useEffect(() => {
+    if (!initialTabRef.current) return;
+    initialTabRef.current = false;
+    if (session?.user.isSuperuser && !new URLSearchParams(window.location.search).get("tab")) {
+      setTab("role-admin");
+    }
+  }, [session]);
 
   const { activeProject } = useWorkspace();
 

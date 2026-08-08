@@ -19,6 +19,7 @@ const MODULE_NAV_BY_KEY: Record<string, ModuleNavGroup[]> = {
   tender: tenderNav,
   valuation: valuationNav,
   construction: constructionNav,
+  monitoring: constructionNav,
   companion: companionNav,
 };
 
