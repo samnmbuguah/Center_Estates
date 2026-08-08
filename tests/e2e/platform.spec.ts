@@ -49,6 +49,9 @@ test("global workflow search renders MUI results without crashing", async ({ pag
 
 test("property rent ledger registers and receipt dialog are usable", async ({ page }) => {
   await page.goto("/property?tab=overview");
+  const selector = page.getByLabel("Current property");
+  const westlands = await selector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
+  await selector.selectOption(westlands ?? "");
   await expect(page.getByText("Outstanding Rent", { exact: true })).toBeVisible();
   await openModuleSection(page, "Receipts");
   await expect(page.getByText("RCT-2026-0418", { exact: true })).toBeVisible();

@@ -12,7 +12,13 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
 }
 
-test.beforeEach(async ({ page }) => signIn(page));
+test.beforeEach(async ({ page }) => {
+  await signIn(page);
+  await page.goto("/valuation");
+  const selector = page.getByLabel("Current property");
+  const westlands = await selector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
+  await selector.selectOption(westlands ?? "");
+});
 
 
 test("valuation overview renders dashboard with KPIs and charts", async ({ page }) => {
@@ -54,8 +60,14 @@ test("site inspections show data with status chart and quick actions", async ({ 
 test("draft reports show register with review modal", async ({ page }) => {
   await page.goto("/valuation");
   await openTab(page, "Draft reports");
-  await expect(page.getByText("Draft", { exact: true }).or(page.locator(".status-pill, [class*=status]").filter({ hasText: "draft" }).first())).toBeVisible();
-  await expect(page.getByRole("button", { name: "Review", exact: true }).or(page.getByRole("button", { name: /Review/i }))).toBeVisible();
+  await expect(page.getByText("review", { exact: true })).toBeVisible();
+  const review = page.getByRole("button", { name: "Review", exact: true });
+  await expect(review).toBeVisible();
+  await review.click();
+  const dialog = page.getByRole("dialog", { name: /Review VAL-2026-0184/i });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Review Comment")).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
 });
 
 test("final reports show delivered reports with actions", async ({ page }) => {
@@ -81,8 +93,9 @@ test("invoicing create invoice modal opens from quick action", async ({ page }) 
   const createBtn = page.getByRole("button", { name: "Create New Invoice" }).or(page.getByRole("button", { name: /create.*invoice/i }));
   if (await createBtn.count() > 0) {
     await createBtn.first().click();
-    await expect(page.locator("[role=dialog], .modal").first()).toBeVisible();
-    await expect(page.getByLabel(/Instruction/i).or(page.getByText("Instruction ref"))).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: /Create.*invoice/i });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel("Instruction Ref *", { exact: true })).toBeVisible();
   }
 });
 

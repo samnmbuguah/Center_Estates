@@ -1,6 +1,16 @@
 "use client";
 
 import { cloneElement, isValidElement, useId, type ReactNode, type CSSProperties } from "react";
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Skeleton,
+  TextField,
+} from "@mui/material";
 
 /**
  * Shared UI primitives for module workspaces.
@@ -111,9 +121,9 @@ export function EmptyState({ icon = "📋", title = "No records", description, a
 
 export function LoadingState({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="data-loading" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="data-loading" role="status" aria-label="Loading records" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="skeleton" style={{ height: 18, borderRadius: 6, opacity: 1 - i * 0.15 }} />
+        <Skeleton key={i} variant="rounded" height={18} animation="wave" sx={{ opacity: 1 - i * 0.12 }} />
       ))}
     </div>
   );
@@ -121,10 +131,14 @@ export function LoadingState({ rows = 4 }: { rows?: number }) {
 
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "12px 16px", margin: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
-      <span>⚠️ {message}</span>
-      {onRetry && <button className="btn ghost sm" onClick={onRetry}>Retry</button>}
-    </div>
+    <Alert
+      severity="error"
+      className="error-banner"
+      sx={{ my: 1.5, border: "1px solid", borderColor: "error.main", alignItems: "center" }}
+      action={onRetry ? <Button color="inherit" size="small" onClick={onRetry}>Retry</Button> : undefined}
+    >
+      {message}
+    </Alert>
   );
 }
 
@@ -143,12 +157,14 @@ export function PageHead({ eyebrow, title, subtitle, actions }: { eyebrow?: stri
 
 export function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <input
-      type="text"
+    <TextField
+      type="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder ?? "Search records…"}
-      style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, minWidth: 240 }}
+      size="small"
+      slotProps={{ htmlInput: { "aria-label": placeholder ?? "Search records" } }}
+      sx={{ minWidth: { xs: "100%", sm: 240 }, "& .MuiInputBase-root": { bgcolor: "background.paper" } }}
     />
   );
 }
@@ -204,14 +220,21 @@ export function Field({ label, children, required }: { label: string; children: 
 export function Modal({ title, onClose, children, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const titleId = useId();
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ maxWidth: wide ? 760 : 540 }} onClick={(e) => e.stopPropagation()}>
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
-          <h3 id={titleId} style={{ margin: 0, fontSize: 16 }}>{title}</h3>
-          <button type="button" className="btn ghost sm" onClick={onClose} aria-label="Close">×</button>
-        </header>
+    <Dialog
+      open
+      onClose={onClose}
+      fullWidth
+      maxWidth={wide ? "md" : "sm"}
+      aria-labelledby={titleId}
+      slotProps={{ paper: { sx: { borderRadius: 2.5, backgroundImage: "none" } } }}
+    >
+      <DialogTitle id={titleId} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, py: 1.75, fontSize: 16, fontWeight: 800 }}>
+        {title}
+        <IconButton size="small" onClick={onClose} aria-label="Close dialog">×</IconButton>
+      </DialogTitle>
+      <DialogContent dividers sx={{ p: { xs: 2, sm: 2.5 } }}>
         {children}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

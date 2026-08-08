@@ -18,6 +18,7 @@ const TAB_ALIASES: Record<string, string> = {
   "Work orders": "Maintenance", Contractors: "Vendors & Contracts",
   Buildings: "Buildings & Locations", Assets: "Assets & Inventory",
   Utilities: "Energy & Utilities",
+  Invoicing: "Client invoicing", Inspections: "Site inspections",
 };
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
@@ -144,8 +145,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 
 /** Open a horizontal module tab directly. */
 export async function openTab(page: Page, name: string) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  await page.locator(".module-nav-bar").getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") }).first().click();
+  await openModuleSection(page, name);
 }
 
 /** Sign in with a generous navigation timeout (slower under parallel load). */
