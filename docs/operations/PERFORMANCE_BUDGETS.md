@@ -38,10 +38,14 @@ regressions were added; both new pulse tests also pass independently.
 | Warm Next.js compile | 30 seconds | 20.6 seconds |
 | Next.js TypeScript phase | 70 seconds | 61 seconds |
 | Full cPanel release | 210 seconds | 189.6–203.0 seconds |
+| Prebuilt full cPanel release | 60 seconds | 40.94 seconds |
 | Backend-only cPanel release | 40 seconds | 26.49 seconds |
 
 Use a full release whenever frontend assets change. Use `DEPLOY_SCOPE=backend`
 only when the committed slice changes Django or deployment files exclusively.
+After the exact frontend build has passed lint, TypeScript, bundle budgets and
+Docker acceptance, `SKIP_BUILD=1` publishes that verified `.next` output as a
+full frontend release without compiling it a second time.
 The deployment restarts only the exact Center Estates LiteSpeed worker set and
 tolerates workers exiting while that set is being drained.
 
