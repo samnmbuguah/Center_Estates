@@ -16,6 +16,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
+from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from properties.models import Building, Property
 
 from .models import (
@@ -38,7 +39,8 @@ class FacilityModelViewSet(ModelViewSet):
     search_fields = ()
 
     def get_queryset(self):
-        queryset = self.queryset.for_organization(get_active_organization(self.request))
+        organization = get_active_organization(self.request)
+        queryset = scope_queryset_to_property(self.queryset.for_organization(organization), self.request, organization)
         search = self.request.query_params.get('search', '').strip()
         if search:
             from django.db.models import Q
@@ -451,11 +453,11 @@ class FacilityDashboardViewSet(ViewSet):
     def list(self, request):
         organization = get_active_organization(request)
         now = timezone.now()
-        assets = FacilityAsset.objects.for_organization(organization)
-        work_orders = WorkOrder.objects.for_organization(organization)
-        schedules = PreventiveSchedule.objects.for_organization(organization)
-        requests = ServiceRequest.objects.for_organization(organization)
-        readings = MeterReading.objects.for_organization(organization)
+        assets = scope_model_queryset(FacilityAsset, request, organization)
+        work_orders = scope_model_queryset(WorkOrder, request, organization)
+        schedules = scope_model_queryset(PreventiveSchedule, request, organization)
+        requests = scope_model_queryset(ServiceRequest, request, organization)
+        readings = scope_model_queryset(MeterReading, request, organization)
         active_work = work_orders.exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
         overdue = active_work.filter(resolution_due_at__lt=now)
         due_schedules = schedules.filter(is_active=True, next_due_on__lte=timezone.localdate())
@@ -463,7 +465,7 @@ class FacilityDashboardViewSet(ViewSet):
         schedule_count = schedules.filter(is_active=True).count()
         return Response({
             'kpis': {
-                'buildings': Building.objects.for_organization(organization).count(),
+                'buildings': scope_model_queryset(Building, request, organization).count(),
                 'activeAssets': assets.filter(is_active=True).count(),
                 'assetValue': assets.aggregate(total=Sum('purchase_value'))['total'] or 0,
                 'openWorkOrders': active_work.count(), 'overdueWorkOrders': overdue.count(),
@@ -487,11 +489,11 @@ class FacilityAnalyticsViewSet(ViewSet):
 
     def list(self, request):
         organization = get_active_organization(request)
-        assets = FacilityAsset.objects.for_organization(organization)
-        work_orders = WorkOrder.objects.for_organization(organization)
-        inspections = Inspection.objects.for_organization(organization)
+        assets = scope_model_queryset(FacilityAsset, request, organization)
+        work_orders = scope_model_queryset(WorkOrder, request, organization)
+        inspections = scope_model_queryset(Inspection, request, organization)
         contractors = Contractor.objects.for_organization(organization)
-        readings = MeterReading.objects.for_organization(organization)
+        readings = scope_model_queryset(MeterReading, request, organization)
 
         return Response({
             'summary': {
@@ -528,13 +530,13 @@ class FacilityAnalyticsViewSet(ViewSet):
         export_type = request.query_params.get('type', '')
 
         if export_type == 'assets':
-            rows = FacilityAsset.objects.for_organization(organization).values_list('code', 'name', 'category', 'condition', 'is_active')
+            rows = scope_model_queryset(FacilityAsset, request, organization).values_list('code', 'name', 'category', 'condition', 'is_active')
             header = ['Code', 'Name', 'Category', 'Condition', 'Active']
         elif export_type == 'work-orders':
-            rows = WorkOrder.objects.for_organization(organization).values_list('number', 'title', 'priority', 'status', 'reported_at')
+            rows = scope_model_queryset(WorkOrder, request, organization).values_list('number', 'title', 'priority', 'status', 'reported_at')
             header = ['Number', 'Title', 'Priority', 'Status', 'Reported']
         elif export_type == 'inspections':
-            rows = Inspection.objects.for_organization(organization).values_list('reference', 'title', 'status', 'completed_on')
+            rows = scope_model_queryset(Inspection, request, organization).values_list('reference', 'title', 'status', 'completed_on')
             header = ['Reference', 'Title', 'Status', 'Completed']
         elif export_type == 'contractors':
             rows = Contractor.objects.for_organization(organization).values_list('name', 'category', 'status', 'rating')

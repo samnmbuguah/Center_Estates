@@ -26,6 +26,7 @@ from subscriptions.models import Subscription
 from tenders.models import BidDecision, CompanyDocument, FinancialItem, ProposalSection, Tender, TenderAuditEvent, TenderOutcome, TenderRequirement, TenderReview, TenderSubmission, TenderTask
 from valuations.models import ComparableEvidence, DraftValuationReport, FinalValuationReport, ValuationAuditEvent, ValuationClient, ValuationInspection, ValuationInstruction, ValuationInvoice, ValuationPayment
 from companion.models import Task as CompanionTask, TaskTemplate, TaskEvent
+from construction.models import Project as ConstructionProject
 
 
 class Command(BaseCommand):
@@ -719,7 +720,7 @@ class Command(BaseCommand):
                 'clarification_deadline': timezone.now() + timedelta(days=4),
                 'submission_deadline': timezone.now() + timedelta(days=12),
                 'estimated_value': Decimal('185000000.00'), 'currency': 'KES',
-                'stage': Tender.Stage.TECHNICAL, 'owner': user, 'readiness_score': Decimal('64.00'),
+                'stage': Tender.Stage.TECHNICAL, 'owner': user, 'property': prop, 'readiness_score': Decimal('64.00'),
             },
         )
         for category, text, status, confidence, citation in (
@@ -767,7 +768,7 @@ class Command(BaseCommand):
         )
         submitted_tender, _ = Tender.objects.update_or_create(
             organization=organization, reference='TND-2026-0039',
-            defaults={'title': 'Property Valuation Framework', 'client': 'County Pension Fund', 'category': 'Professional services', 'source': 'Direct invitation', 'published_on': today - timedelta(days=40), 'submission_deadline': timezone.now() - timedelta(days=5), 'estimated_value': Decimal('24000000'), 'currency': 'KES', 'stage': Tender.Stage.SUBMITTED, 'owner': user, 'readiness_score': Decimal('100')},
+            defaults={'title': 'Property Valuation Framework', 'client': 'County Pension Fund', 'category': 'Professional services', 'source': 'Direct invitation', 'published_on': today - timedelta(days=40), 'submission_deadline': timezone.now() - timedelta(days=5), 'estimated_value': Decimal('24000000'), 'currency': 'KES', 'stage': Tender.Stage.SUBMITTED, 'owner': user, 'property': prop, 'readiness_score': Decimal('100')},
         )
         tender_submission, _ = TenderSubmission.objects.update_or_create(
             organization=organization, tender=submitted_tender,
@@ -795,7 +796,7 @@ class Command(BaseCommand):
                 'category': 'Maintenance', 'source': 'Public Procurement Portal',
                 'published_on': today - timedelta(days=90), 'submission_deadline': timezone.now() - timedelta(days=50),
                 'estimated_value': Decimal('68000000'), 'currency': 'KES', 'stage': Tender.Stage.REGRETTED,
-                'owner': user, 'readiness_score': Decimal('100'),
+                'owner': user, 'property': prop, 'readiness_score': Decimal('100'),
             },
         )
         TenderOutcome.objects.update_or_create(
@@ -900,6 +901,176 @@ class Command(BaseCommand):
             defaults={'actor': user},
         )
 
+        # Two additional, fully linked properties make cross-property context
+        # switching observable in every operational module. Keep identifiers
+        # deterministic so reseeding remains idempotent.
+        additional_properties = (
+            {
+                'code': 'CE-NRB-002', 'name': 'Kilimani Heights Residences', 'type': 'Residential',
+                'city': 'Nairobi', 'address': 'Kindaruma Road, Kilimani, Nairobi',
+                'building': 'BLOCK-A', 'units': (('A-101', '2 Bedroom'), ('A-102', '2 Bedroom'), ('A-201', '3 Bedroom')),
+                'tenant': ('TEN-KHR-001', 'Mara Family Holdings'), 'rent': Decimal('95000'),
+                'asset': ('KHR-GEN-01', 'Standby Generator', 'Generator'),
+            },
+            {
+                'code': 'CE-MSA-003', 'name': 'Nyali Trade Centre', 'type': 'Mixed Use',
+                'city': 'Mombasa', 'address': 'Links Road, Nyali, Mombasa',
+                'building': 'MAIN-BLOCK', 'units': (('G-01', 'Retail'), ('1-01', 'Office'), ('1-02', 'Office')),
+                'tenant': ('TEN-NTC-001', 'Coastal Merchants Limited'), 'rent': Decimal('145000'),
+                'asset': ('NTC-AC-01', 'Central Air Handling Unit', 'HVAC'),
+            },
+        )
+        for index, spec in enumerate(additional_properties, start=2):
+            scoped_property, _ = Property.objects.update_or_create(
+                organization=organization, code=spec['code'],
+                defaults={
+                    'name': spec['name'], 'property_type': spec['type'], 'status': Property.Status.ACTIVE,
+                    'city': spec['city'], 'address': spec['address'], 'country': 'KE',
+                    'metadata': {'seed_profile': 'comprehensive', 'portfolio_order': index},
+                },
+            )
+            scoped_building, _ = Building.objects.update_or_create(
+                organization=organization, property=scoped_property, code=spec['building'],
+                defaults={'name': f"{spec['name']} — Main Building", 'floors': 8 if index == 2 else 5},
+            )
+            scoped_units = []
+            for unit_index, (unit_code, unit_type) in enumerate(spec['units']):
+                scoped_unit, _ = Unit.objects.update_or_create(
+                    organization=organization, property=scoped_property, code=unit_code,
+                    defaults={
+                        'building': scoped_building, 'floor': str(unit_index + 1), 'unit_type': unit_type,
+                        'area': Decimal('118.00') + Decimal(unit_index * 17),
+                        'status': Unit.Status.OCCUPIED if unit_index == 0 else Unit.Status.AVAILABLE,
+                    },
+                )
+                scoped_units.append(scoped_unit)
+            scoped_project, _ = Project.objects.update_or_create(
+                organization=organization, code=f'PRJ-{spec["code"]}',
+                defaults={'name': f'{spec["name"]} Improvement Programme', 'property': scoped_property, 'status': Project.Status.ACTIVE},
+            )
+            ConstructionProject.objects.update_or_create(
+                portfolio_project=scoped_project,
+                defaults={
+                    'organization': organization, 'name': scoped_project.name,
+                    'code': f'CON-{spec["code"]}', 'client_name': 'Center Estates',
+                    'location': spec['address'], 'country': 'Kenya', 'town': spec['city'],
+                    'stage': 'active', 'project_type': 'mixed_use' if index == 3 else 'residential',
+                    'description': f'Construction monitoring workspace for {spec["name"]}.',
+                    'modules': ['overview', 'programme', 'cost', 'quality', 'safety'],
+                    'onboarding_complete': True, 'wizard_step': 6,
+                    'created_at': int(timezone.now().timestamp() * 1000),
+                },
+            )
+            scoped_tenant, _ = Tenant.objects.update_or_create(
+                organization=organization, code=spec['tenant'][0],
+                defaults={
+                    'name': spec['tenant'][1], 'tenant_type': 'company',
+                    'email': f'accounts-{index}@centerestates.demo', 'phone': f'+254 700 300 00{index}',
+                    'tax_id': f'P00000000{index}X', 'status': Tenant.Status.ACTIVE,
+                    'billing_address': spec['address'],
+                },
+            )
+            scoped_lease, _ = Lease.objects.update_or_create(
+                organization=organization, reference=f'LS-2026-00{index}',
+                defaults={
+                    'unit': scoped_units[0], 'tenant': scoped_tenant,
+                    'starts_on': today - timedelta(days=120), 'ends_on': today + timedelta(days=610),
+                    'monthly_rent': spec['rent'], 'deposit': spec['rent'] * 2,
+                    'escalation_percent': Decimal('7.50'), 'billing_day': 1, 'status': Lease.Status.ACTIVE,
+                },
+            )
+            scoped_invoice, _ = Invoice.objects.update_or_create(
+                organization=organization, number=f'INV-2026-08{index:02d}',
+                defaults={
+                    'lease': scoped_lease, 'invoice_type': 'rent', 'issued_on': today - timedelta(days=8),
+                    'due_on': today - timedelta(days=1), 'amount': spec['rent'],
+                    'balance': spec['rent'] / 2, 'status': Invoice.Status.PARTIAL,
+                },
+            )
+            scoped_receipt, _ = Receipt.objects.update_or_create(
+                organization=organization, number=f'RCT-2026-05{index:02d}',
+                defaults={
+                    'tenant': scoped_tenant, 'invoice': scoped_invoice, 'received_on': today - timedelta(days=3),
+                    'amount': spec['rent'] / 2, 'payment_method': 'mpesa',
+                    'external_reference': f'MPESA-SEED-{index}', 'received_by': user,
+                },
+            )
+            ReceiptAllocation.objects.update_or_create(
+                organization=organization, receipt=scoped_receipt, invoice=scoped_invoice,
+                defaults={'amount': scoped_receipt.amount, 'allocated_by': user},
+            )
+            Budget.objects.update_or_create(
+                organization=organization, property=scoped_property, year=today.year, category='Maintenance',
+                defaults={'amount': Decimal('2400000') + Decimal(index * 350000), 'status': Budget.Status.APPROVED, 'approved_by': user, 'approved_at': timezone.now()},
+            )
+            scoped_charge, _ = ServiceCharge.objects.update_or_create(
+                organization=organization, property=scoped_property, name=f'{today.year} Service Charge',
+                defaults={'method': ServiceCharge.Method.AREA, 'annual_budget': Decimal('1800000') + Decimal(index * 200000), 'starts_on': today.replace(month=1, day=1), 'is_active': True},
+            )
+            ServiceChargeAllocation.objects.update_or_create(
+                organization=organization, service_charge=scoped_charge, unit=scoped_units[0],
+                defaults={'ratio': Decimal('1.000000'), 'annual_amount': scoped_charge.annual_budget, 'monthly_amount': (scoped_charge.annual_budget / 12).quantize(Decimal('0.01'))},
+            )
+            scoped_asset, _ = FacilityAsset.objects.update_or_create(
+                organization=organization, code=spec['asset'][0],
+                defaults={
+                    'name': spec['asset'][1], 'category': spec['asset'][2], 'property': scoped_property,
+                    'building': scoped_building, 'purchase_value': Decimal('3800000') + Decimal(index * 500000),
+                    'condition': FacilityAsset.Condition.GOOD, 'is_active': True,
+                },
+            )
+            scoped_work_order, _ = WorkOrder.objects.update_or_create(
+                organization=organization, number=f'WO-2026-20{index}',
+                defaults={
+                    'title': f'Preventive service — {scoped_asset.name}', 'description': 'Comprehensive seeded maintenance workflow.',
+                    'category': spec['asset'][2], 'property': scoped_property, 'asset': scoped_asset,
+                    'assigned_to': user, 'reported_by': user, 'priority': WorkOrder.Priority.MEDIUM,
+                    'status': WorkOrder.Status.IN_PROGRESS, 'reported_at': timezone.now() - timedelta(days=index),
+                    'response_due_at': timezone.now() + timedelta(hours=4), 'resolution_due_at': timezone.now() + timedelta(days=2), 'progress': 45,
+                },
+            )
+            Inspection.objects.update_or_create(
+                organization=organization, reference=f'INS-2026-01{index}',
+                defaults={
+                    'title': f'{spec["name"]} compliance inspection', 'inspection_type': 'Compliance',
+                    'property': scoped_property, 'asset': scoped_asset, 'inspector': user,
+                    'scheduled_on': today + timedelta(days=index), 'status': Inspection.Status.SCHEDULED,
+                },
+            )
+            scoped_meter, _ = UtilityMeter.objects.update_or_create(
+                organization=organization, code=f'ELC-{spec["code"]}',
+                defaults={
+                    'name': f'{spec["name"]} Main Electricity', 'property': scoped_property,
+                    'property_unit': scoped_units[0], 'utility_type': UtilityMeter.Utility.ELECTRICITY,
+                    'unit': 'kWh', 'tariff': Decimal('28.1500'), 'is_active': True,
+                },
+            )
+            MeterReading.objects.update_or_create(
+                organization=organization, meter=scoped_meter, read_at=timezone.now().replace(minute=0, second=0, microsecond=0),
+                defaults={'value': Decimal(10000 + index * 1250), 'previous_value': Decimal(9500 + index * 1200), 'consumption': Decimal(400 + index * 50), 'cost': Decimal(11260 + index * 1407), 'status': MeterReading.Status.APPROVED, 'reviewed_by': user, 'reviewed_at': timezone.now()},
+            )
+            SaleListing.objects.update_or_create(
+                organization=organization, unit=scoped_units[1],
+                defaults={'project': scoped_project, 'list_price': Decimal('16500000') + Decimal(index * 3250000), 'minimum_deposit_percent': Decimal('15'), 'status': SaleListing.Status.AVAILABLE, 'construction_progress': Decimal('100')},
+            )
+            ValuationInstruction.objects.update_or_create(
+                organization=organization, reference=f'VAL-2026-02{index}',
+                defaults={
+                    'client': valuation_client, 'property': scoped_property, 'property_description': spec['name'],
+                    'address': spec['address'], 'valuation_type': spec['type'], 'purpose': 'Insurance review',
+                    'priority': 'normal', 'valuer': user, 'instructed_on': today - timedelta(days=index),
+                    'due_on': today + timedelta(days=10 + index), 'quoted_fee': Decimal('125000') + Decimal(index * 15000),
+                    'status': ValuationInstruction.Status.NEW,
+                },
+            )
+
+        Tender.objects.filter(organization=organization, reference='TND-2026-0039').update(
+            property=Property.objects.get(organization=organization, code='CE-NRB-002'),
+        )
+        Tender.objects.filter(organization=organization, reference='TND-2026-0028').update(
+            property=Property.objects.get(organization=organization, code='CE-MSA-003'),
+        )
+
         # ── Companion tasks ──────────────────────────────────────────────────
         now = timezone.now()
         template_review, _ = TaskTemplate.objects.update_or_create(
@@ -912,27 +1083,27 @@ class Command(BaseCommand):
         )
         task1, _ = CompanionTask.objects.update_or_create(
             organization=organization, reference='CPN-2026-0001',
-            defaults={'title': 'Approve Q3 service charge budget', 'description': 'Review and approve the Q3 budget for service charge allocations across all properties.', 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'pending', 'due_at': now + timedelta(days=3), 'sla_due_at': now + timedelta(hours=48), 'source_module': 'property', 'source_ref': 'Service charge FY2026'},
+            defaults={'title': 'Approve Q3 service charge budget', 'description': 'Review and approve the Q3 budget for service charge allocations.', 'property': prop, 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'pending', 'due_at': now + timedelta(days=3), 'sla_due_at': now + timedelta(hours=48), 'source_module': 'property', 'source_ref': 'Service charge FY2026'},
         )
         CompanionTask.objects.update_or_create(
             organization=organization, reference='CPN-2026-0002',
-            defaults={'title': 'Complete overdue lift inspection', 'description': 'Finance House lift 2 annual inspection is overdue.', 'assignee': user, 'assigned_by': user, 'priority': 'urgent', 'status': 'acknowledged', 'due_at': now - timedelta(days=2), 'sla_due_at': now - timedelta(days=1), 'acknowledged_at': now - timedelta(hours=18), 'escalated': True, 'escalated_at': now - timedelta(hours=6), 'source_module': 'facility', 'source_ref': 'WO-2026-1789'},
+            defaults={'title': 'Complete overdue lift inspection', 'description': 'Finance House lift 2 annual inspection is overdue.', 'property': prop, 'assignee': user, 'assigned_by': user, 'priority': 'urgent', 'status': 'acknowledged', 'due_at': now - timedelta(days=2), 'sla_due_at': now - timedelta(days=1), 'acknowledged_at': now - timedelta(hours=18), 'escalated': True, 'escalated_at': now - timedelta(hours=6), 'source_module': 'facility', 'source_ref': 'WO-2026-1789'},
         )
         CompanionTask.objects.update_or_create(
             organization=organization, reference='CPN-2026-0003',
-            defaults={'title': 'Draft valuation report for Equity Bank', 'description': 'Prepare draft valuation report for Westlands Business Centre mortgage security.', 'assignee': user, 'assigned_by': user, 'priority': 'normal', 'status': 'in_progress', 'due_at': now + timedelta(days=5), 'sla_due_at': now + timedelta(days=7), 'acknowledged_at': now - timedelta(hours=24), 'source_module': 'valuation', 'source_ref': 'VAL-2026-0184'},
+            defaults={'title': 'Draft valuation report for Equity Bank', 'description': 'Prepare draft valuation report for Westlands Business Centre mortgage security.', 'property': prop, 'assignee': user, 'assigned_by': user, 'priority': 'normal', 'status': 'in_progress', 'due_at': now + timedelta(days=5), 'sla_due_at': now + timedelta(days=7), 'acknowledged_at': now - timedelta(hours=24), 'source_module': 'valuation', 'source_ref': 'VAL-2026-0184'},
         )
         CompanionTask.objects.update_or_create(
             organization=organization, reference='CPN-2026-0004',
-            defaults={'title': 'Collect outstanding rent from ABC Traders', 'description': 'Follow up on KES 400,000 outstanding rent for Finance House 5th Floor.', 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'pending', 'due_at': now + timedelta(days=1), 'sla_due_at': now + timedelta(hours=24), 'source_module': 'property', 'source_ref': 'Rent invoice INV-2026-0702'},
+            defaults={'title': 'Collect outstanding rent from ABC Traders', 'description': 'Follow up on KES 400,000 outstanding rent for Finance House 5th Floor.', 'property': Property.objects.get(organization=organization, code='CE-NRB-002'), 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'pending', 'due_at': now + timedelta(days=1), 'sla_due_at': now + timedelta(hours=24), 'source_module': 'property', 'source_ref': 'Rent invoice INV-2026-0702'},
         )
         CompanionTask.objects.update_or_create(
             organization=organization, reference='CPN-2026-0005',
-            defaults={'title': 'Review tender proposal for NMA facilities contract', 'description': 'Technical and financial proposal review for TND-2026-0047.', 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'completed', 'due_at': now - timedelta(days=1), 'completed_at': now - timedelta(hours=12), 'source_module': 'tender', 'source_ref': 'TND-2026-0047'},
+            defaults={'title': 'Review tender proposal for NMA facilities contract', 'description': 'Technical and financial proposal review for TND-2026-0047.', 'property': Property.objects.get(organization=organization, code='CE-MSA-003'), 'assignee': user, 'assigned_by': user, 'priority': 'high', 'status': 'completed', 'due_at': now - timedelta(days=1), 'completed_at': now - timedelta(hours=12), 'source_module': 'tender', 'source_ref': 'TND-2026-0047'},
         )
         CompanionTask.objects.update_or_create(
             organization=organization, reference='CPN-2026-0006',
-            defaults={'title': 'Schedule site visit for Sunset Apartments buyer', 'description': 'Site visit requested by buyer for Unit SA-201.', 'assignee': user, 'assigned_by': user, 'priority': 'normal', 'status': 'pending', 'due_at': now + timedelta(days=2), 'source_module': 'sales', 'source_ref': 'Buyer: Sunset Apartments Ltd'},
+            defaults={'title': 'Schedule site visit for Sunset Apartments buyer', 'description': 'Site visit requested by buyer for Unit SA-201.', 'property': Property.objects.get(organization=organization, code='CE-MSA-003'), 'assignee': user, 'assigned_by': user, 'priority': 'normal', 'status': 'pending', 'due_at': now + timedelta(days=2), 'source_module': 'sales', 'source_ref': 'Buyer: Sunset Apartments Ltd'},
         )
         TaskEvent.objects.update_or_create(
             organization=organization, task=task1, actor=user,

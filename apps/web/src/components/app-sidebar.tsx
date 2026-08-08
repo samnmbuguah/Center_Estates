@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { BrandLogo } from "@/components/brand-logo";
 import { apiFetch } from "@/lib/api";
-import { LayoutDashboard, ClipboardCheck, Menu, X, CalendarDays, Wrench, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { LayoutDashboard, ClipboardCheck, Menu, X, HelpCircle, ChevronDown, ChevronRight, ChartNoAxesCombined } from "lucide-react";
 import {
   Box,
   Typography,
@@ -33,14 +33,12 @@ type AppSidebarProps = {
 
 export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { session } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState({ tasks: 0 });
 
   const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
-  const currentTab = searchParams.get("tab");
 
   // Detect mobile screen size
   useEffect(() => {
@@ -63,6 +61,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
     ? "Super Administrator"
     : session?.roleNames?.[0] || session?.roles[0] || "Member";
   const userInitials = (session?.user.firstName || session?.user.username || "").slice(0, 2).toUpperCase();
+  const isAdministrator = Boolean(session?.user.isSuperuser || session?.permissions.includes("*") || session?.roles.includes("admin"));
 
   useEffect(() => {
     if (!session?.activeOrganizationId) return;
@@ -311,48 +310,24 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             </Link>
           )}
 
-          <Link
-            className="nav-link"
-            href="/property?tab=critical-dates"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
-              justifyContent: collapsed ? "center" : "flex-start",
-              color: "#ffffff",
-              textDecoration: "none",
-              fontSize: 14,
-              borderRadius: 6,
-            }}
-            onClick={onCloseMobile}
-            title="Calendar"
-          >
-            <span style={{ fontSize: 15 }}><CalendarDays size={18} /></span>
-            {!collapsed && <span>Calendar</span>}
-          </Link>
-
-          <Link
-            className="nav-link"
-            href="/facility?tab=assets"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: collapsed ? "10px" : "9px 12px",
-              justifyContent: collapsed ? "center" : "flex-start",
-              borderRadius: 6,
-              color: pathname === "/facility" && currentTab === "assets" ? "#fff" : "#ffffff",
-              background: pathname === "/facility" && currentTab === "assets" ? "rgba(229,46,46,0.35)" : "transparent",
-              textDecoration: "none",
-              fontSize: 14,
-            }}
-            onClick={onCloseMobile}
-            title="Building & Asset Onboarding"
-          >
-            <span style={{ fontSize: 15 }}><Wrench size={18} /></span>
-            {!collapsed && <span>Building &amp; Asset Onboarding</span>}
-          </Link>
+          {isAdministrator && !activeModuleSlug ? (
+            <Link
+              className="nav-link"
+              href="/analytics"
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
+                justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6,
+                color: "#fff", background: pathname === "/analytics" ? "rgba(229,46,46,0.35)" : "transparent",
+                textDecoration: "none", fontSize: isMobile ? 16 : 13,
+              }}
+              onClick={onCloseMobile}
+              title="Usage Analytics"
+            >
+              <ChartNoAxesCombined size={isMobile ? 24 : 18} />
+              {(!collapsed || isMobile) && <span>Usage Analytics</span>}
+            </Link>
+          ) : null}
 
         </Box>
 

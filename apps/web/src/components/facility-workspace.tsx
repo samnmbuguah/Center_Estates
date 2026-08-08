@@ -3684,6 +3684,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
   }
 
   const selectTab = (id: string) => {
+    if (id === tab) return;
     setSearch("");
     setRows([]);
     setTab(id as Tab);

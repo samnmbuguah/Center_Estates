@@ -10,7 +10,7 @@ import { usePropertyContext } from "@/lib/property-context";
  * selected property stays in context while working across modules.
  */
 export function PropertyContextBar() {
-  const { activeProperty } = usePropertyContext();
+  const { activeProperty, properties, loadingProperties, selectProperty } = usePropertyContext();
 
   if (!activeProperty) return null;
 
@@ -45,10 +45,24 @@ export function PropertyContextBar() {
             <ArrowLeft size={14} /> Workspaces
           </Link>
           <span style={{ color: "var(--border)" }}>|</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-            {activeProperty.code ?? "PROPERTY"}
-          </span>
-          <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}>{activeProperty.name}</strong>
+          <label className="module-property-switcher">
+            <span>Current property</span>
+            <select
+              aria-label="Current property"
+              value={activeProperty.id}
+              disabled={loadingProperties || properties.length === 0}
+              onChange={(event) => {
+                const selected = properties.find((property) => property.id === event.target.value) ?? null;
+                selectProperty(selected);
+              }}
+            >
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.code ? `${property.code} — ` : ""}{property.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <span
             style={{
               fontSize: 10,

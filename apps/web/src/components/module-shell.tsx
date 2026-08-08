@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import {
   propertyNav,
   facilityNav,
@@ -91,6 +91,7 @@ export function ModuleShell({
   const hasSubTabs = Array.isArray(subTabs) && subTabs.length > 0;
   const resolvedGroups = groups ?? MODULE_NAV_BY_KEY[moduleKey];
   const hasGroups = Array.isArray(resolvedGroups) && resolvedGroups.length > 0;
+  const activeGroup = resolvedGroups?.find((group) => group.items.some((item) => item.id === activeId)) ?? resolvedGroups?.[0];
 
   return (
     <div
@@ -129,62 +130,62 @@ export function ModuleShell({
               <h1 style={{ fontSize: 24, fontWeight: 800, margin: "2px 0 4px", color: "var(--text-primary)", lineHeight: 1.2 }}>{title}</h1>
               {subtitle ? <p className="muted" style={{ fontSize: 14, margin: 0, color: "var(--text-secondary)", lineHeight: 1.4 }}>{subtitle}</p> : null}
             </div>
-            {actions ? <div className="portfolio-toolbar" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>{actions}</div> : null}
+            <div className="portfolio-toolbar module-context-actions" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              {actions}
+            </div>
           </section>
 
-          {/* Horizontal Navigation Bar - MonitoringERP style */}
+          {/* Two-level module navigation: workflow groups, then pages in the active group. */}
           {hasGroups && (
-            <div
-              className="module-nav-bar"
-              style={{
-                display: "flex",
-                gap: 8,
-                overflowX: "auto",
-                borderBottom: "2px solid var(--border-color)",
-                paddingBottom: 8,
-                marginBottom: 20,
-                scrollbarWidth: "thin",
-              }}
-            >
-              {resolvedGroups.map((group) => (
-                <div key={group.label} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--text-muted)",
-                      padding: "8px 0",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {group.label}
-                  </span>
-                  {group.items.map((item) => (
+            <nav className="module-nav-bar" aria-label={`${moduleName} navigation`}>
+              <label className="module-nav-mobile-select">
+                <span>Module page</span>
+                <select value={activeId ?? ""} onChange={(event) => onSelect?.(event.target.value)}>
+                  {resolvedGroups.flatMap((group) => group.items.map((item) => (
+                    <option value={item.id} key={item.id}>{group.label} — {item.label}</option>
+                  )))}
+                </select>
+              </label>
+
+              <div className="module-nav-groups" role="tablist" aria-label="Workflow sections">
+                {resolvedGroups.map((group) => {
+                  const selected = group === activeGroup;
+                  return (
+                    <button
+                      key={group.label}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      className={selected ? "active" : ""}
+                      onClick={() => onSelect?.(group.items[0].id)}
+                      style={selected ? { "--module-accent": accent } as CSSProperties : undefined}
+                    >
+                      {group.icon ? <span aria-hidden="true">{group.icon}</span> : null}
+                      {group.label}
+                      <small>{group.items.length}</small>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {activeGroup && (
+                <div className="module-nav-pages" aria-label={`${activeGroup.label} pages`}>
+                  {activeGroup.items.map((item) => (
                     <button
                       key={item.id}
+                      type="button"
+                      aria-current={activeId === item.id ? "page" : undefined}
+                      className={activeId === item.id ? "active" : ""}
                       onClick={() => onSelect?.(item.id)}
-                      style={{
-                        padding: "8px 14px",
-                        borderRadius: 6,
-                        background: activeId === item.id ? accent : "var(--bg-surface)",
-                        color: activeId === item.id ? "#fff" : "var(--text-primary)",
-                        textDecoration: "none",
-                        fontWeight: activeId === item.id ? "bold" : 600,
-                        fontSize: "0.85rem",
-                        border: "none",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.15s ease",
-                      }}
+                      style={activeId === item.id ? { "--module-accent": accent } as CSSProperties : undefined}
                     >
-                      {item.icon ? `${item.icon} ` : ""}{item.label}
+                      {item.icon ? <span aria-hidden="true">{item.icon}</span> : null}
+                      {item.label}
                     </button>
                   ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </nav>
           )}
 
           {/* Entity context switcher */}

@@ -8,7 +8,7 @@ from core.models import OrganizationOwnedModel
 class Tender(OrganizationOwnedModel):
     class Stage(models.TextChoices):
         INVITATION='invitation','Invitation'; ANALYSIS='analysis','AI analysis'; DECISION='decision','Bid decision'; PLANNING='planning','Planning'; TECHNICAL='technical','Technical proposal'; FINANCIAL='financial','Financial proposal'; REVIEW='review','Review & approval'; PACKAGING='packaging','Packaging'; SUBMITTED='submitted','Submitted'; AWARDED='awarded','Awarded'; REGRETTED='regretted','Regretted'
-    reference=models.CharField(max_length=80); title=models.CharField(max_length=240); client=models.CharField(max_length=200); description=models.TextField(blank=True)
+    property=models.ForeignKey('properties.Property',on_delete=models.PROTECT,related_name='tenders',null=True,blank=True); reference=models.CharField(max_length=80); title=models.CharField(max_length=240); client=models.CharField(max_length=200); description=models.TextField(blank=True)
     category=models.CharField(max_length=100,blank=True); source=models.CharField(max_length=100,blank=True); published_on=models.DateField(null=True,blank=True); clarification_deadline=models.DateTimeField(null=True,blank=True); submission_deadline=models.DateTimeField()
     estimated_value=models.DecimalField(max_digits=18,decimal_places=2,default=0); currency=models.CharField(max_length=3,default='KES'); stage=models.CharField(max_length=16,choices=Stage.choices,default=Stage.INVITATION); owner=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='owned_tenders'); readiness_score=models.DecimalField(max_digits=5,decimal_places=2,default=0); source_document_url=models.URLField(blank=True)
     class Meta:

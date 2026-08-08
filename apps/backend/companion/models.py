@@ -21,6 +21,10 @@ class Task(OrganizationOwnedModel):
         URGENT = 'urgent', 'Urgent'
 
     reference = models.CharField(max_length=50)
+    property = models.ForeignKey(
+        'properties.Property', on_delete=models.PROTECT, related_name='companion_tasks',
+        null=True, blank=True,
+    )
     title = models.CharField(max_length=220)
     description = models.TextField(blank=True)
     source_module = models.CharField(max_length=40, blank=True, default='')

@@ -10,6 +10,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
+from core.property_scope import get_active_property
 from organizations.models import Membership
 
 from .models import (
@@ -60,6 +61,29 @@ def apply_project_scope(queryset, project_id: str):
     return queryset
 
 
+def apply_property_scope(queryset, property_id: str):
+    """Restrict every construction register to projects attached to one portfolio property."""
+    if not property_id:
+        return queryset
+    project_ids = Project.objects.filter(
+        portfolio_project__property_id=property_id,
+    ).values_list('pk', flat=True)
+    if queryset.model is Project:
+        return queryset.filter(pk__in=project_ids)
+    field_names = {field.name for field in queryset.model._meta.fields}
+    if 'project' in field_names or 'project_id' in field_names:
+        return queryset.filter(project_id__in=project_ids)
+    for path in (
+        'milestone_entry__project_id__in', 'ticket__project_id__in',
+        'document__project_id__in', 'advance_payment__project_id__in',
+        'bim_model__project_id__in',
+    ):
+        root = path.split('__', 1)[0]
+        if root in field_names:
+            return queryset.filter(**{path: project_ids})
+    return queryset
+
+
 class ConstructionScopedViewSet(ModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.MONITORING
@@ -69,6 +93,9 @@ class ConstructionScopedViewSet(ModelViewSet):
     def get_queryset(self):
         organization = get_active_organization(self.request)
         queryset = self.queryset.filter(**{self.organization_field: organization})
+        selected_property = get_active_property(self.request, organization)
+        if selected_property is not None:
+            queryset = apply_property_scope(queryset, str(selected_property.pk))
         search = self.request.query_params.get("search", "").strip()
         if search and self.search_fields:
             from django.db.models import Q

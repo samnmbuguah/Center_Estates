@@ -12,13 +12,14 @@ from rest_framework.viewsets import ModelViewSet,ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
+from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from .models import ComparableEvidence,DraftValuationReport,FinalValuationReport,ValuationAuditEvent,ValuationClient,ValuationInspection,ValuationInstruction,ValuationInvoice,ValuationPayment
 from .serializers import AuditEventSerializer,ClientSerializer,ComparableSerializer,DraftSerializer,FinalSerializer,InspectionSerializer,InstructionSerializer,InvoiceSerializer,PaymentSerializer
 
 class Scoped(ModelViewSet):
  permission_classes=(HasModuleActionPermission,); required_module=Module.VALUATION; search_fields=()
  def get_queryset(self):
-  q=self.queryset.for_organization(get_active_organization(self.request)); s=self.request.query_params.get('search','').strip()
+  org=get_active_organization(self.request);q=scope_queryset_to_property(self.queryset.for_organization(org),self.request,org); s=self.request.query_params.get('search','').strip()
   if s:
    from django.db.models import Q
    x=Q()
@@ -191,32 +192,33 @@ class AuditEventViewSet(Scoped):
 class DashboardViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,);required_module=Module.VALUATION
  def list(self,request):
-  org=get_active_organization(request);today=timezone.localdate();ins=ValuationInstruction.objects.for_organization(org);inv=ValuationInvoice.objects.for_organization(org);pay=ValuationPayment.objects.for_organization(org)
+  org=get_active_organization(request);today=timezone.localdate();ins=scope_model_queryset(ValuationInstruction,request,org);inv=scope_model_queryset(ValuationInvoice,request,org);pay=scope_model_queryset(ValuationPayment,request,org)
   active=ins.exclude(status__in=(ValuationInstruction.Status.DELIVERED,ValuationInstruction.Status.CANCELLED))
-  return Response({'kpis':{'activeInstructions':active.count(),'dueThisWeek':active.filter(due_on__lte=today+timezone.timedelta(days=7)).count(),'inspectionsPending':ValuationInspection.objects.for_organization(org).exclude(status=ValuationInspection.Status.COMPLETED).count(),'draftsInReview':DraftValuationReport.objects.for_organization(org).filter(status=DraftValuationReport.Status.REVIEW).count(),'finalReports':FinalValuationReport.objects.for_organization(org).count(),'revenue':pay.aggregate(v=Sum('amount'))['v'] or 0,'outstanding':inv.exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID)).aggregate(v=Sum('balance'))['v'] or 0},'recentInstructions':InstructionSerializer(ins[:6],many=True).data,'upcomingInspections':InspectionSerializer(ValuationInspection.objects.for_organization(org).exclude(status=ValuationInspection.Status.COMPLETED)[:5],many=True).data,'pipeline':list(ins.values('status').annotate(count=Count('id')).order_by('status')),'valuationMix':list(ins.values('valuation_type').annotate(count=Count('id')).order_by('-count'))})
+  inspections=scope_model_queryset(ValuationInspection,request,org);drafts=scope_model_queryset(DraftValuationReport,request,org);finals=scope_model_queryset(FinalValuationReport,request,org)
+  return Response({'kpis':{'activeInstructions':active.count(),'dueThisWeek':active.filter(due_on__lte=today+timezone.timedelta(days=7)).count(),'inspectionsPending':inspections.exclude(status=ValuationInspection.Status.COMPLETED).count(),'draftsInReview':drafts.filter(status=DraftValuationReport.Status.REVIEW).count(),'finalReports':finals.count(),'revenue':pay.aggregate(v=Sum('amount'))['v'] or 0,'outstanding':inv.exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID)).aggregate(v=Sum('balance'))['v'] or 0},'recentInstructions':InstructionSerializer(ins[:6],many=True).data,'upcomingInspections':InspectionSerializer(inspections.exclude(status=ValuationInspection.Status.COMPLETED)[:5],many=True).data,'pipeline':list(ins.values('status').annotate(count=Count('id')).order_by('status')),'valuationMix':list(ins.values('valuation_type').annotate(count=Count('id')).order_by('-count'))})
 
 class ValuationAnalyticsViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,);required_module=Module.VALUATION
  def list(self,request):
-  org=get_active_organization(request);instructions=ValuationInstruction.objects.for_organization(org);invoices=ValuationInvoice.objects.for_organization(org);today=timezone.localdate();overdue=invoices.filter(due_on__lt=today).exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID))
+  org=get_active_organization(request);instructions=scope_model_queryset(ValuationInstruction,request,org);invoices=scope_model_queryset(ValuationInvoice,request,org);today=timezone.localdate();overdue=invoices.filter(due_on__lt=today).exclude(status__in=(ValuationInvoice.Status.PAID,ValuationInvoice.Status.VOID))
   return Response({'teamPerformance':list(instructions.values('valuer__username','valuer__first_name','valuer__last_name').annotate(instructions=Count('id'),averageFee=Avg('quoted_fee'),delivered=Count('id',filter=Q(status=ValuationInstruction.Status.DELIVERED))).order_by('-instructions')),'aging':{'overdueInvoices':overdue.count(),'overdueBalance':overdue.aggregate(v=Sum('balance'))['v'] or 0},'reports':[{'key':'instructions','name':'Instruction pipeline and SLA'},{'key':'inspections','name':'Inspection evidence register'},{'key':'comparables','name':'Comparable evidence analysis'},{'key':'reports','name':'Final valuation reports'},{'key':'fees','name':'Fees, payments and aging'}]})
  @action(detail=False,methods=('get',),url_path=r'exports/(?P<report_kind>[^/.]+)')
  def export(self,request,report_kind=None):
   org=get_active_organization(request);response=HttpResponse(content_type='text/csv');response['Content-Disposition']=f'attachment; filename="valuation-{report_kind}.csv"';writer=csv.writer(response)
   if report_kind=='instructions':
    writer.writerow(('Reference','Client','Property','Type','Purpose','Valuer','Instruction date','Due date','Fee','Priority','Status'))
-   for x in ValuationInstruction.objects.for_organization(org).select_related('client','valuer'):writer.writerow((x.reference,x.client.name,x.property_description,x.valuation_type,x.purpose,x.valuer.username,x.instructed_on,x.due_on,x.quoted_fee,x.priority,x.status))
+   for x in scope_model_queryset(ValuationInstruction,request,org).select_related('client','valuer'):writer.writerow((x.reference,x.client.name,x.property_description,x.valuation_type,x.purpose,x.valuer.username,x.instructed_on,x.due_on,x.quoted_fee,x.priority,x.status))
   elif report_kind=='inspections':
    writer.writerow(('Reference','Instruction','Inspector','Scheduled','Completed','GPS','Evidence','Status','Findings','Issues'))
-   for x in ValuationInspection.objects.for_organization(org).select_related('instruction','inspector'):writer.writerow((x.reference,x.instruction.reference,x.inspector.username,x.scheduled_at,x.completed_at or '',f'{x.latitude or ""},{x.longitude or ""}',x.evidence_count,x.status,x.findings,x.issues))
+   for x in scope_model_queryset(ValuationInspection,request,org).select_related('instruction','inspector'):writer.writerow((x.reference,x.instruction.reference,x.inspector.username,x.scheduled_at,x.completed_at or '',f'{x.latitude or ""},{x.longitude or ""}',x.evidence_count,x.status,x.findings,x.issues))
   elif report_kind=='comparables':
    writer.writerow(('Instruction','Reference','Address','Type','Date','Price','Area','Rate','Adjustment','Adjusted value','Source'))
-   for x in ComparableEvidence.objects.for_organization(org).select_related('instruction'):writer.writerow((x.instruction.reference,x.reference,x.address,x.property_type,x.transaction_date,x.transaction_price,x.area,x.rate_per_area,x.adjustment_percent,x.adjusted_value,x.source))
+   for x in scope_model_queryset(ComparableEvidence,request,org).select_related('instruction'):writer.writerow((x.instruction.reference,x.reference,x.address,x.property_type,x.transaction_date,x.transaction_price,x.area,x.rate_per_area,x.adjustment_percent,x.adjusted_value,x.source))
   elif report_kind=='reports':
    writer.writerow(('Report','Instruction','Client','Issued','Market value','Signed by','Delivered','Method','Checksum'))
-   for x in FinalValuationReport.objects.for_organization(org).select_related('instruction__client','signed_by'):writer.writerow((x.report_number,x.instruction.reference,x.instruction.client.name,x.issued_on,x.market_value,x.signed_by.username,x.delivered_at or '',x.delivery_method,x.checksum))
+   for x in scope_model_queryset(FinalValuationReport,request,org).select_related('instruction__client','signed_by'):writer.writerow((x.report_number,x.instruction.reference,x.instruction.client.name,x.issued_on,x.market_value,x.signed_by.username,x.delivered_at or '',x.delivery_method,x.checksum))
   elif report_kind=='fees':
    writer.writerow(('Invoice','Instruction','Client','Issued','Due','Subtotal','Tax','Total','Balance','Status'))
-   for x in ValuationInvoice.objects.for_organization(org).select_related('instruction__client'):writer.writerow((x.number,x.instruction.reference,x.instruction.client.name,x.issued_on,x.due_on,x.subtotal,x.tax,x.total,x.balance,x.status))
+   for x in scope_model_queryset(ValuationInvoice,request,org).select_related('instruction__client'):writer.writerow((x.number,x.instruction.reference,x.instruction.client.name,x.issued_on,x.due_on,x.subtotal,x.tax,x.total,x.balance,x.status))
   else:raise ValidationError({'report':'Unknown valuation report.'})
   return response

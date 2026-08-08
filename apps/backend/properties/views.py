@@ -16,6 +16,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
+from core.property_scope import scope_model_queryset, scope_queryset_to_property
 
 from .models import (
     BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
@@ -41,7 +42,8 @@ class OrganizationModelViewSet(ModelViewSet):
     search_fields = ()
 
     def get_queryset(self):
-        queryset = self.queryset.for_organization(get_active_organization(self.request))
+        organization = get_active_organization(self.request)
+        queryset = scope_queryset_to_property(self.queryset.for_organization(organization), self.request, organization)
         search = self.request.query_params.get('search', '').strip()
         if search and self.search_fields:
             query = Q()
@@ -262,7 +264,9 @@ class InvoiceViewSet(OrganizationModelViewSet):
         invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
         if invoice.status != Invoice.Status.DRAFT:
             raise ValidationError({'status': 'Only draft invoices can be issued.'})
-        invoice.status = Invoice.Status.OVERDUE if invoice.due_on < timezone.localdate() else Invoice.Status.ISSUED
+        # Issuance is an explicit workflow event. Aging jobs may mark an issued
+        # invoice overdue afterwards; issuing must never skip the issued state.
+        invoice.status = Invoice.Status.ISSUED
         invoice.save(update_fields=('status', 'updated_at'))
         return Response(self.get_serializer(invoice).data)
 
@@ -713,12 +717,12 @@ class PropertyDashboardViewSet(ViewSet):
 
     def list(self, request):
         organization = get_active_organization(request)
-        properties = Property.objects.for_organization(organization)
-        units = Unit.objects.for_organization(organization)
-        leases = Lease.objects.for_organization(organization)
-        invoices = Invoice.objects.for_organization(organization)
-        receipts = Receipt.objects.for_organization(organization)
-        expenses = Expense.objects.for_organization(organization)
+        properties = scope_model_queryset(Property, request, organization)
+        units = scope_model_queryset(Unit, request, organization)
+        leases = scope_model_queryset(Lease, request, organization)
+        invoices = scope_model_queryset(Invoice, request, organization)
+        receipts = scope_model_queryset(Receipt, request, organization)
+        expenses = scope_model_queryset(Expense, request, organization)
         occupied = units.filter(status=Unit.Status.OCCUPIED).count()
         total_units = units.count()
         outstanding = invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).aggregate(total=Sum('balance'))['total'] or 0
@@ -761,7 +765,7 @@ class PropertyDashboardViewSet(ViewSet):
                 'properties': properties.count(), 'units': total_units, 'occupiedUnits': occupied,
                 'occupancyRate': round((occupied / total_units * 100), 1) if total_units else 0,
                 'activeLeases': leases.filter(status=Lease.Status.ACTIVE).count(),
-                'activeTenants': Tenant.objects.for_organization(organization).filter(status=Tenant.Status.ACTIVE).count(),
+                'activeTenants': scope_model_queryset(Tenant, request, organization).filter(status=Tenant.Status.ACTIVE).count(),
                 'outstanding': outstanding, 'collectedYtd': collected, 'expensesYtd': spent,
             },
             'recentLeases': LeaseSerializer(leases[:5], many=True).data,
@@ -784,7 +788,8 @@ class PropertyAnalyticsViewSet(ViewSet):
     @action(detail=False, methods=('get',))
     def aging(self, request):
         today = timezone.localdate()
-        invoices = Invoice.objects.for_organization(self._organization()).exclude(
+        organization = self._organization()
+        invoices = scope_model_queryset(Invoice, request, organization).exclude(
             status__in=(Invoice.Status.PAID, Invoice.Status.VOID),
         ).filter(balance__gt=0).select_related('lease__tenant', 'lease__unit__property')
         bucket_names = ('current', '31_60', '61_90', '91_120', 'over_120')
@@ -813,8 +818,8 @@ class PropertyAnalyticsViewSet(ViewSet):
         organization = self._organization()
         today = timezone.localdate()
         year_start = today.replace(month=1, day=1)
-        receipts = Receipt.objects.for_organization(organization).filter(received_on__gte=year_start)
-        expenses = Expense.objects.for_organization(organization).filter(
+        receipts = scope_model_queryset(Receipt, request, organization).filter(received_on__gte=year_start)
+        expenses = scope_model_queryset(Expense, request, organization).filter(
             incurred_on__gte=year_start, status__in=(Expense.Status.APPROVED, Expense.Status.PAID),
         )
         income = receipts.aggregate(total=Sum('amount'))['total'] or Decimal('0')
@@ -850,7 +855,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         if report_kind == 'aging':
             writer.writerow(('Invoice', 'Tenant', 'Property', 'Unit', 'Due date', 'Balance', 'Days outstanding'))
             today = timezone.localdate()
-            rows = Invoice.objects.for_organization(organization).exclude(
+            rows = scope_model_queryset(Invoice, request, organization).exclude(
                 status__in=(Invoice.Status.PAID, Invoice.Status.VOID),
             ).filter(balance__gt=0).select_related('lease__tenant', 'lease__unit__property')
             for invoice in rows:
@@ -859,23 +864,23 @@ class PropertyAnalyticsViewSet(ViewSet):
                                  max((today - invoice.due_on).days, 0)))
         elif report_kind == 'income-expense':
             writer.writerow(('Type', 'Date', 'Property / tenant', 'Category / method', 'Reference', 'Amount'))
-            for receipt in Receipt.objects.for_organization(organization).select_related('tenant'):
+            for receipt in scope_model_queryset(Receipt, request, organization).select_related('tenant'):
                 writer.writerow(('Income', receipt.received_on, receipt.tenant.name, receipt.payment_method, receipt.number, receipt.amount))
-            for expense in Expense.objects.for_organization(organization).select_related('property'):
+            for expense in scope_model_queryset(Expense, request, organization).select_related('property'):
                 writer.writerow(('Expense', expense.incurred_on, expense.property.name, expense.category, expense.invoice_number, expense.amount))
         elif report_kind == 'occupancy':
             writer.writerow(('Property', 'Unit', 'Type', 'Area', 'Status'))
-            for unit in Unit.objects.for_organization(organization).select_related('property'):
+            for unit in scope_model_queryset(Unit, request, organization).select_related('property'):
                 writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
         elif report_kind == 'lease-expiry':
             writer.writerow(('Lease', 'Tenant', 'Property', 'Unit', 'End date', 'Status', 'Monthly rent'))
-            for lease in Lease.objects.for_organization(organization).select_related('tenant', 'unit__property'):
+            for lease in scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property'):
                 writer.writerow((lease.reference, lease.tenant.name, lease.unit.property.name, lease.unit.code,
                                  lease.ends_on, lease.status, lease.monthly_rent))
         elif report_kind == 'budget-actual':
             writer.writerow(('Property', 'Year', 'Category', 'Budget', 'Actual', 'Variance', 'Status'))
             budgets = BudgetViewSet.actual_expenses
-            rows = Budget.objects.for_organization(organization).select_related('property').annotate(
+            rows = scope_model_queryset(Budget, request, organization).select_related('property').annotate(
                 actual_amount=Coalesce(Subquery(budgets), Value(Decimal('0')), output_field=DecimalField()),
             ).annotate(variance=F('amount') - F('actual_amount'))
             for budget in rows:
@@ -883,7 +888,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                                  budget.actual_amount, budget.variance, budget.status))
         elif report_kind == 'service-charge':
             writer.writerow(('Scheme', 'Property', 'Unit', 'Ratio', 'Annual amount', 'Monthly amount'))
-            rows = ServiceChargeAllocation.objects.for_organization(organization).select_related('service_charge__property', 'unit')
+            rows = scope_model_queryset(ServiceChargeAllocation, request, organization).select_related('service_charge__property', 'unit')
             for allocation in rows:
                 writer.writerow((allocation.service_charge.name, allocation.service_charge.property.name,
                                  allocation.unit.code, allocation.ratio, allocation.annual_amount,
@@ -898,21 +903,21 @@ class PropertyAnalyticsViewSet(ViewSet):
         elif report_kind == 'work-order-spend':
             from facilities.models import WorkOrder
             writer.writerow(('Work order', 'Property', 'Contractor', 'Status', 'Labor', 'Parts', 'Other', 'Total'))
-            for order in WorkOrder.objects.for_organization(organization).select_related('property', 'contractor'):
+            for order in scope_model_queryset(WorkOrder, request, organization).select_related('property', 'contractor'):
                 total = order.labor_cost + order.parts_cost + order.other_cost
                 writer.writerow((order.number, order.property.name, order.contractor.name if order.contractor else '',
                                  order.status, order.labor_cost, order.parts_cost, order.other_cost, total))
         elif report_kind == 'tenant-compliance':
             writer.writerow(('Tenant', 'Document type', 'Document number', 'Status', 'Issued', 'Expires'))
-            for document in TenantDocument.objects.for_organization(organization).select_related('tenant'):
+            for document in scope_model_queryset(TenantDocument, request, organization).select_related('tenant'):
                 writer.writerow((document.tenant.name, document.document_type, document.document_number,
                                  document.status, document.issued_on or '', document.expires_on or ''))
         elif report_kind == 'critical-dates':
             from facilities.models import Contractor
             writer.writerow(('Type', 'Reference', 'Party / Property', 'Date', 'Status'))
-            for lease in Lease.objects.for_organization(organization).select_related('tenant', 'unit__property'):
+            for lease in scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property'):
                 writer.writerow(('Lease expiry', lease.reference, f'{lease.tenant.name} / {lease.unit.property.name}', lease.ends_on, lease.status))
-            for document in TenantDocument.objects.for_organization(organization).exclude(expires_on=None).select_related('tenant'):
+            for document in scope_model_queryset(TenantDocument, request, organization).exclude(expires_on=None).select_related('tenant'):
                 writer.writerow(('Tenant document', document.document_number or document.document_type,
                                  document.tenant.name, document.expires_on, document.status))
             for contractor in Contractor.objects.for_organization(organization):

@@ -12,8 +12,7 @@ export const propertyNav: ModuleNavGroup[] = [
   {
     label: "OVERVIEW",
     items: [
-      { id: "overview",   label: "Overview",   icon: "▦" },
-      { id: "properties", label: "Properties", icon: "🏢" },
+      { id: "overview", label: "Portfolio Overview", icon: "▦" },
     ],
   },
   {
@@ -45,41 +44,50 @@ export const propertyNav: ModuleNavGroup[] = [
     label: "INSIGHTS",
     items: [
       { id: "forecast",     label: "5-Year Forecast" },
-      { id: "critical-dates", label: "Critical Dates", icon: "📅" },
     ],
   },
 ];
 
 export const facilityNav: ModuleNavGroup[] = [
   {
-    label: "FACILITY MANAGEMENT",
+    label: "OVERVIEW",
     items: [
-      { id: "overview",          label: "Dashboard",           icon: "▦" },
+      { id: "overview",          label: "Facility Overview",   icon: "▦" },
       { id: "buildings",         label: "Buildings & Locations",icon: "🏢" },
-      { id: "assets",            label: "Assets & Inventory",  icon: "📦" },
-      { id: "work-orders",       label: "Maintenance",         icon: "🔧" },
-      { id: "work-order-events", label: "Work History",        icon: "🕘" },
-      { id: "work-order-cost-items", label: "Labor & Parts",   icon: "🧾" },
-      { id: "work-order-attachments", label: "Work Media",     icon: "📎" },
-      { id: "planned-maintenance",label: "Planned Maintenance",icon: "📅" },
-      { id: "service-requests",  label: "Service Requests",    icon: "🎫" },
-      { id: "inspections",       label: "Inspections",         icon: "🔍" },
-      { id: "meters",            label: "Energy & Utilities",  icon: "⚡" },
-      { id: "contractors",       label: "Vendors & Contracts", icon: "🤝" },
-      { id: "reports",           label: "Reports & BI",        icon: "📈" },
     ],
   },
   {
-    label: "INVENTORY",
+    label: "ASSETS & STOCK",
     items: [
+      { id: "assets",            label: "Assets & Inventory",  icon: "📦" },
       { id: "spare-parts",       label: "Spare Parts",         icon: "🔩" },
       { id: "consumables",       label: "Consumables",         icon: "🧴" },
     ],
   },
   {
-    label: "FINANCE",
+    label: "MAINTENANCE",
+    items: [
+      { id: "work-orders",       label: "Maintenance",         icon: "🔧" },
+      { id: "work-order-events", label: "Work History",        icon: "🕘" },
+      { id: "work-order-cost-items", label: "Labor & Parts",   icon: "🧾" },
+      { id: "work-order-attachments", label: "Work Media",     icon: "📎" },
+      { id: "planned-maintenance",label: "Planned Maintenance",icon: "📅" },
+    ],
+  },
+  {
+    label: "OPERATIONS",
+    items: [
+      { id: "service-requests",  label: "Service Requests",    icon: "🎫" },
+      { id: "inspections",       label: "Inspections",         icon: "🔍" },
+      { id: "meters",            label: "Energy & Utilities",  icon: "⚡" },
+      { id: "contractors",       label: "Vendors & Contracts", icon: "🤝" },
+    ],
+  },
+  {
+    label: "FINANCE & INSIGHTS",
     items: [
       { id: "expenditure",       label: "Expenditure & Floats", icon: "💰" },
+      { id: "reports",           label: "Reports & BI",        icon: "📈" },
     ],
   },
 ];

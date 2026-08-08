@@ -11,6 +11,9 @@ import { useCallback } from "react";
 import { HardHat, Search, Moon, Sun, ChevronDown, Building2, Settings, LogOut, HelpCircle, ClipboardCheck, FileSpreadsheet } from "lucide-react";
 import AppSidebar from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
+import { isPublicRoute } from "@/lib/public-routes";
+import { usePropertyContext } from "@/lib/property-context";
+import { PropertyContextBar } from "@/components/property-context-bar";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
 import { useTheme } from "@/theme/theme-provider";
@@ -40,6 +43,7 @@ const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; ico
 
 export default function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { activeProperty, properties, propertyContextReady } = usePropertyContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -167,22 +171,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     return () => window.removeEventListener("mousedown", onPointer);
   }, [profileOpen]);
 
-  const isPublicRoute = [
-    "/",
-    "/login",
-    "/sign-up",
-    "/home",
-    "/about",
-    "/contact",
-    "/pricing",
-    "/product",
-    "/demo",
-    "/faq",
-    "/docs",
-    "/blog",
-  ].some((path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)));
-
-  if (isPublicRoute) {
+  if (isPublicRoute(pathname)) {
     if (session?.user && (pathname === "/login" || pathname === "/sign-up")) {
       if (typeof window !== "undefined") window.location.href = "/workspaces";
       return <div className="full-loading">Redirecting to your workspace…</div>;
@@ -197,6 +186,9 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const activeOrganization = session.organizations.find((item) => item.id === session.activeOrganizationId);
   const activeModule = modules.find((module) => pathname.startsWith(`/${module.slug}`));
   const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal");
+  if (moduleWorkspaceActive && (!propertyContextReady || (properties.length > 0 && !activeProperty))) {
+    return <div className="full-loading">Loading your property workspace…</div>;
+  }
   const displayName = session.user.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
     : session.user.username;
@@ -451,7 +443,10 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
           </Toolbar>
         </AppBar>
 
-        {children}
+        {moduleWorkspaceActive ? <PropertyContextBar /> : null}
+        <div key={activeProperty?.id ?? "portfolio"} className="property-scoped-route">
+          {children}
+        </div>
       </div>
     </div>
 

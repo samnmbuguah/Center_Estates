@@ -13,6 +13,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
+from core.property_scope import scope_model_queryset, scope_queryset_to_property
 
 from .models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 from .serializers import AgentCommissionSerializer, BuyerSerializer, InstallmentSerializer, PropertySaleSerializer, SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer, SalesAuditEventSerializer, SiteVisitSerializer
@@ -24,7 +25,8 @@ class SalesModelViewSet(ModelViewSet):
     search_fields = ()
 
     def get_queryset(self):
-        queryset = self.queryset.for_organization(get_active_organization(self.request))
+        organization = get_active_organization(self.request)
+        queryset = scope_queryset_to_property(self.queryset.for_organization(organization), self.request, organization)
         search = self.request.query_params.get('search', '').strip()
         if search:
             from django.db.models import Q
@@ -407,11 +409,11 @@ class SalesDashboardViewSet(ViewSet):
 
     def list(self, request):
         organization = get_active_organization(request)
-        listings = SaleListing.objects.for_organization(organization)
-        sales = PropertySale.objects.for_organization(organization)
-        payments = SalePayment.objects.for_organization(organization)
-        visits = SiteVisit.objects.for_organization(organization)
-        commissions = AgentCommission.objects.for_organization(organization)
+        listings = scope_model_queryset(SaleListing, request, organization)
+        sales = scope_model_queryset(PropertySale, request, organization)
+        payments = scope_model_queryset(SalePayment, request, organization)
+        visits = scope_model_queryset(SiteVisit, request, organization)
+        commissions = scope_model_queryset(AgentCommission, request, organization)
         verified = payments.filter(status=SalePayment.Status.VERIFIED)
         pipeline = sales.exclude(status__in=(PropertySale.Status.COMPLETED, PropertySale.Status.CANCELLED))
         return Response({
@@ -422,7 +424,7 @@ class SalesDashboardViewSet(ViewSet):
                 'salesValue': sales.exclude(status=PropertySale.Status.CANCELLED).aggregate(total=Sum('agreed_price'))['total'] or 0,
                 'verifiedPayments': verified.aggregate(total=Sum('amount'))['total'] or 0,
                 'pendingPayments': payments.filter(status=SalePayment.Status.PENDING).count(),
-                'activeBuyers': Buyer.objects.for_organization(organization).filter(status__in=(Buyer.Status.QUALIFIED, Buyer.Status.ACTIVE)).count(),
+                'activeBuyers': scope_model_queryset(Buyer, request, organization).filter(status__in=(Buyer.Status.QUALIFIED, Buyer.Status.ACTIVE)).count(),
                 'siteVisits': visits.count(), 'pipelineDeals': pipeline.count(),
                 'pendingCommissions': commissions.exclude(status=AgentCommission.Status.PAID).aggregate(total=Sum('amount'))['total'] or 0,
             },
@@ -442,14 +444,14 @@ class SalesAnalyticsViewSet(ViewSet):
 
     def list(self, request):
         organization = self._organization()
-        performance = PropertySale.objects.for_organization(organization).values(
+        performance = scope_model_queryset(PropertySale, request, organization).values(
             'agent__id', 'agent__username', 'agent__first_name', 'agent__last_name',
         ).annotate(
             deals=Count('id'), value=Sum('agreed_price'),
             completed=Count('id', filter=Q(status=PropertySale.Status.COMPLETED)),
             cancelled=Count('id', filter=Q(status=PropertySale.Status.CANCELLED)),
         ).order_by('-value')
-        overdue = Installment.objects.for_organization(organization).filter(
+        overdue = scope_model_queryset(Installment, request, organization).filter(
             due_on__lt=timezone.localdate(),
         ).exclude(status=Installment.Status.PAID).aggregate(
             amount=Sum('amount'), paid=Sum('paid_amount'), count=Count('id'),
@@ -477,27 +479,27 @@ class SalesAnalyticsViewSet(ViewSet):
         writer = csv.writer(response)
         if report_kind == 'inventory':
             writer.writerow(('Project', 'Unit', 'Type', 'Floor', 'Price', 'Progress', 'Status'))
-            for row in SaleListing.objects.for_organization(organization).select_related('project', 'unit'):
+            for row in scope_model_queryset(SaleListing, request, organization).select_related('project', 'unit'):
                 writer.writerow((row.project.name, row.unit.code, row.unit.unit_type, row.unit.floor,
                                  row.list_price, row.construction_progress, row.status))
         elif report_kind == 'sales':
             writer.writerow(('Sale', 'Buyer', 'Project', 'Unit', 'Agent', 'Price', 'Status'))
-            for row in PropertySale.objects.for_organization(organization).select_related('buyer', 'listing__project', 'listing__unit', 'agent'):
+            for row in scope_model_queryset(PropertySale, request, organization).select_related('buyer', 'listing__project', 'listing__unit', 'agent'):
                 writer.writerow((row.reference, row.buyer.full_name, row.listing.project.name,
                                  row.listing.unit.code, row.agent.username if row.agent else '', row.agreed_price, row.status))
         elif report_kind == 'payments':
             writer.writerow(('Payment', 'Sale', 'Buyer', 'Date', 'Amount', 'Method', 'External reference', 'Status'))
-            for row in SalePayment.objects.for_organization(organization).select_related('sale__buyer'):
+            for row in scope_model_queryset(SalePayment, request, organization).select_related('sale__buyer'):
                 writer.writerow((row.reference, row.sale.reference, row.sale.buyer.full_name, row.paid_on,
                                  row.amount, row.method, row.external_reference, row.status))
         elif report_kind == 'commissions':
             writer.writerow(('Commission', 'Agent', 'Sale', 'Rate', 'Amount', 'Payment gate', 'Construction gate', 'Status'))
-            for row in AgentCommission.objects.for_organization(organization).select_related('agent', 'sale'):
+            for row in scope_model_queryset(AgentCommission, request, organization).select_related('agent', 'sale'):
                 writer.writerow((row.reference, row.agent.username, row.sale.reference, row.rate_percent,
                                  row.amount, row.required_paid_percent, row.required_construction_percent, row.status))
         elif report_kind == 'visits':
             writer.writerow(('Visit', 'Visitor', 'Phone', 'Project', 'Interest', 'Agent', 'Visited', 'Follow up'))
-            for row in SiteVisit.objects.for_organization(organization).select_related('project', 'introducing_agent'):
+            for row in scope_model_queryset(SiteVisit, request, organization).select_related('project', 'introducing_agent'):
                 writer.writerow((row.reference, row.visitor_name, row.phone, row.project.name,
                                  row.interested_unit_type, row.introducing_agent.username if row.introducing_agent else '',
                                  row.visited_at, row.follow_up_on or ''))

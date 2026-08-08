@@ -12,13 +12,14 @@ from rest_framework.viewsets import ModelViewSet,ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
+from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 from .models import BidDecision,CompanyDocument,FinancialItem,ProposalSection,Tender,TenderAuditEvent,TenderOutcome,TenderRequirement,TenderReview,TenderSubmission,TenderTask
 from .serializers import CompanyDocumentSerializer,DecisionSerializer,FinancialItemSerializer,OutcomeSerializer,ProposalSectionSerializer,RequirementSerializer,ReviewSerializer,SubmissionSerializer,TaskSerializer,TenderAuditEventSerializer,TenderSerializer
 
 class Scoped(ModelViewSet):
  permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER; search_fields=()
  def get_queryset(self):
-  q=self.queryset.for_organization(get_active_organization(self.request)); s=self.request.query_params.get('search','').strip()
+  org=get_active_organization(self.request); q=scope_queryset_to_property(self.queryset.for_organization(org),self.request,org); s=self.request.query_params.get('search','').strip()
   if s:
    from django.db.models import Q
    query=Q()
@@ -36,7 +37,8 @@ class Scoped(ModelViewSet):
 class TenderViewSet(Scoped):
  write_permission = 'tender.intake'
  queryset=Tender.objects.select_related('owner'); serializer_class=TenderSerializer; search_fields=('reference','title','client','category')
- def perform_create(self,serializer): serializer.save(organization=self._validate_relations(serializer),owner=self.request.user)
+ def perform_create(self,serializer):
+  org=self._validate_relations(serializer); serializer.save(organization=org,owner=self.request.user,property=serializer.validated_data.get('property') or get_active_property(self.request,org))
  def perform_update(self,serializer):
   if self.get_object().stage in (Tender.Stage.SUBMITTED,Tender.Stage.AWARDED,Tender.Stage.REGRETTED): raise ValidationError({'tender':'Submitted and closed tenders are immutable.'})
   if 'stage' in serializer.validated_data and serializer.validated_data['stage']!=self.get_object().stage: raise ValidationError({'stage':'Use the transition action so approval gates and the audit trail are enforced.'})
@@ -176,32 +178,32 @@ class TenderAuditEventViewSet(Scoped):
 class DashboardViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER
  def list(self,request):
-  org=get_active_organization(request); now=timezone.now(); tenders=Tender.objects.for_organization(org); tasks=TenderTask.objects.for_organization(org); docs=CompanyDocument.objects.for_organization(org)
+  org=get_active_organization(request); now=timezone.now(); tenders=scope_model_queryset(Tender,request,org); tasks=scope_model_queryset(TenderTask,request,org); docs=CompanyDocument.objects.for_organization(org)
   active=tenders.exclude(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
   return Response({'kpis':{'activeTenders':active.count(),'dueThisWeek':active.filter(submission_deadline__lte=now+timezone.timedelta(days=7)).count(),'pipelineValue':active.aggregate(v=Sum('estimated_value'))['v'] or 0,'pendingTasks':tasks.exclude(status='completed').count(),'expiringDocuments':docs.filter(expires_on__lte=timezone.localdate()+timezone.timedelta(days=30)).count(),'submitted':tenders.filter(stage=Tender.Stage.SUBMITTED).count()},'recentTenders':TenderSerializer(tenders[:6],many=True).data,'urgentTasks':TaskSerializer(tasks.exclude(status='completed').order_by('due_on')[:6],many=True).data,'stageFunnel':list(tenders.values('stage').annotate(count=Count('id')).order_by('stage'))})
 
 class TenderAnalyticsViewSet(ViewSet):
  permission_classes=(HasModuleActionPermission,); required_module=Module.TENDER
  def list(self,request):
-  org=get_active_organization(request); tenders=Tender.objects.for_organization(org); submitted=tenders.filter(stage__in=(Tender.Stage.SUBMITTED,Tender.Stage.AWARDED,Tender.Stage.REGRETTED)); closed=tenders.filter(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
+  org=get_active_organization(request); tenders=scope_model_queryset(Tender,request,org); submitted=tenders.filter(stage__in=(Tender.Stage.SUBMITTED,Tender.Stage.AWARDED,Tender.Stage.REGRETTED)); closed=tenders.filter(stage__in=(Tender.Stage.AWARDED,Tender.Stage.REGRETTED))
   return Response({'outcomes':list(closed.values('stage').annotate(count=Count('id'),value=Sum('estimated_value')).order_by('stage')),'metrics':{'submitted':submitted.count(),'awarded':closed.filter(stage=Tender.Stage.AWARDED).count(),'regretted':closed.filter(stage=Tender.Stage.REGRETTED).count(),'winRate':round(closed.filter(stage=Tender.Stage.AWARDED).count()/closed.count()*100,2) if closed.exists() else 0},'reports':[{'key':'pipeline','name':'Tender pipeline and deadlines'},{'key':'requirements','name':'Requirement compliance matrix'},{'key':'tasks','name':'Bid plan and workload'},{'key':'pricing','name':'Financial proposal'},{'key':'outcomes','name':'Awards, regrets and lessons'}]})
  @action(detail=False,methods=('get',),url_path=r'exports/(?P<report_kind>[^/.]+)')
  def export(self,request,report_kind=None):
   org=get_active_organization(request); response=HttpResponse(content_type='text/csv'); response['Content-Disposition']=f'attachment; filename="tender-{report_kind}.csv"'; writer=csv.writer(response)
   if report_kind=='pipeline':
    writer.writerow(('Reference','Title','Client','Deadline','Value','Currency','Stage','Readiness'))
-   for x in Tender.objects.for_organization(org): writer.writerow((x.reference,x.title,x.client,x.submission_deadline,x.estimated_value,x.currency,x.stage,x.readiness_score))
+   for x in scope_model_queryset(Tender,request,org): writer.writerow((x.reference,x.title,x.client,x.submission_deadline,x.estimated_value,x.currency,x.stage,x.readiness_score))
   elif report_kind=='requirements':
    writer.writerow(('Tender','Category','Requirement','Mandatory','Status','Confidence','Citation','Model'))
-   for x in TenderRequirement.objects.for_organization(org).select_related('tender'): writer.writerow((x.tender.reference,x.category,x.text,x.mandatory,x.status,x.confidence or '',x.citation,x.model_version))
+   for x in scope_model_queryset(TenderRequirement,request,org).select_related('tender'): writer.writerow((x.tender.reference,x.category,x.text,x.mandatory,x.status,x.confidence or '',x.citation,x.model_version))
   elif report_kind=='tasks':
    writer.writerow(('Tender','Task','Owner','Start','Due','Status','Progress'))
-   for x in TenderTask.objects.for_organization(org).select_related('tender','owner'): writer.writerow((x.tender.reference,x.title,x.owner.username,x.starts_on,x.due_on,x.status,x.progress))
+   for x in scope_model_queryset(TenderTask,request,org).select_related('tender','owner'): writer.writerow((x.tender.reference,x.title,x.owner.username,x.starts_on,x.due_on,x.status,x.progress))
   elif report_kind=='pricing':
    writer.writerow(('Tender','Code','Description','Quantity','Unit','Rate','Amount','Approved'))
-   for x in FinancialItem.objects.for_organization(org).select_related('tender'): writer.writerow((x.tender.reference,x.code,x.description,x.quantity,x.unit,x.unit_rate,x.amount,x.approved))
+   for x in scope_model_queryset(FinancialItem,request,org).select_related('tender'): writer.writerow((x.tender.reference,x.code,x.description,x.quantity,x.unit,x.unit_rate,x.amount,x.approved))
   elif report_kind=='outcomes':
    writer.writerow(('Tender','Result','Notified','Awarded value','Winner','Feedback','Lessons learned'))
-   for x in TenderOutcome.objects.for_organization(org).select_related('tender'): writer.writerow((x.tender.reference,x.result,x.notified_on,x.awarded_value or '',x.winner,x.feedback,x.lessons_learned))
+   for x in scope_model_queryset(TenderOutcome,request,org).select_related('tender'): writer.writerow((x.tender.reference,x.result,x.notified_on,x.awarded_value or '',x.winner,x.feedback,x.lessons_learned))
   else: raise ValidationError({'report':'Unknown tender report.'})
   return response

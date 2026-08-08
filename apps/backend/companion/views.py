@@ -10,6 +10,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
+from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
 from .models import Task, TaskEvent, TaskTemplate
 from .serializers import TaskEventSerializer, TaskSerializer, TaskTemplateSerializer
@@ -30,7 +31,8 @@ class CompanionModelViewSet(ModelViewSet):
     search_fields = ()
 
     def get_queryset(self):
-        queryset = self.queryset.for_organization(get_active_organization(self.request))
+        organization = get_active_organization(self.request)
+        queryset = scope_queryset_to_property(self.queryset.for_organization(organization), self.request, organization)
         search = self.request.query_params.get('search', '').strip()
         if search:
             from django.db.models import Q
@@ -48,7 +50,11 @@ class CompanionModelViewSet(ModelViewSet):
         return organization
 
     def perform_create(self, serializer):
-        serializer.save(organization=self._validate_organization(serializer))
+        organization = self._validate_organization(serializer)
+        values = {'organization': organization}
+        if serializer.Meta.model is Task and 'property' not in serializer.validated_data:
+            values['property'] = get_active_property(self.request, organization)
+        serializer.save(**values)
 
     def perform_update(self, serializer):
         self._validate_organization(serializer)
@@ -257,7 +263,7 @@ class CompanionDashboardViewSet(ViewSet):
     def list(self, request):
         organization = get_active_organization(request)
         now = timezone.now()
-        tasks = Task.objects.for_organization(organization).filter(assignee=request.user)
+        tasks = scope_model_queryset(Task, request, organization).filter(assignee=request.user)
         active = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
         return Response({
             'kpis': {
@@ -280,7 +286,7 @@ class CompanionDashboardViewSet(ViewSet):
         now = timezone.now()
 
         # Gather real-time context metrics across the organization
-        tasks = Task.objects.for_organization(organization)
+        tasks = scope_model_queryset(Task, request, organization)
         active_tasks = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
         overdue_count = active_tasks.filter(due_at__lt=now).count()
         escalated_count = active_tasks.filter(escalated=True).count()
@@ -377,7 +383,7 @@ class PerformanceViewSet(ViewSet):
         date_from = request.query_params.get('from', '')
         date_to = request.query_params.get('to', '')
 
-        tasks = Task.objects.for_organization(organization)
+        tasks = scope_model_queryset(Task, request, organization)
         completed = tasks.filter(status=Task.Status.COMPLETED)
         now = timezone.now()
         active = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
@@ -436,7 +442,7 @@ class PerformanceViewSet(ViewSet):
         user = get_user_model().objects.filter(pk=user_id, memberships__organization=organization).first()
         if not user:
             raise ValidationError({'user_id': 'Staff member not found.'})
-        tasks = Task.objects.for_organization(organization).filter(assignee=user).order_by('-created_at')
+        tasks = scope_model_queryset(Task, request, organization).filter(assignee=user).order_by('-created_at')
         return Response({
             'user': {'id': str(user.pk), 'username': user.username, 'name': user.get_full_name() or user.username},
             'tasks': TaskSerializer(tasks[:50], many=True).data,
@@ -524,4 +530,3 @@ class TelemetryViewSet(ViewSet):
                 note=f"Telemetry [{event}]: {properties.get('element', properties.get('path', ''))} (Module: {module})"
             )
         return Response({'status': 'ok'})
-

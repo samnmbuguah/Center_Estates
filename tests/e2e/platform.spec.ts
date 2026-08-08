@@ -19,20 +19,16 @@ async function openConstructionSection(page: Page, testInfo: TestInfo, name: str
   await openModuleSection(page, name, testInfo);
 }
 
-test("subscribed modules navigate through the unified shell", async ({ page }, testInfo) => {
+test("subscribed modules navigate through the unified shell", async ({ page }) => {
   const modules = [
-    ["Property", "Property Management"],
-    ["Facility", "Facility Management"],
-    ["Sales", "Sales Management"],
-    ["Tender", "Tender Management"],
-    ["Valuation", "Valuation"],
-    ["Construction Monitoring", "Project monitoring"],
+    ["property", "Property Management"],
+    ["facility", "Facility Management"],
+    ["valuation", "Valuation Management"],
+    ["companion", "Companion & Staff Performance"],
   ] as const;
-  for (const [link, heading] of modules) {
-    if (testInfo.project.name.startsWith("mobile")) {
-      await page.getByRole("button", { name: "Open navigation" }).click();
-    }
-    await page.getByRole("link", { name: link, exact: true }).click();
+  for (const [slug, heading] of modules) {
+    await page.goto("/workspaces");
+    await page.locator(`a.module-card[href="/${slug}"]`).click();
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     await expect(page.locator(".form-error")).toHaveCount(0);
   }
@@ -69,14 +65,102 @@ test("property command center renders live portfolio intelligence", async ({ pag
 test("property navigation uses the client-approved consolidated hierarchy", async ({ page }) => {
   await page.goto("/property?tab=overview");
   const navigation = page.locator(".module-nav-bar");
+  await expect(navigation.getByRole("tab", { name: /TENANCY/ })).toBeVisible();
+  await expect(navigation.getByRole("tab", { name: /COLLECTIONS/ })).toBeVisible();
+  await navigation.getByRole("tab", { name: /TENANCY/ }).click();
   await expect(navigation.getByRole("button", { name: /Tenants & Occupancy$/ })).toBeVisible();
+  await navigation.getByRole("tab", { name: /COLLECTIONS/ }).click();
   await expect(navigation.getByRole("button", { name: /Financials$/ })).toBeVisible();
   await expect(navigation.getByRole("button", { name: /Management Fees$/ })).toBeVisible();
   await expect(navigation.getByRole("button", { name: /Rent Collection$/ })).toHaveCount(0);
+  await navigation.getByRole("tab", { name: /TENANCY/ }).click();
   await navigation.getByRole("button", { name: /Tenants & Occupancy$/ }).click();
   for (const label of ["Occupancy", "Tenants", "Leases", "Documents"]) {
     await expect(page.locator(".property-workspace").getByRole("tab", { name: label, exact: true })).toBeVisible();
   }
+});
+
+test("public marketing and authenticated command center have distinct responsibilities", async ({ browser, page }) => {
+  const context = await browser.newContext();
+  const publicPage = await context.newPage();
+  await publicPage.goto("/");
+  await expect(publicPage.getByRole("heading", { name: /Smart ERP/i })).toBeVisible();
+  await expect(publicPage.getByText("Executive command center", { exact: false })).toHaveCount(0);
+
+  for (const route of ["/product", "/pricing", "/about", "/blog", "/faq", "/demo", "/contact", "/docs", "/sign-up", "/login"]) {
+    await publicPage.goto(route);
+    await expect(publicPage).not.toHaveURL(/\/login\?next=/);
+  }
+  await context.close();
+
+  await page.goto("/workspaces");
+  await expect(page.getByRole("heading", { name: "ERP modules", exact: true })).toBeVisible();
+  await expect(page.getByText("Critical Alerts", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("My Tasks", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Onboard property/i })).toBeVisible();
+});
+
+test("property context persists between modules and scopes horizontal-tab data", async ({ page }) => {
+  await page.goto("/facility?tab=assets");
+  const propertySelector = page.getByLabel("Current property");
+  await expect(propertySelector.getByRole("option")).toHaveCount(3);
+
+  const nyaliId = await propertySelector.locator("option", { hasText: "Nyali Trade Centre" }).getAttribute("value");
+  await page.evaluate(() => { (window as typeof window & { __propertySwitchMarker?: string }).__propertySwitchMarker = "shell-preserved"; });
+  await propertySelector.selectOption(nyaliId ?? "");
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { __propertySwitchMarker?: string }).__propertySwitchMarker)).toBe("shell-preserved");
+  await expect(page.getByLabel("Current property")).toHaveValue(/.+/);
+  await expect(page.getByText("Central Air Handling Unit", { exact: true })).toBeVisible();
+  await expect(page.getByText("Standby Generator", { exact: true })).toHaveCount(0);
+
+  await page.goto("/valuation?tab=instructions");
+  await expect(page.getByLabel("Current property").locator("option:checked")).toContainText("Nyali Trade Centre");
+  await expect(page.getByText("VAL-2026-023", { exact: true })).toBeVisible();
+
+  const kilimaniId = await page.getByLabel("Current property").locator("option", { hasText: "Kilimani Heights Residences" }).getAttribute("value");
+  await page.getByLabel("Current property").selectOption(kilimaniId ?? "");
+  await page.goto("/facility?tab=assets");
+  await expect(page.getByText("Standby Generator", { exact: true })).toBeVisible();
+  await expect(page.getByText("Central Air Handling Unit", { exact: true })).toHaveCount(0);
+});
+
+test("horizontal navigation remains legible in light and dark themes", async ({ page }) => {
+  await page.goto("/facility?tab=assets");
+  const navButton = page.locator(".module-nav-pages button").first();
+  await expect(navButton).toBeVisible();
+
+  const contrast = async () => navButton.evaluate((element) => {
+    const parse = (value: string) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = value;
+      context.fillRect(0, 0, 1, 1);
+      return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+    };
+    const luminance = (rgb: number[]) => {
+      const channels = rgb.map((part) => {
+        const value = part / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    };
+    const style = getComputedStyle(element);
+    const foreground = luminance(parse(style.color));
+    const background = luminance(parse(getComputedStyle(element.closest(".module-nav-bar")!).backgroundColor));
+    return {
+      ratio: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
+      foreground: style.color,
+      background: getComputedStyle(element.closest(".module-nav-bar")!).backgroundColor,
+    };
+  });
+
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  expect((await contrast()).ratio).toBeGreaterThanOrEqual(4.5);
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  const darkContrast = await contrast();
+  expect(darkContrast.ratio, JSON.stringify(darkContrast)).toBeGreaterThanOrEqual(4.5);
 });
 
 test("property tenant onboarding and compliance dialogs are connected", async ({ page }, testInfo) => {

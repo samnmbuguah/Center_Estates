@@ -23,9 +23,6 @@ type Pulse = {
   companion?: { dueToday: number; overdue: number; escalated: number };
 };
 
-type InboxAlert = { module: string; severity: string; title: string; detail: string; href: string };
-type InboxTask = { module: string; title: string; href: string; priority: number };
-
 const money = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
 
 export function CommandCenterWorkspace() {
@@ -47,8 +44,6 @@ export function CommandCenterWorkspace() {
     ? "Platform administrator"
     : session?.roles?.join(", ") || "Organization member";
   const [pulse, setPulse] = useState<Pulse>({});
-  const [alerts, setAlerts] = useState<InboxAlert[]>([]);
-  const [tasks, setTasks] = useState<InboxTask[]>([]);
   const [pulseLoading, setPulseLoading] = useState(true);
   const moduleSlugs = session?.modules?.map((module) => module.slug).join(",") ?? "";
 
@@ -62,7 +57,7 @@ export function CommandCenterWorkspace() {
       const jobs: Promise<void>[] = [];
       if (slugSet.has("property")) {
         jobs.push(
-          apiFetch("/property/dashboard/", {}, organizationId).then(async (response) => {
+          apiFetch("/property/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
             if (!response.ok) return;
             const data = await response.json();
             next.property = {
@@ -76,7 +71,7 @@ export function CommandCenterWorkspace() {
       }
       if (slugSet.has("facility")) {
         jobs.push(
-          apiFetch("/facility/dashboard/", {}, organizationId).then(async (response) => {
+          apiFetch("/facility/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
             if (!response.ok) return;
             const data = await response.json();
             next.facility = {
@@ -89,7 +84,7 @@ export function CommandCenterWorkspace() {
       }
       if (slugSet.has("sales")) {
         jobs.push(
-          apiFetch("/sales/dashboard/", {}, organizationId).then(async (response) => {
+          apiFetch("/sales/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
             if (!response.ok) return;
             const data = await response.json();
             next.sales = {
@@ -102,7 +97,7 @@ export function CommandCenterWorkspace() {
       }
       if (slugSet.has("monitoring")) {
         jobs.push(
-          apiFetch("/construction/dashboard/", {}, organizationId).then(async (response) => {
+          apiFetch("/construction/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
             if (!response.ok) return;
             const data = await response.json();
             next.monitoring = {
@@ -116,7 +111,7 @@ export function CommandCenterWorkspace() {
       }
       if (slugSet.has("tender")) {
         jobs.push(
-          apiFetch("/tender/dashboard/", {}, organizationId).then(async (response) => {
+          apiFetch("/tender/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
             if (!response.ok) return;
             const data = await response.json();
             next.tender = {
@@ -128,7 +123,7 @@ export function CommandCenterWorkspace() {
       }
       if (slugSet.has("valuation")) {
         jobs.push(
-          apiFetch("/valuation/dashboard/", {}, organizationId).then(async (response) => {
+          apiFetch("/valuation/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
             if (!response.ok) return;
             const data = await response.json();
             next.valuation = {
@@ -140,7 +135,7 @@ export function CommandCenterWorkspace() {
       }
       if (slugSet.has("companion")) {
         jobs.push(
-          apiFetch("/companion/dashboard/", {}, organizationId).then(async (response) => {
+          apiFetch("/companion/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId).then(async (response) => {
             if (!response.ok) return;
             const data = await response.json();
             next.companion = {
@@ -151,16 +146,6 @@ export function CommandCenterWorkspace() {
           }),
         );
       }
-      jobs.push(
-        apiFetch("/workspace/inbox/", {}, organizationId).then(async (response) => {
-          if (!response.ok) return;
-          const data = await response.json();
-          if (!cancelled) {
-            setAlerts(data.alerts ?? []);
-            setTasks(data.tasks ?? []);
-          }
-        }),
-      );
       await Promise.all(jobs);
       if (!cancelled) {
         setPulse(next);
@@ -219,18 +204,6 @@ export function CommandCenterWorkspace() {
     return null;
   };
 
-  const quickLinks = [
-    { href: "/property", label: "Add New Property", icon: "🏢", show: allowed.has("property") },
-    { href: "/facility", label: "New Maintenance Request", icon: "🔧", show: allowed.has("facility") },
-    { href: "/valuation", label: "New Valuation Instruction", icon: "📐", show: allowed.has("valuation") },
-  ].filter((item) => item.show);
-
-  const severityClass = (severity: string) => {
-    if (severity === "high") return "danger";
-    if (severity === "medium") return "warning";
-    return "info";
-  };
-
   return (
     <div className="page-wrap command-center">
       <section className="command-welcome">
@@ -261,6 +234,11 @@ export function CommandCenterWorkspace() {
               <i key={module.slug} title={module.name} style={{ background: module.accent }} />
             ))}
           </div>
+          {allowed.has("property") ? (
+            <Link className="command-onboard-action" href="/property?tab=properties&action=add-property">
+              + Onboard property
+            </Link>
+          ) : null}
         </aside>
       </section>
 
@@ -315,113 +293,29 @@ export function CommandCenterWorkspace() {
             </div>
           </section>
 
-          <section className="at-a-glance" aria-labelledby="glance-heading">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Portfolio pulse</p>
-                <h2 id="glance-heading">At a glance</h2>
-              </div>
-            </div>
-            <div className="glance-grid">
-              <article>
-                <span className="glance-icon" style={{ background: "#fee2e2", color: "#dc2626" }}>🏢</span>
-                <div>
-                  <small>Properties</small>
-                  <strong>{pulse.property ? pulse.property.properties : allowed.has("property") ? "…" : "Locked"}</strong>
-                </div>
-              </article>
-              <article>
-                <span className="glance-icon" style={{ background: "#fee2e2", color: "#dc2626" }}>👥</span>
-                <div>
-                  <small>Tenants</small>
-                  <strong>{pulse.property ? pulse.property.tenants : allowed.has("property") ? "…" : "Locked"}</strong>
-                </div>
-              </article>
-              <article>
-                <span className="glance-icon" style={{ background: "#ffedd5", color: "#ea580c" }}>💰</span>
-                <div>
-                  <small>Outstanding rent</small>
-                  <strong>{pulse.property ? money.format(pulse.property.outstanding) : allowed.has("property") ? "…" : "Locked"}</strong>
-                </div>
-              </article>
-              <article>
-                <span className="glance-icon" style={{ background: "#dcfce7", color: "#16a34a" }}>🔧</span>
-                <div>
-                  <small>Open maintenance</small>
-                  <strong>{pulse.facility ? pulse.facility.openWorkOrders : allowed.has("facility") ? "…" : "Locked"}</strong>
-                </div>
-              </article>
-              <article>
-                <span className="glance-icon" style={{ background: "#ede9fe", color: "#7c3aed" }}>✅</span>
-                <div>
-                  <small>PPM compliance</small>
-                  <strong>{pulse.facility ? `${pulse.facility.compliance}%` : allowed.has("facility") ? "…" : "Locked"}</strong>
-                </div>
-              </article>
-            </div>
-          </section>
         </div>
 
         <aside className="command-rail">
-          <article className="rail-card">
+          <article className="rail-card command-pulse-card" aria-labelledby="glance-heading">
             <header>
-              <h3>Critical Alerts</h3>
-              <span className="badge-count">{alerts.length}</span>
+              <div>
+                <p className="eyebrow">Portfolio pulse</p>
+                <h3 id="glance-heading">At a glance</h3>
+              </div>
+              <span className="module-live"><i /> Live</span>
             </header>
-            <ul className="rail-list">
-              {alerts.length ? (
-                alerts.map((item) => (
-                  <li key={`${item.href}-${item.title}`}>
-                    <span className={`rail-dot ${severityClass(item.severity)}`} />
-                    <div>
-                      <strong>{item.title}</strong>
-                      <small>{item.detail}</small>
-                    </div>
-                    <Link href={item.href}>→</Link>
-                  </li>
-                ))
-              ) : (
-                <li>
-                  <span className="rail-dot info" />
-                  <div>
-                    <strong>{pulseLoading ? "Loading live alerts…" : "No critical alerts right now"}</strong>
-                    <small>Organization-scoped inbox API</small>
-                  </div>
-                </li>
-              )}
-            </ul>
-          </article>
-
-          <article className="rail-card">
-            <header>
-              <h3>My Tasks</h3>
-              <span className="badge-count">{tasks.length || quickLinks.length}</span>
-            </header>
-            <ul className="rail-list task-list">
-              {(tasks.length ? tasks : quickLinks.map((item) => ({ title: item.label, href: item.href, module: item.href, priority: 5 }))).slice(0, 5).map((item) => (
-                <li key={`${item.href}-${item.title}`}>
-                  <span aria-hidden="true">☐</span>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <small>{item.module}</small>
-                  </div>
-                  <Link href={item.href}>→</Link>
-                </li>
-              ))}
-            </ul>
-          </article>
-
-          <article className="rail-card">
-            <header>
-              <h3>Quick Links</h3>
-            </header>
-            <div className="quick-link-stack">
-              {quickLinks.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <span aria-hidden="true">{item.icon}</span>
-                  {item.label}
-                  <b>→</b>
-                </Link>
+            <div className="glance-grid">
+              {[
+                ["🏢", "Properties", pulse.property?.properties, allowed.has("property")],
+                ["👥", "Tenants", pulse.property?.tenants, allowed.has("property")],
+                ["💰", "Outstanding rent", pulse.property ? money.format(pulse.property.outstanding) : undefined, allowed.has("property")],
+                ["🔧", "Open maintenance", pulse.facility?.openWorkOrders, allowed.has("facility")],
+                ["✅", "PPM compliance", pulse.facility ? `${pulse.facility.compliance}%` : undefined, allowed.has("facility")],
+              ].map(([icon, label, value, enabled]) => (
+                <article key={String(label)}>
+                  <span className="glance-icon">{String(icon)}</span>
+                  <div><small>{String(label)}</small><strong>{value ?? (enabled ? "…" : "Locked")}</strong></div>
+                </article>
               ))}
             </div>
           </article>
@@ -430,10 +324,11 @@ export function CommandCenterWorkspace() {
             <div>
               <span>?</span>
               <p>
-                <strong>Need help finding a workflow?</strong>
-                <small>Access is filtered by subscription and role.</small>
+                <strong>Tasks, alerts and approvals live in Companion.</strong>
+                <small>Open it for your daily priorities without duplicating them here.</small>
               </p>
             </div>
+            {allowed.has("companion") ? <Link href="/companion">Open Companion →</Link> : null}
           </section>
         </aside>
       </div>

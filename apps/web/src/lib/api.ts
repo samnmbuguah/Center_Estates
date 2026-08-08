@@ -37,6 +37,16 @@ export type Session = {
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {
   const headers = new Headers(init.headers);
   if (organizationId) headers.set("X-Organization-ID", organizationId);
+  if (typeof window !== "undefined" && !headers.has("X-Property-Scope") && !headers.has("X-Property-ID")) {
+    const activeOrganization = organizationId ?? localStorage.getItem("ce_organization");
+    const raw = localStorage.getItem(activeOrganization ? `ce-active-property:${activeOrganization}` : "ce-active-property");
+    if (raw) {
+      try {
+        const property = JSON.parse(raw) as { id?: string };
+        if (property.id) headers.set("X-Property-ID", property.id);
+      } catch { /* ignore malformed local context */ }
+    }
+  }
   const csrf = csrfFromCookie();
   if (csrf && !headers.has("X-CSRFToken")) headers.set("X-CSRFToken", csrf);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");

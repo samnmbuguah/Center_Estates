@@ -37,7 +37,7 @@ export function Home() {
         <div className="hero-left">
           <div className="hero-badge">
             <span className="hero-badge-dot" />
-            Independent Platform · Kenya
+            Modular Estate Operations Platform · Kenya
           </div>
 
           <h1 className="hero-h1">
@@ -47,13 +47,13 @@ export function Home() {
           </h1>
 
           <p className="hero-lead">
-            Monitor projects, verify progress, manage finances,
-            with audit-sealed site evidence — all in one intelligent platform.
+            Run property, facilities, construction, sales, tendering and valuation
+            workflows from one secure, subscription-aware platform.
           </p>
 
           <div className="hero-ctas">
-            <Link to="/login" className="btn-hero-primary">
-              View Products
+            <Link to="/product" className="btn-hero-primary">
+              Explore the platform
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
             </Link>
             <a href="#solutions" className="btn-hero-secondary">
@@ -106,7 +106,7 @@ export function Home() {
                 <div className="dash-dot g" />
                 <div className="dash-url-bar">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                  monitoringerp.com/portal
+                  centerestates.co.ke/workspaces
                 </div>
               </div>
 

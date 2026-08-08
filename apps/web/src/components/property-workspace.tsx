@@ -3994,6 +3994,11 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     return () => { cancelled = true; };
   }, [searchParams]);
 
+  useEffect(() => {
+    if (searchParams.get("action") !== "add-property") return;
+    queueMicrotask(() => setShowAddProperty(true));
+  }, [searchParams]);
+
   const loadVersion = useRef(0);
   const failCount = useRef(0);
 

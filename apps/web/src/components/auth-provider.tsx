@@ -9,6 +9,7 @@ import {
   type DemoIdentityGroup,
   type Session,
 } from "@/lib/api";
+import { isPublicRoute } from "@/lib/public-routes";
 
 type AuthContextValue = {
   session: Session | null;
@@ -59,8 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSession().then((authenticated) => {
       setLoading(false);
-      if (!authenticated && pathname !== "/login") router.replace("/login");
-      if (authenticated && pathname === "/login") router.replace("/");
+      if (!authenticated && !isPublicRoute(pathname)) router.replace("/login");
+      if (authenticated && (pathname === "/login" || pathname === "/sign-up")) router.replace("/workspaces");
     });
   }, [loadSession, pathname, router]);
 
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(message);
     }
     await loadSession(null);
-    router.replace("/");
+    router.replace("/workspaces");
   }, [loadSession, router]);
 
   const logout = useCallback(async () => {

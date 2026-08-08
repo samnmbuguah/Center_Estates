@@ -5,7 +5,7 @@ import { ChevronDown, MessageCircle } from "lucide-react";
 import "./marketing.css";
 
 const WHATSAPP_NUMBER = "254712345678";
-const WHATSAPP_MESSAGE = "Hi! I'm interested in MonitorERP. Can we chat?";
+const WHATSAPP_MESSAGE = "Hi! I'm interested in Center Estates ERP. Can we chat?";
 
 const PAGE_LINKS = [
   { to: "/product", label: "Product" },
@@ -160,9 +160,9 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
                     <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                 </span>
-                <span className="footer-wordmark">Monitoring<span>Erp</span></span>
+                <span className="footer-wordmark">Center Estates <span>ERP</span></span>
               </div>
-              <div className="footer-tagline">Independent Construction Monitoring Platform · Kenya</div>
+              <div className="footer-tagline">One connected platform for property, facilities, construction, sales, tenders and valuation</div>
             </div>
             <div className="footer-links">
               <Link to="/#products">Products</Link>
@@ -173,8 +173,8 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
             </div>
           </div>
           <div className="footer-bottom">
-            <span>&copy; {new Date().getFullYear()} MonitoringErp. All rights reserved.</span>
-            <span>Built for transparency &amp; accountability</span>
+            <span>&copy; {new Date().getFullYear()} Center Estates ERP. All rights reserved.</span>
+            <span>Connected operations. Clear accountability.</span>
           </div>
         </div>
       </footer>
