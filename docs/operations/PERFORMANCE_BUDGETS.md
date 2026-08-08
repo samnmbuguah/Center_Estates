@@ -38,10 +38,18 @@ regressions were added; both new pulse tests also pass independently.
 | Warm Next.js compile | 30 seconds | 20.6 seconds |
 | Next.js TypeScript phase | 70 seconds | 61 seconds |
 | Full cPanel release | 210 seconds | 189.6–203.0 seconds |
-| Backend-only cPanel release | 40 seconds | 26–27 seconds |
+| Backend-only cPanel release | 40 seconds | 26.49 seconds |
 
 Use a full release whenever frontend assets change. Use `DEPLOY_SCOPE=backend`
 only when the committed slice changes Django or deployment files exclusively.
+The deployment restarts only the exact Center Estates LiteSpeed worker set and
+tolerates workers exiting while that set is being drained.
+
+The reduced browser request fan-out does not remove the hosting account's
+LiteSpeed process ceiling: the latest production acceptance run emitted 60
+`Reached max children process limit` warnings without application errors. Treat
+that counter as an infrastructure-capacity signal and raise the account's
+process allowance before increasing concurrent production traffic.
 
 ## Current bundle baseline
 
