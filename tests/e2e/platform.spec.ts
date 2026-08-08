@@ -173,10 +173,14 @@ test("property tenant onboarding and compliance dialogs are connected", async ({
   await tenantDialog.getByLabel("Tenant code").fill(`E2E-${suffix}`);
   await tenantDialog.getByLabel("Full Name / Company").fill(`E2E Tenant ${suffix}`);
   await tenantDialog.getByLabel("Registration Number").fill(`REG-${suffix}`);
-  await tenantDialog.getByLabel("KRA PIN / Tax ID").fill(`P${String(suffix).slice(-8)}Z`);
+  await tenantDialog.getByLabel("KRA PIN / Tax ID").fill(`P${String(suffix).slice(-9).padStart(9, "0")}Z`);
+  await tenantDialog.getByLabel("Directors / Authorized Representatives").fill("Jane Wanjiku\nPeter Otieno");
   await tenantDialog.getByLabel("Email Address").fill(`tenant-${suffix}@example.test`);
   await tenantDialog.getByRole("button", { name: "Register Tenant" }).click();
   await expect(page.getByText(`E2E Tenant ${suffix}`, { exact: true })).toBeVisible();
+  await page.getByRole("row").filter({ hasText: `E2E Tenant ${suffix}` }).click();
+  await expect(page.getByText("Jane Wanjiku,Peter Otieno", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await openModuleSection(page, "Tenant documents");
   await page.getByRole("button", { name: "+ Upload", exact: true }).click();
   const documentDialog = page.getByRole("dialog", { name: "Upload Tenant Document" });

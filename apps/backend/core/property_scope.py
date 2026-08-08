@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from django.db.models import Q
 
 from properties.models import Property
 
@@ -11,7 +12,7 @@ PROPERTY_LOOKUPS = {
     'properties.Building': 'property_id',
     'properties.Unit': 'property_id',
     'properties.Project': 'property_id',
-    'properties.Tenant': 'leases__unit__property_id',
+    'properties.Tenant': 'property_id',
     'properties.TenantPortalAccess': 'tenant__leases__unit__property_id',
     'properties.Lease': 'unit__property_id',
     'properties.Invoice': 'lease__unit__property_id',
@@ -91,6 +92,10 @@ def scope_queryset_to_property(queryset, request, organization):
     property_record = get_active_property(request, organization)
     if property_record is None:
         return queryset
+    if queryset.model._meta.label == 'properties.Tenant':
+        return queryset.filter(
+            Q(property_id=property_record.pk) | Q(leases__unit__property_id=property_record.pk),
+        ).distinct()
     lookup = PROPERTY_LOOKUPS.get(queryset.model._meta.label)
     if not lookup:
         return queryset

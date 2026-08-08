@@ -104,7 +104,7 @@ interface ProjectRow extends Row {
 
 interface TenantRow extends Row {
   id: ID; code?: string; name?: string; tenant_type?: string; email?: string;
-  phone?: string; tax_id?: string; status?: string; billing_address?: string;
+  phone?: string; tax_id?: string; registration_number?: string; directors?: string[]; status?: string; billing_address?: string;
   created_at?: string;
   property?: string; unit?: string; outstanding?: number; oldest_days?: number;
 }
@@ -416,6 +416,8 @@ const detailFields: Partial<Record<PropertyTab, { label: string; key: string; mo
     { label: "Email", key: "email" },
     { label: "Phone", key: "phone" },
     { label: "Tax ID", key: "tax_id" },
+    { label: "Registration Number", key: "registration_number" },
+    { label: "Directors", key: "directors" },
     { label: "Status", key: "status" },
     { label: "Property", key: "property" },
     { label: "Unit", key: "unit" },
@@ -4349,9 +4351,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
       email: String(raw.email ?? ""),
       phone: String(raw.phone ?? ""),
       tax_id: String(raw.tax_id ?? ""),
+      registration_number: String(raw.registration_number ?? ""),
+      directors: String(raw.directors ?? "").split(/\r?\n|,/).map((name) => name.trim()).filter(Boolean),
       status: String(raw.status ?? "prospect"),
       metadata: {
-        registration_number: String(raw.registration_number ?? ""),
         billing_preference: String(raw.billing_preference ?? ""),
       },
     };
@@ -4978,12 +4981,15 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
               </div>
               <div className="grid-2">
                 <Field label="KRA PIN / Tax ID">
-                  <input name="tax_id" placeholder="e.g. P051234567X" />
+                  <input name="tax_id" placeholder="e.g. P051234567X" pattern="[APap][0-9]{9}[A-Za-z]" title="KRA PIN format: P051234567X" />
                 </Field>
                 <Field label="Registration Number">
-                  <input name="registration_number" placeholder="Company registration (optional)" />
+                  <input name="registration_number" placeholder="e.g. CPR/2018/123456" pattern="[A-Za-z0-9][A-Za-z0-9/\-]{2,79}" />
                 </Field>
               </div>
+              <Field label="Directors / Authorized Representatives">
+                <textarea name="directors" rows={3} placeholder="One name per line, e.g.&#10;Jane Wanjiku&#10;Peter Otieno" />
+              </Field>
               <Field label="Billing Preference">
                 <select name="billing_preference" defaultValue="email">
                   <option value="email">Email</option>

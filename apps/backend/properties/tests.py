@@ -114,6 +114,47 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Property.objects.filter(organization=self.organization, code='OWN-002').exists())
 
+    def test_tenant_company_card_is_validated_and_assigned_to_selected_property(self):
+        scoped_headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        response = self.client.post('/api/v1/property/tenants/', {
+            'code': 'TEN-CARD-1', 'name': 'Lakeview Trading Limited', 'tenant_type': 'company',
+            'email': 'accounts@lakeview.example', 'phone': '+254700555444',
+            'tax_id': 'p051234567x', 'registration_number': 'cpr/2020/11223',
+            'directors': ['Mary Njeri', 'David Ouma'], 'status': Tenant.Status.PROSPECT,
+        }, format='json', **scoped_headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['tax_id'], 'P051234567X')
+        self.assertEqual(response.data['registration_number'], 'CPR/2020/11223')
+        self.assertEqual(response.data['directors'], ['Mary Njeri', 'David Ouma'])
+        self.assertEqual(str(response.data['property']), str(self.property.id))
+
+        invalid = self.client.post('/api/v1/property/tenants/', {
+            'code': 'TEN-CARD-BAD', 'name': 'Invalid PIN Limited', 'tenant_type': 'company',
+            'tax_id': '12345', 'registration_number': 'CPR/2020/99',
+            'directors': ['Mary Njeri'],
+        }, format='json', **scoped_headers)
+        self.assertEqual(invalid.status_code, 400, invalid.data)
+        self.assertIn('tax_id', invalid.data)
+        self.assertFalse(Tenant.objects.filter(code='TEN-CARD-BAD').exists())
+
+    def test_property_scope_includes_unleased_prospects_without_leaking_other_properties(self):
+        other_property = Property.objects.create(
+            organization=self.organization, code='OWN-002', name='Second Property', status=Property.Status.ACTIVE,
+        )
+        Tenant.objects.create(
+            organization=self.organization, property=self.property, code='TEN-OWN', name='Own Prospect',
+        )
+        Tenant.objects.create(
+            organization=self.organization, property=other_property, code='TEN-OTHER', name='Other Prospect',
+        )
+        response = self.client.get(
+            '/api/v1/property/tenants/', **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        codes = {row['code'] for row in response.data}
+        self.assertIn('TEN-OWN', codes)
+        self.assertNotIn('TEN-OTHER', codes)
+
     def test_subscription_is_required(self):
         Subscription.objects.filter(organization=self.organization, module=Module.PROPERTY).update(is_active=False)
         response = self.client.get('/api/v1/property/properties/', **self.headers)

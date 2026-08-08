@@ -101,9 +101,21 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
     if (await parentButton.count()) {
       await parentButton.first().click();
     } else {
-      const parentSidebarLink = page.locator(".module-subnav-tree").getByText(parent, { exact: true });
-      await expect(parentSidebarLink, `Navigation parent "${parent}" should be available`).toHaveCount(1);
-      await parentSidebarLink.click();
+      const parentOption = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${parentEscaped}$`, "i") }).first();
+      if (await parentOption.count()) {
+        const optionText = (await parentOption.textContent())?.trim() ?? "";
+        const groupLabel = optionText.split("—")[0]?.trim();
+        const groupButton = navBar.getByRole("tab", { name: new RegExp(`^${groupLabel}\\s*\\d*$`, "i") });
+        await expect(groupButton, `Navigation group "${groupLabel}" should be available`).toBeVisible();
+        await groupButton.click();
+        const visibleParent = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${parentEscaped}$`, "i") });
+        await expect(visibleParent, `Navigation parent "${parent}" should be available`).toBeVisible();
+        await visibleParent.click();
+      } else {
+        const parentSidebarLink = page.locator(".module-subnav-tree").getByText(parent, { exact: true });
+        await expect(parentSidebarLink, `Navigation parent "${parent}" should be available`).toHaveCount(1);
+        await parentSidebarLink.click();
+      }
     }
     if (parent === "Financials" && (name === "Rent & invoices" || name === "Arrears" || name === "Reminders")) {
       const invoicesButton = page.locator(".property-workspace").getByRole("tab", { name: "Invoices", exact: true }).first();

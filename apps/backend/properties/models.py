@@ -125,11 +125,18 @@ class Tenant(OrganizationOwnedModel):
         SUSPENDED = 'suspended', 'Suspended'
 
     code = models.CharField(max_length=40)
+    property = models.ForeignKey(
+        Property, on_delete=models.PROTECT, related_name='onboarded_tenants',
+        null=True, blank=True,
+        help_text='Property where this tenant or prospect was onboarded.',
+    )
     name = models.CharField(max_length=200)
     tenant_type = models.CharField(max_length=40, default='company')
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=40, blank=True)
     tax_id = models.CharField(max_length=80, blank=True)
+    registration_number = models.CharField(max_length=80, blank=True)
+    directors = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PROSPECT)
     billing_address = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)

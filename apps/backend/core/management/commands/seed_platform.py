@@ -219,7 +219,8 @@ class Command(BaseCommand):
             defaults={
                 'name': 'Acacia Consulting Ltd', 'tenant_type': 'company',
                 'email': 'accounts@acacia.example', 'phone': '+254 700 111 222',
-                'tax_id': 'P051234567A', 'status': Tenant.Status.ACTIVE,
+                'property': prop, 'tax_id': 'P051234567A', 'registration_number': 'CPR/2016/18421',
+                'directors': ['Jane Wanjiku', 'Peter Otieno'], 'status': Tenant.Status.ACTIVE,
                 'billing_address': 'Westlands, Nairobi',
             },
         )
@@ -228,7 +229,8 @@ class Command(BaseCommand):
             defaults={
                 'name': 'Bluebird Retail Kenya', 'tenant_type': 'company',
                 'email': 'finance@bluebird.example', 'phone': '+254 711 333 444',
-                'status': Tenant.Status.ACTIVE, 'billing_address': 'Parklands, Nairobi',
+                'property': prop, 'tax_id': 'P051987654B', 'registration_number': 'CPR/2019/34782',
+                'directors': ['Amina Hassan'], 'status': Tenant.Status.ACTIVE, 'billing_address': 'Parklands, Nairobi',
             },
         )
         TenantPortalAccess.objects.update_or_create(
@@ -272,7 +274,8 @@ class Command(BaseCommand):
             defaults={
                 'name': 'Cedar Design Studio', 'tenant_type': 'company',
                 'email': 'admin@cedar.example', 'phone': '+254 722 456 789',
-                'status': Tenant.Status.PROSPECT, 'billing_address': 'Kilimani, Nairobi',
+                'property': prop, 'tax_id': 'P051222333C', 'registration_number': 'BN/2024/90817',
+                'directors': ['Lucy Muthoni'], 'status': Tenant.Status.PROSPECT, 'billing_address': 'Kilimani, Nairobi',
             },
         )
         Lease.objects.update_or_create(
@@ -966,7 +969,9 @@ class Command(BaseCommand):
                 defaults={
                     'name': spec['tenant'][1], 'tenant_type': 'company',
                     'email': f'accounts-{index}@centerestates.demo', 'phone': f'+254 700 300 00{index}',
-                    'tax_id': f'P00000000{index}X', 'status': Tenant.Status.ACTIVE,
+                    'property': scoped_property, 'tax_id': f'P00000000{index}X',
+                    'registration_number': f'CPR/202{index}/{index}0017',
+                    'directors': [f'{spec["tenant"][1]} Director'], 'status': Tenant.Status.ACTIVE,
                     'billing_address': spec['address'],
                 },
             )

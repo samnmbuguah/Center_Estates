@@ -43,6 +43,26 @@ class TenantSerializer(serializers.ModelSerializer):
         model = Tenant
         exclude = ('organization',)
 
+    def validate_tax_id(self, value):
+        value = value.strip().upper()
+        if value and not __import__('re').fullmatch(r'[AP]\d{9}[A-Z]', value):
+            raise serializers.ValidationError('Enter a valid KRA PIN, for example P051234567X.')
+        return value
+
+    def validate_directors(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Directors must be supplied as a list of names.')
+        cleaned = [str(name).strip() for name in value if str(name).strip()]
+        if len(cleaned) != len(set(name.casefold() for name in cleaned)):
+            raise serializers.ValidationError('Director names must be unique.')
+        return cleaned
+
+    def validate_registration_number(self, value):
+        value = value.strip().upper()
+        if value and not __import__('re').fullmatch(r'[A-Z0-9][A-Z0-9/\-]{2,79}', value):
+            raise serializers.ValidationError('Use letters, numbers, slashes or hyphens for the registration number.')
+        return value
+
 
 class TenantPortalAccessSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)

@@ -16,7 +16,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
-from core.property_scope import scope_model_queryset, scope_queryset_to_property
+from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
 from .models import (
     BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
@@ -141,6 +141,13 @@ class TenantViewSet(OrganizationModelViewSet):
     queryset = Tenant.objects.all()
     serializer_class = TenantSerializer
     search_fields = ('name', 'code', 'email', 'phone')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(
+            organization=organization,
+            property=serializer.validated_data.get('property') or get_active_property(self.request, organization),
+        )
 
 
 class TenantPortalAccessViewSet(OrganizationModelViewSet):
