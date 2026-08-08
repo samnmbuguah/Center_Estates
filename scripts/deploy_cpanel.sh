@@ -69,9 +69,9 @@ ssh "$REMOTE_HOST" "
   # conventional restart-file touch. Terminate only this application's exact
   # worker command so the next request starts a clean Python process.
   app_pids=\$(pgrep -u \$(id -u) -f '^/opt/alt/python39/bin/lswsgi -m ${REMOTE_PATH}/passenger_wsgi.py\$' || true)
-  if [ -n "\${app_pids}" ]; then
-    kill -TERM \${app_pids}
-  fi
+  for app_pid in \${app_pids}; do
+    kill -TERM "\${app_pid}" 2>/dev/null || true
+  done
 "
 
 echo "Deployment complete: https://${DOMAIN}"
