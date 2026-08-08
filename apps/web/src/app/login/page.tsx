@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 
 export default function LoginPage() {
@@ -14,6 +14,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => setHydrated(true), []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -152,7 +155,8 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !hydrated}
+              aria-busy={loading}
               style={{
                 width: "100%",
                 background: "linear-gradient(135deg, #6366f1, #2563eb)",
