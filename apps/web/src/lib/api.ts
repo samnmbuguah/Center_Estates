@@ -34,6 +34,10 @@ export type Session = {
   canSwitchIdentity?: boolean;
 };
 
+const GET_CACHE_MS = 750;
+const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
+const inFlightGets = new Map<string, Promise<Response>>();
+
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {
   const headers = new Headers(init.headers);
   if (organizationId) headers.set("X-Organization-ID", organizationId);
@@ -89,7 +93,35 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   ].some((ep) => cleanPath.startsWith(ep));
 
   const fullPath = isConstruction ? `/construction${cleanPath}` : cleanPath;
-  return fetch(`/api/v1${fullPath}`, { ...init, headers, credentials: "include" });
+  const method = String(init.method ?? "GET").toUpperCase();
+  if (method !== "GET") {
+    getResponseCache.clear();
+    return fetch(`/api/v1${fullPath}`, { ...init, headers, credentials: "include" });
+  }
+
+  const cacheKey = [
+    fullPath,
+    headers.get("X-Organization-ID") ?? "",
+    headers.get("X-Property-ID") ?? "",
+    headers.get("X-Property-Scope") ?? "",
+  ].join("|");
+  const cached = getResponseCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.response.clone();
+  if (cached) getResponseCache.delete(cacheKey);
+
+  const existing = inFlightGets.get(cacheKey);
+  if (existing) return (await existing).clone();
+
+  const request = fetch(`/api/v1${fullPath}`, { ...init, headers, credentials: "include" })
+    .then((response) => {
+      if (response.ok) {
+        getResponseCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_MS, response: response.clone() });
+      }
+      return response;
+    })
+    .finally(() => inFlightGets.delete(cacheKey));
+  inFlightGets.set(cacheKey, request);
+  return (await request).clone();
 }
 
 export function csrfFromCookie() {

@@ -82,9 +82,16 @@ def get_active_property(request, organization, *, required=False):
         if required:
             raise ValidationError({'property': 'Select a property before opening this workspace.'})
         return None
+    cache_key = f'{organization.pk}:{property_id}'
+    cached = getattr(request, '_active_property_cache', {}).get(cache_key)
+    if cached is not None:
+        return cached
     property_record = Property.objects.filter(pk=property_id, organization=organization).first()
     if property_record is None:
         raise PermissionDenied('The selected property is not available in this organization.')
+    cache = getattr(request, '_active_property_cache', {})
+    cache[cache_key] = property_record
+    request._active_property_cache = cache
     return property_record
 
 

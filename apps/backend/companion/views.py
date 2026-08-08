@@ -9,7 +9,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
 from core.permissions import HasModuleActionPermission
-from core.tenancy import get_active_organization
+from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
 from .models import Task, TaskEvent, TaskTemplate
@@ -263,16 +263,25 @@ class CompanionDashboardViewSet(ViewSet):
     def list(self, request):
         organization = get_active_organization(request)
         now = timezone.now()
-        tasks = scope_model_queryset(Task, request, organization).filter(assignee=request.user)
+        tasks = scope_model_queryset(Task, request, organization).select_related(
+            'assignee', 'assigned_by', 'delegated_to', 'template',
+        ).filter(assignee=request.user)
         active = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
+        kpis = tasks.aggregate(
+            dueToday=Count('id', filter=Q(
+                due_at__date=now.date(),
+            ) & ~Q(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))),
+            overdue=Count('id', filter=Q(
+                due_at__lt=now,
+            ) & ~Q(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))),
+            escalated=Count('id', filter=Q(
+                escalated=True,
+            ) & ~Q(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))),
+            inProgress=Count('id', filter=Q(status=Task.Status.IN_PROGRESS)),
+            completed=Count('id', filter=Q(status=Task.Status.COMPLETED)),
+        )
         return Response({
-            'kpis': {
-                'dueToday': active.filter(due_at__date=now.date()).count(),
-                'overdue': active.filter(due_at__lt=now).count(),
-                'escalated': active.filter(escalated=True).count(),
-                'inProgress': active.filter(status=Task.Status.IN_PROGRESS).count(),
-                'completed': tasks.filter(status=Task.Status.COMPLETED).count(),
-            },
+            'kpis': kpis,
             'recentTasks': TaskSerializer(active.order_by('-updated_at')[:10], many=True).data,
             'overdueTasks': TaskSerializer(active.filter(due_at__lt=now).order_by('due_at')[:10], many=True).data,
             'escalatedTasks': TaskSerializer(active.filter(escalated=True).order_by('-escalated_at')[:10], many=True).data,
@@ -286,7 +295,9 @@ class CompanionDashboardViewSet(ViewSet):
         now = timezone.now()
 
         # Gather real-time context metrics across the organization
-        tasks = scope_model_queryset(Task, request, organization)
+        tasks = scope_model_queryset(Task, request, organization).select_related(
+            'assignee', 'assigned_by', 'delegated_to', 'template',
+        )
         active_tasks = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
         overdue_count = active_tasks.filter(due_at__lt=now).count()
         escalated_count = active_tasks.filter(escalated=True).count()
@@ -373,7 +384,7 @@ class PerformanceViewSet(ViewSet):
 
     def _require_manager(self, request):
         organization = get_active_organization(request)
-        membership = organization.memberships.filter(user=request.user).first()
+        membership = get_active_membership(request, organization)
         if not (membership and (membership.is_organization_admin or membership.has_permission('companion.performance.view'))):
             raise ValidationError('Performance analytics are available to administrators and managers only.')
 
@@ -383,7 +394,9 @@ class PerformanceViewSet(ViewSet):
         date_from = request.query_params.get('from', '')
         date_to = request.query_params.get('to', '')
 
-        tasks = scope_model_queryset(Task, request, organization)
+        tasks = scope_model_queryset(Task, request, organization).select_related(
+            'assignee', 'assigned_by', 'delegated_to', 'template',
+        )
         completed = tasks.filter(status=Task.Status.COMPLETED)
         now = timezone.now()
         active = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
@@ -391,22 +404,38 @@ class PerformanceViewSet(ViewSet):
         escalated = active.filter(escalated=True)
 
         staff_rows = []
-        from django.contrib.auth import get_user_model
-        members = organization.memberships.filter(status__in=('active', '')).select_related('user')
+        members = list(organization.memberships.filter(status__in=('active', '')).select_related('user'))
+        active_status_filter = ~Q(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
+        task_totals = tasks.aggregate(
+            total=Count('id'),
+            completed=Count('id', filter=Q(status=Task.Status.COMPLETED)),
+            overdue=Count('id', filter=active_status_filter & Q(due_at__lt=now)),
+            escalated=Count('id', filter=active_status_filter & Q(escalated=True)),
+        )
+        by_assignee = {
+            row['assignee_id']: row
+            for row in tasks.values('assignee_id').annotate(
+                total=Count('id'),
+                completed=Count('id', filter=Q(status=Task.Status.COMPLETED)),
+                overdue=Count('id', filter=active_status_filter & Q(due_at__lt=now)),
+                active=Count('id', filter=active_status_filter),
+            )
+        }
         for membership in members:
             user = membership.user
-            user_tasks = tasks.filter(assignee=user)
-            user_done = user_tasks.filter(status=Task.Status.COMPLETED).count()
-            user_overdue = user_tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED)).filter(due_at__lt=now).count()
-            user_active = user_tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED)).count()
+            stats = by_assignee.get(user.pk, {})
+            user_total = stats.get('total', 0)
+            user_done = stats.get('completed', 0)
+            user_overdue = stats.get('overdue', 0)
+            user_active = stats.get('active', 0)
             staff_rows.append({
                 'user_id': str(user.pk),
                 'username': user.username,
                 'name': user.get_full_name() or user.username,
                 'last_login': user.last_login.isoformat() if user.last_login else None,
-                'tasks_assigned': user_tasks.count(),
+                'tasks_assigned': user_total,
                 'tasks_completed': user_done,
-                'completion_rate': round((user_done / user_tasks.count() * 100), 1) if user_tasks.count() else 0,
+                'completion_rate': round((user_done / user_total * 100), 1) if user_total else 0,
                 'overdue_tasks': user_overdue,
                 'active_tasks': user_active,
                 'requires_attention': user_overdue > 0,
@@ -416,14 +445,14 @@ class PerformanceViewSet(ViewSet):
 
         return Response({
             'kpis': {
-                'dailyActiveUsers': members.filter(user__last_login__date=now.date()).count(),
-                'activeUsers': members.filter(user__last_login__isnull=False).count(),
-                'totalStaff': members.count(),
-                'tasksAssigned': tasks.count(),
-                'tasksCompleted': completed.count(),
-                'completionRate': round((completed.count() / tasks.count() * 100), 1) if tasks.count() else 0,
-                'overdueTasks': overdue.count(),
-                'escalatedTasks': escalated.count(),
+                'dailyActiveUsers': sum(1 for member in members if member.user.last_login and member.user.last_login.date() == now.date()),
+                'activeUsers': sum(1 for member in members if member.user.last_login),
+                'totalStaff': len(members),
+                'tasksAssigned': task_totals['total'],
+                'tasksCompleted': task_totals['completed'],
+                'completionRate': round((task_totals['completed'] / task_totals['total'] * 100), 1) if task_totals['total'] else 0,
+                'overdueTasks': task_totals['overdue'],
+                'escalatedTasks': task_totals['escalated'],
                 'avgTurnaroundHours': 0,
                 'slaCompliance': 0,
                 'adoptionScore': 0,
@@ -450,16 +479,10 @@ class PerformanceViewSet(ViewSet):
         })
 
 
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+from rest_framework.permissions import IsAuthenticated
 
-@method_decorator(csrf_exempt, name='dispatch')
 class TelemetryViewSet(ViewSet):
-    def get_permissions(self):
-        if self.action == 'create':
-            return [AllowAny()]
-        return [IsAuthenticated()]
+    permission_classes = (IsAuthenticated,)
 
     def list(self, request):
         organization = get_active_organization(request)
@@ -512,21 +535,27 @@ class TelemetryViewSet(ViewSet):
         })
 
     def create(self, request):
-        try:
-            organization = get_active_organization(request)
-        except Exception:
-            organization = None
-        event = request.data.get('event', 'user_action')
-        properties = request.data.get('properties', {})
-        url = request.data.get('url', '')
-        module = request.data.get('module', 'dashboard')
-
-        if organization:
-            TaskEvent.objects.create(
+        organization = get_active_organization(request)
+        raw_events = request.data.get('events')
+        events = raw_events if isinstance(raw_events, list) else [request.data]
+        if not events or len(events) > 100:
+            raise ValidationError({'events': 'Submit between 1 and 100 telemetry events.'})
+        records = []
+        for payload in events:
+            if not isinstance(payload, dict):
+                raise ValidationError({'events': 'Every telemetry event must be an object.'})
+            event = str(payload.get('event', 'user_action'))[:60]
+            properties = payload.get('properties', {})
+            if not isinstance(properties, dict):
+                properties = {}
+            module = str(payload.get('module', 'dashboard'))[:40]
+            detail = str(properties.get('element', properties.get('path', '')))[:300]
+            records.append(TaskEvent(
                 organization=organization,
                 task=None,
-                actor=request.user if request.user.is_authenticated else None,
+                actor=request.user,
                 action=TaskEvent.Action.UPDATED,
-                note=f"Telemetry [{event}]: {properties.get('element', properties.get('path', ''))} (Module: {module})"
-            )
-        return Response({'status': 'ok'})
+                note=f"Telemetry [{event}]: {detail} (Module: {module})",
+            ))
+        TaskEvent.objects.bulk_create(records)
+        return Response({'status': 'ok', 'accepted': len(records)}, status=status.HTTP_201_CREATED)

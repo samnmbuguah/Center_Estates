@@ -60,4 +60,5 @@ A safe restore rehearsal creates a separate database, loads `database.dump`, val
 - Daily: automated off-VM database/media backup and health alerting.
 - Weekly: inspect container restarts, application errors, expiring compliance documents and overdue workflows.
 - Monthly: restore rehearsal, dependency/security update review and access review.
-- Before every release: backup, migration check, 117 backend tests, frontend lint/build, desktop/mobile E2E and Caddy validation.
+- Before every release: backup, migration check, the complete backend suite (currently 160 tests), frontend type/build checks, focused desktop/mobile E2E and Caddy validation.
+- Enforce the request, query, bundle and deployment limits in [Performance budgets](PERFORMANCE_BUDGETS.md).

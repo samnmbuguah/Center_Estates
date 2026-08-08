@@ -16,6 +16,12 @@ class TelemetryEngine {
   private pageStartTime: number = Date.now();
   private posthogKey: string | null = process.env.NEXT_PUBLIC_POSTHOG_KEY || null;
   private posthogHost: string = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com";
+  private backendQueue: TelemetryEvent[] = [];
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private clickHandler: ((event: MouseEvent) => void) | null = null;
+  private visibilityHandler: (() => void) | null = null;
+  private lastPageView = "";
+  private lastPageViewAt = 0;
 
   public init(user: { id?: number; username?: string; role?: string } | null, organizationId: string | null) {
     this.user = user;
@@ -30,6 +36,10 @@ class TelemetryEngine {
   public trackPageView(pathname: string) {
     if (typeof window === "undefined") return;
     const now = Date.now();
+    const pageKey = `${pathname}${window.location.search}`;
+    if (pageKey === this.lastPageView && now - this.lastPageViewAt < 1_000) return;
+    this.lastPageView = pageKey;
+    this.lastPageViewAt = now;
     const duration = now - this.pageStartTime;
 
     if (this.currentPath && duration > 500) {
@@ -73,14 +83,12 @@ class TelemetryEngine {
       module: this.currentPath ? this.currentPath.split("/")[1] || "dashboard" : "dashboard",
     };
 
-    // 1. Post to backend local telemetry audit
+    // 1. Batch local telemetry so navigation and click bursts consume one
+    // backend worker instead of one request per interaction.
     if (this.organizationId) {
-      apiFetch("/companion/telemetry/", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }, this.organizationId).catch(() => {
-        /* silent failure */
-      });
+      this.backendQueue.push(payload);
+      if (this.backendQueue.length >= 20) void this.flush();
+      else this.scheduleFlush();
     }
 
     // 2. PostHog Telemetry dispatch if a valid project API key (phc_) is configured.
@@ -110,7 +118,7 @@ class TelemetryEngine {
 
   private setupGlobalClickTracker() {
     if (typeof window === "undefined") return;
-    const handler = (e: MouseEvent) => {
+    if (!this.clickHandler) this.clickHandler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
       const clickable = target.closest("button, a, [role='button'], input[type='submit'], select");
@@ -121,8 +129,36 @@ class TelemetryEngine {
         this.trackClick(`${tag}:${text}`, { href });
       }
     };
-    window.removeEventListener("click", handler);
-    window.addEventListener("click", handler, { capture: true });
+    window.removeEventListener("click", this.clickHandler, { capture: true });
+    window.addEventListener("click", this.clickHandler, { capture: true });
+    if (!this.visibilityHandler) {
+      this.visibilityHandler = () => {
+        if (document.visibilityState === "hidden") void this.flush();
+      };
+      document.addEventListener("visibilitychange", this.visibilityHandler);
+    }
+  }
+
+  private scheduleFlush() {
+    if (this.flushTimer) return;
+    this.flushTimer = setTimeout(() => void this.flush(), 5_000);
+  }
+
+  public async flush() {
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    this.flushTimer = null;
+    if (!this.organizationId || this.backendQueue.length === 0) return;
+    const events = this.backendQueue.splice(0, 100);
+    try {
+      const response = await apiFetch("/companion/telemetry/", {
+        method: "POST",
+        body: JSON.stringify({ events }),
+      }, this.organizationId);
+      if (!response.ok) throw new Error(`Telemetry returned ${response.status}`);
+    } catch {
+      this.backendQueue = [...events, ...this.backendQueue].slice(-200);
+    }
+    if (this.backendQueue.length > 0) this.scheduleFlush();
   }
 }
 

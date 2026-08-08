@@ -1,8 +1,8 @@
 from rest_framework.permissions import BasePermission
 from rest_framework.permissions import SAFE_METHODS
 
-from core.tenancy import get_active_organization
-from organizations.models import Membership
+from core.tenancy import get_active_membership, get_active_organization
+from django.db.models import prefetch_related_objects
 from subscriptions.models import Subscription
 
 
@@ -33,9 +33,7 @@ class HasDomainPermission(HasModuleSubscription):
         if not super().has_permission(request, view):
             return False
         organization = get_active_organization(request)
-        membership = Membership.objects.active().filter(
-            organization=organization, user=request.user
-        ).first()
+        membership = get_active_membership(request, organization)
         key = getattr(view, 'required_permission', self.permission_key)
         return bool(membership and key and membership.has_permission(key))
 
@@ -58,13 +56,12 @@ class HasModuleActionPermission(HasModuleSubscription):
         if not super().has_permission(request, view):
             return False
         organization = get_active_organization(request)
-        membership = Membership.objects.active().filter(
-            organization=organization, user=request.user
-        ).prefetch_related('roles__permissions').first()
+        membership = get_active_membership(request, organization)
         if not membership:
             return False
         if membership.is_organization_admin:
             return True
+        prefetch_related_objects([membership], 'roles__permissions')
 
         module = getattr(view, 'required_module', self.module)
         action = getattr(view, 'action', '') or ''

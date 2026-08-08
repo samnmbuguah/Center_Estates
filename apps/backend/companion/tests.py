@@ -1,10 +1,13 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from django.test import TestCase, override_settings
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
 from subscriptions.models import Subscription
+from companion.models import TaskEvent
 
 User = get_user_model()
 
@@ -52,8 +55,10 @@ class CompanionApiTests(TestCase):
         self.login(self.admin)
         self.client.post("/api/v1/companion/tasks/", {"title": "Task for staff", "assignee": str(self.staff.pk)})
         self.login(self.staff)
-        res = self.client.get("/api/v1/companion/dashboard/")
+        with CaptureQueriesContext(connection) as queries:
+            res = self.client.get("/api/v1/companion/dashboard/")
         self.assertEqual(res.status_code, 200, res.content)
+        self.assertLessEqual(len(queries), 10, f'Dashboard used {len(queries)} queries')
         self.assertEqual(len(res.data["recentTasks"]), 1)
         self.assertEqual(res.data["recentTasks"][0]["title"], "Task for staff")
 
@@ -65,8 +70,10 @@ class CompanionApiTests(TestCase):
     def test_admin_can_view_performance(self):
         self.login(self.admin)
         self.client.post("/api/v1/companion/tasks/", {"title": "P", "assignee": str(self.staff.pk)})
-        res = self.client.get("/api/v1/companion/performance/")
+        with CaptureQueriesContext(connection) as queries:
+            res = self.client.get("/api/v1/companion/performance/")
         self.assertEqual(res.status_code, 200, res.content)
+        self.assertLessEqual(len(queries), 10, f'Performance dashboard used {len(queries)} queries')
         self.assertIn("staff", res.data)
         staff_rows = {s["user_id"]: s for s in res.data["staff"]}
         self.assertIn(str(self.staff.pk), staff_rows)
@@ -92,3 +99,30 @@ class CompanionApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('response', response.data)
+
+    def test_telemetry_requires_authentication_and_accepts_batches(self):
+        anonymous = self.client.post('/api/v1/companion/telemetry/', {
+            'events': [{'event': 'page_view', 'module': 'property'}],
+        }, format='json')
+        self.assertEqual(anonymous.status_code, 401)
+
+        self.login(self.admin)
+        response = self.client.post('/api/v1/companion/telemetry/', {
+            'events': [
+                {'event': 'page_view', 'module': 'property', 'properties': {'path': '/property'}},
+                {'event': 'user_click', 'module': 'facility', 'properties': {'element': 'button:Approve'}},
+            ],
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.data['accepted'], 2)
+        events = TaskEvent.objects.filter(organization=self.organization, note__startswith='Telemetry [')
+        self.assertEqual(events.count(), 2)
+        self.assertTrue(events.filter(actor=self.admin, note__contains='button:Approve').exists())
+
+    def test_telemetry_rejects_unbounded_batches(self):
+        self.login(self.admin)
+        response = self.client.post('/api/v1/companion/telemetry/', {
+            'events': [{'event': 'click'} for _ in range(101)],
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(TaskEvent.objects.filter(organization=self.organization, note__startswith='Telemetry [').count(), 0)

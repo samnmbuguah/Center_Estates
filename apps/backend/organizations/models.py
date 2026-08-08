@@ -83,6 +83,13 @@ class Membership(TimeStampedModel):
     def has_permission(self, permission_key):
         if self.is_organization_admin:
             return True
+        prefetched_roles = getattr(self, '_prefetched_objects_cache', {}).get('roles')
+        if prefetched_roles is not None:
+            return any(
+                permission.key == permission_key
+                for role in prefetched_roles
+                for permission in role.permissions.all()
+            )
         return self.roles.filter(permissions__key=permission_key).exists()
 
     def __str__(self):
