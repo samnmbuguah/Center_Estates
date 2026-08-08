@@ -65,6 +65,13 @@ ssh "$REMOTE_HOST" "
   python apps/backend/manage.py check --deploy
   mkdir -p tmp
   touch tmp/restart.txt
+  # CloudLinux LiteSpeed keeps a preloaded lswsgi master alive across the
+  # conventional restart-file touch. Terminate only this application's exact
+  # worker command so the next request starts a clean Python process.
+  app_pids=\$(pgrep -u \$(id -u) -f '^/opt/alt/python39/bin/lswsgi -m ${REMOTE_PATH}/passenger_wsgi.py\$' || true)
+  if [ -n "\${app_pids}" ]; then
+    kill -TERM \${app_pids}
+  fi
 "
 
 echo "Deployment complete: https://${DOMAIN}"
