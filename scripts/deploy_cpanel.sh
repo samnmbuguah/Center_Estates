@@ -24,6 +24,10 @@ tar -czf "$ARCHIVE" \
   --exclude='apps/backend/db.sqlite3' \
   --exclude='apps/backend/media' \
   --exclude='apps/backend/staticfiles' \
+  --exclude='apps/web/.next/cache' \
+  --exclude='apps/web/.next/dev' \
+  --exclude='apps/web/.next/types' \
+  --exclude='apps/web/.next/trace' \
   passenger_wsgi.py \
   apps/backend \
   apps/web/.next \
@@ -38,8 +42,14 @@ ssh "$REMOTE_HOST" "
   cd '${REMOTE_PATH}'
   tar -xzf deploy.tar.gz
   rm -f deploy.tar.gz
-  python -m pip install --quiet --upgrade pip
-  python -m pip install --quiet -r apps/backend/requirements.txt PyMySQL
+  requirements_hash=\$(sha256sum apps/backend/requirements.txt | awk '{print \$1}')
+  installed_hash=\$(cat .requirements.sha256 2>/dev/null || true)
+  if [ \"\${requirements_hash}\" != \"\${installed_hash}\" ]; then
+    python -m pip install --quiet -r apps/backend/requirements.txt PyMySQL
+    printf '%s\\n' \"\${requirements_hash}\" > .requirements.sha256
+  else
+    echo 'Python dependencies unchanged; skipping pip install.'
+  fi
   python apps/backend/manage.py migrate --noinput
   python apps/backend/manage.py collectstatic --noinput
   python apps/backend/manage.py check --deploy
