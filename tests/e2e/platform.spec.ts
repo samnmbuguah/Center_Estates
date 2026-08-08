@@ -267,6 +267,18 @@ test("property arrears, service-charge and report data are connected", async ({ 
   expect(download.suggestedFilename()).toBe("property-aging.csv");
 });
 
+test("property reports follow the four client-approved categories", async ({ page }) => {
+  await page.goto("/property");
+  await openModuleSection(page, "Reports");
+  for (const category of ["Financial", "Tenants & Occupancy", "Service Providers", "Compliance & Risk"]) {
+    await expect(page.getByRole("heading", { name: `${category} Reports`, exact: true })).toBeVisible();
+  }
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByText("Service provider expiry", { exact: true }).locator("..").getByRole("button", { name: "Export", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("property-contractor-expiry.csv");
+});
+
 test("tenant self-service uses the shared lease and billing ledger", async ({ page }) => {
   await page.goto("/tenant-portal");
   await expect(page.getByRole("heading", { name: /Good morning, Acacia Consulting Ltd/ })).toBeVisible();

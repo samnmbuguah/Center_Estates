@@ -90,6 +90,21 @@ class PropertyApiTests(TestCase):
         self.assertEqual(len(response.data['aging']), 4)
         self.assertTrue(response.data['collectionTrend'])
 
+    def test_report_catalogue_uses_client_categories_and_exports_each_family(self):
+        catalogue = self.client.get('/api/v1/property/analytics/', **self.headers)
+        self.assertEqual(catalogue.status_code, 200)
+        categories = {row['category'] for row in catalogue.data['reports']}
+        self.assertEqual(categories, {
+            'Financial', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
+        })
+        keys = {row['key'] for row in catalogue.data['reports']}
+        for key in ('aging', 'occupancy', 'contractor-expiry', 'tenant-compliance', 'critical-dates'):
+            self.assertIn(key, keys)
+            exported = self.client.get(f'/api/v1/property/analytics/exports/{key}/', **self.headers)
+            self.assertEqual(exported.status_code, 200)
+            self.assertEqual(exported['Content-Type'], 'text/csv')
+            self.assertIn(f'property-{key}.csv', exported['Content-Disposition'])
+
     def test_create_assigns_organization_server_side(self):
         response = self.client.post(
             '/api/v1/property/properties/',

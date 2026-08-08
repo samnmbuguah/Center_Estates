@@ -831,10 +831,14 @@ class PropertyAnalyticsViewSet(ViewSet):
         return Response({'reports': [
             {'key': 'aging', 'name': 'Outstanding aging', 'category': 'Financial'},
             {'key': 'income-expense', 'name': 'Income and expenses', 'category': 'Financial'},
-            {'key': 'occupancy', 'name': 'Portfolio occupancy', 'category': 'Property'},
-            {'key': 'lease-expiry', 'name': 'Lease expiry', 'category': 'Tenant'},
-            {'key': 'budget-actual', 'name': 'Budget versus actual', 'category': 'Executive'},
-            {'key': 'service-charge', 'name': 'Service charge allocations', 'category': 'Service charge'},
+            {'key': 'budget-actual', 'name': 'Budget versus actual', 'category': 'Financial'},
+            {'key': 'service-charge', 'name': 'Service charge allocations', 'category': 'Financial'},
+            {'key': 'occupancy', 'name': 'Portfolio occupancy', 'category': 'Tenants & Occupancy'},
+            {'key': 'lease-expiry', 'name': 'Lease expiry', 'category': 'Tenants & Occupancy'},
+            {'key': 'contractor-expiry', 'name': 'Service provider expiry', 'category': 'Service Providers'},
+            {'key': 'work-order-spend', 'name': 'Work order spend', 'category': 'Service Providers'},
+            {'key': 'tenant-compliance', 'name': 'Tenant document compliance', 'category': 'Compliance & Risk'},
+            {'key': 'critical-dates', 'name': 'Critical dates register', 'category': 'Compliance & Risk'},
         ]})
 
     @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
@@ -884,6 +888,40 @@ class PropertyAnalyticsViewSet(ViewSet):
                 writer.writerow((allocation.service_charge.name, allocation.service_charge.property.name,
                                  allocation.unit.code, allocation.ratio, allocation.annual_amount,
                                  allocation.monthly_amount))
+        elif report_kind == 'contractor-expiry':
+            from facilities.models import Contractor
+            writer.writerow(('Provider', 'Specialty', 'Status', 'Insurance expiry', 'License expiry', 'Contact'))
+            for contractor in Contractor.objects.for_organization(organization):
+                writer.writerow((contractor.name, contractor.specialty, contractor.status,
+                                 contractor.insurance_expires_on or '', contractor.license_expires_on or '',
+                                 contractor.contact_name))
+        elif report_kind == 'work-order-spend':
+            from facilities.models import WorkOrder
+            writer.writerow(('Work order', 'Property', 'Contractor', 'Status', 'Labor', 'Parts', 'Other', 'Total'))
+            for order in WorkOrder.objects.for_organization(organization).select_related('property', 'contractor'):
+                total = order.labor_cost + order.parts_cost + order.other_cost
+                writer.writerow((order.number, order.property.name, order.contractor.name if order.contractor else '',
+                                 order.status, order.labor_cost, order.parts_cost, order.other_cost, total))
+        elif report_kind == 'tenant-compliance':
+            writer.writerow(('Tenant', 'Document type', 'Document number', 'Status', 'Issued', 'Expires'))
+            for document in TenantDocument.objects.for_organization(organization).select_related('tenant'):
+                writer.writerow((document.tenant.name, document.document_type, document.document_number,
+                                 document.status, document.issued_on or '', document.expires_on or ''))
+        elif report_kind == 'critical-dates':
+            from facilities.models import Contractor
+            writer.writerow(('Type', 'Reference', 'Party / Property', 'Date', 'Status'))
+            for lease in Lease.objects.for_organization(organization).select_related('tenant', 'unit__property'):
+                writer.writerow(('Lease expiry', lease.reference, f'{lease.tenant.name} / {lease.unit.property.name}', lease.ends_on, lease.status))
+            for document in TenantDocument.objects.for_organization(organization).exclude(expires_on=None).select_related('tenant'):
+                writer.writerow(('Tenant document', document.document_number or document.document_type,
+                                 document.tenant.name, document.expires_on, document.status))
+            for contractor in Contractor.objects.for_organization(organization):
+                if contractor.insurance_expires_on:
+                    writer.writerow(('Provider insurance', contractor.code, contractor.name,
+                                     contractor.insurance_expires_on, contractor.status))
+                if contractor.license_expires_on:
+                    writer.writerow(('Provider license', contractor.code, contractor.name,
+                                     contractor.license_expires_on, contractor.status))
         else:
             raise ValidationError({'report': 'Unknown property report.'})
         return response
