@@ -50,6 +50,8 @@ ssh "$REMOTE_HOST" "
   cd '${REMOTE_PATH}'
   tar -xzf deploy.tar.gz
   rm -f deploy.tar.gz
+  find apps/backend -type f -name '*.py[co]' -delete
+  find apps/backend -type d -name '__pycache__' -empty -delete
   requirements_hash=\$(sha256sum apps/backend/requirements.txt | awk '{print \$1}')
   installed_hash=\$(cat .requirements.sha256 2>/dev/null || true)
   if [ \"\${requirements_hash}\" != \"\${installed_hash}\" ]; then
