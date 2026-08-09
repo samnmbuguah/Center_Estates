@@ -169,7 +169,7 @@ test("rfi list tab renders correctly", async ({ page }) => {
   await openTab(page, "RFIs");
   await page.waitForTimeout(2000);
 
-  await expect(page.getByText(/Requests for Information|RFI/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Requests for Information/i }).first()).toBeVisible();
   await expect(
     page.locator("table, [role=table]").first().or(page.getByText(/No RFIs|No data|empty/i).first())
   ).toBeVisible();
@@ -189,7 +189,7 @@ test("reports tab shows report catalogue", async ({ page }) => {
   await openTab(page, "Reports");
   await page.waitForTimeout(2000);
 
-  await expect(page.getByText(/REPORT TEMPLATES|RECENTLY GENERATED|Report/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /REPORT TEMPLATES|RECENTLY GENERATED|Reports/i }).first()).toBeVisible();
   await expect(page.locator("table, [role=table], .report-card").first()).toBeVisible();
 
   const exportBtn = page.getByRole("button", { name: /Export|Generate/i }).first();
