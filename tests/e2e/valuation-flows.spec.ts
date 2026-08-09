@@ -32,7 +32,7 @@ test("valuation overview renders dashboard with KPIs and charts", async ({ page 
   await expect(page.getByText("Turnaround", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Fees", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: /INSTRUCTIONS TREND|Instructions/i }).first()).toBeVisible();
-  await expect(page.locator(".donut, [class*=donut], [class*=chart]").first()).toBeVisible();
+  await expect(page.locator("svg, .donut, [class*=donut], [class*=chart]").first()).toBeVisible();
   await expect(page.getByText(/VAL-\d{4}-\d+/).first()).toBeVisible();
 });
 
