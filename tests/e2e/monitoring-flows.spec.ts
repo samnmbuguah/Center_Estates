@@ -29,18 +29,11 @@ test("monitoring overview renders executive dashboard", async ({ page }) => {
   page.on("pageerror", (error) => errors.push(error.message));
 
   await page.goto("/monitoring");
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(2000);
 
-  await expect(page.locator("h1")).toBeVisible();
+  await expect(page.locator("h1").first()).toBeVisible();
   // Super administrators land on the operations dashboard by default.
-  const adminHeading = page.getByText(/Administrator Dashboard|System administration/i).first();
-  if (await adminHeading.count() > 0) await expect(adminHeading).toBeVisible();
-
-  const kpi = page.locator(".kpi-card, .stat-card, .metric-card").first();
-  if (await kpi.count() > 0) await expect(kpi).toBeVisible();
-
-  const portfolioText = page.getByText(/portfolio|Portfolio|Total Projects/i).first();
-  if (await portfolioText.count() > 0) await expect(portfolioText).toBeVisible();
+  await expect(page.getByText(/Administrator Dashboard|Total Projects|System administration/i).first()).toBeVisible();
 
   await expect(page.locator(".form-error")).toHaveCount(0);
 
@@ -81,14 +74,8 @@ test("milestones tab shows progress data", async ({ page }) => {
   await openTab(page, "Progress");
   await page.waitForTimeout(4000);
 
-  const progressIndicator = page.locator(".progress-bar, .progress-indicator, [role=progressbar], .milestone-progress").first();
-  if (await progressIndicator.count() > 0) await expect(progressIndicator).toBeVisible();
-
-  const milestoneText = page.getByText(/milestone|Milestone|Programme/i).first();
-  if (await milestoneText.count() > 0) await expect(milestoneText).toBeVisible();
-
-  const table = page.locator("table, [role=table]").first();
-  if (await table.count() > 0) await expect(table).toBeVisible();
+  await expect(page.getByText(/Programme & Milestones|Milestone/i).first()).toBeVisible();
+  await expect(page.locator("table, [role=table]").first()).toBeVisible();
 
   await expect(page.locator("h1").first()).toBeVisible();
 
@@ -182,11 +169,12 @@ test("rfi list tab renders correctly", async ({ page }) => {
   await page.waitForTimeout(500);
 
   await openTab(page, "RFIs");
+  await page.waitForTimeout(2000);
 
-  const tableOrEmpty = page.locator("table, [role=table]").first();
-  if (await tableOrEmpty.count() > 0) await expect(tableOrEmpty).toBeVisible();
-  const noRfis = page.getByText(/No RFIs|no RFIs|empty|No data/i).first();
-  if (await noRfis.count() > 0) await expect(noRfis).toBeVisible();
+  await expect(page.getByText(/Requests for Information|RFI/i).first()).toBeVisible();
+  await expect(
+    page.locator("table, [role=table]").first().or(page.getByText(/No RFIs|No data|empty/i).first())
+  ).toBeVisible();
 
   await expect(page.locator("h1").first()).toBeVisible();
 
@@ -201,12 +189,10 @@ test("reports tab shows report catalogue", async ({ page }) => {
   await page.waitForTimeout(500);
 
   await openTab(page, "Reports");
+  await page.waitForTimeout(2000);
 
-  const reportHeading = page.getByText(/Progress and control|report|Report/i).first();
-  if (await reportHeading.count() > 0) await expect(reportHeading).toBeVisible();
-
-  const tableOrCards = page.locator("table, [role=table], .report-card").first();
-  if (await tableOrCards.count() > 0) await expect(tableOrCards).toBeVisible();
+  await expect(page.getByText(/REPORT TEMPLATES|RECENTLY GENERATED|Report/i).first()).toBeVisible();
+  await expect(page.locator("table, [role=table], .report-card").first()).toBeVisible();
 
   const exportBtn = page.getByRole("button", { name: /Export|Generate/i }).first();
   if (await exportBtn.count() > 0) await expect(exportBtn).toBeVisible();
