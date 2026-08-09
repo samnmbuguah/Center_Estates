@@ -41,6 +41,7 @@ const SUBTAB_ALIASES: Record<string, string> = {
   "Bank reconciliation": "Reconciliation", "Credit notes": "Credit Notes",
   Receipts: "Receipts", Arrears: "Invoices", Allocations: "Allocations",
   "Receipt allocations": "Allocations", Invoices: "Invoices",
+  Expenses: "Invoices", "Property Expenses": "Invoices",
   "Charge Setup": "Setup", "Charge allocations": "Allocations",
   Reconciliations: "Reconciliations", Budgets: "Budget & Estimate",
   "Budgets & Estimates": "Budget & Estimate",
