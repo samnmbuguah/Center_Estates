@@ -60,13 +60,16 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   const navBar = page.locator(".module-nav-bar");
   await navBar.first().waitFor({ state: "attached", timeout: 20000 }).catch(() => {});
   if (await navBar.count()) {
-    const target = TAB_ALIASES[name] ?? name;
-    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Accessible name is "<icon> Label" or just "Label"; anchor to exact label.
-    const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
-    if (await requestedTab.count()) {
-      await requestedTab.first().click();
-      return;
+    // Try the raw name first (matches most modules), then the alias.
+    // Aliases are ambiguous across modules (e.g. Inspections vs Site inspections).
+    for (const target of [name, TAB_ALIASES[name] ?? name]) {
+      const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // Accessible name is "<icon> Label" or just "Label"; anchor to exact label.
+      const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
+      if (await requestedTab.count()) {
+        await requestedTab.first().click();
+        return;
+      }
     }
 
     // The redesigned module navigation shows pages for one workflow group at a

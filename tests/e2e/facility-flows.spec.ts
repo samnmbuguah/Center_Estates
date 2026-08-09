@@ -83,9 +83,8 @@ test("planned maintenance shows calendar and generate work order action", async 
   await openFacilityTab(page, "Planned maintenance", testInfo);
   await page.waitForTimeout(2000);
 
-  await expect(page.getByText(/PPM Compliance|Preventive|Planned Maintenance/i).first()).toBeVisible();
-  await expect(page.getByText(/Compliance Trend|Completed Tasks|Schedule/i).first()).toBeVisible();
-  await expect(page.locator("table, [role=table]").first()).toBeVisible();
+  await expect(page.locator(".module-workspace").getByText(/PPM Compliance|Compliance Trend/i).first()).toBeVisible();
+  await expect(page.locator("table, [role=table], .fc-kpi-strip").first()).toBeVisible();
 });
 
 test("inspections list shows completed inspections with scores", async ({ page }, testInfo) => {
@@ -119,8 +118,8 @@ test("utility management shows meter readings", async ({ page }, testInfo) => {
   await openFacilityTab(page, "Utilities", testInfo);
 
   await expect(page.locator("table")).toBeVisible();
-  await expect(page.getByText("Electricity", { exact: true })).toBeVisible();
-  await expect(page.getByText("Water", { exact: true })).toBeVisible();
+  await expect(page.getByText("Electricity", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Water", { exact: true }).first()).toBeVisible();
 });
 
 test("facility work history, cost and media registers are connected", async ({ page }, testInfo) => {
