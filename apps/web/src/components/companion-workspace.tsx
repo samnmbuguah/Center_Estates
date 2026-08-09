@@ -383,10 +383,13 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       await apiFetch("/auth/csrf/");
       const base = Object.fromEntries(form.entries());
       // <input type="datetime-local"> sends "YYYY-MM-DDThh:mm" without a timezone;
-      // DRF DateTimeField requires an ISO offset/Z. Normalize to UTC ISO.
+      // DRF DateTimeField requires an ISO offset/Z. Normalize to UTC ISO, and
+      // drop empty values so the nullable backend fields stay null.
       for (const key of ["due_at", "sla_due_at"]) {
         const raw = String(base[key] ?? "");
-        if (raw && !/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)) {
+        if (!raw) {
+          delete base[key];
+        } else if (!/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)) {
           base[key] = new Date(raw).toISOString();
         }
       }
