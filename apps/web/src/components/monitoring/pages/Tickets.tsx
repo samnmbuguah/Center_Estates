@@ -49,6 +49,12 @@ export function Tickets() {
   const [loading, setLoading] = useState(true);
   const [confirmDeleteTicketId, setConfirmDeleteTicketId] = useState<number | null>(null);
 
+  // SSR-safe "today" — new Date() during render would mismatch hydration.
+  const [todayStr, setTodayStr] = useState("");
+  useEffect(() => {
+    setTodayStr(new Date().toISOString().slice(0, 10));
+  }, []);
+
   // Comment thread state
   const [openTicketId, setOpenTicketId] = useState<number | null>(null);
   const [comments, setComments] = useState<CommentRow[]>([]);
@@ -201,7 +207,7 @@ export function Tickets() {
           <tbody>
             {rows.map((t) => {
               const overdue = t.due_date && !t.acknowledged_at && t.status !== "resolved" && t.status !== "closed"
-                && t.due_date < new Date().toISOString().slice(0, 10);
+                && t.due_date < todayStr;
               return (
               <tr key={t.id}>
                 <td>{t.title}</td>
