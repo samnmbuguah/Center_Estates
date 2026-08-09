@@ -63,8 +63,6 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
     // Try the raw name first (matches most modules), then the alias.
     // Aliases are ambiguous across modules (e.g. Inspections vs Site inspections).
     const targets = [name, TAB_ALIASES[name] ?? name];
-    let target = targets[0];
-    let escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     for (const candidate of targets) {
       const candidateEscaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // Accessible name is "<icon> Label" or just "Label"; anchor to exact label.
@@ -73,16 +71,14 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
         await requestedTab.first().click();
         return;
       }
-      if (candidate === name && TAB_ALIASES[name]) {
-        target = TAB_ALIASES[name]!;
-        escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      }
     }
 
     // The redesigned module navigation shows pages for one workflow group at a
     // time. Resolve the page's group from the mobile select, activate that
-    // group, then click the now-visible page tab.
-    const option = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${escaped}$`, "i") }).first();
+    // group, then click the now-visible page tab. Options always use the raw
+    // item label, so match against `name` (not the alias).
+    const rawEscaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const option = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${rawEscaped}$`, "i") }).first();
     if (await option.count()) {
       const optionText = (await option.textContent())?.trim() ?? "";
       const groupLabel = optionText.split("—")[0]?.trim();
@@ -90,8 +86,8 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
         const groupButton = navBar.getByRole("tab", { name: new RegExp(`^${groupLabel}\\s*\\d*$`, "i") });
         await expect(groupButton, `Navigation group "${groupLabel}" should be available`).toBeVisible();
         await groupButton.click();
-        const groupedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
-        await expect(groupedTab, `Navigation page "${target}" should be available`).toBeVisible();
+        const groupedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${rawEscaped}$`, "i") });
+        await expect(groupedTab, `Navigation page "${name}" should be available`).toBeVisible();
         await groupedTab.click();
         return;
       }

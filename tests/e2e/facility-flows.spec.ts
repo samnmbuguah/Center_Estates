@@ -125,7 +125,7 @@ test("utility management shows meter readings", async ({ page }, testInfo) => {
 test("facility work history, cost and media registers are connected", async ({ page }, testInfo) => {
   await page.goto("/facility");
   await openFacilityTab(page, "Work history", testInfo);
-  await expect(page.getByText(/Work History|Event|Log|Status/i).first()).toBeVisible();
+  await expect(page.locator(".module-workspace").getByText(/Work History|Event|Log|Status/i).first()).toBeVisible();
   await expect(page.locator("table, [role=table], .fc-alert-list").first()).toBeVisible();
   await openFacilityTab(page, "Labor & parts", testInfo);
   await expect(page.getByText(/Labor|Parts|Cost/i).first()).toBeVisible();
