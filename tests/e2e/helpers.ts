@@ -62,13 +62,20 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   if (await navBar.count()) {
     // Try the raw name first (matches most modules), then the alias.
     // Aliases are ambiguous across modules (e.g. Inspections vs Site inspections).
-    for (const target of [name, TAB_ALIASES[name] ?? name]) {
-      const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const targets = [name, TAB_ALIASES[name] ?? name];
+    let target = targets[0];
+    let escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const candidate of targets) {
+      const candidateEscaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // Accessible name is "<icon> Label" or just "Label"; anchor to exact label.
-      const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
+      const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${candidateEscaped}$`, "i") });
       if (await requestedTab.count()) {
         await requestedTab.first().click();
         return;
+      }
+      if (candidate === name && TAB_ALIASES[name]) {
+        target = TAB_ALIASES[name]!;
+        escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       }
     }
 
