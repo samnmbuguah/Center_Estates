@@ -90,14 +90,12 @@ test("daily logs tab shows log entries", async ({ page }) => {
   await page.waitForTimeout(500);
 
   await openTab(page, "Daily logs");
+  await page.waitForTimeout(2000);
 
-  const logEntry = page.locator(".site-diary-list article, table, [role=table]").first();
-  if (await logEntry.count() > 0) await expect(logEntry).toBeVisible();
-  const noLogs = page.getByText(/No logs|no logs|empty|No data/i).first();
-  if (await noLogs.count() > 0) await expect(noLogs).toBeVisible();
-
-  const dateCol = page.getByRole("columnheader", { name: /Date|date/i }).first();
-  if (await dateCol.count() > 0) await expect(dateCol).toBeVisible();
+  await expect(
+    page.locator(".site-diary-list article, table, [role=table]").first()
+      .or(page.getByText(/No daily logs|No logs|No data|empty/i).first())
+  ).toBeVisible();
 
   expect(errors).toEqual([]);
 });

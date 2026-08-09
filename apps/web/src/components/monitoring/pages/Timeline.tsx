@@ -278,6 +278,8 @@ export function Timeline() {
   const navigate = useNavigate();
   const { activeProjectId, activeProject, projects, selectProject, loading: wsLoading } = useWorkspace();
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [searchQuery, setSearchQuery] = useState("");
   const [criticalOnly, setCriticalOnly] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1090,7 +1092,7 @@ export function Timeline() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {formatDate(Date.now())}
+                        {mounted ? formatDate(Date.now()) : ""}
                       </span>
                     </div>
                   )}
