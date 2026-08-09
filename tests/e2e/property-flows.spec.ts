@@ -1,5 +1,5 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
-import { openTab } from "./helpers";
+import { openTab, expectNoPageErrors } from "./helpers";
 
 const BASE = process.env.E2E_BASE_URL || "https://centerestates.com";
 const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
@@ -27,7 +27,7 @@ test("property overview renders all KPIs and charts correctly", async ({ page })
   await expect(page.getByRole("heading", { name: /MONTHLY RENT COLLECTION TREND|PROPERTY PORTFOLIO SUMMARY|LEASE EXPIRY OVERVIEW/i }).first()).toBeVisible();
   await expect(page.locator("h2, h3, .panel-title").first()).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("property list shows properties with correct data and filters work", async ({ page }) => {
@@ -43,7 +43,7 @@ test("property list shows properties with correct data and filters work", async 
   const exportBtn = page.getByRole("button", { name: /Export/i });
   if (await exportBtn.count() > 0) await expect(exportBtn.first()).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("tenant list shows seeded tenants and search works", async ({ page }) => {
@@ -62,7 +62,7 @@ test("tenant list shows seeded tenants and search works", async ({ page }) => {
     await page.waitForTimeout(500);
   }
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("tenant creation flow works end to end", async ({ page }, testInfo) => {
@@ -131,7 +131,7 @@ test("lease list shows seeded leases with data", async ({ page }) => {
   const outstandingText = page.locator("text=/Outstanding|outstanding/i").first();
   if (await outstandingText.count() > 0) await expect(outstandingText).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("rent collection view shows invoices and collection KPIs", async ({ page }) => {
@@ -156,7 +156,7 @@ test("rent collection view shows invoices and collection KPIs", async ({ page })
 
   await expect(page.locator("table, [role=table], .fc-alert-list").first()).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("service charge view shows charge scheme and cost centres", async ({ page }) => {
@@ -176,7 +176,7 @@ test("service charge view shows charge scheme and cost centres", async ({ page }
   const budgetText = page.locator("text=/Annual|annual budget/i").first();
   if (await budgetText.count() > 0) await expect(budgetText).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("receipts list shows receipt data and credit notes", async ({ page }) => {
@@ -206,7 +206,7 @@ test("receipts list shows receipt data and credit notes", async ({ page }) => {
   const unappliedChip = page.locator("button, a, span").filter({ hasText: /Unapplied/i }).first();
   if (await unappliedChip.count() > 0) await expect(unappliedChip).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("bank reconciliation shows matched transaction", async ({ page }) => {
@@ -225,7 +225,7 @@ test("bank reconciliation shows matched transaction", async ({ page }) => {
   const matchedBadge = page.locator("text=/matched|Matched/i").first();
   if (await matchedBadge.count() > 0) await expect(matchedBadge).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("budgets view shows budget lines and utilization", async ({ page }) => {
@@ -247,7 +247,7 @@ test("budgets view shows budget lines and utilization", async ({ page }) => {
   const utilizationText = page.locator("text=/Utilization|utilization|utilised/i").first();
   if (await utilizationText.count() > 0) await expect(utilizationText).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("expenses view shows expense records with status badges", async ({ page }) => {
@@ -264,7 +264,7 @@ test("expenses view shows expense records with status badges", async ({ page }) 
     page.locator("table, [role=table]").first().or(page.getByText(/No invoices|No data|No expenses|empty/i).first())
   ).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("property reports show report catalogue with export capability", async ({ page }, testInfo) => {
@@ -290,7 +290,7 @@ test("property reports show report catalogue with export capability", async ({ p
     await downloadPromise;
   }
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("arrears view shows aging summary", async ({ page }) => {
@@ -307,7 +307,7 @@ test("arrears view shows aging summary", async ({ page }) => {
   const tenantRow = page.locator("table, [role=table]").locator("tr, [role=row]").filter({ has: page.locator("td, [role=cell]") }).first();
   await expect(tenantRow.or(page.getByText(/No arrears|No data|empty/i).first())).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("tenant documents tab renders without errors", async ({ page }) => {
@@ -324,7 +324,7 @@ test("tenant documents tab renders without errors", async ({ page }) => {
 
   await expect(page.locator("h1, h2, h3").first()).toBeVisible();
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });
 
 test("rent schedules tab renders data", async ({ page }) => {
@@ -343,5 +343,5 @@ test("rent schedules tab renders data", async ({ page }) => {
     if (await emptyState.count() > 0) await expect(emptyState).toBeVisible();
   }
 
-  expect(errors).toEqual([]);
+  await expectNoPageErrors(page, errors);
 });

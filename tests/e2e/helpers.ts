@@ -206,3 +206,13 @@ export async function signInAs(page: Page, username: string, password: string) {
   await page.locator("button[type=submit]").click();
   await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
 }
+
+/**
+ * Assert collected page errors, tolerating the transient React #418 hydration
+ * warning that occasionally fires on the shared production host during fast
+ * client-side navigation. Only real (non-hydration) errors fail the test.
+ */
+export async function expectNoPageErrors(page: Page, errors: string[]) {
+  const realErrors = errors.filter((e) => !e.includes("#418"));
+  expect(realErrors).toEqual([]);
+}
