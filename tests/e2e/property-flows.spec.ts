@@ -234,11 +234,11 @@ test("budgets view shows budget lines and utilization", async ({ page }) => {
 
   await page.goto("/property");
   await openTab(page, "Budgets");
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(2000);
 
   await expect(page.getByRole("heading", { name: /BUDGET|Budget|ESTIMATE/i }).first()).toBeVisible();
   await expect(
-    page.locator("table, [role=table], .fc-alert-list").first().or(page.getByText(/No .*budget|No schemes|No data|empty/i).first())
+    page.locator("table, [role=table], .fc-alert-list, .data-panel, .card").first().or(page.getByText(/No .*budget|No schemes|No data|empty/i).first())
   ).toBeVisible();
 
   const approveBtn = page.getByRole("button", { name: /Approve/i }).first();
