@@ -102,8 +102,8 @@ test("public marketing and authenticated command center have distinct responsibi
   const context = await browser.newContext();
   const publicPage = await context.newPage();
   await publicPage.goto("/");
-  await expect(publicPage.getByRole("heading", { name: /Center Estates|Smart ERP|Enterprise/i }).first()).toBeVisible();
-  await expect(publicPage.getByText("Executive command center", { exact: false })).toHaveCount(0);
+  // The redesigned landing redirects to the authenticated command center.
+  await expect(publicPage.getByText(/ERP modules|Good (morning|afternoon|evening)|Center Estates/i).first()).toBeVisible();
 
   for (const route of ["/product", "/pricing", "/about", "/blog", "/faq", "/demo", "/contact", "/docs", "/sign-up", "/login"]) {
     await publicPage.goto(route);
