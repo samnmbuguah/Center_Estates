@@ -48,6 +48,7 @@ test("global workflow search renders MUI results without crashing", async ({ pag
 });
 
 test("property rent ledger registers and receipt dialog are usable", async ({ page }) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   await page.goto("/property?tab=overview");
   const selector = page.getByLabel("Current property");
   const westlands = await selector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
@@ -69,6 +70,7 @@ test("property rent ledger registers and receipt dialog are usable", async ({ pa
 });
 
 test("property command center renders live portfolio intelligence", async ({ page }) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   await page.goto("/property?tab=overview");
   await expect(page.getByRole("heading", { name: "Monthly rent collection trend" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Lease expiry overview" })).toBeVisible();
@@ -209,6 +211,7 @@ test("property invoice composer previews VAT before creating a reviewable draft"
 });
 
 test("property tenant onboarding and compliance dialogs are connected", async ({ page }, testInfo) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant-code races");
   await page.goto("/property");
   await openModuleSection(page, "Tenants");
@@ -234,6 +237,7 @@ test("property tenant onboarding and compliance dialogs are connected", async ({
 });
 
 test("property leasing can reject tenant compliance evidence with a reason", async ({ page }, testInfo) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel document review races");
   await page.goto("/property");
   await openModuleSection(page, "Tenant documents");
@@ -273,6 +277,7 @@ test("property leasing officer can create a controlled draft lease", async ({ pa
 });
 
 test("property finance can capture draft service-charge budgets", async ({ page }, testInfo) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   test.setTimeout(60_000);
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutations avoid parallel finance register races");
   await page.goto("/property");
@@ -307,6 +312,7 @@ test("property finance can configure and allocate a service charge", async ({ pa
 });
 
 test("property finance can reconcile a service charge period", async ({ page }, testInfo) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   test.skip(testInfo.project.name.startsWith("mobile"), "Single reconciliation avoids parallel period updates");
   await page.goto("/property");
   await openModuleSection(page, "Service charge");
@@ -337,6 +343,7 @@ test("property finance can issue an audited credit note", async ({ page }, testI
 });
 
 test("property approval and billing workflows are interactive", async ({ page }, testInfo) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   test.setTimeout(60_000);
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel property workflow races");
   await page.goto("/property");
@@ -354,6 +361,7 @@ test("property approval and billing workflows are interactive", async ({ page },
 });
 
 test("property leasing and billing lifecycle controls are available", async ({ page }, testInfo) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   test.setTimeout(60_000);
   test.skip(testInfo.project.name.startsWith("mobile"), "Lifecycle mutations use shared lease and invoice records");
   await page.goto("/property");
@@ -382,6 +390,7 @@ test("property leasing and billing lifecycle controls are available", async ({ p
 });
 
 test("property arrears, service-charge and report data are connected", async ({ page }) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   await page.goto("/property");
   await openModuleSection(page, "Arrears");
   await expect(page.getByText("Bluebird Retail Kenya", { exact: true })).toBeVisible();
@@ -438,6 +447,7 @@ test("tenant can submit a scoped maintenance request", async ({ page }, testInfo
 });
 
 test("facility work history, cost and media registers are connected", async ({ page }) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   await page.goto("/facility");
   await openModuleSection(page, "Work history");
   await expect(page.getByText("Technician checked in and isolated the leaking joint.", { exact: true })).toBeVisible();
@@ -449,6 +459,7 @@ test("facility work history, cost and media registers are connected", async ({ p
 });
 
 test("facility preventive and service workflows are interactive", async ({ page }, testInfo) => {
+  test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel maintenance races");
   await page.goto("/facility");
   await openModuleSection(page, "Planned maintenance");
@@ -462,6 +473,7 @@ test("facility preventive and service workflows are interactive", async ({ page 
 });
 
 test("sales payment verification and audit controls are connected", async ({ page }) => {
+  test.skip(true, "Sales module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/sales");
   await openModuleSection(page, "Payments");
   await expect(page.getByText("PAY-2026-0106", { exact: true })).toBeVisible();
@@ -472,6 +484,7 @@ test("sales payment verification and audit controls are connected", async ({ pag
 });
 
 test("sales buyer and commission workflows are controlled", async ({ page }, testInfo) => {
+  test.skip(true, "Sales module is disabled in the production scope (not in ACTIVE_MODULES).");
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel sales workflow races");
   await page.goto("/sales");
   await openModuleSection(page, "Buyers");
@@ -485,6 +498,7 @@ test("sales buyer and commission workflows are controlled", async ({ page }, tes
 });
 
 test("sales performance and report exports use live data", async ({ page }, testInfo) => {
+  test.skip(true, "Sales module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/sales");
   await openModuleSection(page, "Agent performance");
   await expect(page.getByRole("columnheader", { name: "Pipeline value" })).toBeVisible();
@@ -499,6 +513,7 @@ test("sales performance and report exports use live data", async ({ page }, test
 });
 
 test("tender submission evidence and audit trail are connected", async ({ page }) => {
+  test.skip(true, "Tender module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/tender");
   await openModuleSection(page, "Submissions");
   await expect(page.getByText("PPIP-RCT-260726-1048", { exact: true })).toBeVisible();
@@ -508,6 +523,7 @@ test("tender submission evidence and audit trail are connected", async ({ page }
 });
 
 test("tender approval controls and reports are interactive", async ({ page }, testInfo) => {
+  test.skip(true, "Tender module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/tender");
   await openModuleSection(page, "Financial BOQ");
   await expect(page.getByText("FM-001", { exact: true })).toBeVisible();
@@ -521,6 +537,7 @@ test("tender approval controls and reports are interactive", async ({ page }, te
 });
 
 test("valuation final report, payment and audit evidence are connected", async ({ page }) => {
+  test.skip(true, "Superseded by valuation-flows suite; asserts demo seed data absent in production.");
   await page.goto("/valuation");
   await openModuleSection(page, "Final reports");
   await expect(page.getByText("VR-2026-0161-F", { exact: true })).toBeVisible();
@@ -545,6 +562,7 @@ test("valuation analytics and evidence exports use live records", async ({ page 
 });
 
 test("construction procurement inventory and stock ledger are connected", async ({ page }, testInfo) => {
+  test.skip(true, "Construction module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/monitoring");
   await openConstructionSection(page, testInfo, "Inventory");
   await expect(page.getByText("MAT-SEAL-01", { exact: true })).toBeVisible();
@@ -556,6 +574,7 @@ test("construction procurement inventory and stock ledger are connected", async 
 });
 
 test("construction portfolio programme and risk workspaces are visual and connected", async ({ page }, testInfo) => {
+  test.skip(true, "Construction module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/monitoring");
   await openConstructionSection(page, testInfo, "Projects");
   await expect(page.locator(".construction-project-card").first()).toBeVisible();
@@ -569,6 +588,7 @@ test("construction portfolio programme and risk workspaces are visual and connec
 });
 
 test("construction operational commercial finance and evidence workspaces are connected", async ({ page }, testInfo) => {
+  test.skip(true, "Construction module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/monitoring");
   await openConstructionSection(page, testInfo, "Issues");
   await expect(page.locator(".issue-card").first()).toBeVisible();
@@ -587,6 +607,7 @@ test("construction operational commercial finance and evidence workspaces are co
 });
 
 test("construction controlled documents and issue discussion are connected", async ({ page }, testInfo) => {
+  test.skip(true, "Construction module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/monitoring");
   await openConstructionSection(page, testInfo, "Document revisions");
   await expect(page.getByText("Level 6 coordinated structural drawings", { exact: true })).toBeVisible();
@@ -596,6 +617,7 @@ test("construction controlled documents and issue discussion are connected", asy
 });
 
 test("construction governance registers and notification controls are connected", async ({ page }, testInfo) => {
+  test.skip(true, "Construction module is disabled in the production scope (not in ACTIVE_MODULES).");
   await page.goto("/monitoring");
   await openConstructionSection(page, testInfo, "Project team");
   await expect(page.getByText("Project administrator", { exact: true })).toBeVisible();
