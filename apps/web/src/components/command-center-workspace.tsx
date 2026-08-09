@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 import { modules, ACTIVE_MODULES } from "@/lib/modules";
+import { useSearchParams } from "next/navigation";
+import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 
 function greeting() {
   const hour = new Date().getHours();
@@ -45,6 +47,8 @@ export function CommandCenterWorkspace() {
     : session?.roles?.join(", ") || "Organization member";
   const [pulse, setPulse] = useState<Pulse>({});
   const [pulseLoading, setPulseLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const portfolioView = searchParams.get("view");
   const moduleSlugs = session?.modules?.map((module) => module.slug).join(",") ?? "";
 
   useEffect(() => {
@@ -155,6 +159,9 @@ export function CommandCenterWorkspace() {
 
       <div className="command-layout">
         <div className="command-main">
+          {portfolioView === "tickets" ? <ModuleTicketsView moduleName="Portfolio" portfolio /> : null}
+          {portfolioView === "calendar" ? <ModuleCalendarView moduleName="Portfolio" portfolio /> : null}
+          {portfolioView ? <div style={{ height: 24 }} /> : null}
           <section aria-labelledby="modules-heading">
             <div className="section-heading command-section-heading">
               <div>

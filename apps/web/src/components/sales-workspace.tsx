@@ -6,6 +6,7 @@ import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { salesNav } from "@/lib/module-nav";
 import { usePropertyContext } from "@/lib/property-context";
+import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import {
   Badge,
   DetailDrawer,
@@ -38,6 +39,8 @@ export type SalesTab =
   | "reports"
   | "documents"
   | "audit-events"
+  | "tickets"
+  | "calendar"
   | "bank-reconciliation";
 
 const labels: Record<SalesTab, string> = {
@@ -55,6 +58,8 @@ const labels: Record<SalesTab, string> = {
   reports: "Sales Reports",
   documents: "Legal Documents",
   "audit-events": "Audit Trail",
+  tickets: "Tickets & Issues",
+  calendar: "Calendar",
   "bank-reconciliation": "Bank Reconciliation",
 };
 
@@ -2814,6 +2819,10 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
           <HandoverView rows={rows} search={search} setSearch={setSearch} />
         ) : tab === "audit-events" ? (
           <AuditEventsView rows={rows} search={search} setSearch={setSearch} />
+        ) : tab === "tickets" ? (
+          <ModuleTicketsView moduleName="Sales" />
+        ) : tab === "calendar" ? (
+          <ModuleCalendarView moduleName="Sales" />
         ) : tab === "bank-reconciliation" ? (
           <BankReconciliationView rows={rows} search={search} setSearch={setSearch} org={org} />
         ) : (

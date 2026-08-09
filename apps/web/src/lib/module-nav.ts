@@ -46,6 +46,13 @@ export const propertyNav: ModuleNavGroup[] = [
       { id: "forecast",     label: "5-Year Forecast" },
     ],
   },
+  {
+    label: "WORKSPACE",
+    items: [
+      { id: "tickets", label: "Tickets & Issues", icon: "🎫" },
+      { id: "calendar", label: "Calendar", icon: "📅" },
+    ],
+  },
 ];
 
 export const facilityNav: ModuleNavGroup[] = [
@@ -90,6 +97,7 @@ export const facilityNav: ModuleNavGroup[] = [
       { id: "reports",           label: "Reports & BI",        icon: "📈" },
     ],
   },
+  { label: "WORKSPACE", items: [{ id: "tickets", label: "Tickets & Issues", icon: "🎫" }, { id: "calendar", label: "Calendar", icon: "📅" }] },
 ];
 
 
@@ -125,6 +133,7 @@ export const salesNav: ModuleNavGroup[] = [
       { id: "audit-events", label: "Audit trail" },
     ],
   },
+  { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },
 ];
 
 export const tenderNav: ModuleNavGroup[] = [
@@ -160,6 +169,7 @@ export const tenderNav: ModuleNavGroup[] = [
       { id: "audit-events", label: "Audit trail" },
     ],
   },
+  { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },
 ];
 
 export const valuationNav: ModuleNavGroup[] = [
@@ -199,6 +209,7 @@ export const valuationNav: ModuleNavGroup[] = [
       { id: "audit-events", label: "Audit trail" },
     ],
   },
+  { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },
 ];
 
 export const constructionNav: ModuleNavGroup[] = [  {
@@ -338,4 +349,5 @@ export const companionNav: ModuleNavGroup[] = [
       { id: "audit-events", label: "Audit trail" },
     ],
   },
+  { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },
 ];

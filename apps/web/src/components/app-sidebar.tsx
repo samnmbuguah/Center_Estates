@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { BrandLogo } from "@/components/brand-logo";
 import { apiFetch } from "@/lib/api";
-import { LayoutDashboard, ClipboardCheck, Menu, X, HelpCircle, ChevronDown, ChevronRight, ChartNoAxesCombined } from "lucide-react";
+import { LayoutDashboard, ClipboardCheck, Menu, X, HelpCircle, ChevronDown, ChevronRight, ChartNoAxesCombined, CalendarDays, CircleAlert } from "lucide-react";
 import {
   Box,
   Typography,
@@ -308,6 +308,17 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 <Badge badgeContent={badgeCounts.tasks} color="error" sx={{ '& .MuiBadge-badge': { fontSize: 10, minWidth: 18, height: 18 } }} />
               )}
             </Link>
+          )}
+
+          {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
+            <>
+              <Link className="nav-link" href="/workspaces?view=tickets" onClick={onCloseMobile} title="Tickets" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
+                <CircleAlert size={isMobile ? 24 : 18} />{(!collapsed || isMobile) && <span>Tickets</span>}
+              </Link>
+              <Link className="nav-link" href="/workspaces?view=calendar" onClick={onCloseMobile} title="Calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
+                <CalendarDays size={isMobile ? 24 : 18} />{(!collapsed || isMobile) && <span>Calendar</span>}
+              </Link>
+            </>
           )}
 
           {isAdministrator && !activeModuleSlug ? (

@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Paper, Tab, Tabs } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { propertyNav } from "@/lib/module-nav";
+import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -41,7 +42,9 @@ export type PropertyTab =
   | "fees"
   | "owner-portal"
   | "forecast"
-  | "critical-dates";
+  | "critical-dates"
+  | "tickets"
+  | "calendar";
 
 type Row = Record<string, unknown>;
 type ID = string;
@@ -75,6 +78,8 @@ const labels: Record<PropertyTab, string> = {
   "owner-portal": "Owner Portal",
   forecast: "5-Year Forecast",
   "critical-dates": "Critical Dates",
+  tickets: "Tickets & Issues",
+  calendar: "Calendar",
 };
 
 /* ─── data row shapes (mirror backend serializers) ─── */
@@ -3979,7 +3984,6 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
   const canLease = can("property.leasing");
   const canFinance = can("property.finance");
   const canApprove = can("property.approve");
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [tab, setTab] = useState<PropertyTab>(() => {
@@ -4899,10 +4903,19 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     setRows([]);
     setTab(id as PropertyTab);
     // Update URL without full page reload
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set("tab", id);
-    router.push(`?${params.toString()}`, { scroll: false });
+    window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
   };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const next = new URLSearchParams(window.location.search).get("tab") as PropertyTab | null;
+      if (next && labels[next]) setTab(next);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const [todayStr, setTodayStr] = useState("");
   useEffect(() => {
@@ -4965,6 +4978,8 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
         {tab === "owner-portal" && <OwnerPortalView />}
         {tab === "forecast" && <ForecastView />}
         {tab === "critical-dates" && <CriticalDatesView leases={rows} contractors={contractors} inspections={inspections} serviceCharges={criticalServiceCharges} loading={loading} setTab={handleSelectTab} />}
+        {tab === "tickets" && <ModuleTicketsView moduleName="Property" />}
+        {tab === "calendar" && <ModuleCalendarView moduleName="Property" />}
 
         {selectedRow && (
           <DetailDrawer title={labels[tab]} onClose={() => setSelectedRow(null)} width={400}>

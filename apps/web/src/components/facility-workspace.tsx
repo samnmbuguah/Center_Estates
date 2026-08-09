@@ -6,6 +6,7 @@ import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { DetailDrawer, Field, Modal, money } from "@/components/module-ui";
 import { usePropertyContext } from "@/lib/property-context";
+import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 
 type Tab =
   | "overview"
@@ -23,7 +24,9 @@ type Tab =
   | "reports"
   | "expenditure"
   | "spare-parts"
-  | "consumables";
+  | "consumables"
+  | "tickets"
+  | "calendar";
 
 type Row = Record<string, string | number | boolean | null>;
 type Kpis = Dashboard["kpis"];
@@ -57,6 +60,8 @@ const labels: Record<Tab, string> = {
   expenditure: "Expenditure & Floats",
   "spare-parts": "Spare Parts",
   consumables: "Consumables",
+  tickets: "Tickets & Issues",
+  calendar: "Calendar",
 };
 
 /* ─── helpers ─── */
@@ -3829,6 +3834,10 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
           <InventoryTableView variant="spare-parts" rows={rows} />
         ) : tab === "consumables" ? (
           <InventoryTableView variant="consumables" rows={rows} />
+        ) : tab === "tickets" ? (
+          <ModuleTicketsView moduleName="Facility" />
+        ) : tab === "calendar" ? (
+          <ModuleCalendarView moduleName="Facility" />
         ) : (
           <GenericListView tab={tab} rows={rows} />
         )}
