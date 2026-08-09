@@ -23,15 +23,15 @@ test.beforeEach(async ({ page }) => {
 
 test("valuation overview renders dashboard with KPIs and charts", async ({ page }) => {
   await page.goto("/valuation");
-  await expect(page.getByText("Total Instructions", { exact: true }).or(page.getByText("Instructions"))).toBeVisible();
-  await expect(page.getByText("In Progress", { exact: true })).toBeVisible();
-  await expect(page.getByText("Completed", { exact: true })).toBeVisible();
-  await expect(page.getByText("Draft Reports", { exact: true })).toBeVisible();
-  await expect(page.getByText("Final Reports", { exact: true })).toBeVisible();
-  await expect(page.getByText("Overdue", { exact: true })).toBeVisible();
-  await expect(page.getByText("Turnaround", { exact: true }).or(page.getByText("Turnaround Time"))).toBeVisible();
-  await expect(page.getByText("Fees", { exact: true })).toBeVisible();
-  await expect(page.getByText("Instructions Trend").or(page.getByRole("heading", { name: /Instructions/i }))).toBeVisible();
+  await expect(page.getByText(/Total Instructions|Instructions/i).first()).toBeVisible();
+  await expect(page.getByText("In Progress", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Completed", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Draft Reports", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Final Reports", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Overdue", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Turnaround", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Fees", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /INSTRUCTIONS TREND|Instructions/i }).first()).toBeVisible();
   await expect(page.locator(".donut, [class*=donut], [class*=chart]").first()).toBeVisible();
   await expect(page.getByText(/VAL-\d{4}-\d+/).first()).toBeVisible();
 });
