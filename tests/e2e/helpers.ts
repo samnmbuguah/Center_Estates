@@ -112,6 +112,13 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
         const groupedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${resolvedEscaped}$`, "i") });
         await expect(groupedTab, `Navigation page "${resolvedOptionLabel}" should be available`).toBeVisible();
         await groupedTab.click();
+        // Some pages (e.g. property Financials) expose sub-sections as MUI tabs.
+        // If the test asked for a specific section, activate the matching sub-tab.
+        if (name !== resolvedOptionLabel) {
+          const subTab = page.getByRole("tab", { name, exact: true }).first();
+          await subTab.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
+          if (await subTab.isVisible().catch(() => false)) await subTab.click();
+        }
         return;
       }
     }
