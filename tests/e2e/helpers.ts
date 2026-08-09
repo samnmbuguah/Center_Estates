@@ -25,8 +25,8 @@ const TAB_ALIASES: Record<string, string> = {
   "Rent & invoices": "Financials", "Rent schedules": "Financials",
   "Bank reconciliation": "Financials", "Credit notes": "Financials",
   "Charge Setup": "Service Charge", "Charge allocations": "Service Charge",
-  "Budgets & Estimates": "Financials", "Property Expenses": "Financials",
-  Budgets: "Financials", Expenses: "Financials",
+  "Budgets & Estimates": "Service Charge", "Property Expenses": "Financials",
+  Budgets: "Service Charge", Expenses: "Financials",
   Leases: "Tenants & Occupancy", Tenants: "Tenants & Occupancy",
   "Tenant documents": "Tenants & Occupancy",
   "Property Register": "Portfolio Overview", Properties: "Portfolio Overview",
@@ -34,6 +34,16 @@ const TAB_ALIASES: Record<string, string> = {
 };
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
+
+/** Map section names to the sub-tab label on a consolidated page (e.g. property Financials). */
+const SUBTAB_ALIASES: Record<string, string> = {
+  "Rent & invoices": "Invoices", "Rent schedules": "Schedules",
+  "Bank reconciliation": "Reconciliation", "Credit notes": "Credit Notes",
+  Receipts: "Receipts", Arrears: "Invoices",
+  "Charge Setup": "Setup", "Charge allocations": "Allocations",
+  Reconciliations: "Reconciliations", Budgets: "Budget & Estimate",
+  "Budgets & Estimates": "Budget & Estimate",
+};
 
 const PROPERTY_PARENTS: Record<string, string> = {
   "Property Register": "Properties", Buildings: "Properties",
@@ -114,8 +124,9 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
         await groupedTab.click();
         // Some pages (e.g. property Financials) expose sub-sections as MUI tabs.
         // If the test asked for a specific section, activate the matching sub-tab.
-        if (name !== resolvedOptionLabel) {
-          const subTab = page.getByRole("tab", { name, exact: true }).first();
+        const subTabName = SUBTAB_ALIASES[name] ?? name;
+        if (subTabName !== resolvedOptionLabel) {
+          const subTab = page.getByRole("tab", { name: subTabName, exact: true }).first();
           await subTab.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
           if (await subTab.isVisible().catch(() => false)) await subTab.click();
         }
