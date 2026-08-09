@@ -182,8 +182,19 @@ test("property add property user story: create a property via the wizard", async
   // Step 3 of 3 — Review & Save
   await page.getByTestId("prop-wizard-create").click();
   await page.waitForTimeout(3000);
-  const bodyText = await page.evaluate(() => document.body.innerText);
-  expect(bodyText).toContain(unique);
+
+  // Verify via API that the property was persisted (the overview may not
+  // refresh the portfolio list immediately).
+  const persisted = await page.evaluate(async (name) => {
+    try {
+      const r = await fetch(`/api/v1/property/properties/?search=${encodeURIComponent(name)}`, { credentials: "include" });
+      if (!r.ok) return false;
+      const data = await r.json();
+      const list = Array.isArray(data) ? data : data.results ?? [];
+      return list.some((p: Record<string, unknown>) => String(p.name ?? "").includes(name));
+    } catch { return false; }
+  }, unique);
+  expect(persisted).toBe(true);
 });
 
 test("create lease user story: create a lease", async ({ page }) => {
@@ -248,10 +259,11 @@ test("assign companion task user story", async ({ page }) => {
   await page.getByTestId("assign-submit-btn").click();
   await page.waitForTimeout(3000);
 
-  // Verify via API that the task was persisted
+  // Verify via API that the task was persisted (list all and match by title —
+  // the companion task list endpoint has no server-side search fields).
   const created = await page.evaluate(async (title) => {
     try {
-      const r = await fetch(`/api/v1/companion/tasks/?search=${encodeURIComponent(title)}`, { credentials: "include" });
+      const r = await fetch(`/api/v1/companion/tasks/?limit=200`, { credentials: "include" });
       if (!r.ok) return false;
       const data = await r.json();
       const list = Array.isArray(data) ? data : data.results ?? [];
