@@ -4904,7 +4904,10 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     router.push(`?${params.toString()}`, { scroll: false });
   };
 
-  const todayStr = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const [todayStr, setTodayStr] = useState("");
+  useEffect(() => {
+    setTodayStr(new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }));
+  }, []);
 
   /**
    * SIMPLIFIED NAVIGATION:

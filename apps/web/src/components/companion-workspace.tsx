@@ -85,6 +85,15 @@ function greeting() {
   return "Good Evening";
 }
 
+/** SSR-safe greeting: new Date() during render mismatches hydration (#418). */
+function useGreeting() {
+  const [greetingText, setGreetingText] = useState("");
+  useEffect(() => {
+    setGreetingText(greeting());
+  }, []);
+  return greetingText;
+}
+
 /* ────────────── AI Productivity Engine ────────────── */
 
 function priorityScore(task: Row): number {
@@ -160,6 +169,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const { session, can } = useAuth();
   const { activeProperty } = usePropertyContext();
   const org = session?.activeOrganizationId ?? null;
+  const greetingText = useGreeting();
   const [tab, setTab] = useState<CompanionTab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as CompanionTab | null;
@@ -478,7 +488,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div className="card" style={{ background: "linear-gradient(120deg, rgba(13,148,136,0.12), transparent)", border: "1px solid var(--border)" }}>
               <p className="eyebrow" style={{ marginBottom: 6 }}>{today}</p>
-              <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 4px" }}>{greeting()}, {userName}</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 4px" }}>{greetingText}, {userName}</h2>
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>Let&apos;s make today productive — here is what needs your attention.</p>
             </div>
 
