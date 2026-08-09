@@ -39,7 +39,8 @@ const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Cha
 const SUBTAB_ALIASES: Record<string, string> = {
   "Rent & invoices": "Invoices", "Rent schedules": "Schedules",
   "Bank reconciliation": "Reconciliation", "Credit notes": "Credit Notes",
-  Receipts: "Receipts", Arrears: "Invoices",
+  Receipts: "Receipts", Arrears: "Invoices", Allocations: "Allocations",
+  "Receipt allocations": "Allocations", Invoices: "Invoices",
   "Charge Setup": "Setup", "Charge allocations": "Allocations",
   Reconciliations: "Reconciliations", Budgets: "Budget & Estimate",
   "Budgets & Estimates": "Budget & Estimate",
