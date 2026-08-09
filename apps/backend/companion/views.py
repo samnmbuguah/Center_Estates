@@ -1,5 +1,5 @@
 from django.db import transaction
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
 from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 from rest_framework import status
@@ -257,11 +257,12 @@ def query_opencode_llm(prompt: str, context_str: str) -> str:
 from .qm_agent import QMAgentOrchestrator
 
 
+@extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
 
-    @extend_schema(request=None, responses={200: {"type": "object"}})
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     def list(self, request):
         organization = get_active_organization(request)
         now = timezone.now()
@@ -380,6 +381,7 @@ class CompanionDashboardViewSet(ViewSet):
         })
 
 
+@extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class PerformanceViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
@@ -390,7 +392,7 @@ class PerformanceViewSet(ViewSet):
         if not (membership and (membership.is_organization_admin or membership.has_permission('companion.performance.view'))):
             raise ValidationError('Performance analytics are available to administrators and managers only.')
 
-    @extend_schema(request=None, responses={200: {"type": "object"}})
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     def list(self, request):
         self._require_manager(request)
         organization = get_active_organization(request)
@@ -484,10 +486,11 @@ class PerformanceViewSet(ViewSet):
 
 from rest_framework.permissions import IsAuthenticated
 
+@extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class TelemetryViewSet(ViewSet):
     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(request=None, responses={200: {"type": "object"}})
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     def list(self, request):
         organization = get_active_organization(request)
         module_param = request.query_params.get('module', '').strip()

@@ -1,5 +1,5 @@
 import csv
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
 import uuid
 
 from django.db import transaction
@@ -370,6 +370,7 @@ class ServiceRequestViewSet(FacilityModelViewSet):
         return Response(self.get_serializer(service_request).data)
 
 
+@extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class FacilityPortalViewSet(ViewSet):
     """Occupant-facing facility portal scoped to the linked tenant profile.
 
@@ -554,6 +555,7 @@ class FacilityDashboardViewSet(ViewSet):
         })
 
 
+@extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class FacilityAnalyticsViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY

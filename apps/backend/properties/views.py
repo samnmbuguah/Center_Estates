@@ -1,5 +1,5 @@
 import csv
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -1066,6 +1066,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         return response
 
 
+@extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class TenantPortalViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY

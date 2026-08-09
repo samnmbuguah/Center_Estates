@@ -606,9 +606,9 @@ class WorkspacePulseView(APIView):
         return Response({'pulse': pulse})
 
 
+@extend_schema(request=None, responses={200: {'type': 'object'}})
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
-@extend_schema(request=None, responses={200: {'type': 'object'}})
 def security_audit(request):
     return Response({
         'debug': settings.DEBUG,

@@ -38,9 +38,9 @@ def iso_week_from_date(value):
         return None
 
 
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def project_report(request, project_id):
     organization = get_active_organization(request)
     project = Project.objects.filter(id=project_id, organization=organization).first()
@@ -108,9 +108,9 @@ def _scoped_project(request, project_id):
     return Project.objects.filter(id=project_id, organization=get_active_organization(request)).first()
 
 
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def weekly_report(request):
     project_id = request.query_params.get("project") or request.query_params.get("project_id")
     if not project_id:
@@ -118,9 +118,9 @@ def weekly_report(request):
     return project_report(request._request, project_id)
 
 
+@extend_schema(request=None, responses={200: {"type": "object"}}, )
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "object"}}, )
 def monthly_report(request):
     project_id = request.query_params.get("project") or request.query_params.get("project_id")
     if not project_id:
@@ -157,9 +157,9 @@ def _csv_response(filename):
     return response
 
 
+@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def export_boq_csv(request, project_id):
     project = _scoped_project(request, project_id)
     if not project: return Response({"detail": "Project not found."}, status=404)
@@ -170,9 +170,9 @@ def export_boq_csv(request, project_id):
     return response
 
 
+@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def export_milestones_csv(request, project_id):
     project = _scoped_project(request, project_id)
     if not project: return Response({"detail": "Project not found."}, status=404)
@@ -183,9 +183,9 @@ def export_milestones_csv(request, project_id):
     return response
 
 
+@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def export_cost_csv(request, project_id):
     project = _scoped_project(request, project_id)
     if not project: return Response({"detail": "Project not found."}, status=404)
@@ -247,9 +247,9 @@ def build_scurve(project, organization):
     }
 
 
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def project_scurve(request, project_id):
     """Planned vs actual progress series for the project S-curve chart."""
     project = _scoped_project(request, project_id)
@@ -258,9 +258,9 @@ def project_scurve(request, project_id):
     return Response(build_scurve(project, get_active_organization(request)))
 
 
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 def project_workspace(request, project_id):
     """Unified project command-center payload (MonitoringERP ProjectWorkspace parity)."""
     project = _scoped_project(request, project_id)
