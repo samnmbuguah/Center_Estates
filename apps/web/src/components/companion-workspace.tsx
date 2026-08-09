@@ -382,6 +382,14 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
     try {
       await apiFetch("/auth/csrf/");
       const base = Object.fromEntries(form.entries());
+      // <input type="datetime-local"> sends "YYYY-MM-DDThh:mm" without a timezone;
+      // DRF DateTimeField requires an ISO offset/Z. Normalize to UTC ISO.
+      for (const key of ["due_at", "sla_due_at"]) {
+        const raw = String(base[key] ?? "");
+        if (raw && !/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)) {
+          base[key] = new Date(raw).toISOString();
+        }
+      }
       const payload = {
         ...base,
         assigned_by: session?.user.id,
