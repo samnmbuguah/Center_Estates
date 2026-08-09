@@ -20,6 +20,17 @@ const TAB_ALIASES: Record<string, string> = {
   Utilities: "Energy & Utilities",
   Invoicing: "Client invoicing", Inspections: "Site inspections",
   Projects: "Project Portfolio", Milestones: "Progress",
+  // Property sections consolidated into group-level pages after the redesign.
+  Arrears: "Financials", Receipts: "Financials", Allocations: "Financials",
+  "Rent & invoices": "Financials", "Rent schedules": "Financials",
+  "Bank reconciliation": "Financials", "Credit notes": "Financials",
+  "Charge Setup": "Service Charge", "Charge allocations": "Service Charge",
+  "Budgets & Estimates": "Financials", "Property Expenses": "Financials",
+  Budgets: "Financials", Expenses: "Financials",
+  Leases: "Tenants & Occupancy", Tenants: "Tenants & Occupancy",
+  "Tenant documents": "Tenants & Occupancy",
+  "Property Register": "Portfolio Overview", Properties: "Portfolio Overview",
+  "Service charge": "Service Charge",
 };
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
