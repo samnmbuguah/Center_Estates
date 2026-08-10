@@ -2339,6 +2339,7 @@ HTML_APP_TEMPLATE = (
 
 _NEXT_STATIC_DIR = os.path.abspath(os.path.join(settings.BASE_DIR, '../web/.next/static'))
 _NEXT_SERVER_DIR = os.path.abspath(os.path.join(settings.BASE_DIR, '../web/.next/server/app'))
+_NEXT_PUBLIC_DIR = os.path.abspath(os.path.join(settings.BASE_DIR, '../web/public'))
 
 def serve_nextjs_static(request, path):
     return serve(request, path, document_root=_NEXT_STATIC_DIR)
@@ -2351,9 +2352,14 @@ def root_web_view(request):
     all correct script tags, CSS links, and the full hydration data.
     """
     raw_path = request.path.strip('/')
+    # cPanel routes every non-API request through Django. Serve Next public
+    # assets here before resolving the request as an application page.
+    public_path = os.path.abspath(os.path.join(_NEXT_PUBLIC_DIR, raw_path))
+    if raw_path and public_path.startswith(f'{_NEXT_PUBLIC_DIR}{os.sep}') and os.path.isfile(public_path):
+        return serve(request, raw_path, document_root=_NEXT_PUBLIC_DIR)
     # Resolve logical page name
     if not raw_path or raw_path == 'console':
-        page_slug = 'workspaces'
+        page_slug = 'index'
     else:
         # e.g. "property/properties" -> try that, fall back to top-level "property"
         page_slug = raw_path
