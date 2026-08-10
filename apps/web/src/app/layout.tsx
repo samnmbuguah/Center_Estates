@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import "./globals.css";
 import PlatformShell from "@/components/platform-shell";
 import { AuthProvider } from "@/components/auth-provider";
@@ -22,21 +23,23 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased" data-theme="light">
       <body>
-        <AuthProvider>
-          <ThemeProvider>
-            <ToastProvider>
-              <PropertyWorkspaceProvider>
-                <Suspense fallback={null}>
-                  <PlatformShell>
-                    <ErrorBoundary moduleName="Application">
-                      {children}
-                    </ErrorBoundary>
-                  </PlatformShell>
-                </Suspense>
-              </PropertyWorkspaceProvider>
-            </ToastProvider>
-          </ThemeProvider>
-        </AuthProvider>
+        <AppRouterCacheProvider>
+          <AuthProvider>
+            <ThemeProvider>
+              <ToastProvider>
+                <PropertyWorkspaceProvider>
+                  <Suspense fallback={null}>
+                    <PlatformShell>
+                      <ErrorBoundary moduleName="Application">
+                        {children}
+                      </ErrorBoundary>
+                    </PlatformShell>
+                  </Suspense>
+                </PropertyWorkspaceProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );
