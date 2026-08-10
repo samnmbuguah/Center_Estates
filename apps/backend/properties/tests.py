@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from core.models import Module
 from organizations.models import Membership, MembershipRole, Organization, Permission, Role
 from subscriptions.models import Subscription
-from facilities.models import ServiceRequest
+from facilities.models import MeterReading, ServiceRequest, UtilityMeter
 from notifications.models import Notification
 
 from .models import (
@@ -158,9 +158,14 @@ class PropertyApiTests(TestCase):
                 'name': 'Palm Court', 'property_type': 'mixed_use', 'status': 'draft',
                 'address': 'Links Road', 'city': 'Mombasa', 'country': 'KE',
                 'metadata': {
-                    'lr_number': 'MN/I/456',
                     'landlord': {'name': 'Example Landlord', 'vat_registered': True},
                     'location': {'county': 'Mombasa'},
+                    'utilities': [{
+                        'type': 'electricity', 'account_no': 'KPLC-100', 'provider': 'KPLC',
+                        'meter_code': 'MTR-KPLC-100', 'supply_mode': 'postpaid', 'unit': 'kWh',
+                        'tariff': '28.50', 'initial_reading': '1500', 'reading_date': '2026-08-01',
+                        'status': 'active',
+                    }],
                 },
             },
             'building': {'count': 2, 'floors': 4, 'use': 'Mixed use'},
@@ -173,10 +178,16 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         created = Property.objects.get(name='Palm Court')
         self.assertTrue(created.code.startswith('PROP-'))
-        self.assertEqual(created.metadata['lr_number'], 'MN/I/456')
+        self.assertNotIn('lr_number', created.metadata)
         self.assertEqual(created.buildings.count(), 2)
         self.assertEqual(created.units.count(), 2)
         self.assertEqual(created.units.get(code='1-A').metadata['rateable_area'], '980')
+        meter = UtilityMeter.objects.get(property=created, code='MTR-KPLC-100')
+        self.assertEqual(meter.tariff, Decimal('28.5000'))
+        reading = MeterReading.objects.get(meter=meter)
+        self.assertEqual(reading.value, Decimal('1500'))
+        self.assertEqual(reading.status, MeterReading.Status.APPROVED)
+        self.assertEqual(response.data['utility_meters_created'], 1)
 
     def test_tenant_company_card_is_validated_and_assigned_to_selected_property(self):
         scoped_headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}

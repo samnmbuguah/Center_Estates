@@ -2,7 +2,7 @@ import csv
 import calendar
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
@@ -167,10 +167,57 @@ class PropertyViewSet(OrganizationModelViewSet):
                 },
             ))
 
+        # Utility accounts remain part of the property profile, while metered
+        # water/electricity/gas supplies are also registered in Facility
+        # Management so opening readings are operational rather than decorative.
+        utilities_payload = property_record.metadata.get('utilities', [])
+        if not isinstance(utilities_payload, list) or len(utilities_payload) > 100:
+            raise ValidationError({'utilities': 'Utilities must be a list containing at most 100 records.'})
+        from facilities.models import MeterReading, UtilityMeter
+        meters = []
+        for index, utility in enumerate(utilities_payload, start=1):
+            if not isinstance(utility, dict):
+                raise ValidationError({'utilities': f'Utility {index} must be an object.'})
+            utility_type = str(utility.get('type', '')).lower()
+            meter_code = str(utility.get('meter_code', '')).strip().upper()
+            if not meter_code or utility_type not in {choice for choice, _ in UtilityMeter.Utility.choices}:
+                continue
+            if UtilityMeter.objects.filter(organization=organization, code=meter_code).exists():
+                raise ValidationError({'utilities': f'Meter number {meter_code} already exists.'})
+            try:
+                tariff = Decimal(str(utility.get('tariff') or 0))
+                opening_value = Decimal(str(utility.get('initial_reading') or 0))
+            except Exception:
+                raise ValidationError({'utilities': f'Utility {index} has an invalid tariff or opening reading.'})
+            if tariff < 0 or opening_value < 0:
+                raise ValidationError({'utilities': f'Utility {index} tariff and opening reading cannot be negative.'})
+            meter = UtilityMeter.objects.create(
+                organization=organization, property=property_record, code=meter_code,
+                name=f"{property_record.name} {utility_type.title()} {meter_code}", utility_type=utility_type,
+                unit=str(utility.get('unit') or ('kWh' if utility_type == 'electricity' else 'm³'))[:20],
+                tariff=tariff, is_active=str(utility.get('status', 'active')).lower() == 'active',
+            )
+            meters.append(meter)
+            has_opening_reading = str(utility.get('initial_reading', '')).strip() != ''
+            is_postpaid = utility_type != 'electricity' or utility.get('supply_mode', 'postpaid') == 'postpaid'
+            if has_opening_reading and is_postpaid:
+                try:
+                    reading_date = date.fromisoformat(str(utility.get('reading_date'))) if utility.get('reading_date') else timezone.localdate()
+                except ValueError:
+                    raise ValidationError({'utilities': f'Utility {index} has an invalid reading date.'})
+                MeterReading.objects.create(
+                    organization=organization, meter=meter,
+                    read_at=timezone.make_aware(datetime.combine(reading_date, time(hour=12))),
+                    value=opening_value, previous_value=opening_value, consumption=Decimal('0'), cost=Decimal('0'),
+                    status=MeterReading.Status.APPROVED, reviewed_by=request.user, reviewed_at=timezone.now(),
+                    review_notes='Opening reading captured during property onboarding.',
+                )
+
         return Response({
             'property': self.get_serializer(property_record).data,
             'buildings': BuildingSerializer(buildings, many=True).data,
             'units': UnitSerializer(units, many=True).data,
+            'utility_meters_created': len(meters),
         }, status=201)
 
     @transaction.atomic

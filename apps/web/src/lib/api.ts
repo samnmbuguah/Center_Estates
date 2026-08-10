@@ -54,7 +54,8 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   }
   const csrf = csrfFromCookie();
   if (csrf && !headers.has("X-CSRFToken")) headers.set("X-CSRFToken", csrf);
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const isMultipart = typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (init.body && !isMultipart && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
   let p = path.replace(/\/+/g, "/");
   p = p.replace(/^\/hs-incidents/, "/safety-incidents");
