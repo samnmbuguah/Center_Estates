@@ -312,10 +312,10 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>
-              <Link className="nav-link" href="/workspaces?view=tickets" onClick={onCloseMobile} title="Tickets" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
+              <Link className="nav-link" href="/tickets" onClick={onCloseMobile} title="Tickets" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
                 <CircleAlert size={isMobile ? 24 : 18} />{(!collapsed || isMobile) && <span>Tickets</span>}
               </Link>
-              <Link className="nav-link" href="/workspaces?view=calendar" onClick={onCloseMobile} title="Calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
+              <Link className="nav-link" href="/calendar" onClick={onCloseMobile} title="Calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
                 <CalendarDays size={isMobile ? 24 : 18} />{(!collapsed || isMobile) && <span>Calendar</span>}
               </Link>
             </>
