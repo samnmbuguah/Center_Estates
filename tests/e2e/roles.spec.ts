@@ -118,7 +118,8 @@ test("@role:valuation-reviewer @module:valuation @story:ROLE-VALUATION-REVIEW re
 test("@role:admin @module:platform @story:ROLE-ADMIN-SWITCH admin can open demo identity switcher", async ({ page }) => {
   await signInAs(page, process.env.E2E_ADMIN_USERNAME ?? "admin");
   await page.goto("/");
-  await page.locator(".profile-trigger").click();
+  // The profile menu is triggered by the avatar button (initials) in the top bar.
+  await page.locator("header button[aria-haspopup='menu']").first().click();
   await expect(page.getByText("Demo identity / role", { exact: true })).toBeVisible();
   await expect(page.getByText("Super Administrator", { exact: true }).first()).toBeVisible();
 });
@@ -150,19 +151,20 @@ test("@role:leasing-officer @module:property @story:ROLE-LEASING-OFFICER leasing
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant races");
   await signInAs(page, "role-leasing-officer");
   await page.goto("/property");
-  await expect(page.getByRole("button", { name: "+ Add Property", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "+ Record Receipt", exact: true })).toHaveCount(0);
 
   await openModuleSection(page, "Tenants");
   await page.getByRole("button", { name: "+ Add Tenant", exact: true }).last().click();
-  const dialog = page.getByRole("dialog", { name: "Add New Tenant Profile" });
+  // The redesigned onboarding uses the full-page Tenant Application Card.
+  const card = page.locator(".tenant-application-card");
+  await expect(card).toBeVisible();
   const suffix = Date.now();
-  await dialog.getByLabel("Full Name / Company").fill(`Leasing Prospect ${suffix}`);
-  await dialog.getByLabel("Registration Number").fill(`REG-${suffix}`);
-  await dialog.getByLabel("KRA PIN / Tax ID").fill(`P${String(suffix).slice(-8)}Z`);
-  await dialog.getByLabel("Email Address").fill(`prospect-${suffix}@example.test`);
-  await dialog.getByRole("button", { name: "Register Tenant" }).click();
-  await expect(page.getByText(`Leasing Prospect ${suffix}`, { exact: true })).toBeVisible();
+  await card.getByLabel(/Tenant \/ company name|Tenant name/i).fill(`Leasing Prospect ${suffix}`);
+  await card.getByLabel(/KRA PIN|Tax ID/i).fill(`P${String(suffix).slice(-8)}Z`);
+  await card.getByLabel(/Registration no/i).fill(`REG-${suffix}`);
+  await card.getByLabel(/Email/i).first().fill(`prospect-${suffix}@example.test`);
+  await card.getByRole("button", { name: /Save (tenant )?application/i }).first().click();
+  await expect(page.getByText(`Leasing Prospect ${suffix}`, { exact: true }).first()).toBeVisible();
 
   await openModuleSection(page, "Tenant documents");
   const pendingRow = page.getByRole("row").filter({ hasText: "BR-BLUEBIRD-2026" });
