@@ -8,13 +8,6 @@ import { modules, ACTIVE_MODULES } from "@/lib/modules";
 import { useSearchParams } from "next/navigation";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
 type Pulse = {
   property?: { properties: number; outstanding: number; occupancy: number; tenants: number };
   facility?: { openWorkOrders: number; compliance: number; assets: number };
@@ -33,20 +26,8 @@ export function CommandCenterWorkspace() {
     (session?.modules?.map((module) => module.slug) ?? modules.map((m) => m.slug)).filter((slug) => ACTIVE_MODULES.includes(slug)),
   );
   const subscribedModules = modules.filter((module) => allowed.has(module.slug));
-  const name = session?.user?.firstName || session?.user?.username || "there";
-  const organization = session?.organizations?.find((item) => item.id === session?.activeOrganizationId);
   const organizationId = session?.activeOrganizationId ?? null;
-  const today = new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const roleLabel = session?.permissions?.includes("*")
-    ? "Platform administrator"
-    : session?.roles?.join(", ") || "Organization member";
   const [pulse, setPulse] = useState<Pulse>({});
-  const [pulseLoading, setPulseLoading] = useState(true);
   const searchParams = useSearchParams();
   const portfolioView = searchParams.get("view");
   const moduleSlugs = session?.modules?.map((module) => module.slug).join(",") ?? "";
@@ -55,7 +36,6 @@ export function CommandCenterWorkspace() {
     if (!organizationId) return;
     let cancelled = false;
     async function loadPulse() {
-      setPulseLoading(true);
       const response = await apiFetch(
         "/workspace/pulse/",
         { headers: { "X-Property-Scope": "portfolio" } },
@@ -64,7 +44,6 @@ export function CommandCenterWorkspace() {
       const data = response.ok ? await response.json() : { pulse: {} };
       if (!cancelled) {
         setPulse(data.pulse ?? {});
-        setPulseLoading(false);
       }
     }
     void loadPulse();
@@ -121,42 +100,6 @@ export function CommandCenterWorkspace() {
 
   return (
     <div className="page-wrap command-center">
-      <section className="command-welcome">
-        <div>
-          <p className="eyebrow">CeEst Workplace</p>
-          <h1>
-            {greeting()}, {name} 👋
-          </h1>
-          <p>Here&apos;s what&apos;s happening across your operations today.</p>
-          <div className="command-context">
-            <span>
-              <i />
-              Live workspace
-            </span>
-            <strong>{organization?.name ?? "Active organization"}</strong>
-            <small>{roleLabel}</small>
-          </div>
-        </div>
-        <aside className="command-date-card">
-          <p>Today</p>
-          <strong>{today}</strong>
-          <span>
-            {subscribedModules.length} subscribed module{subscribedModules.length === 1 ? "" : "s"}
-            {pulseLoading ? " · refreshing…" : " · live KPIs"}
-          </span>
-          <div className="module-dot-row">
-            {subscribedModules.slice(0, 6).map((module) => (
-              <i key={module.slug} title={module.name} style={{ background: module.accent }} />
-            ))}
-          </div>
-          {allowed.has("property") ? (
-            <Link className="command-onboard-action" href="/property-onboarding">
-              + Onboard property
-            </Link>
-          ) : null}
-        </aside>
-      </section>
-
       <div className="command-layout">
         <div className="command-main">
           {portfolioView === "tickets" ? <ModuleTicketsView moduleName="Portfolio" portfolio /> : null}
