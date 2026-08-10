@@ -4920,7 +4920,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
       <div className="property-workspace" style={{ padding: "16px 24px", width: "100%", boxSizing: "border-box" }}>
         {error && <ErrorBanner message={error} onRetry={() => { setError(""); loadData(); }} />}
 
-        {!standaloneOnboarding && <>
+        {!standaloneOnboarding && !showAddTenant && <>
         {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} />}
         {tab === "properties" && <PropertiesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddProperty(true)} onSelectRow={handleSelectRow} />}
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}

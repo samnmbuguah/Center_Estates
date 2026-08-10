@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert, AppBar, Box, Button, Checkbox, Dialog, Divider, FormControlLabel,
+  Alert, AppBar, Box, Button, Checkbox, Divider, FormControlLabel,
   IconButton, MenuItem, Paper, Stack, Tab, Tabs, TextField, Toolbar, Typography,
 } from "@mui/material";
 import CloseRounded from "@mui/icons-material/CloseRounded";
@@ -158,9 +158,11 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
     ["Utilities security deposit", utilityDeposit], ["Total amount payable", total],
   ] as const;
 
+  if (!open) return null;
+
   return (
-    <Dialog fullScreen open={open} onClose={onClose}>
-      <AppBar position="sticky" color="inherit" elevation={1}>
+    <Box className="tenant-application-card" sx={{ width: "100%" }}>
+      <AppBar position="sticky" color="inherit" elevation={0} sx={{ top: 0, zIndex: 4, border: 1, borderColor: "divider", borderRadius: 1.5, mb: 2 }}>
         <Toolbar sx={{ gap: 2 }}>
           <IconButton onClick={onClose} aria-label="Close tenant application"><CloseRounded /></IconButton>
           <Box sx={{ flex: 1 }}>
@@ -174,7 +176,7 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
         </Tabs>
       </AppBar>
 
-      <Box sx={{ bgcolor: "background.default", minHeight: "100%", p: { xs: 2, md: 3 } }}>
+      <Box sx={{ bgcolor: "background.default", minHeight: "100%", py: { xs: 1, md: 2 } }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 2fr) minmax(320px, 1fr)" }, gap: 2 }}>
           <Stack spacing={2}>
@@ -261,6 +263,6 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
         </Box>
         <Divider sx={{ my: 3 }} />
       </Box>
-    </Dialog>
+    </Box>
   );
 }

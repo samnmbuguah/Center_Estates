@@ -1473,7 +1473,7 @@ small, .text-sm, .text-xs, .text-caption, .muted {
 }
 
 /* Consistent Input Styles */
-input, select, textarea {
+input:not(.MuiInputBase-input), select:not(.MuiNativeSelect-select), textarea:not(.MuiInputBase-input) {
   font-size: var(--font-sm) !important;
   padding: 0.625rem 0.875rem !important;
   border: 1px solid var(--line) !important;
@@ -1483,13 +1483,13 @@ input, select, textarea {
 }
 
 @media (min-width: 768px) {
-  input, select, textarea {
+  input:not(.MuiInputBase-input), select:not(.MuiNativeSelect-select), textarea:not(.MuiInputBase-input) {
     font-size: var(--font-base) !important;
     padding: 0.75rem 1rem !important;
   }
 }
 
-input:focus, select:focus, textarea:focus {
+input:not(.MuiInputBase-input):focus, select:not(.MuiNativeSelect-select):focus, textarea:not(.MuiInputBase-input):focus {
   outline: 2px solid var(--brand) !important;
   outline-offset: 1px !important;
 }
@@ -4372,16 +4372,27 @@ td .mono, td.num { font-family: "IBM Plex Mono"; }
 .btn.sm { padding: 7px 11px; font-size: 14px; border-radius: 9px; }
 
 /* ---------- Inputs ---------- */
-input, select, textarea {
+input:not(.MuiInputBase-input), select:not(.MuiNativeSelect-select), textarea:not(.MuiInputBase-input) {
   background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 11px; padding: 10px 12px; font-size: 15px; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
   max-width: 100%; min-width: 0;
 }
-input:focus, select:focus, textarea:focus {
+input:not(.MuiInputBase-input):focus, select:not(.MuiNativeSelect-select):focus, textarea:not(.MuiInputBase-input):focus {
   outline: none; border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
 }
-input::placeholder, textarea::placeholder { color: var(--faint); }
+input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::placeholder { color: var(--faint); }
+
+/* MUI owns its component internals. Legacy native-form rules above must never
+   alter outlined input padding, borders or floating-label geometry. */
+.tenant-application-card .MuiInputLabel-root {
+  font-size: 0.875rem !important;
+  line-height: 1.4375em !important;
+}
+.tenant-application-card .MuiInputBase-input,
+.tenant-application-card .MuiSelect-select {
+  font-size: 0.875rem !important;
+}
 
 /* ---------- Badges ---------- */
 .badge {
