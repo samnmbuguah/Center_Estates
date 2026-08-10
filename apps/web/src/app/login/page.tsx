@@ -1,10 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { Alert, Button, IconButton, InputAdornment, Paper, TextField } from "@mui/material";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -43,82 +45,70 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-root" style={{ display: "flex", minHeight: "100vh", background: "#0f172a", fontFamily: "Inter, system-ui, sans-serif", color: "#f8fafc" }}>
+    <div className="login-root" style={{ display: "flex", minHeight: "100vh", background: "#f7f7f5", fontFamily: "'DM Sans', Inter, system-ui, sans-serif", color: "#1c1d21" }}>
       {/* Left Visual Branding Hero Side */}
-      <div style={{ flex: 1.2, background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)", padding: 48, display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative", overflow: "hidden", borderRight: "1px solid #1e293b" }}>
+      <div style={{ flex: 1.2, background: "linear-gradient(105deg, rgba(255,255,255,.98), rgba(255,255,255,.82)), url('/images/hero.jpg') center / cover", padding: 52, display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative", overflow: "hidden", borderRight: "1px solid #e4e2de" }}>
         {/* Glow Effects */}
         <div style={{ position: "absolute", top: "-10%", left: "-10%", width: "50%", height: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(0,0,0,0) 70%)", borderRadius: "50%", pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: "-10%", right: "-10%", width: "60%", height: "60%", background: "radial-gradient(circle, rgba(16,185,129,0.12) 0%, rgba(0,0,0,0) 70%)", borderRadius: "50%", pointerEvents: "none" }} />
 
         {/* Brand Header */}
         <div style={{ position: "relative", zIndex: 2 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #3b82f6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 22, boxShadow: "0 4px 12px rgba(99,102,241,0.4)" }}>
-              CE
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800, letterSpacing: "-0.02em", color: "#ffffff" }}>Center Estates</h2>
-              <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>Enterprise Real Estate Platform</span>
-            </div>
-          </div>
+          <BrandLogo size="md" href="/" dark={false} />
         </div>
 
         {/* Hero Copy & Visual Cards */}
         <div style={{ position: "relative", zIndex: 2, margin: "40px 0" }}>
-          <span style={{ display: "inline-block", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#818cf8", padding: "4px 12px", borderRadius: 20, fontSize: "0.75rem", fontWeight: 700, marginBottom: 16 }}>
-            INTEGRATED ERP & FACILITY ENGINE
+          <span style={{ display: "inline-block", background: "#fce8e8", border: "1px solid #f3c3c1", color: "#9b2422", padding: "4px 12px", borderRadius: 20, fontSize: "0.75rem", fontWeight: 700, marginBottom: 16 }}>
+            CONNECTED ESTATE OPERATIONS
           </span>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 800, lineHeight: 1.15, margin: "0 0 16px 0", color: "#ffffff" }}>
-            Unified Real Estate & Facility Intelligence
+            Run every estate with clarity and control
           </h1>
-          <p style={{ color: "#94a3b8", fontSize: "1rem", lineHeight: 1.6, maxWidth: 520, margin: "0 0 32px 0" }}>
-            Streamline lease accounting, asset maintenance schedules, valuation compliance, and automated staff task workflows in one unified operating system.
+          <p style={{ color: "#44484f", fontSize: "1rem", lineHeight: 1.6, maxWidth: 520, margin: "0 0 32px 0" }}>
+            Property, facilities and team work—connected in one trusted operational record.
           </p>
 
           {/* Module Feature Chips */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, maxWidth: 520 }}>
             {[
-              { icon: "🏢", name: "Property Management", desc: "Lease roll & rent collection", color: "#e23b3b" },
-              { icon: "🔧", name: "Facility Management", desc: "Work orders & PPM SLA", color: "#16a34a" },
-              { icon: "📐", name: "Valuation", desc: "Site inspection & RICS reports", color: "#0891b2" },
-              { icon: "🧭", name: "Companion Tasks", desc: "Staff task command center", color: "#0d9488" },
+              { icon: "🏢", name: "Property Management", desc: "Leases, collections & occupancy", color: "#c22e2a" },
+              { icon: "🔧", name: "Facility Management", desc: "Work orders & compliance", color: "#1a7a4a" },
+              { icon: "📐", name: "Valuation", desc: "Instructions & reporting", color: "#1d4ed8" },
+              { icon: "🧭", name: "Companion", desc: "Team tasks & priorities", color: "#b45309" },
             ].map((m) => (
-              <div key={m.name} style={{ background: "rgba(30, 41, 59, 0.6)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 }}>
+              <div key={m.name} style={{ background: "rgba(255,255,255,.82)", backdropFilter: "blur(8px)", border: "1px solid #e4e2de", borderRadius: 12, padding: 14, boxShadow: "0 4px 12px rgba(0,0,0,.06)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <span style={{ fontSize: "1.1rem" }}>{m.icon}</span>
-                  <strong style={{ fontSize: "0.85rem", color: "#f8fafc" }}>{m.name}</strong>
+                  <strong style={{ fontSize: "0.85rem", color: "#1c1d21" }}>{m.name}</strong>
                 </div>
-                <small style={{ color: "#94a3b8", fontSize: "0.75rem" }}>{m.desc}</small>
+                <small style={{ color: "#44484f", fontSize: "0.75rem" }}>{m.desc}</small>
               </div>
             ))}
           </div>
         </div>
 
         {/* Footer info */}
-        <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "space-between", color: "#64748b", fontSize: "0.75rem" }}>
+        <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "space-between", color: "#8a909b", fontSize: "0.75rem" }}>
           <span>© 2026 Center Estates ERP. All rights reserved.</span>
           <span>v2.4 Production Build · ISO 27001</span>
         </div>
       </div>
 
       {/* Right Login Form Side */}
-      <div style={{ flex: 1, background: "#0f172a", padding: 48, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-        <div style={{ width: "100%", maxWidth: 420 }}>
+      <div style={{ flex: 1, background: "#fff", padding: 48, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+        <Paper elevation={0} sx={{ width: "100%", maxWidth: 440, p: { xs: 3, sm: 4 }, border: "1px solid #e4e2de", borderRadius: 3, boxShadow: "0 12px 36px rgba(0,0,0,.08)" }}>
           <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: "1.8rem", fontWeight: 800, margin: "0 0 8px 0", color: "#ffffff" }}>Sign in to your account</h2>
-            <p style={{ color: "#94a3b8", fontSize: "0.875rem", margin: 0 }}>Enter your organization credentials to access your workspace.</p>
+            <h1 style={{ fontSize: "1.8rem", fontWeight: 800, margin: "0 0 8px 0", color: "#1c1d21" }}>Welcome back</h1>
+            <p style={{ color: "#44484f", fontSize: "0.875rem", margin: 0 }}>Sign in to access your subscribed workspaces.</p>
           </div>
 
           {error && (
-            <div style={{ background: "rgba(220,38,38,0.15)", border: "1px solid #ef4444", color: "#fca5a5", padding: "12px 16px", borderRadius: 8, fontSize: "0.85rem", marginBottom: 20 }}>
-              {error}
-            </div>
+            <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
           )}
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div>
-              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 6 }}>Username or Email</label>
-              <input
+            <TextField label="Username or email" fullWidth
                 id="username"
                 type="text"
                 value={username}
@@ -127,14 +117,10 @@ export default function LoginPage() {
                 autoComplete="username"
                 disabled={!hydrated}
                 required
-                style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "12px 14px", color: "#ffffff", fontSize: "0.9rem", outline: "none" }}
+                sx={{ "& .MuiOutlinedInput-root": { background: "#fff" } }}
               />
-            </div>
 
-            <div>
-              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 6 }}>Password</label>
-              <div style={{ position: "relative" }}>
-                <input
+            <TextField label="Password" fullWidth
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -143,43 +129,17 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   disabled={!hydrated}
                   required
-                  style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "12px 40px 12px 14px", color: "#ffffff", fontSize: "0.9rem", outline: "none" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "0.8rem" }}
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
-              </div>
-            </div>
+                  slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(!showPassword)} edge="end">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</IconButton></InputAdornment> } }}
+            />
 
-            <button
-              type="submit"
-              disabled={loading || !hydrated}
-              aria-busy={loading}
-              style={{
-                width: "100%",
-                background: "linear-gradient(135deg, #6366f1, #2563eb)",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 8,
-                padding: 14,
-                fontWeight: 700,
-                fontSize: "0.95rem",
-                cursor: loading ? "wait" : "pointer",
-                boxShadow: "0 4px 14px rgba(99,102,241,0.3)",
-                marginTop: 6,
-              }}
-            >
+            <Button type="submit" variant="contained" size="large" disabled={loading || !hydrated} aria-busy={loading} startIcon={<LockKeyhole size={16} />} sx={{ py: 1.4, mt: 0.5, bgcolor: "#c22e2a", "&:hover": { bgcolor: "#9b2422" } }}>
               {loading ? "Signing in…" : "Sign In to Workspace →"}
-            </button>
+            </Button>
           </form>
 
           {/* Quick Identity Switcher for Demo / Testing */}
-          <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid #1e293b" }}>
-            <small style={{ color: "#64748b", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 10 }}>
+          <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid #e4e2de" }}>
+            <small style={{ color: "#8a909b", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 10 }}>
               Quick Demo Personas (1-Click Fill)
             </small>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -193,14 +153,14 @@ export default function LoginPage() {
                   key={p.user}
                   type="button"
                   onClick={() => fillQuickLogin(p.user)}
-                  style={{ background: "#1e293b", border: "1px solid #334155", color: "#cbd5e1", padding: "6px 10px", borderRadius: 6, fontSize: "0.75rem", cursor: "pointer", textAlign: "left" }}
+                  style={{ background: "#f7f7f5", border: "1px solid #e4e2de", color: "#44484f", padding: "6px 10px", borderRadius: 6, fontSize: "0.75rem", cursor: "pointer", textAlign: "left" }}
                 >
                   👤 {p.label}
                 </button>
               ))}
             </div>
           </div>
-        </div>
+        </Paper>
       </div>
     </div>
   );
