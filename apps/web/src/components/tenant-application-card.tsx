@@ -1,0 +1,241 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  Alert, AppBar, Box, Button, Checkbox, Dialog, Divider, FormControlLabel,
+  IconButton, MenuItem, Paper, Stack, Tab, Tabs, TextField, Toolbar, Typography,
+} from "@mui/material";
+import CloseRounded from "@mui/icons-material/CloseRounded";
+import SaveRounded from "@mui/icons-material/SaveRounded";
+import { useAuth } from "@/components/auth-provider";
+import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { usePropertyContext } from "@/lib/property-context";
+
+type Unit = { id: string; code: string; floor?: string; unit_type?: string; area?: string | number; status?: string };
+type Utility = { utility: string; applicable: boolean; rate_per_unit: number };
+
+const initialForm = {
+  name: "", tenant_type: "company", address_1: "", address_2: "", city: "",
+  phone: "", email: "", tax_id: "", registration_number: "", contact_name: "",
+  contact_phone: "", contact_email: "", unit: "", term_months: "12", starts_on: "",
+  rent_rate_per_sqft: "", service_charge_rate_per_sqft: "0", vat_rate: "16",
+  security_deposit: "0", billing_day: "1",
+};
+
+function money(value: number) {
+  return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 2 }).format(value || 0);
+}
+
+function addMonths(value: string, months: number) {
+  if (!value || !months) return "";
+  const date = new Date(`${value}T12:00:00`);
+  const day = date.getDate();
+  date.setDate(1);
+  date.setMonth(date.getMonth() + months);
+  date.setDate(Math.min(day, new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
+  return date.toISOString().slice(0, 10);
+}
+
+export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+  const { session } = useAuth();
+  const { activeProperty } = usePropertyContext();
+  const organizationId = session?.activeOrganizationId ?? null;
+  const [form, setForm] = useState(initialForm);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [utilities, setUtilities] = useState<Utility[]>([
+    { utility: "Electricity", applicable: false, rate_per_unit: 0 },
+    { utility: "Water", applicable: false, rate_per_unit: 0 },
+    { utility: "Other", applicable: false, rate_per_unit: 0 },
+  ]);
+  const [lettingFee, setLettingFee] = useState(false);
+  const [renewalFee, setRenewalFee] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState(0);
+
+  useEffect(() => {
+    if (!open || !organizationId || !activeProperty?.id) return;
+    apiFetch("/property/units/?status=available", {}, organizationId)
+      .then(async (response) => response.ok ? response.json() : [])
+      .then((data) => setUnits((Array.isArray(data) ? data : data.results ?? []).map((row: Record<string, unknown>) => ({
+        id: String(row.id), code: String(row.code), floor: String(row.floor ?? ""),
+        unit_type: String(row.unit_type ?? ""), area: row.area as string | number, status: String(row.status ?? ""),
+      }))));
+  }, [open, organizationId, activeProperty?.id]);
+
+  const selectedUnit = units.find((unit) => unit.id === form.unit);
+  const area = Number(selectedUnit?.area ?? 0);
+  const rent = area * Number(form.rent_rate_per_sqft || 0);
+  const serviceCharge = area * Number(form.service_charge_rate_per_sqft || 0);
+  const subtotal = rent + serviceCharge;
+  const vat = subtotal * Number(form.vat_rate || 0) / 100;
+  const utilityDeposit = utilities.reduce((sum, item) => sum + (item.applicable ? item.rate_per_unit * area : 0), 0);
+  const total = subtotal + vat + Number(form.security_deposit || 0) + utilityDeposit;
+  const expiryDate = addMonths(form.starts_on, Number(form.term_months));
+  const charges = useMemo(() => [
+    { code: "RENT", name: "Rent", letting_fee: lettingFee, renewal_fee: renewalFee, account_type: "G/L Account", account_name: "Landlord Dues", area, rate: Number(form.rent_rate_per_sqft || 0), amount: rent },
+    { code: "SERVICE CHARGE", name: "Service Charge", letting_fee: false, renewal_fee: false, account_type: "G/L Account", account_name: "Landlord Dues", area, rate: Number(form.service_charge_rate_per_sqft || 0), amount: serviceCharge },
+    { code: "UTILITIES", name: "Utility Charge", letting_fee: false, renewal_fee: false, account_type: "G/L Account", account_name: "Landlord Dues", area, rate: 0, amount: utilityDeposit },
+  ], [area, form.rent_rate_per_sqft, form.service_charge_rate_per_sqft, lettingFee, renewalFee, rent, serviceCharge, utilityDeposit]);
+
+  function update(name: keyof typeof initialForm, value: string) {
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submit() {
+    setError("");
+    if (!form.name.trim() || !form.unit || !form.starts_on || !Number(form.rent_rate_per_sqft)) {
+      setError("Complete the tenant name, unit, commencement date and rent rate before saving.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const response = await apiFetch("/property/tenants/onboard/", {
+        method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({
+          tenant: {
+            name: form.name, tenant_type: form.tenant_type, address_1: form.address_1,
+            address_2: form.address_2, city: form.city, phone: form.phone, email: form.email,
+            tax_id: form.tax_id, registration_number: form.registration_number,
+            contact_name: form.contact_name, contact_phone: form.contact_phone, contact_email: form.contact_email,
+          },
+          lease: {
+            unit: form.unit, term_months: Number(form.term_months), starts_on: form.starts_on,
+            area, rent_rate_per_sqft: Number(form.rent_rate_per_sqft),
+            service_charge_rate_per_sqft: Number(form.service_charge_rate_per_sqft),
+            vat_rate: Number(form.vat_rate), security_deposit: Number(form.security_deposit),
+            billing_day: Number(form.billing_day),
+          },
+          utilities: utilities.map((item) => ({ ...item, deposit_amount: item.applicable ? item.rate_per_unit * area : 0 })),
+          charges,
+        }),
+      }, organizationId);
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        throw new Error(typeof detail.detail === "string" ? detail.detail : Object.values(detail).flat().join(" ") || "Tenant application could not be saved.");
+      }
+      setForm(initialForm);
+      onSaved();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Tenant application could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const input = (label: string, name: keyof typeof initialForm, options: Record<string, unknown> = {}) => (
+    <TextField size="small" fullWidth label={label} value={form[name]} onChange={(event) => update(name, event.target.value)} {...options} />
+  );
+  const summary = [
+    ["Monthly rent (excl. VAT)", rent], ["Monthly service charge (excl. VAT)", serviceCharge],
+    ["Total monthly amount (excl. VAT)", subtotal], ["VAT amount", vat],
+    ["Total monthly amount (inc. VAT)", subtotal + vat], ["Security deposit", Number(form.security_deposit || 0)],
+    ["Utilities security deposit", utilityDeposit], ["Total amount payable", total],
+  ] as const;
+
+  return (
+    <Dialog fullScreen open={open} onClose={onClose}>
+      <AppBar position="sticky" color="inherit" elevation={1}>
+        <Toolbar sx={{ gap: 2 }}>
+          <IconButton onClick={onClose} aria-label="Close tenant application"><CloseRounded /></IconButton>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>Tenant Application Card</Typography>
+            <Typography variant="body2" color="text.secondary">{activeProperty?.name ?? "Select a property"} · application and references generated automatically</Typography>
+          </Box>
+          <Button variant="contained" startIcon={<SaveRounded />} disabled={saving} onClick={submit}>{saving ? "Saving…" : "Save application"}</Button>
+        </Toolbar>
+        <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">
+          <Tab label="General" /><Tab label="Lease & charges" /><Tab label="Utilities" /><Tab label="Review" />
+        </Tabs>
+      </AppBar>
+
+      <Box sx={{ bgcolor: "background.default", minHeight: "100%", p: { xs: 2, md: 3 } }}>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 2fr) minmax(320px, 1fr)" }, gap: 2 }}>
+          <Stack spacing={2}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>General information</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
+                <TextField size="small" label="Application no." value="Auto-generated on save" disabled />
+                {input("Tenant / company name *", "name", { required: true })}
+                {input("Tenant type", "tenant_type", { select: true, children: [<MenuItem key="company" value="company">Company</MenuItem>, <MenuItem key="individual" value="individual">Individual</MenuItem>] })}
+                {input("KRA PIN no.", "tax_id")}
+                {input("Registration no.", "registration_number")}
+                {input("Phone no.", "phone", { type: "tel" })}
+                {input("Email", "email", { type: "email" })}
+                {input("Address", "address_1")}
+                {input("Address 2", "address_2")}
+                {input("City", "city")}
+              </Box>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Primary contact</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 2 }}>
+                {input("Contact name", "contact_name")}{input("Contact phone no.", "contact_phone", { type: "tel" })}{input("Contact email", "contact_email", { type: "email" })}
+              </Box>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Property and unit</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 2 }}>
+                <TextField size="small" label="Property" value={activeProperty?.name ?? ""} disabled />
+                <TextField size="small" select required label="Unit no. *" value={form.unit} onChange={(event) => update("unit", event.target.value)}>
+                  {units.map((unit) => <MenuItem key={unit.id} value={unit.id}>{unit.code} · {unit.unit_type || "Unit"}</MenuItem>)}
+                </TextField>
+                <TextField size="small" label="Floor no." value={selectedUnit?.floor ?? ""} disabled />
+                <TextField size="small" label="Area (Sq.Ft)" value={area || ""} disabled />
+                <TextField size="small" label="Property description" value={[activeProperty?.code, activeProperty?.location].filter(Boolean).join(" · ")} disabled sx={{ gridColumn: { md: "span 2" } }} />
+              </Box>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Lease terms</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
+                {input("Lease term *", "term_months", { select: true, children: [12, 24, 36, 60].map((months) => <MenuItem key={months} value={String(months)}>{months} months</MenuItem>) })}
+                {input("Commence date *", "starts_on", { type: "date", required: true, InputLabelProps: { shrink: true } })}
+                <TextField size="small" label="Expiry date" value={expiryDate} disabled />
+                {input("Applicable rent rate / Sq.Ft *", "rent_rate_per_sqft", { type: "number", required: true, inputProps: { min: 0, step: 0.01 } })}
+                {input("Service charge rate / Sq.Ft", "service_charge_rate_per_sqft", { type: "number", inputProps: { min: 0, step: 0.01 } })}
+                {input("VAT rate", "vat_rate", { select: true, children: [<MenuItem key="16" value="16">16%</MenuItem>, <MenuItem key="0" value="0">Exempt (0%)</MenuItem>] })}
+                {input("Security deposit *", "security_deposit", { type: "number", inputProps: { min: 0, step: 0.01 } })}
+                {input("Billing day", "billing_day", { type: "number", inputProps: { min: 1, max: 28 } })}
+                <TextField size="small" label="Lease no." value="Auto-generated on save" disabled />
+              </Box>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2, overflowX: "auto" }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Utilities security deposit</Typography>
+              {utilities.map((item, index) => (
+                <Box key={item.utility} sx={{ display: "grid", gridTemplateColumns: "1fr 140px 180px", gap: 2, alignItems: "center", py: 1 }}>
+                  <FormControlLabel control={<Checkbox checked={item.applicable} onChange={(event) => setUtilities((rows) => rows.map((row, i) => i === index ? { ...row, applicable: event.target.checked } : row))} />} label={item.utility} />
+                  <TextField size="small" type="number" label="Rate / unit" value={item.rate_per_unit} disabled={!item.applicable} onChange={(event) => setUtilities((rows) => rows.map((row, i) => i === index ? { ...row, rate_per_unit: Number(event.target.value) } : row))} />
+                  <TextField size="small" label="Deposit amount" value={money(item.applicable ? item.rate_per_unit * area : 0)} disabled />
+                </Box>
+              ))}
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2, overflowX: "auto" }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Tenant application lines</Typography>
+              <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "th, td": { p: 1, borderBottom: 1, borderColor: "divider", textAlign: "left", whiteSpace: "nowrap" } }}>
+                <thead><tr><th>Charge code</th><th>Charge name</th><th>Letting fee</th><th>Renewal fee</th><th>Account</th><th>Area</th><th>Rate / Sq.Ft</th><th>Amount</th></tr></thead>
+                <tbody>{charges.map((charge, index) => <tr key={charge.code}><td>{charge.code}</td><td>{charge.name}</td><td>{index === 0 ? <Checkbox size="small" checked={lettingFee} onChange={(event) => setLettingFee(event.target.checked)} /> : "—"}</td><td>{index === 0 ? <Checkbox size="small" checked={renewalFee} onChange={(event) => setRenewalFee(event.target.checked)} /> : "—"}</td><td>{charge.account_name}</td><td>{area.toLocaleString()}</td><td>{charge.rate.toFixed(2)}</td><td>{money(charge.amount)}</td></tr>)}</tbody>
+              </Box>
+            </Paper>
+          </Stack>
+
+          <Stack spacing={2} sx={{ alignSelf: "start", position: { lg: "sticky" }, top: { lg: 130 } }}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Application summary</Typography>
+              {summary.map(([label, value], index) => <Box key={label} sx={{ display: "flex", justifyContent: "space-between", gap: 2, py: 1, borderBottom: index === summary.length - 1 ? 0 : 1, borderColor: "divider" }}><Typography variant="body2" color="text.secondary">{label}</Typography><Typography variant="body2" sx={{ fontWeight: index === summary.length - 1 ? 800 : 600 }}>{money(value)}</Typography></Box>)}
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Record details</Typography>
+              <Stack spacing={1}><Typography variant="body2">Status: <strong>Open</strong></Typography><Typography variant="body2">Tenant account no.: <strong>Auto-generated</strong></Typography><Typography variant="body2">Document date: <strong>{new Date().toLocaleDateString("en-KE")}</strong></Typography><Typography variant="body2">Created by: <strong>{session?.user.firstName || session?.user.username}</strong></Typography></Stack>
+            </Paper>
+            <Alert severity="info">Saving creates the tenant application and a draft lease together. Activate the lease only after approval.</Alert>
+            <Button size="large" variant="contained" startIcon={<SaveRounded />} disabled={saving} onClick={submit}>{saving ? "Saving…" : "Save tenant application"}</Button>
+            <Button onClick={onClose}>Cancel</Button>
+          </Stack>
+        </Box>
+        <Divider sx={{ my: 3 }} />
+      </Box>
+    </Dialog>
+  );
+}

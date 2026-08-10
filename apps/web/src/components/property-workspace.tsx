@@ -9,6 +9,7 @@ import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { propertyNav } from "@/lib/module-nav";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
+import { TenantApplicationCard } from "@/components/tenant-application-card";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -4496,38 +4497,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     }
   }
 
-  async function submitAddTenant(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const raw = Object.fromEntries(form.entries());
-    const payload = {
-      name: String(raw.name ?? "").trim(),
-      tenant_type: String(raw.tenant_type ?? "company"),
-      email: String(raw.email ?? ""),
-      phone: String(raw.phone ?? ""),
-      tax_id: String(raw.tax_id ?? ""),
-      registration_number: String(raw.registration_number ?? ""),
-      directors: String(raw.directors ?? "").split(/\r?\n|,/).map((name) => name.trim()).filter(Boolean),
-      status: String(raw.status ?? "prospect"),
-      metadata: {
-        billing_preference: String(raw.billing_preference ?? ""),
-      },
-    };
-    await apiFetch("/auth/csrf/");
-    const res = await apiFetch("/property/tenants/", {
-      method: "POST",
-      headers: { "X-CSRFToken": csrfFromCookie() },
-      body: JSON.stringify(payload),
-    }, organizationId);
-    if (res.ok) {
-      setShowAddTenant(false);
-      setTab("tenants");
-      loadData();
-    } else {
-      setError("Tenant save failed.");
-    }
-  }
-
   async function submitAddLease(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -5144,63 +5113,11 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
           </Modal>
         )}
 
-        {showAddTenant && (
-          <Modal title="Add New Tenant Profile" onClose={() => setShowAddTenant(false)} wide>
-            <form onSubmit={submitAddTenant} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div className="grid-2">
-                <Field label="Full Name / Company" required>
-                  <input name="name" required placeholder="e.g. Apex Holdings Ltd" data-testid="tenant-name-input" />
-                </Field>
-              </div>
-              <div className="grid-2">
-                <Field label="Tenant Type">
-                  <select name="tenant_type" defaultValue="company" data-testid="tenant-type-select">
-                    <option value="company">Company</option>
-                    <option value="individual">Individual</option>
-                  </select>
-                </Field>
-                <Field label="Status">
-                  <select name="status" defaultValue="prospect" data-testid="tenant-status-select">
-                    <option value="prospect">Prospect</option>
-                    <option value="active">Active</option>
-                    <option value="former">Former</option>
-                    <option value="suspended">Suspended</option>
-                  </select>
-                </Field>
-              </div>
-              <div className="grid-2">
-                <Field label="Email Address">
-                  <input name="email" type="email" placeholder="info@company.co.ke" data-testid="tenant-email-input" />
-                </Field>
-                <Field label="Phone Number">
-                  <input name="phone" placeholder="+254 700 000 000" data-testid="tenant-phone-input" />
-                </Field>
-              </div>
-              <div className="grid-2">
-                <Field label="KRA PIN / Tax ID">
-                  <input name="tax_id" placeholder="e.g. P051234567X" pattern="[APap][0-9]{9}[A-Za-z]" title="KRA PIN format: P051234567X" />
-                </Field>
-                <Field label="Registration Number">
-                  <input name="registration_number" placeholder="e.g. CPR/2018/123456" pattern="[A-Za-z0-9][A-Za-z0-9/\-]{2,79}" />
-                </Field>
-              </div>
-              <Field label="Directors / Authorized Representatives">
-                <textarea name="directors" rows={3} placeholder="One name per line, e.g.&#10;Jane Wanjiku&#10;Peter Otieno" />
-              </Field>
-              <Field label="Billing Preference">
-                <select name="billing_preference" defaultValue="email">
-                  <option value="email">Email</option>
-                  <option value="sms">SMS</option>
-                  <option value="portal">Tenant portal</option>
-                </select>
-              </Field>
-              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-                <button type="button" className="btn ghost" onClick={() => setShowAddTenant(false)}>Cancel</button>
-                <button type="submit" className="btn primary" data-testid="tenant-save-btn">Register Tenant</button>
-              </div>
-            </form>
-          </Modal>
-        )}
+        <TenantApplicationCard
+          open={showAddTenant}
+          onClose={() => setShowAddTenant(false)}
+          onSaved={() => { setShowAddTenant(false); setTab("tenants"); loadData(); }}
+        />
 
         {showAddLease && (
           <Modal title="Add Single Lease" onClose={() => setShowAddLease(false)} wide>

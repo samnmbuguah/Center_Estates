@@ -114,6 +114,44 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Property.objects.filter(organization=self.organization, code='OWN-002').exists())
 
+    def test_tenant_application_onboarding_creates_tenant_and_draft_lease_atomically(self):
+        available_unit = Unit.objects.create(
+            organization=self.organization, property=self.property, code='202', floor='2',
+            area=Decimal('1000'), status=Unit.Status.AVAILABLE,
+        )
+        response = self.client.post('/api/v1/property/tenants/onboard/', {
+            'tenant': {
+                'name': 'Acme Kenya Limited', 'tenant_type': 'company', 'address_1': 'Moi Avenue',
+                'address_2': 'Suite 4', 'city': 'Mombasa', 'phone': '+254700000001',
+                'email': 'accounts@acme.test', 'tax_id': 'P051234567X',
+                'contact_name': 'Jane Wanjiku', 'contact_phone': '+254700000002',
+                'contact_email': 'jane@acme.test',
+            },
+            'lease': {
+                'unit': str(available_unit.id), 'term_months': 12, 'starts_on': '2026-09-01',
+                'area': 1000, 'rent_rate_per_sqft': 100, 'service_charge_rate_per_sqft': 15,
+                'vat_rate': 16, 'security_deposit': 200000, 'billing_day': 1,
+            },
+            'utilities': [
+                {'utility': 'Electricity', 'applicable': True, 'rate_per_unit': 10, 'deposit_amount': 10000},
+                {'utility': 'Water', 'applicable': False, 'rate_per_unit': 0, 'deposit_amount': 0},
+            ],
+            'charges': [{'code': 'RENT', 'name': 'Rent', 'amount': 100000}],
+        }, format='json', HTTP_X_PROPERTY_ID=str(self.property.id), **self.headers)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        tenant = Tenant.objects.get(pk=response.data['tenant']['id'])
+        lease = Lease.objects.get(pk=response.data['lease']['id'])
+        self.assertTrue(tenant.code.startswith('TNT-'))
+        self.assertEqual(tenant.property, self.property)
+        self.assertEqual(tenant.metadata['tenant_application']['contact_name'], 'Jane Wanjiku')
+        self.assertEqual(lease.status, Lease.Status.DRAFT)
+        self.assertTrue(lease.reference.startswith('LEASE-'))
+        self.assertEqual(lease.ends_on.isoformat(), '2027-09-01')
+        self.assertEqual(lease.monthly_rent, Decimal('100000.00'))
+        self.assertEqual(lease.metadata['monthly_service_charge_excl_vat'], '15000.00')
+        self.assertEqual(response.data['calculations']['total_amount_payable'], '343400.00')
+
     def test_onboarding_creates_property_buildings_units_and_metadata_atomically(self):
         response = self.client.post('/api/v1/property/properties/onboard/', {
             'property': {

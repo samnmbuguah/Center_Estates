@@ -1,4 +1,5 @@
 import csv
+import calendar
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 import uuid
 from datetime import date, timedelta
@@ -239,10 +240,133 @@ class TenantViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
+        existing = Tenant.objects.filter(organization=organization, code__startswith='TNT-').values_list('code', flat=True)
+        numbers = [int(code.rsplit('-', 1)[-1]) for code in existing if code.rsplit('-', 1)[-1].isdigit()]
         serializer.save(
             organization=organization,
+            code=f"TNT-{(max(numbers) + 1) if numbers else 1:04d}",
             property=serializer.validated_data.get('property') or get_active_property(self.request, organization),
         )
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='onboard')
+    def onboard(self, request):
+        """Create a tenant application and its initial draft lease atomically."""
+        organization = get_active_organization(request)
+        tenant_data = request.data.get('tenant') or {}
+        lease_data = request.data.get('lease') or {}
+        if not str(tenant_data.get('name', '')).strip():
+            raise ValidationError({'tenant.name': 'Tenant name is required.'})
+
+        try:
+            unit = Unit.objects.select_for_update().for_organization(organization).select_related('property').get(
+                pk=lease_data.get('unit')
+            )
+        except (Unit.DoesNotExist, ValueError, TypeError):
+            raise ValidationError({'lease.unit': 'Select a valid unit.'})
+        active_property = get_active_property(request, organization)
+        if active_property and unit.property_id != active_property.id:
+            raise ValidationError({'lease.unit': 'The unit must belong to the active property.'})
+        if Lease.objects.for_organization(organization).filter(
+            unit=unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+        ).exists():
+            raise ValidationError({'lease.unit': 'This unit already has a current lease.'})
+
+        try:
+            starts_on = date.fromisoformat(str(lease_data.get('starts_on', '')))
+            term_months = int(lease_data.get('term_months', 0))
+            if term_months < 1 or term_months > 240:
+                raise ValueError
+            end_month = starts_on.month - 1 + term_months
+            end_year = starts_on.year + end_month // 12
+            end_month = end_month % 12 + 1
+            ends_on = starts_on.replace(year=end_year, month=end_month, day=min(starts_on.day, calendar.monthrange(end_year, end_month)[1]))
+        except (ValueError, TypeError):
+            raise ValidationError({'lease': 'A valid commencement date and lease term are required.'})
+
+        def amount(name, default='0'):
+            try:
+                value = Decimal(str(lease_data.get(name, default))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            except Exception:
+                raise ValidationError({f'lease.{name}': 'Enter a valid amount.'})
+            if value < 0:
+                raise ValidationError({f'lease.{name}': 'Amount cannot be negative.'})
+            return value
+
+        area = Decimal(str(unit.area)).quantize(Decimal('0.01')) if unit.area is not None else amount('area')
+        rent_rate = amount('rent_rate_per_sqft')
+        service_rate = amount('service_charge_rate_per_sqft')
+        security_deposit = amount('security_deposit')
+        vat_rate = amount('vat_rate', 16)
+        if vat_rate not in (Decimal('0.00'), Decimal('16.00')):
+            raise ValidationError({'lease.vat_rate': 'Supported VAT rates are 0% and 16%.'})
+        monthly_rent = (area * rent_rate).quantize(Decimal('0.01'))
+        if monthly_rent <= 0:
+            raise ValidationError({'lease.rent_rate_per_sqft': 'Monthly rent must be greater than zero.'})
+        monthly_service = (area * service_rate).quantize(Decimal('0.01'))
+        utilities = request.data.get('utilities') if isinstance(request.data.get('utilities'), list) else []
+        try:
+            utility_deposit = sum(
+                (Decimal(str(item.get('rate_per_unit', 0))) * area for item in utilities if item.get('applicable')),
+                Decimal('0'),
+            ).quantize(Decimal('0.01'))
+        except Exception:
+            raise ValidationError({'utilities': 'Utility rates must be valid non-negative amounts.'})
+        if utility_deposit < 0:
+            raise ValidationError({'utilities': 'Utility rates cannot be negative.'})
+        subtotal = monthly_rent + monthly_service
+        vat_amount = (subtotal * vat_rate / 100).quantize(Decimal('0.01'))
+        total_inc_vat = subtotal + vat_amount
+
+        def next_reference(model, field, prefix):
+            values = model.objects.filter(organization=organization, **{f'{field}__startswith': f'{prefix}-'}).values_list(field, flat=True)
+            numbers = [int(value.rsplit('-', 1)[-1]) for value in values if value.rsplit('-', 1)[-1].isdigit()]
+            return f'{prefix}-{(max(numbers) + 1) if numbers else 1:04d}'
+
+        tenant_code = next_reference(Tenant, 'code', 'TNT')
+        application_number = f"APP-{timezone.localdate().year}-{tenant_code.rsplit('-', 1)[-1]}"
+        lease_reference = next_reference(Lease, 'reference', 'LEASE')
+        application = {
+            'application_number': application_number,
+            'status': 'open',
+            'document_date': timezone.localdate().isoformat(),
+            'contact_name': tenant_data.get('contact_name', ''),
+            'contact_phone': tenant_data.get('contact_phone', ''),
+            'contact_email': tenant_data.get('contact_email', ''),
+            'address_2': tenant_data.get('address_2', ''),
+            'city': tenant_data.get('city', ''),
+            'utilities': utilities,
+            'charges': request.data.get('charges') if isinstance(request.data.get('charges'), list) else [],
+            'created_by': request.user.get_username(),
+        }
+        tenant_serializer = TenantSerializer(data={
+            'name': str(tenant_data['name']).strip(), 'tenant_type': tenant_data.get('tenant_type', 'company'),
+            'email': tenant_data.get('email', ''), 'phone': tenant_data.get('phone', ''),
+            'tax_id': tenant_data.get('tax_id', ''), 'registration_number': tenant_data.get('registration_number', ''),
+            'billing_address': tenant_data.get('address_1', ''), 'status': Tenant.Status.PROSPECT,
+            'metadata': {'tenant_application': application},
+        })
+        tenant_serializer.is_valid(raise_exception=True)
+        tenant = tenant_serializer.save(organization=organization, property=unit.property, code=tenant_code)
+        calculations = {
+            'area': str(area), 'rent_rate_per_sqft': str(rent_rate),
+            'service_charge_rate_per_sqft': str(service_rate), 'monthly_rent_excl_vat': str(monthly_rent),
+            'monthly_service_charge_excl_vat': str(monthly_service), 'total_excl_vat': str(subtotal),
+            'vat_rate': str(vat_rate), 'vat_amount': str(vat_amount), 'total_inc_vat': str(total_inc_vat),
+            'security_deposit': str(security_deposit), 'utilities_security_deposit': str(utility_deposit),
+            'total_amount_payable': str(total_inc_vat + security_deposit + utility_deposit),
+        }
+        lease = Lease.objects.create(
+            organization=organization, reference=lease_reference, unit=unit, tenant=tenant,
+            starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
+            deposit=security_deposit, billing_day=int(lease_data.get('billing_day', 1)),
+            status=Lease.Status.DRAFT,
+            metadata={'application_number': application_number, 'term_months': term_months, **calculations},
+        )
+        return Response({
+            'tenant': TenantSerializer(tenant).data, 'lease': LeaseSerializer(lease).data,
+            'application_number': application_number, 'calculations': calculations,
+        }, status=201)
 
 
 class TenantPortalAccessViewSet(OrganizationModelViewSet):
