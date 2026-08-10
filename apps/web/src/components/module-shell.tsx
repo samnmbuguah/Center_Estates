@@ -195,6 +195,23 @@ export function ModuleShell({
             </div>
           )}
 
+          {/* Workspace actions toolbar (record receipt, new work order, etc.) */}
+          {actions ? (
+            <div
+              className="module-actions-bar"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 10,
+                flexWrap: "wrap",
+                margin: "0 0 16px",
+              }}
+            >
+              {actions}
+            </div>
+          ) : null}
+
           <div className="module-workspace-content" style={{ width: "100%" }}>{children}</div>
         </div>
       </div>
