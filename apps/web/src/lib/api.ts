@@ -35,6 +35,7 @@ export type Session = {
 };
 
 const GET_CACHE_MS = 750;
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
 const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
 const inFlightGets = new Map<string, Promise<Response>>();
 
@@ -96,7 +97,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   const method = String(init.method ?? "GET").toUpperCase();
   if (method !== "GET") {
     getResponseCache.clear();
-    return fetch(`/api/v1${fullPath}`, { ...init, headers, credentials: "include" });
+    return fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
   }
 
   const cacheKey = [
@@ -112,7 +113,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   const existing = inFlightGets.get(cacheKey);
   if (existing) return (await existing).clone();
 
-  const request = fetch(`/api/v1${fullPath}`, { ...init, headers, credentials: "include" })
+  const request = fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" })
     .then((response) => {
       if (response.ok) {
         getResponseCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_MS, response: response.clone() });
