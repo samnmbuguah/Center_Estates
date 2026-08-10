@@ -16,17 +16,18 @@ FRONTEND_ARCHIVE="$(mktemp /tmp/center-estates-web.XXXXXX.tar.gz)"
 DEPLOY_SCOPE="${DEPLOY_SCOPE:-full}"
 trap 'rm -f "$BACKEND_ARCHIVE" "$FRONTEND_ARCHIVE"' EXIT
 
-if [[ "$DEPLOY_SCOPE" != "full" && "$DEPLOY_SCOPE" != "backend" ]]; then
-  echo "DEPLOY_SCOPE must be 'full' or 'backend'." >&2
+if [[ "$DEPLOY_SCOPE" != "full" && "$DEPLOY_SCOPE" != "backend" && "$DEPLOY_SCOPE" != "frontend" ]]; then
+  echo "DEPLOY_SCOPE must be 'full', 'backend', or 'frontend'." >&2
   exit 2
 fi
 
 echo "Deploying API to ${REMOTE_HOST}:${API_PATH} and frontend to ${REMOTE_HOST}:${FRONTEND_PATH}"
 
-if [[ "$DEPLOY_SCOPE" == "full" && "${SKIP_BUILD:-0}" != "1" ]]; then
+if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ) && "${SKIP_BUILD:-0}" != "1" ]]; then
   NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build
 fi
 
+if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "backend" ]]; then
 tar -czf "$BACKEND_ARCHIVE" \
   --exclude='apps/backend/.env' \
   --exclude='__pycache__' \
@@ -71,14 +72,11 @@ ssh "$REMOTE_HOST" "
     kill -TERM "\${app_pid}" 2>/dev/null || true
   done
 "
+fi
 
-if [[ "$DEPLOY_SCOPE" == "full" ]]; then
+if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
   tar -czf "$FRONTEND_ARCHIVE" \
-    --exclude='apps/web/.next/cache' \
-    --exclude='apps/web/.next/dev' \
-    --exclude='apps/web/.next/types' \
-    --exclude='apps/web/.next/trace' \
-    app.js apps/web/.next apps/web/public
+    app.js apps/web/.next/standalone apps/web/.next/static apps/web/public
   scp "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
   ssh "$REMOTE_HOST" "
     set -e

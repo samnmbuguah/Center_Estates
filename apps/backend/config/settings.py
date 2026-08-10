@@ -216,6 +216,11 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(
     'CORS_ALLOWED_ORIGINS', 'https://centerestates.com,https://www.centerestates.com,http://localhost:3000,http://localhost:4300'
 ).split(',') if origin.strip()]
+# The browser frontend is intentionally hosted on the parent domain while the
+# Django API is on api.centerestates.com. Cookie-based authentication therefore
+# requires explicit credentialed CORS responses; the allow-list above keeps this
+# limited to trusted application origins.
+CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get(
     'CSRF_TRUSTED_ORIGINS', 'https://centerestates.com,https://www.centerestates.com,http://localhost:3000,http://localhost:4300'
