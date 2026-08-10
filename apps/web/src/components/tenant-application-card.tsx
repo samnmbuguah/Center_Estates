@@ -23,6 +23,8 @@ const initialForm = {
   security_deposit: "0", billing_day: "1",
 };
 
+const applicationSections = ["tenant-general", "tenant-lease", "tenant-utilities", "tenant-review"] as const;
+
 function money(value: number) {
   return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 2 }).format(value || 0);
 }
@@ -106,6 +108,11 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
     setForm((current) => ({ ...current, [name]: value }));
   }
 
+  function navigateToSection(value: number) {
+    setTab(value);
+    requestAnimationFrame(() => document.getElementById(applicationSections[value])?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
   async function submit() {
     setError("");
     if (!form.name.trim() || !form.unit || !form.starts_on || !Number(form.rent_rate_per_sqft)) {
@@ -149,7 +156,7 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
   }
 
   const input = (label: string, name: keyof typeof initialForm, options: Record<string, unknown> = {}) => (
-    <TextField size="small" fullWidth label={label} value={form[name]} onChange={(event) => update(name, event.target.value)} {...options} />
+    <TextField fullWidth label={label} value={form[name]} onChange={(event) => update(name, event.target.value)} {...options} />
   );
   const summary = [
     ["Monthly rent (excl. VAT)", rent], ["Monthly service charge (excl. VAT)", serviceCharge],
@@ -161,17 +168,17 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
   if (!open) return null;
 
   return (
-    <Box className="tenant-application-card" sx={{ width: "100%" }}>
-      <AppBar position="sticky" color="inherit" elevation={0} sx={{ top: 0, zIndex: 4, border: 1, borderColor: "divider", borderRadius: 1.5, mb: 2 }}>
-        <Toolbar sx={{ gap: 2 }}>
+    <Box className="tenant-application-card" sx={{ width: "100%", maxWidth: 1440, mx: "auto", pb: 3 }}>
+      <AppBar className="tenant-application-header" position="static" color="inherit" elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2, mb: 2, overflow: "hidden" }}>
+        <Toolbar sx={{ gap: { xs: 1, sm: 2 }, minHeight: { xs: 72, sm: 82 }, px: { xs: 1.5, sm: 2.5 } }}>
           <IconButton onClick={onClose} aria-label="Close tenant application"><CloseRounded /></IconButton>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>Tenant Application Card</Typography>
-            <Typography variant="body2" color="text.secondary">{activeProperty?.name ?? "Select a property"} · application and references generated automatically</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, fontSize: { xs: "1.15rem", sm: "1.5rem" } }}>Tenant Application Card</Typography>
+            <Typography variant="body2" color="text.secondary">{activeProperty?.name ?? "Select a property"} · application, tenant account and lease references are generated automatically</Typography>
           </Box>
-          <Button variant="contained" startIcon={<SaveRounded />} disabled={saving} onClick={submit}>{saving ? "Saving…" : "Save application"}</Button>
+          <Button className="tenant-header-save" variant="contained" startIcon={<SaveRounded />} disabled={saving} onClick={submit}>{saving ? "Saving…" : "Save application"}</Button>
         </Toolbar>
-        <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">
+        <Tabs className="tenant-section-tabs" value={tab} onChange={(_, value) => navigateToSection(value)} variant="scrollable" scrollButtons="auto" aria-label="Tenant application sections">
           <Tab label="General" /><Tab label="Lease & charges" /><Tab label="Utilities" /><Tab label="Review" />
         </Tabs>
       </AppBar>
@@ -180,11 +187,12 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 2fr) minmax(320px, 1fr)" }, gap: 2 }}>
           <Stack spacing={2}>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>General information</Typography>
+            <Paper id="tenant-general" className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
+              <Typography variant="overline" sx={{ fontWeight: 800 }} color="primary">General information</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Capture the tenant’s legal and contact details. Internal references are generated when you save.</Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
-                <TextField size="small" label="Application no." value="Auto-generated on save" disabled />
-                {input("Tenant / company name *", "name", { required: true })}
+                <TextField label="Application no." value="Auto-generated on save" disabled />
+                {input("Tenant / company name", "name", { required: true })}
                 {input("Tenant type", "tenant_type", { select: true, children: [<MenuItem key="company" value="company">Company</MenuItem>, <MenuItem key="individual" value="individual">Individual</MenuItem>] })}
                 {input("KRA PIN no.", "tax_id")}
                 {input("Registration no.", "registration_number")}
@@ -195,50 +203,51 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
                 {input("City", "city")}
               </Box>
             </Paper>
-            <Paper variant="outlined" sx={{ p: 2 }}>
+            <Paper className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
               <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Primary contact</Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 2 }}>
                 {input("Contact name", "contact_name")}{input("Contact phone no.", "contact_phone", { type: "tel" })}{input("Contact email", "contact_email", { type: "email" })}
               </Box>
             </Paper>
-            <Paper variant="outlined" sx={{ p: 2 }}>
+            <Paper className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
               <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Property and unit</Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 2 }}>
-                <TextField size="small" label="Property" value={activeProperty?.name ?? ""} disabled />
-                <TextField size="small" select required label="Unit no. *" value={form.unit} onChange={(event) => update("unit", event.target.value)}>
+                <TextField label="Property" value={activeProperty?.name ?? ""} disabled />
+                <TextField select required label="Unit no." value={form.unit} onChange={(event) => update("unit", event.target.value)}>
                   {units.map((unit) => <MenuItem key={unit.id} value={unit.id}>{unit.code} · {unit.unit_type || "Unit"}</MenuItem>)}
                 </TextField>
-                <TextField size="small" label="Floor no." value={selectedUnit?.floor ?? ""} disabled />
-                <TextField size="small" label="Area (Sq.Ft)" value={area || ""} disabled />
-                <TextField size="small" label="Property address" value={[propertyDetails?.address, propertyDetails?.city, propertyDetails?.country].filter(Boolean).join(", ")} disabled sx={{ gridColumn: { md: "span 2" } }} />
+                <TextField label="Floor no." value={selectedUnit?.floor ?? ""} disabled />
+                <TextField label="Area (sq ft)" value={area || ""} disabled />
+                <TextField label="Property address" value={[propertyDetails?.address, propertyDetails?.city, propertyDetails?.country].filter(Boolean).join(", ")} disabled sx={{ gridColumn: { md: "span 2" } }} />
               </Box>
               <Alert severity="info" sx={{ mt: 2 }}>Property, address, available units, floor, area, configured utilities and leasing defaults are filled from the property record. Tenant contact and postal details remain blank because they belong to the tenant.</Alert>
             </Paper>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Lease terms</Typography>
+            <Paper id="tenant-lease" className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
+              <Typography variant="overline" sx={{ fontWeight: 800 }} color="primary">Lease terms and charges</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Rates calculate against the selected unit’s area. Review the calculated totals before saving.</Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
-                {input("Lease term *", "term_months", { select: true, children: [12, 24, 36, 60].map((months) => <MenuItem key={months} value={String(months)}>{months} months</MenuItem>) })}
-                {input("Commence date *", "starts_on", { type: "date", required: true, InputLabelProps: { shrink: true } })}
-                <TextField size="small" label="Expiry date" value={expiryDate} disabled />
-                {input("Applicable rent rate / Sq.Ft *", "rent_rate_per_sqft", { type: "number", required: true, inputProps: { min: 0, step: 0.01 } })}
+                {input("Lease term", "term_months", { select: true, required: true, children: [12, 24, 36, 60].map((months) => <MenuItem key={months} value={String(months)}>{months} months</MenuItem>) })}
+                {input("Commencement date", "starts_on", { type: "date", required: true, slotProps: { inputLabel: { shrink: true } } })}
+                <TextField label="Expiry date" value={expiryDate} disabled />
+                {input("Applicable rent rate / sq ft", "rent_rate_per_sqft", { type: "number", required: true, inputProps: { min: 0, step: 0.01 } })}
                 {input("Service charge rate / Sq.Ft", "service_charge_rate_per_sqft", { type: "number", inputProps: { min: 0, step: 0.01 } })}
                 {input("VAT rate", "vat_rate", { select: true, children: [<MenuItem key="16" value="16">16%</MenuItem>, <MenuItem key="0" value="0">Exempt (0%)</MenuItem>] })}
-                {input("Security deposit *", "security_deposit", { type: "number", inputProps: { min: 0, step: 0.01 } })}
+                {input("Security deposit", "security_deposit", { type: "number", required: true, inputProps: { min: 0, step: 0.01 } })}
                 {input("Billing day", "billing_day", { type: "number", inputProps: { min: 1, max: 28 } })}
-                <TextField size="small" label="Lease no." value="Auto-generated on save" disabled />
+                <TextField label="Lease no." value="Auto-generated on save" disabled />
               </Box>
             </Paper>
-            <Paper variant="outlined" sx={{ p: 2, overflowX: "auto" }}>
+            <Paper id="tenant-utilities" className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, overflowX: "auto" }}>
               <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Utilities security deposit</Typography>
               {utilities.map((item, index) => (
-                <Box key={item.utility} sx={{ display: "grid", gridTemplateColumns: "1fr 140px 180px", gap: 2, alignItems: "center", py: 1 }}>
+                <Box key={item.utility} sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "minmax(140px, 1fr) 160px 190px" }, gap: 2, alignItems: "center", py: 1 }}>
                   <FormControlLabel control={<Checkbox checked={item.applicable} onChange={(event) => setUtilities((rows) => rows.map((row, i) => i === index ? { ...row, applicable: event.target.checked } : row))} />} label={item.utility} />
-                  <TextField size="small" type="number" label="Rate / unit" value={item.rate_per_unit} disabled={!item.applicable} onChange={(event) => setUtilities((rows) => rows.map((row, i) => i === index ? { ...row, rate_per_unit: Number(event.target.value) } : row))} />
-                  <TextField size="small" label="Deposit amount" value={money(item.applicable ? item.rate_per_unit * area : 0)} disabled />
+                  <TextField type="number" label="Rate / unit" value={item.rate_per_unit} disabled={!item.applicable} onChange={(event) => setUtilities((rows) => rows.map((row, i) => i === index ? { ...row, rate_per_unit: Number(event.target.value) } : row))} />
+                  <TextField label="Deposit amount" value={money(item.applicable ? item.rate_per_unit * area : 0)} disabled />
                 </Box>
               ))}
             </Paper>
-            <Paper variant="outlined" sx={{ p: 2, overflowX: "auto" }}>
+            <Paper className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, overflowX: "auto" }}>
               <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Tenant application lines</Typography>
               <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "th, td": { p: 1, borderBottom: 1, borderColor: "divider", textAlign: "left", whiteSpace: "nowrap" } }}>
                 <thead><tr><th>Charge code</th><th>Charge name</th><th>Letting fee</th><th>Renewal fee</th><th>Account</th><th>Area</th><th>Rate / Sq.Ft</th><th>Amount</th></tr></thead>
@@ -247,12 +256,12 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
             </Paper>
           </Stack>
 
-          <Stack spacing={2} sx={{ alignSelf: "start", position: { lg: "sticky" }, top: { lg: 130 } }}>
-            <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack id="tenant-review" spacing={2} sx={{ alignSelf: "start", position: { lg: "sticky" }, top: { lg: 156 }, scrollMarginTop: 160 }}>
+            <Paper className="tenant-summary-card" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
               <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Application summary</Typography>
               {summary.map(([label, value], index) => <Box key={label} sx={{ display: "flex", justifyContent: "space-between", gap: 2, py: 1, borderBottom: index === summary.length - 1 ? 0 : 1, borderColor: "divider" }}><Typography variant="body2" color="text.secondary">{label}</Typography><Typography variant="body2" sx={{ fontWeight: index === summary.length - 1 ? 800 : 600 }}>{money(value)}</Typography></Box>)}
             </Paper>
-            <Paper variant="outlined" sx={{ p: 2 }}>
+            <Paper className="tenant-summary-card" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
               <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Record details</Typography>
               <Stack spacing={1}><Typography variant="body2">Status: <strong>Open</strong></Typography><Typography variant="body2">Tenant account no.: <strong>Auto-generated</strong></Typography><Typography variant="body2">Document date: <strong>{new Date().toLocaleDateString("en-KE")}</strong></Typography><Typography variant="body2">Created by: <strong>{session?.user.firstName || session?.user.username}</strong></Typography></Stack>
             </Paper>

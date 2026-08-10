@@ -4387,14 +4387,88 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
    alter outlined input padding, borders or floating-label geometry. */
 .tenant-application-card .MuiInputLabel-root,
 .property-onboarding-card .MuiInputLabel-root {
-  font-size: 0.875rem !important;
   line-height: 1.4375em !important;
+  color: var(--steel) !important;
+}
+.tenant-application-card .MuiInputLabel-root.MuiInputLabel-shrink,
+.property-onboarding-card .MuiInputLabel-root.MuiInputLabel-shrink {
+  padding-inline: 4px;
+  background: var(--surface);
+  color: var(--muted) !important;
+}
+.tenant-application-card .MuiInputLabel-root.Mui-focused,
+.property-onboarding-card .MuiInputLabel-root.Mui-focused {
+  color: var(--primary) !important;
 }
 .tenant-application-card .MuiInputBase-input,
 .tenant-application-card .MuiSelect-select,
 .property-onboarding-card .MuiInputBase-input,
 .property-onboarding-card .MuiSelect-select {
   font-size: 0.875rem !important;
+}
+.tenant-application-card .MuiOutlinedInput-root {
+  min-height: 50px;
+  background: var(--surface);
+}
+.tenant-application-card .MuiOutlinedInput-root.Mui-disabled {
+  background: var(--surface-2);
+}
+.tenant-application-card .MuiInputBase-input.Mui-disabled,
+.tenant-application-card .MuiSelect-select.Mui-disabled {
+  -webkit-text-fill-color: var(--steel) !important;
+  opacity: 1;
+}
+.tenant-application-card .MuiFormLabel-asterisk {
+  color: var(--danger);
+}
+.tenant-application-card .tenant-form-section,
+.tenant-application-card .tenant-summary-card,
+.tenant-application-card .tenant-application-header {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.tenant-application-card .tenant-form-section {
+  scroll-margin-top: 156px;
+  border-radius: 12px;
+}
+.tenant-application-card .tenant-section-tabs {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.tenant-application-card .tenant-section-tabs .MuiTab-root {
+  min-height: 48px;
+  font-weight: 750;
+  color: var(--muted);
+}
+.tenant-application-card .tenant-section-tabs .Mui-selected {
+  color: var(--primary);
+}
+.tenant-application-card table th {
+  background: var(--surface-2);
+  color: var(--steel);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+.tenant-application-card table td {
+  color: var(--text);
+  font-size: 0.8125rem;
+}
+@media (max-width: 600px) {
+  .tenant-application-card .tenant-header-save {
+    min-width: 44px;
+    padding-inline: 10px;
+  }
+  .tenant-application-card .tenant-header-save .MuiButton-startIcon {
+    margin: 0;
+  }
+  .tenant-application-card .tenant-header-save {
+    font-size: 0;
+  }
+  .tenant-application-card .tenant-header-save svg {
+    font-size: 20px;
+  }
 }
 
 /* Keep the command-center sticky rail attached to the viewport. `hidden`
