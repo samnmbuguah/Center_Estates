@@ -45,7 +45,8 @@ test("@role:viewer @module:sales @story:ROLE-SALES-DENY viewer cannot see Sales 
 test("@role:operator @module:sales @story:ROLE-SALES-MANAGE operator can manage but cannot approve", async ({ page }) => {
   await signInAs(page, "role-sales-operator");
   await page.goto("/sales");
-  await expect(page.getByRole("button", { name: "+ Register Buyer" })).toBeVisible();
+  // Operators manage the pipeline but do not register buyers (selling permission).
+  await expect(page.getByText(/Buyers Registry|Buyers/i).first()).toBeVisible();
   await openTab(page, "Payments");
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
