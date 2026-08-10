@@ -37,18 +37,18 @@ export function Home() {
         <div className="hero-left">
           <div className="hero-badge">
             <span className="hero-badge-dot" />
-            Modular Estate Operations Platform · Kenya
+            One connected estate operations platform · Kenya
           </div>
 
           <h1 className="hero-h1">
-            Smart <strong>ERP</strong> for<br />
-            Construction &amp;<br />
-            Property Management
+            Run every <strong>estate</strong><br />
+            with clarity &amp;<br />
+            control
           </h1>
 
           <p className="hero-lead">
-            Run property, facilities, construction, sales, tendering and valuation
-            workflows from one secure, subscription-aware platform.
+            Manage properties, facilities, tenants, sales, tenders, valuations and
+            daily team work from one secure, subscription-aware workspace.
           </p>
 
           <div className="hero-ctas">
@@ -91,7 +91,7 @@ export function Home() {
               <div className="hero-feature-icon">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
               </div>
-              Procurement Tracking
+              Connected Operations
             </div>
           </div>
         </div>
@@ -258,12 +258,12 @@ export function Home() {
         <div className="section-inner">
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <div className="section-tag" style={{ justifyContent: "center" }}>Our Products</div>
-            <h2 className="section-h2">Modular tools designed to give you<br />full control of your projects</h2>
-            <p className="section-lead" style={{ margin: "12px auto 0" }}>All in one intelligent platform.</p>
+            <h2 className="section-h2">One platform for every estate decision</h2>
+            <p className="section-lead" style={{ margin: "12px auto 0" }}>Subscribe to the modules your team needs, with one shared view of your properties and people.</p>
           </div>
 
           <div className="products-grid">
-            {/* Construction Monitoring */}
+            {/* Property Management */}
             <div className="product-card">
               <div className="pc-img pc-img-construction">
                 <div className="pc-img-icon">
@@ -271,11 +271,11 @@ export function Home() {
                 </div>
               </div>
               <div className="pc-body">
-                <div className="pc-title">Construction Monitoring</div>
-                <p className="pc-desc">Independent tracking of progress and quality on-site with real-time verification.</p>
+                <div className="pc-title">Property Management</div>
+                <p className="pc-desc">Keep occupancy, leases, collections, service charges and property records in sync.</p>
                 <ul className="pc-list">
-                  <li><span className="pc-list-dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg></span>Mobile site inspections</li>
-                  <li><span className="pc-list-dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg></span>Real-time updates</li>
+                  <li><span className="pc-list-dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg></span>Occupancy &amp; tenancy</li>
+                  <li><span className="pc-list-dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg></span>Collections &amp; reporting</li>
                 </ul>
                 <a href="#contact" className="pc-learn">
                   Learn More
@@ -356,10 +356,10 @@ export function Home() {
       <section className="section section-alt" id="solutions">
         <div className="section-inner">
           <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <div className="section-tag" style={{ justifyContent: "center" }}>Connected Construction Ecosystem</div>
+            <div className="section-tag" style={{ justifyContent: "center" }}>Connected Estate Operations</div>
             <h2 className="section-h2">Built for Real-World Use in Kenya</h2>
             <p className="section-lead" style={{ margin: "12px auto 0", maxWidth: 600 }}>
-              Our smart platform connects site teams, clients, and financiers through integrated tools for seamless construction management across Kenya.
+              Center Estates connects owners, managers, operators, tenants and service teams through one trusted operational record.
             </p>
           </div>
 
