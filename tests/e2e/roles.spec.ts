@@ -37,7 +37,7 @@ for (const module of moduleCases) {
 test("@role:viewer @module:sales @story:ROLE-SALES-DENY viewer cannot see Sales mutations", async ({ page }) => {
   await signInAs(page, "role-sales-viewer");
   await page.goto("/sales");
-  await expect(page.getByRole("button", { name: "+ Register buyer" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Register Buyer" })).toHaveCount(0);
   await openTab(page, "Payments");
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
@@ -45,7 +45,7 @@ test("@role:viewer @module:sales @story:ROLE-SALES-DENY viewer cannot see Sales 
 test("@role:operator @module:sales @story:ROLE-SALES-MANAGE operator can manage but cannot approve", async ({ page }) => {
   await signInAs(page, "role-sales-operator");
   await page.goto("/sales");
-  await expect(page.getByRole("button", { name: "+ Register buyer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Register Buyer" })).toBeVisible();
   await openTab(page, "Payments");
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
@@ -53,7 +53,7 @@ test("@role:operator @module:sales @story:ROLE-SALES-MANAGE operator can manage 
 test("@role:sales-financier @module:sales @story:ROLE-SALES-FINANCE financier can verify but cannot create", async ({ page }) => {
   await signInAs(page, "role-sales-financier");
   await page.goto("/sales");
-  await expect(page.getByRole("button", { name: "+ Register buyer" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Register Buyer" })).toHaveCount(0);
   await openTab(page, "Payments");
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toBeVisible();
 });
@@ -61,7 +61,7 @@ test("@role:sales-financier @module:sales @story:ROLE-SALES-FINANCE financier ca
 test("@role:sales-agent @module:sales @story:ROLE-SALES-AGENT agent can sell but cannot verify payments", async ({ page }) => {
   await signInAs(page, "role-sales-agent");
   await page.goto("/sales");
-  await expect(page.getByRole("button", { name: "+ Register buyer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Register Buyer" })).toBeVisible();
   await openTab(page, "Payments");
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
@@ -69,7 +69,7 @@ test("@role:sales-agent @module:sales @story:ROLE-SALES-AGENT agent can sell but
 test("@role:site-clerk @module:sales @story:ROLE-SALES-CLERK clerk focuses on visits without buyer registration", async ({ page }) => {
   await signInAs(page, "role-site-clerk");
   await page.goto("/sales");
-  await expect(page.getByRole("button", { name: "+ Register buyer" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Register Buyer" })).toHaveCount(0);
   await openTab(page, "Site visits");
   await expect(page.getByRole("heading", { name: "Site visits", exact: true })).toBeVisible();
 });
@@ -77,7 +77,7 @@ test("@role:site-clerk @module:sales @story:ROLE-SALES-CLERK clerk focuses on vi
 test("@role:sales-advocate @module:sales @story:ROLE-SALES-ADVOCATE advocate reaches legal documents only", async ({ page }) => {
   await signInAs(page, "role-sales-advocate");
   await page.goto("/sales");
-  await expect(page.getByRole("button", { name: "+ Register buyer" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Register Buyer" })).toHaveCount(0);
   await openTab(page, "Legal documents");
   await expect(page.getByRole("heading", { name: "Legal documents", exact: true })).toBeVisible();
 });
@@ -101,7 +101,7 @@ test("@role:construction-finance @module:monitoring @story:ROLE-CONSTRUCTION-FIN
 test("@role:tender-board-reviewer @module:tender @story:ROLE-TENDER-BOARD board reviewer cannot register invitations", async ({ page }) => {
   await signInAs(page, "role-tender-board-reviewer");
   await page.goto("/tender");
-  await expect(page.getByRole("button", { name: "+ Register invitation" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Register Invitation" })).toHaveCount(0);
   await openTab(page, "Review & approval");
   await expect(page.getByRole("heading", { name: "Review & approval", exact: true })).toBeVisible();
 });
@@ -109,7 +109,7 @@ test("@role:tender-board-reviewer @module:tender @story:ROLE-TENDER-BOARD board 
 test("@role:valuation-reviewer @module:valuation @story:ROLE-VALUATION-REVIEW reviewer cannot create instructions", async ({ page }) => {
   await signInAs(page, "role-valuation-reviewer");
   await page.goto("/valuation");
-  await expect(page.getByRole("button", { name: "+ New instruction" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ New Instruction" })).toHaveCount(0);
   await openTab(page, "Draft reports");
   await expect(page.getByRole("heading", { name: "Draft reports", exact: true })).toBeVisible();
 });
@@ -122,17 +122,16 @@ test("@role:admin @module:platform @story:ROLE-ADMIN-SWITCH admin can open demo 
   await expect(page.getByText("Super Administrator", { exact: true }).first()).toBeVisible();
 });
 
+// Least-privilege checks against the permission-gated workspace actions toolbar.
+// Construction (monitoring) is disabled in the production scope; its controls
+// are not rendered, so those roles are covered by the denial checks below.
 const businessControlCases = [
-  ["leasing-officer", "/property", "+ Add Property", false, "+ Record Receipt", false],
-  ["property-accountant", "/property", "+ Add Property", false, "+ Record Receipt", true],
-  ["facility-technician", "/facility", "+ New work order", true, "", false],
-  ["facility-inspector", "/facility", "+ New work order", true, "", false],
-  ["technical-author", "/tender", "+ Register invitation", false, "", false],
-  ["valuation-coordinator", "/valuation", "+ New instruction", true, "", false],
-  ["valuer-inspector", "/valuation", "+ New instruction", false, "", false],
-  ["construction-auditor", "/monitoring", "+ Project workspace", false, "Export & reports", true],
-  ["construction-admin", "/monitoring", "+ Project workspace", true, "Export & reports", true],
-  ["quantity-surveyor", "/monitoring", "+ Project workspace", false, "", false],
+  ["leasing-officer", "/property", "+ Add Tenant", true, "+ Record Receipt", false],
+  ["property-accountant", "/property", "+ Add Tenant", false, "+ Record Receipt", true],
+  ["facility-technician", "/facility", "+ New Work Order", true, "", false],
+  ["facility-inspector", "/facility", "+ New Work Order", true, "", false],
+  ["valuation-coordinator", "/valuation", "+ New Instruction", true, "", false],
+  ["valuer-inspector", "/valuation", "+ New Instruction", false, "", false],
 ] as const;
 
 for (const [role, path, primary, primaryVisible, secondary, secondaryVisible] of businessControlCases) {

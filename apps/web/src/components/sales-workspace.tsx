@@ -594,6 +594,7 @@ function BuyersView({
   openRegisterBuyer,
   transitionBuyer,
   org,
+  canSell,
 }: {
   rows: Row[];
   search: string;
@@ -603,6 +604,7 @@ function BuyersView({
   openRegisterBuyer: () => void;
   transitionBuyer: (row: Row) => void;
   org: string | null;
+  canSell: boolean;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const active = countBy(rows, ["active", "qualified"]);
@@ -623,10 +625,10 @@ function BuyersView({
           setSearch={setSearch}
           placeholder="Search name, reference, ID, email…"
           chips={<FilterChips options={[{ value: "lead", label: "Leads" }, { value: "qualified", label: "Qualified" }, { value: "active", label: "Active" }, { value: "completed", label: "Completed" }, { value: "cancelled", label: "Cancelled" }]} value={status as "lead" | "qualified" | "active" | "completed" | "cancelled" | ""} onChange={(v) => setStatus(v)} />}
-          actions={<button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button>}
+          actions={canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : undefined}
         >
           {rows.length === 0 ? (
-            <EmptyState icon="👥" title="No buyers registered" description="Register your first buyer to attach units, installments and payments." action={<button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button>} />
+            <EmptyState icon="👥" title="No buyers registered" description="Register your first buyer to attach units, installments and payments." action={canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : undefined} />
           ) : (
             <DataTable headers={["Ref", "Name", "ID Number", "KRA PIN", "Contact", "Email", "Financing", "Status", "Actions"]}>
               {rows.map((r) => (
@@ -2776,7 +2778,7 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
       onSelect={selectTab}
       actions={
         <div className="row">
-          <button className="btn primary sm" onClick={openBuyerRegistration}>+ Register Buyer</button>
+          {canSell && <button className="btn primary sm" onClick={openBuyerRegistration}>+ Register Buyer</button>}
         </div>
       }
     >
@@ -2796,7 +2798,7 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
         ) : tab === "inventory" ? (
           <InventoryView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} canSell={canSell} openNewListing={openNewListingModal} />
         ) : tab === "buyers" ? (
-          <BuyersView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} openRegisterBuyer={openBuyerRegistration} transitionBuyer={openTransitionBuyer} org={org} />
+          <BuyersView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} openRegisterBuyer={openBuyerRegistration} transitionBuyer={openTransitionBuyer} org={org} canSell={canSell} />
         ) : tab === "leads" ? (
           <LeadsView rows={rows} search={search} setSearch={setSearch} status={status} setStatus={setStatus} openRegisterBuyer={openBuyerRegistration} quickTransition={quickTransitionBuyer} />
         ) : tab === "sales" ? (

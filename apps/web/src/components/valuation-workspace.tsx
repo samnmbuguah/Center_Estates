@@ -2249,7 +2249,7 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       actions={
         <div className="row">
           <span className="pill pill-cyan" style={{ whiteSpace: "nowrap" }}>📅 {todayStr}</span>
-          <button className="btn primary sm" onClick={openNewInstruction}>+ New Instruction</button>
+          {canCoordinate && <button className="btn primary sm" onClick={openNewInstruction}>+ New Instruction</button>}
         </div>
       }
     >
