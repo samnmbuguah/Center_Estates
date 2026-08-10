@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { usePropertyContext } from "@/lib/property-context";
 
 /**
@@ -37,16 +35,7 @@ export function PropertyContextBar() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Link
-            href="/workspaces"
-            className="btn ghost sm"
-            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, textDecoration: "none" }}
-          >
-            <ArrowLeft size={14} /> Workspaces
-          </Link>
-          <span style={{ color: "var(--border)" }}>|</span>
           <label className="module-property-switcher">
-            <span>Current property</span>
             <select
               aria-label="Current property"
               value={activeProperty.id}
@@ -63,22 +52,6 @@ export function PropertyContextBar() {
               ))}
             </select>
           </label>
-          <span
-            style={{
-              fontSize: 10,
-              padding: "2px 8px",
-              borderRadius: 12,
-              background: "rgba(16,185,129,0.15)",
-              color: "#10b981",
-              fontWeight: 700,
-              border: "1px solid rgba(16,185,129,0.3)",
-            }}
-          >
-            {activeProperty.status ?? "Active"}
-          </span>
-          {activeProperty.location && (
-            <small style={{ fontSize: 11, color: "var(--muted)" }}>📍 {activeProperty.location}</small>
-          )}
         </div>
       </div>
     </section>

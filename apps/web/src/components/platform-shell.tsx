@@ -249,9 +249,9 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
 
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>
         {/* MUI AppBar Header */}
-        <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 68, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
+        <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 76, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
           <Toolbar variant="dense" sx={{ width: "100%", height: "100%", display: "grid", gridTemplateColumns: "auto minmax(0, 1fr) auto", gap: { xs: 1, md: 2.5 }, px: { xs: 1.5, md: 3 } }}>
-            <BrandLogo size="sm" href="/" showWordmark dark={false} />
+            <BrandLogo size="md" href="/" showWordmark dark={false} />
 
             <Box sx={{ width: "min(520px, 100%)", justifySelf: "center", position: "relative", ml: { xs: 0, md: 2 } }}>
               <TextField
