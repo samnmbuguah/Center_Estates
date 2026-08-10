@@ -1,9 +1,3 @@
-const next = require("next");
-
-const port = parseInt(process.env.PORT || "3000", 10);
-const app = next({ dev: false, dir: "./apps/web" });
-const handle = app.getRequestHandler();
-
-app.prepare().then(() => {
-  require("http").createServer((request, response) => handle(request, response)).listen(port);
-});
+// cPanel runs this file through Passenger. The standalone output includes the
+// exact production Next runtime, independent of cPanel workspace resolution.
+require("./apps/web/.next/standalone/apps/web/server");

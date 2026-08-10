@@ -78,7 +78,7 @@ if [[ "$DEPLOY_SCOPE" == "full" ]]; then
     --exclude='apps/web/.next/dev' \
     --exclude='apps/web/.next/types' \
     --exclude='apps/web/.next/trace' \
-    app.js package.json package-lock.json apps/web/.next apps/web/public apps/web/package.json
+    app.js apps/web/.next apps/web/public
   scp "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
   ssh "$REMOTE_HOST" "
     set -e
@@ -86,14 +86,15 @@ if [[ "$DEPLOY_SCOPE" == "full" ]]; then
     cd '${FRONTEND_PATH}'
     tar -xzf deploy-web.tar.gz
     rm -f deploy-web.tar.gz
-    lock_hash=\$(sha256sum package-lock.json | awk '{print \$1}')
-    installed_hash=\$(cat .node-dependencies.sha256 2>/dev/null || true)
-    if [ \"\${lock_hash}\" != \"\${installed_hash}\" ]; then
-      npm ci --omit=dev
-      printf '%s\\n' \"\${lock_hash}\" > .node-dependencies.sha256
-    else
-      echo 'Node dependencies unchanged; skipping npm ci.'
-    fi
+    # Next's standalone output ships the exact runtime dependency tree. This
+    # avoids cPanel's workspace/node_modules symlink limitation and removes a
+    # slow npm install from every web release.
+    standalone='apps/web/.next/standalone/apps/web'
+    test -f \"\${standalone}/server.js\"
+    rm -rf \"\${standalone}/.next/static\" \"\${standalone}/public\"
+    mkdir -p \"\${standalone}/.next\"
+    cp -a apps/web/.next/static \"\${standalone}/.next/static\"
+    cp -a apps/web/public \"\${standalone}/public\"
     mkdir -p tmp
     touch tmp/restart.txt
   "
