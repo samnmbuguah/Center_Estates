@@ -4085,6 +4085,14 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     queueMicrotask(() => setShowAddProperty(true));
   }, [searchParams]);
 
+  useEffect(() => {
+    if (searchParams.get("action") !== "add-tenant") return;
+    queueMicrotask(() => {
+      setTab("tenancy");
+      setShowAddTenant(true);
+    });
+  }, [searchParams]);
+
   const loadVersion = useRef(0);
   const failCount = useRef(0);
 

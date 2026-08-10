@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 import { modules, ACTIVE_MODULES } from "@/lib/modules";
@@ -19,6 +19,29 @@ type Pulse = {
 };
 
 const money = new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 });
+
+const quickActions: Record<string, Array<{ label: string; href: string; permission?: string }>> = {
+  property: [
+    { label: "Portfolio", href: "/overview" },
+    { label: "Onboard property", href: "/property-onboarding", permission: "property.operations" },
+    { label: "Add tenant", href: "/property?tab=tenancy&action=add-tenant", permission: "property.leasing" },
+  ],
+  facility: [
+    { label: "Work orders", href: "/facility?tab=work-orders" },
+    { label: "Assets", href: "/facility?tab=assets" },
+    { label: "Inspections", href: "/facility?tab=inspections" },
+  ],
+  valuation: [
+    { label: "Instructions", href: "/valuation?tab=instructions" },
+    { label: "Inspections", href: "/valuation?tab=inspections" },
+    { label: "Final reports", href: "/valuation?tab=final-reports" },
+  ],
+  companion: [
+    { label: "My tasks", href: "/companion?tab=my-tasks" },
+    { label: "All tasks", href: "/companion?tab=tasks" },
+    { label: "Performance", href: "/companion?tab=performance" },
+  ],
+};
 
 export function CommandCenterWorkspace() {
   const { session } = useAuth();
@@ -57,12 +80,14 @@ export function CommandCenterWorkspace() {
       return [
         { label: "Properties", value: String(pulse.property.properties) },
         { label: "Occupancy", value: `${pulse.property.occupancy}%` },
+        { label: "Outstanding", value: money.format(pulse.property.outstanding) },
       ];
     }
     if (slug === "facility" && pulse.facility) {
       return [
         { label: "Open WOs", value: String(pulse.facility.openWorkOrders) },
         { label: "PPM", value: `${pulse.facility.compliance}%` },
+        { label: "Assets", value: String(pulse.facility.assets) },
       ];
     }
     if (slug === "sales" && pulse.sales) {
@@ -93,6 +118,7 @@ export function CommandCenterWorkspace() {
       return [
         { label: "Due today", value: String(pulse.companion.dueToday) },
         { label: "Overdue", value: String(pulse.companion.overdue) },
+        { label: "Escalated", value: String(pulse.companion.escalated) },
       ];
     }
     return null;
@@ -119,8 +145,10 @@ export function CommandCenterWorkspace() {
               {subscribedModules.map((module) => {
                 const live = moduleStats(module.slug);
                 const stats = live ?? module.stats.map((stat) => ({ label: stat.label, value: stat.value }));
+                const permissions = new Set(session?.permissions ?? []);
+                const actions = (quickActions[module.slug] ?? []).filter(action => !action.permission || permissions.has("*") || permissions.has(action.permission));
                 return (
-                  <Link className="module-card design-module-card" href={`/${module.slug}`} key={module.slug}>
+                  <article className="module-card design-module-card" key={module.slug} style={{ "--module-accent": module.accent } as CSSProperties}>
                     <header>
                       <span className="module-icon" style={{ background: `${module.accent}18`, color: module.accent }}>
                         {module.icon}
@@ -130,8 +158,10 @@ export function CommandCenterWorkspace() {
                         {live ? "Live" : "Available"}
                       </span>
                     </header>
-                    <h3>{module.name}</h3>
-                    <p>{module.description}</p>
+                    <Link className="module-card-primary-link" href={`/${module.slug}`}>
+                      <h3>{module.name}</h3>
+                      <p>{module.description}</p>
+                    </Link>
                     <div className="module-stat-row">
                       {stats.map((stat) => (
                         <span key={stat.label}>
@@ -140,34 +170,19 @@ export function CommandCenterWorkspace() {
                         </span>
                       ))}
                     </div>
-                    <div className="module-features">
-                      {module.features.slice(0, 3).map((feature) => (
-                        <span key={feature}>{feature}</span>
-                      ))}
+                    <div className="module-quick-actions" aria-label={`${module.name} quick actions`}>
+                      {actions.map((action) => <Link key={action.href} href={action.href}>{action.label}<span aria-hidden>→</span></Link>)}
                     </div>
-                    <span className="open-link">
+                    <Link className="open-link" href={`/${module.slug}`}>
                       Open workspace <span aria-hidden>→</span>
-                    </span>
-                  </Link>
+                    </Link>
+                  </article>
                 );
               })}
             </div>
           </section>
 
         </div>
-
-        <aside className="command-rail">
-          <section className="command-help compact">
-            <div>
-              <span>?</span>
-              <p>
-                <strong>Tasks, alerts and approvals live in Companion.</strong>
-                <small>Open it for your daily priorities without duplicating them here.</small>
-              </p>
-            </div>
-            {allowed.has("companion") ? <Link href="/companion">Open Companion →</Link> : null}
-          </section>
-        </aside>
       </div>
     </div>
   );
