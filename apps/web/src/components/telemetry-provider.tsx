@@ -10,16 +10,14 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
 
   useEffect(() => {
-    if (session?.user) {
-      telemetry.init(
-        {
-          id: session.user.id,
-          username: session.user.username,
-          role: session.roleNames?.[0] || session.roles?.[0] || "member",
-        },
-        session.activeOrganizationId,
-      );
-    }
+    telemetry.init(
+      session?.user ? {
+        id: session.user.id,
+        username: session.user.username,
+        role: session.roleNames?.[0] || session.roles?.[0] || "member",
+      } : null,
+      session?.activeOrganizationId ?? null,
+    );
   }, [session]);
 
   useEffect(() => {

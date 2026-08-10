@@ -22,10 +22,21 @@ class TelemetryEngine {
   private visibilityHandler: (() => void) | null = null;
   private lastPageView = "";
   private lastPageViewAt = 0;
+  private backendEnabled = false;
+  private consecutiveFailures = 0;
+  private readonly maxTransientFailures = 3;
 
   public init(user: { id?: number; username?: string; role?: string } | null, organizationId: string | null) {
+    const sessionChanged = this.user?.id !== user?.id || this.organizationId !== organizationId;
     this.user = user;
     this.organizationId = organizationId;
+    this.backendEnabled = Boolean(user && organizationId);
+    if (sessionChanged) {
+      this.consecutiveFailures = 0;
+      this.backendQueue = [];
+      if (this.flushTimer) clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
     if (typeof window !== "undefined") {
       this.currentPath = window.location.pathname;
       this.pageStartTime = Date.now();
@@ -52,10 +63,10 @@ class TelemetryEngine {
     this.currentPath = pathname;
     this.pageStartTime = now;
 
-    const module = pathname.split("/")[1] || "dashboard";
+    const moduleName = pathname.split("/")[1] || "dashboard";
     this.sendEvent("page_view", {
       path: pathname,
-      module,
+      module: moduleName,
       search: window.location.search,
     });
   }
@@ -85,7 +96,7 @@ class TelemetryEngine {
 
     // 1. Batch local telemetry so navigation and click bursts consume one
     // backend worker instead of one request per interaction.
-    if (this.organizationId) {
+    if (this.backendEnabled && this.organizationId) {
       this.backendQueue.push(payload);
       if (this.backendQueue.length >= 20) void this.flush();
       else this.scheduleFlush();
@@ -140,25 +151,44 @@ class TelemetryEngine {
   }
 
   private scheduleFlush() {
-    if (this.flushTimer) return;
+    if (!this.backendEnabled || this.flushTimer) return;
     this.flushTimer = setTimeout(() => void this.flush(), 5_000);
   }
 
   public async flush() {
     if (this.flushTimer) clearTimeout(this.flushTimer);
     this.flushTimer = null;
-    if (!this.organizationId || this.backendQueue.length === 0) return;
+    if (!this.backendEnabled || !this.organizationId || this.backendQueue.length === 0) return;
     const events = this.backendQueue.splice(0, 100);
     try {
       const response = await apiFetch("/companion/telemetry/", {
         method: "POST",
         body: JSON.stringify({ events }),
       }, this.organizationId);
-      if (!response.ok) throw new Error(`Telemetry returned ${response.status}`);
+      if (response.ok) {
+        this.consecutiveFailures = 0;
+      } else if ([401, 403].includes(response.status)) {
+        // Telemetry is non-critical. An expired/unauthorized session must not
+        // create a permanent background request loop or pollute the console.
+        this.backendEnabled = false;
+        this.backendQueue = [];
+        return;
+      } else if (response.status >= 400 && response.status < 500) {
+        // Invalid or throttled client batches cannot improve by immediate retry.
+        return;
+      } else {
+        throw new Error(`Telemetry returned ${response.status}`);
+      }
     } catch {
-      this.backendQueue = [...events, ...this.backendQueue].slice(-200);
+      this.consecutiveFailures += 1;
+      if (this.consecutiveFailures < this.maxTransientFailures) {
+        this.backendQueue = [...events, ...this.backendQueue].slice(-200);
+      } else {
+        this.backendEnabled = false;
+        this.backendQueue = [];
+      }
     }
-    if (this.backendQueue.length > 0) this.scheduleFlush();
+    if (this.backendEnabled && this.backendQueue.length > 0) this.scheduleFlush();
   }
 }
 

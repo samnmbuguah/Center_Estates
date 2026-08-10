@@ -38,6 +38,15 @@ const GET_CACHE_MS = 750;
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
 const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
 const inFlightGets = new Map<string, Promise<Response>>();
+let csrfTokenCache = "";
+
+async function rememberCsrfToken(response: Response) {
+  if (!response.ok) return;
+  try {
+    const payload = await response.clone().json() as { csrfToken?: string };
+    if (payload.csrfToken) csrfTokenCache = payload.csrfToken;
+  } catch { /* CSRF response was not JSON; cookie fallback remains available */ }
+}
 
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {
   const headers = new Headers(init.headers);
@@ -107,6 +116,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
     if (response.status === 403 && fullPath !== "/auth/csrf/") {
       const csrfResponse = await fetch(`${API_BASE_URL}/auth/csrf/`, { credentials: "include" });
       if (csrfResponse.ok) {
+        await rememberCsrfToken(csrfResponse);
         const refreshedCsrf = csrfFromCookie();
         if (refreshedCsrf) headers.set("X-CSRFToken", refreshedCsrf);
         response = await fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
@@ -137,9 +147,13 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
     })
     .finally(() => inFlightGets.delete(cacheKey));
   inFlightGets.set(cacheKey, request);
-  return (await request).clone();
+  const response = (await request).clone();
+  if (cleanPath === "/auth/csrf/") await rememberCsrfToken(response);
+  return response;
 }
 
 export function csrfFromCookie() {
+  if (csrfTokenCache) return csrfTokenCache;
+  if (typeof document === "undefined") return "";
   return document.cookie.split("; ").find((value) => value.startsWith("csrftoken="))?.split("=")[1] ?? "";
 }
