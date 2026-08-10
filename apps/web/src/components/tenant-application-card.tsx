@@ -13,6 +13,7 @@ import { usePropertyContext } from "@/lib/property-context";
 
 type Unit = { id: string; code: string; floor?: string; unit_type?: string; area?: string | number; status?: string };
 type Utility = { utility: string; applicable: boolean; rate_per_unit: number };
+type PropertyDetails = { address?: string; city?: string; country?: string; metadata?: Record<string, unknown> };
 
 const initialForm = {
   name: "", tenant_type: "company", address_1: "", address_2: "", city: "",
@@ -42,6 +43,7 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
   const organizationId = session?.activeOrganizationId ?? null;
   const [form, setForm] = useState(initialForm);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [utilities, setUtilities] = useState<Utility[]>([
     { utility: "Electricity", applicable: false, rate_per_unit: 0 },
     { utility: "Water", applicable: false, rate_per_unit: 0 },
@@ -55,12 +57,34 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
 
   useEffect(() => {
     if (!open || !organizationId || !activeProperty?.id) return;
-    apiFetch("/property/units/?status=available", {}, organizationId)
-      .then(async (response) => response.ok ? response.json() : [])
-      .then((data) => setUnits((Array.isArray(data) ? data : data.results ?? []).map((row: Record<string, unknown>) => ({
+    Promise.all([
+      apiFetch("/property/units/?status=available", {}, organizationId).then(async (response) => response.ok ? response.json() : []),
+      apiFetch(`/property/properties/${activeProperty.id}/`, {}, organizationId).then(async (response) => response.ok ? response.json() : null),
+    ]).then(([unitData, propertyData]) => {
+      setUnits((Array.isArray(unitData) ? unitData : unitData.results ?? []).map((row: Record<string, unknown>) => ({
         id: String(row.id), code: String(row.code), floor: String(row.floor ?? ""),
         unit_type: String(row.unit_type ?? ""), area: row.area as string | number, status: String(row.status ?? ""),
-      }))));
+      })));
+      if (!propertyData) return;
+      const details = propertyData as PropertyDetails;
+      setPropertyDetails(details);
+      const metadata = details.metadata ?? {};
+      const defaults = (metadata.leasing_defaults ?? {}) as Record<string, unknown>;
+      const landlord = (metadata.landlord ?? {}) as Record<string, unknown>;
+      setForm((current) => ({
+        ...current,
+        vat_rate: String(defaults.vat_rate ?? (landlord.vat_registered ? 16 : 0)),
+        rent_rate_per_sqft: current.rent_rate_per_sqft || String(defaults.rent_rate_per_sqft ?? ""),
+        service_charge_rate_per_sqft: current.service_charge_rate_per_sqft !== "0" ? current.service_charge_rate_per_sqft : String(defaults.service_charge_rate_per_sqft ?? 0),
+        security_deposit: current.security_deposit !== "0" ? current.security_deposit : String(defaults.security_deposit ?? 0),
+        billing_day: current.billing_day !== "1" ? current.billing_day : String(defaults.billing_day ?? 1),
+      }));
+      const configuredUtilities = Array.isArray(metadata.utilities) ? metadata.utilities as Array<Record<string, unknown>> : [];
+      setUtilities(["Electricity", "Water", "Other"].map((utility) => {
+        const configured = configuredUtilities.find((row) => String(row.type ?? "").toLowerCase() === utility.toLowerCase());
+        return { utility, applicable: Boolean(configured), rate_per_unit: Number(configured?.security_deposit_rate ?? defaults[`${utility.toLowerCase()}_deposit_rate`] ?? 0) };
+      }));
+    });
   }, [open, organizationId, activeProperty?.id]);
 
   const selectedUnit = units.find((unit) => unit.id === form.unit);
@@ -184,8 +208,9 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
                 </TextField>
                 <TextField size="small" label="Floor no." value={selectedUnit?.floor ?? ""} disabled />
                 <TextField size="small" label="Area (Sq.Ft)" value={area || ""} disabled />
-                <TextField size="small" label="Property description" value={[activeProperty?.code, activeProperty?.location].filter(Boolean).join(" · ")} disabled sx={{ gridColumn: { md: "span 2" } }} />
+                <TextField size="small" label="Property address" value={[propertyDetails?.address, propertyDetails?.city, propertyDetails?.country].filter(Boolean).join(", ")} disabled sx={{ gridColumn: { md: "span 2" } }} />
               </Box>
+              <Alert severity="info" sx={{ mt: 2 }}>Property, address, available units, floor, area, configured utilities and leasing defaults are filled from the property record. Tenant contact and postal details remain blank because they belong to the tenant.</Alert>
             </Paper>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography sx={{ fontWeight: 800 }} color="primary" gutterBottom>Lease terms</Typography>
