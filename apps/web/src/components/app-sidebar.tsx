@@ -110,6 +110,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
           </Link>
+
+          {!activeModuleSlug && <Link className="nav-link" href="/overview" onClick={onCloseMobile} title="Overview" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}><span>◉</span>{(!collapsed || isMobile) && <span>Overview</span>}</Link>}
           
           {/* Companion is the daily task hub; facility operations remain in its module. */}
           {!activeModuleSlug && (

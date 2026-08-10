@@ -157,30 +157,6 @@ export function CommandCenterWorkspace() {
         </div>
 
         <aside className="command-rail">
-          <article className="rail-card command-pulse-card" aria-labelledby="glance-heading">
-            <header>
-              <div>
-                <p className="eyebrow">Portfolio pulse</p>
-                <h3 id="glance-heading">At a glance</h3>
-              </div>
-              <span className="module-live"><i /> Live</span>
-            </header>
-            <div className="glance-grid">
-              {[
-                ["🏢", "Properties", pulse.property?.properties, allowed.has("property")],
-                ["👥", "Tenants", pulse.property?.tenants, allowed.has("property")],
-                ["💰", "Outstanding rent", pulse.property ? money.format(pulse.property.outstanding) : undefined, allowed.has("property")],
-                ["🔧", "Open maintenance", pulse.facility?.openWorkOrders, allowed.has("facility")],
-                ["✅", "PPM compliance", pulse.facility ? `${pulse.facility.compliance}%` : undefined, allowed.has("facility")],
-              ].map(([icon, label, value, enabled]) => (
-                <article key={String(label)}>
-                  <span className="glance-icon">{String(icon)}</span>
-                  <div><small>{String(label)}</small><strong>{value ?? (enabled ? "…" : "Locked")}</strong></div>
-                </article>
-              ))}
-            </div>
-          </article>
-
           <section className="command-help compact">
             <div>
               <span>?</span>
