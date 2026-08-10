@@ -25,7 +25,6 @@ export function BrandLogo({
   const inner = (
     <>
       <div
-        aria-hidden="true"
         style={{
           width: d,
           height: d,
@@ -41,11 +40,7 @@ export function BrandLogo({
           letterSpacing: "-0.02em",
         }}
       >
-        <svg viewBox="0 0 48 48" role="img" aria-label="Center Estates" width={d} height={d} style={{ display: "block" }}>
-          <path d="M6 28c0-10 8-18 18-18s18 8 18 18L24 44 6 28Z" fill="#d51f29" />
-          <path d="M17 12 24 7l7 5v24l-7 5-7-5V12Z" fill="#727285" />
-          <path d="M21 14h6v4h-6zm0 7h6v4h-6zm0 7h6v4h-6zm0 7h6v4h-6z" fill="#fff" />
-        </svg>
+        <img src="/center-estates-logo.png" alt="Center Estates" width={d} height={d} loading="eager" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", borderRadius: "inherit", display: "block", background: "#fff" }} />
       </div>
       {showWordmark && (
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, minWidth: 0, marginLeft: 2 }}>
