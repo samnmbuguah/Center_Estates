@@ -5,12 +5,10 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { BrandLogo } from "@/components/brand-logo";
-import { apiFetch } from "@/lib/api";
 import { LayoutDashboard, ClipboardCheck, Menu, X, HelpCircle, ChevronDown, ChevronRight, ChartNoAxesCombined, CalendarDays, CircleAlert } from "lucide-react";
 import {
   Box,
   Typography,
-  Badge,
   Avatar,
   IconButton,
 } from "@mui/material";
@@ -36,7 +34,6 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   const { session } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [badgeCounts, setBadgeCounts] = useState({ tasks: 0 });
 
   const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
 
@@ -62,16 +59,6 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
     : session?.roleNames?.[0] || session?.roles[0] || "Member";
   const userInitials = (session?.user.firstName || session?.user.username || "").slice(0, 2).toUpperCase();
   const isAdministrator = Boolean(session?.user.isSuperuser || session?.permissions.includes("*") || session?.roles.includes("admin"));
-
-  useEffect(() => {
-    if (!session?.activeOrganizationId) return;
-    apiFetch("/companion/dashboard/", {}, session.activeOrganizationId)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.kpis) setBadgeCounts({ tasks: d.kpis.overdue + d.kpis.dueToday });
-      })
-      .catch(() => {});
-  }, [session?.activeOrganizationId]);
 
   return (
     <>
@@ -284,34 +271,6 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             {(!collapsed || isMobile) && <span>Dashboard</span>}
           </Link>
 
-          {/* My Companion - Only show on dashboard */}
-          {!activeModuleSlug && (
-            <Link
-              className="nav-link"
-              href="/companion"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: collapsed ? "center" : "space-between",
-                padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
-                color: "#b8c8d7",
-                textDecoration: "none",
-                fontSize: isMobile ? 16 : 13,
-                borderRadius: 6,
-              }}
-              onClick={onCloseMobile}
-              title="My Companion"
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: isMobile ? 20 : 15 }}><ClipboardCheck size={isMobile ? 24 : 18} /></span>
-                {(!collapsed || isMobile) && <span>My Companion</span>}
-              </div>
-              {(!collapsed || isMobile) && badgeCounts.tasks > 0 && (
-                <Badge badgeContent={badgeCounts.tasks} color="error" sx={{ '& .MuiBadge-badge': { fontSize: 10, minWidth: 18, height: 18 } }} />
-              )}
-            </Link>
-          )}
-
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>
               <Link className="nav-link" href="/tickets" onClick={onCloseMobile} title="Tickets" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
@@ -330,21 +289,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
           )}
 
           {isAdministrator && !activeModuleSlug ? (
-            <Link
-              className="nav-link"
-              href="/analytics"
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"),
-                justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6,
-                color: "#fff", background: pathname === "/analytics" ? "rgba(229,46,46,0.35)" : "transparent",
-                textDecoration: "none", fontSize: isMobile ? 16 : 13,
-              }}
-              onClick={onCloseMobile}
-              title="Usage Analytics"
-            >
-              <ChartNoAxesCombined size={isMobile ? 24 : 18} />
-              {(!collapsed || isMobile) && <span>Usage Analytics</span>}
+            <Link className="nav-link" href="/analytics" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#fff", background: pathname === "/analytics" ? "rgba(229,46,46,0.35)" : "transparent", textDecoration: "none", fontSize: isMobile ? 16 : 13 }} onClick={onCloseMobile} title="Usage Analytics">
+              <ChartNoAxesCombined size={isMobile ? 24 : 18} />{(!collapsed || isMobile) && <span>Usage Analytics</span>}
             </Link>
           ) : null}
 
