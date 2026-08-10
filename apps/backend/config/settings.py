@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
+from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -221,6 +222,13 @@ CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(
 # requires explicit credentialed CORS responses; the allow-list above keeps this
 # limited to trusted application origins.
 CORS_ALLOW_CREDENTIALS = True
+# Frontend requests carry the active tenant and property context. These are
+# intentionally explicit headers so every API query is property-scoped.
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-organization-id',
+    'x-property-id',
+    'x-property-scope',
+]
 
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get(
     'CSRF_TRUSTED_ORIGINS', 'https://centerestates.com,https://www.centerestates.com,http://localhost:3000,http://localhost:4300'
