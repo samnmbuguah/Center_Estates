@@ -1,11 +1,15 @@
 from django.conf import settings
+from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import JsonResponse
 from django.db import connection
+from django.db.models import Q
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt, csrf_protect
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
@@ -17,10 +21,134 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 
 from core.serializers import MembershipSerializer, serialize_modules
+from core.models import Module
 from core.tenancy import get_active_membership, get_active_organization
+from core.property_scope import get_active_property, scope_model_queryset
 from organizations.models import Membership
 
 IMPERSONATOR_COOKIE = getattr(settings, 'JWT_IMPERSONATOR_COOKIE', 'ce_impersonator')
+
+
+class CalendarFeedView(APIView):
+    """Role-aware portfolio/property calendar assembled from source records."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        if not membership:
+            return Response({'detail': 'An active organization membership is required.'}, status=403)
+        membership = Membership.objects.prefetch_related('roles__permissions').get(pk=membership.pk)
+        subscribed = set(organization.subscriptions.available().values_list('module', flat=True))
+        permission_keys = {
+            permission.key for role in membership.roles.all() for permission in role.permissions.all()
+        }
+        is_admin = membership.is_organization_admin or request.user.is_superuser
+
+        def can(module):
+            return module in subscribed and (is_admin or any(key.startswith(f'{module}.') for key in permission_keys))
+
+        today = timezone.localdate()
+        starts_on = parse_date(request.query_params.get('start', '')) or today - timezone.timedelta(days=90)
+        ends_on = parse_date(request.query_params.get('end', '')) or today + timezone.timedelta(days=365)
+        if ends_on < starts_on or (ends_on - starts_on).days > 1095:
+            return Response({'detail': 'Choose a valid calendar range of no more than three years.'}, status=400)
+        active_property = get_active_property(request, organization)
+        events = []
+
+        def add(*, key, title, start, event_type, module, source_url, property_record=None,
+                end=None, status='scheduled', priority='normal', subtitle='', all_day=True):
+            if not start:
+                return
+            event_date = start.date() if isinstance(start, datetime) else start
+            if event_date < starts_on or event_date > ends_on:
+                return
+            property_id = str(property_record.id) if property_record else None
+            if active_property and property_id != str(active_property.id):
+                return
+            events.append({
+                'id': key, 'title': title, 'starts_at': start.isoformat(),
+                'ends_at': (end or start).isoformat(), 'all_day': all_day,
+                'event_type': event_type, 'module': module, 'status': status,
+                'priority': priority, 'subtitle': subtitle, 'source_url': source_url,
+                'property': property_id, 'property_name': property_record.name if property_record else '',
+            })
+
+        if can(Module.PROPERTY):
+            from properties.models import Invoice, Lease, RentSchedule, TenantDocument
+            from documents.models import Document
+            from properties.models import Property
+            for lease in scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property'):
+                prop = lease.unit.property
+                add(key=f'lease-start:{lease.pk}', title=f'Lease starts · {lease.tenant.name}', start=lease.starts_on,
+                    event_type='lease_start', module='property', property_record=prop, status=lease.status,
+                    subtitle=f'{lease.reference} · Unit {lease.unit.code}', source_url='/property?tab=leases')
+                add(key=f'lease-expiry:{lease.pk}', title=f'Lease expires · {lease.tenant.name}', start=lease.ends_on,
+                    event_type='lease_expiry', module='property', property_record=prop,
+                    status='overdue' if lease.ends_on < today and lease.status not in (Lease.Status.EXPIRED, Lease.Status.TERMINATED) else lease.status,
+                    priority='high', subtitle=f'{lease.reference} · Unit {lease.unit.code}', source_url='/property?tab=critical-dates')
+            for invoice in scope_model_queryset(Invoice, request, organization).select_related('lease__tenant', 'lease__unit__property').exclude(status=Invoice.Status.VOID):
+                prop = invoice.lease.unit.property
+                add(key=f'invoice-due:{invoice.pk}', title=f'Invoice due · {invoice.lease.tenant.name}', start=invoice.due_on,
+                    event_type='invoice_due', module='property', property_record=prop,
+                    status='overdue' if invoice.due_on < today and invoice.balance > 0 else invoice.status,
+                    priority='high' if invoice.balance > 0 else 'normal', subtitle=f'{invoice.number} · KES {invoice.balance:,.2f}', source_url='/property?tab=rent')
+            for schedule in scope_model_queryset(RentSchedule, request, organization).select_related('lease__tenant', 'lease__unit__property').exclude(status=RentSchedule.Status.WAIVED):
+                add(key=f'rent-due:{schedule.pk}', title=f'Rent due · {schedule.lease.tenant.name}', start=schedule.due_on,
+                    event_type='rent_due', module='property', property_record=schedule.lease.unit.property,
+                    status=schedule.status, subtitle=f'Unit {schedule.lease.unit.code}', source_url='/property?tab=rent-schedules')
+            for document in scope_model_queryset(TenantDocument, request, organization).filter(expires_on__isnull=False).select_related('tenant__property'):
+                add(key=f'tenant-document:{document.pk}', title=f'{document.document_type} expires · {document.tenant.name}', start=document.expires_on,
+                    event_type='document_expiry', module='property', property_record=document.tenant.property,
+                    status='overdue' if document.expires_on < today and document.status != TenantDocument.Status.EXPIRED else document.status,
+                    priority='high', subtitle=document.document_number, source_url='/property?tab=tenant-documents')
+            properties_by_id = {str(prop.pk): prop for prop in Property.objects.for_organization(organization)}
+            for document in Document.objects.for_organization(organization).filter(expires_on__isnull=False, category__startswith='property_'):
+                prop = properties_by_id.get(str(document.metadata.get('property_id', '')))
+                if prop:
+                    add(key=f'property-document:{document.pk}', title=f'Document expires · {document.title}', start=document.expires_on,
+                        event_type='document_expiry', module='property', property_record=prop,
+                        status='overdue' if document.expires_on < today else document.status, priority='high',
+                        subtitle=document.original_filename, source_url='/property?tab=properties')
+
+        if can(Module.FACILITY):
+            from facilities.models import Inspection, PreventiveSchedule, ServiceRequest, WorkOrder
+            for inspection in scope_model_queryset(Inspection, request, organization).select_related('property', 'inspector'):
+                add(key=f'inspection:{inspection.pk}', title=inspection.title, start=inspection.scheduled_on,
+                    event_type='inspection', module='facility', property_record=inspection.property, status=inspection.status,
+                    subtitle=f'{inspection.reference} · {inspection.inspector.get_username()}', source_url='/facility?tab=inspections')
+            for schedule in scope_model_queryset(PreventiveSchedule, request, organization).select_related('asset__property').filter(is_active=True):
+                add(key=f'ppm:{schedule.pk}', title=f'Preventive maintenance · {schedule.name}', start=schedule.next_due_on,
+                    event_type='maintenance', module='facility', property_record=schedule.asset.property,
+                    status='overdue' if schedule.next_due_on < today else 'scheduled', subtitle=schedule.code,
+                    priority='high' if schedule.next_due_on < today else 'normal', source_url='/facility?tab=planned-maintenance')
+            orders = scope_model_queryset(WorkOrder, request, organization).select_related('property')
+            for order in orders.exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED)):
+                due = order.scheduled_for or order.resolution_due_at or order.response_due_at
+                if due:
+                    add(key=f'work-order:{order.pk}', title=f'Work order · {order.title}', start=due,
+                        event_type='work_order', module='facility', property_record=order.property, status=order.status,
+                        priority=order.priority, subtitle=order.number, source_url='/facility?tab=work-orders', all_day=False)
+            requests = scope_model_queryset(ServiceRequest, request, organization).select_related('property').exclude(status__in=(ServiceRequest.Status.RESOLVED, ServiceRequest.Status.CLOSED, ServiceRequest.Status.REJECTED))
+            for service_request in requests.filter(response_due_at__isnull=False):
+                add(key=f'service-request:{service_request.pk}', title=f'Service response due · {service_request.subject}', start=service_request.response_due_at,
+                    event_type='service_sla', module='facility', property_record=service_request.property,
+                    status='overdue' if service_request.response_due_at < timezone.now() else service_request.status,
+                    priority=service_request.priority, subtitle=service_request.reference, source_url='/facility?tab=service-requests', all_day=False)
+
+        if can(Module.COMPANION):
+            from companion.models import Task
+            tasks = scope_model_queryset(Task, request, organization).filter(due_at__isnull=False)
+            if not is_admin:
+                tasks = tasks.filter(Q(assignee=request.user) | Q(assigned_by=request.user))
+            for task in tasks.select_related('property', 'assignee'):
+                add(key=f'task:{task.pk}', title=task.title, start=task.due_at,
+                    event_type='task', module='companion', property_record=task.property, status=task.status,
+                    priority=task.priority, subtitle=f'{task.reference} · {task.assignee.get_username()}', source_url='/companion', all_day=False)
+
+        events.sort(key=lambda event: (event['starts_at'], event['title']))
+        return Response({'results': events, 'count': len(events), 'start': starts_on, 'end': ends_on})
 
 
 def _set_token_cookie(response, name, value, max_age, path):

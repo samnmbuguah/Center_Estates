@@ -1,4 +1,6 @@
 import json
+from datetime import date
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
@@ -62,6 +64,48 @@ class OrganizationContextTests(TestCase):
         Property.objects.create(organization=self.second, code='TWO', name='Two')
 
         self.assertEqual(list(scope_to_request(Property.objects.all(), self.request).values_list('code', flat=True)), ['ONE'])
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class CalendarFeedTests(TestCase):
+    def setUp(self):
+        from properties.models import Invoice, Lease, Tenant, Unit
+        self.user = get_user_model().objects.create_user(username='calendar-admin', password='test')
+        self.organization = Organization.objects.create(name='Calendar Client', slug='calendar-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='CAL-001', name='Calendar Plaza')
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='A-01', area=100)
+        tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-CAL', name='Calendar Tenant')
+        lease = Lease.objects.create(
+            organization=self.organization, reference='LEASE-CAL', unit=unit, tenant=tenant,
+            starts_on=date(2026, 8, 1), ends_on=date(2027, 7, 31), monthly_rent=Decimal('10000'),
+            status=Lease.Status.ACTIVE,
+        )
+        Invoice.objects.create(
+            organization=self.organization, number='INV-CAL', lease=lease, issued_on=date(2026, 8, 1),
+            due_on=date(2026, 8, 10), subtotal=Decimal('10000'), amount=Decimal('10000'),
+            balance=Decimal('10000'), status=Invoice.Status.ISSUED,
+        )
+        self.client = APIClient(); self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_calendar_feed_aggregates_property_records_and_honors_property_scope(self):
+        response = self.client.get(
+            '/api/v1/calendar-feed/?start=2026-07-01&end=2027-08-31',
+            HTTP_X_PROPERTY_ID=str(self.property.id), **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        event_types = {event['event_type'] for event in response.data['results']}
+        self.assertIn('lease_start', event_types)
+        self.assertIn('lease_expiry', event_types)
+        self.assertIn('invoice_due', event_types)
+        self.assertTrue(all(event['property_name'] == 'Calendar Plaza' for event in response.data['results']))
+        self.assertTrue(all(event['source_url'] for event in response.data['results']))
+
+    def test_calendar_feed_rejects_excessive_date_range(self):
+        response = self.client.get('/api/v1/calendar-feed/?start=2020-01-01&end=2026-01-01', **self.headers)
+        self.assertEqual(response.status_code, 400)
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
