@@ -5397,3 +5397,6 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
     font-weight: 650;
   }
 }
+.property-onboarding-mode .module-workspace-property {
+  display: none !important;
+}

@@ -3976,7 +3976,7 @@ function CriticalDatesView({ leases, contractors, inspections, serviceCharges, l
 
 /* ─── MAIN WORKSPACE ─── */
 
-export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: string }) {
+export function PropertyWorkspace({ initialTab = "overview", standaloneOnboarding = false }: { initialTab?: string; standaloneOnboarding?: boolean }) {
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
   const { selectProperty, activeProperty } = usePropertyContext();
@@ -4035,7 +4035,7 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     }
   };
 
-  const [showAddProperty, setShowAddProperty] = useState(false);
+  const [showAddProperty, setShowAddProperty] = useState(standaloneOnboarding);
   const [showAddTenant, setShowAddTenant] = useState(false);
   const [showAddLease, setShowAddLease] = useState(false);
   const [showRecordReceipt, setShowRecordReceipt] = useState(false);
@@ -4916,6 +4916,12 @@ export function PropertyWorkspace({ initialTab = "overview" }: { initialTab?: st
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  useEffect(() => {
+    if (!standaloneOnboarding) return;
+    document.body.classList.add("property-onboarding-mode");
+    return () => document.body.classList.remove("property-onboarding-mode");
+  }, [standaloneOnboarding]);
 
   const [todayStr, setTodayStr] = useState("");
   useEffect(() => {
