@@ -123,9 +123,9 @@ export function Home() {
                     <div className="dash-kpi-sub up">45/80 certified</div>
                   </div>
                   <div className="dash-kpi">
-                    <div className="dash-kpi-label">Units Sold</div>
-                    <div className="dash-kpi-val">38</div>
-                    <div className="dash-kpi-sub down">69% delayed</div>
+                    <div className="dash-kpi-label">Occupancy</div>
+                    <div className="dash-kpi-val">84%</div>
+                    <div className="dash-kpi-sub up">+4% this quarter</div>
                   </div>
                 </div>
 
@@ -507,7 +507,7 @@ export function Home() {
                 sparkPath: "M0 10 L15 18 L30 14 L45 22 L60 28 L75 20 L90 32 L105 28 L120 36" },
               { val: "5.2M", label: "Cashflow Status", trend: "Live", trendClass: "up", sparkClass: "blue", icon: <><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></>,
                 sparkPath: "M0 34 L15 30 L30 32 L45 26 L60 20 L75 24 L90 14 L105 18 L120 10" },
-              { val: "38", label: "Units Sold", trend: "+12%", trendClass: "up", sparkClass: "amber", icon: <><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>,
+              { val: "84%", label: "Portfolio Occupancy", trend: "+4%", trendClass: "up", sparkClass: "amber", icon: <><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>,
                 sparkPath: "M0 38 L15 34 L30 30 L45 28 L60 24 L75 20 L90 16 L105 12 L120 8" },
             ].map(m => (
               <div key={m.label} className="metric-card">
