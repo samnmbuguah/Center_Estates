@@ -41,7 +41,7 @@ export function BrandLogo({
           letterSpacing: "-0.02em",
         }}
       >
-        <img src="/center-estates-logo.png" alt="Center Estates" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "inherit" }} />
+        <img src="/logo.png" alt="Center Estates" width={d} height={d} loading="eager" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "inherit", display: "block" }} />
       </div>
       {showWordmark && (
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, minWidth: 0, marginLeft: 2 }}>

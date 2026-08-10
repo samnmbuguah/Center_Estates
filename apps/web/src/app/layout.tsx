@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/theme/theme-provider";
 export const metadata: Metadata = {
   title: "Center Estates ERP",
   description: "Unified estate and property operations platform",
+  icons: { icon: "/logo.png", shortcut: "/logo.png", apple: "/logo.png" },
 };
 
 export default function RootLayout({

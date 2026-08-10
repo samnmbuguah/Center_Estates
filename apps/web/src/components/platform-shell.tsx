@@ -242,10 +242,10 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>
         {/* MUI AppBar Header */}
         <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 68, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
-          <Toolbar variant="dense" sx={{ width: "100%", height: "100%", gap: { xs: 1, md: 2.5 }, px: { xs: 1.5, md: 3 } }}>
+          <Toolbar variant="dense" sx={{ width: "100%", height: "100%", display: "grid", gridTemplateColumns: "auto minmax(0, 1fr) auto", gap: { xs: 1, md: 2.5 }, px: { xs: 1.5, md: 3 } }}>
             <BrandLogo size="sm" href="/" showWordmark />
 
-            <Box sx={{ flex: "0 1 520px", width: "100%", position: "relative", ml: { xs: 0, md: 2 } }}>
+            <Box sx={{ width: "min(520px, 100%)", justifySelf: "center", position: "relative", ml: { xs: 0, md: 2 } }}>
               <TextField
                 fullWidth
                 size="small"
@@ -334,8 +334,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <TourLauncher />
-
               <FormControl size="small" sx={{ minWidth: { xs: 0, md: 150 }, display: { xs: "none", sm: "flex" } }}>
                 <InputLabel>Organization</InputLabel>
                 <Select
@@ -389,6 +387,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                     </Box>
                   </Box>
                   <Divider />
+                  <MenuItem onClick={() => setProfileOpen(false)}><ListItemIcon><HelpCircle size={18} /></ListItemIcon><ListItemText primary={<TourLauncher />} /></MenuItem>
                   {session?.canSwitchIdentity && identityGroups.length > 0 && (
                     <>
                       <Box sx={{ px: 2, py: 1 }}>
