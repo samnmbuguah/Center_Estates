@@ -4385,14 +4385,21 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 
 /* MUI owns its component internals. Legacy native-form rules above must never
    alter outlined input padding, borders or floating-label geometry. */
-.tenant-application-card .MuiInputLabel-root {
+.tenant-application-card .MuiInputLabel-root,
+.property-onboarding-card .MuiInputLabel-root {
   font-size: 0.875rem !important;
   line-height: 1.4375em !important;
 }
 .tenant-application-card .MuiInputBase-input,
-.tenant-application-card .MuiSelect-select {
+.tenant-application-card .MuiSelect-select,
+.property-onboarding-card .MuiInputBase-input,
+.property-onboarding-card .MuiSelect-select {
   font-size: 0.875rem !important;
 }
+
+/* Keep the command-center sticky rail attached to the viewport. `hidden`
+   creates a scrolling ancestor that breaks sticky positioning; `clip` does not. */
+.platform:has(> .platform-sidebar) { overflow-x: clip !important; }
 
 /* ---------- Badges ---------- */
 .badge {

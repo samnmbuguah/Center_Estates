@@ -6,7 +6,7 @@ import {
   Alert, Box, Button, Chip, Divider, FormControlLabel, IconButton,
   MenuItem, Paper, Switch, Tab, Tabs, TextField, Typography,
 } from "@mui/material";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Plus, Save, Trash2, Upload } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
@@ -26,6 +26,33 @@ const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity:
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
 const blankProvider: ProviderDraft = { name: "", service: "", contact: "", email: "", phone: "" };
 const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "" };
+
+function parseCsv(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [], cell = "", quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"' && quoted && text[index + 1] === '"') { cell += '"'; index += 1; }
+    else if (character === '"') quoted = !quoted;
+    else if (character === "," && !quoted) { row.push(cell.trim()); cell = ""; }
+    else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = []; cell = "";
+    } else cell += character;
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
+}
 
 const sections = [
   ["general", "General"], ["location", "Location"], ["units", "Units"], ["assets", "Assets"],
@@ -87,6 +114,37 @@ export function PropertyOnboardingForm() {
     setUnits(current => [...current, unitDraft]); setUnitDraft(blankUnit); setError("");
   };
 
+  const importUnits = async (file?: File) => {
+    if (!file) return;
+    const rows = parseCsv(await file.text());
+    const expected = ["unit_no", "unit_type", "floor", "use", "area", "rateable_area", "building_number", "description"];
+    const headers = (rows.shift() ?? []).map(value => value.toLowerCase().replaceAll(" ", "_"));
+    if (expected.some((header, index) => headers[index] !== header)) {
+      setError(`Unit CSV columns must be: ${expected.join(", ")}.`); jump("units"); return;
+    }
+    const imported: UnitDraft[] = rows.map(row => ({ unit_no: row[0] ?? "", unit_type: row[1] ?? "", floor: row[2] ?? "", use: row[3] ?? "", area: row[4] ?? "", rateable_area: row[5] ?? "", building_index: row[6] ?? "", description: row[7] ?? "" }));
+    const allCodes = [...units.map(unit => unit.unit_no.toLowerCase()), ...imported.map(unit => unit.unit_no.toLowerCase())];
+    if (!imported.length || imported.length + units.length > 500 || imported.some(unit => !unit.unit_no || !unit.unit_type || !unit.floor || !unit.use || Number(unit.area) <= 0) || new Set(allCodes).size !== allCodes.length) {
+      setError("Unit import contains missing required values, invalid areas, duplicate unit numbers, or exceeds 500 units."); jump("units"); return;
+    }
+    setUnits(current => [...current, ...imported]); setError("");
+  };
+
+  const importAssets = async (file?: File) => {
+    if (!file) return;
+    const rows = parseCsv(await file.text());
+    const expected = ["asset_name", "category", "location", "quantity", "status"];
+    const headers = (rows.shift() ?? []).map(value => value.toLowerCase().replaceAll(" ", "_"));
+    if (expected.some((header, index) => headers[index] !== header)) {
+      setError(`Asset CSV columns must be: ${expected.join(", ")}.`); jump("assets"); return;
+    }
+    const imported: AssetDraft[] = rows.map(row => ({ name: row[0] ?? "", category: row[1] ?? "", location: row[2] ?? "", quantity: row[3] ?? "1", status: (row[4] || "active").toLowerCase() }));
+    if (!imported.length || imported.length + assets.length > 500 || imported.some(asset => !asset.name || Number(asset.quantity) <= 0 || !["active", "inactive", "maintenance"].includes(asset.status))) {
+      setError("Asset import contains missing names, invalid quantities/statuses, or exceeds 500 assets."); jump("assets"); return;
+    }
+    setAssets(current => [...current, ...imported]); setError("");
+  };
+
   const save = async () => {
     if (!organizationId) return;
     if (!values.name?.trim() || !values.lr_number?.trim() || !values.landlord_name?.trim() || !values.address?.trim() || !values.city?.trim() || !values.county?.trim()) {
@@ -124,7 +182,7 @@ export function PropertyOnboardingForm() {
     finally { setSaving(false); }
   };
 
-  return <Box sx={{ width: "100%", maxWidth: 1320, mx: "auto", px: { xs: 1.5, md: 3 }, py: 2.5 }}>
+  return <Box className="property-onboarding-card" sx={{ width: "100%", maxWidth: 1320, mx: "auto", px: { xs: 1.5, md: 3 }, py: 2.5 }}>
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/workspaces")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800 }}>Property Onboarding Card</Typography><Typography color="text.secondary" variant="body2">Codes and internal IDs are generated automatically.</Typography></Box></Box>
       <Button variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save & Close"}</Button>
@@ -148,6 +206,13 @@ export function PropertyOnboardingForm() {
       <Section id="building" title="Building details"><Grid><TextField type="number" label="Number of buildings" value={values.building_count} onChange={set("building_count")} /><TextField type="number" label="Number of floors" value={values.floors} onChange={set("floors")} /><TextField label="Floor numbers" placeholder="e.g. G, 1, 2, 3" value={values.floor_numbers || ""} onChange={set("floor_numbers")} /><TextField label="Building use" value={values.building_use || ""} onChange={set("building_use")} /><TextField label="Access / entry points" value={values.access_points || ""} onChange={set("access_points")} /><TextField type="number" label="Parking spaces" value={values.parking_spaces} onChange={set("parking_spaces")} /></Grid><TextField fullWidth multiline minRows={2} label="Amenities" placeholder="Lift, generator, borehole, gym, CCTV…" value={values.amenities || ""} onChange={set("amenities")} sx={{ mt: 2 }} /></Section>
 
       <Section id="units" title="Create units">
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">Add units manually or import up to 500 rows from the Excel-compatible CSV template.</Typography>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [["unit_no","unit_type","floor","use","area","rateable_area","building_number","description"],["G-01","Shop","Ground","Commercial","850","820","1","Ground floor retail unit"]])}>Download template</Button>
+            <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload unit CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
+          </Box>
+        </Box>
         <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area (sq ft)" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Building number" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
         <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button><Divider sx={{ my: 2 }} /><RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—"]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
         <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}><Chip label={`Total units: ${units.length}`} /><Chip label={`Lettable area: ${totalArea.toLocaleString()} sq ft`} /><Chip label={`Vacant units: ${units.length}`} color="success" variant="outlined" /></Box>
@@ -155,7 +220,7 @@ export function PropertyOnboardingForm() {
 
       <Section id="utilities" title="Utility accounts"><Grid columns={5}><TextField select label="Utility type" value={utilityDraft.type} onChange={e => setUtilityDraft({ ...utilityDraft, type: e.target.value })}>{["water","electricity","sewerage","gas","internet"].map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField><TextField label="Account number" value={utilityDraft.account_no} onChange={e => setUtilityDraft({ ...utilityDraft, account_no: e.target.value })} /><TextField label="Provider" value={utilityDraft.provider} onChange={e => setUtilityDraft({ ...utilityDraft, provider: e.target.value })} /><TextField label="Bill cycle" value={utilityDraft.bill_cycle} onChange={e => setUtilityDraft({ ...utilityDraft, bill_cycle: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => { setUtilities(rows => [...rows, utilityDraft]); setUtilityDraft(blankUtility); }}>Add utility</Button></Grid><RowList rows={utilities} columns={["Type","Account","Provider","Bill cycle","Status"]} render={u => [u.type,u.account_no || "—",u.provider || "—",u.bill_cycle,u.status]} onRemove={i => setUtilities(rows => rows.filter((_, index) => index !== i))} empty="No utility accounts added." /></Section>
 
-      <Section id="assets" title="Assets — property fixtures and equipment"><Grid columns={5}><TextField label="Asset name" value={assetDraft.name} onChange={e => setAssetDraft({ ...assetDraft, name: e.target.value })} /><TextField label="Category" value={assetDraft.category} onChange={e => setAssetDraft({ ...assetDraft, category: e.target.value })} /><TextField label="Location" value={assetDraft.location} onChange={e => setAssetDraft({ ...assetDraft, location: e.target.value })} /><TextField type="number" label="Quantity" value={assetDraft.quantity} onChange={e => setAssetDraft({ ...assetDraft, quantity: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!assetDraft.name.trim()} onClick={() => { setAssets(rows => [...rows, assetDraft]); setAssetDraft(blankAsset); }}>Add asset</Button></Grid><RowList rows={assets} columns={["Asset","Category","Location","Qty","Status"]} render={a => [a.name,a.category,a.location,a.quantity,a.status]} onRemove={i => setAssets(rows => rows.filter((_, index) => index !== i))} empty="No assets added yet." /></Section>
+      <Section id="assets" title="Assets — property fixtures and equipment"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Register assets individually or import an asset register from CSV.</Typography><Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-asset-template.csv", [["asset_name","category","location","quantity","status"],["Passenger lift","Vertical transport","Block A","1","active"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload asset CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importAssets(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Asset name" value={assetDraft.name} onChange={e => setAssetDraft({ ...assetDraft, name: e.target.value })} /><TextField label="Category" value={assetDraft.category} onChange={e => setAssetDraft({ ...assetDraft, category: e.target.value })} /><TextField label="Location" value={assetDraft.location} onChange={e => setAssetDraft({ ...assetDraft, location: e.target.value })} /><TextField type="number" label="Quantity" value={assetDraft.quantity} onChange={e => setAssetDraft({ ...assetDraft, quantity: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!assetDraft.name.trim()} onClick={() => { setAssets(rows => [...rows, assetDraft]); setAssetDraft(blankAsset); }}>Add asset</Button></Grid><RowList rows={assets} columns={["Asset","Category","Location","Qty","Status"]} render={a => [a.name,a.category,a.location,a.quantity,a.status]} onRemove={i => setAssets(rows => rows.filter((_, index) => index !== i))} empty="No assets added yet." /></Section>
 
       <Section id="contacts" title="Property contacts"><Grid columns={5}><TextField label="Name" value={contactDraft.name} onChange={e => setContactDraft({ ...contactDraft, name: e.target.value })} /><TextField label="Role" value={contactDraft.role} onChange={e => setContactDraft({ ...contactDraft, role: e.target.value })} /><TextField type="email" label="Email" value={contactDraft.email} onChange={e => setContactDraft({ ...contactDraft, email: e.target.value })} /><TextField label="Phone" value={contactDraft.phone} onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!contactDraft.name.trim()} onClick={() => { setContacts(rows => [...rows, contactDraft]); setContactDraft(blankContact); }}>Add contact</Button></Grid><RowList rows={contacts} columns={["Name","Role","Email","Phone"]} render={c => [c.name,c.role,c.email,c.phone]} onRemove={i => setContacts(rows => rows.filter((_, index) => index !== i))} empty="No contacts added." /></Section>
 
