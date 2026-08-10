@@ -2,11 +2,43 @@ from rest_framework import serializers
 
 from .models import (
     BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
-    InvoiceReminder, Lease, Project, Property,
+    InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent, Project, Property,
     Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit,
 )
+
+
+class PaymentGatewayConfigurationSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+
+    class Meta:
+        model = PaymentGatewayConfiguration
+        exclude = ('organization',)
+        read_only_fields = ('public_key',)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        enabled = attrs.get('is_enabled', getattr(self.instance, 'is_enabled', False))
+        checkout = attrs.get('checkout_url_template', getattr(self.instance, 'checkout_url_template', ''))
+        secret_env = attrs.get('webhook_secret_env', getattr(self.instance, 'webhook_secret_env', ''))
+        if enabled and (not checkout or not secret_env):
+            raise serializers.ValidationError('Enabled gateways require a checkout URL template and webhook secret environment key.')
+        return attrs
+
+
+class PaymentIntentSerializer(serializers.ModelSerializer):
+    provider = serializers.CharField(source='configuration.provider', read_only=True)
+    invoice_number = serializers.CharField(source='invoice.number', read_only=True)
+    tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+
+    class Meta:
+        model = PaymentIntent
+        exclude = ('organization',)
+        read_only_fields = tuple(
+            field.name for field in PaymentIntent._meta.fields
+            if field.name not in ('id', 'organization')
+        )
 
 
 class PropertySerializer(serializers.ModelSerializer):

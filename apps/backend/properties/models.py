@@ -336,6 +336,92 @@ class BankTransaction(OrganizationOwnedModel):
             raise ValidationError({'receipt': 'Receipt amount must equal the bank transaction amount.'})
 
 
+class PaymentGatewayConfiguration(OrganizationOwnedModel):
+    """Property-level gateway routing without storing provider secrets in the database."""
+    class Provider(models.TextChoices):
+        ECITIZEN = 'ecitizen', 'eCitizen'
+        MPESA = 'mpesa', 'M-Pesa'
+        BANK = 'bank', 'Bank gateway'
+        OTHER = 'other', 'Other gateway'
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='payment_gateways')
+    provider = models.CharField(max_length=24, choices=Provider.choices)
+    display_name = models.CharField(max_length=100)
+    public_key = models.UUIDField(default=__import__('uuid').uuid4, unique=True, editable=False)
+    merchant_reference = models.CharField(max_length=120, blank=True)
+    checkout_url_template = models.URLField(blank=True, help_text='Provider-approved URL template with {reference}, {amount}, {invoice} placeholders.')
+    webhook_secret_env = models.CharField(max_length=120, blank=True, help_text='Environment variable containing the callback signing secret.')
+    is_enabled = models.BooleanField(default=False)
+    settings = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('property__name', 'provider')
+        constraints = [models.UniqueConstraint(fields=('property', 'provider'), name='unique_property_payment_gateway')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Payment gateway property must belong to the same organization.')
+        if self.is_enabled and (not self.checkout_url_template or not self.webhook_secret_env):
+            raise ValidationError('Enabled gateways require a checkout URL template and webhook secret environment key.')
+
+
+class PaymentIntent(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        REDIRECTED = 'redirected', 'Redirected'
+        PAID = 'paid', 'Paid'
+        FAILED = 'failed', 'Failed'
+        EXPIRED = 'expired', 'Expired'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    configuration = models.ForeignKey(PaymentGatewayConfiguration, on_delete=models.PROTECT, related_name='payment_intents')
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='payment_intents')
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='payment_intents')
+    reference = models.CharField(max_length=80)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    checkout_url = models.URLField(blank=True)
+    external_reference = models.CharField(max_length=160, blank=True)
+    error_message = models.TextField(blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_payment_intent_reference')]
+
+    def clean(self):
+        if self.configuration_id and self.configuration.organization_id != self.organization_id:
+            raise ValidationError('Payment intent gateway must belong to the same organization.')
+        if self.invoice_id and self.invoice.organization_id != self.organization_id:
+            raise ValidationError('Payment intent invoice must belong to the same organization.')
+        if self.configuration_id and self.invoice_id and self.configuration.property_id != self.invoice.lease.unit.property_id:
+            raise ValidationError('Payment intent gateway must belong to the invoiced property.')
+        if self.tenant_id and self.invoice_id and self.invoice.lease.tenant_id != self.tenant_id:
+            raise ValidationError('Payment intent tenant must own the invoice.')
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Payment amount must be greater than zero.'})
+
+
+class PaymentWebhookEvent(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        RECEIVED = 'received', 'Received'
+        PROCESSED = 'processed', 'Processed'
+        REJECTED = 'rejected', 'Rejected'
+
+    configuration = models.ForeignKey(PaymentGatewayConfiguration, on_delete=models.PROTECT, related_name='webhook_events')
+    event_id = models.CharField(max_length=160)
+    payload_hash = models.CharField(max_length=64)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.RECEIVED)
+    error_message = models.TextField(blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('configuration', 'event_id'), name='unique_gateway_webhook_event')]
+
+
 class Expense(OrganizationOwnedModel):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'

@@ -1,5 +1,9 @@
 import csv
 import calendar
+import hashlib
+import hmac
+import json
+import os
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 import uuid
 from datetime import date, datetime, time, timedelta
@@ -12,6 +16,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
@@ -22,7 +27,8 @@ from core.property_scope import get_active_property, scope_model_queryset, scope
 
 from .models import (
     BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
-    InvoiceReminder, Lease, Project, Property, Receipt, ReceiptAllocation,
+    InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
+    PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation,
     RentSchedule, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, Unit,
@@ -30,12 +36,14 @@ from .models import (
 from .serializers import (
     BankTransactionSerializer, BuildingSerializer, BudgetSerializer,
     CreditNoteSerializer, ExpenseSerializer, InvoiceReminderSerializer,
-    InvoiceSerializer, LeaseSerializer, ProjectSerializer, PropertySerializer,
+    InvoiceSerializer, LeaseSerializer, PaymentGatewayConfigurationSerializer,
+    PaymentIntentSerializer, ProjectSerializer, PropertySerializer,
     ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer,
     ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer,
     ServiceChargeSerializer, TenantDocumentSerializer, TenantPortalAccessSerializer,
     TenantSerializer, UnitSerializer,
 )
+from .pdf_documents import income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf, tenant_statement_pdf
 
 
 class OrganizationModelViewSet(ModelViewSet):
@@ -77,6 +85,138 @@ class OrganizationModelViewSet(ModelViewSet):
     def perform_update(self, serializer):
         self._validate_organization(serializer)
         serializer.save()
+
+
+class PaymentGatewayConfigurationViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
+    queryset = PaymentGatewayConfiguration.objects.select_related('property')
+    serializer_class = PaymentGatewayConfigurationSerializer
+    search_fields = ('display_name', 'merchant_reference', 'property__name')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(organization=organization)
+
+
+class PaymentIntentViewSet(ReadOnlyModelViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.PROPERTY
+    queryset = PaymentIntent.objects.select_related('configuration', 'invoice', 'tenant')
+    serializer_class = PaymentIntentSerializer
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        return scope_queryset_to_property(
+            self.queryset.for_organization(organization), self.request, organization,
+        )
+
+
+class PaymentWebhookViewSet(ViewSet):
+    """Signed, idempotent callback boundary for approved payment providers."""
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    @action(detail=False, methods=('post',), url_path=r'(?P<public_key>[0-9a-fA-F-]{36})')
+    def receive(self, request, public_key=None):
+        configuration = PaymentGatewayConfiguration.objects.select_related('organization').filter(
+            public_key=public_key, is_enabled=True,
+        ).first()
+        if configuration is None:
+            return Response({'detail': 'Payment gateway is not available.'}, status=404)
+        secret = os.environ.get(configuration.webhook_secret_env, '')
+        if not secret:
+            return Response({'detail': 'Payment callback is not configured.'}, status=503)
+        raw_body = request.body
+        signature = request.headers.get('X-Ceest-Signature', '').removeprefix('sha256=')
+        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        if not signature or not hmac.compare_digest(signature, expected):
+            return Response({'detail': 'Invalid callback signature.'}, status=401)
+        try:
+            payload = json.loads(raw_body.decode('utf-8'))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return Response({'detail': 'Callback body must be valid JSON.'}, status=400)
+        event_id = str(payload.get('event_id') or payload.get('eventId') or '').strip()
+        reference = str(payload.get('reference') or '').strip()
+        external_reference = str(payload.get('transaction_reference') or payload.get('transactionReference') or '').strip()
+        if not event_id or not reference:
+            return Response({'detail': 'event_id and reference are required.'}, status=400)
+        payload_hash = hashlib.sha256(raw_body).hexdigest()
+        with transaction.atomic():
+            event, created = PaymentWebhookEvent.objects.get_or_create(
+                organization=configuration.organization, configuration=configuration, event_id=event_id,
+                defaults={'payload_hash': payload_hash, 'payload': payload},
+            )
+            if not created:
+                return Response({'status': event.status, 'duplicate': True})
+            intent = PaymentIntent.objects.select_for_update().select_related('invoice', 'tenant').filter(
+                organization=configuration.organization, configuration=configuration, reference=reference,
+            ).first()
+            try:
+                callback_amount = Decimal(str(payload.get('amount')))
+            except Exception:
+                callback_amount = None
+            paid = str(payload.get('status', '')).lower() in {'paid', 'success', 'successful', 'completed'}
+            if intent is None or not paid or callback_amount != (intent.amount if intent else None):
+                event.status = PaymentWebhookEvent.Status.REJECTED
+                event.error_message = 'Unknown reference, unsuccessful status, or amount mismatch.'
+                event.processed_at = timezone.now()
+                event.save(update_fields=('status', 'error_message', 'processed_at', 'updated_at'))
+                return Response({'status': event.status, 'detail': event.error_message}, status=400)
+            if intent.status == PaymentIntent.Status.PAID:
+                event.status = PaymentWebhookEvent.Status.PROCESSED
+                event.processed_at = timezone.now()
+                event.save(update_fields=('status', 'processed_at', 'updated_at'))
+                return Response({'status': event.status, 'duplicate': True})
+            receiver = TenantPortalAccess.objects.filter(
+                organization=configuration.organization, tenant=intent.tenant, is_active=True,
+            ).select_related('user').first()
+            if receiver is None:
+                event.status = PaymentWebhookEvent.Status.REJECTED
+                event.error_message = 'No active tenant portal account can own the receipt.'
+                event.processed_at = timezone.now()
+                event.save(update_fields=('status', 'error_message', 'processed_at', 'updated_at'))
+                return Response({'status': event.status, 'detail': event.error_message}, status=400)
+            receipt = Receipt.objects.create(
+                organization=configuration.organization,
+                number=f'RCT-GW-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}',
+                tenant=intent.tenant, invoice=intent.invoice, received_on=timezone.localdate(),
+                amount=intent.amount, payment_method=configuration.get_provider_display(),
+                external_reference=external_reference or event_id, received_by=receiver.user,
+            )
+            ReceiptAllocation.objects.create(
+                organization=configuration.organization, receipt=receipt,
+                invoice=intent.invoice, amount=intent.amount, allocated_by=receiver.user,
+            )
+            invoice = intent.invoice
+            invoice.balance = max(Decimal('0'), invoice.balance - intent.amount)
+            invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
+            invoice.save(update_fields=('balance', 'status', 'updated_at'))
+            BankTransaction.objects.create(
+                organization=configuration.organization,
+                reference=external_reference or event_id, transacted_on=timezone.localdate(),
+                description=f'{configuration.get_provider_display()} payment {reference}',
+                amount=intent.amount, status=BankTransaction.Status.MATCHED, receipt=receipt,
+                matched_by=receiver.user, matched_at=timezone.now(),
+            )
+            intent.status = PaymentIntent.Status.PAID
+            intent.external_reference = external_reference or event_id
+            intent.paid_at = timezone.now()
+            intent.save(update_fields=('status', 'external_reference', 'paid_at', 'updated_at'))
+            from notifications.models import Notification
+            Notification.objects.create(
+                organization=configuration.organization, recipient=receiver.user,
+                title=f'Payment received: {receipt.number}',
+                message=f'Your payment of KES {intent.amount:,.2f} for invoice {invoice.number} was received and reconciled.',
+                level=Notification.Level.SUCCESS, action_url='/tenant-portal',
+                metadata={
+                    'payment_intent_id': str(intent.id), 'invoice_id': str(invoice.id),
+                    'receipt_id': str(receipt.id), 'provider': configuration.provider,
+                },
+            )
+            event.status = PaymentWebhookEvent.Status.PROCESSED
+            event.processed_at = timezone.now()
+            event.save(update_fields=('status', 'processed_at', 'updated_at'))
+        return Response({'status': 'processed', 'receipt': receipt.number})
 
 
 class PropertyViewSet(OrganizationModelViewSet):
@@ -415,6 +555,18 @@ class TenantViewSet(OrganizationModelViewSet):
             'application_number': application_number, 'calculations': calculations,
         }, status=201)
 
+    @action(detail=True, methods=('get',), url_path='statement.pdf')
+    def statement_pdf(self, request, pk=None):
+        tenant = self.get_object()
+        try:
+            start = date.fromisoformat(request.query_params['start']) if request.query_params.get('start') else None
+            end = date.fromisoformat(request.query_params['end']) if request.query_params.get('end') else None
+        except ValueError:
+            raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
+        if start and end and start > end:
+            raise ValidationError({'period': 'Start date cannot be after end date.'})
+        return tenant_statement_pdf(tenant, start, end)
+
 
 class TenantPortalAccessViewSet(OrganizationModelViewSet):
     write_permission = 'property.leasing'
@@ -521,6 +673,10 @@ class InvoiceViewSet(OrganizationModelViewSet):
     queryset = Invoice.objects.select_related('lease__tenant')
     serializer_class = InvoiceSerializer
     search_fields = ('number', 'lease__tenant__name')
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        return invoice_pdf(self.get_object())
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
@@ -668,6 +824,10 @@ class ReceiptViewSet(OrganizationModelViewSet):
     queryset = Receipt.objects.select_related('tenant', 'invoice')
     serializer_class = ReceiptSerializer
     search_fields = ('number', 'tenant__name', 'external_reference')
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        return receipt_pdf(self.get_object())
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -1236,6 +1396,13 @@ class PropertyAnalyticsViewSet(ViewSet):
             {'key': 'income-expense', 'name': 'Income and expenses', 'category': 'Financial'},
             {'key': 'budget-actual', 'name': 'Budget versus actual', 'category': 'Financial'},
             {'key': 'service-charge', 'name': 'Service charge allocations', 'category': 'Financial'},
+            {'key': 'daily-collections', 'name': 'Daily collections', 'category': 'Collections & Reconciliation'},
+            {'key': 'collections-property', 'name': 'Collections by property', 'category': 'Collections & Reconciliation'},
+            {'key': 'collections-tenant', 'name': 'Collections by tenant', 'category': 'Collections & Reconciliation'},
+            {'key': 'outstanding-balances', 'name': 'Outstanding balances', 'category': 'Collections & Reconciliation'},
+            {'key': 'payment-reconciliation', 'name': 'Payment reconciliation', 'category': 'Collections & Reconciliation'},
+            {'key': 'settlement', 'name': 'Settlement report', 'category': 'Collections & Reconciliation'},
+            {'key': 'management-fee', 'name': 'Management fee report', 'category': 'Collections & Reconciliation'},
             {'key': 'occupancy', 'name': 'Portfolio occupancy', 'category': 'Tenants & Occupancy'},
             {'key': 'lease-expiry', 'name': 'Lease expiry', 'category': 'Tenants & Occupancy'},
             {'key': 'contractor-expiry', 'name': 'Service provider expiry', 'category': 'Service Providers'},
@@ -1248,6 +1415,20 @@ class PropertyAnalyticsViewSet(ViewSet):
     @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
     def export(self, request, report_kind=None):
         organization = self._organization()
+        output_pdf = request.query_params.get('output') == 'pdf'
+        if output_pdf and report_kind == 'income-expense':
+            property_record = get_active_property(request, organization)
+            if not property_record:
+                raise ValidationError({'property': 'Select a property before generating this report.'})
+            today = timezone.localdate()
+            try:
+                start = date.fromisoformat(request.query_params.get('start', today.replace(day=1).isoformat()))
+                end = date.fromisoformat(request.query_params.get('end', today.isoformat()))
+            except ValueError:
+                raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
+            if start > end:
+                raise ValidationError({'period': 'Start date cannot be after end date.'})
+            return income_expenditure_pdf(organization, property_record, start, end)
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="property-{report_kind}.csv"'
         writer = csv.writer(response)
@@ -1292,6 +1473,36 @@ class PropertyAnalyticsViewSet(ViewSet):
                 writer.writerow((allocation.service_charge.name, allocation.service_charge.property.name,
                                  allocation.unit.code, allocation.ratio, allocation.annual_amount,
                                  allocation.monthly_amount))
+        elif report_kind == 'daily-collections':
+            writer.writerow(('Date', 'Receipt', 'Tenant', 'Property', 'Invoice', 'Method', 'External reference', 'Amount'))
+            rows = scope_model_queryset(Receipt, request, organization).select_related('tenant__property', 'invoice__lease__unit__property')
+            for row in rows:
+                prop = row.invoice.lease.unit.property if row.invoice else row.tenant.property
+                writer.writerow((row.received_on, row.number, row.tenant.name, prop.name if prop else '', row.invoice.number if row.invoice else '', row.payment_method, row.external_reference, row.amount))
+        elif report_kind == 'collections-property':
+            writer.writerow(('Property', 'Receipt count', 'Total collected'))
+            totals = {}
+            for row in scope_model_queryset(Receipt, request, organization).select_related('tenant__property', 'invoice__lease__unit__property'):
+                prop = row.invoice.lease.unit.property if row.invoice else row.tenant.property
+                key = prop.name if prop else 'Unassigned'; current = totals.setdefault(key, [0, Decimal('0')]); current[0] += 1; current[1] += row.amount
+            for name, (count, total) in sorted(totals.items()): writer.writerow((name, count, total))
+        elif report_kind == 'collections-tenant':
+            writer.writerow(('Tenant', 'Tenant no.', 'Property', 'Receipt count', 'Total collected'))
+            rows = scope_model_queryset(Receipt, request, organization).values('tenant__name', 'tenant__code', 'tenant__property__name').annotate(count=Count('id'), total=Sum('amount')).order_by('tenant__name')
+            for row in rows: writer.writerow((row['tenant__name'], row['tenant__code'], row['tenant__property__name'] or '', row['count'], row['total']))
+        elif report_kind == 'outstanding-balances':
+            writer.writerow(('Tenant', 'Tenant no.', 'Property', 'Unit', 'Invoice', 'Due date', 'Original amount', 'Balance', 'Status'))
+            rows = scope_model_queryset(Invoice, request, organization).filter(balance__gt=0).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property')
+            for row in rows: writer.writerow((row.lease.tenant.name, row.lease.tenant.code, row.lease.unit.property.name, row.lease.unit.code, row.number, row.due_on, row.amount, row.balance, row.status))
+        elif report_kind in ('payment-reconciliation', 'settlement'):
+            writer.writerow(('Transaction date', 'Bank reference', 'Description', 'Amount', 'Status', 'Receipt', 'Matched at'))
+            rows = scope_model_queryset(BankTransaction, request, organization).select_related('receipt')
+            if report_kind == 'settlement': rows = rows.filter(status=BankTransaction.Status.MATCHED)
+            for row in rows: writer.writerow((row.transacted_on, row.reference, row.description, row.amount, row.status, row.receipt.number if row.receipt else '', row.matched_at or ''))
+        elif report_kind == 'management-fee':
+            writer.writerow(('Property', 'Date', 'Supplier / payee', 'Invoice', 'Description', 'Amount', 'Status'))
+            rows = scope_model_queryset(Expense, request, organization).filter(category__icontains='management').select_related('property')
+            for row in rows: writer.writerow((row.property.name, row.incurred_on, row.supplier, row.invoice_number, row.description, row.amount, row.status))
         elif report_kind == 'contractor-expiry':
             from facilities.models import Contractor
             writer.writerow(('Provider', 'Specialty', 'Status', 'Insurance expiry', 'License expiry', 'Contact'))
@@ -1328,6 +1539,9 @@ class PropertyAnalyticsViewSet(ViewSet):
                                      contractor.license_expires_on, contractor.status))
         else:
             raise ValidationError({'report': 'Unknown property report.'})
+        if output_pdf:
+            title = str(report_kind).replace('-', ' ').title()
+            return tabular_report_pdf(organization, title, f'property-{report_kind}.pdf', response.content)
         return response
 
 
@@ -1345,6 +1559,26 @@ class TenantPortalViewSet(ViewSet):
             raise PermissionDenied('No active tenant portal profile is linked to this account.')
         return access
 
+    @action(detail=False, methods=('get',), url_path=r'invoices/(?P<invoice_id>[0-9a-fA-F-]{36})/pdf')
+    def invoice_document(self, request, invoice_id=None):
+        access = self._access()
+        invoice = Invoice.objects.for_organization(access.organization).select_related(
+            'lease__tenant', 'lease__unit__property',
+        ).filter(pk=invoice_id, lease__tenant=access.tenant).first()
+        if invoice is None:
+            raise PermissionDenied('This invoice is not available in your tenant account.')
+        return invoice_pdf(invoice)
+
+    @action(detail=False, methods=('get',), url_path=r'receipts/(?P<receipt_id>[0-9a-fA-F-]{36})/pdf')
+    def receipt_document(self, request, receipt_id=None):
+        access = self._access()
+        receipt = Receipt.objects.for_organization(access.organization).select_related(
+            'tenant', 'invoice__lease__unit__property', 'received_by',
+        ).filter(pk=receipt_id, tenant=access.tenant).first()
+        if receipt is None:
+            raise PermissionDenied('This receipt is not available in your tenant account.')
+        return receipt_pdf(receipt)
+
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         from facilities.models import ServiceRequest
@@ -1360,6 +1594,10 @@ class TenantPortalViewSet(ViewSet):
             lease__tenant=tenant,
         ).select_related('lease').order_by('-issued_on')
         receipts = Receipt.objects.for_organization(tenant.organization).filter(tenant=tenant).order_by('-received_on')
+        property_ids = leases.values_list('unit__property_id', flat=True)
+        gateways = PaymentGatewayConfiguration.objects.for_organization(tenant.organization).filter(
+            property_id__in=property_ids, is_enabled=True,
+        ).values('id', 'property_id', 'provider', 'display_name')
         outstanding = invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).aggregate(
             total=Sum('balance'),
         )['total'] or Decimal('0')
@@ -1369,6 +1607,7 @@ class TenantPortalViewSet(ViewSet):
             'balance': outstanding,
             'invoices': InvoiceSerializer(invoices[:12], many=True).data,
             'receipts': ReceiptSerializer(receipts[:12], many=True).data,
+            'paymentGateways': list(gateways),
             'documents': TenantDocumentSerializer(
                 TenantDocument.objects.for_organization(tenant.organization).filter(tenant=tenant)[:12], many=True,
             ).data,
@@ -1379,6 +1618,46 @@ class TenantPortalViewSet(ViewSet):
                 recipient=request.user,
             ).values('id', 'title', 'message', 'level', 'created_at', 'read_at')[:12]),
         })
+
+    @action(detail=False, methods=('post',), url_path='payments/initiate')
+    def initiate_payment(self, request):
+        access = self._access()
+        invoice_id = request.data.get('invoice')
+        provider = str(request.data.get('provider') or PaymentGatewayConfiguration.Provider.ECITIZEN)
+        invoice = Invoice.objects.for_organization(access.organization).select_related(
+            'lease__unit__property', 'lease__tenant',
+        ).filter(pk=invoice_id, lease__tenant=access.tenant).first()
+        if invoice is None:
+            raise ValidationError({'invoice': 'Select one of your invoices.'})
+        if invoice.status not in (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE):
+            raise ValidationError({'invoice': 'Only issued, partially paid, or overdue invoices can be paid.'})
+        if invoice.balance <= 0:
+            raise ValidationError({'invoice': 'This invoice has no outstanding balance.'})
+        configuration = PaymentGatewayConfiguration.objects.for_organization(access.organization).filter(
+            property=invoice.lease.unit.property, provider=provider, is_enabled=True,
+        ).first()
+        if configuration is None:
+            raise ValidationError({'provider': 'This payment method is not enabled for the property.'})
+        reference = f'PAY-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:10].upper()}'
+        values = {
+            'reference': reference,
+            'amount': f'{invoice.balance:.2f}',
+            'invoice': invoice.number,
+            'merchant': configuration.merchant_reference,
+        }
+        try:
+            checkout_url = configuration.checkout_url_template.format(**values)
+        except (KeyError, ValueError):
+            raise ValidationError({'provider': 'The payment checkout URL template is invalid.'})
+        if not checkout_url.lower().startswith('https://'):
+            raise ValidationError({'provider': 'Payment checkout must use HTTPS.'})
+        intent = PaymentIntent.objects.create(
+            organization=access.organization, configuration=configuration,
+            invoice=invoice, tenant=access.tenant, reference=reference,
+            amount=invoice.balance, status=PaymentIntent.Status.REDIRECTED,
+            checkout_url=checkout_url, expires_at=timezone.now() + timedelta(minutes=30),
+        )
+        return Response(PaymentIntentSerializer(intent).data, status=201)
 
     @action(detail=False, methods=('post',), url_path='service-requests')
     def service_request(self, request):

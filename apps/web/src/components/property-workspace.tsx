@@ -1173,11 +1173,12 @@ function ProjectsView({ rows, loading, search, setSearch }: {
 /* ─── TENANTS ─── */
 
 function TenantsView({
-  rows, loading, search, setSearch, setTab, onAdd, onUploadDoc, onSelectRow, onOpenPortal,
+  rows, loading, search, setSearch, setTab, onAdd, onUploadDoc, onSelectRow, onOpenPortal, onDownloadStatement,
 }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAdd: () => void; onUploadDoc: () => void; onSelectRow: (r: Row) => void;
   onOpenPortal: (r: Row) => void;
+  onDownloadStatement: (r: TenantRow) => void;
 }) {
   const [filterProperty, setFilterProperty] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -1262,6 +1263,7 @@ function TenantsView({
                     <td>
                       <div className="row" style={{ gap: 6 }}>
                         <button className="btn ghost sm" data-testid="tenant-portal-btn" onClick={(e) => { e.stopPropagation(); onOpenPortal(t); }}>Portal</button>
+                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onDownloadStatement(t); }}>Statement PDF</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("leases"); }}>Leases</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onUploadDoc(); }}>Docs</button>
                       </div>
@@ -1477,7 +1479,7 @@ function TenancyView({
   unitsRows, tenantsRows, leasesRows, documentsRows, loading, search, setSearch, setTab,
   onAddTenant, onUploadDoc, onAddLease, onDownloadTemplate, onLeaseAction,
   onSelectTenantRow, onSelectLeaseRow, onDownloadDocument, onVerifyDocument, onRejectDocument,
-  onOpenPortal,
+  onOpenPortal, onDownloadStatement,
 }: {
   unitsRows: Row[]; tenantsRows: Row[]; leasesRows: Row[]; documentsRows: Row[];
   loading: boolean; search: string; setSearch: (v: string) => void;
@@ -1489,6 +1491,7 @@ function TenancyView({
   onDownloadDocument: (r: Row) => void;
   onVerifyDocument: (r: TenantDocumentRow) => void; onRejectDocument: (r: TenantDocumentRow) => void;
   onOpenPortal: (r: Row) => void;
+  onDownloadStatement: (r: TenantRow) => void;
 }) {
   const [section, setSection] = useState<TenancySection>("tenants");
 
@@ -1508,7 +1511,7 @@ function TenancyView({
         <UnitsView rows={unitsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} />
       )}
       {section === "tenants" && (
-        <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} />
+        <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} onDownloadStatement={onDownloadStatement} />
       )}
       {section === "leases" && (
         <LeasesView rows={leasesRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAddLease={onAddLease} onDownloadTemplate={onDownloadTemplate} onLeaseAction={onLeaseAction} onSelectRow={onSelectLeaseRow} />
@@ -1807,7 +1810,7 @@ function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice
 
 /* ─── RENT & INVOICES ─── */
 
-function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onRemind: (row: InvoiceRow) => void, onAction: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void, onSelect: (r: Row) => void, canFinance: boolean, canApprove: boolean) {
+function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID) => void, onRemind: (row: InvoiceRow) => void, onAction: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void, onSelect: (r: Row) => void, onDownloadPdf: (row: InvoiceRow) => void, canFinance: boolean, canApprove: boolean) {
   return invoices.map((inv) => (
     <tr key={String(inv.id)} onClick={() => onSelect(inv)}>
       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(inv.number ?? "—")}</td>
@@ -1822,6 +1825,7 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
       <td>
         <div className="row" style={{ gap: 6 }}>
           {Number(inv.balance ?? 0) > 0 && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onPay(String(inv.id)); }}>Pay</button>}
+          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onDownloadPdf(inv); }}>PDF</button>
           {Number(inv.balance ?? 0) > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onRemind(inv); }}>Send reminder</button>}
           {inv.status === "draft" && canFinance && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "submit-review"); }}>Submit review</button>}
           {inv.status === "review" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "approve"); }}>Approve</button>}
@@ -1835,7 +1839,7 @@ function renderInvoiceRows(invoices: InvoiceRow[], full: boolean, onPay: (id: ID
 
 function RentView({
   rows, rentInvoices, analytics, rentSection, setRentSection, loading,
-  setTab, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onAddInvoice, canFinance, canApprove,
+  setTab, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onAddInvoice, onDownloadPdf, canFinance, canApprove,
 }: {
   rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null;
   rentSection: RentSection; setRentSection: (s: RentSection) => void; loading: boolean;
@@ -1844,6 +1848,7 @@ function RentView({
   onInvoiceAction: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void; onSelectRow: (r: Row) => void;
   canFinance: boolean; canApprove: boolean;
   onAddInvoice: () => void;
+  onDownloadPdf: (row: InvoiceRow) => void;
 }) {
   const totalBilled = rentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = rentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
@@ -1907,7 +1912,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, canFinance, canApprove)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], false, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onDownloadPdf, canFinance, canApprove)}</tbody>
               </table>
             </div>
           </ListState>
@@ -1933,7 +1938,7 @@ function RentView({
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, canFinance, canApprove)}</tbody>
+                <tbody>{renderInvoiceRows(rows as InvoiceRow[], true, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onDownloadPdf, canFinance, canApprove)}</tbody>
               </table>
             </div>
           </ListState>
@@ -2313,10 +2318,11 @@ function RemindersView({ rows, loading, search, setSearch, onSendReminder, setTa
 /* ─── RECEIPTS ─── */
 
 function ReceiptsView({
-  rows, creditNotes, loading, search, setSearch, onRecordReceipt,
+  rows, creditNotes, loading, search, setSearch, onRecordReceipt, onDownloadPdf,
 }: {
   rows: Row[]; creditNotes: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   onRecordReceipt: (invoiceId?: ID) => void;
+  onDownloadPdf: (row: ReceiptRow) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "receipts" | "credit-notes" | "unapplied">("all");
   const [filterTenant, setFilterTenant] = useState("");
@@ -2408,6 +2414,7 @@ function ReceiptsView({
                   <th>Reference</th>
                   <th>Amount</th>
                   <th>Status</th>
+                  <th>Document</th>
                 </tr>
               </thead>
               <tbody>
@@ -2421,6 +2428,7 @@ function ReceiptsView({
                     <td className="mono" style={{ fontSize: 12 }}>{String(r.docRef ?? "—")}</td>
                     <td className="mono" style={{ color: r.docType === "Credit Note" ? "var(--danger)" : "var(--text)" }}>{kM(r.amount)}</td>
                     <td><Badge tone={r.docStatus === "Applied" ? "green" : r.docStatus === "Unapplied" ? "yellow" : "gray"}>{String(r.docStatus)}</Badge></td>
+                    <td>{r.docType === "Receipt" ? <button className="btn ghost sm" onClick={() => onDownloadPdf(r as ReceiptRow)}>PDF</button> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2589,7 +2597,7 @@ function CreditNotesView({ rows, loading, search, setSearch, setTab, onAdd }: {
 function FinancialsView({
   financialsSection, setFinancialsSection, rows, rentInvoices, analytics, creditNotes, loading,
   search, setSearch, setTab, rentSection, setRentSection,
-  onGenerateInvoice, onRefresh, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onMatch, onAddCreditNote, onAddInvoice, canFinance, canApprove,
+  onGenerateInvoice, onRefresh, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onMatch, onAddCreditNote, onAddInvoice, onDownloadInvoicePdf, onDownloadReceiptPdf, canFinance, canApprove,
 }: {
   financialsSection: FinancialsSection; setFinancialsSection: (s: FinancialsSection) => void;
   rows: Row[]; rentInvoices: InvoiceRow[]; analytics: AgingAnalytics | null; creditNotes: Row[];
@@ -2601,6 +2609,7 @@ function FinancialsView({
   onMatch: (r: Row) => void; onAddCreditNote: () => void;
   canFinance: boolean; canApprove: boolean;
   onAddInvoice: () => void;
+  onDownloadInvoicePdf: (row: InvoiceRow) => void; onDownloadReceiptPdf: (row: ReceiptRow) => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
@@ -2617,8 +2626,8 @@ function FinancialsView({
         ]}
       />
       {financialsSection === "schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={onGenerateInvoice} onRefresh={onRefresh} canFinance={canFinance} />}
-      {financialsSection === "invoices" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={setTab} onRecordReceipt={onRecordReceipt} onSendReminder={onSendReminder} onInvoiceAction={onInvoiceAction} onSelectRow={onSelectRow} onAddInvoice={onAddInvoice} canFinance={canFinance} canApprove={canApprove} />}
-      {financialsSection === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={onRecordReceipt} />}
+      {financialsSection === "invoices" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={setTab} onRecordReceipt={onRecordReceipt} onSendReminder={onSendReminder} onInvoiceAction={onInvoiceAction} onSelectRow={onSelectRow} onAddInvoice={onAddInvoice} onDownloadPdf={onDownloadInvoicePdf} canFinance={canFinance} canApprove={canApprove} />}
+      {financialsSection === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={onRecordReceipt} onDownloadPdf={onDownloadReceiptPdf} />}
       {financialsSection === "allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
       {financialsSection === "reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={onMatch} />}
       {financialsSection === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddCreditNote} />}
@@ -3380,7 +3389,7 @@ function FeesView({ rows, loading, search, setSearch, setTab }: {
 /* ─── REPORTS ─── */
 
 function ReportsView({ rows, loading, onExport }: {
-  rows: Row[]; loading: boolean; onExport: (key: string) => void;
+  rows: Row[]; loading: boolean; onExport: (key: string, output?: "csv" | "pdf") => void;
 }) {
   const reports = rows as ReportItem[];
   const grouped = reports.reduce<Record<string, ReportItem[]>>((acc, r) => {
@@ -3407,7 +3416,7 @@ function ReportsView({ rows, loading, onExport }: {
                   {grouped[cat].map((r) => (
                     <div key={String(r.key)} className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                       <span style={{ fontSize: 12 }}>{String(r.name ?? "—")}</span>
-                      <button className="btn ghost sm" onClick={() => onExport(String(r.key ?? ""))}>Export</button>
+                      <div className="row" style={{ gap: 6 }}><button className="btn ghost sm" onClick={() => onExport(String(r.key ?? ""), "csv")}>CSV</button><button className="btn primary sm" onClick={() => onExport(String(r.key), "pdf")}>PDF</button></div>
                     </div>
                   ))}
                 </div>
@@ -3436,7 +3445,7 @@ function ReportsView({ rows, loading, onExport }: {
                     <td><span className="badge badge-blue">{String(r.category ?? "—")}</span></td>
                     <td className="muted" style={{ fontSize: 12 }}>—</td>
                     <td>
-                      <button className="btn ghost sm" onClick={() => onExport(String(r.key ?? ""))}>Export CSV</button>
+                      <div className="row" style={{ gap: 6 }}><button className="btn ghost sm" onClick={() => onExport(String(r.key ?? ""), "csv")}>CSV</button><button className="btn primary sm" onClick={() => onExport(String(r.key), "pdf")}>PDF</button></div>
                     </td>
                   </tr>
                 ))}
@@ -4760,6 +4769,29 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     URL.revokeObjectURL(url);
   }
 
+  async function downloadApiFile(path: string, fallbackName: string) {
+    const res = await apiFetch(path, {}, organizationId);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Unable to generate document.");
+      return;
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const name = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? fallbackName;
+    const url = URL.createObjectURL(blob); const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url);
+  }
+
+  function downloadReport(key: string, output: "csv" | "pdf" = "csv") {
+    if (output === "csv") { void downloadReportCSV(key); return; }
+    void downloadApiFile(`/property/analytics/exports/${key}/?output=pdf`, `property-${key}.pdf`);
+  }
+
+  const downloadInvoicePdf = (row: InvoiceRow) => void downloadApiFile(`/property/invoices/${row.id}/pdf/`, `invoice-${row.number ?? row.id}.pdf`);
+  const downloadReceiptPdf = (row: ReceiptRow) => void downloadApiFile(`/property/receipts/${row.id}/pdf/`, `receipt-${row.number ?? row.id}.pdf`);
+  const downloadTenantStatement = (row: TenantRow) => void downloadApiFile(`/property/tenants/${row.id}/statement.pdf/`, `tenant-statement-${row.code ?? row.id}.pdf`);
+
   const downloadTenancyTemplate = () => {
     void downloadReportCSV("lease-expiry");
   };
@@ -4934,16 +4966,16 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "projects" && <ProjectsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
-        {tab === "tenants" && <TenantsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onSelectRow={setSelectedRow} onOpenPortal={openTenantPortal} />}
-        {tab === "tenancy" && <TenancyView unitsRows={tenancyUnitsRows} tenantsRows={tenantsRows} leasesRows={leasesRows} documentsRows={tenantDocsRows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddTenant={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectTenantRow={setSelectedRow} onSelectLeaseRow={setSelectedRow} onDownloadDocument={downloadDocument} onVerifyDocument={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onRejectDocument={setDocumentRejectTarget} onOpenPortal={openTenantPortal} />}
+        {tab === "tenants" && <TenantsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onSelectRow={setSelectedRow} onOpenPortal={openTenantPortal} onDownloadStatement={downloadTenantStatement} />}
+        {tab === "tenancy" && <TenancyView unitsRows={tenancyUnitsRows} tenantsRows={tenantsRows} leasesRows={leasesRows} documentsRows={tenantDocsRows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddTenant={() => setShowAddTenant(true)} onUploadDoc={() => setShowUploadDoc(true)} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectTenantRow={setSelectedRow} onSelectLeaseRow={setSelectedRow} onDownloadDocument={downloadDocument} onVerifyDocument={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onRejectDocument={setDocumentRejectTarget} onOpenPortal={openTenantPortal} onDownloadStatement={downloadTenantStatement} />}
         {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onReject={setDocumentRejectTarget} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
-        {tab === "financials" && <FinancialsView financialsSection={financialsSection} setFinancialsSection={setFinancialsSection} rows={rows} rentInvoices={rentInvoices} analytics={analytics} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} rentSection={rentSection} setRentSection={setRentSection} onGenerateInvoice={(row, taxRate = 0) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.", { tax_rate: taxRate })} onRefresh={() => void loadData()} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} onAddCreditNote={() => setFinancialIntake("credit-note")} onAddInvoice={openInvoiceComposer} canFinance={canFinance} canApprove={canApprove} />}
+        {tab === "financials" && <FinancialsView financialsSection={financialsSection} setFinancialsSection={setFinancialsSection} rows={rows} rentInvoices={rentInvoices} analytics={analytics} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} rentSection={rentSection} setRentSection={setRentSection} onGenerateInvoice={(row, taxRate = 0) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.", { tax_rate: taxRate })} onRefresh={() => void loadData()} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} onAddCreditNote={() => setFinancialIntake("credit-note")} onAddInvoice={openInvoiceComposer} onDownloadInvoicePdf={downloadInvoicePdf} onDownloadReceiptPdf={downloadReceiptPdf} canFinance={canFinance} canApprove={canApprove} />}
         {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row, taxRate = 0) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.", { tax_rate: taxRate })} onRefresh={() => void loadData()} canFinance={canFinance} />}
-        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onAddInvoice={openInvoiceComposer} canFinance={canFinance} canApprove={canApprove} />}
+        {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onAddInvoice={openInvoiceComposer} onDownloadPdf={downloadInvoicePdf} canFinance={canFinance} canApprove={canApprove} />}
         {tab === "arrears" && <ArrearsView rows={rows} analytics={analytics} loading={loading} search={search} setSearch={setSearch} onNavigateReminders={navigateRemindersForTenant} />}
         {tab === "reminders" && <RemindersView rows={rows} loading={loading} search={search} setSearch={setSearch} onSendReminder={sendReminder} setTab={handleSelectTab} />}
-        {tab === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={openRecordReceipt} />}
+        {tab === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={openRecordReceipt} onDownloadPdf={downloadReceiptPdf} />}
         {tab === "receipt-allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "bank-reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} />}
         {tab === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("credit-note")} />}
@@ -4952,7 +4984,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => { if (action === "reject") setConfirmRejectBudget(row); else void runPropertyAction("budgets", row.id, action, "Budget action failed."); }} />}
         {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
-        {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={(key) => void downloadReportCSV(key)} />}
+        {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={downloadReport} />}
         {tab === "fees" && <FeesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "owner-portal" && <OwnerPortalView />}
         {tab === "forecast" && <ForecastView />}

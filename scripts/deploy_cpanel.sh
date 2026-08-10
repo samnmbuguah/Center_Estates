@@ -30,6 +30,8 @@ fi
 if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "backend" ]]; then
 tar -czf "$BACKEND_ARCHIVE" \
   --exclude='apps/backend/.env' \
+  --exclude='apps/backend/.venv' \
+  --exclude='apps/backend/.pytest_cache' \
   --exclude='__pycache__' \
   --exclude='*.pyc' \
   --exclude='apps/backend/db.sqlite3' \

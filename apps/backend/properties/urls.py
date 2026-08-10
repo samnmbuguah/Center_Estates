@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BankTransactionViewSet, BuildingViewSet, BudgetViewSet, CreditNoteViewSet,
     ExpenseViewSet, InvoiceReminderViewSet, InvoiceViewSet, LeaseViewSet,
+    PaymentGatewayConfigurationViewSet, PaymentIntentViewSet, PaymentWebhookViewSet,
     ProjectViewSet, PropertyAnalyticsViewSet, PropertyDashboardViewSet,
     PropertyViewSet, ReceiptAllocationViewSet, ReceiptViewSet,
     RentScheduleViewSet, ServiceChargeAllocationViewSet,
@@ -25,6 +26,9 @@ router.register('invoices', InvoiceViewSet)
 router.register('invoice-reminders', InvoiceReminderViewSet, basename='invoice-reminder')
 router.register('receipts', ReceiptViewSet)
 router.register('bank-transactions', BankTransactionViewSet)
+router.register('payment-gateways', PaymentGatewayConfigurationViewSet)
+router.register('payment-intents', PaymentIntentViewSet, basename='payment-intent')
+router.register('payment-webhooks', PaymentWebhookViewSet, basename='payment-webhook')
 router.register('expenses', ExpenseViewSet)
 router.register('budgets', BudgetViewSet)
 router.register('service-charges', ServiceChargeViewSet)

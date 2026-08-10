@@ -9,3 +9,4 @@ whitenoise>=6.9,<7
 cryptography>=45,<47
 drf-spectacular>=0.28.0
 drf-spectacular-sidecar
+reportlab>=4.4,<5

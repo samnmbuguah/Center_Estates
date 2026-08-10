@@ -1,4 +1,9 @@
 from decimal import Decimal
+import hashlib
+import hmac
+import json
+import os
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -13,7 +18,8 @@ from notifications.models import Notification
 
 from .models import (
     BankTransaction, Budget, Building, CreditNote, Expense, Invoice,
-    InvoiceReminder, Lease, Property, Receipt, ReceiptAllocation, RentSchedule,
+    InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
+    PaymentWebhookEvent, Property, Receipt, ReceiptAllocation, RentSchedule,
     ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
     Unit,
@@ -90,14 +96,82 @@ class PropertyApiTests(TestCase):
         self.assertEqual(len(response.data['aging']), 4)
         self.assertTrue(response.data['collectionTrend'])
 
+    @mock.patch.dict(os.environ, {'ECITIZEN_TEST_SECRET': 'client-supplied-signing-secret'})
+    def test_tenant_payment_is_signed_idempotent_and_fully_reconciled(self):
+        TenantPortalAccess.objects.create(
+            organization=self.organization, tenant=self.tenant, user=self.user, is_active=True,
+        )
+        gateway = PaymentGatewayConfiguration.objects.create(
+            organization=self.organization, property=self.property,
+            provider=PaymentGatewayConfiguration.Provider.ECITIZEN,
+            display_name='eCitizen', merchant_reference='CE-TEST',
+            checkout_url_template='https://payments.example.test/checkout?ref={reference}&amount={amount}&invoice={invoice}',
+            webhook_secret_env='ECITIZEN_TEST_SECRET', is_enabled=True,
+        )
+        initiated = self.client.post('/api/v1/property/portal/payments/initiate/', {
+            'invoice': str(self.invoice.id), 'provider': 'ecitizen',
+        }, format='json', **self.headers)
+        self.assertEqual(initiated.status_code, 201, initiated.data)
+        intent = PaymentIntent.objects.get(id=initiated.data['id'])
+        self.assertEqual(intent.amount, Decimal('1000'))
+        self.assertTrue(intent.checkout_url.startswith('https://payments.example.test/'))
+        invoice_document = self.client.get(
+            f'/api/v1/property/portal/invoices/{self.invoice.id}/pdf/', **self.headers,
+        )
+        self.assertEqual(invoice_document.status_code, 200)
+        self.assertEqual(invoice_document['Content-Type'], 'application/pdf')
+
+        payload = json.dumps({
+            'event_id': 'evt-001', 'reference': intent.reference,
+            'transaction_reference': 'ECZ-12345', 'status': 'paid', 'amount': '1000.00',
+        }, separators=(',', ':')).encode()
+        signature = hmac.new(b'client-supplied-signing-secret', payload, hashlib.sha256).hexdigest()
+        callback_url = f'/api/v1/property/payment-webhooks/{gateway.public_key}/'
+        invalid = self.client.generic(
+            'POST', callback_url, payload, content_type='application/json',
+            HTTP_X_CEEST_SIGNATURE='invalid',
+        )
+        self.assertEqual(invalid.status_code, 401)
+        processed = self.client.generic(
+            'POST', callback_url, payload, content_type='application/json',
+            HTTP_X_CEEST_SIGNATURE=f'sha256={signature}',
+        )
+        self.assertEqual(processed.status_code, 200, processed.data)
+        self.invoice.refresh_from_db()
+        intent.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('0'))
+        self.assertEqual(self.invoice.status, Invoice.Status.PAID)
+        self.assertEqual(intent.status, PaymentIntent.Status.PAID)
+        receipt = Receipt.objects.get(external_reference='ECZ-12345')
+        self.assertEqual(receipt.amount, Decimal('1000'))
+        receipt_document = self.client.get(
+            f'/api/v1/property/portal/receipts/{receipt.id}/pdf/', **self.headers,
+        )
+        self.assertEqual(receipt_document.status_code, 200)
+        self.assertTrue(ReceiptAllocation.objects.filter(receipt=receipt, invoice=self.invoice).exists())
+        self.assertTrue(BankTransaction.objects.filter(receipt=receipt, status=BankTransaction.Status.MATCHED).exists())
+        self.assertTrue(Notification.objects.filter(
+            recipient=self.user, metadata__receipt_id=str(receipt.id), level=Notification.Level.SUCCESS,
+        ).exists())
+        self.assertEqual(PaymentWebhookEvent.objects.get(event_id='evt-001').status, PaymentWebhookEvent.Status.PROCESSED)
+
+        duplicate = self.client.generic(
+            'POST', callback_url, payload, content_type='application/json',
+            HTTP_X_CEEST_SIGNATURE=signature,
+        )
+        self.assertEqual(duplicate.status_code, 200, duplicate.data)
+        self.assertTrue(duplicate.data['duplicate'])
+        self.assertEqual(Receipt.objects.filter(external_reference='ECZ-12345').count(), 1)
+
     def test_report_catalogue_uses_client_categories_and_exports_each_family(self):
         catalogue = self.client.get('/api/v1/property/analytics/', **self.headers)
         self.assertEqual(catalogue.status_code, 200)
         categories = {row['category'] for row in catalogue.data['reports']}
         self.assertEqual(categories, {
-            'Financial', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
+            'Financial', 'Collections & Reconciliation', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
         })
         keys = {row['key'] for row in catalogue.data['reports']}
+        self.assertTrue({'daily-collections', 'collections-property', 'collections-tenant', 'outstanding-balances', 'payment-reconciliation', 'settlement', 'management-fee'}.issubset(keys))
         for key in ('aging', 'occupancy', 'contractor-expiry', 'tenant-compliance', 'critical-dates'):
             self.assertIn(key, keys)
             exported = self.client.get(f'/api/v1/property/analytics/exports/{key}/', **self.headers)
@@ -112,7 +186,8 @@ class PropertyApiTests(TestCase):
             format='json', **self.headers,
         )
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(Property.objects.filter(organization=self.organization, code='OWN-002').exists())
+        created_property = Property.objects.get(organization=self.organization, name='Second Property')
+        self.assertTrue(created_property.code.startswith('PROP-'))
 
     def test_tenant_application_onboarding_creates_tenant_and_draft_lease_atomically(self):
         available_unit = Unit.objects.create(
@@ -257,6 +332,45 @@ class PropertyApiTests(TestCase):
         self.assertEqual(self.client.delete(
             f"/api/v1/property/receipts/{response.data['id']}/", **self.headers,
         ).status_code, 400)
+
+    def test_financial_documents_generate_tenant_scoped_pdfs(self):
+        receipt = Receipt.objects.create(
+            organization=self.organization, number='RCT-PDF-1', tenant=self.tenant,
+            invoice=self.invoice, received_on='2026-07-03', amount=Decimal('250.00'),
+            payment_method='bank_transfer', external_reference='BANK-PDF-1', received_by=self.user,
+        )
+        cases = (
+            f'/api/v1/property/invoices/{self.invoice.id}/pdf/',
+            f'/api/v1/property/receipts/{receipt.id}/pdf/',
+            f'/api/v1/property/tenants/{self.tenant.id}/statement.pdf/?start=2026-01-01&end=2026-12-31',
+            f'/api/v1/property/analytics/exports/income-expense/?output=pdf&start=2026-07-01&end=2026-07-31',
+            f'/api/v1/property/analytics/exports/aging/?output=pdf',
+        )
+        scoped_headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        for url in cases:
+            response = self.client.get(url, **scoped_headers)
+            self.assertEqual(response.status_code, 200, (url, getattr(response, 'data', b'')))
+            self.assertEqual(response['Content-Type'], 'application/pdf')
+            self.assertIn('.pdf', response['Content-Disposition'])
+            self.assertTrue(response.content.startswith(b'%PDF-'))
+            self.assertGreater(len(response.content), 1500)
+
+        catalogue = self.client.get('/api/v1/property/analytics/', **scoped_headers).data['reports']
+        for report in catalogue:
+            response = self.client.get(
+                f"/api/v1/property/analytics/exports/{report['key']}/?output=pdf",
+                **scoped_headers,
+            )
+            self.assertEqual(response.status_code, 200, (report['key'], getattr(response, 'data', b'')))
+            self.assertEqual(response['Content-Type'], 'application/pdf')
+            self.assertTrue(response.content.startswith(b'%PDF-'))
+
+        other_user = get_user_model().objects.create_user(username='other-pdf-user')
+        Membership.objects.create(user=other_user, organization=self.other, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.other, module=Module.PROPERTY, status=Subscription.Status.ACTIVE)
+        self.client.force_authenticate(other_user)
+        denied = self.client.get(f'/api/v1/property/invoices/{self.invoice.id}/pdf/', HTTP_X_ORGANIZATION_ID=str(self.other.id))
+        self.assertEqual(denied.status_code, 404)
 
     def test_receipt_overpayment_is_rejected_without_partial_records(self):
         response = self.client.post('/api/v1/property/receipts/', {
