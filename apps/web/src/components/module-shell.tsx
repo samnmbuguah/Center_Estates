@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type CSSProperties, type ReactNode } from "react";
 import {
   propertyNav,
@@ -102,39 +101,6 @@ export function ModuleShell({
       {/* MAIN CONTENT — with horizontal navigation bar */}
       <div className="module-workspace-main main" style={{ width: "100%", minWidth: 0, padding: "clamp(16px, 4vw, 24px)" }}>
         <div className="module-workspace-body" style={{ width: "100%" }}>
-
-          {/* Breadcrumb */}
-          <nav
-            className="module-breadcrumb"
-            aria-label="Breadcrumb"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              margin: "0 0 12px",
-              fontSize: 13,
-              color: "var(--text-secondary)",
-              fontWeight: 500,
-            }}
-          >
-            <Link href="/workspaces" style={{ color: "var(--text-secondary)", textDecoration: "none" }}>Home</Link>
-            <span aria-hidden="true" style={{ opacity: 0.6 }}>&gt;</span>
-            <span style={{ color: "var(--text-primary)" }}>{moduleName}</span>
-          </nav>
-
-          {/* Page heading */}
-          <section className="page-head portfolio-head" style={{ marginBottom: 16, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <p className="eyebrow" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--brand-primary)", margin: "0 0 4px", fontWeight: 600 }}>
-                {eyebrow}
-              </p>
-              <h1 style={{ fontSize: 24, fontWeight: 800, margin: "2px 0 4px", color: "var(--text-primary)", lineHeight: 1.2 }}>{title}</h1>
-              {subtitle ? <p className="muted" style={{ fontSize: 14, margin: 0, color: "var(--text-secondary)", lineHeight: 1.4 }}>{subtitle}</p> : null}
-            </div>
-            <div className="portfolio-toolbar module-context-actions" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              {actions}
-            </div>
-          </section>
 
           {/* Two-level module navigation: workflow groups, then pages in the active group. */}
           {hasGroups && (
