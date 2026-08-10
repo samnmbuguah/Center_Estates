@@ -5400,3 +5400,15 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .property-onboarding-mode .module-workspace-property {
   display: none !important;
 }
+
+.property-onboarding-mode .MuiDialog-root .MuiDialog-container {
+  align-items: stretch;
+}
+.property-onboarding-mode .MuiDialog-root .MuiDialog-paper {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+}

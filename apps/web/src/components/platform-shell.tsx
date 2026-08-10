@@ -39,8 +39,15 @@ import {
   Typography,
 } from "@mui/material";
 
-const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string }> = [
-  // Removed - duplicates sidebar navigation
+const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string; permission?: string }> = [
+  { name: "Property overview", href: "/overview", module: "property", icon: "◉", detail: "View accessible property portfolio" },
+  { name: "Onboard property", href: "/property-onboarding", module: "property", icon: "🏗️", detail: "Create a property; code generated automatically", permission: "property.operations" },
+  { name: "Add tenant", href: "/property?tab=tenants", module: "property", icon: "👥", detail: "Create a tenant profile", permission: "property.leasing" },
+  { name: "Tickets", href: "/tickets", module: "monitoring", icon: "🎫", detail: "View portfolio tickets" },
+  { name: "Calendar", href: "/calendar", module: "monitoring", icon: "📅", detail: "View portfolio calendar" },
+  { name: "New work order", href: "/facility?tab=work-orders", module: "facility", icon: "🔧", detail: "Create a maintenance work order", permission: "facility.operations" },
+  { name: "Register buyer", href: "/sales?tab=buyers", module: "sales", icon: "💰", detail: "Create a buyer profile", permission: "sales.sell" },
+  { name: "New valuation instruction", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Create a valuation instruction", permission: "valuation.instructions" },
 ];
 
 export default function PlatformShell({ children }: { children: React.ReactNode }) {
@@ -129,10 +136,11 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const filteredQuickJumps = useMemo(() => {
     const allowedSet = new Set(allowedSlugs);
     const term = query.trim().toLowerCase();
-    const base = QUICK_JUMP_ROUTES.filter((r) => allowedSet.has(r.module));
+    const permissions = new Set(session?.permissions ?? []);
+    const base = QUICK_JUMP_ROUTES.filter((r) => allowedSet.has(r.module) && (!r.permission || permissions.has("*") || permissions.has(r.permission)));
     if (!term) return base;
     return base.filter((r) => `${r.name} ${r.detail}`.toLowerCase().includes(term));
-  }, [allowedSlugs, query]);
+  }, [allowedSlugs, query, session?.permissions]);
 
   useEffect(() => {
     // Theme is now managed by useTheme hook
