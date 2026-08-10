@@ -95,6 +95,17 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     cp -a apps/web/public \"\${standalone}/public\"
     mkdir -p tmp
     touch tmp/restart.txt
+    # LiteSpeed can keep Next workers alive after Passenger's restart marker is
+    # touched. Those workers cache the old build file list and return 404 for
+    # newly deployed chunks, even when the files exist. Restart only workers
+    # whose cwd is this application's standalone directory.
+    web_pids=\$(pgrep -u \$(id -u) -f '^next-server \\(v' || true)
+    for web_pid in \${web_pids}; do
+      worker_cwd=\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)
+      if [ \"\${worker_cwd}\" = \"${FRONTEND_PATH}/\${standalone}\" ]; then
+        kill -TERM \"\${web_pid}\" 2>/dev/null || true
+      fi
+    done
   "
 fi
 
