@@ -4133,7 +4133,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
   };
 
   const loadData = useCallback(async () => {
-    if (!organizationId) return;
+    if (!organizationId || standaloneOnboarding) return;
     const version = ++loadVersion.current;
     setLoading(true);
     setError("");
@@ -4331,7 +4331,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, organizationId, activeProperty?.id, rentSection, scSection, financialsSection]);
+  }, [tab, search, organizationId, activeProperty?.id, rentSection, scSection, financialsSection, standaloneOnboarding]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);
@@ -4951,6 +4951,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
       <div className="property-workspace" style={{ padding: "16px 24px", width: "100%", boxSizing: "border-box" }}>
         {error && <ErrorBanner message={error} onRetry={() => { setError(""); loadData(); }} />}
 
+        {!standaloneOnboarding && <>
         {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} />}
         {tab === "properties" && <PropertiesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddProperty(true)} onSelectRow={handleSelectRow} />}
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
@@ -4991,6 +4992,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {portalTenant && (
           <TenantPortalDrawer tenant={portalTenant} organizationId={organizationId} onClose={() => setPortalTenant(null)} />
         )}
+        </>}
 
         {showAddProperty && (
           standaloneOnboarding ? (

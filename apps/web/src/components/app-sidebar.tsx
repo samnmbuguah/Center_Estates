@@ -35,7 +35,9 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const activeModuleSlug = modules.find((m) => pathname.startsWith(`/${m.slug}`))?.slug;
+  const activeModuleSlug = modules.find((m) => (
+    pathname === `/${m.slug}` || pathname.startsWith(`/${m.slug}/`)
+  ))?.slug;
 
   // Detect mobile screen size
   useEffect(() => {

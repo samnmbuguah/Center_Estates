@@ -194,7 +194,9 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const requestedModule = pathname.split("/")[1];
   const isKnownModule = modules.some((module) => module.slug === requestedModule);
   const activeOrganization = session.organizations.find((item) => item.id === session.activeOrganizationId);
-  const activeModule = modules.find((module) => pathname.startsWith(`/${module.slug}`));
+  const activeModule = modules.find((module) => (
+    pathname === `/${module.slug}` || pathname.startsWith(`/${module.slug}/`)
+  ));
   const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal");
   if (moduleWorkspaceActive && (!propertyContextReady || (properties.length > 0 && !activeProperty))) {
     return <div className="full-loading">Loading your property workspace…</div>;
