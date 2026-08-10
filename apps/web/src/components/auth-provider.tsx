@@ -50,6 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
     const data = await response.json() as Session;
+    // Establish a current parent-domain CSRF cookie before authenticated
+    // providers begin sending background mutations such as telemetry.
+    await apiFetch("/auth/csrf/");
     setSession(data);
     if (data.activeOrganizationId) localStorage.setItem("ce_organization", data.activeOrganizationId);
     return true;

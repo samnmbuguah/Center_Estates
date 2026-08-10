@@ -97,7 +97,21 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   const method = String(init.method ?? "GET").toUpperCase();
   if (method !== "GET") {
     getResponseCache.clear();
-    return fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+    let response = await fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+    // Sessions created before the frontend/API domain split can retain an old
+    // or missing CSRF cookie. Refresh it once and replay the mutation instead
+    // of leaving background requests (notably telemetry and token refresh) in
+    // a permanent 403 retry loop. A genuine permission denial still returns
+    // the second 403 to the caller.
+    if (response.status === 403 && fullPath !== "/auth/csrf/") {
+      const csrfResponse = await fetch(`${API_BASE_URL}/auth/csrf/`, { credentials: "include" });
+      if (csrfResponse.ok) {
+        const refreshedCsrf = csrfFromCookie();
+        if (refreshedCsrf) headers.set("X-CSRFToken", refreshedCsrf);
+        response = await fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+      }
+    }
+    return response;
   }
 
   const cacheKey = [
