@@ -207,6 +207,8 @@ export function PropertyOnboardingForm() {
         }),
       }, organizationId);
       if (!response.ok) {
+        if (response.status === 401) throw new Error("Your session expired before the property could be saved. Sign in again and retry.");
+        if (response.status === 403) throw new Error("You do not have permission to onboard properties for this organization.");
         const body = await response.json().catch(() => ({}));
         throw new Error(Object.values(body as Record<string, unknown>).flat().join(" ") || "Property onboarding failed.");
       }

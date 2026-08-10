@@ -33,18 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadSession = useCallback(async (organizationId?: string | null) => {
     const selected = organizationId ?? localStorage.getItem("ce_organization");
-    let response = await apiFetch("/auth/me/", {}, selected);
-    if (response.status === 401) {
-      // Access token expired — try to refresh using the 7-day refresh cookie.
-      try {
-        const refreshRes = await apiFetch("/auth/refresh/", { method: "POST" });
-        if (refreshRes.ok) {
-          response = await apiFetch("/auth/me/", {}, selected);
-        }
-      } catch {
-        /* refresh failed — session genuinely expired */
-      }
-    }
+    const response = await apiFetch("/auth/me/", {}, selected);
     if (!response.ok) {
       setSession(null);
       return false;
@@ -57,6 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.activeOrganizationId) localStorage.setItem("ce_organization", data.activeOrganizationId);
     return true;
   }, []);
+
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      setSession(null);
+      router.replace("/login?reason=session-expired");
+    };
+    window.addEventListener("ce:session-expired", handleExpiredSession);
+    return () => window.removeEventListener("ce:session-expired", handleExpiredSession);
+  }, [router]);
 
   useEffect(() => {
     // Session state is synchronized from the external authentication API.
@@ -84,7 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(message);
     }
     await loadSession(null);
-    router.replace("/workspaces");
+    const returnTo = sessionStorage.getItem("ce_return_after_login");
+    sessionStorage.removeItem("ce_return_after_login");
+    router.replace(returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/workspaces");
   }, [loadSession, router]);
 
   const logout = useCallback(async () => {

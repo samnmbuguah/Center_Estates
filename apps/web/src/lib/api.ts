@@ -39,6 +39,44 @@ const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace
 const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
 const inFlightGets = new Map<string, Promise<Response>>();
 let csrfTokenCache = "";
+let refreshPromise: Promise<boolean> | null = null;
+
+function announceExpiredSession() {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem("ce_return_after_login", `${window.location.pathname}${window.location.search}`);
+  window.dispatchEvent(new CustomEvent("ce:session-expired"));
+}
+
+async function refreshAccessToken() {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const csrfResponse = await fetch(`${API_BASE_URL}/auth/csrf/`, { credentials: "include" });
+      await rememberCsrfToken(csrfResponse);
+      if (!csrfResponse.ok || !csrfTokenCache) return false;
+      const response = await fetch(`${API_BASE_URL}/auth/refresh/`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRFToken": csrfTokenCache },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  })().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+async function fetchWithSession(fullPath: string, init: RequestInit, headers: Headers) {
+  const execute = () => fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+  let response = await execute();
+  const isAuthenticationRequest = ["/auth/login/", "/auth/refresh/", "/auth/logout/", "/auth/csrf/"].includes(fullPath);
+  if (response.status === 401 && !isAuthenticationRequest) {
+    if (await refreshAccessToken()) response = await execute();
+    if (response.status === 401) announceExpiredSession();
+  }
+  return response;
+}
 
 async function rememberCsrfToken(response: Response) {
   if (!response.ok) return;
@@ -107,7 +145,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   const method = String(init.method ?? "GET").toUpperCase();
   if (method !== "GET") {
     getResponseCache.clear();
-    let response = await fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+    let response = await fetchWithSession(fullPath, init, headers);
     // Sessions created before the frontend/API domain split can retain an old
     // or missing CSRF cookie. Refresh it once and replay the mutation instead
     // of leaving background requests (notably telemetry and token refresh) in
@@ -119,7 +157,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
         await rememberCsrfToken(csrfResponse);
         const refreshedCsrf = csrfFromCookie();
         if (refreshedCsrf) headers.set("X-CSRFToken", refreshedCsrf);
-        response = await fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+        response = await fetchWithSession(fullPath, init, headers);
       }
     }
     return response;
@@ -138,7 +176,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   const existing = inFlightGets.get(cacheKey);
   if (existing) return (await existing).clone();
 
-  const request = fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" })
+  const request = fetchWithSession(fullPath, init, headers)
     .then((response) => {
       if (response.ok) {
         getResponseCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_MS, response: response.clone() });
