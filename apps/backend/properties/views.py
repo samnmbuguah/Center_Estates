@@ -85,6 +85,94 @@ class PropertyViewSet(OrganizationModelViewSet):
     search_fields = ('name', 'code', 'city')
 
     @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='onboard')
+    def onboard(self, request):
+        """Create a property and its initial buildings/units as one transaction."""
+        organization = get_active_organization(request)
+        property_payload = request.data.get('property')
+        if not isinstance(property_payload, dict):
+            raise ValidationError({'property': 'Property details are required.'})
+
+        serializer = self.get_serializer(data=property_payload)
+        serializer.is_valid(raise_exception=True)
+        existing_codes = Property.objects.filter(
+            organization=organization, code__startswith='PROP-'
+        ).values_list('code', flat=True)
+        numbers = [int(code.rsplit('-', 1)[-1]) for code in existing_codes if code.rsplit('-', 1)[-1].isdigit()]
+        property_record = serializer.save(
+            organization=organization,
+            code=f"PROP-{(max(numbers) + 1) if numbers else 1:04d}",
+        )
+
+        building_payload = request.data.get('building') or {}
+        if not isinstance(building_payload, dict):
+            raise ValidationError({'building': 'Building details must be an object.'})
+        try:
+            building_count = int(building_payload.get('count') or 0)
+            floors = int(building_payload.get('floors') or 1)
+        except (TypeError, ValueError):
+            raise ValidationError({'building': 'Building and floor counts must be whole numbers.'})
+        if not 0 <= building_count <= 100:
+            raise ValidationError({'building': 'Create between 0 and 100 buildings.'})
+        if not 1 <= floors <= 250:
+            raise ValidationError({'building': 'Floors must be between 1 and 250.'})
+
+        buildings = []
+        building_metadata = {key: value for key, value in building_payload.items() if key not in {'count', 'floors'}}
+        for index in range(1, building_count + 1):
+            buildings.append(Building.objects.create(
+                organization=organization,
+                property=property_record,
+                code=f'BLD-{index:03d}',
+                name=f'Building {index}',
+                floors=floors,
+                metadata=building_metadata,
+            ))
+
+        units_payload = request.data.get('units') or []
+        if not isinstance(units_payload, list) or len(units_payload) > 500:
+            raise ValidationError({'units': 'Units must be a list containing at most 500 records.'})
+        units = []
+        seen_codes = set()
+        for index, raw_unit in enumerate(units_payload, start=1):
+            if not isinstance(raw_unit, dict):
+                raise ValidationError({'units': f'Unit {index} must be an object.'})
+            code = str(raw_unit.get('unit_no') or '').strip().upper()
+            if not code:
+                raise ValidationError({'units': f'Unit {index} requires a unit number.'})
+            if code in seen_codes:
+                raise ValidationError({'units': f'Unit number {code} is duplicated.'})
+            seen_codes.add(code)
+            building_index = raw_unit.get('building_index')
+            building = None
+            if building_index not in (None, ''):
+                try:
+                    building = buildings[int(building_index) - 1]
+                except (TypeError, ValueError, IndexError):
+                    raise ValidationError({'units': f'Unit {code} references an invalid building.'})
+            units.append(Unit.objects.create(
+                organization=organization,
+                property=property_record,
+                building=building,
+                code=code,
+                floor=str(raw_unit.get('floor') or '').strip(),
+                unit_type=str(raw_unit.get('unit_type') or '').strip(),
+                area=raw_unit.get('area') or None,
+                status=Unit.Status.AVAILABLE,
+                metadata={
+                    'use': str(raw_unit.get('use') or '').strip(),
+                    'rateable_area': raw_unit.get('rateable_area') or None,
+                    'description': str(raw_unit.get('description') or '').strip(),
+                },
+            ))
+
+        return Response({
+            'property': self.get_serializer(property_record).data,
+            'buildings': BuildingSerializer(buildings, many=True).data,
+            'units': UnitSerializer(units, many=True).data,
+        }, status=201)
+
+    @transaction.atomic
     @action(detail=True, methods=('post',), url_path='bulk-units')
     def bulk_units(self, request, pk=None):
         property_record = self.get_object()

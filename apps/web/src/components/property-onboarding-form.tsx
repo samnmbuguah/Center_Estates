@@ -1,0 +1,172 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Alert, Box, Button, Chip, Divider, FormControlLabel, IconButton,
+  MenuItem, Paper, Switch, Tab, Tabs, TextField, Typography,
+} from "@mui/material";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+
+import { useAuth } from "@/components/auth-provider";
+import { apiFetch } from "@/lib/api";
+import { usePropertyContext } from "@/lib/property-context";
+
+type Values = Record<string, string>;
+type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; description: string; building_index: string };
+type UtilityDraft = { type: string; account_no: string; provider: string; bill_cycle: string; status: string };
+type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
+type ContactDraft = { name: string; role: string; email: string; phone: string };
+type ProviderDraft = { name: string; service: string; contact: string; email: string; phone: string };
+type DocumentDraft = { name: string; type: string; reference: string; expires_on: string };
+
+const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", description: "", building_index: "" };
+const blankUtility: UtilityDraft = { type: "water", account_no: "", provider: "", bill_cycle: "monthly", status: "active" };
+const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity: "1", status: "active" };
+const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
+const blankProvider: ProviderDraft = { name: "", service: "", contact: "", email: "", phone: "" };
+const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "" };
+
+const sections = [
+  ["general", "General"], ["location", "Location"], ["units", "Units"], ["assets", "Assets"],
+  ["utilities", "Utilities"], ["contacts", "Contacts"], ["providers", "Service Providers"],
+  ["landlord", "Landlord Engagement & Terms"], ["documents", "Documents"], ["notes", "Notes"],
+] as const;
+
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return <Paper id={id} variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, scrollMarginTop: 155 }}><Typography variant="overline" color="primary" sx={{ fontWeight: 800 }}>{title}</Typography><Box sx={{ mt: 1.25 }}>{children}</Box></Paper>;
+}
+
+function Grid({ children, columns = 3 }: { children: React.ReactNode; columns?: number }) {
+  return <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: `repeat(${columns}, minmax(0, 1fr))` }, gap: 2 }}>{children}</Box>;
+}
+
+function RowList<T>({ rows, columns, render, onRemove, empty }: { rows: T[]; columns: string[]; render: (row: T) => React.ReactNode[]; onRemove: (index: number) => void; empty: string }) {
+  if (!rows.length) return <Box sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>{empty}</Box>;
+  return <Box sx={{ overflowX: "auto" }}><Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "th,td": { textAlign: "left", p: 1, borderBottom: "1px solid", borderColor: "divider", fontSize: 12 } }}><thead><tr>{columns.map(c => <th key={c}>{c}</th>)}<th>Actions</th></tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{render(row).map((cell, i) => <td key={i}>{cell}</td>)}<td><IconButton size="small" aria-label="Remove" onClick={() => onRemove(index)}><Trash2 size={15} /></IconButton></td></tr>)}</tbody></Box></Box>;
+}
+
+export function PropertyOnboardingForm() {
+  const router = useRouter();
+  const { session } = useAuth();
+  const { selectProperty } = usePropertyContext();
+  const organizationId = session?.activeOrganizationId ?? null;
+  const [section, setSection] = useState("general");
+  const [values, setValues] = useState<Values>({ status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold" });
+  const [vatRegistered, setVatRegistered] = useState(false);
+  const [units, setUnits] = useState<UnitDraft[]>([]);
+  const [unitDraft, setUnitDraft] = useState<UnitDraft>(blankUnit);
+  const [utilities, setUtilities] = useState<UtilityDraft[]>([]);
+  const [utilityDraft, setUtilityDraft] = useState<UtilityDraft>(blankUtility);
+  const [assets, setAssets] = useState<AssetDraft[]>([]);
+  const [assetDraft, setAssetDraft] = useState<AssetDraft>(blankAsset);
+  const [contacts, setContacts] = useState<ContactDraft[]>([]);
+  const [contactDraft, setContactDraft] = useState<ContactDraft>(blankContact);
+  const [providers, setProviders] = useState<ProviderDraft[]>([]);
+  const [providerDraft, setProviderDraft] = useState<ProviderDraft>(blankProvider);
+  const [documents, setDocuments] = useState<DocumentDraft[]>([]);
+  const [documentDraft, setDocumentDraft] = useState<DocumentDraft>(blankDocument);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => setValues(current => ({ ...current, [name]: event.target.value }));
+  const totalArea = useMemo(() => units.reduce((sum, unit) => sum + Number(unit.area || 0), 0), [units]);
+
+  const jump = (id: string) => {
+    setSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const addUnit = () => {
+    if (!unitDraft.unit_no.trim() || !unitDraft.unit_type.trim() || !unitDraft.floor.trim() || !unitDraft.use.trim() || !Number(unitDraft.area)) {
+      setError("Complete the required unit number, type, floor, use and area fields."); return;
+    }
+    if (units.some(unit => unit.unit_no.trim().toLowerCase() === unitDraft.unit_no.trim().toLowerCase())) {
+      setError("Unit numbers must be unique within the property."); return;
+    }
+    setUnits(current => [...current, unitDraft]); setUnitDraft(blankUnit); setError("");
+  };
+
+  const save = async () => {
+    if (!organizationId) return;
+    if (!values.name?.trim() || !values.lr_number?.trim() || !values.landlord_name?.trim() || !values.address?.trim() || !values.city?.trim() || !values.county?.trim()) {
+      setError("Complete all required property, landlord and address fields before saving."); jump("general"); return;
+    }
+    setSaving(true); setError("");
+    const metadata = {
+      category: values.category || "", lr_number: values.lr_number, pin_number: values.pin_number || "",
+      year_built: values.year_built || null, title_type: values.title_type, land_size_sqft: values.land_size || null,
+      built_up_area_sqft: values.built_up_area || null, description: values.description || "", currency: values.currency,
+      landlord: { name: values.landlord_name, type: values.landlord_type, pin: values.landlord_pin || "", registration_number: values.landlord_registration || "", tax_status: values.tax_status, vat_registered: vatRegistered, vat_number: vatRegistered ? values.vat_number || "" : "" },
+      location: { county: values.county, postal_address: values.postal_address || "", postal_code: values.postal_code || "" },
+      building: { floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" },
+      utilities, assets, contacts, service_providers: providers, documents,
+      landlord_engagement: { engagement_type: values.engagement_type || "management", starts_on: values.engagement_start || null, ends_on: values.engagement_end || null, management_fee_percent: values.management_fee || null, payment_terms: values.payment_terms || "" },
+      notes: values.notes || "", onboarding_status: "draft",
+    };
+    try {
+      const response = await apiFetch("/property/properties/onboard/", {
+        method: "POST",
+        body: JSON.stringify({
+          property: { name: values.name.trim(), property_type: values.property_type, status: values.status, address: values.address, city: values.city, country: values.country, metadata },
+          building: { count: Number(values.building_count || 0), floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" },
+          units,
+        }),
+      }, organizationId);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(Object.values(body as Record<string, unknown>).flat().join(" ") || "Property onboarding failed.");
+      }
+      const result = await response.json() as { property: { id: string; name: string; code?: string; status?: string; city?: string } };
+      selectProperty({ id: result.property.id, name: result.property.name, code: result.property.code, status: result.property.status, location: result.property.city });
+      router.push("/overview");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Property onboarding failed."); }
+    finally { setSaving(false); }
+  };
+
+  return <Box sx={{ width: "100%", maxWidth: 1320, mx: "auto", px: { xs: 1.5, md: 3 }, py: 2.5 }}>
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/workspaces")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800 }}>Property Onboarding Card</Typography><Typography color="text.secondary" variant="body2">Codes and internal IDs are generated automatically.</Typography></Box></Box>
+      <Button variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save & Close"}</Button>
+    </Box>
+    <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto">{sections.map(([id, label]) => <Tab key={id} value={id} label={label} />)}</Tabs></Paper>
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    <Box sx={{ display: "grid", gap: 2 }}>
+      <Section id="general" title="General information">
+        <Grid><TextField label="Property code" value="Auto generated" disabled /><TextField required label="Property name" value={values.name || ""} onChange={set("name")} /><TextField select required label="Property status" value={values.status} onChange={set("status")}><MenuItem value="draft">Draft</MenuItem><MenuItem value="active">Active</MenuItem><MenuItem value="inactive">Inactive</MenuItem></TextField>
+        <TextField select required label="Property type" value={values.property_type} onChange={set("property_type")}><MenuItem value="commercial">Commercial</MenuItem><MenuItem value="residential">Residential</MenuItem><MenuItem value="mixed_use">Mixed use</MenuItem><MenuItem value="industrial">Industrial</MenuItem></TextField><TextField label="Property category" value={values.category || ""} onChange={set("category")} /><TextField required label="LR number" value={values.lr_number || ""} onChange={set("lr_number")} />
+        <TextField label="Property PIN" value={values.pin_number || ""} onChange={set("pin_number")} /><TextField type="number" label="Year built" value={values.year_built || ""} onChange={set("year_built")} /><TextField select label="Title type" value={values.title_type} onChange={set("title_type")}><MenuItem value="freehold">Freehold</MenuItem><MenuItem value="leasehold">Leasehold</MenuItem><MenuItem value="sectional">Sectional title</MenuItem></TextField>
+        <TextField type="number" label="Land size (sq ft)" value={values.land_size || ""} onChange={set("land_size")} /><TextField type="number" label="Built-up area (sq ft)" value={values.built_up_area || ""} onChange={set("built_up_area")} /><TextField select label="Currency" value={values.currency} onChange={set("currency")}><MenuItem value="KES">KES — Kenyan Shilling</MenuItem><MenuItem value="USD">USD — US Dollar</MenuItem></TextField></Grid>
+        <TextField fullWidth multiline minRows={3} label="Description" value={values.description || ""} onChange={set("description")} sx={{ mt: 2 }} />
+        <Divider sx={{ my: 2.5 }} /><Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 800 }}>Landlord and tax information</Typography>
+        <Grid><TextField required label="Name of landlord" value={values.landlord_name || ""} onChange={set("landlord_name")} /><TextField select label="Landlord type" value={values.landlord_type} onChange={set("landlord_type")}><MenuItem value="individual">Individual</MenuItem><MenuItem value="company">Company</MenuItem><MenuItem value="trust">Trust</MenuItem><MenuItem value="government">Government</MenuItem></TextField><TextField label="Landlord PIN" value={values.landlord_pin || ""} onChange={set("landlord_pin")} />
+        <TextField label="Landlord registration no." value={values.landlord_registration || ""} onChange={set("landlord_registration")} /><TextField select label="Tax status" value={values.tax_status} onChange={set("tax_status")}><MenuItem value="resident">Resident</MenuItem><MenuItem value="non_resident">Non-resident</MenuItem><MenuItem value="exempt">Tax exempt</MenuItem></TextField><Box><FormControlLabel control={<Switch checked={vatRegistered} onChange={(_, checked) => setVatRegistered(checked)} />} label="VAT registered" /><TextField fullWidth disabled={!vatRegistered} label="VAT number" value={values.vat_number || ""} onChange={set("vat_number")} /></Box></Grid>
+      </Section>
+
+      <Section id="location" title="Property address"><Grid><TextField required multiline minRows={3} label="Physical address" value={values.address || ""} onChange={set("address")} /><TextField required label="City / town" value={values.city || ""} onChange={set("city")} /><TextField required label="County" value={values.county || ""} onChange={set("county")} /><TextField multiline minRows={3} label="Postal address" value={values.postal_address || ""} onChange={set("postal_address")} /><TextField label="Postal code" value={values.postal_code || ""} onChange={set("postal_code")} /><TextField label="Country code" value={values.country} onChange={set("country")} /></Grid></Section>
+
+      <Section id="building" title="Building details"><Grid><TextField type="number" label="Number of buildings" value={values.building_count} onChange={set("building_count")} /><TextField type="number" label="Number of floors" value={values.floors} onChange={set("floors")} /><TextField label="Floor numbers" placeholder="e.g. G, 1, 2, 3" value={values.floor_numbers || ""} onChange={set("floor_numbers")} /><TextField label="Building use" value={values.building_use || ""} onChange={set("building_use")} /><TextField label="Access / entry points" value={values.access_points || ""} onChange={set("access_points")} /><TextField type="number" label="Parking spaces" value={values.parking_spaces} onChange={set("parking_spaces")} /></Grid><TextField fullWidth multiline minRows={2} label="Amenities" placeholder="Lift, generator, borehole, gym, CCTV…" value={values.amenities || ""} onChange={set("amenities")} sx={{ mt: 2 }} /></Section>
+
+      <Section id="units" title="Create units">
+        <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area (sq ft)" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Building number" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
+        <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button><Divider sx={{ my: 2 }} /><RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—"]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
+        <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}><Chip label={`Total units: ${units.length}`} /><Chip label={`Lettable area: ${totalArea.toLocaleString()} sq ft`} /><Chip label={`Vacant units: ${units.length}`} color="success" variant="outlined" /></Box>
+      </Section>
+
+      <Section id="utilities" title="Utility accounts"><Grid columns={5}><TextField select label="Utility type" value={utilityDraft.type} onChange={e => setUtilityDraft({ ...utilityDraft, type: e.target.value })}>{["water","electricity","sewerage","gas","internet"].map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField><TextField label="Account number" value={utilityDraft.account_no} onChange={e => setUtilityDraft({ ...utilityDraft, account_no: e.target.value })} /><TextField label="Provider" value={utilityDraft.provider} onChange={e => setUtilityDraft({ ...utilityDraft, provider: e.target.value })} /><TextField label="Bill cycle" value={utilityDraft.bill_cycle} onChange={e => setUtilityDraft({ ...utilityDraft, bill_cycle: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => { setUtilities(rows => [...rows, utilityDraft]); setUtilityDraft(blankUtility); }}>Add utility</Button></Grid><RowList rows={utilities} columns={["Type","Account","Provider","Bill cycle","Status"]} render={u => [u.type,u.account_no || "—",u.provider || "—",u.bill_cycle,u.status]} onRemove={i => setUtilities(rows => rows.filter((_, index) => index !== i))} empty="No utility accounts added." /></Section>
+
+      <Section id="assets" title="Assets — property fixtures and equipment"><Grid columns={5}><TextField label="Asset name" value={assetDraft.name} onChange={e => setAssetDraft({ ...assetDraft, name: e.target.value })} /><TextField label="Category" value={assetDraft.category} onChange={e => setAssetDraft({ ...assetDraft, category: e.target.value })} /><TextField label="Location" value={assetDraft.location} onChange={e => setAssetDraft({ ...assetDraft, location: e.target.value })} /><TextField type="number" label="Quantity" value={assetDraft.quantity} onChange={e => setAssetDraft({ ...assetDraft, quantity: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!assetDraft.name.trim()} onClick={() => { setAssets(rows => [...rows, assetDraft]); setAssetDraft(blankAsset); }}>Add asset</Button></Grid><RowList rows={assets} columns={["Asset","Category","Location","Qty","Status"]} render={a => [a.name,a.category,a.location,a.quantity,a.status]} onRemove={i => setAssets(rows => rows.filter((_, index) => index !== i))} empty="No assets added yet." /></Section>
+
+      <Section id="contacts" title="Property contacts"><Grid columns={5}><TextField label="Name" value={contactDraft.name} onChange={e => setContactDraft({ ...contactDraft, name: e.target.value })} /><TextField label="Role" value={contactDraft.role} onChange={e => setContactDraft({ ...contactDraft, role: e.target.value })} /><TextField type="email" label="Email" value={contactDraft.email} onChange={e => setContactDraft({ ...contactDraft, email: e.target.value })} /><TextField label="Phone" value={contactDraft.phone} onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!contactDraft.name.trim()} onClick={() => { setContacts(rows => [...rows, contactDraft]); setContactDraft(blankContact); }}>Add contact</Button></Grid><RowList rows={contacts} columns={["Name","Role","Email","Phone"]} render={c => [c.name,c.role,c.email,c.phone]} onRemove={i => setContacts(rows => rows.filter((_, index) => index !== i))} empty="No contacts added." /></Section>
+
+      <Section id="providers" title="Service providers"><Grid columns={5}><TextField label="Provider name" value={providerDraft.name} onChange={e => setProviderDraft({ ...providerDraft, name: e.target.value })} /><TextField label="Service" value={providerDraft.service} onChange={e => setProviderDraft({ ...providerDraft, service: e.target.value })} /><TextField label="Contact person" value={providerDraft.contact} onChange={e => setProviderDraft({ ...providerDraft, contact: e.target.value })} /><TextField label="Email / phone" value={providerDraft.email || providerDraft.phone} onChange={e => setProviderDraft({ ...providerDraft, email: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!providerDraft.name.trim()} onClick={() => { setProviders(rows => [...rows, providerDraft]); setProviderDraft(blankProvider); }}>Add provider</Button></Grid><RowList rows={providers} columns={["Provider","Service","Contact","Email","Phone"]} render={p => [p.name,p.service,p.contact,p.email,p.phone]} onRemove={i => setProviders(rows => rows.filter((_, index) => index !== i))} empty="No service providers added." /></Section>
+
+      <Section id="landlord" title="Landlord engagement and terms"><Grid><TextField select label="Engagement type" value={values.engagement_type || "management"} onChange={set("engagement_type")}><MenuItem value="management">Property management</MenuItem><MenuItem value="letting">Letting only</MenuItem><MenuItem value="facility">Facility management</MenuItem><MenuItem value="full_service">Full service</MenuItem></TextField><TextField type="date" label="Agreement start" value={values.engagement_start || ""} onChange={set("engagement_start")} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="date" label="Agreement end" value={values.engagement_end || ""} onChange={set("engagement_end")} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="number" label="Management fee (%)" value={values.management_fee || ""} onChange={set("management_fee")} /><TextField sx={{ gridColumn: { md: "span 2" } }} label="Payment terms" value={values.payment_terms || ""} onChange={set("payment_terms")} /></Grid></Section>
+
+      <Section id="documents" title="Documents register"><Grid columns={5}><TextField label="Document name" value={documentDraft.name} onChange={e => setDocumentDraft({ ...documentDraft, name: e.target.value })} /><TextField select label="Type" value={documentDraft.type} onChange={e => setDocumentDraft({ ...documentDraft, type: e.target.value })}><MenuItem value="title">Title</MenuItem><MenuItem value="management_agreement">Management agreement</MenuItem><MenuItem value="tax">Tax document</MenuItem><MenuItem value="insurance">Insurance</MenuItem><MenuItem value="other">Other</MenuItem></TextField><TextField label="Reference" value={documentDraft.reference} onChange={e => setDocumentDraft({ ...documentDraft, reference: e.target.value })} /><TextField type="date" label="Expiry date" value={documentDraft.expires_on} onChange={e => setDocumentDraft({ ...documentDraft, expires_on: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!documentDraft.name.trim()} onClick={() => { setDocuments(rows => [...rows, documentDraft]); setDocumentDraft(blankDocument); }}>Add document</Button></Grid><RowList rows={documents} columns={["Name","Type","Reference","Expires"]} render={d => [d.name,d.type,d.reference,d.expires_on || "—"]} onRemove={i => setDocuments(rows => rows.filter((_, index) => index !== i))} empty="No documents registered." /></Section>
+
+      <Section id="notes" title="Notes"><TextField fullWidth multiline minRows={5} label="Onboarding notes" value={values.notes || ""} onChange={set("notes")} /><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(5, 1fr)" }, gap: 2, mt: 3, color: "text.secondary" }}><Box><Typography variant="caption">Created by</Typography><Typography variant="body2" color="text.primary">{session?.user.firstName || session?.user.username || "—"}</Typography></Box><Box><Typography variant="caption">Created date</Typography><Typography variant="body2" color="text.primary">On save</Typography></Box><Box><Typography variant="caption">Last modified by</Typography><Typography variant="body2" color="text.primary">—</Typography></Box><Box><Typography variant="caption">Last modified date</Typography><Typography variant="body2" color="text.primary">—</Typography></Box><Box><Typography variant="caption">Status</Typography><Box><Chip size="small" label="Draft" /></Box></Box></Box></Section>
+    </Box>
+    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, py: 3 }}><Button variant="outlined" onClick={() => router.push("/workspaces")}>Cancel</Button><Button variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save & Close"}</Button></Box>
+  </Box>;
+}

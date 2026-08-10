@@ -114,6 +114,32 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Property.objects.filter(organization=self.organization, code='OWN-002').exists())
 
+    def test_onboarding_creates_property_buildings_units_and_metadata_atomically(self):
+        response = self.client.post('/api/v1/property/properties/onboard/', {
+            'property': {
+                'name': 'Palm Court', 'property_type': 'mixed_use', 'status': 'draft',
+                'address': 'Links Road', 'city': 'Mombasa', 'country': 'KE',
+                'metadata': {
+                    'lr_number': 'MN/I/456',
+                    'landlord': {'name': 'Example Landlord', 'vat_registered': True},
+                    'location': {'county': 'Mombasa'},
+                },
+            },
+            'building': {'count': 2, 'floors': 4, 'use': 'Mixed use'},
+            'units': [
+                {'unit_no': 'G-01', 'unit_type': 'Retail', 'floor': 'G', 'use': 'Shop', 'area': '850', 'building_index': 1},
+                {'unit_no': '1-A', 'unit_type': 'Two bedroom', 'floor': '1', 'use': 'Residential', 'area': '1100', 'rateable_area': '980', 'building_index': 2},
+            ],
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 201, response.content)
+        created = Property.objects.get(name='Palm Court')
+        self.assertTrue(created.code.startswith('PROP-'))
+        self.assertEqual(created.metadata['lr_number'], 'MN/I/456')
+        self.assertEqual(created.buildings.count(), 2)
+        self.assertEqual(created.units.count(), 2)
+        self.assertEqual(created.units.get(code='1-A').metadata['rateable_area'], '980')
+
     def test_tenant_company_card_is_validated_and_assigned_to_selected_property(self):
         scoped_headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         response = self.client.post('/api/v1/property/tenants/', {
