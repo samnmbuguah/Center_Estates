@@ -4993,7 +4993,34 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         )}
 
         {showAddProperty && (
-          <Modal title="Add New Property" onClose={() => { setShowAddProperty(false); setWizardStep(1); setPropertyData({}); setUnitMix([{ type: "", count: 1, size: 0 }]); }} wide>
+          standaloneOnboarding ? (
+            <section className="property-onboarding-page" aria-labelledby="property-onboarding-title">
+              <header className="page-head" style={{ marginBottom: 20 }}>
+                <div><p className="eyebrow">Property setup</p><h1 id="property-onboarding-title">Property onboarding</h1><p className="muted">Create the property and its initial unit mix in one place. Property codes are generated automatically.</p></div>
+              </header>
+              <div className="card" style={{ padding: 24 }}>
+                <div className="grid-2" style={{ gap: 16 }}>
+                  <Field label="Property name" required><input required data-testid="prop-name-input" value={propertyData.name ?? ""} onChange={(e) => setPropertyData({ ...propertyData, name: e.target.value })} placeholder="e.g. Palm Court Apartments" /></Field>
+                  <Field label="Property type" required><select data-testid="prop-type-select" value={propertyData.type ?? "commercial"} onChange={(e) => setPropertyData({ ...propertyData, type: e.target.value })}><option value="commercial">Commercial</option><option value="residential">Residential</option><option value="mixed_use">Mixed use</option><option value="industrial">Industrial</option></select></Field>
+                  <Field label="City / town" required><input required data-testid="prop-city-input" value={propertyData.city ?? ""} onChange={(e) => setPropertyData({ ...propertyData, city: e.target.value })} placeholder="e.g. Mombasa" /></Field>
+                  <Field label="Country"><input value={propertyData.country ?? "KE"} onChange={(e) => setPropertyData({ ...propertyData, country: e.target.value })} /></Field>
+                  <div style={{ gridColumn: "1 / -1" }}><Field label="Physical address"><textarea rows={3} value={propertyData.address ?? ""} onChange={(e) => setPropertyData({ ...propertyData, address: e.target.value })} placeholder="Street, estate or landmark" /></Field></div>
+                </div>
+                <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "24px 0" }} />
+                <h2 style={{ fontSize: 16, margin: "0 0 6px" }}>Initial unit mix</h2><p className="muted" style={{ marginTop: 0, fontSize: 13 }}>Optional. Add unit types now, or create units later from Property Management.</p>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {unitMix.map((u, i) => <div key={i} style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) 110px 130px auto", gap: 10, alignItems: "end" }}>
+                    <Field label="Unit type"><input value={u.type} onChange={(e) => { const next = [...unitMix]; next[i] = { ...u, type: e.target.value }; setUnitMix(next); }} placeholder="e.g. Two bedroom" /></Field>
+                    <Field label="Quantity"><input type="number" min={1} value={u.count} onChange={(e) => { const next = [...unitMix]; next[i] = { ...u, count: Number(e.target.value) }; setUnitMix(next); }} /></Field>
+                    <Field label="Avg. size (sq ft)"><input type="number" min={0} value={u.size || ""} onChange={(e) => { const next = [...unitMix]; next[i] = { ...u, size: Number(e.target.value) }; setUnitMix(next); }} /></Field>
+                    <button type="button" className="btn ghost sm" onClick={() => setUnitMix(unitMix.filter((_, index) => index !== i))} disabled={unitMix.length === 1}>Remove</button>
+                  </div>)}
+                </div>
+                <button type="button" className="btn ghost sm" style={{ marginTop: 12 }} onClick={() => setUnitMix([...unitMix, { type: "", count: 1, size: 0 }])}>+ Add unit type</button>
+                <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 24 }}><button type="button" className="btn ghost" onClick={() => window.location.assign("/workspaces")}>Cancel</button><button type="button" className="btn primary" data-testid="prop-wizard-create" disabled={!propertyData.name?.trim() || !propertyData.city?.trim()} onClick={() => void submitAddProperty()}>Create property</button></div>
+              </div>
+            </section>
+          ) : <Modal title="Add New Property" onClose={() => { setShowAddProperty(false); setWizardStep(1); setPropertyData({}); setUnitMix([{ type: "", count: 1, size: 0 }]); }} wide>
             {wizardStep === 1 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <p className="muted" style={{ margin: 0, fontSize: 12 }}>Step 1 of 3 — Basic Information</p>
