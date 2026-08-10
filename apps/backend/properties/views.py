@@ -65,7 +65,13 @@ class OrganizationModelViewSet(ModelViewSet):
         return organization
 
     def perform_create(self, serializer):
-        serializer.save(organization=self._validate_organization(serializer))
+        organization = self._validate_organization(serializer)
+        model_name = serializer.Meta.model.__name__.upper()
+        prefix = "PROP" if model_name == "PROPERTY" else "TNT" if model_name == "TENANT" else model_name[:4]
+        from django.db.models import Max
+        existing = serializer.Meta.model.objects.filter(organization=organization, code__startswith=f"{prefix}-").values_list("code", flat=True)
+        numbers = [int(code.rsplit("-", 1)[-1]) for code in existing if code.rsplit("-", 1)[-1].isdigit()]
+        serializer.save(organization=organization, code=f"{prefix}-{(max(numbers) + 1) if numbers else 1:04d}")
 
     def perform_update(self, serializer):
         self._validate_organization(serializer)

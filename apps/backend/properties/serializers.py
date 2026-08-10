@@ -10,6 +10,7 @@ from .models import (
 
 
 class PropertySerializer(serializers.ModelSerializer):
+    code = serializers.CharField(read_only=True)
     buildings_count = serializers.IntegerField(read_only=True, default=0)
     units_count = serializers.IntegerField(read_only=True, default=0)
     class Meta:
@@ -40,6 +41,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 
 class TenantSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(read_only=True)
     class Meta:
         model = Tenant
         exclude = ('organization',)

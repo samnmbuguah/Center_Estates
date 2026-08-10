@@ -787,7 +787,6 @@ function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFin
 
           <Panel title="Quick Actions">
             <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, width: 260 }}>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("properties")}>Add New Property →</button>
               <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("leases")}>Add New Lease →</button>
               <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("tenants")}>Add New Tenant →</button>
               <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("rent")}>Generate Invoice →</button>
@@ -864,7 +863,6 @@ function PropertiesView({
           { key: "occupancy", label: "Occupancy %" }, { key: "monthlyRent", label: "Monthly Rent" },
           { key: "outstanding", label: "Outstanding" }, { key: "status", label: "Status" },
         ], "properties.csv")}>Export CSV</button>
-        <button className="btn primary sm" onClick={onAdd}>+ Add Property</button>
       </ViewToolbar>
 
       <Panel title="Properties">
@@ -4457,7 +4455,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
 
   async function submitAddProperty() {
     const payload = {
-      code: String(propertyData.code ?? "").trim(),
       name: String(propertyData.name ?? "").trim(),
       property_type: String(propertyData.type ?? "commercial"),
       city: String(propertyData.city ?? ""),
@@ -4504,7 +4501,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     const form = new FormData(e.currentTarget);
     const raw = Object.fromEntries(form.entries());
     const payload = {
-      code: String(raw.code ?? "").trim(),
       name: String(raw.name ?? "").trim(),
       tenant_type: String(raw.tenant_type ?? "company"),
       email: String(raw.email ?? ""),
@@ -4949,7 +4945,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
           <span className="muted" style={{ fontSize: 12 }}>📅 {todayStr}</span>
           {canFinance && <button className="btn ghost sm" data-testid="property-record-receipt-btn" onClick={() => openRecordReceipt()}>+ Record Receipt</button>}
           {canLease && <button className="btn ghost sm" data-testid="property-add-tenant-btn" onClick={() => setShowAddTenant(true)}>+ Add Tenant</button>}
-          {canOperate && <button className="btn primary sm" data-testid="property-add-prop-btn" onClick={() => setShowAddProperty(true)}>+ Add Property</button>}
         </div>
       }
     >
@@ -5003,9 +4998,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <p className="muted" style={{ margin: 0, fontSize: 12 }}>Step 1 of 3 — Basic Information</p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <Field label="Property Code" required>
-                    <input name="code" required data-testid="prop-code-input" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.code ?? ""} onChange={(e) => setPropertyData({ ...propertyData, code: e.target.value })} />
-                  </Field>
                   <Field label="Property Name" required>
                     <input name="name" required data-testid="prop-name-input" style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={propertyData.name ?? ""} onChange={(e) => setPropertyData({ ...propertyData, name: e.target.value })} />
                   </Field>
@@ -5068,7 +5060,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
                 <div className="card" style={{ padding: 14, background: "var(--surface-2)" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     {[
-                      { label: "Code", value: propertyData.code },
                       { label: "Name", value: propertyData.name },
                       { label: "Type", value: propertyData.type },
                       { label: "City", value: propertyData.city },
@@ -5128,9 +5119,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
           <Modal title="Add New Tenant Profile" onClose={() => setShowAddTenant(false)} wide>
             <form onSubmit={submitAddTenant} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="grid-2">
-                <Field label="Tenant Code" required>
-                  <input name="code" required placeholder="e.g. TNT-006" data-testid="tenant-code-input" />
-                </Field>
                 <Field label="Full Name / Company" required>
                   <input name="name" required placeholder="e.g. Apex Holdings Ltd" data-testid="tenant-name-input" />
                 </Field>

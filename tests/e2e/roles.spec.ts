@@ -158,7 +158,6 @@ test("@role:leasing-officer @module:property @story:ROLE-LEASING-OFFICER leasing
   await page.getByRole("button", { name: "+ Add Tenant", exact: true }).last().click();
   const dialog = page.getByRole("dialog", { name: "Add New Tenant Profile" });
   const suffix = Date.now();
-  await dialog.getByLabel("Tenant code").fill(`LSE-${suffix}`);
   await dialog.getByLabel("Full Name / Company").fill(`Leasing Prospect ${suffix}`);
   await dialog.getByLabel("Registration Number").fill(`REG-${suffix}`);
   await dialog.getByLabel("KRA PIN / Tax ID").fill(`P${String(suffix).slice(-8)}Z`);

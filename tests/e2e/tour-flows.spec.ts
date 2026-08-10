@@ -102,7 +102,6 @@ test("tenant onboarding user story: create a tenant", async ({ page }) => {
   await page.getByTestId("tenant-name-input").waitFor({ timeout: 20000 });
 
   const unique = `E2E Tenant ${Date.now()}`;
-  await page.getByTestId("tenant-code-input").fill(`E2E-${Date.now()}`);
   await page.getByTestId("tenant-name-input").fill(unique);
   await page.getByTestId("tenant-email-input").fill(`tenant-${Date.now()}@example.test`);
   await page.getByTestId("tenant-phone-input").fill("+254 700 000 000");
@@ -165,13 +164,10 @@ test("facility service request user story: create a service request", async ({ p
 });
 
 test("property add property user story: create a property via the wizard", async ({ page }) => {
-  await gotoModuleTab(page, "property", "overview");
-  await page.getByTestId("property-add-prop-btn").waitFor({ timeout: 30000 });
-  await page.getByTestId("property-add-prop-btn").click();
+  await page.goto(`${BASE_URL}/property-onboarding`);
   await page.getByTestId("prop-name-input").waitFor({ timeout: 20000 });
 
   const unique = `E2E Tower ${Date.now()}`;
-  await page.getByTestId("prop-code-input").fill(`DEMO-${Date.now()}`);
   await page.getByTestId("prop-name-input").fill(unique);
   await page.getByTestId("prop-type-select").selectOption("commercial");
   await page.getByTestId("prop-wizard-next").click();

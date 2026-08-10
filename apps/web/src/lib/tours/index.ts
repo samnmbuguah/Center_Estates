@@ -123,13 +123,6 @@ registerTour({
       actions: [{ type: "click", testid: "property-add-tenant-btn" }],
     },
     {
-      testid: "tenant-code-input",
-      title: "Tenant code",
-      description:
-        "A short unique code links the tenant to leases, invoices and documents across the portfolio.",
-      actions: [{ type: "fill", testid: "tenant-code-input", value: "TNT-007" }],
-    },
-    {
       testid: "tenant-name-input",
       title: "Tenant name",
       description:
@@ -251,11 +244,9 @@ registerTour({
         "This tour demonstrates adding a new property through the guided wizard — the flow covered by the property E2E acceptance tests.",
     },
     {
-      testid: "property-add-prop-btn",
+      testid: "property-onboarding-link",
       title: "Add a Property",
-      description:
-        "Click '+ Add Property' to open the 3-step wizard. The demo auto-fills realistic portfolio data.",
-      actions: [{ type: "click", testid: "property-add-prop-btn" }],
+      description: "Use the standalone Property onboarding workspace to create a property. Identifiers are generated automatically.",
     },
     {
       testid: "prop-name-input",
@@ -263,13 +254,6 @@ registerTour({
       description:
         "The property name appears across portfolio, occupancy and rent reporting.",
       actions: [{ type: "fill", testid: "prop-name-input", value: "Demo Tower" }],
-    },
-    {
-      testid: "prop-code-input",
-      title: "Property code",
-      description:
-        "A short unique code is used in unit and lease references.",
-      actions: [{ type: "fill", testid: "prop-code-input", value: "DEMO-001" }],
     },
     {
       testid: "prop-type-select",

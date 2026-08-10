@@ -150,7 +150,7 @@ export function CommandCenterWorkspace() {
             ))}
           </div>
           {allowed.has("property") ? (
-            <Link className="command-onboard-action" href="/property?tab=properties&action=add-property">
+            <Link className="command-onboard-action" href="/property-onboarding">
               + Onboard property
             </Link>
           ) : null}

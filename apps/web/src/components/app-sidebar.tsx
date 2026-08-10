@@ -322,7 +322,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
           )}
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "property")) && (
-            <Link className="nav-link" href="/property-onboarding" onClick={onCloseMobile} title="Property onboarding" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
+            <Link className="nav-link" data-testid="property-onboarding-link" href="/property-onboarding" onClick={onCloseMobile} title="Property onboarding" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : (collapsed ? "10px" : "9px 12px"), justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
               <span style={{ fontSize: isMobile ? 20 : 15 }}>🏗️</span>{(!collapsed || isMobile) && <span>Property onboarding</span>}
             </Link>
           )}
