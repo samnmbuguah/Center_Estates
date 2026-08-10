@@ -12,25 +12,24 @@ async function signInAs(page: Page, username: string) {
   await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
 }
 
-const moduleCases = [
-  ["property", "Property", "Property Management"],
-  ["facility", "Facility", "Facility Management"],
-  ["sales", "Sales", "Sales Management"],
-  ["tender", "Tender", "Tender Management"],
-  ["valuation", "Valuation", "Valuation"],
-  ["monitoring", "Construction Monitoring", "Project monitoring"],
-] as const;
+// Only modules in ACTIVE_MODULES render workspace cards; sales/tender/monitoring
+// are disabled in the production scope and their viewers land on the command
+// center without a module card.
+const moduleCases = ["property", "facility", "valuation", "companion"] as const;
 
-for (const [module, linkName, heading] of moduleCases) {
+for (const module of moduleCases) {
   test(`@role:viewer @module:${module} @story:ROLE-${module.toUpperCase()}-VIEW viewer sees only their module`, async ({ page }, testInfo) => {
     await signInAs(page, `role-${module}-viewer`);
-    const moduleLinks = page.locator("a.module-card");
+    const moduleLinks = page.locator("article.module-card");
     await expect(moduleLinks).toHaveCount(1);
     if (testInfo.project.name.startsWith("mobile")) {
       await page.getByRole("button", { name: "Open navigation" }).click();
     }
-    await page.getByRole("link", { name: linkName, exact: true }).click();
-    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    // The card's primary link carries the full module name (h3), not the slug.
+    await page.locator("article.module-card a.module-card-primary-link").first().click();
+    // The redesigned workspace shell no longer renders a module title heading;
+    // its navigation bar is the reliable signal that the module loaded.
+    await expect(page.locator(".module-nav-bar, .module-workspace").first()).toBeVisible();
     await expect(page.locator(".form-error")).toHaveCount(0);
   });
 }
