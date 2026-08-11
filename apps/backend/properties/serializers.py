@@ -1,12 +1,109 @@
 from rest_framework import serializers
 
 from .models import (
-    BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
+    BankTransaction, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
+    Building, Budget, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent, Project, Property,
-    Receipt, ReceiptAllocation, RentSchedule, ServiceCharge,
+    Receipt, ReceiptAllocation, RentSchedule, ReportDefinition, ReportExecution, ScheduledReport,
+    ServiceCharge, TaxConfiguration, TenantMovement, UnitStatusHistory, LeaseEscalation,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit,
 )
+
+
+class TaxConfigurationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxConfiguration
+        exclude = ('organization',)
+
+
+class BillingItemSerializer(serializers.ModelSerializer):
+    tax_code = serializers.CharField(source='tax_configuration.code', read_only=True, default='')
+    class Meta:
+        model = BillingItem
+        exclude = ('organization',)
+
+
+class BillingProfileSerializer(serializers.ModelSerializer):
+    tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
+    property_name = serializers.CharField(source='lease.unit.property.name', read_only=True)
+    unit_code = serializers.CharField(source='lease.unit.code', read_only=True)
+    billing_item_name = serializers.CharField(source='billing_item.name', read_only=True)
+    class Meta:
+        model = BillingProfile
+        exclude = ('organization',)
+
+
+class LeaseEscalationSerializer(serializers.ModelSerializer):
+    lease_reference = serializers.CharField(source='lease.reference', read_only=True)
+    class Meta:
+        model = LeaseEscalation
+        exclude = ('organization', 'approved_by', 'approved_at')
+        read_only_fields = ('status',)
+
+
+class UnitStatusHistorySerializer(serializers.ModelSerializer):
+    unit_code = serializers.CharField(source='unit.code', read_only=True)
+    property_name = serializers.CharField(source='unit.property.name', read_only=True)
+    class Meta:
+        model = UnitStatusHistory
+        exclude = ('organization', 'recorded_by')
+
+
+class TenantMovementSerializer(serializers.ModelSerializer):
+    tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+    unit_code = serializers.CharField(source='unit.code', read_only=True)
+    property_name = serializers.CharField(source='unit.property.name', read_only=True)
+    class Meta:
+        model = TenantMovement
+        exclude = ('organization', 'recorded_by')
+
+
+class InvoiceLineSerializer(serializers.ModelSerializer):
+    billing_item_name = serializers.CharField(source='billing_item.name', read_only=True, default='')
+    class Meta:
+        model = InvoiceLine
+        exclude = ('organization',)
+
+
+class BillingReadinessIssueSerializer(serializers.ModelSerializer):
+    tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True, default='')
+    unit_code = serializers.CharField(source='lease.unit.code', read_only=True, default='')
+    class Meta:
+        model = BillingReadinessIssue
+        exclude = ('organization', 'resolved_by', 'resolved_at')
+        read_only_fields = ('status',)
+
+
+class BillingRunSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True, default='Portfolio')
+    issues = BillingReadinessIssueSerializer(many=True, read_only=True)
+    class Meta:
+        model = BillingRun
+        exclude = ('organization', 'created_by', 'approved_by', 'approved_at', 'generated_at')
+        read_only_fields = ('status', 'totals')
+
+
+class ReportDefinitionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReportDefinition
+        exclude = ('organization', 'created_by')
+
+
+class ReportExecutionSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True, default='Portfolio')
+    generated_by_name = serializers.CharField(source='generated_by.get_full_name', read_only=True)
+    class Meta:
+        model = ReportExecution
+        exclude = ('organization',)
+        read_only_fields = ('status', 'generated_by', 'generated_at', 'file', 'row_count', 'error_message')
+
+
+class ScheduledReportSerializer(serializers.ModelSerializer):
+    report_name = serializers.CharField(source='definition.name', read_only=True)
+    class Meta:
+        model = ScheduledReport
+        exclude = ('organization', 'created_by', 'last_execution')
 
 
 class PaymentGatewayConfigurationSerializer(serializers.ModelSerializer):
@@ -131,6 +228,9 @@ class LeaseSerializer(serializers.ModelSerializer):
 class InvoiceSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
     tenant_id = serializers.UUIDField(source='lease.tenant.id', read_only=True)
+    property_name = serializers.CharField(source='lease.unit.property.name', read_only=True)
+    unit_code = serializers.CharField(source='lease.unit.code', read_only=True)
+    lines = InvoiceLineSerializer(many=True, read_only=True)
     class Meta:
         model = Invoice
         exclude = ('organization',)

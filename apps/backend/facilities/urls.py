@@ -2,7 +2,8 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AssetViewSet, ContractorViewSet, FacilityAnalyticsViewSet, FacilityDashboardViewSet,
-    FacilityPortalViewSet, InspectionViewSet, MeterReadingViewSet, PreventiveScheduleViewSet,
+    FacilityPortalViewSet, InspectionViewSet, MeterReadingViewSet, MeterReconciliationViewSet,
+    MeterResetEventViewSet, PreventiveScheduleViewSet,
     ServiceRequestViewSet, UtilityMeterViewSet, WorkOrderAttachmentViewSet,
     WorkOrderCostItemViewSet, WorkOrderEventViewSet, WorkOrderViewSet,
 )
@@ -18,6 +19,8 @@ router.register('service-requests', ServiceRequestViewSet)
 router.register('portal', FacilityPortalViewSet, basename='facility-portal')
 router.register('meters', UtilityMeterViewSet)
 router.register('meter-readings', MeterReadingViewSet)
+router.register('meter-reset-events', MeterResetEventViewSet)
+router.register('meter-reconciliations', MeterReconciliationViewSet)
 router.register('contractors', ContractorViewSet)
 router.register('work-order-events', WorkOrderEventViewSet)
 router.register('work-order-cost-items', WorkOrderCostItemViewSet)

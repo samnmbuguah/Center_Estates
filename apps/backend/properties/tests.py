@@ -17,12 +17,12 @@ from facilities.models import MeterReading, ServiceRequest, UtilityMeter
 from notifications.models import Notification
 
 from .models import (
-    BankTransaction, Budget, Building, CreditNote, Expense, Invoice,
+    BankTransaction, BillingItem, BillingProfile, BillingRun, Budget, Building, CreditNote, Expense, Invoice,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
     PaymentWebhookEvent, Property, Receipt, ReceiptAllocation, RentSchedule,
-    ServiceCharge, ServiceChargeAllocation,
+    ReportDefinition, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
-    Unit,
+    TaxConfiguration, TenantMovement, Unit, UnitStatusHistory,
 )
 
 
@@ -95,6 +95,61 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['portfolio'][0]['occupied'], 1)
         self.assertEqual(len(response.data['aging']), 4)
         self.assertTrue(response.data['collectionTrend'])
+
+    def test_effective_dated_billing_and_reporting_foundation_is_scoped_and_persisted(self):
+        tax = self.client.post('/api/v1/property/tax-configurations/', {
+            'code': 'VAT16', 'name': 'Output VAT', 'rate': '16.0000',
+            'effective_from': '2026-01-01', 'is_active': True,
+        }, format='json', **self.headers)
+        self.assertEqual(tax.status_code, 201, tax.data)
+        item = self.client.post('/api/v1/property/billing-items/', {
+            'code': 'RENT', 'name': 'Monthly rent', 'calculation': 'fixed',
+            'income_category': 'rent', 'tax_configuration': tax.data['id'],
+            'is_recurring': True, 'is_active': True,
+        }, format='json', **self.headers)
+        self.assertEqual(item.status_code, 201, item.data)
+        profile = self.client.post('/api/v1/property/billing-profiles/', {
+            'lease': str(self.lease.id), 'billing_item': item.data['id'], 'frequency': 'monthly',
+            'calculation': 'fixed', 'amount': '1000.00', 'rate': '0',
+            'effective_from': '2026-01-01', 'billing_day': 1, 'custom_interval_months': 1,
+        }, format='json', **self.headers)
+        self.assertEqual(profile.status_code, 201, profile.data)
+        self.assertEqual(profile.data['tenant_name'], self.tenant.name)
+        run = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id), 'period_start': '2026-08-01', 'period_end': '2026-08-31',
+        }, format='json', **self.headers)
+        self.assertEqual(run.status_code, 201, run.data)
+        self.assertEqual(run.data['status'], BillingRun.Status.PREPARING)
+        definition = self.client.post('/api/v1/property/report-definitions/', {
+            'key': 'monthly-tenancy', 'name': 'Monthly tenancy schedule', 'domain': 'tenancy',
+            'selected_fields': ['tenant', 'unit', 'rent'], 'default_filters': {},
+        }, format='json', **self.headers)
+        self.assertEqual(definition.status_code, 201, definition.data)
+        scheduled = self.client.post('/api/v1/property/scheduled-reports/', {
+            'definition': definition.data['id'], 'property': str(self.property.id),
+            'frequency': 'monthly', 'next_run_at': '2026-09-01T06:00:00Z',
+            'recipients': ['manager@example.com'], 'filters': {}, 'output_format': 'pdf',
+        }, format='json', **self.headers)
+        self.assertEqual(scheduled.status_code, 201, scheduled.data)
+        self.assertEqual(BillingProfile.objects.count(), 1)
+        self.assertEqual(ScheduledReport.objects.count(), 1)
+
+    def test_unit_status_and_tenant_movements_are_immutable_history(self):
+        status = self.client.post('/api/v1/property/unit-status-history/', {
+            'unit': str(self.unit.id), 'status': Unit.Status.OCCUPIED,
+            'effective_from': '2026-01-01', 'reason': 'Lease commenced',
+            'expected_monthly_rent': '1000.00', 'expected_service_charge': '100.00',
+        }, format='json', **self.headers)
+        self.assertEqual(status.status_code, 201, status.data)
+        movement = self.client.post('/api/v1/property/tenant-movements/', {
+            'tenant': str(self.tenant.id), 'lease': str(self.lease.id), 'unit': str(self.unit.id),
+            'kind': TenantMovement.Kind.MOVE_IN, 'effective_on': '2026-01-01',
+        }, format='json', **self.headers)
+        self.assertEqual(movement.status_code, 201, movement.data)
+        self.assertEqual(self.client.patch(
+            f"/api/v1/property/tenant-movements/{movement.data['id']}/", {'reason': 'Changed'}, format='json', **self.headers,
+        ).status_code, 400)
+        self.assertEqual(UnitStatusHistory.objects.count(), 1)
 
     @mock.patch.dict(os.environ, {'ECITIZEN_TEST_SECRET': 'client-supplied-signing-secret'})
     def test_tenant_payment_is_signed_idempotent_and_fully_reconciled(self):

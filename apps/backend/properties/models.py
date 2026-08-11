@@ -220,6 +220,9 @@ class Lease(OrganizationOwnedModel):
 
     def effective_rent(self, as_of):
         """Return compound rent effective on a date within this lease term."""
+        explicit = self.escalations.filter(effective_on__lte=as_of, status=LeaseEscalation.Status.APPROVED).order_by('-effective_on').first()
+        if explicit:
+            return explicit.new_monthly_rent
         if as_of < self.starts_on:
             return self.monthly_rent
         elapsed_months = (as_of.year - self.starts_on.year) * 12 + as_of.month - self.starts_on.month
@@ -228,6 +231,169 @@ class Lease(OrganizationOwnedModel):
         steps = elapsed_months // max(self.escalation_interval_months, 1) if self.escalation_percent else 0
         multiplier = (Decimal('1') + self.escalation_percent / Decimal('100')) ** steps
         return (self.monthly_rent * multiplier).quantize(Decimal('0.01'))
+
+
+class LeaseEscalation(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PLANNED = 'planned', 'Planned'
+        APPROVED = 'approved', 'Approved'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    lease = models.ForeignKey(Lease, on_delete=models.CASCADE, related_name='escalations')
+    effective_on = models.DateField()
+    previous_monthly_rent = models.DecimalField(max_digits=14, decimal_places=2)
+    new_monthly_rent = models.DecimalField(max_digits=14, decimal_places=2)
+    percentage = models.DecimalField(max_digits=7, decimal_places=3, default=0)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PLANNED)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_lease_escalations')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('effective_on',)
+        constraints = [models.UniqueConstraint(fields=('lease', 'effective_on'), name='unique_lease_escalation_date')]
+
+    def clean(self):
+        if self.lease_id and self.lease.organization_id != self.organization_id:
+            raise ValidationError('Lease escalation must belong to the lease organization.')
+        if self.lease_id and not self.lease.starts_on <= self.effective_on < self.lease.ends_on:
+            raise ValidationError({'effective_on': 'Escalation must fall within the lease term.'})
+        if self.previous_monthly_rent <= 0 or self.new_monthly_rent <= 0:
+            raise ValidationError('Escalation rent values must be greater than zero.')
+
+
+class UnitStatusHistory(OrganizationOwnedModel):
+    unit = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name='status_history')
+    status = models.CharField(max_length=20, choices=Unit.Status.choices)
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+    reason = models.CharField(max_length=160, blank=True)
+    marketing_status = models.CharField(max_length=80, blank=True)
+    expected_monthly_rent = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    expected_service_charge = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='recorded_unit_statuses')
+
+    class Meta:
+        ordering = ('-effective_from', '-created_at')
+        constraints = [models.UniqueConstraint(fields=('unit', 'effective_from'), name='unique_unit_status_effective_date')]
+
+    def clean(self):
+        if self.unit_id and self.unit.organization_id != self.organization_id:
+            raise ValidationError('Unit status history must belong to the unit organization.')
+        if self.effective_to and self.effective_to < self.effective_from:
+            raise ValidationError({'effective_to': 'End date cannot be before the effective date.'})
+
+    def delete(self, *args, **kwargs):
+        raise TypeError('Unit status history is immutable.')
+
+
+class TenantMovement(OrganizationOwnedModel):
+    class Kind(models.TextChoices):
+        MOVE_IN = 'move_in', 'Move in'
+        MOVE_OUT = 'move_out', 'Move out'
+        TRANSFER = 'transfer', 'Transfer'
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='movements')
+    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name='movements')
+    unit = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name='tenant_movements')
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    effective_on = models.DateField()
+    reason = models.CharField(max_length=200, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='recorded_tenant_movements')
+
+    class Meta:
+        ordering = ('-effective_on', '-created_at')
+        constraints = [models.UniqueConstraint(fields=('lease', 'kind', 'effective_on'), name='unique_lease_movement_event')]
+
+    def clean(self):
+        if any(record.organization_id != self.organization_id for record in (self.tenant, self.lease, self.unit)):
+            raise ValidationError('Tenant movement records must belong to one organization.')
+        if self.lease.tenant_id != self.tenant_id or self.lease.unit_id != self.unit_id:
+            raise ValidationError('Movement tenant and unit must match the selected lease.')
+
+    def delete(self, *args, **kwargs):
+        raise TypeError('Tenant movement history is immutable.')
+
+
+class TaxConfiguration(OrganizationOwnedModel):
+    code = models.CharField(max_length=30)
+    name = models.CharField(max_length=100)
+    rate = models.DecimalField(max_digits=7, decimal_places=4)
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+    is_input_tax = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('code', '-effective_from')
+        constraints = [models.UniqueConstraint(fields=('organization', 'code', 'effective_from'), name='unique_tax_code_effective_date')]
+
+    def clean(self):
+        if self.rate < 0 or self.rate > 100:
+            raise ValidationError({'rate': 'Tax rate must be between 0 and 100 percent.'})
+        if self.effective_to and self.effective_to < self.effective_from:
+            raise ValidationError({'effective_to': 'End date cannot precede the effective date.'})
+
+
+class BillingItem(OrganizationOwnedModel):
+    class Calculation(models.TextChoices):
+        FIXED = 'fixed', 'Fixed amount'
+        AREA_RATE = 'area_rate', 'Rate per area'
+        METERED = 'metered', 'Meter consumption'
+        PERCENTAGE = 'percentage', 'Percentage'
+        MANUAL = 'manual', 'Authorized manual amount'
+
+    code = models.CharField(max_length=40)
+    name = models.CharField(max_length=120)
+    calculation = models.CharField(max_length=16, choices=Calculation.choices, default=Calculation.FIXED)
+    income_category = models.CharField(max_length=80, blank=True)
+    tax_configuration = models.ForeignKey(TaxConfiguration, on_delete=models.PROTECT, related_name='billing_items', null=True, blank=True)
+    is_recurring = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('name',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_billing_item_code')]
+
+
+class BillingProfile(OrganizationOwnedModel):
+    class Frequency(models.TextChoices):
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        BIANNUAL = 'biannual', 'Biannual'
+        ANNUAL = 'annual', 'Annual'
+        ONE_OFF = 'one_off', 'One-off'
+        METERED = 'metered', 'Meter-based'
+        EVENT = 'event', 'Event-based'
+        CUSTOM = 'custom', 'Custom schedule'
+
+    lease = models.ForeignKey(Lease, on_delete=models.CASCADE, related_name='billing_profiles')
+    billing_item = models.ForeignKey(BillingItem, on_delete=models.PROTECT, related_name='profiles')
+    frequency = models.CharField(max_length=16, choices=Frequency.choices, default=Frequency.MONTHLY)
+    calculation = models.CharField(max_length=16, choices=BillingItem.Calculation.choices, default=BillingItem.Calculation.FIXED)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    rate = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+    billing_day = models.PositiveSmallIntegerField(default=1)
+    custom_interval_months = models.PositiveSmallIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    instructions = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('lease__reference', 'billing_item__name', '-effective_from')
+        constraints = [models.UniqueConstraint(fields=('lease', 'billing_item', 'effective_from'), name='unique_billing_profile_effective_date')]
+
+    def clean(self):
+        if self.lease_id and self.lease.organization_id != self.organization_id:
+            raise ValidationError('Billing profile must belong to the lease organization.')
+        if self.billing_item_id and self.billing_item.organization_id != self.organization_id:
+            raise ValidationError('Billing item must belong to the profile organization.')
+        if not 1 <= self.billing_day <= 28:
+            raise ValidationError({'billing_day': 'Billing day must be between 1 and 28.'})
+        if self.effective_to and self.effective_to < self.effective_from:
+            raise ValidationError({'effective_to': 'End date cannot precede the effective date.'})
 
 
 class Invoice(OrganizationOwnedModel):
@@ -278,6 +444,89 @@ class Invoice(OrganizationOwnedModel):
             raise ValidationError({'tax_rate': 'Supported VAT rates are 0% and 16%.'})
         if self.subtotal + self.tax_amount != self.amount:
             raise ValidationError({'amount': 'Invoice total must equal subtotal plus tax.'})
+
+
+class BillingRun(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PREPARING = 'preparing', 'Preparing'
+        REVIEW = 'review', 'Under review'
+        APPROVED = 'approved', 'Approved'
+        GENERATED = 'generated', 'Generated'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    period_start = models.DateField()
+    period_end = models.DateField()
+    property = models.ForeignKey(Property, on_delete=models.PROTECT, related_name='billing_runs', null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PREPARING)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_billing_runs')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_billing_runs')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    generated_at = models.DateTimeField(null=True, blank=True)
+    totals = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-period_start', '-created_at')
+        constraints = [models.UniqueConstraint(fields=('organization', 'property', 'period_start'), name='unique_property_billing_run_period')]
+
+    def clean(self):
+        if self.period_end < self.period_start:
+            raise ValidationError({'period_end': 'Billing period end cannot precede its start.'})
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Billing run property must belong to the organization.')
+
+
+class BillingReadinessIssue(OrganizationOwnedModel):
+    class Severity(models.TextChoices):
+        WARNING = 'warning', 'Warning'
+        BLOCKING = 'blocking', 'Blocking'
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        RESOLVED = 'resolved', 'Resolved'
+        OVERRIDDEN = 'overridden', 'Authorized override'
+
+    billing_run = models.ForeignKey(BillingRun, on_delete=models.CASCADE, related_name='issues')
+    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name='billing_issues', null=True, blank=True)
+    billing_profile = models.ForeignKey(BillingProfile, on_delete=models.PROTECT, related_name='readiness_issues', null=True, blank=True)
+    code = models.CharField(max_length=60)
+    message = models.CharField(max_length=250)
+    severity = models.CharField(max_length=12, choices=Severity.choices, default=Severity.BLOCKING)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.OPEN)
+    resolution_notes = models.TextField(blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_billing_issues')
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('status', '-severity', 'created_at')
+        constraints = [models.UniqueConstraint(fields=('billing_run', 'lease', 'billing_profile', 'code'), name='unique_billing_readiness_issue')]
+
+
+class InvoiceLine(OrganizationOwnedModel):
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='lines')
+    billing_item = models.ForeignKey(BillingItem, on_delete=models.PROTECT, related_name='invoice_lines', null=True, blank=True)
+    description = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=14, decimal_places=4, default=1)
+    unit_rate = models.DecimalField(max_digits=14, decimal_places=4)
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
+    tax_code = models.CharField(max_length=30, blank=True)
+    tax_rate = models.DecimalField(max_digits=7, decimal_places=4, default=0)
+    tax_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    source_type = models.CharField(max_length=40, blank=True)
+    source_id = models.CharField(max_length=80, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('created_at',)
+
+    def clean(self):
+        if self.invoice_id and self.invoice.organization_id != self.organization_id:
+            raise ValidationError('Invoice line must belong to the invoice organization.')
+        if self.billing_item_id and self.billing_item.organization_id != self.organization_id:
+            raise ValidationError('Billing item must belong to the invoice organization.')
+        if min(self.quantity, self.unit_rate, self.subtotal, self.tax_rate, self.tax_amount, self.total) < 0:
+            raise ValidationError('Invoice line values cannot be negative.')
+        if self.subtotal + self.tax_amount != self.total:
+            raise ValidationError({'total': 'Line total must equal subtotal plus tax.'})
 
 
 class Receipt(OrganizationOwnedModel):
@@ -452,6 +701,11 @@ class Expense(OrganizationOwnedModel):
     invoice_number = models.CharField(max_length=80, blank=True)
     incurred_on = models.DateField()
     amount = models.DecimalField(max_digits=14, decimal_places=2)
+    taxable_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    tax_code = models.CharField(max_length=30, blank=True)
+    tax_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    cost_centre = models.CharField(max_length=80, blank=True)
+    budget_code = models.CharField(max_length=80, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     description = models.TextField(blank=True)
 
@@ -476,13 +730,16 @@ class Budget(OrganizationOwnedModel):
     year = models.PositiveSmallIntegerField()
     category = models.CharField(max_length=80)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
+    version = models.PositiveSmallIntegerField(default=1)
+    revised_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    forecast_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_property_budgets')
     approved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ('-year', 'category')
-        constraints = [models.UniqueConstraint(fields=('property', 'year', 'category'), name='unique_property_budget_category')]
+        constraints = [models.UniqueConstraint(fields=('property', 'year', 'category', 'version'), name='unique_property_budget_category_version')]
 
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
@@ -677,3 +934,81 @@ class CreditNote(OrganizationOwnedModel):
             raise ValidationError('Credit note invoice must belong to the same organization.')
         if self.amount <= 0:
             raise ValidationError({'amount': 'Credit amount must be greater than zero.'})
+
+
+class ReportDefinition(OrganizationOwnedModel):
+    class Domain(models.TextChoices):
+        TENANCY = 'tenancy', 'Tenancy and occupancy'
+        FINANCIAL = 'financial', 'Financial'
+        BILLING = 'billing', 'Billing'
+
+    key = models.CharField(max_length=80)
+    name = models.CharField(max_length=160)
+    domain = models.CharField(max_length=16, choices=Domain.choices)
+    description = models.TextField(blank=True)
+    selected_fields = models.JSONField(default=list, blank=True)
+    default_filters = models.JSONField(default=dict, blank=True)
+    grouping = models.JSONField(default=list, blank=True)
+    sorting = models.JSONField(default=list, blank=True)
+    is_standard = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_report_definitions')
+
+    class Meta:
+        ordering = ('domain', 'name')
+        constraints = [models.UniqueConstraint(fields=('organization', 'key'), name='unique_organization_report_definition')]
+
+
+class ReportExecution(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        QUEUED = 'queued', 'Queued'
+        RUNNING = 'running', 'Running'
+        COMPLETED = 'completed', 'Completed'
+        FAILED = 'failed', 'Failed'
+
+    definition = models.ForeignKey(ReportDefinition, on_delete=models.PROTECT, related_name='executions', null=True, blank=True)
+    report_key = models.CharField(max_length=80)
+    property = models.ForeignKey(Property, on_delete=models.PROTECT, related_name='report_executions', null=True, blank=True)
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+    filters = models.JSONField(default=dict, blank=True)
+    output_format = models.CharField(max_length=12, default='pdf')
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED)
+    generated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='generated_property_reports')
+    generated_at = models.DateTimeField(null=True, blank=True)
+    file = models.FileField(upload_to='property/reports/%Y/%m/', blank=True)
+    row_count = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+
+class ScheduledReport(OrganizationOwnedModel):
+    class Frequency(models.TextChoices):
+        DAILY = 'daily', 'Daily'
+        WEEKLY = 'weekly', 'Weekly'
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+
+    definition = models.ForeignKey(ReportDefinition, on_delete=models.PROTECT, related_name='schedules')
+    property = models.ForeignKey(Property, on_delete=models.PROTECT, related_name='scheduled_reports', null=True, blank=True)
+    frequency = models.CharField(max_length=12, choices=Frequency.choices, default=Frequency.MONTHLY)
+    next_run_at = models.DateTimeField()
+    recipients = models.JSONField(default=list)
+    filters = models.JSONField(default=dict, blank=True)
+    output_format = models.CharField(max_length=12, default='pdf')
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_scheduled_reports')
+    last_execution = models.ForeignKey(ReportExecution, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    class Meta:
+        ordering = ('next_run_at',)
+
+    def clean(self):
+        if self.definition_id and self.definition.organization_id != self.organization_id:
+            raise ValidationError('Scheduled report must belong to the definition organization.')
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Scheduled report property must belong to the organization.')
+        if not isinstance(self.recipients, list) or not all(isinstance(value, str) for value in self.recipients):
+            raise ValidationError({'recipients': 'Recipients must be a list of email addresses.'})

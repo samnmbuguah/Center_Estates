@@ -1,15 +1,19 @@
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    BankTransactionViewSet, BuildingViewSet, BudgetViewSet, CreditNoteViewSet,
+    BankTransactionViewSet, BillingItemViewSet, BillingProfileViewSet, BillingRunViewSet,
+    BuildingViewSet, BudgetViewSet, CreditNoteViewSet,
     ExpenseViewSet, InvoiceReminderViewSet, InvoiceViewSet, LeaseViewSet,
+    InvoiceLineViewSet, LeaseEscalationViewSet,
     PaymentGatewayConfigurationViewSet, PaymentIntentViewSet, PaymentWebhookViewSet,
     ProjectViewSet, PropertyAnalyticsViewSet, PropertyDashboardViewSet,
     PropertyViewSet, ReceiptAllocationViewSet, ReceiptViewSet,
-    RentScheduleViewSet, ServiceChargeAllocationViewSet,
+    RentScheduleViewSet, ReportDefinitionViewSet, ReportExecutionViewSet, ScheduledReportViewSet,
+    ServiceChargeAllocationViewSet,
     ServiceChargeReconciliationViewSet, ServiceChargeViewSet,
     TenantDocumentViewSet, TenantPortalAccessViewSet, TenantPortalViewSet,
-    TenantViewSet, UnitViewSet,
+    TaxConfigurationViewSet, TenantMovementViewSet, TenantViewSet,
+    UnitStatusHistoryViewSet, UnitViewSet,
 )
 
 router = DefaultRouter()
@@ -22,7 +26,15 @@ router.register('tenants', TenantViewSet)
 router.register('tenant-portal-access', TenantPortalAccessViewSet)
 router.register('portal', TenantPortalViewSet, basename='tenant-portal')
 router.register('leases', LeaseViewSet)
+router.register('lease-escalations', LeaseEscalationViewSet)
+router.register('unit-status-history', UnitStatusHistoryViewSet)
+router.register('tenant-movements', TenantMovementViewSet)
+router.register('tax-configurations', TaxConfigurationViewSet)
+router.register('billing-items', BillingItemViewSet)
+router.register('billing-profiles', BillingProfileViewSet)
+router.register('billing-runs', BillingRunViewSet)
 router.register('invoices', InvoiceViewSet)
+router.register('invoice-lines', InvoiceLineViewSet, basename='invoice-line')
 router.register('invoice-reminders', InvoiceReminderViewSet, basename='invoice-reminder')
 router.register('receipts', ReceiptViewSet)
 router.register('bank-transactions', BankTransactionViewSet)
@@ -39,5 +51,8 @@ router.register('tenant-documents', TenantDocumentViewSet)
 router.register('rent-schedules', RentScheduleViewSet)
 router.register('receipt-allocations', ReceiptAllocationViewSet)
 router.register('credit-notes', CreditNoteViewSet)
+router.register('report-definitions', ReportDefinitionViewSet)
+router.register('report-executions', ReportExecutionViewSet, basename='report-execution')
+router.register('scheduled-reports', ScheduledReportViewSet)
 
 urlpatterns = router.urls

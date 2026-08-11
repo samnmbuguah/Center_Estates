@@ -11,7 +11,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import FacilityAsset, Inspection, MeterReading, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -230,7 +230,9 @@ class FacilityApiTests(TestCase):
         backwards = self.client.post('/api/v1/facility/meter-readings/', {
             'meter': str(meter.id), 'read_at': (timezone.now() + timezone.timedelta(days=1)).isoformat(), 'value': '1200',
         }, format='json', **self.headers)
-        self.assertEqual(backwards.status_code, 400)
+        self.assertEqual(backwards.status_code, 201, backwards.data)
+        self.assertEqual(backwards.data['status'], MeterReading.Status.REJECTED)
+        self.assertEqual(Decimal(backwards.data['consumption']), Decimal('0'))
         out_of_sequence = self.client.post('/api/v1/facility/meter-readings/', {
             'meter': str(meter.id), 'read_at': (reading.read_at - timezone.timedelta(hours=1)).isoformat(), 'value': '1400',
         }, format='json', **self.headers)
@@ -242,9 +244,9 @@ class FacilityApiTests(TestCase):
         self.assertEqual(meter_register.status_code, 200)
         registered = next(row for row in meter_register.data if row['code'] == 'ELEC-01')
         self.assertEqual(registered['unit_code'], '101')
-        self.assertEqual(Decimal(registered['current_reading']), Decimal('1300'))
-        self.assertEqual(Decimal(registered['previous_reading']), Decimal('1100'))
-        self.assertEqual(registered['reading_status'], MeterReading.Status.APPROVED)
+        self.assertEqual(Decimal(registered['current_reading']), Decimal('1200'))
+        self.assertEqual(Decimal(registered['previous_reading']), Decimal('1300'))
+        self.assertEqual(registered['reading_status'], MeterReading.Status.REJECTED)
         self.assertEqual(self.client.patch(
             f'/api/v1/facility/meters/{meter.id}/', {'tariff': '-1'}, format='json', **self.headers,
         ).status_code, 400)
@@ -519,3 +521,40 @@ class FacilityRolePermissionApiTests(TestCase):
     def test_occupant_without_linked_profile_cannot_open_portal(self):
         self._grant('facility.view')
         self.assertEqual(self.client.get('/api/v1/facility/portal/', **self.headers).status_code, 403)
+
+    def test_bulk_meter_reconciliation_and_authorized_reset_are_auditable(self):
+        self._grant('facility.view', 'facility.work', 'facility.administer', 'facility.approve')
+        bulk = UtilityMeter.objects.create(
+            organization=self.organization, code='WATER-BULK', name='Main water meter',
+            property=self.property, utility_type=UtilityMeter.Utility.WATER,
+            meter_role=UtilityMeter.MeterRole.BULK, unit='m3', tariff=Decimal('120'),
+        )
+        check = UtilityMeter.objects.create(
+            organization=self.organization, code='WATER-CHECK-1', name='Unit check meter',
+            property=self.property, utility_type=UtilityMeter.Utility.WATER,
+            meter_role=UtilityMeter.MeterRole.CHECK, parent_meter=bulk, unit='m3', tariff=Decimal('120'),
+        )
+        reset = self.client.post('/api/v1/facility/meter-reset-events/', {
+            'meter': str(check.id), 'kind': MeterResetEvent.Kind.REPLACEMENT,
+            'effective_at': timezone.now().isoformat(), 'previous_value': '950',
+            'reset_value': '0', 'reason': 'Meter replaced after failure.',
+        }, format='json', **self.headers)
+        self.assertEqual(reset.status_code, 201, reset.data)
+        reconciliation = self.client.post('/api/v1/facility/meter-reconciliations/', {
+            'bulk_meter': str(bulk.id), 'period_start': '2026-08-01', 'period_end': '2026-08-31',
+            'bulk_consumption': '1070', 'check_consumption': '920', 'tolerance_percent': '5',
+            'supporting_documents': [],
+        }, format='json', **self.headers)
+        self.assertEqual(reconciliation.status_code, 201, reconciliation.data)
+        self.assertEqual(reconciliation.data['status'], MeterReconciliation.Status.EXCEPTION)
+        self.assertEqual(Decimal(reconciliation.data['variance']), Decimal('150'))
+        without_notes = self.client.post(
+            f"/api/v1/facility/meter-reconciliations/{reconciliation.data['id']}/approve/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(without_notes.status_code, 400)
+        approved = self.client.post(
+            f"/api/v1/facility/meter-reconciliations/{reconciliation.data['id']}/approve/",
+            {'notes': 'Leak inspection task raised.'}, format='json', **self.headers,
+        )
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], MeterReconciliation.Status.APPROVED)

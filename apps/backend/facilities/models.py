@@ -276,12 +276,18 @@ class UtilityMeter(OrganizationOwnedModel):
         ELECTRICITY = 'electricity', 'Electricity'
         WATER = 'water', 'Water'
         GAS = 'gas', 'Gas'
+    class MeterRole(models.TextChoices):
+        STANDARD = 'standard', 'Standard meter'
+        BULK = 'bulk', 'Bulk / main meter'
+        CHECK = 'check', 'Check / sub-meter'
 
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=160)
     property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='utility_meters')
     property_unit = models.ForeignKey('properties.Unit', on_delete=models.PROTECT, related_name='utility_meters', null=True, blank=True)
     utility_type = models.CharField(max_length=16, choices=Utility.choices)
+    meter_role = models.CharField(max_length=12, choices=MeterRole.choices, default=MeterRole.STANDARD)
+    parent_meter = models.ForeignKey('self', on_delete=models.PROTECT, related_name='check_meters', null=True, blank=True)
     unit = models.CharField(max_length=20, default='kWh')
     tariff = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     is_active = models.BooleanField(default=True)
@@ -295,6 +301,8 @@ class UtilityMeter(OrganizationOwnedModel):
             raise ValidationError('Utility meter property must belong to the same organization.')
         if self.property_unit_id and self.property_unit.property_id != self.property_id:
             raise ValidationError({'property_unit': 'The metered unit must belong to the selected property.'})
+        if self.parent_meter_id and (self.parent_meter.property_id != self.property_id or self.parent_meter.meter_role != self.MeterRole.BULK):
+            raise ValidationError({'parent_meter': 'A check meter must reference a bulk meter at the same property.'})
 
 
 class MeterReading(OrganizationOwnedModel):
@@ -302,9 +310,16 @@ class MeterReading(OrganizationOwnedModel):
         PENDING = 'pending', 'Pending review'
         APPROVED = 'approved', 'Approved'
         REJECTED = 'rejected', 'Rejected'
+    class Method(models.TextChoices):
+        MANUAL = 'manual', 'Manual'
+        MOBILE = 'mobile', 'Mobile app'
+        IMPORT = 'import', 'Imported file or API'
+        IOT = 'iot', 'Smart meter / IoT'
 
     meter = models.ForeignKey(UtilityMeter, on_delete=models.CASCADE, related_name='readings')
     read_at = models.DateTimeField()
+    method = models.CharField(max_length=12, choices=Method.choices, default=Method.MANUAL)
+    source_reference = models.CharField(max_length=160, blank=True)
     value = models.DecimalField(max_digits=16, decimal_places=3)
     previous_value = models.DecimalField(max_digits=16, decimal_places=3, default=0)
     consumption = models.DecimalField(max_digits=14, decimal_places=3, default=0)
@@ -323,3 +338,58 @@ class MeterReading(OrganizationOwnedModel):
     def clean(self):
         if self.meter_id and self.meter.organization_id != self.organization_id:
             raise ValidationError('Meter reading must belong to the meter organization.')
+        if self.value < self.previous_value and not self.meter.reset_events.filter(effective_at__lte=self.read_at).exists():
+            self.status = self.Status.REJECTED
+            self.is_anomaly = True
+            self.consumption = 0
+            self.cost = 0
+            self.review_notes = self.review_notes or 'Reverse reading rejected; authorize a meter reset or replacement before billing.'
+
+
+class MeterResetEvent(OrganizationOwnedModel):
+    class Kind(models.TextChoices):
+        RESET = 'reset', 'Meter reset'
+        REPLACEMENT = 'replacement', 'Meter replacement'
+
+    meter = models.ForeignKey(UtilityMeter, on_delete=models.PROTECT, related_name='reset_events')
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    effective_at = models.DateTimeField()
+    previous_value = models.DecimalField(max_digits=16, decimal_places=3)
+    reset_value = models.DecimalField(max_digits=16, decimal_places=3, default=0)
+    reason = models.TextField()
+    authorized_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='authorized_meter_resets')
+
+    class Meta:
+        ordering = ('-effective_at',)
+
+
+class MeterReconciliation(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending review'
+        WITHIN_TOLERANCE = 'within_tolerance', 'Within tolerance'
+        EXCEPTION = 'exception', 'Exception required'
+        APPROVED = 'approved', 'Approved'
+
+    bulk_meter = models.ForeignKey(UtilityMeter, on_delete=models.PROTECT, related_name='reconciliations')
+    period_start = models.DateField()
+    period_end = models.DateField()
+    bulk_consumption = models.DecimalField(max_digits=16, decimal_places=3)
+    check_consumption = models.DecimalField(max_digits=16, decimal_places=3)
+    variance = models.DecimalField(max_digits=16, decimal_places=3)
+    variance_percent = models.DecimalField(max_digits=8, decimal_places=3, default=0)
+    tolerance_percent = models.DecimalField(max_digits=8, decimal_places=3, default=5)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_meter_reconciliations')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True)
+    supporting_documents = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ('-period_start',)
+        constraints = [models.UniqueConstraint(fields=('bulk_meter', 'period_start'), name='unique_bulk_meter_reconciliation_period')]
+
+    def clean(self):
+        if self.bulk_meter_id and self.bulk_meter.meter_role != UtilityMeter.MeterRole.BULK:
+            raise ValidationError({'bulk_meter': 'Reconciliation requires a bulk meter.'})
+        if self.period_end < self.period_start:
+            raise ValidationError({'period_end': 'Period end cannot precede its start.'})

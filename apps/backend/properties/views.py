@@ -26,22 +26,26 @@ from core.tenancy import get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
 from .models import (
-    BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
+    BankTransaction, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
+    Building, Budget, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
     PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation,
-    RentSchedule, ServiceCharge,
+    RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    TenantPortalAccess, Unit,
+    TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitStatusHistory, LeaseEscalation,
 )
 from .serializers import (
-    BankTransactionSerializer, BuildingSerializer, BudgetSerializer,
+    BankTransactionSerializer, BillingItemSerializer, BillingProfileSerializer,
+    BillingReadinessIssueSerializer, BillingRunSerializer, BuildingSerializer, BudgetSerializer,
     CreditNoteSerializer, ExpenseSerializer, InvoiceReminderSerializer,
-    InvoiceSerializer, LeaseSerializer, PaymentGatewayConfigurationSerializer,
+    InvoiceLineSerializer, InvoiceSerializer, LeaseEscalationSerializer, LeaseSerializer, PaymentGatewayConfigurationSerializer,
     PaymentIntentSerializer, ProjectSerializer, PropertySerializer,
-    ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer,
+    ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer, ReportDefinitionSerializer,
+    ReportExecutionSerializer, ScheduledReportSerializer,
     ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer,
-    ServiceChargeSerializer, TenantDocumentSerializer, TenantPortalAccessSerializer,
-    TenantSerializer, UnitSerializer,
+    ServiceChargeSerializer, TaxConfigurationSerializer, TenantDocumentSerializer,
+    TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
+    UnitSerializer, UnitStatusHistorySerializer,
 )
 from .pdf_documents import (
     income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf,
@@ -1158,6 +1162,160 @@ class TenantDocumentViewSet(OrganizationModelViewSet):
         document.verified_at = timezone.now()
         document.save()
         return Response(self.get_serializer(document).data)
+
+
+class TaxConfigurationViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
+    queryset = TaxConfiguration.objects.all()
+    serializer_class = TaxConfigurationSerializer
+    search_fields = ('code', 'name')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer))
+
+
+class BillingItemViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
+    queryset = BillingItem.objects.select_related('tax_configuration')
+    serializer_class = BillingItemSerializer
+    search_fields = ('code', 'name', 'income_category')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer))
+
+
+class BillingProfileViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
+    queryset = BillingProfile.objects.select_related('lease__tenant', 'lease__unit__property', 'billing_item')
+    serializer_class = BillingProfileSerializer
+    search_fields = ('lease__reference', 'lease__tenant__name', 'billing_item__name')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer))
+
+
+class LeaseEscalationViewSet(OrganizationModelViewSet):
+    write_permission = 'property.leasing'
+    queryset = LeaseEscalation.objects.select_related('lease__tenant', 'lease__unit__property', 'approved_by')
+    serializer_class = LeaseEscalationSerializer
+    search_fields = ('lease__reference', 'lease__tenant__name')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), status=LeaseEscalation.Status.PLANNED)
+
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        escalation = self.get_object()
+        if escalation.status != LeaseEscalation.Status.PLANNED:
+            raise ValidationError({'status': 'Only planned escalations can be approved.'})
+        escalation.status = LeaseEscalation.Status.APPROVED
+        escalation.approved_by = request.user
+        escalation.approved_at = timezone.now()
+        escalation.save()
+        return Response(self.get_serializer(escalation).data)
+
+
+class UnitStatusHistoryViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = UnitStatusHistory.objects.select_related('unit__property', 'recorded_by')
+    serializer_class = UnitStatusHistorySerializer
+    search_fields = ('unit__code', 'unit__property__name', 'reason', 'marketing_status')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), recorded_by=self.request.user)
+
+    def perform_update(self, serializer):
+        raise ValidationError({'history': 'Unit status history is immutable.'})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({'history': 'Unit status history is immutable.'})
+
+
+class TenantMovementViewSet(OrganizationModelViewSet):
+    write_permission = 'property.leasing'
+    queryset = TenantMovement.objects.select_related('tenant', 'lease', 'unit__property', 'recorded_by')
+    serializer_class = TenantMovementSerializer
+    search_fields = ('tenant__name', 'lease__reference', 'unit__code', 'reason')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), recorded_by=self.request.user)
+
+    def perform_update(self, serializer):
+        raise ValidationError({'movement': 'Tenant movement history is immutable.'})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({'movement': 'Tenant movement history is immutable.'})
+
+
+class InvoiceLineViewSet(ReadOnlyModelViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.PROPERTY
+    serializer_class = InvoiceLineSerializer
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        return scope_queryset_to_property(
+            InvoiceLine.objects.for_organization(organization).select_related('invoice__lease__unit__property', 'billing_item'),
+            self.request, organization,
+        )
+
+
+class BillingRunViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
+    queryset = BillingRun.objects.select_related('property', 'created_by', 'approved_by').prefetch_related('issues')
+    serializer_class = BillingRunSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), created_by=self.request.user)
+
+    @action(detail=True, methods=('post',), url_path='resolve-issue')
+    def resolve_issue(self, request, pk=None):
+        issue = BillingReadinessIssue.objects.filter(
+            billing_run=self.get_object(), pk=request.data.get('issue'), organization=get_active_organization(request),
+        ).first()
+        if not issue:
+            raise ValidationError({'issue': 'Select an issue from this billing run.'})
+        status = request.data.get('status', BillingReadinessIssue.Status.RESOLVED)
+        if status not in (BillingReadinessIssue.Status.RESOLVED, BillingReadinessIssue.Status.OVERRIDDEN):
+            raise ValidationError({'status': 'Issue status must be resolved or overridden.'})
+        notes = str(request.data.get('notes', '')).strip()
+        if status == BillingReadinessIssue.Status.OVERRIDDEN and not notes:
+            raise ValidationError({'notes': 'An authorized override requires supporting notes.'})
+        issue.status = status; issue.resolution_notes = notes
+        issue.resolved_by = request.user; issue.resolved_at = timezone.now(); issue.save()
+        return Response(BillingReadinessIssueSerializer(issue).data)
+
+
+class ReportDefinitionViewSet(OrganizationModelViewSet):
+    write_permission = 'property.reports'
+    queryset = ReportDefinition.objects.select_related('created_by')
+    serializer_class = ReportDefinitionSerializer
+    search_fields = ('key', 'name', 'description')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), created_by=self.request.user)
+
+
+class ReportExecutionViewSet(ReadOnlyModelViewSet):
+    permission_classes = (HasModuleActionPermission,)
+    required_module = Module.PROPERTY
+    serializer_class = ReportExecutionSerializer
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        return scope_queryset_to_property(
+            ReportExecution.objects.for_organization(organization).select_related('definition', 'property', 'generated_by'),
+            self.request, organization,
+        )
+
+
+class ScheduledReportViewSet(OrganizationModelViewSet):
+    write_permission = 'property.reports'
+    queryset = ScheduledReport.objects.select_related('definition', 'property', 'created_by', 'last_execution')
+    serializer_class = ScheduledReportSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), created_by=self.request.user)
 
 
 class RentScheduleViewSet(OrganizationModelViewSet):

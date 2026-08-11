@@ -4,7 +4,7 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 
 from .models import (
-    Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule,
+    Contractor, FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule,
     ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
     WorkOrderCostItem, WorkOrderEvent,
 )
@@ -142,6 +142,24 @@ class MeterReadingSerializer(serializers.ModelSerializer):
         model = MeterReading
         exclude = ('organization',)
         read_only_fields = ('previous_value', 'consumption', 'cost', 'is_anomaly', 'status', 'reviewed_by', 'reviewed_at', 'review_notes')
+
+
+class MeterResetEventSerializer(serializers.ModelSerializer):
+    meter_name = serializers.CharField(source='meter.name', read_only=True)
+    authorized_by_name = serializers.CharField(source='authorized_by.get_full_name', read_only=True)
+    class Meta:
+        model = MeterResetEvent
+        exclude = ('organization', 'authorized_by')
+
+
+class MeterReconciliationSerializer(serializers.ModelSerializer):
+    meter_name = serializers.CharField(source='bulk_meter.name', read_only=True)
+    property_name = serializers.CharField(source='bulk_meter.property.name', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True, default='')
+    class Meta:
+        model = MeterReconciliation
+        exclude = ('organization', 'reviewed_by', 'reviewed_at')
+        read_only_fields = ('variance', 'variance_percent', 'status')
 
 
 class WorkOrderEventSerializer(serializers.ModelSerializer):

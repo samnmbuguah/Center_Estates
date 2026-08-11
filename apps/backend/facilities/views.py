@@ -21,13 +21,13 @@ from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from properties.models import Building, Property
 
 from .models import (
-    Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule,
+    Contractor, FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule,
     ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
     WorkOrderCostItem, WorkOrderEvent,
 )
 from .serializers import (
     ContractorSerializer, FacilityAssetSerializer, InspectionSerializer,
-    MeterReadingSerializer, PreventiveScheduleSerializer,
+    MeterReadingSerializer, MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer,
     ServiceRequestSerializer, UtilityMeterSerializer,
     WorkOrderAttachmentSerializer, WorkOrderCostItemSerializer,
     WorkOrderEventSerializer, WorkOrderSerializer,
@@ -473,17 +473,22 @@ class MeterReadingViewSet(FacilityModelViewSet):
             raise ValidationError({'meter': 'Approve or reject the pending reading before recording another.'})
         if previous and read_at <= previous.read_at:
             raise ValidationError({'read_at': 'The reading date and time must be later than the previous reading.'})
-        if previous and value < previous.value: raise ValidationError({'value': 'Meter readings cannot move backwards.'})
-        consumption = value - previous.value if previous else Decimal(0)
+        reset_events = meter.reset_events.filter(effective_at__lte=read_at)
+        if previous:
+            reset_events = reset_events.filter(effective_at__gt=previous.read_at)
+        reset_event = reset_events.order_by('-effective_at').first()
+        reverse_without_reset = bool(previous and value < previous.value and not reset_event)
+        baseline = reset_event.reset_value if reset_event else previous.value if previous else Decimal(0)
+        consumption = max(value - baseline, Decimal(0))
         anomaly = bool(previous and previous.consumption > 0 and consumption > previous.consumption * Decimal('1.5'))
         cost = (consumption * meter.tariff).quantize(Decimal('0.01'))
         serializer.save(
             organization=organization,
-            previous_value=previous.value if previous else Decimal(0),
-            consumption=consumption,
-            cost=cost,
-            is_anomaly=anomaly,
-            status=MeterReading.Status.PENDING,
+            previous_value=baseline, consumption=Decimal(0) if reverse_without_reset else consumption,
+            cost=Decimal(0) if reverse_without_reset else cost,
+            is_anomaly=reverse_without_reset or anomaly,
+            status=MeterReading.Status.REJECTED if reverse_without_reset else MeterReading.Status.PENDING,
+            review_notes='Reverse reading rejected; authorize a meter reset or replacement before billing.' if reverse_without_reset else '',
         )
 
     @action(detail=True, methods=('post',))
@@ -515,6 +520,50 @@ class MeterReadingViewSet(FacilityModelViewSet):
 
     def perform_update(self, serializer): raise ValidationError({'reading': 'Meter readings are immutable.'})
     def perform_destroy(self, instance): raise ValidationError({'reading': 'Meter readings cannot be deleted.'})
+
+
+class MeterResetEventViewSet(FacilityModelViewSet):
+    write_permission = 'facility.administer'
+    queryset = MeterResetEvent.objects.select_related('meter__property', 'authorized_by')
+    serializer_class = MeterResetEventSerializer
+    search_fields = ('meter__name', 'meter__code', 'reason')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), authorized_by=self.request.user)
+
+    def perform_update(self, serializer):
+        raise ValidationError({'reset': 'Authorized meter reset events are immutable.'})
+
+    def perform_destroy(self, instance):
+        raise ValidationError({'reset': 'Authorized meter reset events cannot be deleted.'})
+
+
+class MeterReconciliationViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    queryset = MeterReconciliation.objects.select_related('bulk_meter__property', 'reviewed_by')
+    serializer_class = MeterReconciliationSerializer
+    search_fields = ('bulk_meter__name', 'bulk_meter__property__name', 'review_notes')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        bulk = serializer.validated_data['bulk_consumption']
+        checks = serializer.validated_data['check_consumption']
+        variance = bulk - checks
+        variance_percent = (variance / bulk * Decimal('100')).quantize(Decimal('0.001')) if bulk else Decimal('0')
+        tolerance = serializer.validated_data.get('tolerance_percent', Decimal('5'))
+        status = MeterReconciliation.Status.WITHIN_TOLERANCE if abs(variance_percent) <= tolerance else MeterReconciliation.Status.EXCEPTION
+        serializer.save(organization=organization, variance=variance, variance_percent=variance_percent, status=status)
+
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        record = self.get_object()
+        notes = str(request.data.get('notes', '')).strip()
+        if record.status == MeterReconciliation.Status.EXCEPTION and not notes:
+            raise ValidationError({'notes': 'An out-of-tolerance reconciliation requires review notes.'})
+        record.status = MeterReconciliation.Status.APPROVED
+        record.reviewed_by = request.user; record.reviewed_at = timezone.now(); record.review_notes = notes
+        record.save()
+        return Response(self.get_serializer(record).data)
 
 
 class FacilityDashboardViewSet(ViewSet):
