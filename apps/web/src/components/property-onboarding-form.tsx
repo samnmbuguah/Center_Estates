@@ -10,7 +10,9 @@ import { ArrowLeft, Download, Plus, Save, Trash2, Upload } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
+import { useFormDraft } from "@/lib/form-drafts";
 import { usePropertyContext } from "@/lib/property-context";
+import { useToast } from "@/components/monitoring/hooks/useToast";
 
 type Values = Record<string, string>;
 type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; description: string; building_index: string };
@@ -26,6 +28,7 @@ const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity:
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
 const blankProvider: ProviderDraft = { name: "", service: "", contact: "", email: "", phone: "" };
 const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "", file: null };
+const initialValues: Values = { status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold" };
 
 function parseCsv(text: string) {
   const rows: string[][] = [];
@@ -77,24 +80,28 @@ export function PropertyOnboardingForm() {
   const router = useRouter();
   const { session } = useAuth();
   const { selectProperty } = usePropertyContext();
+  const { toast } = useToast();
   const organizationId = session?.activeOrganizationId ?? null;
   const [section, setSection] = useState("general");
-  const [values, setValues] = useState<Values>({ status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold" });
+  const draftScope = `${organizationId || "unknown"}:${session?.user.id || "unknown"}`;
+  const [values, setValues, clearValues, valuesRestored] = useFormDraft<Values>("property-onboarding:values", initialValues, draftScope);
   const [vatRegistered, setVatRegistered] = useState(false);
-  const [units, setUnits] = useState<UnitDraft[]>([]);
+  const [units, setUnits, clearUnits, unitsRestored] = useFormDraft<UnitDraft[]>("property-onboarding:units", [], draftScope);
   const [unitDraft, setUnitDraft] = useState<UnitDraft>(blankUnit);
-  const [utilities, setUtilities] = useState<UtilityDraft[]>([]);
+  const [utilities, setUtilities, clearUtilities, utilitiesRestored] = useFormDraft<UtilityDraft[]>("property-onboarding:utilities", [], draftScope);
   const [utilityDraft, setUtilityDraft] = useState<UtilityDraft>(blankUtility);
-  const [assets, setAssets] = useState<AssetDraft[]>([]);
+  const [assets, setAssets, clearAssets, assetsRestored] = useFormDraft<AssetDraft[]>("property-onboarding:assets", [], draftScope);
   const [assetDraft, setAssetDraft] = useState<AssetDraft>(blankAsset);
-  const [contacts, setContacts] = useState<ContactDraft[]>([]);
+  const [contacts, setContacts, clearContacts, contactsRestored] = useFormDraft<ContactDraft[]>("property-onboarding:contacts", [], draftScope);
   const [contactDraft, setContactDraft] = useState<ContactDraft>(blankContact);
-  const [providers, setProviders] = useState<ProviderDraft[]>([]);
+  const [providers, setProviders, clearProviders, providersRestored] = useFormDraft<ProviderDraft[]>("property-onboarding:providers", [], draftScope);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>(blankProvider);
   const [documents, setDocuments] = useState<DocumentDraft[]>([]);
   const [documentDraft, setDocumentDraft] = useState<DocumentDraft>(blankDocument);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const restoredDraft = valuesRestored || unitsRestored || utilitiesRestored || assetsRestored || contactsRestored || providersRestored;
+  const clearDraft = () => { clearValues(); clearUnits(); clearUtilities(); clearAssets(); clearContacts(); clearProviders(); };
 
   const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => setValues(current => ({ ...current, [name]: event.target.value }));
   const totalArea = useMemo(() => units.reduce((sum, unit) => sum + Number(unit.area || 0), 0), [units]);
@@ -213,6 +220,7 @@ export function PropertyOnboardingForm() {
         throw new Error(Object.values(body as Record<string, unknown>).flat().join(" ") || "Property onboarding failed.");
       }
       const result = await response.json() as { property: { id: string; name: string; code?: string; status?: string; city?: string } };
+      clearDraft();
       const failedDocuments: string[] = [];
       for (const document of documents.filter(item => item.file)) {
         const body = new FormData();
@@ -230,6 +238,7 @@ export function PropertyOnboardingForm() {
         setError(`Property was created, but these files could not be uploaded: ${failedDocuments.join(", ")}. You can retry from Documents.`);
         return;
       }
+      toast.success(`${result.property.name} was created successfully.`);
       router.push("/overview");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Property onboarding failed."); }
     finally { setSaving(false); }
@@ -244,7 +253,8 @@ export function PropertyOnboardingForm() {
       </Box>
     </Box>
     <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto">{sections.map(([id, label]) => <Tab key={id} value={id} label={label} />)}</Tabs></Paper>
-    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    {restoredDraft && <Alert severity="info" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => { clearDraft(); window.location.reload(); }}>Discard draft</Button>}>Your unsaved property onboarding draft was restored. For security, please reselect any document files.</Alert>}
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
     <Box sx={{ display: "grid", gap: 2 }}>
       <Section id="general" title="General information">
         <Grid><TextField label="Property code" value="Auto generated" disabled /><TextField required label="Property name" value={values.name || ""} onChange={set("name")} /><TextField select required label="Property status" value={values.status} onChange={set("status")}><MenuItem value="draft">Draft</MenuItem><MenuItem value="active">Active</MenuItem><MenuItem value="inactive">Inactive</MenuItem></TextField>

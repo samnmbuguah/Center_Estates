@@ -50,11 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleExpiredSession = () => {
       setSession(null);
+      if (isPublicRoute(pathname)) return;
       router.replace("/login?reason=session-expired");
     };
     window.addEventListener("ce:session-expired", handleExpiredSession);
     return () => window.removeEventListener("ce:session-expired", handleExpiredSession);
-  }, [router]);
+  }, [pathname, router]);
 
   useEffect(() => {
     // Session state is synchronized from the external authentication API.

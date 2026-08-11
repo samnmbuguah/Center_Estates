@@ -9,7 +9,9 @@ import CloseRounded from "@mui/icons-material/CloseRounded";
 import SaveRounded from "@mui/icons-material/SaveRounded";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { useFormDraft } from "@/lib/form-drafts";
 import { usePropertyContext } from "@/lib/property-context";
+import { useToast } from "@/components/monitoring/hooks/useToast";
 
 type Unit = { id: string; code: string; floor?: string; unit_type?: string; area?: string | number; status?: string };
 type Utility = { utility: string; applicable: boolean; rate_per_unit: number };
@@ -42,20 +44,25 @@ function addMonths(value: string, months: number) {
 export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
   const { session } = useAuth();
   const { activeProperty } = usePropertyContext();
+  const { toast } = useToast();
   const organizationId = session?.activeOrganizationId ?? null;
-  const [form, setForm] = useState(initialForm);
+  const draftScope = `${organizationId || "unknown"}:${session?.user.id || "unknown"}:${activeProperty?.id || "no-property"}`;
+  const [form, setForm, clearForm, formRestored] = useFormDraft("tenant-application:form", initialForm, draftScope);
   const [units, setUnits] = useState<Unit[]>([]);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
-  const [utilities, setUtilities] = useState<Utility[]>([
+  const initialUtilities: Utility[] = [
     { utility: "Electricity", applicable: false, rate_per_unit: 0 },
     { utility: "Water", applicable: false, rate_per_unit: 0 },
     { utility: "Other", applicable: false, rate_per_unit: 0 },
-  ]);
-  const [lettingFee, setLettingFee] = useState(false);
-  const [renewalFee, setRenewalFee] = useState(false);
+  ];
+  const [utilities, setUtilities, clearUtilities, utilitiesRestored] = useFormDraft<Utility[]>("tenant-application:utilities", initialUtilities, draftScope);
+  const [lettingFee, setLettingFee, clearLettingFee] = useFormDraft("tenant-application:letting-fee", false, draftScope);
+  const [renewalFee, setRenewalFee, clearRenewalFee] = useFormDraft("tenant-application:renewal-fee", false, draftScope);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState(0);
+  const draftRestored = formRestored || utilitiesRestored;
+  const clearDraft = () => { clearForm(); clearUtilities(); clearLettingFee(); clearRenewalFee(); };
 
   useEffect(() => {
     if (!open || !organizationId || !activeProperty?.id) return;
@@ -87,7 +94,7 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
         return { utility, applicable: Boolean(configured), rate_per_unit: Number(configured?.security_deposit_rate ?? defaults[`${utility.toLowerCase()}_deposit_rate`] ?? 0) };
       }));
     });
-  }, [open, organizationId, activeProperty?.id]);
+  }, [open, organizationId, activeProperty?.id, setForm, setUtilities]);
 
   const selectedUnit = units.find((unit) => unit.id === form.unit);
   const area = Number(selectedUnit?.area ?? 0);
@@ -146,7 +153,9 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
         const detail = await response.json().catch(() => ({}));
         throw new Error(typeof detail.detail === "string" ? detail.detail : Object.values(detail).flat().join(" ") || "Tenant application could not be saved.");
       }
+      clearDraft();
       setForm(initialForm);
+      toast.success("Tenant application was saved successfully.");
       onSaved();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Tenant application could not be saved.");
@@ -184,7 +193,8 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
       </AppBar>
 
       <Box sx={{ bgcolor: "background.default", minHeight: "100%", py: { xs: 1, md: 2 } }}>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {draftRestored && <Alert severity="info" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => { clearDraft(); setForm(initialForm); setUtilities(initialUtilities); }}>Discard draft</Button>}>Your unsaved tenant application was restored.</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 2fr) minmax(320px, 1fr)" }, gap: 2 }}>
           <Stack spacing={2}>
             <Paper id="tenant-general" className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>

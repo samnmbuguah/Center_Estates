@@ -5,6 +5,8 @@ import "./globals.css";
 import PlatformShell from "@/components/platform-shell";
 import { AuthProvider } from "@/components/auth-provider";
 import { ToastProvider } from "@/components/monitoring/hooks/useToast";
+import { ToastContainer } from "@/components/monitoring/components/Toast";
+import { FormRecoveryProvider } from "@/components/form-recovery-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { PropertyWorkspaceProvider } from "@/lib/property-context";
 import { ThemeProvider } from "@/theme/theme-provider";
@@ -27,7 +29,8 @@ export default function RootLayout({
           <AuthProvider>
             <ThemeProvider>
               <ToastProvider>
-                <PropertyWorkspaceProvider>
+                <ToastContainer />
+                <FormRecoveryProvider><PropertyWorkspaceProvider>
                   <Suspense fallback={null}>
                     <PlatformShell>
                       <ErrorBoundary moduleName="Application">
@@ -35,7 +38,7 @@ export default function RootLayout({
                       </ErrorBoundary>
                     </PlatformShell>
                   </Suspense>
-                </PropertyWorkspaceProvider>
+                </PropertyWorkspaceProvider></FormRecoveryProvider>
               </ToastProvider>
             </ThemeProvider>
           </AuthProvider>

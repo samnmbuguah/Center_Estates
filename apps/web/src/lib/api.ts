@@ -47,6 +47,30 @@ function announceExpiredSession() {
   window.dispatchEvent(new CustomEvent("ce:session-expired"));
 }
 
+function announceApiError(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("ce:api-error", { detail: { message } }));
+}
+
+function flattenError(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(flattenError);
+  if (value && typeof value === "object") return Object.values(value).flatMap(flattenError);
+  return [];
+}
+
+export async function apiErrorMessage(response: Response, fallback = "The request could not be completed.") {
+  try {
+    const body = await response.clone().json();
+    const messages = flattenError(body).filter(Boolean);
+    if (messages.length) return [...new Set(messages)].join(" ");
+  } catch { /* non-JSON response */ }
+  if (response.status === 401) return "Your session has expired. Sign in again to continue.";
+  if (response.status === 403) return "You do not have permission to perform this action.";
+  if (response.status >= 500) return "The service encountered an error. Your entered data has been retained; please retry.";
+  return fallback;
+}
+
 async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
@@ -68,12 +92,19 @@ async function refreshAccessToken() {
 }
 
 async function fetchWithSession(fullPath: string, init: RequestInit, headers: Headers) {
-  const execute = () => fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+  const execute = async () => {
+    try {
+      return await fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
+    } catch (error) {
+      if (!fullPath.includes("/telemetry/")) announceApiError("The server could not be reached. Your entered data has been retained; check your connection and retry.");
+      throw error;
+    }
+  };
   let response = await execute();
   const isAuthenticationRequest = ["/auth/login/", "/auth/refresh/", "/auth/logout/", "/auth/csrf/"].includes(fullPath);
   if (response.status === 401 && !isAuthenticationRequest) {
     if (await refreshAccessToken()) response = await execute();
-    if (response.status === 401) announceExpiredSession();
+    if (response.status === 401 && fullPath !== "/auth/me/") announceExpiredSession();
   }
   return response;
 }
@@ -160,6 +191,10 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
         response = await fetchWithSession(fullPath, init, headers);
       }
     }
+    if (!response.ok && !fullPath.startsWith("/auth/") && !fullPath.includes("/telemetry/")) {
+      announceApiError(await apiErrorMessage(response));
+    }
+    if (response.ok && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("ce:mutation-success"));
     return response;
   }
 
@@ -177,9 +212,11 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   if (existing) return (await existing).clone();
 
   const request = fetchWithSession(fullPath, init, headers)
-    .then((response) => {
+    .then(async (response) => {
       if (response.ok) {
         getResponseCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_MS, response: response.clone() });
+      } else if (!fullPath.startsWith("/auth/") && !fullPath.includes("/telemetry/")) {
+        announceApiError(await apiErrorMessage(response, "The requested information could not be loaded."));
       }
       return response;
     })
