@@ -5,6 +5,11 @@ from organizations.models import Membership
 from subscriptions.models import Subscription
 
 
+class GenericObjectSerializer(serializers.Serializer):
+    """Free-form object payload for read-only dashboard/analytics endpoints."""
+    pass
+
+
 class MembershipSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='organization.id')
     name = serializers.CharField(source='organization.name')

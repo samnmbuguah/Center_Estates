@@ -2,6 +2,7 @@ from django.db import transaction
 from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
 from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -10,6 +11,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
 from core.permissions import HasModuleActionPermission
+from core.serializers import GenericObjectSerializer
 from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
@@ -213,7 +215,10 @@ class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
 
+    serializer_class = GenericObjectSerializer
+
     @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         now = timezone.now()
@@ -369,6 +374,8 @@ class PerformanceViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
 
+    serializer_class = GenericObjectSerializer
+
     def _require_manager(self, request):
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)
@@ -376,6 +383,7 @@ class PerformanceViewSet(ViewSet):
             raise ValidationError('Performance analytics are available to administrators and managers only.')
 
     @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         self._require_manager(request)
         organization = get_active_organization(request)
@@ -474,6 +482,7 @@ class TelemetryViewSet(ViewSet):
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         module_param = request.query_params.get('module', '').strip()
@@ -537,6 +546,7 @@ class TelemetryViewSet(ViewSet):
             ]
         })
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def create(self, request):
         organization = get_active_organization(request)
         raw_events = request.data.get('events')

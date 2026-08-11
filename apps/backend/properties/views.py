@@ -16,6 +16,7 @@ from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum,
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, HttpResponse, QueryDict
 from django.utils import timezone
+from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny
@@ -24,6 +25,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
 from core.models import Module
 from core.permissions import HasModuleActionPermission
+from core.serializers import GenericObjectSerializer
 from core.tenancy import get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
@@ -161,6 +163,8 @@ class PaymentWebhookViewSet(ViewSet):
     """Signed, idempotent callback boundary for approved payment providers."""
     authentication_classes = ()
     permission_classes = (AllowAny,)
+
+    serializer_class = GenericObjectSerializer
 
     @action(detail=False, methods=('post',), url_path=r'(?P<public_key>[0-9a-fA-F-]{36})')
     @extend_schema(request=None, responses={200: {"type": "object"}})
@@ -930,7 +934,7 @@ class ReceiptViewSet(OrganizationModelViewSet):
         raise ValidationError({'receipt': 'Posted receipts cannot be deleted.'})
 
 
-@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), update=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), partial_update=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), destroy=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class InvoiceReminderViewSet(ReadOnlyModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
@@ -2555,6 +2559,8 @@ class PropertyAnalyticsViewSet(ViewSet):
 class TenantPortalViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
+
+    serializer_class = GenericObjectSerializer
 
     def _access(self):
         organization = get_active_organization(self.request)

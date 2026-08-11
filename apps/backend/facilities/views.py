@@ -9,6 +9,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 import calendar
 from decimal import Decimal
+from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -16,6 +17,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
 from core.permissions import HasModuleActionPermission
+from core.serializers import GenericObjectSerializer
 from core.tenancy import get_active_organization
 from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from properties.models import Building, Property
@@ -385,6 +387,8 @@ class FacilityPortalViewSet(ViewSet):
     required_module = Module.FACILITY
     permission_map = {'service_request': 'facility.view'}
 
+    serializer_class = GenericObjectSerializer
+
     def _access(self):
         from properties.models import TenantPortalAccess
 
@@ -403,6 +407,7 @@ class FacilityPortalViewSet(ViewSet):
             tenant=access.tenant, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
         ).select_related('unit__property').first()
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         access = self._access()
@@ -668,6 +673,9 @@ class FacilityAnalyticsViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY
 
+    serializer_class = GenericObjectSerializer
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)

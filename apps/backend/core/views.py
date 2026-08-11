@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiTypes
 
 from core.serializers import MembershipSerializer, serialize_modules
 from core.models import Module
@@ -34,6 +34,7 @@ class CalendarFeedView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def get(self, request):
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)

@@ -1,4 +1,5 @@
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,6 +11,7 @@ from .models import Notification
 from .serializers import PlatformNotificationSerializer
 
 
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class NotificationViewSet(ReadOnlyModelViewSet):
     """The signed-in user's organization-scoped notification inbox."""
 
@@ -17,6 +19,9 @@ class NotificationViewSet(ReadOnlyModelViewSet):
     serializer_class = PlatformNotificationSerializer
     search_fields = ('title', 'message')
     ordering_fields = ('created_at', 'read_at', 'level')
+
+    queryset = Notification.objects.all()
+
 
     def get_queryset(self):
         organization = get_active_organization(self.request)

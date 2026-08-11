@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 
@@ -12,6 +13,9 @@ class AuditEventViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
 
     permission_classes = (IsAuthenticated, HasOrganizationContext)
     serializer_class = AuditEventSerializer
+
+    queryset = AuditEvent.objects.all()
+
 
     def get_queryset(self):
         org = get_active_organization(self.request)

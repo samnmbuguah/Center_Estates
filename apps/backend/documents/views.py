@@ -1,5 +1,6 @@
 import hashlib
 
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
@@ -9,11 +10,15 @@ from .models import Document
 from .serializers import DocumentSerializer
 
 
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), update=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), partial_update=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), destroy=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class DocumentViewSet(viewsets.ModelViewSet):
     """API endpoint for central document management across all modules."""
 
     permission_classes = (IsAuthenticated, HasOrganizationContext)
     serializer_class = DocumentSerializer
+
+    queryset = Document.objects.all()
+
 
     def get_queryset(self):
         qs = Document.objects.select_related('uploaded_by', 'organization')
