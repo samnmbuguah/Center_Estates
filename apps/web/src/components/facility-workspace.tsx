@@ -2786,7 +2786,7 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdm
 }
 
 /* ─── Contractors tab ─── */
-function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd: () => void }) {
+function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Row[]; kpis: Kpis; onAdd: () => void; canAdminister: boolean }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [subTab, setSubTab] = useState("all");
 
@@ -2846,7 +2846,7 @@ function ContractorsView({ rows, kpis, onAdd }: { rows: Row[]; kpis: Kpis; onAdd
           );
         })}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, paddingBottom: 8 }}>
-          <button className="fc-toolbar-btn primary" style={{ marginRight: 0 }} onClick={onAdd}>+ Add Contractor</button>
+          {canAdminister && <button className="fc-toolbar-btn primary" style={{ marginRight: 0 }} onClick={onAdd}>+ Add Contractor</button>}
         </div>
       </div>
 
@@ -3825,7 +3825,7 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
         ) : tab === "meters" ? (
           <UtilitiesView rows={rows} kpis={dashboard?.kpis ?? {}} organizationId={organizationId} canWork={canWork} canApprove={canApprove} canAdminister={canAdminister} reload={load} />
         ) : tab === "contractors" ? (
-          <ContractorsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("contractor")} />
+          <ContractorsView rows={rows} kpis={dashboard?.kpis ?? {}} onAdd={() => setCreateModal("contractor")} canAdminister={canAdminister} />
         ) : tab === "reports" ? (
           <ReportsView dashboard={dashboard!} />
         ) : tab === "expenditure" ? (
