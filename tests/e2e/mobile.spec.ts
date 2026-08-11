@@ -22,7 +22,7 @@ test("mobile bottom navigation renders Dashboard, Ops, Tasks and More", async ({
   const nav = page.locator(".mobile-bottom-nav");
   await expect(nav).toBeVisible();
   await expect(nav.getByText("Dashboard")).toBeVisible();
-  await expect(nav.getByText("Ops")).toBeVisible();
+  await expect(nav.getByText("Overview")).toBeVisible();
   await expect(nav.getByText("Tasks")).toBeVisible();
   await expect(nav.getByText("More")).toBeVisible();
 });
@@ -34,11 +34,11 @@ test("More button opens the app-sidebar drawer and scrim closes it", async ({ pa
   await page.waitForTimeout(2000);
 
   await page.locator(".mobile-bottom-nav").getByText("More").click();
-  await expect(page.locator(".mobile-nav-scrim[aria-label='Close navigation']")).toBeVisible({ timeout: 10000 });
+  await expect(page.locator(".mobile-nav-scrim[aria-label='Close navigation']").first()).toBeVisible({ timeout: 10000 });
   await expect(page.locator("aside, .app-sidebar, [class*='sidebar']").first()).toBeVisible();
 
-  await page.locator(".mobile-nav-scrim").click({ position: { x: 5, y: 5 } });
-  await expect(page.locator(".mobile-nav-scrim")).toBeHidden({ timeout: 10000 });
+  await page.locator(".mobile-nav-scrim").first().click({ position: { x: 5, y: 5 } });
+  await expect(page.locator(".mobile-nav-scrim").first()).toBeHidden({ timeout: 10000 });
 });
 
 test("mobile module pages do not overflow horizontally", async ({ page }, testInfo) => {

@@ -65,7 +65,22 @@ const PROPERTY_PARENTS: Record<string, string> = {
 export async function openModuleSection(page: Page, name: string, testInfo?: TestInfo) {
   const isMobile = Boolean(testInfo?.project.name.startsWith("mobile"));
   if (isMobile) {
-    // Mobile: open the app-sidebar drawer (hamburger) then navigate via the sub-nav tree.
+    // Mobile: the horizontal nav bar renders directly on module pages; use it
+    // first, then fall back to the app-sidebar drawer + sub-nav tree.
+    const navBar = page.locator(".module-nav-bar");
+    await navBar.first().waitFor({ state: "attached", timeout: 10000 }).catch(() => {});
+    if (await navBar.count()) {
+      const targets = [TAB_ALIASES[name] ?? name, name];
+      for (const candidate of targets) {
+        const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const tab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
+        if (await tab.count()) {
+          await tab.first().click();
+          return;
+        }
+      }
+    }
+    // Fallback: open the app-sidebar drawer then navigate via the sub-nav tree.
     const openNav = page.getByRole("button", { name: /open (module )?navigation/i }).first();
     if (await openNav.isVisible().catch(() => false)) await openNav.click();
     await page.waitForTimeout(300);
