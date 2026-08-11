@@ -851,6 +851,32 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['tenancy_schedule'][0]['property'], self.property.name)
         self.assertEqual(response.data['lease_expiry'][0]['lease'], self.lease.reference)
 
+    def test_financial_reports_reconcile_live_ledgers(self):
+        self.invoice.subtotal = Decimal('1000'); self.invoice.save(update_fields=('subtotal',))
+        Receipt.objects.create(
+            organization=self.organization, number='RCT-FIN-1', tenant=self.tenant,
+            invoice=self.invoice, received_on='2026-07-15', amount=Decimal('600'),
+            payment_method='bank_transfer', received_by=self.user,
+        )
+        Expense.objects.create(
+            organization=self.organization, property=self.property, supplier='Cleaner Ltd',
+            category='Cleaning', incurred_on='2026-07-16', amount=Decimal('200'),
+            taxable_amount=Decimal('172.41'), tax_amount=Decimal('27.59'), tax_code='VAT16',
+            status=Expense.Status.APPROVED,
+        )
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        response = self.client.get(
+            '/api/v1/property/analytics/financial-reports/?start=2026-07-01&end=2026-07-31',
+            **headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(Decimal(response.data['kpis']['total_billed']), Decimal('1000'))
+        self.assertEqual(Decimal(response.data['kpis']['total_collected']), Decimal('600'))
+        self.assertEqual(Decimal(response.data['kpis']['total_expenses']), Decimal('200'))
+        self.assertEqual(Decimal(response.data['kpis']['net_income']), Decimal('400'))
+        self.assertEqual(response.data['billing_collection'][0]['invoice'], self.invoice.number)
+        self.assertEqual(len(response.data['expenses']), 1)
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class PropertyRolePermissionApiTests(TestCase):

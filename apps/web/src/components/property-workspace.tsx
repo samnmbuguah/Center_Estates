@@ -12,6 +12,7 @@ import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activ
 import { TenantApplicationCard } from "@/components/tenant-application-card";
 import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
 import { PropertyTenancyReports } from "@/components/property-tenancy-reports";
+import { PropertyFinancialReports } from "@/components/property-financial-reports";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -44,6 +45,7 @@ export type PropertyTab =
   | "expenses"
   | "reports"
   | "tenancy-reports"
+  | "financial-reports"
   | "fees"
   | "owner-portal"
   | "forecast"
@@ -81,6 +83,7 @@ const labels: Record<PropertyTab, string> = {
   expenses: "Property Expenses",
   reports: "Reports Catalogue",
   "tenancy-reports": "Tenancy & Occupancy Reports",
+  "financial-reports": "Financial Reports",
   fees: "Fee Invoicing",
   "owner-portal": "Owner Portal",
   forecast: "5-Year Forecast",
@@ -4327,7 +4330,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
         setCriticalServiceCharges(Array.isArray(scData) ? scData as Row[] : []);
-      } else if (tab === "owner-portal" || tab === "forecast" || tab === "billing" || tab === "tenancy-reports") {
+      } else if (tab === "owner-portal" || tab === "forecast" || tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports") {
         setLoading(false);
       } else {
         const ep = endpointFor(tab);
@@ -4991,6 +4994,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={downloadReport} />}
         {tab === "tenancy-reports" && <PropertyTenancyReports />}
+        {tab === "financial-reports" && <PropertyFinancialReports />}
         {tab === "fees" && <FeesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "owner-portal" && <OwnerPortalView />}
         {tab === "forecast" && <ForecastView />}

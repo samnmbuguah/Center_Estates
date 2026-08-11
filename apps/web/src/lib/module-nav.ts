@@ -39,6 +39,7 @@ export const propertyNav: ModuleNavGroup[] = [
     label: "REPORTS",
     items: [
       { id: "tenancy-reports", label: "Tenancy & Occupancy", icon: "🏘️" },
+      { id: "financial-reports", label: "Financial Reports", icon: "📊" },
       { id: "reports", label: "Reports", icon: "📈" },
     ],
   },

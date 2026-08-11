@@ -1881,6 +1881,131 @@ class PropertyAnalyticsViewSet(ViewSet):
             'incomeByMethod': income_by_method, 'expensesByCategory': expense_by_category,
         })
 
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
+    @action(detail=False, methods=('get',), url_path='financial-reports')
+    def financial_reports(self, request):
+        """Reconciled financial reporting dataset derived from transaction ledgers."""
+        organization = self._organization(); today = timezone.localdate()
+        try:
+            start = date.fromisoformat(request.query_params.get('start', today.replace(day=1).isoformat()))
+            end = date.fromisoformat(request.query_params.get('end', today.isoformat()))
+        except ValueError:
+            raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
+        if start > end:
+            raise ValidationError({'period': 'Start date cannot be after end date.'})
+
+        invoices = scope_model_queryset(Invoice, request, organization).filter(
+            issued_on__range=(start, end),
+        ).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property').prefetch_related('lines')
+        receipts = scope_model_queryset(Receipt, request, organization).filter(
+            received_on__range=(start, end),
+        ).select_related('tenant', 'invoice__lease__unit__property')
+        expenses = scope_model_queryset(Expense, request, organization).filter(
+            incurred_on__range=(start, end), status__in=(Expense.Status.APPROVED, Expense.Status.PAID),
+        ).select_related('property')
+        budgets = scope_model_queryset(Budget, request, organization).filter(
+            year__range=(start.year, end.year), status=Budget.Status.APPROVED,
+        ).select_related('property')
+        billed = invoices.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        collected = receipts.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        expense_total = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        open_invoices = scope_model_queryset(Invoice, request, organization).filter(
+            balance__gt=0, due_on__lte=end,
+        ).exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).select_related('lease__tenant', 'lease__unit__property')
+        arrears = open_invoices.aggregate(total=Sum('balance'))['total'] or Decimal('0')
+
+        aging = {key: Decimal('0') for key in ('current', '31_60', '61_90', '90_plus')}
+        arrears_rows = []
+        for invoice in open_invoices:
+            days = max((end - invoice.due_on).days, 0)
+            bucket = 'current' if days <= 30 else '31_60' if days <= 60 else '61_90' if days <= 90 else '90_plus'
+            aging[bucket] += invoice.balance
+            last_payment = invoice.receipts.order_by('-received_on').values_list('received_on', flat=True).first()
+            arrears_rows.append({
+                'invoice': invoice.number, 'tenant': invoice.lease.tenant.name,
+                'property': invoice.lease.unit.property.name, 'unit': invoice.lease.unit.code,
+                'billed': invoice.amount, 'paid': invoice.amount - invoice.balance, 'balance': invoice.balance,
+                'due_on': invoice.due_on, 'days_overdue': days, 'ageing_bucket': bucket,
+                'last_payment': last_payment, 'status': invoice.status,
+            })
+
+        billing_rows = []
+        output_vat = Decimal('0'); income_categories = {}
+        for invoice in invoices:
+            collected_for_invoice = invoice.receipts.filter(received_on__range=(start, end)).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            lines = list(invoice.lines.all()); output_vat += invoice.tax_amount
+            for line in lines:
+                code = line.billing_item.income_category if line.billing_item_id and line.billing_item.income_category else line.description
+                income_categories[code] = income_categories.get(code, Decimal('0')) + line.subtotal
+            billing_rows.append({
+                'invoice': invoice.number, 'tenant': invoice.lease.tenant.name,
+                'property': invoice.lease.unit.property.name, 'unit': invoice.lease.unit.code,
+                'billing_period': invoice.metadata.get('billing_period', ''), 'issued_on': invoice.issued_on,
+                'due_on': invoice.due_on, 'subtotal': invoice.subtotal, 'vat': invoice.tax_amount,
+                'total_billed': invoice.amount, 'collected': collected_for_invoice,
+                'outstanding': invoice.balance, 'status': invoice.status,
+            })
+
+        expense_categories = list(expenses.values('category').annotate(total=Sum('amount')).order_by('-total'))
+        input_vat = expenses.aggregate(total=Sum('tax_amount'))['total'] or Decimal('0')
+        vat_rows = [{'type': 'output', 'date': row.issued_on, 'reference': row.number,
+                     'party': row.lease.tenant.name, 'property': row.lease.unit.property.name,
+                     'taxable_value': row.subtotal, 'tax_amount': row.tax_amount}
+                    for row in invoices.filter(tax_amount__gt=0)]
+        vat_rows += [{'type': 'input', 'date': row.incurred_on, 'reference': row.invoice_number,
+                      'party': row.supplier, 'property': row.property.name,
+                      'taxable_value': row.taxable_amount, 'tax_amount': row.tax_amount}
+                     for row in expenses.filter(tax_amount__gt=0)]
+        expense_rows = [{'date': row.incurred_on, 'supplier': row.supplier, 'property': row.property.name,
+                         'category': row.category, 'description': row.description, 'reference': row.invoice_number,
+                         'net': row.taxable_amount or row.amount - row.tax_amount, 'vat': row.tax_amount,
+                         'total': row.amount, 'status': row.status, 'budget_code': row.budget_code,
+                         'cost_centre': row.cost_centre} for row in expenses]
+
+        budget_rows = []
+        for budget in budgets:
+            actual = expenses.filter(property=budget.property, category=budget.category).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            approved = budget.revised_amount if budget.revised_amount is not None else budget.amount
+            variance = actual - approved
+            budget_rows.append({'property': budget.property.name, 'year': budget.year, 'category': budget.category,
+                                'version': budget.version, 'approved': approved, 'actual': actual,
+                                'variance': variance, 'variance_percent': (variance / approved * 100).quantize(Decimal('0.1')) if approved else Decimal('0'),
+                                'forecast': budget.forecast_amount})
+
+        service_charge_rows = []
+        for scheme in scope_model_queryset(ServiceCharge, request, organization).filter(starts_on__lte=end).select_related('property'):
+            sc_lines = InvoiceLine.objects.for_organization(organization).filter(
+                invoice__in=invoices,
+            ).filter(Q(billing_item__income_category__icontains='service') | Q(description__icontains='service charge'))
+            sc_billed = sc_lines.aggregate(total=Sum('total'))['total'] or Decimal('0')
+            sc_expenses = expenses.filter(Q(category__icontains='service') | Q(cost_centre__icontains='service')).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            service_charge_rows.append({'property': scheme.property.name, 'scheme': scheme.name,
+                                        'budget': scheme.annual_budget, 'billed': sc_billed,
+                                        'actual_expenditure': sc_expenses, 'variance': scheme.annual_budget - sc_expenses,
+                                        'utilization_rate': (sc_expenses / scheme.annual_budget * 100).quantize(Decimal('0.1')) if scheme.annual_budget else Decimal('0')})
+
+        properties = scope_model_queryset(Property, request, organization)
+        performance = []
+        for prop in properties:
+            prop_billed = invoices.filter(lease__unit__property=prop).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            prop_collected = receipts.filter(Q(invoice__lease__unit__property=prop) | Q(invoice__isnull=True, tenant__property=prop)).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            performance.append({'property': prop.name, 'billed': prop_billed, 'collected': prop_collected,
+                                'outstanding': max(prop_billed - prop_collected, Decimal('0')),
+                                'collection_rate': (prop_collected / prop_billed * 100).quantize(Decimal('0.1')) if prop_billed else Decimal('0')})
+        performance.sort(key=lambda row: row['collection_rate'], reverse=True)
+
+        return Response({
+            'period': {'start': start, 'end': end},
+            'kpis': {'total_billed': billed, 'total_collected': collected,
+                     'collection_rate': (collected / billed * 100).quantize(Decimal('0.1')) if billed else Decimal('0'),
+                     'total_arrears': arrears, 'total_expenses': expense_total, 'net_income': collected - expense_total},
+            'collection_performance': performance, 'arrears_ageing': aging,
+            'income_summary': [{'category': key, 'total': value} for key, value in income_categories.items()],
+            'expense_summary': expense_categories, 'billing_collection': billing_rows, 'arrears': arrears_rows,
+            'vat': {'output_vat': output_vat, 'input_vat': input_vat, 'net_vat': output_vat - input_vat, 'transactions': vat_rows},
+            'expenses': expense_rows, 'budgets': budget_rows, 'service_charge': service_charge_rows,
+        })
+
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         return Response({'reports': [
