@@ -55,6 +55,8 @@ test("horizontal module tabs remain reachable on mobile via drawer", async ({ pa
   await signIn(page);
   await page.goto("/companion");
   await page.waitForTimeout(2500);
-  await openModuleSection(page, "Tasks", testInfo);
   await expect(page.locator(".module-nav-bar").first()).toBeVisible({ timeout: 15000 });
+  // The companion Tasks group exposes "All tasks" in the horizontal nav.
+  await openModuleSection(page, "All tasks", testInfo);
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/All tasks/i);
 });

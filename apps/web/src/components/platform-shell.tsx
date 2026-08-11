@@ -246,10 +246,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
         onCloseMobile={() => setMenuOpen(false)}
       />}
 
-      {!moduleWorkspaceActive && menuOpen && (
-        <button className="mobile-nav-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />
-      )}
-
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>
         {/* MUI AppBar Header */}
         <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 76, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
