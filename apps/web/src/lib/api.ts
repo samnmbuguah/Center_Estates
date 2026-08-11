@@ -170,7 +170,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
     "/certificates",
     "/disbursements",
     "/drawdowns",
-  ].some((ep) => cleanPath.startsWith(ep));
+  ].some((ep) => cleanPath === `${ep}/` || cleanPath.startsWith(`${ep}/?`) || cleanPath.startsWith(`${ep}/`));
 
   const fullPath = isConstruction ? `/construction${cleanPath}` : cleanPath;
   const method = String(init.method ?? "GET").toUpperCase();

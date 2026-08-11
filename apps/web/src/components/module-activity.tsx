@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { CalendarDays, CircleAlert, RefreshCw } from "lucide-react";
 import { Box, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Typography } from "@mui/material";
-import { apiFetch } from "@/lib/api";
+import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { usePropertyContext } from "@/lib/property-context";
 
 const CalendarWidget = dynamic(() => import("@/components/calendar-widget"), { ssr: false, loading: () => <ActivityState message="Loading calendar widget…" onRetry={() => window.location.reload()} /> });
@@ -72,8 +72,10 @@ export function ModuleCalendarView({ moduleName, portfolio = false }: { moduleNa
     const params = new URLSearchParams(); if (range.start) params.set("start", range.start); if (range.end) params.set("end", range.end);
     void apiFetch(`/calendar-feed/?${params.toString()}`, portfolio ? { headers: { "X-Property-Scope": "portfolio" } } : undefined)
       .then(async (response) => {
-        if (!response.ok) throw new Error("Calendar access is not enabled for this workspace.");
-        const data = await response.json();
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "The calendar could not be loaded."));
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("application/json")) throw new Error("The calendar service returned an unexpected response. Please retry in a moment.");
+        const data = await response.json().catch(() => { throw new Error("The calendar data could not be read. Please retry in a moment."); });
         setRows(Array.isArray(data) ? data : (data.results ?? []));
       })
       .catch((reason: Error) => setError(reason.message))
