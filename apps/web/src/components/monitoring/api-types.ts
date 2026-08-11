@@ -223,6 +223,10 @@ export interface TenantBranding {
   logo_url?: string;
   primary_color?: string;
   company_name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  tax_pin?: string;
 }
 
 export interface TenantMember {

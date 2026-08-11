@@ -28,6 +28,10 @@ export function Tenants() {
   const [brandLogo, setBrandLogo] = useState("");
   const [brandPrimaryColor, setBrandPrimaryColor] = useState("#d92d2d");
   const [brandCompanyName, setBrandCompanyName] = useState("");
+  const [brandAddress, setBrandAddress] = useState("");
+  const [brandPhone, setBrandPhone] = useState("");
+  const [brandEmail, setBrandEmail] = useState("");
+  const [brandTaxPin, setBrandTaxPin] = useState("");
 
   // Member management
   const [addUserId, setAddUserId] = useState("");
@@ -53,6 +57,10 @@ export function Tenants() {
       setBrandLogo(b.logo_url ?? "");
       setBrandPrimaryColor(b.primary_color ?? "#d92d2d");
       setBrandCompanyName(b.company_name ?? "");
+      setBrandAddress(b.address ?? "");
+      setBrandPhone(b.phone ?? "");
+      setBrandEmail(b.email ?? "");
+      setBrandTaxPin(b.tax_pin ?? "");
       fetchUsers().then(setAllUsers).catch(() => {});
     } catch (e) {
       setError((e as Error).message);
@@ -86,7 +94,7 @@ export function Tenants() {
     if (!detailId) return;
     setError(null);
     try {
-      await saveBranding(detailId, { logo_url: brandLogo, primary_color: brandPrimaryColor, company_name: brandCompanyName });
+      await saveBranding(detailId, { logo_url: brandLogo, primary_color: brandPrimaryColor, company_name: brandCompanyName, address: brandAddress, phone: brandPhone, email: brandEmail, tax_pin: brandTaxPin });
       loadDetail(detailId);
     } catch (e) { setError((e as Error).message); }
   }
@@ -154,6 +162,12 @@ export function Tenants() {
           <h3>Branding</h3>
           <p style={{ opacity: 0.6, marginBottom: 12 }}>Customize the look and feel for this tenant's reports and portal.</p>
           <div className="field"><label>Company Name</label><input value={brandCompanyName} onChange={e => setBrandCompanyName(e.target.value)} placeholder="e.g. ABC Construction Ltd" /></div>
+          <div className="field"><label>Management Address</label><textarea value={brandAddress} onChange={e => setBrandAddress(e.target.value)} rows={2} placeholder="P.O. Box and physical office address" /></div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+            <div className="field"><label>Management Phone</label><input type="tel" value={brandPhone} onChange={e => setBrandPhone(e.target.value)} placeholder="+254 700 000 000" /></div>
+            <div className="field"><label>Management Email</label><input type="email" value={brandEmail} onChange={e => setBrandEmail(e.target.value)} placeholder="property@company.co.ke" /></div>
+            <div className="field"><label>Tax PIN</label><input value={brandTaxPin} onChange={e => setBrandTaxPin(e.target.value)} placeholder="P000000000X" /></div>
+          </div>
           <div className="field"><label>Logo URL</label><input value={brandLogo} onChange={e => setBrandLogo(e.target.value)} placeholder="https://example.com/logo.png" /></div>
           {brandLogo && (
             <div style={{ marginBottom: 12 }}>

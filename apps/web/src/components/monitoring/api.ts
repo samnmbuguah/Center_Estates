@@ -354,7 +354,7 @@ export const fetchTenant = (id: string) => get<Tenant>(`/tenants/${id}`);
 export const updateTenant = (id: string, b: unknown) => patch<Tenant>(`/tenants/${id}`, b);
 export const setDefaultTenant = (tenantId: string) => post<{ ok: boolean }>("/tenants/default", { tenant_id: tenantId });
 
-export const saveBranding = (tenantId: string, branding: { logo_url?: string; primary_color?: string; company_name?: string }) =>
+export const saveBranding = (tenantId: string, branding: { logo_url?: string; primary_color?: string; company_name?: string; address?: string; phone?: string; email?: string; tax_pin?: string }) =>
   patch<Tenant>(`/tenants/${tenantId}`, { settings: { branding } });
 
 // ---- Audit Trail ----
