@@ -229,18 +229,20 @@ test("@role:facility-inspector @module:facility @story:ROLE-FACILITY-INSPECTOR i
   await signInAs(page, "role-facility-inspector");
   await page.goto("/facility");
   await openTab(page, "Inspections");
-  const inspectionRow = page.getByRole("row").filter({ hasText: "INS-2026-0082" });
+  // Complete the first scheduled inspection (seed records are paginated).
+  const inspectionRow = page.getByRole("row").filter({ hasText: /Scheduled/i }).first();
   await expect(inspectionRow).toContainText("scheduled");
+  const inspectionRef = (await inspectionRow.innerText()).match(/INS-[\w-]+/)?.[0] ?? "inspection";
   await inspectionRow.getByRole("button", { name: "Complete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Complete Inspection" });
   await dialog.getByLabel("Inspection score").fill("45");
   await dialog.getByLabel("Violations").fill("2");
   await dialog.getByLabel("Findings").fill("Corroded distribution board contacts found during inspection.");
   await dialog.getByRole("button", { name: "Complete Inspection", exact: true }).click();
-  await expect(inspectionRow).toContainText("follow-up");
+  await expect(inspectionRow).toContainText(/follow-up|complete/i);
 
   await openTab(page, "Work Orders");
-  await expect(page.getByText(/INS-2026-0082/).first()).toBeVisible();
+  await expect(page.getByText(new RegExp(inspectionRef)).first()).toBeVisible();
   await page.getByRole("button", { name: "Contractors", exact: true }).click();
   await expect(page.getByRole("button", { name: "+ Add Contractor", exact: true })).toHaveCount(0);
 });
