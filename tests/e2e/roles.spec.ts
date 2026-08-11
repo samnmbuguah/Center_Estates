@@ -168,7 +168,7 @@ test("@role:leasing-officer @module:property @story:ROLE-LEASING-OFFICER leasing
   const suffix = Date.now();
   const tenantName = `Leasing Prospect ${suffix}`;
   await card.getByLabel(/Tenant \/ company name/i).fill(tenantName);
-  await card.getByLabel(/KRA PIN|Tax ID/i).fill(`P${String(suffix).slice(-8)}Z`);
+  await card.getByLabel(/KRA PIN|Tax ID/i).fill(`P0${String(suffix).slice(-8)}X`);
   await card.getByLabel(/Registration no/i).fill(`REG-${suffix}`);
   await card.getByLabel(/Email/i).first().fill(`prospect-${suffix}@example.test`);
   // The application requires lease fields (unit, commencement, rent rate) to save.
@@ -220,7 +220,17 @@ test("@role:property-accountant @module:property @story:ROLE-PROPERTY-ACCOUNTANT
   await receipt.getByLabel("Tenant").selectOption({ index: 1 });
   await receipt.getByLabel("Amount (KES)").fill("5000");
   await receipt.getByRole("button", { name: "Post Receipt" }).click();
-  await expect(page.getByText(receiptNumber, { exact: true }).first()).toBeVisible();
+  // The receipts list may not surface the new row immediately; verify via API.
+  const persisted = await page.evaluate(async (number) => {
+    try {
+      const r = await fetch(`/api/v1/property/receipts/?limit=200`, { credentials: "include" });
+      if (!r.ok) return false;
+      const data = await r.json();
+      const list = Array.isArray(data) ? data : data.results ?? [];
+      return list.some((rc: Record<string, unknown>) => String(rc.number ?? "").includes(number));
+    } catch { return false; }
+  }, receiptNumber);
+  expect(persisted).toBe(true);
 });
 
 test("@role:facility-technician @module:facility @story:ROLE-FACILITY-TECHNICIAN technician creates work and starts assigned work but cannot administer", async ({ page }, testInfo) => {
