@@ -576,3 +576,29 @@ class FacilityRolePermissionApiTests(TestCase):
         )
         self.assertEqual(approved.status_code, 200, approved.data)
         self.assertEqual(approved.data['status'], MeterReconciliation.Status.APPROVED)
+        self.assertEqual(self.client.post(
+            f"/api/v1/facility/meter-reconciliations/{reconciliation.data['id']}/approve/",
+            {'notes': 'Already approved'}, format='json', **self.headers,
+        ).status_code, 400)
+
+        worker = get_user_model().objects.create_user(username='facility-worker', password='test')
+        membership = Membership.objects.create(user=worker, organization=self.organization)
+        role = Role.objects.create(organization=self.organization, name='Facility Worker', slug='facility-worker')
+        MembershipRole.objects.create(membership=membership, role=role)
+        for key in ('facility.view', 'facility.work'):
+            permission, _ = Permission.objects.get_or_create(
+                key=key, defaults={'label': key, 'module': 'facility'},
+            )
+            role.permissions.add(permission)
+        self.client.force_authenticate(worker)
+        exception = self.client.post('/api/v1/facility/meter-reconciliations/', {
+            'bulk_meter': str(bulk.id), 'period_start': '2026-07-01', 'period_end': '2026-07-31',
+            'bulk_consumption': '1000', 'check_consumption': '800', 'tolerance_percent': '5',
+            'supporting_documents': [],
+        }, format='json', **self.headers)
+        self.assertEqual(exception.status_code, 201, exception.data)
+        forbidden = self.client.post(
+            f"/api/v1/facility/meter-reconciliations/{exception.data['id']}/approve/",
+            {'notes': 'Worker cannot approve'}, format='json', **self.headers,
+        )
+        self.assertEqual(forbidden.status_code, 403)

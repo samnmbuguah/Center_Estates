@@ -131,3 +131,23 @@ class CompanionApiTests(TestCase):
         }, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(TaskEvent.objects.filter(organization=self.organization, note__startswith='Telemetry [').count(), 0)
+
+    def test_telemetry_list_aggregates_per_user_stats(self):
+        self.login(self.admin)
+        self.client.post('/api/v1/companion/telemetry/', {
+            'events': [
+                {'event': 'page_view', 'module': 'property', 'properties': {'path': '/property'}},
+                {'event': 'user_click', 'module': 'facility', 'properties': {'element': 'button:Approve'}},
+            ],
+        }, format='json')
+        response = self.client.get('/api/v1/companion/telemetry/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('by_user', response.data)
+        self.assertIn('by_module', response.data)
+        self.assertIn('events', response.data)
+        admin_stats = response.data['by_user'].get(self.admin.username)
+        self.assertIsNotNone(admin_stats)
+        self.assertEqual(admin_stats['events'], 2)
+        self.assertIn('property', admin_stats['modules'])
+        self.assertIn('facility', admin_stats['modules'])
+        self.assertIsNotNone(admin_stats['last_seen'])

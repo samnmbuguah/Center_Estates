@@ -596,6 +596,7 @@ class MeterResetEventViewSet(FacilityModelViewSet):
 
 class MeterReconciliationViewSet(FacilityModelViewSet):
     write_permission = 'facility.work'
+    permission_map = {'approve': 'facility.approve'}
     queryset = MeterReconciliation.objects.select_related('bulk_meter__property', 'reviewed_by')
     serializer_class = MeterReconciliationSerializer
     search_fields = ('bulk_meter__name', 'bulk_meter__property__name', 'review_notes')
@@ -613,6 +614,8 @@ class MeterReconciliationViewSet(FacilityModelViewSet):
     @action(detail=True, methods=('post',))
     def approve(self, request, pk=None):
         record = self.get_object()
+        if record.status == MeterReconciliation.Status.APPROVED:
+            raise ValidationError({'status': 'This meter reconciliation is already approved.'})
         notes = str(request.data.get('notes', '')).strip()
         if record.status == MeterReconciliation.Status.EXCEPTION and not notes:
             raise ValidationError({'notes': 'An out-of-tolerance reconciliation requires review notes.'})

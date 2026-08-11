@@ -2446,6 +2446,26 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdm
   const [rateMeter, setRateMeter] = useState<Row | null>(null);
   const [showAllMeters, setShowAllMeters] = useState(false);
   const [utilityError, setUtilityError] = useState("");
+  const [utilityNotice, setUtilityNotice] = useState("");
+  const [reconciliations, setReconciliations] = useState<Row[]>([]);
+  const [reconLoading, setReconLoading] = useState(false);
+  const [reconForm, setReconForm] = useState({ bulk_meter: "", period_start: "", period_end: "", bulk_consumption: "", check_consumption: "", tolerance_percent: "5" });
+  const [approveTarget, setApproveTarget] = useState<Row | null>(null);
+
+  const bulkMeters = rows.filter((row) => String(row.meter_role ?? "standard") === "bulk");
+  const checkMeters = rows.filter((row) => String(row.meter_role ?? "") === "check");
+
+  const loadReconciliations = useCallback(async () => {
+    if (!organizationId) return;
+    setReconLoading(true);
+    const response = await apiFetch("/facility/meter-reconciliations/", {}, organizationId);
+    if (response.ok) setReconciliations(await response.json() as Row[]);
+    setReconLoading(false);
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (subTab === "reconciliation") void loadReconciliations();
+  }, [loadReconciliations, subTab]);
   const sparkData = [30, 45, 38, 55, 48, 62, 50, 70, 58, 75, 65, 80];
   const maxSpark = Math.max(...sparkData);
   const utilityConsumption = Number(kpis.utilityConsumption ?? 0);
@@ -2548,6 +2568,54 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdm
     await reload();
   }
 
+  async function submitReconciliation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organizationId) return;
+    setUtilityError(""); setUtilityNotice("");
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch("/facility/meter-reconciliations/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({
+        bulk_meter: reconForm.bulk_meter,
+        period_start: reconForm.period_start,
+        period_end: reconForm.period_end,
+        bulk_consumption: reconForm.bulk_consumption,
+        check_consumption: reconForm.check_consumption,
+        tolerance_percent: reconForm.tolerance_percent || "5",
+        supporting_documents: [],
+      }),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setUtilityError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The bulk/check reconciliation could not be saved.");
+      return;
+    }
+    setUtilityNotice("Bulk/check meter reconciliation recorded.");
+    setReconForm({ bulk_meter: "", period_start: "", period_end: "", bulk_consumption: "", check_consumption: "", tolerance_percent: "5" });
+    await loadReconciliations();
+  }
+
+  async function submitReconApproval(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!approveTarget || !organizationId) return;
+    const notes = String(new FormData(event.currentTarget).get("notes") ?? "").trim();
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(`/facility/meter-reconciliations/${approveTarget.id}/approve/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ notes }),
+    }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setUtilityError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The reconciliation could not be approved.");
+      return;
+    }
+    setUtilityNotice("Meter reconciliation approved.");
+    setApproveTarget(null);
+    await loadReconciliations();
+  }
+
   return (
     <>
       <div className="fc-kpi-strip six-col">
@@ -2576,18 +2644,97 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdm
       </div>
 
       {/* Tabs */}
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {(["overview", "electricity", "water", "generator", "solar", "gas", "waste", "reports"] as const).map((t) => {
-          const tabLabels: Record<string, string> = { overview: "Overview", electricity: "Electricity", water: "Water", generator: "Generator Fuel", solar: "Solar", gas: "Gas", waste: "Waste", reports: "Reports" };
+      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16, overflowX: "auto" }}>
+        {(["overview", "electricity", "water", "generator", "solar", "gas", "reconciliation", "waste", "reports"] as const).map((t) => {
+          const tabLabels: Record<string, string> = { overview: "Overview", electricity: "Electricity", water: "Water", generator: "Generator Fuel", solar: "Solar", gas: "Gas", reconciliation: "Bulk / Check", waste: "Waste", reports: "Reports" };
           return (
-            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "12px 12px", whiteSpace: "nowrap" }}>
+            <button key={t} type="button" onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "12px 12px", whiteSpace: "nowrap" }}>
               {tabLabels[t]}
             </button>
           );
         })}
       </div>
 
-      {(() => {
+      {subTab === "reconciliation" ? (
+        <div style={{ display: "grid", gap: 16 }}>
+          {(bulkMeters.length === 0 || checkMeters.length === 0) && (
+            <div className="form-error" style={{ background: "#fff7ed", color: "#9a3412", border: "1px solid #fdba74" }}>
+              Register at least one bulk meter and one linked check meter before recording a variance reconciliation.
+            </div>
+          )}
+          {canWork && (
+            <article className="data-panel">
+              <PanelHeader title="Record bulk / check reconciliation" />
+              <form onSubmit={submitReconciliation} style={{ display: "grid", gap: 12, padding: 16 }}>
+                <div className="grid-2">
+                  <Field label="Bulk meter" required>
+                    <select required value={reconForm.bulk_meter} onChange={(event) => setReconForm((current) => ({ ...current, bulk_meter: event.target.value }))}>
+                      <option value="">Select bulk meter</option>
+                      {bulkMeters.map((meter) => <option key={String(meter.id)} value={String(meter.id)}>{String(meter.name ?? meter.code)}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Tolerance %" required>
+                    <input type="number" min="0" step="0.001" value={reconForm.tolerance_percent} onChange={(event) => setReconForm((current) => ({ ...current, tolerance_percent: event.target.value }))} required />
+                  </Field>
+                  <Field label="Period start" required>
+                    <input type="date" value={reconForm.period_start} onChange={(event) => setReconForm((current) => ({ ...current, period_start: event.target.value }))} required />
+                  </Field>
+                  <Field label="Period end" required>
+                    <input type="date" value={reconForm.period_end} onChange={(event) => setReconForm((current) => ({ ...current, period_end: event.target.value }))} required />
+                  </Field>
+                  <Field label="Bulk consumption" required>
+                    <input type="number" min="0" step="0.001" value={reconForm.bulk_consumption} onChange={(event) => setReconForm((current) => ({ ...current, bulk_consumption: event.target.value }))} required />
+                  </Field>
+                  <Field label="Sum of check meters" required>
+                    <input type="number" min="0" step="0.001" value={reconForm.check_consumption} onChange={(event) => setReconForm((current) => ({ ...current, check_consumption: event.target.value }))} required />
+                  </Field>
+                </div>
+                <p className="form-hint">Out-of-tolerance variances require an approver rationale before the period can be closed for billing.</p>
+                <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn primary" type="submit">Save reconciliation</button></div>
+              </form>
+            </article>
+          )}
+          <article className="data-panel">
+            <PanelHeader title="Reconciliation register" />
+            <div className="table-scroll">
+              <table className="fc-data-table">
+                <thead>
+                  <tr>
+                    <th>Meter / property</th>
+                    <th>Period</th>
+                    <th>Bulk</th>
+                    <th>Checks</th>
+                    <th>Variance</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reconLoading ? (
+                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#6b7890" }}>Loading reconciliations…</td></tr>
+                  ) : reconciliations.length === 0 ? (
+                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#6b7890" }}>No bulk/check reconciliations recorded yet.</td></tr>
+                  ) : reconciliations.map((row) => (
+                    <tr key={String(row.id)}>
+                      <td style={{ fontSize: 12 }}>{String(row.meter_name ?? "—")}<br /><span style={{ color: "#8a96a7", fontSize: 10 }}>{String(row.property_name ?? "")}</span></td>
+                      <td style={{ fontSize: 12 }}>{String(row.period_start ?? "—")} → {String(row.period_end ?? "—")}</td>
+                      <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.bulk_consumption ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(row.check_consumption ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(row.variance ?? "—")} ({String(row.variance_percent ?? "0")}%)</td>
+                      <td><FcStatus value={String(row.status ?? "pending")} /></td>
+                      <td>
+                        {canApprove && row.status !== "approved" && (
+                          <button type="button" className="btn primary sm" onClick={() => setApproveTarget(row)}>Approve</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      ) : (() => {
         const filteredRows = subTab === "overview" ? rows
           : subTab === "electricity" ? rows.filter((r) => String(r.utility_type ?? "") === "electricity")
           : subTab === "water" ? rows.filter((r) => String(r.utility_type ?? "") === "water")
@@ -2745,6 +2892,25 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdm
       </div>
       ); })()}
       {utilityError && <div className="form-error">{utilityError}</div>}
+      {utilityNotice && <div className="form-hint" style={{ color: "#166534", background: "#f0fdf4", border: "1px solid #86efac", padding: 10, borderRadius: 8 }}>{utilityNotice}</div>}
+      {approveTarget && (
+        <Modal title="Approve meter reconciliation" onClose={() => setApproveTarget(null)}>
+          <form onSubmit={submitReconApproval} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <p className="form-hint">
+              {String(approveTarget.meter_name ?? "Bulk meter")} · variance {String(approveTarget.variance ?? "0")}
+              ({String(approveTarget.variance_percent ?? "0")}%).
+              {approveTarget.status === "exception" ? " Review notes are required for out-of-tolerance exceptions." : ""}
+            </p>
+            <Field label={approveTarget.status === "exception" ? "Approval rationale" : "Review notes"} required={approveTarget.status === "exception"}>
+              <textarea name="notes" rows={3} required={approveTarget.status === "exception"} />
+            </Field>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+              <button type="button" className="btn ghost" onClick={() => setApproveTarget(null)}>Cancel</button>
+              <button className="btn primary" type="submit">Approve reconciliation</button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {readingMeter && (
         <Modal title={`Record Reading · ${String(readingMeter.name ?? readingMeter.code ?? "Meter")}`} onClose={() => setReadingMeter(null)}>
           <form onSubmit={submitReading} style={{ display: "flex", flexDirection: "column", gap: 14 }}>

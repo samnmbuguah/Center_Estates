@@ -18,8 +18,8 @@ This matrix is the release contract for the three client specifications dated Au
 | Effective-dated recurring billing and rent escalation | billing profiles and `Lease.effective_rent()` | PARTIAL | Role/E2E evidence for annual, biennial, custom, and mid-period changes |
 | Manual single invoice | invoice card and API | PARTIAL | Browser allow/deny plus credit/debit correction journey |
 | Unique immutable invoice and adjustment sequences | organization-scoped constraints and generated numbers | PARTIAL | Concurrency test for sequence allocation |
-| Water reading to tariff to invoice traceability | meter reading approval and metered profiles | PARTIAL | Full approved-reading-to-generated-invoice browser assertion |
-| Bulk/check-meter reconciliation and variance exception | facility reconciliation records/readiness | PARTIAL | Complete property UI and approval E2E |
+| Water reading to tariff to invoice traceability | meter reading approval, metered profiles, API path test approved reading → invoice line | PARTIAL | Browser assertion for full caretaker → approver → billing UI journey |
+| Bulk/check-meter reconciliation and variance exception | facility reconciliation API + Facility UI Bulk/Check tab + approve notes | PARTIAL | Browser E2E for variance exception approval |
 | Smart-meter ingestion | authenticated idempotent ingestion endpoint | PARTIAL | Vendor/device registry, signature policy, retry/dead-letter monitoring |
 | Invoice register/status/filter coverage | invoice register | PARTIAL | All specification filters and saved views |
 | Cancellation, credit note and audit trail | void/credit models and endpoints | PARTIAL | Universal immutable posted-ledger and no-self-approval tests |
@@ -57,10 +57,10 @@ All rows remain `PARTIAL` until tab-specific browser exports, landlord scope, an
 
 | Gate | Status | Evidence still required |
 |---|---:|---|
-| Property and organization scope | PARTIAL | allow/deny tests for manager, landlord, accountant and unauthorized property across all three surfaces |
+| Property and organization scope | PARTIAL | API allow/deny for viewer/accountant and unauthorized property exists; landlord browser surface still outstanding |
 | Auditability | PARTIAL | exports and schedules are audited; dashboard view/export filter parity needs broader assertions |
-| Seed history | PARTIAL | twelve-month ledgers exist; verify every property has movements, vacancies, budgets, VAT, service charge and meter history |
+| Seed history | PARTIAL | twelve-month ledgers, water bulk/check meters, VAT, movements, vacancies, budgets and service charge now seeded; live reseed audit still required |
 | Accessibility/responsiveness | PARTIAL | desktop and mobile browser coverage for dense tables, filters, menus and downloads |
 | Export fidelity | PARTIAL | golden visual samples and reconciliation assertions for every critical PDF family |
-| Failure/retry behavior | PARTIAL | scheduled delivery retry, partial batch failure and duplicate-generation tests |
+| Failure/retry behavior | PARTIAL | delivery failure records status/error and short retry window; generation failures tracked by scheduler; browser retry UX present |
 

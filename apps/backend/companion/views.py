@@ -499,8 +499,8 @@ class TelemetryViewSet(ViewSet):
             note__startswith='Telemetry ['
         ).select_related('actor')
         page_counts = {}
-        user_counts = {}
-        for ev in all_telemetry[:500]:
+        user_stats = {}
+        for ev in all_telemetry[:1000]:
             note = ev.note
             mod = "dashboard"
             if "(Module: " in note:
@@ -508,11 +508,24 @@ class TelemetryViewSet(ViewSet):
             page_counts[mod] = page_counts.get(mod, 0) + 1
 
             actor_name = ev.actor.username if ev.actor else "anonymous"
-            user_counts[actor_name] = user_counts.get(actor_name, 0) + 1
+            stats = user_stats.setdefault(actor_name, {'events': 0, 'modules': set(), 'last_seen': None})
+            stats['events'] += 1
+            if mod:
+                stats['modules'].add(mod)
+            if stats['last_seen'] is None or ev.created_at > stats['last_seen']:
+                stats['last_seen'] = ev.created_at
+
+        by_user = {}
+        for name, stats in user_stats.items():
+            by_user[name] = {
+                'events': stats['events'],
+                'modules': sorted(stats['modules']),
+                'last_seen': stats['last_seen'].isoformat() if stats['last_seen'] else None,
+            }
 
         return Response({
             'by_module': page_counts,
-            'by_user': user_counts,
+            'by_user': by_user,
             'events': [
                 {
                     'id': str(e.id),

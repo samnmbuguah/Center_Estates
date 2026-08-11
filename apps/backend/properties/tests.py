@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 import hashlib
 import hmac
@@ -1207,6 +1207,108 @@ class PropertyApiTests(TestCase):
                 f"/api/v1/property/report-executions/{generated.data['id']}/download/", **headers,
             )
             self.assertEqual(download.status_code, 200)
+
+            with mock.patch('django.core.mail.EmailMessage.send', side_effect=RuntimeError('SMTP unavailable')):
+                retried = self.client.post(
+                    f"/api/v1/property/scheduled-reports/{scheduled.data['id']}/run/", {},
+                    format='json', **headers,
+                )
+            self.assertEqual(retried.status_code, 201, retried.data)
+            schedule = ScheduledReport.objects.get(pk=scheduled.data['id'])
+            self.assertEqual(schedule.last_delivery_status, 'delivery_failed')
+            self.assertIn('SMTP unavailable', schedule.last_delivery_error)
+            self.assertLessEqual(schedule.next_run_at, timezone.now() + timedelta(hours=1, minutes=1))
+
+    def test_approved_water_reading_flows_into_generated_invoice_line(self):
+        water_item = BillingItem.objects.create(
+            organization=self.organization, code='WATER', name='Water',
+            calculation=BillingItem.Calculation.METERED, income_category='utilities',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=water_item,
+            frequency=BillingProfile.Frequency.METERED, calculation=BillingItem.Calculation.METERED,
+            amount=Decimal('0'), effective_from='2026-01-01', billing_day=1,
+        )
+        meter = UtilityMeter.objects.create(
+            organization=self.organization, property=self.property, property_unit=self.unit,
+            code='W-UNIT-101', name='Unit water', utility_type=UtilityMeter.Utility.WATER,
+            unit='m3', tariff=Decimal('100'),
+        )
+        MeterReading.objects.create(
+            organization=self.organization, meter=meter,
+            read_at=timezone.make_aware(datetime(2026, 8, 20, 9, 0)),
+            value=Decimal('150'), previous_value=Decimal('120'), consumption=Decimal('30'),
+            cost=Decimal('3000'), status=MeterReading.Status.APPROVED, reviewed_by=self.user,
+            reviewed_at=timezone.now(),
+        )
+        _, run_url, prepared = self._prepare_run('2026-08-01', '2026-08-31')
+        water_lines = [
+            item for candidate in prepared['candidates']
+            for item in candidate['billing_items'] if item['code'] == 'WATER'
+        ]
+        self.assertEqual(len(water_lines), 1)
+        self.assertEqual(water_lines[0]['total'], '3000.00')
+        self.assertEqual(water_lines[0]['description'], 'Water')
+        candidate = next(row for row in prepared['candidates'] if row['status'] == BillingCandidate.Status.READY)
+        approver = self._create_billing_approver()
+        self.client.force_authenticate(approver)
+        self.assertEqual(self.client.post(f'{run_url}approve/', {}, format='json', **self.headers).status_code, 200)
+        self.client.force_authenticate(self.user)
+        generated = self.client.post(f'{run_url}generate/', {
+            'candidate_ids': [candidate['id']],
+        }, format='json', **self.headers)
+        self.assertEqual(generated.status_code, 201, generated.data)
+        invoice = Invoice.objects.get(number=generated.data['invoices'][0]['number'])
+        descriptions = set(InvoiceLine.objects.filter(invoice=invoice).values_list('description', flat=True))
+        self.assertIn('Water', descriptions)
+        water_line = InvoiceLine.objects.get(invoice=invoice, description='Water')
+        self.assertEqual(water_line.total, Decimal('3000.00'))
+        self.assertEqual(water_line.source_type, 'billing_profile')
+
+    def test_property_scope_and_role_allow_deny_for_billing_and_reports(self):
+        other_property = Property.objects.create(
+            organization=self.other, code='FOREIGN', name='Other org property', status=Property.Status.ACTIVE,
+        )
+        foreign = self.client.get(
+            '/api/v1/property/dashboard/',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(other_property.id)},
+        )
+        self.assertEqual(foreign.status_code, 403)
+
+        scoped = self.client.get(
+            '/api/v1/property/analytics/tenancy-occupancy/?start=2026-01-01&end=2026-12-31',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(scoped.status_code, 200, getattr(scoped, 'data', scoped.content))
+
+        viewer = self._create_role_user('billing-viewer', 'property.view')
+        self.client.force_authenticate(viewer)
+        self.assertEqual(
+            self.client.post('/api/v1/property/billing-runs/', {
+                'property': str(self.property.id),
+                'period_start': '2026-10-01', 'period_end': '2026-10-31',
+            }, format='json', **self.headers).status_code,
+            403,
+        )
+        self.assertEqual(self.client.get('/api/v1/property/dashboard/', **self.headers).status_code, 200)
+
+        accountant = self._create_role_user(
+            'billing-accountant-role', 'property.view', 'property.finance', 'property.report',
+        )
+        self.client.force_authenticate(accountant)
+        created = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id),
+            'period_start': '2026-10-01', 'period_end': '2026-10-31',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(
+            self.client.post(
+                f"/api/v1/property/billing-runs/{created.data['id']}/approve/", {},
+                format='json', **self.headers,
+            ).status_code,
+            403,
+        )
+        self.client.force_authenticate(self.user)
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)

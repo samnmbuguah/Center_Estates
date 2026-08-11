@@ -1657,7 +1657,12 @@ class ScheduledReportViewSet(OrganizationModelViewSet):
             execution.save(update_fields=('definition', 'updated_at'))
         self._deliver(schedule, execution)
         schedule.last_execution = execution
-        schedule.next_run_at = self._next_run(schedule)
+        # Failed email delivery is retried on a short cadence; successful runs advance
+        # to the next reporting period so operators do not miss a missed delivery.
+        if schedule.last_delivery_status == 'delivery_failed':
+            schedule.next_run_at = timezone.now() + timedelta(hours=1)
+        else:
+            schedule.next_run_at = self._next_run(schedule)
         schedule.save(update_fields=('last_execution', 'next_run_at', 'last_delivery_status', 'last_delivery_at', 'last_delivery_error', 'updated_at'))
         return Response(ReportExecutionSerializer(execution).data, status=201)
 

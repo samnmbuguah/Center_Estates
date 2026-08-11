@@ -8,18 +8,18 @@ from django.utils import timezone
 
 from core.models import Module
 from facilities.models import (
-    Contractor, FacilityAsset, Inspection, MeterReading, PreventiveSchedule,
+    Contractor, FacilityAsset, Inspection, MeterReading, MeterReconciliation, PreventiveSchedule,
     ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
     WorkOrderCostItem, WorkOrderEvent,
 )
 from organizations.models import Membership, MembershipRole, Organization, Permission, Role
 from notifications.models import Notification
 from properties.models import (
-    BankTransaction, Building, Budget, CreditNote, Expense, Invoice,
+    BankTransaction, BillingItem, BillingProfile, Building, Budget, CreditNote, Expense, Invoice,
     InvoiceReminder, Lease, Project, Property, Receipt, ReceiptAllocation,
     RentSchedule, ServiceCharge,
-    ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    TenantPortalAccess, Unit,
+    ServiceChargeAllocation, ServiceChargeReconciliation, TaxConfiguration, Tenant, TenantDocument,
+    TenantMovement, TenantPortalAccess, Unit, UnitStatusHistory,
 )
 from sales.models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 from subscriptions.models import Subscription
@@ -605,6 +605,96 @@ class Command(BaseCommand):
                 'reviewed_by': user, 'reviewed_at': timezone.now(), 'review_notes': 'Seeded verified reading.',
             },
         )
+        tax_vat, _ = TaxConfiguration.objects.update_or_create(
+            organization=organization, code='VAT16', effective_from=today.replace(month=1, day=1),
+            defaults={'name': 'Output VAT 16%', 'rate': Decimal('16.0000'), 'is_active': True},
+        )
+        rent_item, _ = BillingItem.objects.update_or_create(
+            organization=organization, code='RENT',
+            defaults={
+                'name': 'Monthly rent', 'calculation': BillingItem.Calculation.FIXED,
+                'income_category': 'rent', 'tax_configuration': tax_vat, 'is_recurring': True, 'is_active': True,
+            },
+        )
+        water_item, _ = BillingItem.objects.update_or_create(
+            organization=organization, code='WATER',
+            defaults={
+                'name': 'Water consumption', 'calculation': BillingItem.Calculation.METERED,
+                'income_category': 'utilities', 'is_recurring': True, 'is_active': True,
+            },
+        )
+        BillingProfile.objects.update_or_create(
+            organization=organization, lease=lease_one, billing_item=rent_item,
+            effective_from=lease_one.starts_on,
+            defaults={
+                'frequency': BillingProfile.Frequency.MONTHLY, 'calculation': BillingItem.Calculation.FIXED,
+                'amount': lease_one.monthly_rent, 'billing_day': lease_one.billing_day, 'is_active': True,
+            },
+        )
+        BillingProfile.objects.update_or_create(
+            organization=organization, lease=lease_one, billing_item=water_item,
+            effective_from=lease_one.starts_on,
+            defaults={
+                'frequency': BillingProfile.Frequency.METERED, 'calculation': BillingItem.Calculation.METERED,
+                'amount': Decimal('0'), 'billing_day': lease_one.billing_day, 'is_active': True,
+            },
+        )
+        primary_bulk_water, _ = UtilityMeter.objects.update_or_create(
+            organization=organization, code='WATER-BULK-CE-NRB-001',
+            defaults={
+                'name': 'Westlands Bulk Water', 'property': prop,
+                'utility_type': UtilityMeter.Utility.WATER, 'meter_role': UtilityMeter.MeterRole.BULK,
+                'unit': 'm3', 'tariff': Decimal('120.0000'), 'is_active': True,
+            },
+        )
+        primary_check_water, _ = UtilityMeter.objects.update_or_create(
+            organization=organization, code='WATER-CE-NRB-001-U101',
+            defaults={
+                'name': 'Tower A Unit 101 Water', 'property': prop, 'property_unit': units[101],
+                'utility_type': UtilityMeter.Utility.WATER, 'meter_role': UtilityMeter.MeterRole.CHECK,
+                'parent_meter': primary_bulk_water, 'unit': 'm3', 'tariff': Decimal('120.0000'), 'is_active': True,
+            },
+        )
+        MeterReading.objects.update_or_create(
+            organization=organization, meter=primary_check_water,
+            read_at=timezone.now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=2),
+            defaults={
+                'value': Decimal('920'), 'previous_value': Decimal('880'), 'consumption': Decimal('40'),
+                'cost': Decimal('4800'), 'status': MeterReading.Status.APPROVED, 'reviewed_by': user,
+                'reviewed_at': timezone.now(), 'method': MeterReading.Method.MANUAL, 'recorded_by': user,
+                'review_notes': 'Seeded approved primary water reading.',
+            },
+        )
+        MeterReconciliation.objects.update_or_create(
+            organization=organization, bulk_meter=primary_bulk_water, period_start=today.replace(day=1),
+            defaults={
+                'period_end': today, 'bulk_consumption': Decimal('1100'), 'check_consumption': Decimal('980'),
+                'variance': Decimal('120'), 'variance_percent': Decimal('10.909'), 'tolerance_percent': Decimal('5'),
+                'status': MeterReconciliation.Status.APPROVED, 'reviewed_by': user, 'reviewed_at': timezone.now(),
+                'review_notes': 'Seeded approved bulk/check reconciliation for Westlands.',
+            },
+        )
+        UnitStatusHistory.objects.update_or_create(
+            organization=organization, unit=units[101], effective_from=lease_one.starts_on,
+            defaults={
+                'status': Unit.Status.OCCUPIED, 'reason': 'Seeded primary lease commencement',
+                'expected_monthly_rent': lease_one.monthly_rent, 'expected_service_charge': Decimal('25000'),
+                'recorded_by': user,
+            },
+        )
+        UnitStatusHistory.objects.update_or_create(
+            organization=organization, unit=units[301], effective_from=today - timedelta(days=60),
+            defaults={
+                'status': Unit.Status.AVAILABLE, 'reason': 'Seeded vacancy for occupancy reports',
+                'expected_monthly_rent': Decimal('198000'), 'expected_service_charge': Decimal('18000'),
+                'recorded_by': user,
+            },
+        )
+        TenantMovement.objects.update_or_create(
+            organization=organization, lease=lease_one, kind=TenantMovement.Kind.MOVE_IN,
+            effective_on=lease_one.starts_on,
+            defaults={'tenant': lease_one.tenant, 'unit': units[101], 'reason': 'Seeded move-in', 'recorded_by': user},
+        )
         listing_one, _ = SaleListing.objects.update_or_create(
             organization=organization, unit=units[201],
             defaults={
@@ -1071,6 +1161,88 @@ class Command(BaseCommand):
                 organization=organization, meter=scoped_meter, read_at=timezone.now().replace(minute=0, second=0, microsecond=0),
                 defaults={'value': Decimal(10000 + index * 1250), 'previous_value': Decimal(9500 + index * 1200), 'consumption': Decimal(400 + index * 50), 'cost': Decimal(11260 + index * 1407), 'status': MeterReading.Status.APPROVED, 'reviewed_by': user, 'reviewed_at': timezone.now()},
             )
+            bulk_water, _ = UtilityMeter.objects.update_or_create(
+                organization=organization, code=f'WATER-BULK-{spec["code"]}',
+                defaults={
+                    'name': f'{spec["name"]} Bulk Water', 'property': scoped_property,
+                    'utility_type': UtilityMeter.Utility.WATER, 'meter_role': UtilityMeter.MeterRole.BULK,
+                    'unit': 'm3', 'tariff': Decimal('120.0000'), 'is_active': True,
+                },
+            )
+            check_water, _ = UtilityMeter.objects.update_or_create(
+                organization=organization, code=f'WATER-{spec["code"]}-U1',
+                defaults={
+                    'name': f'{spec["name"]} Unit water', 'property': scoped_property,
+                    'property_unit': scoped_units[0], 'utility_type': UtilityMeter.Utility.WATER,
+                    'meter_role': UtilityMeter.MeterRole.CHECK, 'parent_meter': bulk_water,
+                    'unit': 'm3', 'tariff': Decimal('120.0000'), 'is_active': True,
+                },
+            )
+            MeterReading.objects.update_or_create(
+                organization=organization, meter=check_water,
+                read_at=timezone.now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=index),
+                defaults={
+                    'value': Decimal(800 + index * 40), 'previous_value': Decimal(760 + index * 35),
+                    'consumption': Decimal(40 + index * 5), 'cost': Decimal((40 + index * 5) * 120),
+                    'status': MeterReading.Status.APPROVED, 'reviewed_by': user, 'reviewed_at': timezone.now(),
+                    'method': MeterReading.Method.MANUAL, 'recorded_by': user,
+                    'review_notes': 'Seeded approved unit water reading for billing.',
+                },
+            )
+            MeterReconciliation.objects.update_or_create(
+                organization=organization, bulk_meter=bulk_water, period_start=today.replace(day=1),
+                defaults={
+                    'period_end': today, 'bulk_consumption': Decimal('1100') + Decimal(index * 25),
+                    'check_consumption': Decimal('980') + Decimal(index * 20),
+                    'variance': Decimal('120') + Decimal(index * 5),
+                    'variance_percent': Decimal('10.909'), 'tolerance_percent': Decimal('5'),
+                    'status': MeterReconciliation.Status.EXCEPTION if index == 1 else MeterReconciliation.Status.APPROVED,
+                    'reviewed_by': user if index != 1 else None,
+                    'reviewed_at': timezone.now() if index != 1 else None,
+                    'review_notes': '' if index == 1 else 'Seeded approved bulk/check reconciliation.',
+                },
+            )
+            BillingProfile.objects.update_or_create(
+                organization=organization, lease=scoped_lease, billing_item=rent_item,
+                effective_from=scoped_lease.starts_on,
+                defaults={
+                    'frequency': BillingProfile.Frequency.MONTHLY, 'calculation': BillingItem.Calculation.FIXED,
+                    'amount': scoped_lease.monthly_rent, 'billing_day': scoped_lease.billing_day, 'is_active': True,
+                },
+            )
+            BillingProfile.objects.update_or_create(
+                organization=organization, lease=scoped_lease, billing_item=water_item,
+                effective_from=scoped_lease.starts_on,
+                defaults={
+                    'frequency': BillingProfile.Frequency.METERED, 'calculation': BillingItem.Calculation.METERED,
+                    'amount': Decimal('0'), 'billing_day': scoped_lease.billing_day, 'is_active': True,
+                },
+            )
+            UnitStatusHistory.objects.update_or_create(
+                organization=organization, unit=scoped_units[0], effective_from=scoped_lease.starts_on,
+                defaults={
+                    'status': Unit.Status.OCCUPIED, 'reason': 'Seeded lease commencement',
+                    'expected_monthly_rent': scoped_lease.monthly_rent,
+                    'expected_service_charge': Decimal('15000'), 'recorded_by': user,
+                },
+            )
+            if len(scoped_units) > 1:
+                UnitStatusHistory.objects.update_or_create(
+                    organization=organization, unit=scoped_units[1], effective_from=today - timedelta(days=45),
+                    defaults={
+                        'status': Unit.Status.AVAILABLE, 'reason': 'Seeded vacancy for occupancy reports',
+                        'expected_monthly_rent': scoped_lease.monthly_rent,
+                        'expected_service_charge': Decimal('15000'), 'recorded_by': user,
+                    },
+                )
+            TenantMovement.objects.update_or_create(
+                organization=organization, lease=scoped_lease, kind=TenantMovement.Kind.MOVE_IN,
+                effective_on=scoped_lease.starts_on,
+                defaults={
+                    'tenant': scoped_tenant, 'unit': scoped_units[0],
+                    'reason': 'Seeded move-in', 'recorded_by': user,
+                },
+            )
             SaleListing.objects.update_or_create(
                 organization=organization, unit=scoped_units[1],
                 defaults={'project': scoped_project, 'list_price': Decimal('16500000') + Decimal(index * 3250000), 'minimum_deposit_percent': Decimal('15'), 'status': SaleListing.Status.AVAILABLE, 'construction_progress': Decimal('100')},
@@ -1102,19 +1274,22 @@ class Command(BaseCommand):
                 rent = history_lease.effective_rent(period)
                 number = f'HIST-{history_property.code}-{period:%Y%m}'
                 paid_ratio = Decimal('0.70') if months_back == 0 else Decimal('1.00')
+                tax_amount = (rent * Decimal('0.16')).quantize(Decimal('0.01'))
+                gross = rent + tax_amount
                 history_invoice, _ = Invoice.objects.update_or_create(
                     organization=organization, number=number,
                     defaults={
                         'lease': history_lease, 'invoice_type': 'rent', 'issued_on': period,
                         'due_on': period + timedelta(days=max(history_lease.billing_day - 1, 0)),
-                        'subtotal': rent, 'tax_rate': Decimal('0'), 'tax_amount': Decimal('0'),
-                        'amount': rent, 'balance': (rent * (Decimal('1') - paid_ratio)).quantize(Decimal('0.01')),
+                        'subtotal': rent, 'tax_rate': Decimal('16'), 'tax_amount': tax_amount,
+                        'amount': gross, 'balance': (gross * (Decimal('1') - paid_ratio)).quantize(Decimal('0.01')),
                         'status': Invoice.Status.PARTIAL if paid_ratio < 1 else Invoice.Status.PAID,
                         'prepared_by': user, 'reviewed_by': user, 'reviewed_at': timezone.now(),
                         'issued_by': user, 'issued_at': timezone.now(),
+                        'metadata': {'billing_period': period.strftime('%Y-%m'), 'source': 'seed_history', 'tax_code': 'VAT16'},
                     },
                 )
-                paid_amount = (rent * paid_ratio).quantize(Decimal('0.01'))
+                paid_amount = (gross * paid_ratio).quantize(Decimal('0.01'))
                 history_receipt, _ = Receipt.objects.update_or_create(
                     organization=organization, number=f'HIST-RCT-{history_property.code}-{period:%Y%m}',
                     defaults={
