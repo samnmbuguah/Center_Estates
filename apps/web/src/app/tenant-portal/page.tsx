@@ -318,7 +318,11 @@ export default function TenantPortalPage() {
         </Panel>
       )}
       {tab === "payments" && (
-        <Panel title="Payments & receipts">
+        <Panel title="Payments & receipts" action={
+          <button type="button" onClick={() => void downloadDocument("/property/portal/statement.pdf/", `Tenant-statement-${data.tenant.code}.pdf`)}>
+            Download statement PDF
+          </button>
+        }>
           <PortalTable
             headers={[
               "Receipt",

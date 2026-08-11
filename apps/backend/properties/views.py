@@ -1613,6 +1613,21 @@ class TenantPortalViewSet(ViewSet):
             raise PermissionDenied('This receipt is not available in your tenant account.')
         return receipt_pdf(receipt, request.user.get_full_name() or request.user.get_username())
 
+    @action(detail=False, methods=('get',), url_path='statement.pdf')
+    def statement_document(self, request):
+        access = self._access()
+        try:
+            start = date.fromisoformat(request.query_params['start']) if request.query_params.get('start') else None
+            end = date.fromisoformat(request.query_params['end']) if request.query_params.get('end') else None
+        except ValueError:
+            raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
+        if start and end and start > end:
+            raise ValidationError({'period': 'Start date cannot be after end date.'})
+        return tenant_statement_pdf(
+            access.tenant, start, end,
+            request.user.get_full_name() or request.user.get_username(),
+        )
+
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         from facilities.models import ServiceRequest

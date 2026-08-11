@@ -120,6 +120,11 @@ class PropertyApiTests(TestCase):
         )
         self.assertEqual(invoice_document.status_code, 200)
         self.assertEqual(invoice_document['Content-Type'], 'application/pdf')
+        statement_document = self.client.get(
+            '/api/v1/property/portal/statement.pdf/?start=2026-01-01&end=2026-12-31', **self.headers,
+        )
+        self.assertEqual(statement_document.status_code, 200)
+        self.assertEqual(statement_document['Content-Type'], 'application/pdf')
 
         payload = json.dumps({
             'event_id': 'evt-001', 'reference': intent.reference,
