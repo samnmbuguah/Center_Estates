@@ -837,6 +837,20 @@ class PropertyApiTests(TestCase):
             format='json', **self.headers,
         ).status_code, 400)
 
+    def test_tenancy_occupancy_report_is_live_and_property_scoped(self):
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        response = self.client.get(
+            '/api/v1/property/analytics/tenancy-occupancy/?start=2026-01-01&end=2026-12-31',
+            **headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['kpis']['total_units'], 1)
+        self.assertEqual(response.data['kpis']['occupied_units'], 1)
+        self.assertEqual(response.data['kpis']['occupancy_rate'], 100.0)
+        self.assertEqual(response.data['tenancy_schedule'][0]['tenant'], self.tenant.name)
+        self.assertEqual(response.data['tenancy_schedule'][0]['property'], self.property.name)
+        self.assertEqual(response.data['lease_expiry'][0]['lease'], self.lease.reference)
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class PropertyRolePermissionApiTests(TestCase):

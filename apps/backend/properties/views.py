@@ -1740,6 +1740,99 @@ class PropertyAnalyticsViewSet(ViewSet):
         return get_active_organization(self.request)
 
     @extend_schema(request=None, responses={200: {'type': 'object'}})
+    @action(detail=False, methods=('get',), url_path='tenancy-occupancy')
+    def tenancy_occupancy(self, request):
+        """Live, property-scoped tenancy and occupancy reporting dataset."""
+        organization = self._organization()
+        today = timezone.localdate()
+        try:
+            start = date.fromisoformat(request.query_params.get('start', (today - timedelta(days=365)).isoformat()))
+            end = date.fromisoformat(request.query_params.get('end', today.isoformat()))
+        except ValueError:
+            raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
+        if start > end:
+            raise ValidationError({'period': 'Start date cannot be after end date.'})
+
+        units = scope_model_queryset(Unit, request, organization).select_related('property', 'building')
+        leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property')
+        unit_type = request.query_params.get('unit_type', '').strip()
+        unit_status = request.query_params.get('unit_status', '').strip()
+        lease_status = request.query_params.get('lease_status', '').strip()
+        if unit_type:
+            units = units.filter(unit_type=unit_type); leases = leases.filter(unit__unit_type=unit_type)
+        if unit_status:
+            units = units.filter(status=unit_status); leases = leases.filter(unit__status=unit_status)
+        if lease_status:
+            leases = leases.filter(status=lease_status)
+
+        active_statuses = (Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+        active_leases = leases.filter(status__in=active_statuses, starts_on__lte=end, ends_on__gte=start)
+        occupied = units.filter(status=Unit.Status.OCCUPIED).count()
+        total_units = units.count(); vacant = units.filter(status=Unit.Status.AVAILABLE).count()
+        current_income = sum((lease.effective_rent(today) for lease in active_leases), Decimal('0'))
+        projected_income = sum((lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=90))) for lease in active_leases), Decimal('0'))
+        overdue = scope_model_queryset(Invoice, request, organization).filter(
+            balance__gt=0, due_on__lt=today,
+        ).exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID))
+
+        schedule = [{
+            'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
+            'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
+            'area': lease.unit.area, 'monthly_rent': lease.effective_rent(today),
+            'lease_start': lease.starts_on, 'lease_end': lease.ends_on, 'status': lease.status,
+        } for lease in active_leases.order_by('unit__code')]
+
+        vacant_rows = []
+        histories = scope_model_queryset(UnitStatusHistory, request, organization).filter(
+            unit__in=units, status=Unit.Status.AVAILABLE,
+        ).select_related('unit__property').order_by('unit_id', '-effective_from')
+        latest_vacancy = {}
+        for history in histories:
+            latest_vacancy.setdefault(history.unit_id, history)
+        for unit in units.filter(status=Unit.Status.AVAILABLE):
+            history = latest_vacancy.get(unit.id)
+            available_since = history.effective_from if history else None
+            vacant_rows.append({
+                'property': unit.property.name, 'unit': unit.code, 'unit_type': unit.unit_type,
+                'area': unit.area, 'available_since': available_since,
+                'days_vacant': (today - available_since).days if available_since else None,
+                'expected_rent': history.expected_monthly_rent if history else Decimal('0'),
+                'marketing_status': history.marketing_status if history else '',
+            })
+
+        movements = scope_model_queryset(TenantMovement, request, organization).filter(
+            effective_on__range=(start, end),
+        ).select_related('tenant', 'unit__property').order_by('-effective_on')
+        movement_rows = [{
+            'kind': row.kind, 'date': row.effective_on, 'tenant': row.tenant.name,
+            'property': row.unit.property.name, 'unit': row.unit.code, 'reason': row.reason,
+        } for row in movements]
+        expiries = [{
+            'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
+            'unit': lease.unit.code, 'ends_on': lease.ends_on,
+            'days_remaining': (lease.ends_on - today).days, 'monthly_rent': lease.effective_rent(today),
+        } for lease in active_leases.filter(ends_on__lte=today + timedelta(days=365)).order_by('ends_on')]
+
+        distribution = list(units.values('status').annotate(count=Count('id')).order_by('status'))
+        return Response({
+            'period': {'start': start, 'end': end},
+            'kpis': {
+                'total_units': total_units, 'occupied_units': occupied, 'vacant_units': vacant,
+                'occupancy_rate': round(occupied / total_units * 100, 1) if total_units else 0,
+                'vacancy_rate': round(vacant / total_units * 100, 1) if total_units else 0,
+                'current_monthly_income': current_income, 'projected_monthly_income_90_days': projected_income,
+                'overdue_tenants': overdue.values('lease__tenant').distinct().count(),
+                'overdue_amount': overdue.aggregate(total=Sum('balance'))['total'] or Decimal('0'),
+            },
+            'unit_status_distribution': distribution, 'tenancy_schedule': schedule,
+            'vacant_units': vacant_rows, 'movements': movement_rows, 'lease_expiry': expiries,
+            'filter_options': {
+                'unit_types': list(scope_model_queryset(Unit, request, organization).exclude(unit_type='').values_list('unit_type', flat=True).distinct()),
+                'unit_statuses': list(Unit.Status.values), 'lease_statuses': list(Lease.Status.values),
+            },
+        })
+
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
     @action(detail=False, methods=('get',))
     def aging(self, request):
         today = timezone.localdate()

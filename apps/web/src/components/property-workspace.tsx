@@ -11,6 +11,7 @@ import { propertyNav } from "@/lib/module-nav";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import { TenantApplicationCard } from "@/components/tenant-application-card";
 import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
+import { PropertyTenancyReports } from "@/components/property-tenancy-reports";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -42,6 +43,7 @@ export type PropertyTab =
   | "budgets"
   | "expenses"
   | "reports"
+  | "tenancy-reports"
   | "fees"
   | "owner-portal"
   | "forecast"
@@ -78,6 +80,7 @@ const labels: Record<PropertyTab, string> = {
   budgets: "Budgets & Estimates",
   expenses: "Property Expenses",
   reports: "Reports Catalogue",
+  "tenancy-reports": "Tenancy & Occupancy Reports",
   fees: "Fee Invoicing",
   "owner-portal": "Owner Portal",
   forecast: "5-Year Forecast",
@@ -4324,7 +4327,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
         setCriticalServiceCharges(Array.isArray(scData) ? scData as Row[] : []);
-      } else if (tab === "owner-portal" || tab === "forecast" || tab === "billing") {
+      } else if (tab === "owner-portal" || tab === "forecast" || tab === "billing" || tab === "tenancy-reports") {
         setLoading(false);
       } else {
         const ep = endpointFor(tab);
@@ -4987,6 +4990,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => { if (action === "reject") setConfirmRejectBudget(row); else void runPropertyAction("budgets", row.id, action, "Budget action failed."); }} />}
         {tab === "expenses" && <ExpensesView rows={rows} financial={financial} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("expense")} onAction={(row, action) => void runPropertyAction("expenses", row.id, action, "Expense action failed.")} />}
         {tab === "reports" && <ReportsView rows={rows} loading={loading} onExport={downloadReport} />}
+        {tab === "tenancy-reports" && <PropertyTenancyReports />}
         {tab === "fees" && <FeesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "owner-portal" && <OwnerPortalView />}
         {tab === "forecast" && <ForecastView />}
