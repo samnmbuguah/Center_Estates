@@ -15,7 +15,7 @@ const TAB_ALIASES: Record<string, string> = {
   "Rent & invoices": "Invoices", "Rent schedules": "Schedules",
   Budgets: "Budget & Estimate", Expenses: "Property Expenses",
   "Tenant documents": "Documents",
-  "Work orders": "Maintenance", Contractors: "Vendors & Contracts",
+  "Work orders": "Maintenance", "Work Orders": "Maintenance", Contractors: "Vendors & Contracts",
   Buildings: "Buildings & Locations", Assets: "Assets & Inventory",
   Utilities: "Energy & Utilities",
   Invoicing: "Client invoicing", Inspections: "Site inspections",

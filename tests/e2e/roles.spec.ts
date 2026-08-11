@@ -84,6 +84,7 @@ test("@role:sales-advocate @module:sales @story:ROLE-SALES-ADVOCATE advocate rea
 });
 
 test("@role:construction-certifier @module:monitoring @story:ROLE-CONSTRUCTION-CERTIFY certifier sees verification actions", async ({ page }) => {
+  test.skip(true, "Construction Monitoring is disabled in the production scope (not in ACTIVE_MODULES).");
   await signInAs(page, "role-construction-certifier");
   await page.goto("/monitoring");
   await expect(page.getByRole("button", { name: "+ Project workspace" })).toHaveCount(0);
@@ -92,6 +93,7 @@ test("@role:construction-certifier @module:monitoring @story:ROLE-CONSTRUCTION-C
 });
 
 test("@role:construction-finance @module:monitoring @story:ROLE-CONSTRUCTION-FINANCE finance officer sees payments without project create", async ({ page }) => {
+  test.skip(true, "Construction Monitoring is disabled in the production scope (not in ACTIVE_MODULES).");
   await signInAs(page, "role-construction-finance");
   await page.goto("/monitoring");
   await expect(page.getByRole("button", { name: "+ Project workspace" })).toHaveCount(0);
@@ -118,8 +120,9 @@ test("@role:valuation-reviewer @module:valuation @story:ROLE-VALUATION-REVIEW re
 
 test("@role:admin @module:platform @story:ROLE-ADMIN-SWITCH admin can open demo identity switcher", async ({ page }) => {
   await signInAs(page, process.env.E2E_ADMIN_USERNAME ?? "admin");
-  await page.goto("/");
-  // The profile menu is triggered by the avatar button (initials) in the top bar.
+  // The profile menu lives in the platform shell header (workspaces page).
+  await page.goto("/workspaces");
+  await expect(page.locator("header button[aria-haspopup='menu']").first()).toBeVisible();
   await page.locator("header button[aria-haspopup='menu']").first().click();
   await expect(page.getByText("Demo identity / role", { exact: true })).toBeVisible();
   await expect(page.getByText("Super Administrator", { exact: true }).first()).toBeVisible();
@@ -182,10 +185,10 @@ test("@role:property-accountant @module:property @story:ROLE-PROPERTY-ACCOUNTANT
   await expect(page.getByRole("button", { name: "+ Add Property", exact: true })).toHaveCount(0);
 
   await openModuleSection(page, "Invoices");
-  const draftRow = page.getByRole("row").filter({ hasText: "INV-2026-DRAFT" });
+  // Issue the first draft invoice (seed references are not guaranteed in production).
+  const draftRow = page.getByRole("row").filter({ hasText: /draft/i }).first();
   await expect(draftRow).toContainText("draft");
   await draftRow.getByRole("button", { name: "Issue", exact: true }).click();
-  await expect(page.getByText("INV-2026-DRAFT", { exact: true }).first()).toBeVisible();
   await expect(draftRow).toContainText("issued");
 
   await openModuleSection(page, "Receipts");
@@ -271,12 +274,12 @@ test("@role:switch @story:ROLE-SWITCH-COMMAND-CENTER role switch keeps sidebar i
   await page.goto("/workspaces");
   await page.waitForTimeout(2000);
   // Sidebar visible as admin
-  await expect(page.locator(".platform-sidebar")).toBeVisible();
-  const adminLinks = await page.locator(".platform-sidebar a").count();
+  await expect(page.locator("aside, .platform-sidebar, [class*='sidebar']").first()).toBeVisible();
+  const adminLinks = await page.locator(".platform-sidebar a, aside a").count();
   expect(adminLinks).toBeGreaterThan(5);
 
-  // Switch to facility-manager via the profile dropdown
-  await page.locator(".profile-trigger").click();
+  // Switch to facility-manager via the profile dropdown (avatar button in top bar)
+  await page.locator("header button[aria-haspopup='menu']").first().click();
   await page.waitForTimeout(2500);
   const roleBtn = page.locator('[role="menu"] button').filter({ hasText: "@role-facility-manager" }).first();
   await roleBtn.click();
@@ -284,8 +287,8 @@ test("@role:switch @story:ROLE-SWITCH-COMMAND-CENTER role switch keeps sidebar i
 
   // Should land in command center, sidebar still visible but filtered
   await expect(page).toHaveURL(/workspaces/);
-  await expect(page.locator(".platform-sidebar")).toBeVisible();
-  const roleLinks = await page.locator(".platform-sidebar a").count();
+  await expect(page.locator("aside, .platform-sidebar, [class*='sidebar']").first()).toBeVisible();
+  const roleLinks = await page.locator(".platform-sidebar a, aside a").count();
   expect(roleLinks).toBeGreaterThan(0);
   expect(roleLinks).toBeLessThan(adminLinks);
 });
