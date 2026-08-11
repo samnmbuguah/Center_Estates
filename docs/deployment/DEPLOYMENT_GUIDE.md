@@ -1,230 +1,92 @@
 # Center Estates ERP — Deployment Guide
 
+## Topology
+
+- Main domain `https://centerestates.com` serves the Next.js standalone bundle (Passenger/Node).
+- API subdomain `https://api.centerestates.com` serves Django (Passenger/LiteSpeed WSGI).
+- The frontend calls `https://api.centerestates.com/api/v1` (`NEXT_PUBLIC_API_BASE_URL`, inlined at build time from `apps/web/.env.local`).
+- One MySQL database serves every organization; organization ownership and subscriptions are enforced at the API boundary.
+
 ## Prerequisites
 
-- Docker Engine 24+ and Docker Compose v2
-- A Linux VM with at least 2 vCPU / 4 GB RAM
-- A domain name (or `sslip.io` for dynamic IP staging)
-- DNS A record pointing to the VM public IP
-- Open ports 80 and 443 (Caddy reverse proxy)
+- A cPanel account with Node.js + Passenger and a Python 3.9 virtualenv.
+- SSH access configured for the `host` alias used by the deploy scripts.
+- DNS: `centerestates.com` → app document root; `api.centerestates.com` → API document root.
 
-## 1. Clone and configure
+## 1. Environment configuration
 
-```bash
-git clone <repo-url> /opt/center-estates
-cd /opt/center-estates
-```
-
-Create the Docker secrets directory and populate passwords:
-
-```bash
-mkdir -p infrastructure/docker/secrets
-tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 50 > infrastructure/docker/secrets/django_secret
-tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24  > infrastructure/docker/secrets/db_password
-tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 20  > infrastructure/docker/secrets/seed_admin_password
-chmod 600 infrastructure/docker/secrets/*
-```
-
-## 2. Environment variables
-
-The backend reads configuration from environment variables (or Docker secrets).
-The key variables in `docker-compose.yml` are:
+`apps/web/.env.local` (Git-ignored) supplies the frontend build-time values:
 
 | Variable | Example | Purpose |
 |---|---|---|
-| `DJANGO_SECRET_KEY` | (auto from secret) | Cryptographic signing |
-| `DJANGO_ALLOWED_HOSTS` | `erp.example.com` | Host header validation |
-| `DB_HOST` | `db` | PostgreSQL host |
-| `DB_PORT` | `5432` | PostgreSQL port |
-| `CORS_ALLOWED_ORIGINS` | `https://erp.example.com` | CORS allowlist |
-| `CSRF_TRUSTED_ORIGINS` | `https://erp.example.com` | CSRF allowlist |
-| `SEED_DEMO_DATA` | `true`/`false` | Seed demo fixtures |
-| `GUNICORN_WORKERS` | `3` | Gunicorn worker count |
+| `NEXT_PUBLIC_API_BASE_URL` | `https://api.centerestates.com/api/v1` | API origin for all fetches |
+| `NEXT_PUBLIC_POSTHOG_KEY` | `phc_...` | PostHog capture key |
+| `NEXT_PUBLIC_POSTHOG_HOST` | `https://us.posthog.com` | PostHog capture + dashboard origin |
+| `NEXT_PUBLIC_POSTHOG_DASHBOARD_URL` | `https://us.posthog.com/embedded/...` | Embedded analytics dashboard on `/analytics` |
 
-Update `docker-compose.yml` with your production domain and set `SEED_DEMO_DATA: "false"` once live client data is entered.
+Backend configuration (Django settings) is driven by environment variables:
 
-## 3. Initial deployment
+| Variable | Example | Purpose |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | (from `passenger_wsgi.py`) | Cryptographic signing |
+| `DJANGO_ALLOWED_HOSTS` | `centerestates.com,api.centerestates.com` | Host header validation |
+| `CORS_ALLOWED_ORIGINS` | `https://centerestates.com` | CORS allowlist |
+| `CSRF_TRUSTED_ORIGINS` | `https://centerestates.com` | CSRF allowlist |
 
-### cPanel Passenger production
+## 2. Initial deployment
 
-The primary domain is `https://centerestates.com`, with application root
-`/home2/monitori/centerestates.com` and Python environment
-`/home2/monitori/virtualenv/centerestates.com/3.9`.
+Run the automated cPanel deployment from the repository root:
 
 ```bash
-scripts/deploy_cpanel.sh host centerestates.com
-curl -fsS https://centerestates.com/api/v1/health/
+./scripts/deploy_cpanel.sh host centerestates.com
+curl -fsS https://api.centerestates.com/api/v1/health/
 ```
 
-The release archive deliberately excludes `.htaccess`, `.env`, SQLite data,
-media and collected static output. Never replace cPanel's generated Passenger
-configuration or production state with files from a developer checkout. For a
-repeat deployment of an already verified local Next build, set `SKIP_BUILD=1`.
-For a backend-only hotfix, use
-`DEPLOY_SCOPE=backend scripts/deploy_cpanel.sh host centerestates.com`; this
-publishes Django, runs migrations/checks and restarts Passenger without
-rebuilding or retransferring Next.js.
+The script builds the Next.js bundle locally, packages backend + frontend, uploads to `/home2/monitori/centerestates.com`, runs `migrate`/`collectstatic`/`check --deploy`, touches `tmp/restart.txt` and terminates stale LiteSpeed workers.
 
-Create a checksummed state backup before subsequent releases:
+Seed demo data (roles, properties, tenants, telemetry fixture) is refreshed explicitly:
 
 ```bash
-scripts/backup_cpanel.sh host centerestates.com
+cd /home2/monitori/api.centerestates.com/apps/backend
+SEED_ADMIN_PASSWORD='<admin>' SEED_ROLE_PASSWORD='<role>' \
+  /home2/monitori/virtualenv/api.centerestates.com/3.9/bin/python manage.py seed_platform
 ```
 
-After deployment, run the focused production acceptance suite:
+## 3. Release verification
 
 ```bash
+apps/backend/.venv/bin/python apps/backend/manage.py makemigrations --check --dry-run
+apps/backend/.venv/bin/python apps/backend/manage.py test audit companion construction core documents facilities organizations properties sales subscriptions tenders valuations
+(cd apps/web && npm run lint && npx tsc --noEmit && npm run build)
 E2E_BASE_URL=https://centerestates.com \
-E2E_ADMIN_PASSWORD="$(tr -d '\n' < infrastructure/docker/secrets/seed_admin_password)" \
-npx playwright test tests/e2e/platform.spec.ts --project=desktop-chromium
+E2E_ADMIN_PASSWORD='<admin>' E2E_ROLE_PASSWORD='<role>' \
+  npx playwright test --project=desktop-chromium
+E2E_BASE_URL=https://centerestates.com \
+E2E_ADMIN_PASSWORD='<admin>' E2E_ROLE_PASSWORD='<role>' \
+  npx playwright test --project=mobile-chromium
 ```
+
+Also confirm login, organization switching, subscription-limited navigation, tenant portal visibility, a CSV download, the PostHog embed on `/analytics`, and browser console cleanliness.
+
+## 4. Backup and restore
 
 ```bash
-# Build images
-docker compose build backend web
-
-# Start the stack (db, backend, web)
-docker compose up -d --remove-orphans
-
-# Verify containers are healthy
-docker compose ps
+./scripts/backup_cpanel.sh host centerestates.com
 ```
 
-The backend entrypoint automatically:
-1. Applies database migrations (`python manage.py migrate --noinput`)
-2. Collects static files (`python manage.py collectstatic --noinput`)
-3. Seeds demo data when `SEED_DEMO_DATA=true`
+The backup captures the database dump, uploaded media and frontend bundle with checksums. Store copies off-account and test restoration regularly. A restore rehearsal uses a separate database and drops only that temporary database — never point a rehearsal at production.
 
-## 4. Caddy reverse proxy
+## 5. Rollback
 
-Caddy runs on the `caddy_default` Docker network and terminates TLS.
+1. Preserve the failing release logs and take a fresh backup if writes occurred.
+2. Check out the last known-good commit and rerun `./scripts/deploy_cpanel.sh host centerestates.com`.
+3. If the release included a backwards-incompatible migration, use the matching pre-deploy database/media backup; do not improvise a reverse migration against production data.
+4. Repeat health, security and module smoke checks after rollback.
 
-A shared Caddy instance proxies:
-- `/api/*`, `/admin/*`, `/static/*`, `/media/*` → Django (`backend:8000`)
-- All other traffic → Next.js (`web:3000`)
+## 6. Security and operations
 
-Ensure Caddy is running and the `caddy_default` network exists:
-
-```bash
-docker network ls | grep caddy_default || \
-  docker network create caddy_default
-```
-
-Add your site to the Caddyfile:
-
-```
-erp.example.com {
-    reverse_proxy /api/* /admin/* /static/* /media/* center-estates-backend:8000
-    reverse_proxy center-estates-web:3000
-}
-```
-
-Reload Caddy:
-
-```bash
-docker exec caddy-caddy-1 caddy validate --config /etc/caddy/Caddyfile
-docker exec caddy-caddy-1 caddy reload --config /etc/caddy/Caddyfile
-```
-
-## 5. Health checks
-
-```bash
-# Backend health endpoint
-curl -fsS https://erp.example.com/api/v1/health/
-
-# Django deploy checks
-docker compose exec -T backend python manage.py check --deploy
-
-# Container health status
-docker compose ps
-```
-
-Backend healthcheck runs every 20s with a 40s start-period grace window.
-Web healthcheck runs every 20s with a 20s start-period.
-
-## 6. Seed data
-
-Set `SEED_DEMO_DATA: "true"` in `docker-compose.yml` during acceptance testing.
-Set to `"false"` before entering live client data.
-
-Seeded data includes:
-- Platform admin user and role-based demo users
-- Property, building, unit, tenant, lease, invoice data
-- Facility work orders, assets, inspections, preventive schedules
-- Sales listings, buyers, payments, commissions
-- Tender pipeline with requirements and proposals
-- Valuation instructions, inspections, draft/final reports
-- Companion tasks and event history
-- Construction monitoring projects, milestones, BoQ, risks, tickets
-
-## 7. Backup procedures
-
-```bash
-# Run the backup script (captures PostgreSQL + media with SHA-256 checksums)
-./infrastructure/docker/backup.sh
-```
-
-Backups include:
-- PostgreSQL database dump
-- Media files volume
-
-Store backup copies off the VM. Test restoration regularly on a separate database.
-
-### Restore rehearsal
-
-```bash
-# 1. Create a temporary database
-docker compose exec -T db psql -U center_estates -c "CREATE DATABASE center_estates_rehearsal;"
-
-# 2. Load the dump into the temporary database
-docker compose exec -T db psql -U center_estates -d center_estates_rehearsal < backups/latest/database.dump
-
-# 3. Validate representative table counts
-docker compose exec -T db psql -U center_estates -d center_estates_rehearsal \
-  -c "SELECT 'properties' AS t, count(*) FROM properties_property UNION ALL
-      SELECT 'leases', count(*) FROM properties_lease UNION ALL
-      SELECT 'work_orders', count(*) FROM facilities_workorder;"
-
-# 4. Drop the temporary database
-docker compose exec -T db psql -U center_estates -c "DROP DATABASE center_estates_rehearsal;"
-```
-
-**Never point a rehearsal at the production `center_estates` database.**
-
-## 8. Rollback procedures
-
-1. Preserve failing release logs; take a fresh backup if writes occurred.
-2. Check out the last known-good commit and rebuild both images:
-   ```bash
-   git checkout <last-good-commit>
-   docker compose build backend web
-   docker compose up -d --remove-orphans
-   ```
-3. If the release included a backwards-incompatible migration, use the matching pre-deploy database/media backup. **Do not improvise a reverse migration against production data.**
-4. Start the stack and repeat health, security, and module smoke checks.
-
-## 9. Scaling considerations
-
-- **Gunicorn workers**: Adjust `GUNICORN_WORKERS` (default 3). Rule of thumb: `2 × CPU cores + 1`.
-- **Database**: PostgreSQL runs on a single volume. For high availability, consider pgBouncer + read replicas.
-- **Media storage**: The `media_data` Docker volume can be replaced with S3-compatible object storage for horizontal scaling.
-- **Caching**: Redis or Memcached can be added for session and query caching.
-- **CDN**: Serve `/static/` and `/media/` through a CDN for lower latency.
-- **Multiple web replicas**: Next.js can be scaled horizontally behind a load balancer. API calls go through the shared backend.
-
-## 10. Security notes
-
-- Secrets remain ignored by Git and restricted to root plus the container's Django group.
+- Secrets stay out of Git: frontend values in `apps/web/.env.local`, backend values in `passenger_wsgi.py`/cPanel environment.
+- Authentication is JWT in HttpOnly cookies (15-minute access, 7-day refresh), CSRF-protected and rate limited.
 - Rotate the Django signing key only during announced maintenance (existing sessions become invalid).
-- Rotate database credentials by coordinating PostgreSQL, the Docker secret, and an application restart.
-- Replace the acceptance admin password with named staff accounts before launch.
-- Authentication endpoints are CSRF-protected and rate-limited; tokens are stored in secure, HTTP-only cookies.
-
-## Routine operations
-
-| Frequency | Task |
-|---|---|
-| Daily | Automated off-VM database/media backup and health alerting |
-| Weekly | Inspect container restarts, application errors, expiring compliance documents, overdue workflows |
-| Monthly | Restore rehearsal, dependency/security update review, access review |
-| Every release | Backup, migration check, backend tests, frontend lint/build, E2E tests, Caddy validation |
+- Replace the acceptance admin password and remove unused memberships before live client data.
+- See the [Production runbook](PRODUCTION_RUNBOOK.md) for routine operations, backup cadence and release checks.
