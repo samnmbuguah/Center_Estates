@@ -46,7 +46,7 @@ test("@role:operator @module:sales @story:ROLE-SALES-MANAGE operator can manage 
   await signInAs(page, "role-sales-operator");
   await page.goto("/sales");
   // Operators manage the pipeline but do not register buyers (selling permission).
-  await expect(page.getByText(/Buyers Registry|Buyers/i).first()).toBeVisible();
+  await expect(page.getByText(/Recent Sales|Sales Actions|Stage Breakdown/i).first()).toBeVisible();
   await openTab(page, "Payments");
   await expect(page.getByRole("button", { name: "Verify", exact: true })).toHaveCount(0);
 });
@@ -72,7 +72,7 @@ test("@role:site-clerk @module:sales @story:ROLE-SALES-CLERK clerk focuses on vi
   await page.goto("/sales");
   await expect(page.getByRole("button", { name: "+ Register Buyer" })).toHaveCount(0);
   await openTab(page, "Site visits");
-  await expect(page.getByRole("heading", { name: "Site visits", exact: true })).toBeVisible();
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Site visits/i);
 });
 
 test("@role:sales-advocate @module:sales @story:ROLE-SALES-ADVOCATE advocate reaches legal documents only", async ({ page }) => {
@@ -80,7 +80,7 @@ test("@role:sales-advocate @module:sales @story:ROLE-SALES-ADVOCATE advocate rea
   await page.goto("/sales");
   await expect(page.getByRole("button", { name: "+ Register Buyer" })).toHaveCount(0);
   await openTab(page, "Legal documents");
-  await expect(page.getByRole("heading", { name: "Legal documents", exact: true })).toBeVisible();
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Legal documents/i);
 });
 
 test("@role:construction-certifier @module:monitoring @story:ROLE-CONSTRUCTION-CERTIFY certifier sees verification actions", async ({ page }) => {
@@ -104,7 +104,7 @@ test("@role:tender-board-reviewer @module:tender @story:ROLE-TENDER-BOARD board 
   await page.goto("/tender");
   await expect(page.getByRole("button", { name: "+ Register Invitation" })).toHaveCount(0);
   await openTab(page, "Review & approval");
-  await expect(page.getByRole("heading", { name: "Review & approval", exact: true })).toBeVisible();
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Review & approval/i);
 });
 
 test("@role:valuation-reviewer @module:valuation @story:ROLE-VALUATION-REVIEW reviewer cannot create instructions", async ({ page }) => {
@@ -112,7 +112,8 @@ test("@role:valuation-reviewer @module:valuation @story:ROLE-VALUATION-REVIEW re
   await page.goto("/valuation");
   await expect(page.getByRole("button", { name: "+ New Instruction" })).toHaveCount(0);
   await openTab(page, "Draft reports");
-  await expect(page.getByRole("heading", { name: "Draft reports", exact: true })).toBeVisible();
+  // The redesigned shell shows the active page as the nav-bar's current item.
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Draft reports/i);
 });
 
 test("@role:admin @module:platform @story:ROLE-ADMIN-SWITCH admin can open demo identity switcher", async ({ page }) => {
