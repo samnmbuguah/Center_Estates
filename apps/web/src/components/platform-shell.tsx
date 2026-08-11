@@ -16,6 +16,7 @@ import { usePropertyContext } from "@/lib/property-context";
 import { PropertyContextBar } from "@/components/property-context-bar";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
+import { BrandedLoader } from "@/components/branded-loader";
 import { useTheme } from "@/theme/theme-provider";
 import {
   AppBar,
@@ -184,11 +185,11 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   if (isPublicRoute(pathname)) {
     if (session?.user && (pathname === "/login" || pathname === "/sign-up")) {
       if (typeof window !== "undefined") window.location.href = "/workspaces";
-      return <div className="full-loading">Redirecting to your workspace…</div>;
+      return <BrandedLoader message="Opening your workspace" />;
     }
     return <>{children}</>;
   }
-  if (loading || !session) return <div className="full-loading">Loading your workspace…</div>;
+  if (loading || !session) return <BrandedLoader message="Preparing your workspace" />;
 
   const allowed = new Set(allowedSlugs);
   const requestedModule = pathname.split("/")[1];
@@ -199,7 +200,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   ));
   const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal");
   if (moduleWorkspaceActive && (!propertyContextReady || (properties.length > 0 && !activeProperty))) {
-    return <div className="full-loading">Loading your property workspace…</div>;
+    return <BrandedLoader message="Bringing this property into focus" />;
   }
   const displayName = session.user.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`

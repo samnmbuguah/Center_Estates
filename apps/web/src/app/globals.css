@@ -5555,3 +5555,87 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 .property-onboarding-mode .module-workspace-property .module-nav-bar { display: none; }
 .property-onboarding-mode .module-workspace-property .module-workspace-main { padding-top: 24px; }
 .property-onboarding-page { max-width: 1080px; margin: 0 auto; }
+
+/* Shared motion and loading language: lightweight, branded and accessible. */
+.ce-loader {
+  position: relative;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 24px;
+  min-height: 100vh;
+  padding: 32px;
+  overflow: hidden;
+  color: var(--text-primary, var(--text));
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 34%),
+    var(--bg, var(--background));
+}
+
+.ce-loader--compact {
+  min-height: 320px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 40%), var(--bg-surface);
+}
+
+.ce-loader-stage { position: relative; width: 154px; height: 154px; display: grid; place-items: center; }
+.ce-loader--compact .ce-loader-stage { width: 112px; height: 112px; }
+.ce-loader-orbit { position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--primary) 34%, transparent); border-radius: 50%; }
+.ce-loader-orbit--outer { animation: ce-orbit 6s linear infinite; }
+.ce-loader-orbit--outer::before { content: ""; position: absolute; width: 9px; height: 9px; top: 13px; left: 24px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 18px color-mix(in srgb, var(--primary) 70%, transparent); }
+.ce-loader-orbit--inner { inset: 18px; border-style: dashed; animation: ce-orbit 8s linear infinite reverse; }
+.ce-loader-logo { position: relative; z-index: 2; display: grid; place-items: center; width: 76px; height: 76px; padding: 12px; border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color)); border-radius: 24px; background: var(--bg-surface); box-shadow: 0 18px 50px color-mix(in srgb, var(--primary) 18%, transparent); animation: ce-breathe 2.4s ease-in-out infinite; }
+.ce-loader-logo img, .ce-loader-logo svg { width: 100%; height: 100%; object-fit: contain; }
+.ce-loader-skyline { position: absolute; z-index: 1; bottom: 26px; display: flex; align-items: end; gap: 4px; height: 34px; opacity: .28; }
+.ce-loader-skyline i { display: block; width: 7px; height: 14px; border-radius: 2px 2px 0 0; background: var(--primary); animation: ce-skyline 1.8s ease-in-out infinite alternate; }
+.ce-loader-skyline i:nth-child(2) { height: 25px; animation-delay: -.4s; }
+.ce-loader-skyline i:nth-child(3) { height: 34px; animation-delay: -.8s; }
+.ce-loader-skyline i:nth-child(4) { height: 20px; animation-delay: -1.2s; }
+.ce-loader-skyline i:nth-child(5) { height: 28px; animation-delay: -1.5s; }
+.ce-loader-scan { position: absolute; z-index: 3; left: 35px; right: 35px; height: 1px; background: linear-gradient(90deg, transparent, var(--primary), transparent); filter: drop-shadow(0 0 4px var(--primary)); animation: ce-scan 2.2s ease-in-out infinite; }
+.ce-loader-beacon { position: absolute; z-index: 3; width: 5px; height: 5px; border-radius: 50%; background: var(--primary); animation: ce-beacon 1.8s ease-out infinite; }
+.ce-loader-beacon--one { top: 31px; right: 34px; }
+.ce-loader-beacon--two { bottom: 35px; left: 30px; animation-delay: -.9s; }
+.ce-loader-copy { display: grid; justify-items: center; gap: 7px; text-align: center; }
+.ce-loader-copy strong { font-size: clamp(17px, 2vw, 21px); letter-spacing: -.02em; }
+.ce-loader-copy > span:not(.ce-loader-dots) { color: var(--text-secondary, var(--muted)); font-size: 13px; }
+.ce-loader-dots { display: inline-flex; align-items: center; gap: 5px; min-height: 12px; }
+.ce-loader-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); animation: ce-dot 1.25s ease-in-out infinite; }
+.ce-loader-dots i:nth-child(2) { animation-delay: .15s; }
+.ce-loader-dots i:nth-child(3) { animation-delay: .3s; }
+
+.ce-data-loading { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--border-color); border-radius: 14px; background: var(--bg-surface); }
+.ce-data-loading-head { display: flex; align-items: center; gap: 9px; color: var(--text-secondary, var(--muted)); font-size: 12px; font-weight: 700; }
+.ce-data-loading-head .ce-loader-dots { margin-left: 2px; }
+.ce-mini-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 36%, transparent); animation: ce-beacon 1.8s ease-out infinite; }
+.ce-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ce-skeleton-grid > :first-child { grid-column: 1 / -1; }
+
+/* Subtle shared affordances make dense ERP screens feel responsive without distracting from data. */
+.module-workspace-content > * { animation: ce-content-in .32s cubic-bezier(.22, 1, .36, 1) both; }
+@media (hover: hover) {
+  .card { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px color-mix(in srgb, #0f172a 9%, transparent); }
+}
+button, a, input, select, textarea { transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, color .16s ease, opacity .16s ease; }
+:where(a, button, input, select, textarea):focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 28%, transparent); outline-offset: 2px; }
+
+@keyframes ce-orbit { to { transform: rotate(360deg); } }
+@keyframes ce-breathe { 50% { transform: translateY(-4px) scale(1.025); } }
+@keyframes ce-skyline { to { transform: scaleY(.72); opacity: .55; } }
+@keyframes ce-scan { 0%, 100% { top: 42px; opacity: 0; } 18%, 82% { opacity: .8; } 50% { top: 108px; } }
+@keyframes ce-beacon { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 38%, transparent); } 70%, 100% { box-shadow: 0 0 0 14px transparent; } }
+@keyframes ce-dot { 0%, 70%, 100% { transform: translateY(0); opacity: .35; } 35% { transform: translateY(-4px); opacity: 1; } }
+@keyframes ce-content-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 640px) {
+  .ce-loader { padding: 24px 18px; }
+  .ce-skeleton-grid { grid-template-columns: 1fr; }
+  .ce-skeleton-grid > :first-child { grid-column: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ce-loader *, .ce-data-loading *, .module-workspace-content > * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  .card, button, a, input, select, textarea { transition-duration: .01ms !important; }
+}

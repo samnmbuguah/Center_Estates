@@ -121,10 +121,17 @@ export function EmptyState({ icon = "📋", title = "No records", description, a
 
 export function LoadingState({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="data-loading" role="status" aria-label="Loading records" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="data-loading ce-data-loading" role="status" aria-live="polite" aria-label="Loading records">
+      <div className="ce-data-loading-head">
+        <span className="ce-mini-pulse" aria-hidden="true" />
+        <span>Bringing your data into focus</span>
+        <span className="ce-loader-dots" aria-hidden="true"><i /><i /><i /></span>
+      </div>
+      <div className="ce-skeleton-grid">
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} variant="rounded" height={18} animation="wave" sx={{ opacity: 1 - i * 0.12 }} />
+        <Skeleton key={i} variant="rounded" height={i === 0 ? 56 : 42} animation="wave" sx={{ opacity: Math.max(0.46, 1 - i * 0.1) }} />
       ))}
+      </div>
     </div>
   );
 }

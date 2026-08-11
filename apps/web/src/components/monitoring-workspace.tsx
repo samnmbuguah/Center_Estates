@@ -7,6 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "@/components/monitoring/context
 import { fetchDashboard, fetchTickets, fetchDailyLogs, fetchRequisitions, type Ticket, type DailyLog, type Requisition } from "@/components/monitoring/api";
 import { usePropertyContext } from "@/lib/property-context";
 import { useAuth } from "@/components/auth-provider";
+import { BrandedLoader } from "@/components/branded-loader";
 
 const Projects = lazy(() => import("@/components/monitoring/pages/Projects").then(m => ({ default: m.Projects })));
 const ProjectWorkspace = lazy(() => import("@/components/monitoring/pages/ProjectWorkspace").then(m => ({ default: m.ProjectWorkspace })));
@@ -1044,7 +1045,7 @@ function WorkspaceContent() {
       activeId={tab}
       onSelect={handleSelectTab}
     >
-      <Suspense fallback={<div className="data-loading">Loading...</div>}>
+      <Suspense fallback={<BrandedLoader compact message="Preparing this view" />}>
         <div key={activeProperty?.id ?? "portfolio"} className="monitoring-workspace-container" style={{ padding: "8px 0" }}>
         {tab === "overview" && <ExecutiveDashboard />}
         {tab === "projects" && <Projects />}
