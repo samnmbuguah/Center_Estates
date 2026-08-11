@@ -1896,7 +1896,9 @@ class PropertyAnalyticsViewSet(ViewSet):
             leases = leases.filter(status=lease_status)
 
         active_statuses = (Lease.Status.ACTIVE, Lease.Status.EXPIRING)
-        active_leases = leases.filter(status__in=active_statuses, starts_on__lte=end, ends_on__gte=start)
+        active_leases = leases.filter(
+            status__in=active_statuses, starts_on__lte=end, ends_on__gte=start,
+        ).prefetch_related('billing_profiles__billing_item', 'escalations')
         occupied = units.filter(status=Unit.Status.OCCUPIED).count()
         total_units = units.count(); vacant = units.filter(status=Unit.Status.AVAILABLE).count()
         current_income = sum((lease.effective_rent(today) for lease in active_leases), Decimal('0'))
@@ -1907,9 +1909,17 @@ class PropertyAnalyticsViewSet(ViewSet):
 
         schedule = [{
             'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
-            'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
+            'floor': lease.unit.floor, 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
+            'use': lease.unit.metadata.get('use', lease.unit.unit_type),
             'area': lease.unit.area, 'monthly_rent': lease.effective_rent(today),
+            'service_charge': sum((profile.amount for profile in lease.billing_profiles.filter(
+                is_active=True, billing_item__income_category__icontains='service',
+            )), Decimal('0')),
+            'escalation_percent': lease.escalation_percent,
+            'escalation_interval_months': lease.escalation_interval_months,
+            'next_effective_rent': lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=365))),
             'lease_start': lease.starts_on, 'lease_end': lease.ends_on, 'status': lease.status,
+            'comments': lease.metadata.get('comments', ''),
         } for lease in active_leases.order_by('unit__code')]
 
         vacant_rows = []
@@ -2206,14 +2216,78 @@ class PropertyAnalyticsViewSet(ViewSet):
                                  max((today - invoice.due_on).days, 0)))
         elif report_kind == 'income-expense':
             writer.writerow(('Type', 'Date', 'Property / tenant', 'Category / method', 'Reference', 'Amount'))
-            for receipt in scope_model_queryset(Receipt, request, organization).select_related('tenant'):
+            for receipt in scope_model_queryset(Receipt, request, organization).filter(received_on__range=(start, end)).select_related('tenant'):
                 writer.writerow(('Income', receipt.received_on, receipt.tenant.name, receipt.payment_method, receipt.number, receipt.amount))
-            for expense in scope_model_queryset(Expense, request, organization).select_related('property'):
+            for expense in scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end)).select_related('property'):
                 writer.writerow(('Expense', expense.incurred_on, expense.property.name, expense.category, expense.invoice_number, expense.amount))
+        elif report_kind == 'billing-schedule':
+            writer.writerow(('Invoice', 'Tenant', 'Property', 'Unit', 'Billing period', 'Invoice date', 'Due date', 'Subtotal', 'VAT', 'Total billed', 'Collected', 'Outstanding', 'Status'))
+            rows = scope_model_queryset(Invoice, request, organization).filter(issued_on__range=(start, end)).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property')
+            for invoice in rows:
+                collected = invoice.receipts.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                writer.writerow((invoice.number, invoice.lease.tenant.name, invoice.lease.unit.property.name,
+                                 invoice.lease.unit.code, invoice.metadata.get('billing_period', ''), invoice.issued_on,
+                                 invoice.due_on, invoice.subtotal, invoice.tax_amount, invoice.amount, collected,
+                                 invoice.balance, invoice.status))
+        elif report_kind == 'expenses-schedule':
+            writer.writerow(('Date', 'Supplier', 'Property', 'Category', 'Description', 'Reference', 'Net', 'VAT', 'Total', 'Status', 'Budget code', 'Cost centre'))
+            rows = scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end)).select_related('property')
+            for expense in rows:
+                writer.writerow((expense.incurred_on, expense.supplier, expense.property.name, expense.category,
+                                 expense.description, expense.invoice_number, expense.taxable_amount or expense.amount - expense.tax_amount,
+                                 expense.tax_amount, expense.amount, expense.status, expense.budget_code, expense.cost_centre))
+        elif report_kind == 'vat-schedule':
+            writer.writerow(('Type', 'Date', 'Reference', 'Party', 'Property', 'Taxable value', 'VAT amount'))
+            invoices = scope_model_queryset(Invoice, request, organization).filter(issued_on__range=(start, end), tax_amount__gt=0).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property')
+            for invoice in invoices:
+                writer.writerow(('Output VAT', invoice.issued_on, invoice.number, invoice.lease.tenant.name,
+                                 invoice.lease.unit.property.name, invoice.subtotal, invoice.tax_amount))
+            expenses = scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end), tax_amount__gt=0).select_related('property')
+            for expense in expenses:
+                writer.writerow(('Input VAT', expense.incurred_on, expense.invoice_number, expense.supplier,
+                                 expense.property.name, expense.taxable_amount, expense.tax_amount))
         elif report_kind == 'occupancy':
             writer.writerow(('Property', 'Unit', 'Type', 'Area', 'Status'))
             for unit in scope_model_queryset(Unit, request, organization).select_related('property'):
                 writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
+        elif report_kind == 'tenancy-schedule':
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Use', 'Lease start', 'Lease end', 'Rent', 'Service charge', 'Escalation %', 'Escalation interval months', 'Next effective rent', 'Status', 'Comments'))
+            rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
+            for lease in rows:
+                service_charge = sum((profile.amount for profile in lease.billing_profiles.all()
+                                      if profile.is_active and 'service' in profile.billing_item.income_category.lower()), Decimal('0'))
+                writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name, lease.unit.property.name,
+                                 lease.unit.area or '', lease.unit.metadata.get('use', lease.unit.unit_type), lease.starts_on,
+                                 lease.ends_on, lease.effective_rent(end), service_charge, lease.escalation_percent,
+                                 lease.escalation_interval_months, lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365))),
+                                 lease.status, lease.metadata.get('comments', '')))
+        elif report_kind == 'vacancy':
+            writer.writerow(('Property', 'Unit', 'Type', 'Use', 'Area', 'Available since', 'Days vacant', 'Expected rent', 'Vacancy reason', 'Marketing status'))
+            units = scope_model_queryset(Unit, request, organization).filter(status=Unit.Status.AVAILABLE).select_related('property')
+            for unit in units:
+                history = unit.status_history.filter(status=Unit.Status.AVAILABLE, effective_from__lte=end).order_by('-effective_from').first()
+                available_since = history.effective_from if history else None
+                writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.metadata.get('use', unit.unit_type),
+                                 unit.area or '', available_since or '', (end - available_since).days if available_since else '',
+                                 history.expected_monthly_rent if history else 0, history.reason if history else '',
+                                 history.marketing_status if history else ''))
+        elif report_kind == 'movements':
+            writer.writerow(('Movement', 'Date', 'Tenant', 'Property', 'Unit', 'Rent', 'Reason'))
+            rows = scope_model_queryset(TenantMovement, request, organization).filter(effective_on__range=(start, end)).select_related('tenant', 'unit__property', 'lease')
+            for movement in rows:
+                writer.writerow((movement.kind, movement.effective_on, movement.tenant.name, movement.unit.property.name,
+                                 movement.unit.code, movement.lease.effective_rent(movement.effective_on), movement.reason))
+        elif report_kind == 'income-analysis':
+            writer.writerow(('Property', 'Unit', 'Tenant', 'Use', 'Current rent', 'Service charge', 'Annualized income', 'Escalation %', 'Projected rent', 'Lease status'))
+            rows = scope_model_queryset(Lease, request, organization).filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING), starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
+            for lease in rows:
+                current_rent = lease.effective_rent(end)
+                service_charge = sum((profile.amount for profile in lease.billing_profiles.all()
+                                      if profile.is_active and 'service' in profile.billing_item.income_category.lower()), Decimal('0'))
+                writer.writerow((lease.unit.property.name, lease.unit.code, lease.tenant.name,
+                                 lease.unit.metadata.get('use', lease.unit.unit_type), current_rent, service_charge,
+                                 (current_rent + service_charge) * 12, lease.escalation_percent,
+                                 lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365))), lease.status))
         elif report_kind == 'lease-expiry':
             writer.writerow(('Lease', 'Tenant', 'Property', 'Unit', 'End date', 'Status', 'Monthly rent'))
             for lease in scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property'):

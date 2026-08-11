@@ -856,7 +856,40 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['kpis']['occupancy_rate'], 100.0)
         self.assertEqual(response.data['tenancy_schedule'][0]['tenant'], self.tenant.name)
         self.assertEqual(response.data['tenancy_schedule'][0]['property'], self.property.name)
+        self.assertIn('floor', response.data['tenancy_schedule'][0])
+        self.assertIn('service_charge', response.data['tenancy_schedule'][0])
+        self.assertIn('escalation_percent', response.data['tenancy_schedule'][0])
+        self.assertIn('next_effective_rent', response.data['tenancy_schedule'][0])
         self.assertEqual(response.data['lease_expiry'][0]['lease'], self.lease.reference)
+
+    def test_each_visible_report_tab_exports_its_own_dataset_in_supported_formats(self):
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        report_headings = {
+            'tenancy-schedule': b'Escalation %', 'vacancy': b'Days vacant',
+            'movements': b'Movement', 'income-analysis': b'Annualized income',
+            'billing-schedule': b'Total billed', 'vat-schedule': b'Taxable value',
+            'expenses-schedule': b'Budget code',
+        }
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            for report_key, heading in report_headings.items():
+                csv_response = self.client.get(
+                    f'/api/v1/property/analytics/exports/{report_key}/?start=2026-01-01&end=2026-12-31&output=csv',
+                    **headers,
+                )
+                self.assertEqual(csv_response.status_code, 200, report_key)
+                self.assertIn(heading, csv_response.content, report_key)
+                xlsx_response = self.client.get(
+                    f'/api/v1/property/analytics/exports/{report_key}/?start=2026-01-01&end=2026-12-31&output=xlsx',
+                    **headers,
+                )
+                self.assertEqual(xlsx_response.status_code, 200, report_key)
+                self.assertEqual(xlsx_response['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                pdf_response = self.client.get(
+                    f'/api/v1/property/analytics/exports/{report_key}/?start=2026-01-01&end=2026-12-31&output=pdf',
+                    **headers,
+                )
+                self.assertEqual(pdf_response.status_code, 200, report_key)
+                self.assertEqual(pdf_response['Content-Type'], 'application/pdf')
 
     def test_financial_reports_reconcile_live_ledgers(self):
         self.invoice.subtotal = Decimal('1000'); self.invoice.save(update_fields=('subtotal',))

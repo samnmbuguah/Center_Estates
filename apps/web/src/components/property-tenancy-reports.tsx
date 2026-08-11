@@ -31,6 +31,7 @@ export function PropertyTenancyReports() {
   const [unitType, setUnitType] = useState("");
   const [unitStatus, setUnitStatus] = useState("");
   const [leaseStatus, setLeaseStatus] = useState("");
+  const [exportFormat, setExportFormat] = useState<"pdf" | "xlsx" | "csv">("pdf");
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,10 +49,11 @@ export function PropertyTenancyReports() {
 
   async function exportReport() {
     if (!organizationId) return;
-    const response = await apiFetch(`/property/analytics/exports/occupancy/?${query}`, {}, organizationId);
+    const reportKind = ["occupancy", "tenancy-schedule", "vacancy", "movements", "income-analysis", "lease-expiry"][section] ?? "occupancy";
+    const response = await apiFetch(`/property/analytics/exports/${reportKind}/?${query}&output=${exportFormat}`, {}, organizationId);
     if (!response.ok) { setError(await apiErrorMessage(response, "The report could not be exported.")); return; }
     const url = URL.createObjectURL(await response.blob());
-    const link = document.createElement("a"); link.href = url; link.download = "tenancy-occupancy.csv"; link.click();
+    const link = document.createElement("a"); link.href = url; link.download = `${reportKind}-${start}-${end}.${exportFormat}`; link.click();
     URL.revokeObjectURL(url);
   }
 
@@ -63,7 +65,7 @@ export function PropertyTenancyReports() {
   return <Box sx={{ display: "grid", gap: 2 }}>
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", justifyContent: "space-between", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
       <Box><Typography variant="overline" color="primary" sx={{ fontWeight: 900 }}>Reports & analytics</Typography><Typography variant="h5" sx={{ fontWeight: 900 }}>Tenancy & occupancy reports</Typography><Typography variant="body2" color="text.secondary">Real-time occupancy, vacancy, movements, income and lease-expiry analysis for the selected property.</Typography></Box>
-      <Button variant="contained" startIcon={<Download size={17}/>} onClick={() => void exportReport()}>Export report</Button>
+      <Box sx={{ display: "flex", gap: 1 }}><TextField select size="small" label="Format" value={exportFormat} onChange={event => setExportFormat(event.target.value as typeof exportFormat)} sx={{ minWidth: 110 }}><MenuItem value="pdf">PDF</MenuItem><MenuItem value="xlsx">Excel</MenuItem><MenuItem value="csv">CSV</MenuItem></TextField><Button variant="contained" startIcon={<Download size={17}/>} onClick={() => void exportReport()} disabled={section === 6}>Export</Button></Box>
     </Paper>
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}><Tabs value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto">{sections.map(label => <Tab key={label} label={label}/>)}</Tabs></Paper>
     {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void load()}>Retry</Button>}>{error}</Alert>}

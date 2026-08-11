@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Chip, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, MenuItem, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
@@ -23,18 +23,19 @@ export function PropertyFinancialReports() {
   const now = new Date(); const [section, setSection] = useState(0);
   const [start, setStart] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
   const [end, setEnd] = useState(now.toISOString().slice(0, 10));
+  const [exportFormat, setExportFormat] = useState<"pdf" | "xlsx" | "csv">("pdf");
   const [data, setData] = useState<FinancialData | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
   const query = useMemo(() => new URLSearchParams({ start, end }).toString(), [end, start]);
   const load = useCallback(async () => { if (!organizationId) return; setLoading(true); setError(""); const response = await apiFetch(`/property/analytics/financial-reports/?${query}`, {}, organizationId); if (!response.ok) setError(await apiErrorMessage(response, "Financial reports could not be loaded.")); else setData(await response.json() as FinancialData); setLoading(false); }, [organizationId, query]);
   useEffect(() => { void load(); }, [load]);
-  async function exportReport(kind: string) { if (!organizationId) return; const response = await apiFetch(`/property/analytics/exports/${kind}/?${query}`, {}, organizationId); if (!response.ok) { setError(await apiErrorMessage(response, "The financial report could not be exported.")); return; } const url = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = url; link.download = `${kind}-${start}-${end}.csv`; link.click(); URL.revokeObjectURL(url); }
+  async function exportReport(kind: string) { if (!organizationId) return; const response = await apiFetch(`/property/analytics/exports/${kind}/?${query}&output=${exportFormat}`, {}, organizationId); if (!response.ok) { setError(await apiErrorMessage(response, "The financial report could not be exported.")); return; } const url = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = url; link.download = `${kind}-${start}-${end}.${exportFormat}`; link.click(); URL.revokeObjectURL(url); }
   if (loading && !data) return <LoadingState rows={8}/>;
   const k = data?.kpis ?? {};
   const rows = section === 1 ? data?.billing_collection : section === 2 ? data?.arrears : section === 4 ? data?.vat.transactions : section === 5 ? data?.expenses : section === 6 ? data?.service_charge : section === 7 ? data?.budgets : [];
   const columns = rows?.length ? Object.keys(rows[0]) : [];
-  const exportKind = section === 1 ? "tenant-payment-status" : section === 2 ? "aging" : section === 3 ? "income-expense" : section === 5 ? "expenses-schedule" : section === 6 ? "service-charge" : section === 7 ? "budget-actual" : "income-expense";
+  const exportKind = section === 1 ? "billing-schedule" : section === 2 ? "aging" : section === 3 ? "income-expense" : section === 4 ? "vat-schedule" : section === 5 ? "expenses-schedule" : section === 6 ? "service-charge" : section === 7 ? "budget-actual" : "income-expense";
   return <Box sx={{ display: "grid", gap: 2 }}>
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}><Box><Typography variant="overline" color="primary" sx={{ fontWeight: 900 }}>Reports & analytics</Typography><Typography variant="h5" sx={{ fontWeight: 900 }}>Financial reports</Typography><Typography variant="body2" color="text.secondary">Reconciled financial performance for the selected property and reporting period.</Typography></Box><Button variant="contained" startIcon={<Download size={17}/>} onClick={() => void exportReport(exportKind)}>Export report</Button></Paper>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}><Box><Typography variant="overline" color="primary" sx={{ fontWeight: 900 }}>Reports & analytics</Typography><Typography variant="h5" sx={{ fontWeight: 900 }}>Financial reports</Typography><Typography variant="body2" color="text.secondary">Reconciled financial performance for the selected property and reporting period.</Typography></Box><Box sx={{ display: "flex", gap: 1 }}><TextField select size="small" label="Format" value={exportFormat} onChange={event => setExportFormat(event.target.value as typeof exportFormat)} sx={{ minWidth: 110 }}><MenuItem value="pdf">PDF</MenuItem><MenuItem value="xlsx">Excel</MenuItem><MenuItem value="csv">CSV</MenuItem></TextField><Button variant="contained" startIcon={<Download size={17}/>} onClick={() => void exportReport(exportKind)} disabled={section === 8}>Export</Button></Box></Paper>
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}><Tabs value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto">{sections.map(label => <Tab key={label} label={label}/>)}</Tabs></Paper>
     {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void load()}>Retry</Button>}>{error}</Alert>}
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center" }}><TextField type="date" size="small" label="From" value={start} onChange={event => setStart(event.target.value)} slotProps={{ inputLabel: { shrink: true } }}/><TextField type="date" size="small" label="To" value={end} onChange={event => setEnd(event.target.value)} slotProps={{ inputLabel: { shrink: true } }}/><Button variant="outlined" startIcon={<RefreshCw size={16}/>} onClick={() => void load()}>Apply period</Button></Paper>
