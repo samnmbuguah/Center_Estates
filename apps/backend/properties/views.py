@@ -43,7 +43,10 @@ from .serializers import (
     ServiceChargeSerializer, TenantDocumentSerializer, TenantPortalAccessSerializer,
     TenantSerializer, UnitSerializer,
 )
-from .pdf_documents import income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf, tenant_statement_pdf
+from .pdf_documents import (
+    income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf,
+    tenant_payment_status_pdf, tenant_payment_status_rows, tenant_statement_pdf,
+)
 from .lease_billing import generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
 
 
@@ -1418,15 +1421,16 @@ class PropertyAnalyticsViewSet(ViewSet):
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         return Response({'reports': [
-            {'key': 'aging', 'name': 'Outstanding aging', 'category': 'Financial'},
-            {'key': 'income-expense', 'name': 'Income and expenses', 'category': 'Financial'},
+            {'key': 'tenant-payment-status', 'name': 'Tenants Payments Status Report', 'category': 'Critical Financial', 'critical': True, 'description': 'Monthly tenant billings, receipts and balances carried forward.'},
+            {'key': 'income-expense', 'name': 'Receipts & Expenditure Account', 'category': 'Critical Financial', 'critical': True, 'description': 'Property income, disbursements and cumulative performance.'},
+            {'key': 'outstanding-balances', 'name': 'Outstanding Balances', 'category': 'Critical Financial', 'critical': True, 'description': 'Open tenant invoices and balances requiring collection.'},
+            {'key': 'payment-reconciliation', 'name': 'Payment Reconciliation', 'category': 'Critical Financial', 'critical': True, 'description': 'Bank transactions matched to official receipts.'},
+            {'key': 'aging', 'name': 'Outstanding Aging', 'category': 'Financial', 'description': 'Arrears grouped by age and tenant.'},
             {'key': 'budget-actual', 'name': 'Budget versus actual', 'category': 'Financial'},
             {'key': 'service-charge', 'name': 'Service charge allocations', 'category': 'Financial'},
             {'key': 'daily-collections', 'name': 'Daily collections', 'category': 'Collections & Reconciliation'},
             {'key': 'collections-property', 'name': 'Collections by property', 'category': 'Collections & Reconciliation'},
             {'key': 'collections-tenant', 'name': 'Collections by tenant', 'category': 'Collections & Reconciliation'},
-            {'key': 'outstanding-balances', 'name': 'Outstanding balances', 'category': 'Collections & Reconciliation'},
-            {'key': 'payment-reconciliation', 'name': 'Payment reconciliation', 'category': 'Collections & Reconciliation'},
             {'key': 'settlement', 'name': 'Settlement report', 'category': 'Collections & Reconciliation'},
             {'key': 'management-fee', 'name': 'Management fee report', 'category': 'Collections & Reconciliation'},
             {'key': 'occupancy', 'name': 'Portfolio occupancy', 'category': 'Tenants & Occupancy'},
@@ -1442,23 +1446,32 @@ class PropertyAnalyticsViewSet(ViewSet):
     def export(self, request, report_kind=None):
         organization = self._organization()
         output_pdf = request.query_params.get('output') == 'pdf'
-        if output_pdf and report_kind == 'income-expense':
+        today = timezone.localdate()
+        try:
+            start = date.fromisoformat(request.query_params.get('start', today.replace(day=1).isoformat()))
+            end = date.fromisoformat(request.query_params.get('end', today.isoformat()))
+        except ValueError:
+            raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
+        if start > end:
+            raise ValidationError({'period': 'Start date cannot be after end date.'})
+        if output_pdf and report_kind in ('income-expense', 'tenant-payment-status'):
             property_record = get_active_property(request, organization)
             if not property_record:
                 raise ValidationError({'property': 'Select a property before generating this report.'})
-            today = timezone.localdate()
-            try:
-                start = date.fromisoformat(request.query_params.get('start', today.replace(day=1).isoformat()))
-                end = date.fromisoformat(request.query_params.get('end', today.isoformat()))
-            except ValueError:
-                raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
-            if start > end:
-                raise ValidationError({'period': 'Start date cannot be after end date.'})
+            if report_kind == 'tenant-payment-status':
+                return tenant_payment_status_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
             return income_expenditure_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="property-{report_kind}.csv"'
         writer = csv.writer(response)
-        if report_kind == 'aging':
+        if report_kind == 'tenant-payment-status':
+            property_record = get_active_property(request, organization)
+            if not property_record:
+                raise ValidationError({'property': 'Select a property before generating this report.'})
+            writer.writerow(('Tenant', 'Unit / no.', 'Rent / month', 'Payment mode', 'Billings up to', 'Balance B/F', 'Current billings', 'Total billings', 'Receipts', 'Outstanding C/F'))
+            for row in tenant_payment_status_rows(organization, property_record, start, end):
+                writer.writerow((row['tenant'], row['unit'], row['rent'], row['payment_mode'], row['billed_to'], row['opening'], row['current'], row['total'], row['receipts'], row['closing']))
+        elif report_kind == 'aging':
             writer.writerow(('Invoice', 'Tenant', 'Property', 'Unit', 'Due date', 'Balance', 'Days outstanding'))
             today = timezone.localdate()
             rows = scope_model_queryset(Invoice, request, organization).exclude(

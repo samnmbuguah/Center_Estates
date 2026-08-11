@@ -23,7 +23,7 @@ from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
 
-from .models import CreditNote, Expense, Invoice, Receipt
+from .models import CreditNote, Expense, Invoice, Lease, Receipt
 
 
 RED = colors.HexColor("#dc2626")
@@ -36,6 +36,13 @@ GREEN = colors.HexColor("#047857")
 
 def _money(value) -> str:
     return f"KES {Decimal(value or 0):,.2f}"
+
+
+def _accounting(value, *, credit=False) -> str:
+    amount = Decimal(value or 0)
+    if credit and amount:
+        return f"({amount:,.2f})"
+    return f"({abs(amount):,.2f})" if amount < 0 else f"{amount:,.2f}"
 
 
 _ONES = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen")
@@ -244,6 +251,82 @@ def tenant_statement_pdf(tenant, start: date | None = None, end: date | None = N
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (3, -1), (-1, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 6.5), ("ALIGN", (4, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .3, LINE), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
     story.extend([Spacer(1, 5 * mm), table])
     return _doc_response(tenant.organization, f"tenant-statement-{tenant.code}-{start}-{end}.pdf", story, wide=True, title="Tenant Statement", property_name=prop.name if prop else "Portfolio", period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by)
+
+
+def tenant_payment_status_rows(organization, property_record, start: date, end: date):
+    """Build the client-approved billing and collection ledger for one property."""
+    leases = Lease.objects.filter(
+        organization=organization, unit__property=property_record,
+        starts_on__lte=end, ends_on__gte=start,
+    ).exclude(status=Lease.Status.TERMINATED).select_related("tenant", "unit").order_by("unit__floor", "unit__code", "tenant__name")
+    rows = []
+    for lease in leases:
+        invoices = Invoice.objects.filter(
+            organization=organization, lease=lease,
+            status__in=(Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.PAID, Invoice.Status.OVERDUE),
+        )
+        receipts = Receipt.objects.filter(organization=organization, tenant=lease.tenant).filter(
+            Q(invoice__lease=lease) | Q(invoice__isnull=True),
+        )
+        credits = CreditNote.objects.filter(organization=organization, invoice__lease=lease).exclude(status="void")
+        opening = (
+            (invoices.filter(issued_on__lt=start).aggregate(v=Sum("amount"))["v"] or Decimal("0"))
+            - (receipts.filter(received_on__lt=start).aggregate(v=Sum("amount"))["v"] or Decimal("0"))
+            - (credits.filter(issued_on__lt=start).aggregate(v=Sum("amount"))["v"] or Decimal("0"))
+        )
+        current = invoices.filter(issued_on__range=(start, end)).aggregate(v=Sum("amount"))["v"] or Decimal("0")
+        received = receipts.filter(received_on__range=(start, end)).aggregate(v=Sum("amount"))["v"] or Decimal("0")
+        current_credits = credits.filter(issued_on__range=(start, end)).aggregate(v=Sum("amount"))["v"] or Decimal("0")
+        total = opening + current
+        closing = total - received - current_credits
+        effective_on = min(end, lease.ends_on)
+        rows.append({
+            "tenant": lease.tenant.name, "unit": lease.unit.code,
+            "floor": lease.unit.floor or "Unspecified", "rent": lease.effective_rent(effective_on),
+            "payment_mode": (lease.metadata or {}).get("payment_mode", "Monthly"),
+            "billed_to": min(end, lease.ends_on), "opening": opening, "current": current,
+            "total": total, "receipts": received + current_credits, "closing": closing,
+        })
+    return rows
+
+
+def tenant_payment_status_pdf(organization, property_record, start: date, end: date, generated_by="System"):
+    s = _styles(); rows = tenant_payment_status_rows(organization, property_record, start, end)
+    metadata = property_record.metadata or {}; landlord = metadata.get("landlord", {})
+    story = [
+        Paragraph("TENANTS PAYMENTS STATUS REPORT", s["DocTitle"]),
+        Paragraph(f"Billings and collections for <b>{start:%d %b %Y} — {end:%d %b %Y}</b>", s["Small"]),
+        Spacer(1, 4 * mm),
+        _info_table([
+            ("Client", landlord.get("name") or "—", "Property", property_record.name),
+            ("Property code", property_record.code, "LR no.", metadata.get("lr_number") or "—"),
+            ("Address", property_record.address, "Reporting month", end.strftime("%B %Y")),
+        ], s, widths=[23 * mm, 77 * mm, 28 * mm, 80 * mm]),
+        Spacer(1, 5 * mm), Paragraph(f"BILLINGS ({end:%B %Y})", s["Section"]),
+    ]
+    data = [["TENANT", "UNIT / NO.", "RENT / MONTH", "PAYMENT MODE", "BILLINGS UP TO", "BALANCE B/F", "CURRENT", "TOTAL BILLINGS", "RECEIPTS", "OUTSTANDING C/F"]]
+    for row in rows:
+        data.append([
+            Paragraph(str(row["tenant"]), s["Tiny"]), row["unit"], _accounting(row["rent"]), row["payment_mode"],
+            row["billed_to"].strftime("%d/%m/%Y"), _accounting(row["opening"]), _accounting(row["current"]),
+            _accounting(row["total"]), _accounting(row["receipts"], credit=True), _accounting(row["closing"]),
+        ])
+    totals = {key: sum((Decimal(row[key]) for row in rows), Decimal("0")) for key in ("rent", "opening", "current", "total", "receipts", "closing")}
+    data.append(["TOTAL", "", _accounting(totals["rent"]), "", "", _accounting(totals["opening"]), _accounting(totals["current"]), _accounting(totals["total"]), _accounting(totals["receipts"], credit=True), _accounting(totals["closing"])])
+    table = Table(data, colWidths=[42*mm, 19*mm, 25*mm, 23*mm, 24*mm, 24*mm, 22*mm, 25*mm, 23*mm, 26*mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e5e7eb")), ("TEXTCOLOR", (0, 0), (-1, -1), colors.black),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eeeeee")), ("FONTSIZE", (0, 0), (-1, -1), 5.8),
+        ("ALIGN", (2, 1), (-1, -1), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), .45, colors.black), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(table)
+    return _doc_response(
+        organization, f"tenants-payments-status-{property_record.code}-{end:%Y-%m}.pdf", story,
+        wide=True, title="Tenants Payments Status Report", property_name=property_record.name,
+        period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by,
+    )
 
 
 def income_expenditure_pdf(organization, property_record, start: date, end: date, generated_by="System"):
