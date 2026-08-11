@@ -270,6 +270,24 @@ class FacilityApiTests(TestCase):
         self.assertEqual(Decimal(after_rejection.data['previous_value']), Decimal('1300'))
         self.assertEqual(Decimal(after_rejection.data['consumption']), Decimal('50'))
 
+    def test_smart_meter_ingestion_is_idempotent_and_still_requires_approval(self):
+        meter = UtilityMeter.objects.create(
+            organization=self.organization, code='WATER-IOT', name='Smart water meter',
+            property=self.property, utility_type=UtilityMeter.Utility.WATER, tariff=Decimal('90'),
+        )
+        payload = {
+            'meter': str(meter.id), 'read_at': timezone.now().isoformat(), 'value': '240.5',
+            'method': MeterReading.Method.IOT, 'source_reference': 'device-7:event-991',
+        }
+        created = self.client.post('/api/v1/facility/meter-readings/ingest/', payload, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertFalse(created.data['duplicate'])
+        self.assertEqual(created.data['status'], MeterReading.Status.PENDING)
+        replay = self.client.post('/api/v1/facility/meter-readings/ingest/', payload, format='json', **self.headers)
+        self.assertEqual(replay.status_code, 200, replay.data)
+        self.assertTrue(replay.data['duplicate'])
+        self.assertEqual(MeterReading.objects.filter(source_reference='device-7:event-991').count(), 1)
+
     def test_facility_analytics(self):
         response = self.client.get('/api/v1/facility/analytics/', **self.headers)
         self.assertEqual(response.status_code, 200)

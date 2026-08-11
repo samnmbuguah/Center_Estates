@@ -138,10 +138,11 @@ class MeterReadingSerializer(serializers.ModelSerializer):
     meter_name = serializers.CharField(source='meter.name', read_only=True)
     unit_code = serializers.CharField(source='meter.property_unit.code', read_only=True, default='')
     reviewed_by_name = serializers.CharField(source='reviewed_by.username', read_only=True, default='')
+    recorded_by_name = serializers.CharField(source='recorded_by.get_full_name', read_only=True, default='')
     class Meta:
         model = MeterReading
         exclude = ('organization',)
-        read_only_fields = ('previous_value', 'consumption', 'cost', 'is_anomaly', 'status', 'reviewed_by', 'reviewed_at', 'review_notes')
+        read_only_fields = ('previous_value', 'consumption', 'cost', 'is_anomaly', 'status', 'recorded_by', 'reviewed_by', 'reviewed_at', 'review_notes')
 
 
 class MeterResetEventSerializer(serializers.ModelSerializer):

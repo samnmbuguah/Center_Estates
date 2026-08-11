@@ -17,6 +17,7 @@ import { PropertyContextBar } from "@/components/property-context-bar";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
 import { BrandedLoader } from "@/components/branded-loader";
+import { NotificationCenter } from "@/components/notification-center";
 import { useTheme } from "@/theme/theme-provider";
 import {
   AppBar,
@@ -47,6 +48,7 @@ const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; ico
   { name: "Tickets", href: "/tickets", module: "monitoring", icon: "🎫", detail: "View portfolio tickets" },
   { name: "Calendar", href: "/calendar", module: "monitoring", icon: "📅", detail: "View portfolio calendar" },
   { name: "New work order", href: "/facility?tab=work-orders", module: "facility", icon: "🔧", detail: "Create a maintenance work order", permission: "facility.operations" },
+  { name: "Caretaker meter portal", href: "/caretaker-portal", module: "facility", icon: "💧", detail: "Capture property meter readings for approval", permission: "facility.work" },
   { name: "Register buyer", href: "/sales?tab=buyers", module: "sales", icon: "💰", detail: "Create a buyer profile", permission: "sales.sell" },
   { name: "New valuation instruction", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Create a valuation instruction", permission: "valuation.instructions" },
 ];
@@ -198,7 +200,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const activeModule = modules.find((module) => (
     pathname === `/${module.slug}` || pathname.startsWith(`/${module.slug}/`)
   ));
-  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal");
+  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal") || pathname.startsWith("/caretaker-portal");
   if (moduleWorkspaceActive && (!propertyContextReady || (properties.length > 0 && !activeProperty))) {
     return <BrandedLoader message="Bringing this property into focus" />;
   }
@@ -359,6 +361,8 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
               <IconButton onClick={toggleThemeHandler} title={`Switch to ${mode === "dark" ? "Light" : "Dark"} Mode`}>
                 {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </IconButton>
+
+              <NotificationCenter />
 
               <Box ref={profileRef} sx={{ position: "relative" }}>
                 <IconButton onClick={() => setProfileOpen((open) => !open)} aria-haspopup="menu">

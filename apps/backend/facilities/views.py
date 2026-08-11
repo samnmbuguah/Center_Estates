@@ -19,6 +19,8 @@ from core.permissions import HasModuleActionPermission
 from core.tenancy import get_active_organization
 from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from properties.models import Building, Property
+from notifications.models import Notification
+from notifications.services import notify_permission, notify_user
 
 from .models import (
     Contractor, FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule,
@@ -484,12 +486,51 @@ class MeterReadingViewSet(FacilityModelViewSet):
         cost = (consumption * meter.tariff).quantize(Decimal('0.01'))
         serializer.save(
             organization=organization,
+            recorded_by=self.request.user,
             previous_value=baseline, consumption=Decimal(0) if reverse_without_reset else consumption,
             cost=Decimal(0) if reverse_without_reset else cost,
             is_anomaly=reverse_without_reset or anomaly,
             status=MeterReading.Status.REJECTED if reverse_without_reset else MeterReading.Status.PENDING,
             review_notes='Reverse reading rejected; authorize a meter reset or replacement before billing.' if reverse_without_reset else '',
         )
+        reading = serializer.instance
+        if reading.status == MeterReading.Status.PENDING:
+            notify_permission(
+                organization=organization, permission_key='facility.approve',
+                title=f'Meter reading awaiting approval · {meter.name}',
+                message=f'{reading.value:g} {meter.unit} recorded for {meter.property.name}.',
+                level=Notification.Level.WARNING, action_url='/facility?tab=meters',
+                event_key=f'meter-reading-review:{reading.pk}', exclude_user=self.request.user,
+                metadata={'meter_reading_id': str(reading.pk), 'property_id': str(meter.property_id)},
+            )
+
+    @action(detail=False, methods=('post',), url_path='ingest')
+    @transaction.atomic
+    def ingest(self, request):
+        """Authenticated, idempotent endpoint for smart meters and approved imports.
+
+        Electronic readings enter the same pending-review queue as field readings;
+        ingestion never bypasses the manager approval boundary.
+        """
+        source_reference = str(request.data.get('source_reference', '')).strip()
+        method = str(request.data.get('method', MeterReading.Method.IOT))
+        if method not in (MeterReading.Method.IOT, MeterReading.Method.IMPORT):
+            raise ValidationError({'method': 'Electronic ingestion accepts smart-meter or imported readings only.'})
+        if not source_reference:
+            raise ValidationError({'source_reference': 'A device event or import-row reference is required for idempotency.'})
+        organization = get_active_organization(request)
+        existing = MeterReading.objects.for_organization(organization).filter(
+            method=method, source_reference=source_reference,
+        ).first()
+        if existing:
+            return Response({**self.get_serializer(existing).data, 'duplicate': True})
+        payload = request.data.copy()
+        payload['method'] = method
+        payload['source_reference'] = source_reference
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({**serializer.data, 'duplicate': False}, status=201)
 
     @action(detail=True, methods=('post',))
     def approve(self, request, pk=None):
@@ -501,6 +542,14 @@ class MeterReadingViewSet(FacilityModelViewSet):
         reading.reviewed_at = timezone.now()
         reading.review_notes = str(request.data.get('notes', '')).strip()
         reading.save(update_fields=('status', 'reviewed_by', 'reviewed_at', 'review_notes', 'updated_at'))
+        if reading.recorded_by:
+            notify_user(
+                organization=reading.organization, recipient=reading.recorded_by,
+                title=f'Meter reading approved · {reading.meter.name}',
+                message=f'The {reading.value:g} {reading.meter.unit} reading is approved for billing.',
+                level=Notification.Level.SUCCESS, action_url='/caretaker-portal',
+                event_key=f'meter-reading-approved:{reading.pk}', category='approval',
+            )
         return Response(self.get_serializer(reading).data)
 
     @action(detail=True, methods=('post',))
@@ -516,6 +565,13 @@ class MeterReadingViewSet(FacilityModelViewSet):
         reading.reviewed_at = timezone.now()
         reading.review_notes = notes
         reading.save(update_fields=('status', 'reviewed_by', 'reviewed_at', 'review_notes', 'updated_at'))
+        if reading.recorded_by:
+            notify_user(
+                organization=reading.organization, recipient=reading.recorded_by,
+                title=f'Meter reading rejected · {reading.meter.name}', message=notes,
+                level=Notification.Level.URGENT, action_url='/caretaker-portal',
+                event_key=f'meter-reading-rejected:{reading.pk}', category='approval',
+            )
         return Response(self.get_serializer(reading).data)
 
     def perform_update(self, serializer): raise ValidationError({'reading': 'Meter readings are immutable.'})

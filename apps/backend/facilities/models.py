@@ -326,6 +326,7 @@ class MeterReading(OrganizationOwnedModel):
     cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     is_anomaly = models.BooleanField(default=False)
     notes = models.CharField(max_length=250, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='recorded_meter_readings', null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='reviewed_meter_readings', null=True, blank=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)

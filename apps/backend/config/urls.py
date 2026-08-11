@@ -2451,6 +2451,7 @@ urlpatterns = [
     path('api/v1/', include('core.urls')),
     path('api/v1/audit/', include('audit.urls')),
     path('api/v1/documents/', include('documents.urls')),
+    path('api/v1/notifications/', include('notifications.urls')),
     path('api/v1/property/', include('properties.urls')),
     path('api/v1/facility/', include('facilities.urls')),
     path('api/v1/sales/', include('sales.urls')),

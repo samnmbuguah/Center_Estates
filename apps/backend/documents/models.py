@@ -19,7 +19,10 @@ class Document(OrganizationOwnedModel):
 
     title = models.CharField(max_length=240)
     category = models.CharField(max_length=80, blank=True, db_index=True)
-    file = models.FileField(upload_to=document_upload_path)
+    # Organization + UUID namespacing exceeds Django's 100-character default
+    # for ordinary client filenames. Preserve the original filename separately
+    # and allow a safe storage key without truncation failures.
+    file = models.FileField(upload_to=document_upload_path, max_length=500)
     original_filename = models.CharField(max_length=255)
     mime_type = models.CharField(max_length=120, blank=True)
     size_bytes = models.PositiveBigIntegerField(default=0)

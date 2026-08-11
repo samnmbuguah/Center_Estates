@@ -67,6 +67,9 @@ ssh "$REMOTE_HOST" "
   cron_marker='# center-estates-scheduled-reports'
   cron_command="*/15 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 ${cron_marker}"
   (crontab -l 2>/dev/null | grep -vF "${cron_marker}"; echo "${cron_command}") | crontab -
+  notification_cron_marker='# center-estates-calendar-notifications'
+  notification_cron_command="17 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 ${notification_cron_marker}"
+  (crontab -l 2>/dev/null | grep -vF "${notification_cron_marker}"; echo "${notification_cron_command}") | crontab -
   mkdir -p tmp
   touch tmp/restart.txt
   # CloudLinux LiteSpeed keeps a preloaded lswsgi master alive across the

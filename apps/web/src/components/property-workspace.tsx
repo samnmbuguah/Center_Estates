@@ -231,7 +231,7 @@ interface FinancialAnalytics {
 }
 
 interface ReportItem {
-  key?: string; name?: string; category?: string; description?: string; critical?: boolean;
+  key?: string; name?: string; category?: string; section?: string; description?: string; critical?: boolean;
 }
 
 interface DashboardData {
@@ -3400,7 +3400,7 @@ function FeesView({ rows, loading, search, setSearch, setTab }: {
 /* ─── REPORTS ─── */
 
 function ReportsView({ rows, loading, onExport }: {
-  rows: Row[]; loading: boolean; onExport: (key: string, output: "csv" | "pdf", start: string, end: string) => void;
+  rows: Row[]; loading: boolean; onExport: (key: string, output: "csv" | "pdf" | "xlsx", start: string, end: string) => void;
 }) {
   const reports = rows as ReportItem[];
   const today = new Date();
@@ -3415,9 +3415,12 @@ function ReportsView({ rows, loading, onExport }: {
     return matchesCategory && haystack.includes(query.trim().toLowerCase());
   });
   const critical = reports.filter((report) => report.critical);
+  const reportGroups = ["Financial", "Tenants & Occupancy", "Service Providers", "Compliance & Risk"]
+    .map((name) => ({ name, reports: visible.filter((report) => report.category === name) }))
+    .filter((group) => group.reports.length > 0);
   const invalidPeriod = Boolean(start && end && start > end);
 
-  const exportReport = (report: ReportItem, output: "csv" | "pdf") => {
+  const exportReport = (report: ReportItem, output: "csv" | "pdf" | "xlsx") => {
     if (!invalidPeriod) onExport(String(report.key ?? ""), output, start, end);
   };
 
@@ -3449,10 +3452,15 @@ function ReportsView({ rows, loading, onExport }: {
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
         <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", display: "flex", justifyContent: "space-between" }}><Typography sx={{ fontWeight: 800 }}>All reports</Typography><Chip size="small" label={`${visible.length} available`} /></Box>
         <ListState loading={loading} empty={visible.length === 0} emptyTitle="No matching reports" emptyDesc="Change the search or category filters to see more reports.">
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" }, gap: 0, p: 1 }}>
-            {visible.map((report) => <Box key={report.key} sx={{ p: 1.5, m: .5, border: 1, borderColor: "divider", borderRadius: 2, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
-              <Box><Typography variant="body2" sx={{ fontWeight: 700 }}>{report.name}</Typography><Typography variant="caption" color="text.secondary">{report.category}</Typography></Box>
-              <Box sx={{ display: "flex", gap: .75, flexShrink: 0 }}><Button size="small" onClick={() => exportReport(report, "csv")} disabled={invalidPeriod}>CSV</Button><Button size="small" variant="outlined" onClick={() => exportReport(report, "pdf")} disabled={invalidPeriod}>PDF</Button></Box>
+          <Box sx={{ display: "grid", gap: 2, p: 2 }}>
+            {reportGroups.map((group) => <Box key={group.name}>
+              <Typography variant="overline" sx={{ fontWeight: 900, color: "text.secondary" }}>{group.name}</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "repeat(2, minmax(0, 1fr))" }, gap: 1, mt: .5 }}>
+                {group.reports.map((report) => <Box key={report.key} sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 2, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+                  <Box><Typography variant="body2" sx={{ fontWeight: 700 }}>{report.name}</Typography><Typography variant="caption" color="text.secondary">{report.section || report.description || group.name}</Typography></Box>
+                  <Box sx={{ display: "flex", gap: .5, flexShrink: 0 }}><Button size="small" onClick={() => exportReport(report, "csv")} disabled={invalidPeriod}>CSV</Button><Button size="small" onClick={() => exportReport(report, "xlsx")} disabled={invalidPeriod}>Excel</Button><Button size="small" variant="outlined" onClick={() => exportReport(report, "pdf")} disabled={invalidPeriod}>PDF</Button></Box>
+                </Box>)}
+              </Box>
             </Box>)}
           </Box>
         </ListState>
@@ -4788,10 +4796,10 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url);
   }
 
-  function downloadReport(key: string, output: "csv" | "pdf" = "csv", start?: string, end?: string) {
+  function downloadReport(key: string, output: "csv" | "pdf" | "xlsx" = "csv", start?: string, end?: string) {
     if (output === "csv") { void downloadReportCSV(key, start, end); return; }
-    const query = new URLSearchParams({ output: "pdf" }); if (start) query.set("start", start); if (end) query.set("end", end);
-    void downloadApiFile(`/property/analytics/exports/${key}/?${query.toString()}`, `property-${key}.pdf`);
+    const query = new URLSearchParams({ output }); if (start) query.set("start", start); if (end) query.set("end", end);
+    void downloadApiFile(`/property/analytics/exports/${key}/?${query.toString()}`, `property-${key}.${output}`);
   }
 
   const downloadInvoicePdf = (row: InvoiceRow) => void downloadApiFile(`/property/invoices/${row.id}/pdf/`, `invoice-${row.number ?? row.id}.pdf`);

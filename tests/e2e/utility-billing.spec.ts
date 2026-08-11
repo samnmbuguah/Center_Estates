@@ -49,9 +49,10 @@ test("caretaker reading is unit-scoped, validated and manager-approved", async (
   await expect(meterRow).toContainText(Number(newRate).toLocaleString(undefined, { maximumFractionDigits: 4 }));
 });
 
-test("companion provides a property-scoped caretaker meter entry surface", async ({ page }, testInfo) => {
+test("dedicated caretaker portal provides a property-scoped meter entry surface", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "The desktop register verifies the complete field-entry form");
-  await page.goto("/companion");
+  await page.goto("/caretaker-portal");
+  await expect(page).toHaveURL(/\/caretaker-portal/);
   const propertySelector = page.getByLabel("Current property");
   const westlands = await propertySelector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
   await propertySelector.selectOption(westlands ?? "");

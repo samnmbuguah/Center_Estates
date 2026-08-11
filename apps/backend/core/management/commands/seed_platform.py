@@ -1,6 +1,6 @@
 import os
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
@@ -50,6 +50,18 @@ class Command(BaseCommand):
             slug='center-estates-demo',
             defaults={'name': 'Center Estates Demo', 'is_active': True, 'domain': 'erp.169-58-102-217.sslip.io'},
         )
+        organization_settings = organization.settings or {}
+        branding = organization_settings.get('branding') if isinstance(organization_settings.get('branding'), dict) else {}
+        branding.update({
+            'company_name': 'Center Estates',
+            'address': 'Nairobi, Kenya',
+            'phone': '',
+            'email': 'management@centerestates.com',
+            'logo_url': '',
+        })
+        organization_settings['branding'] = branding
+        organization.settings = organization_settings
+        organization.save(update_fields=('settings',))
         Membership.objects.update_or_create(
             organization=organization, user=user,
             defaults={'is_default': True, 'is_organization_admin': True, 'status': Membership.Status.ACTIVE},
@@ -141,6 +153,7 @@ class Command(BaseCommand):
             'property-accountant': ('Property Accountant', Module.PROPERTY, ('view', 'finance', 'approve', 'report'), 'Carol', 'Accounts'),
             'facility-manager': ('Facility Manager', Module.FACILITY, ('view', 'work', 'inspect', 'administer', 'approve', 'report'), 'Daniel', 'Facilities'),
             'facility-technician': ('Facility Technician', Module.FACILITY, ('view', 'work'), 'Esther', 'Technician'),
+            'caretaker': ('Property Caretaker', Module.FACILITY, ('view', 'work'), 'Peter', 'Caretaker'),
             'facility-inspector': ('Facility Inspector', Module.FACILITY, ('view', 'inspect', 'work'), 'Felix', 'Inspector'),
             'facility-occupant': ('Facility Occupant', Module.FACILITY, ('view',), 'Grace', 'Occupant'),
             'sales-developer': ('Sales Developer / Owner', Module.SALES, ('view', 'selling', 'visits', 'payments', 'legal', 'manage', 'approve', 'report'), 'Hassan', 'Developer'),
@@ -1072,6 +1085,80 @@ class Command(BaseCommand):
                     'status': ValuationInstruction.Status.NEW,
                 },
             )
+
+        # Twelve reconciled periods across every seeded property make trends,
+        # aging, income/expense and scheduled-report previews meaningful.
+        def month_start(months_back):
+            value = today.year * 12 + today.month - 1 - months_back
+            return today.replace(year=value // 12, month=value % 12 + 1, day=1)
+
+        leases_for_history = Lease.objects.for_organization(organization).select_related('tenant', 'unit__property').filter(
+            status=Lease.Status.ACTIVE,
+        )
+        for lease_index, history_lease in enumerate(leases_for_history, start=1):
+            history_property = history_lease.unit.property
+            for months_back in range(12):
+                period = month_start(months_back)
+                rent = history_lease.effective_rent(period)
+                number = f'HIST-{history_property.code}-{period:%Y%m}'
+                paid_ratio = Decimal('0.70') if months_back == 0 else Decimal('1.00')
+                history_invoice, _ = Invoice.objects.update_or_create(
+                    organization=organization, number=number,
+                    defaults={
+                        'lease': history_lease, 'invoice_type': 'rent', 'issued_on': period,
+                        'due_on': period + timedelta(days=max(history_lease.billing_day - 1, 0)),
+                        'subtotal': rent, 'tax_rate': Decimal('0'), 'tax_amount': Decimal('0'),
+                        'amount': rent, 'balance': (rent * (Decimal('1') - paid_ratio)).quantize(Decimal('0.01')),
+                        'status': Invoice.Status.PARTIAL if paid_ratio < 1 else Invoice.Status.PAID,
+                        'prepared_by': user, 'reviewed_by': user, 'reviewed_at': timezone.now(),
+                        'issued_by': user, 'issued_at': timezone.now(),
+                    },
+                )
+                paid_amount = (rent * paid_ratio).quantize(Decimal('0.01'))
+                history_receipt, _ = Receipt.objects.update_or_create(
+                    organization=organization, number=f'HIST-RCT-{history_property.code}-{period:%Y%m}',
+                    defaults={
+                        'tenant': history_lease.tenant, 'invoice': history_invoice,
+                        'received_on': min(period + timedelta(days=4), today), 'amount': paid_amount,
+                        'payment_method': 'bank_transfer', 'external_reference': f'SEED-{history_property.code}-{period:%Y%m}',
+                        'received_by': user,
+                    },
+                )
+                ReceiptAllocation.objects.update_or_create(
+                    organization=organization, receipt=history_receipt, invoice=history_invoice,
+                    defaults={'amount': paid_amount, 'allocated_by': user},
+                )
+                Expense.objects.update_or_create(
+                    organization=organization, property=history_property,
+                    invoice_number=f'HIST-EXP-{history_property.code}-{period:%Y%m}',
+                    defaults={
+                        'supplier': 'Portfolio Operations Services',
+                        'category': ('Utilities', 'Repairs & maintenance', 'Security')[months_back % 3],
+                        'incurred_on': min(period + timedelta(days=12), today),
+                        'amount': (rent * (Decimal('0.16') + Decimal(months_back % 3) / Decimal('100'))).quantize(Decimal('0.01')),
+                        'status': Expense.Status.APPROVED, 'description': f'Seeded operating expense for {period:%B %Y}.',
+                    },
+                )
+
+        for meter_index, history_meter in enumerate(UtilityMeter.objects.for_organization(organization).filter(is_active=True), start=1):
+            base_value = Decimal(5000 + meter_index * 1000)
+            for months_back in reversed(range(12)):
+                period = month_start(months_back)
+                read_at = timezone.make_aware(datetime.combine(min(period + timedelta(days=27), today), time(hour=9)))
+                sequence = Decimal(12 - months_back)
+                previous = base_value + (sequence - 1) * Decimal(475 + meter_index * 25)
+                consumption = Decimal(475 + meter_index * 25)
+                MeterReading.objects.update_or_create(
+                    organization=organization, meter=history_meter, read_at=read_at,
+                    defaults={
+                        'value': previous + consumption, 'previous_value': previous,
+                        'consumption': consumption, 'cost': (consumption * history_meter.tariff).quantize(Decimal('0.01')),
+                        'method': MeterReading.Method.IOT if history_meter.utility_type == UtilityMeter.Utility.ELECTRICITY else MeterReading.Method.MANUAL,
+                        'source_reference': f'SEED-{history_meter.code}-{period:%Y%m}',
+                        'status': MeterReading.Status.APPROVED, 'recorded_by': user,
+                        'reviewed_by': user, 'reviewed_at': timezone.now(), 'review_notes': 'Seeded approved monthly reading.',
+                    },
+                )
 
         Tender.objects.filter(organization=organization, reference='TND-2026-0039').update(
             property=Property.objects.get(organization=organization, code='CE-NRB-002'),
