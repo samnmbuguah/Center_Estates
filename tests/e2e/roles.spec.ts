@@ -124,7 +124,8 @@ test("@role:admin @module:platform @story:ROLE-ADMIN-SWITCH admin can open demo 
   await page.goto("/workspaces");
   await expect(page.locator("header button[aria-haspopup='menu']").first()).toBeVisible();
   await page.locator("header button[aria-haspopup='menu']").first().click();
-  await expect(page.getByText("SWITCH IDENTITY", { exact: true })).toBeVisible();
+  // Identity groups load asynchronously into the menu.
+  await page.getByText("SWITCH IDENTITY", { exact: true }).waitFor({ timeout: 15000 });
   await expect(page.getByText("Super Administrator", { exact: true }).first()).toBeVisible();
 });
 
@@ -171,12 +172,8 @@ test("@role:leasing-officer @module:property @story:ROLE-LEASING-OFFICER leasing
   // The application requires lease fields (unit, commencement, rent rate) to save.
   await card.getByRole("tab", { name: /Lease & charges/i }).click();
   const unitSelect = card.getByLabel(/Unit no/i);
-  if (await unitSelect.locator("option, li").count() === 0) {
-    await unitSelect.click();
-    await card.locator("li").first().click();
-  } else {
-    await unitSelect.selectOption({ index: 0 });
-  }
+  await unitSelect.click();
+  await page.locator("li[role='option']").first().click();
   await card.getByLabel(/Commencement date/i).fill("2026-09-01");
   await card.getByLabel(/Applicable rent rate/i).fill("1200");
   await card.getByRole("button", { name: /Save (tenant )?application/i }).first().click();
@@ -203,7 +200,10 @@ test("@role:property-accountant @module:property @story:ROLE-PROPERTY-ACCOUNTANT
     await draftRow.getByRole("button", { name: "Issue", exact: true }).click();
     await expect(draftRow).toContainText("issued");
   }
-  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Invoices/i);
+  // The Financials page is the active module nav item; its Invoices section is
+  // an MUI sub-tab selected below it.
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Financials/i);
+  await expect(page.getByRole("tab", { name: "Invoices", exact: true })).toHaveAttribute("aria-selected", "true");
 
   await openModuleSection(page, "Receipts");
   await page.getByRole("button", { name: "+ Record Receipt", exact: true }).last().click();
@@ -244,7 +244,7 @@ test("@role:facility-technician @module:facility @story:ROLE-FACILITY-TECHNICIAN
     }
   }
 
-  await page.getByRole("button", { name: "Contractors", exact: true }).click();
+  await openTab(page, "Contractors");
   await expect(page.getByRole("button", { name: "+ Add Contractor", exact: true })).toHaveCount(0);
 });
 
@@ -270,7 +270,7 @@ test("@role:facility-inspector @module:facility @story:ROLE-FACILITY-INSPECTOR i
   } else {
     await expect(page.locator("table tbody tr").first()).toBeVisible();
   }
-  await page.getByRole("button", { name: "Contractors", exact: true }).click();
+  await openTab(page, "Contractors");
   await expect(page.getByRole("button", { name: "+ Add Contractor", exact: true })).toHaveCount(0);
 });
 
@@ -304,8 +304,7 @@ test("@role:switch @story:ROLE-SWITCH-COMMAND-CENTER role switch keeps sidebar i
   // Switch to facility-manager via the profile dropdown (avatar button in top bar)
   await page.locator("header button[aria-haspopup='menu']").first().click();
   await page.waitForTimeout(2500);
-  const roleBtn = page.locator('[role="menu"] button').filter({ hasText: "@role-facility-manager" }).first();
-  await roleBtn.click();
+  await page.locator('[role="menu"] li').filter({ hasText: /Amina Manager|Facility Manager/i }).first().click();
   await page.waitForTimeout(6000);
 
   // Should land in command center, sidebar still visible but filtered
