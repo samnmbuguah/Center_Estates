@@ -424,9 +424,9 @@ test("property reports follow the four client-approved categories", async ({ pag
 
 test("tenant self-service uses the shared lease and billing ledger", async ({ page }) => {
   await signInAs(page, "role-facility-occupant", process.env.E2E_ROLE_PASSWORD ?? process.env.E2E_ADMIN_PASSWORD ?? "");
-  await page.goto("/facility-portal");
+  await page.goto("/tenant-portal");
   await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Acacia Consulting Ltd/ })).toBeVisible();
-  await expect(page.getByText("Westlands Business Centre · 101", { exact: true })).toBeVisible();
+  await expect(page.getByText("Westlands Business Centre · 101", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Invoices", exact: true }).click();
   await expect(page.getByText("INV-2026-0701", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Payments & receipts", exact: true }).click();
