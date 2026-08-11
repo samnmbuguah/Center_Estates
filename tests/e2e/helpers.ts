@@ -65,11 +65,22 @@ const PROPERTY_PARENTS: Record<string, string> = {
 export async function openModuleSection(page: Page, name: string, testInfo?: TestInfo) {
   const isMobile = Boolean(testInfo?.project.name.startsWith("mobile"));
   if (isMobile) {
-    // Mobile: the horizontal nav bar renders directly on module pages; use it
-    // first, then fall back to the app-sidebar drawer + sub-nav tree.
+    // Mobile: the group tabs and page buttons are hidden (CSS media query);
+    // the module select dropdown is the navigation surface.
     const navBar = page.locator(".module-nav-bar");
     await navBar.first().waitFor({ state: "attached", timeout: 10000 }).catch(() => {});
     if (await navBar.count()) {
+      const optionTargets = [TAB_ALIASES[name] ?? name, name];
+      for (const candidate of optionTargets) {
+        const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const option = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${escaped}$`, "i") }).first();
+        if (await option.count()) {
+          await navBar.locator("select").selectOption({ label: (await option.textContent())?.trim() ?? candidate });
+          await page.waitForTimeout(500);
+          return;
+        }
+      }
+      // Fall back to visible buttons when the select is unavailable.
       const targets = [TAB_ALIASES[name] ?? name, name];
       for (const candidate of targets) {
         const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -77,26 +88,6 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
         if (await tab.count()) {
           await tab.first().click();
           return;
-        }
-      }
-      // The item may live in a collapsed workflow group; expand via the mobile select.
-      const optionTargets = [TAB_ALIASES[name] ?? name, name];
-      for (const candidate of optionTargets) {
-        const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const option = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${escaped}$`, "i") }).first();
-        if (await option.count()) {
-          const optionText = (await option.textContent())?.trim() ?? "";
-          const groupLabel = optionText.split("—")[0]?.trim();
-          const groupTab = navBar.getByRole("tab", { name: new RegExp(`^${groupLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\d*$`, "i") });
-          if (await groupTab.count()) {
-            await groupTab.first().click();
-            await page.waitForTimeout(500);
-          }
-          const item = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
-          if (await item.count()) {
-            await item.first().click();
-            return;
-          }
         }
       }
     }
@@ -151,8 +142,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
       const optionText = (await option.textContent())?.trim() ?? "";
       const groupLabel = optionText.split("—")[0]?.trim();
       if (groupLabel) {
-        const groupLabelEscaped = groupLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const groupButton = navBar.getByRole("tab", { name: new RegExp(`^${groupLabelEscaped}\\s*\\d*$`, "i") });
+        const groupButton = navBar.locator("[role=tab]").filter({ hasText: groupLabel }).first();
         await expect(groupButton, `Navigation group "${groupLabel}" should be available`).toBeVisible();
         await groupButton.click();
         const resolvedEscaped = resolvedOptionLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

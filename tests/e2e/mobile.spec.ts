@@ -51,13 +51,20 @@ test("mobile module pages do not overflow horizontally", async ({ page }, testIn
   expect(overflow).toBeLessThanOrEqual(2);
 });
 
-test("horizontal module tabs remain reachable on mobile via drawer", async ({ page }, testInfo) => {
+test("mobile module navigation uses the select dropdown to switch sections", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "mobile-only layout check");
   await signIn(page);
   await page.goto("/companion");
   await page.waitForTimeout(2500);
-  await expect(page.locator(".module-nav-bar").first()).toBeVisible({ timeout: 15000 });
-  // The companion Tasks group exposes "All tasks" in the horizontal nav.
-  await openModuleSection(page, "All tasks", testInfo);
-  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/All tasks/i);
+  // On mobile the group tabs and page buttons are hidden; the module select
+  // dropdown is the navigation surface.
+  const select = page.locator(".module-nav-bar select");
+  await expect(select).toBeVisible({ timeout: 15000 });
+  await select.selectOption({ label: "Tasks — All tasks" });
+  await page.waitForTimeout(1500);
+  // The companion tasks register renders after switching via the select.
+  await expect(page.locator(".module-workspace").first()).toBeVisible();
+  const navBar = page.locator(".module-nav-bar");
+  const current = await navBar.locator("select").inputValue();
+  expect(current).toBe("tasks");
 });
