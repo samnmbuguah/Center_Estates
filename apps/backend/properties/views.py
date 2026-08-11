@@ -1274,6 +1274,11 @@ class InvoiceLineViewSet(ReadOnlyModelViewSet):
 
 class BillingRunViewSet(OrganizationModelViewSet):
     write_permission = 'property.finance'
+    permission_map = {
+        'prepare': 'property.finance', 'exclude': 'property.finance',
+        'generate': 'property.finance', 'approve': 'property.approve',
+        'resolve_issue': 'property.approve',
+    }
     queryset = BillingRun.objects.select_related('property', 'created_by', 'approved_by').prefetch_related('issues')
     serializer_class = BillingRunSerializer
 
@@ -1289,13 +1294,19 @@ class BillingRunViewSet(OrganizationModelViewSet):
     @staticmethod
     def _profile_is_due(profile, period_start):
         months = (period_start.year - profile.effective_from.year) * 12 + period_start.month - profile.effective_from.month
+        if months < 0:
+            return False
+        if profile.frequency == BillingProfile.Frequency.ONE_OFF:
+            return months == 0
+        if profile.frequency in (BillingProfile.Frequency.METERED, BillingProfile.Frequency.EVENT):
+            return True
         intervals = {
             BillingProfile.Frequency.MONTHLY: 1, BillingProfile.Frequency.QUARTERLY: 3,
             BillingProfile.Frequency.BIANNUAL: 6, BillingProfile.Frequency.ANNUAL: 12,
             BillingProfile.Frequency.CUSTOM: max(profile.custom_interval_months, 1),
         }
         interval = intervals.get(profile.frequency)
-        return profile.frequency in (BillingProfile.Frequency.METERED, BillingProfile.Frequency.EVENT) or (interval is not None and months >= 0 and months % interval == 0)
+        return interval is not None and months % interval == 0
 
     @transaction.atomic
     @action(detail=True, methods=('post',))
@@ -1388,8 +1399,10 @@ class BillingRunViewSet(OrganizationModelViewSet):
             else:
                 issue_count += 1; amount_issues += candidate.total
         run.status = BillingRun.Status.REVIEW
+        run.approved_by = None
+        run.approved_at = None
         run.totals = {'candidates': created, 'ready': ready, 'with_issues': issue_count, 'amount_ready': str(amount_ready), 'amount_with_issues': str(amount_issues), 'total_amount': str(amount_ready + amount_issues)}
-        run.save(update_fields=('status', 'totals', 'updated_at'))
+        run.save(update_fields=('status', 'approved_by', 'approved_at', 'totals', 'updated_at'))
         return Response(self.get_serializer(run).data)
 
     @transaction.atomic
@@ -1398,6 +1411,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status != BillingRun.Status.REVIEW:
             raise ValidationError({'status': 'Prepare and review the billing run before approval.'})
+        if run.created_by_id == request.user.id:
+            raise ValidationError({'approval': 'The person who prepared this billing run cannot approve it.'})
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
             raise ValidationError({'issues': 'Resolve or authorize every blocking issue before approval.'})
         run.status = BillingRun.Status.APPROVED; run.approved_by = request.user; run.approved_at = timezone.now()
@@ -1423,9 +1438,24 @@ class BillingRunViewSet(OrganizationModelViewSet):
         from notifications.models import Notification
 
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
+        requested = request.data.get('candidate_ids')
+        if requested is not None and not isinstance(requested, list):
+            raise ValidationError({'candidate_ids': 'Candidate IDs must be supplied as a list.'})
+        if isinstance(requested, list) and run.candidates.filter(pk__in=requested).count() != len(set(requested)):
+            raise ValidationError({'candidate_ids': 'Every selected candidate must belong to this billing run.'})
+        replay_candidates = run.candidates.filter(invoice__isnull=False).select_related('invoice')
+        if isinstance(requested, list):
+            replay_candidates = replay_candidates.filter(pk__in=requested)
+        if run.status == BillingRun.Status.GENERATED or (
+            isinstance(requested, list) and requested and replay_candidates.count() == len(set(requested))
+        ):
+            invoices = [candidate.invoice for candidate in replay_candidates if candidate.invoice_id]
+            return Response({
+                'generated_count': 0, 'invoices': InvoiceSerializer(invoices, many=True).data,
+                'replayed': True,
+            })
         if run.status != BillingRun.Status.APPROVED:
             raise ValidationError({'status': 'The billing run must be approved before invoices are generated.'})
-        requested = request.data.get('candidate_ids')
         candidates = run.candidates.select_for_update().filter(status=BillingCandidate.Status.READY, invoice__isnull=True).select_related('lease')
         if isinstance(requested, list):
             candidates = candidates.filter(pk__in=requested)
@@ -1482,11 +1512,11 @@ class BillingRunViewSet(OrganizationModelViewSet):
         ).first()
         if not issue:
             raise ValidationError({'issue': 'Select an issue from this billing run.'})
-        status = request.data.get('status', BillingReadinessIssue.Status.RESOLVED)
-        if status not in (BillingReadinessIssue.Status.RESOLVED, BillingReadinessIssue.Status.OVERRIDDEN):
-            raise ValidationError({'status': 'Issue status must be resolved or overridden.'})
+        status = request.data.get('status', BillingReadinessIssue.Status.OVERRIDDEN)
+        if status != BillingReadinessIssue.Status.OVERRIDDEN:
+            raise ValidationError({'status': 'Correct source data and run readiness again. Only an authorized override can be recorded manually.'})
         notes = str(request.data.get('notes', '')).strip()
-        if status == BillingReadinessIssue.Status.OVERRIDDEN and not notes:
+        if not notes:
             raise ValidationError({'notes': 'An authorized override requires supporting notes.'})
         issue.status = status; issue.resolution_notes = notes
         issue.resolved_by = request.user; issue.resolved_at = timezone.now(); issue.save()
@@ -1497,6 +1527,16 @@ class BillingRunViewSet(OrganizationModelViewSet):
             issue.billing_run.candidates.filter(
                 lease=issue.lease, status=BillingCandidate.Status.ISSUE,
             ).update(status=BillingCandidate.Status.READY, updated_at=timezone.now())
+        candidates = issue.billing_run.candidates.all()
+        ready_rows = candidates.filter(status=BillingCandidate.Status.READY)
+        issue_rows = candidates.filter(status=BillingCandidate.Status.ISSUE)
+        issue.billing_run.totals = {
+            'candidates': candidates.count(), 'ready': ready_rows.count(), 'with_issues': issue_rows.count(),
+            'amount_ready': str(ready_rows.aggregate(value=Sum('total'))['value'] or Decimal('0')),
+            'amount_with_issues': str(issue_rows.aggregate(value=Sum('total'))['value'] or Decimal('0')),
+            'total_amount': str(candidates.exclude(status=BillingCandidate.Status.EXCLUDED).aggregate(value=Sum('total'))['value'] or Decimal('0')),
+        }
+        issue.billing_run.save(update_fields=('totals', 'updated_at'))
         return Response(BillingReadinessIssueSerializer(issue).data)
 
 

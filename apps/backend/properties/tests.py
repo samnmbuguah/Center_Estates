@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from decimal import Decimal
 import hashlib
 import hmac
@@ -9,6 +10,7 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.models import Module
@@ -18,7 +20,8 @@ from facilities.models import MeterReading, ServiceRequest, UtilityMeter
 from notifications.models import Notification
 
 from .models import (
-    BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingRun, Budget, Building, CreditNote, Expense, Invoice, InvoiceLine,
+    BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
+    Budget, Building, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
     PaymentWebhookEvent, Property, Receipt, ReceiptAllocation, RentSchedule,
     ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
@@ -179,8 +182,16 @@ class PropertyApiTests(TestCase):
         self.assertEqual(prepared.data['totals']['amount_ready'], '1160.00')
         candidate = prepared.data['candidates'][0]
         self.assertEqual(candidate['status'], BillingCandidate.Status.READY)
+        self.assertEqual(self.client.post(f'{run_url}approve/', {}, format='json', **self.headers).status_code, 400)
+        approver = get_user_model().objects.create_user(username='billing-approver', password='test-password')
+        Membership.objects.create(
+            user=approver, organization=self.organization, is_organization_admin=True,
+        )
+        self.client.force_authenticate(approver)
         approved = self.client.post(f'{run_url}approve/', {}, format='json', **self.headers)
         self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], BillingRun.Status.APPROVED)
+        self.client.force_authenticate(self.user)
         generated = self.client.post(f'{run_url}generate/', {
             'candidate_ids': [candidate['id']],
         }, format='json', **self.headers)
@@ -191,6 +202,248 @@ class PropertyApiTests(TestCase):
         self.assertEqual(invoice.amount, Decimal('1160.00'))
         self.assertEqual(invoice.metadata['billing_period'], '2026-08')
         self.assertEqual(InvoiceLine.objects.get(invoice=invoice).description, 'Rent')
+        replayed = self.client.post(f'{run_url}generate/', {
+            'candidate_ids': [candidate['id']],
+        }, format='json', **self.headers)
+        self.assertEqual(replayed.status_code, 200, replayed.data)
+        self.assertTrue(replayed.data['replayed'])
+        self.assertEqual(replayed.data['generated_count'], 0)
+        self.assertEqual(Invoice.objects.filter(metadata__billing_run_id=str(created.data['id'])).count(), 1)
+
+    def _create_billing_approver(self):
+        approver = get_user_model().objects.create_user(
+            username=f'billing-approver-{get_user_model().objects.count()}',
+            password='test-password',
+        )
+        Membership.objects.create(user=approver, organization=self.organization, is_organization_admin=True)
+        return approver
+
+    def _create_role_user(self, username, *permission_keys):
+        user = get_user_model().objects.create_user(username=username, password='test-password')
+        membership = Membership.objects.create(user=user, organization=self.organization, is_organization_admin=False)
+        role = Role.objects.create(
+            organization=self.organization, name=f'Role {username}', slug=f'role-{username}',
+        )
+        MembershipRole.objects.create(membership=membership, role=role)
+        for key in permission_keys:
+            permission, _ = Permission.objects.get_or_create(
+                key=key, defaults={'label': key, 'module': key.split('.')[0]},
+            )
+            role.permissions.add(permission)
+        return user
+
+    def _prepare_run(self, period_start='2026-08-01', period_end='2026-08-31', property_id=None):
+        property_pk = property_id or self.property.id
+        BillingRun.objects.filter(
+            organization=self.organization, property_id=property_pk, period_start=period_start,
+        ).delete()
+        created = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(property_pk),
+            'period_start': period_start, 'period_end': period_end,
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        run_url = f"/api/v1/property/billing-runs/{created.data['id']}/"
+        prepared = self.client.post(f'{run_url}prepare/', {}, format='json', **self.headers)
+        self.assertEqual(prepared.status_code, 200, prepared.data)
+        return created.data['id'], run_url, prepared.data
+
+    def test_readiness_issue_override_requires_approver_notes_and_unlocks_run(self):
+        sc_item = BillingItem.objects.create(
+            organization=self.organization, code='SERVICE_CHARGE', name='Service charge',
+            calculation=BillingItem.Calculation.FIXED, income_category='service_charge',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=sc_item,
+            frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('0'), effective_from='2026-01-01', billing_day=1,
+        )
+        run_id, run_url, prepared = self._prepare_run()
+        self.assertEqual(prepared['totals']['with_issues'], 1)
+        self.assertEqual(prepared['candidates'][0]['status'], BillingCandidate.Status.ISSUE)
+        issue = next(row for row in prepared['issues'] if row['code'] == 'missing_rate')
+
+        resolved = self.client.post(f'{run_url}resolve-issue/', {
+            'issue': issue['id'], 'status': 'resolved', 'notes': 'Source corrected offline',
+        }, format='json', **self.headers)
+        self.assertEqual(resolved.status_code, 400)
+        self.assertIn('Correct source data', str(resolved.data))
+
+        missing_notes = self.client.post(f'{run_url}resolve-issue/', {
+            'issue': issue['id'], 'status': 'overridden', 'notes': '   ',
+        }, format='json', **self.headers)
+        self.assertEqual(missing_notes.status_code, 400)
+        self.assertIn('notes', missing_notes.data)
+
+        finance_only = self._create_role_user(
+            'billing-finance-only', 'property.view', 'property.finance',
+        )
+        self.client.force_authenticate(finance_only)
+        forbidden = self.client.post(f'{run_url}resolve-issue/', {
+            'issue': issue['id'], 'status': 'overridden',
+            'notes': 'Finance-only attempt without approve permission',
+        }, format='json', **self.headers)
+        self.assertEqual(forbidden.status_code, 403)
+
+        approver = self._create_role_user(
+            'billing-issue-approver', 'property.view', 'property.approve',
+        )
+        self.client.force_authenticate(approver)
+        overridden = self.client.post(f'{run_url}resolve-issue/', {
+            'issue': issue['id'], 'status': 'overridden',
+            'notes': 'Verified zero service charge for vacant amenity month; follow-up with FM.',
+        }, format='json', **self.headers)
+        self.assertEqual(overridden.status_code, 200, overridden.data)
+        self.assertEqual(overridden.data['status'], BillingReadinessIssue.Status.OVERRIDDEN)
+
+        refreshed = self.client.get(run_url, **self.headers)
+        self.assertEqual(refreshed.status_code, 200, refreshed.data)
+        self.assertEqual(refreshed.data['totals']['ready'], 1)
+        self.assertEqual(refreshed.data['totals']['with_issues'], 0)
+        self.assertEqual(refreshed.data['candidates'][0]['status'], BillingCandidate.Status.READY)
+        self.assertEqual(Decimal(refreshed.data['totals']['amount_ready']), Decimal('1000.00'))
+
+        approved = self.client.post(f'{run_url}approve/', {}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], BillingRun.Status.APPROVED)
+        self.client.force_authenticate(self.user)
+
+    def test_billing_frequencies_effective_dates_escalation_and_expired_leases(self):
+        fee_item = BillingItem.objects.create(
+            organization=self.organization, code='MGMT_FEE', name='Management fee',
+            calculation=BillingItem.Calculation.FIXED, income_category='other',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('50'), effective_from='2026-01-01', billing_day=1,
+        )
+        _, _, monthly = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertTrue(any(item['code'] == 'MGMT_FEE' for item in monthly['candidates'][0]['billing_items']))
+
+        BillingProfile.objects.filter(billing_item=fee_item).delete()
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.QUARTERLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('150'), effective_from='2026-01-01', billing_day=1,
+        )
+        _, _, quarterly_due = self._prepare_run('2026-07-01', '2026-07-31')
+        self.assertTrue(any(item['code'] == 'MGMT_FEE' for item in quarterly_due['candidates'][0]['billing_items']))
+        _, _, quarterly_skip = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertFalse(any(item['code'] == 'MGMT_FEE' for item in quarterly_skip['candidates'][0]['billing_items']))
+
+        BillingProfile.objects.filter(billing_item=fee_item).delete()
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.BIANNUAL, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('300'), effective_from='2026-01-01', billing_day=1,
+        )
+        _, _, biannual_due = self._prepare_run('2026-07-01', '2026-07-31')
+        self.assertTrue(any(item['code'] == 'MGMT_FEE' for item in biannual_due['candidates'][0]['billing_items']))
+        _, _, biannual_skip = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertFalse(any(item['code'] == 'MGMT_FEE' for item in biannual_skip['candidates'][0]['billing_items']))
+
+        BillingProfile.objects.filter(billing_item=fee_item).delete()
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.ANNUAL, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('600'), effective_from='2026-01-01', billing_day=1,
+        )
+        _, _, annual_due = self._prepare_run('2026-01-01', '2026-01-31')
+        self.assertTrue(any(item['code'] == 'MGMT_FEE' for item in annual_due['candidates'][0]['billing_items']))
+        _, _, annual_skip = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertFalse(any(item['code'] == 'MGMT_FEE' for item in annual_skip['candidates'][0]['billing_items']))
+
+        BillingProfile.objects.filter(billing_item=fee_item).delete()
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.CUSTOM, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('75'), effective_from='2026-01-01', billing_day=1, custom_interval_months=2,
+        )
+        _, _, custom_due = self._prepare_run('2026-07-01', '2026-07-31')
+        self.assertTrue(any(item['code'] == 'MGMT_FEE' for item in custom_due['candidates'][0]['billing_items']))
+        _, _, custom_skip = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertFalse(any(item['code'] == 'MGMT_FEE' for item in custom_skip['candidates'][0]['billing_items']))
+
+        BillingProfile.objects.filter(billing_item=fee_item).delete()
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.ONE_OFF, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('250'), effective_from='2026-08-01', billing_day=1,
+        )
+        _, _, one_off_due = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertTrue(any(item['code'] == 'MGMT_FEE' for item in one_off_due['candidates'][0]['billing_items']))
+        _, _, one_off_skip = self._prepare_run('2026-09-01', '2026-09-30')
+        self.assertFalse(any(item['code'] == 'MGMT_FEE' for item in one_off_skip['candidates'][0]['billing_items']))
+
+        BillingProfile.objects.filter(billing_item=fee_item).delete()
+        water_item = BillingItem.objects.create(
+            organization=self.organization, code='WATER', name='Water',
+            calculation=BillingItem.Calculation.METERED, income_category='utilities',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=water_item,
+            frequency=BillingProfile.Frequency.METERED, calculation=BillingItem.Calculation.METERED,
+            amount=Decimal('0'), effective_from='2026-01-01', billing_day=1,
+        )
+        _, _, metered_missing = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertEqual(metered_missing['candidates'][0]['status'], BillingCandidate.Status.ISSUE)
+        self.assertTrue(any(issue['code'] == 'missing_water_reading' for issue in metered_missing['issues']))
+        meter = UtilityMeter.objects.create(
+            organization=self.organization, property=self.property, property_unit=self.unit,
+            code='W-101', name='Unit 101 water', utility_type=UtilityMeter.Utility.WATER,
+        )
+        MeterReading.objects.create(
+            organization=self.organization, meter=meter,
+            read_at=timezone.make_aware(datetime(2026, 8, 15, 10, 0)),
+            value=Decimal('120'), previous_value=Decimal('100'), consumption=Decimal('20'),
+            cost=Decimal('400'), status=MeterReading.Status.APPROVED,
+        )
+        _, _, metered_ready = self._prepare_run('2026-08-01', '2026-08-31')
+        water_line = next(item for item in metered_ready['candidates'][0]['billing_items'] if item['code'] == 'WATER')
+        self.assertEqual(water_line['total'], '400.00')
+        self.assertEqual(metered_ready['candidates'][0]['status'], BillingCandidate.Status.READY)
+
+        BillingProfile.objects.filter(billing_item=water_item).delete()
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('40'), effective_from='2026-01-01', effective_to='2026-08-14', billing_day=1,
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('80'), effective_from='2026-08-15', billing_day=1,
+        )
+        _, _, mid_period = self._prepare_run('2026-08-01', '2026-08-31')
+        fee_lines = [item for item in mid_period['candidates'][0]['billing_items'] if item['code'] == 'MGMT_FEE']
+        self.assertEqual(len(fee_lines), 2)
+        self.assertEqual({line['unit_rate'] for line in fee_lines}, {'40.00', '80.00'})
+
+        self.lease.escalation_percent = Decimal('10')
+        self.lease.escalation_interval_months = 12
+        self.lease.ends_on = date(2028, 1, 1)
+        self.lease.save(update_fields=('escalation_percent', 'escalation_interval_months', 'ends_on'))
+        _, _, escalated = self._prepare_run('2027-02-01', '2027-02-28')
+        rent_line = next(
+            item for item in escalated['candidates'][0]['billing_items']
+            if item['code'].upper() == 'RENT'
+        )
+        self.assertEqual(rent_line['unit_rate'], '1100.00')
+
+        expired = Lease.objects.create(
+            organization=self.organization, reference='LEASE-EXPIRED', unit=self.unit, tenant=self.tenant,
+            starts_on='2025-01-01', ends_on='2026-01-01', monthly_rent=Decimal('900'),
+            status=Lease.Status.ACTIVE,
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=expired, billing_item=fee_item,
+            frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('10'), effective_from='2025-01-01', billing_day=1,
+        )
+        _, _, live_period = self._prepare_run('2026-08-01', '2026-08-31')
+        references = {candidate['lease_reference'] for candidate in live_period['candidates']}
+        self.assertIn('LEASE-1', references)
+        self.assertNotIn('LEASE-EXPIRED', references)
 
     @mock.patch.dict(os.environ, {'ECITIZEN_TEST_SECRET': 'client-supplied-signing-secret'})
     def test_tenant_payment_is_signed_idempotent_and_fully_reconciled(self):

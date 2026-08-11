@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Chip, LinearProgress, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Paper, Stack, TextField, Typography } from "@mui/material";
 import { AlertTriangle, CheckCircle2, FilePlus2, Send, WalletCards, Waves } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { EmptyState, LoadingState, money } from "@/components/module-ui";
 
 type Candidate = { id: string; tenant_name: string; property_name: string; unit_code: string; lease_reference: string; due_date: string; billing_items: Array<{ code: string; description: string }>; total: string; status: string; issue_summary: Array<{ code: string; message: string; severity: string }>; invoice_number?: string };
-type BillingRun = { id: string; period_start: string; period_end: string; status: string; totals: Record<string, string | number>; candidates: Candidate[]; issues: Array<{ id: string; code: string; message: string; severity: string; status: string }> };
+type BillingIssue = { id: string; code: string; message: string; severity: string; status: string; resolution_notes?: string };
+type BillingRun = { id: string; period_start: string; period_end: string; status: string; totals: Record<string, string | number>; candidates: Candidate[]; issues: BillingIssue[] };
 type Invoice = { id: string; number: string; tenant_name: string; unit_code: string; amount: string; status: string; issued_on: string };
 
 const statusColor = (status: string): "success" | "error" | "warning" => status === "ready" || status === "generated" || status === "issued" ? "success" : status === "issue" || status === "overdue" ? "error" : "warning";
@@ -24,6 +25,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [overrideIssue, setOverrideIssue] = useState<BillingIssue | null>(null);
+  const [overrideNotes, setOverrideNotes] = useState("");
   const canFinance = can("property.finance");
   const canApprove = can("property.approve");
 
@@ -58,6 +61,17 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       ? await apiFetch("/property/billing-runs/", { method: "POST", body: JSON.stringify({ period_start: periodStart, period_end: periodEnd }) }, organizationId)
       : await apiFetch(`/property/billing-runs/${run?.id}/${action}/`, { method: "POST", body: JSON.stringify(action === "generate" ? { candidate_ids: selected } : {}) }, organizationId);
     if (!response.ok) setError(await apiErrorMessage(response, `The billing ${action} action could not be completed.`));
+    await load(); setBusy("");
+  }
+
+  async function authorizeOverride() {
+    if (!organizationId || !run || !overrideIssue) return;
+    setBusy("override"); setError("");
+    const response = await apiFetch(`/property/billing-runs/${run.id}/resolve-issue/`, {
+      method: "POST", body: JSON.stringify({ issue: overrideIssue.id, status: "overridden", notes: overrideNotes }),
+    }, organizationId);
+    if (!response.ok) setError(await apiErrorMessage(response, "The billing exception could not be authorized."));
+    else { setOverrideIssue(null); setOverrideNotes(""); }
     await load(); setBusy("");
   }
 
@@ -110,8 +124,13 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       <Stack sx={{ gap: 2 }}>
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}><Stack direction="row" sx={{ alignItems: "center", gap: 1 }}><Waves size={18}/><Typography sx={{ fontWeight: 900 }}>Water billing readiness</Typography></Stack><Typography variant="h5" color={waterIssues.length ? "error.main" : "success.main"} sx={{ fontWeight: 900, mt: 2 }}>{waterIssues.length ? "Not ready" : "Ready"}</Typography><Typography variant="body2" color="text.secondary" sx={{ mt: .5 }}>{waterIssues.length ? `${waterIssues.length} meter-reading issue${waterIssues.length === 1 ? "" : "s"} must be resolved.` : "No blocking water-reading issues in this run."}</Typography><Button sx={{ mt: 1.5 }} onClick={() => onNavigate("calendar")}>Review deadlines</Button></Paper>
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}><Stack direction="row" sx={{ alignItems: "center", gap: 1 }}><WalletCards size={18}/><Typography sx={{ fontWeight: 900 }}>Recent invoices</Typography></Stack>{invoices.slice(0, 5).map(invoice => <Box key={invoice.id} sx={{ py: 1.25, borderBottom: 1, borderColor: "divider", display: "flex", justifyContent: "space-between", gap: 1 }}><Box><Typography variant="body2" sx={{ fontWeight: 800 }}>{invoice.number}</Typography><Typography variant="caption" color="text.secondary">{invoice.tenant_name} · {invoice.unit_code}</Typography></Box><Box sx={{ textAlign: "right" }}><Typography variant="body2" sx={{ fontWeight: 800 }}>{money.format(Number(invoice.amount))}</Typography><Typography variant="caption">{invoice.status}</Typography></Box></Box>)}<Button sx={{ mt: 1 }} onClick={() => onNavigate("rent")}>Open invoice register</Button></Paper>
-        {issues > 0 && <Alert severity="warning" icon={<AlertTriangle size={20}/>}>Resolve blocking source-data issues before approving this run.</Alert>}
+        {run?.issues.some(issue => issue.status === "open") && <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}><Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5 }}><AlertTriangle size={18}/><Typography sx={{ fontWeight: 900 }}>Readiness exceptions</Typography></Stack><Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>Correct the source record and run readiness again. An approver may authorize a documented exception where policy permits.</Typography>{run.issues.filter(issue => issue.status === "open").map(issue => <Box key={issue.id} sx={{ py: 1.25, borderTop: 1, borderColor: "divider" }}><Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "start", gap: 1 }}><Box><Chip size="small" color={issue.severity === "blocking" ? "error" : "warning"} label={issue.code.replaceAll("_", " ")} /><Typography variant="body2" sx={{ mt: .75 }}>{issue.message}</Typography></Box>{canApprove && <Button size="small" onClick={() => { setOverrideIssue(issue); setOverrideNotes(""); }}>Authorize override</Button>}</Stack></Box>)}</Paper>}
       </Stack>
     </Box>
+    <Dialog open={Boolean(overrideIssue)} onClose={() => setOverrideIssue(null)} fullWidth maxWidth="sm">
+      <DialogTitle>Authorize billing exception</DialogTitle>
+      <DialogContent><Alert severity="warning" sx={{ mb: 2 }}>This does not repair source data. It records an approver-authorized exception and permits the affected invoice candidate to proceed.</Alert><Typography sx={{ fontWeight: 800, mb: 1 }}>{overrideIssue?.message}</Typography><TextField autoFocus required fullWidth multiline minRows={3} label="Approval rationale" value={overrideNotes} onChange={event => setOverrideNotes(event.target.value)} helperText="Explain the evidence, business reason and follow-up action." /></DialogContent>
+      <DialogActions><Button onClick={() => setOverrideIssue(null)}>Cancel</Button><Button variant="contained" color="warning" disabled={!overrideNotes.trim() || Boolean(busy)} onClick={() => void authorizeOverride()}>Authorize exception</Button></DialogActions>
+    </Dialog>
   </Box>;
 }
