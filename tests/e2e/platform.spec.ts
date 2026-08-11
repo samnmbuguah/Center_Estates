@@ -423,7 +423,7 @@ test("property reports follow the four client-approved categories", async ({ pag
 });
 
 test("tenant self-service uses the shared lease and billing ledger", async ({ page }) => {
-  await signInAs(page, "role-facility-occupant");
+  await signInAs(page, "role-facility-occupant", process.env.E2E_ROLE_PASSWORD ?? process.env.E2E_ADMIN_PASSWORD ?? "");
   await page.goto("/facility-portal");
   await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Acacia Consulting Ltd/ })).toBeVisible();
   await expect(page.getByText("Westlands Business Centre · 101", { exact: true })).toBeVisible();
@@ -437,7 +437,7 @@ test("tenant self-service uses the shared lease and billing ledger", async ({ pa
 
 test("tenant can submit a scoped maintenance request", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant request races");
-  await signInAs(page, "role-facility-occupant");
+  await signInAs(page, "role-facility-occupant", process.env.E2E_ROLE_PASSWORD ?? process.env.E2E_ADMIN_PASSWORD ?? "");
   const requestTitle = `E2E corridor light fault ${Date.now()}`;
   await page.goto("/facility-portal");
   await page.getByRole("button", { name: "Report an issue", exact: true }).click();
