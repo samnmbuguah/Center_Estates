@@ -64,12 +64,8 @@ ssh "$REMOTE_HOST" "
   python apps/backend/manage.py migrate --noinput
   python apps/backend/manage.py collectstatic --noinput
   python apps/backend/manage.py check --deploy
-  cron_marker='# center-estates-scheduled-reports'
-  cron_command="*/15 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 ${cron_marker}"
-  (crontab -l 2>/dev/null | grep -vF "${cron_marker}"; echo "${cron_command}") | crontab -
-  notification_cron_marker='# center-estates-calendar-notifications'
-  notification_cron_command="17 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 ${notification_cron_marker}"
-  (crontab -l 2>/dev/null | grep -vF "${notification_cron_marker}"; echo "${notification_cron_command}") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; printf '%s\n' '*/15 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports') | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; printf '%s\n' '17 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications') | crontab -
   mkdir -p tmp
   touch tmp/restart.txt
   # CloudLinux LiteSpeed keeps a preloaded lswsgi master alive across the
