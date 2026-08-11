@@ -101,9 +101,9 @@ test("service requests list shows requests with actions", async ({ page }, testI
   await page.goto("/facility");
   await openFacilityTab(page, "Service requests", testInfo);
 
-  await expect(page.getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
-  await expect(page.getByText("Open", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("In Progress", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".module-workspace").getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
+  await expect(page.locator(".module-workspace").getByText("Open", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".module-workspace").getByText("In Progress", { exact: true }).first()).toBeVisible();
   await expect(page.locator("table")).toBeVisible();
 });
 

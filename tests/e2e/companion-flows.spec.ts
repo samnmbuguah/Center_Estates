@@ -31,9 +31,9 @@ test("companion renders overview with greeting and KPIs", async ({ page }) => {
   await page.goto("/companion");
   await page.waitForTimeout(500);
 
-  await expect(page.locator("h1").first()).toBeVisible();
-  await expect(page.locator("h1").first()).toContainText(/Companion|Command Center/i);
-
+  // The module title h1 renders on desktop; on mobile the greeting h2 is the
+  // visible heading signal.
+  await expect(page.getByRole("heading", { name: /Companion|Good (morning|afternoon|evening)/i }).first()).toBeVisible();
   const greeting = page.locator("text=/Good morning|Good afternoon|Good evening/i").first();
   if (await greeting.count() > 0) await expect(greeting).toBeVisible();
 
@@ -162,10 +162,10 @@ test("performance dashboard renders for admin with staff data", async ({ page })
     if (await el.count() > 0) await expect(el).toBeVisible();
   }
 
-  const staffTable = page.getByText(/Staff Requiring Attention|staff requiring|Staff/i).first();
+  const staffTable = page.getByText(/Staff Requiring Attention|staff requiring/i).first();
   if (await staffTable.count() > 0) await expect(staffTable).toBeVisible();
 
-  const table = page.locator("table, [role=table]").first();
+  const table = page.locator("table, [role=table], .fc-alert-list").first();
   if (await table.count() > 0) await expect(table).toBeVisible();
 
   expect(errors).toEqual([]);
