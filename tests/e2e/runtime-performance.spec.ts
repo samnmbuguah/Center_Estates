@@ -14,7 +14,8 @@ test("command center loads all module KPIs through one aggregate request", async
     if (request.method() === "GET" && url.pathname.startsWith("/api/v1/")) apiRequests.push(url.pathname);
   });
   await page.goto("/workspaces");
-  await expect(page.getByText(/live KPIs$/)).toBeVisible();
+  await expect(page.getByText(/active$/i).first()).toBeVisible();
+  await expect(page.locator(".module-card").first()).toBeVisible();
 
   expect(apiRequests.filter((path) => path === "/api/v1/workspace/pulse/")).toHaveLength(1);
   for (const path of [
@@ -39,7 +40,7 @@ test("facility boot coalesces dashboard reads and batches interaction telemetry"
   });
 
   await page.goto("/facility");
-  await expect(page.getByRole("heading", { name: "Facility Management", exact: true })).toBeVisible();
+  await expect(page.locator(".module-workspace").first()).toBeVisible();
   await expect(page.getByText("Loading facility operations…", { exact: true })).toBeHidden();
   await page.waitForTimeout(5_500);
 
