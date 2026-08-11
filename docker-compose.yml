@@ -36,9 +36,9 @@ services:
       SEED_DEMO_DATA: "true"
       SEED_ADMIN_USERNAME: admin
       GUNICORN_WORKERS: "3"
-      OPENCODE_API_KEY: "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"
-      OPENAI_API_KEY: "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"
-      OPENCODE_API_URL: "https://api.opencode.ai/v1/chat/completions"
+      OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+      OPENCODE_API_URL: ${OPENCODE_API_URL:-}
+      OPENCODE_MODEL: ${OPENCODE_MODEL:-}
     secrets:
       - django_secret
       - db_password

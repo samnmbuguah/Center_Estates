@@ -205,55 +205,6 @@ class TaskTemplateViewSet(CompanionModelViewSet):
     search_fields = ('name', 'title_template')
 
 
-import json
-import os
-import urllib.error
-import urllib.request
-
-
-def query_opencode_llm(prompt: str, context_str: str) -> str:
-    api_key = os.environ.get('OPENCODE_API_KEY') or os.environ.get('OPENAI_API_KEY')
-    if not api_key:
-        return ""
-
-    api_url = os.environ.get('OPENCODE_API_URL') or 'https://api.opencode.ai/v1/chat/completions'
-
-    system_prompt = (
-        "You are CeEst Operations Assistant, an AI co-pilot for Center Estates ERP system in Kenya. "
-        "Provide professional, structured, concise ERP operational guidance for property, facility, and construction management. "
-        "Use markdown formatting with bullet points."
-    )
-
-    payload = {
-        "model": os.environ.get('OPENCODE_MODEL', 'opencode-gpt-4o'),
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Live System Context:\n{context_str}\n\nUser Question:\n{prompt}"}
-        ],
-        "temperature": 0.4,
-        "max_tokens": 500
-    }
-
-    try:
-        req = urllib.request.Request(
-            api_url,
-            data=json.dumps(payload).encode('utf-8'),
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {api_key}'
-            },
-            method='POST'
-        )
-        with urllib.request.urlopen(req, timeout=10) as res:
-            if res.status == 200:
-                data = json.loads(res.read().decode('utf-8'))
-                return data['choices'][0]['message']['content'].strip()
-    except Exception as err:
-        print(f"OpenCode API Note: {err}")
-        return ""
-    return ""
-
-
 from .qm_agent import QMAgentOrchestrator
 
 
@@ -297,20 +248,55 @@ class CompanionDashboardViewSet(ViewSet):
         prompt = raw_prompt.lower()
         now = timezone.now()
 
-        # Gather real-time context metrics across the organization
+        # QM is read-only and is grounded only in records this user is authorized to see.
         tasks = scope_model_queryset(Task, request, organization).select_related(
             'assignee', 'assigned_by', 'delegated_to', 'template',
-        )
+        ).filter(assignee=request.user)
         active_tasks = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
         overdue_count = active_tasks.filter(due_at__lt=now).count()
         escalated_count = active_tasks.filter(escalated=True).count()
+        context = {
+            'organization': organization.name,
+            'property_scope': getattr(get_active_property(request, organization), 'name', 'Portfolio'),
+            'my_tasks': {'active': active_tasks.count(), 'overdue': overdue_count, 'escalated': escalated_count},
+        }
+        subscribed = set(organization.subscriptions.available().values_list('module', flat=True))
+        membership = get_active_membership(request, organization)
+        permission_keys = set()
+        if membership:
+            membership = membership.__class__.objects.prefetch_related('roles__permissions').get(pk=membership.pk)
+            permission_keys = {permission.key for role in membership.roles.all() for permission in role.permissions.all()}
+        is_admin = bool(request.user.is_superuser or (membership and membership.is_organization_admin))
 
-        context_str = (
-            f"Organization: {organization.name}\n"
-            f"Active Tasks Assigned to User: {active_tasks.filter(assignee=request.user).count()}\n"
-            f"Overdue Tasks: {overdue_count}\n"
-            f"Escalated SLA Tasks: {escalated_count}\n"
-        )
+        def can_view(module):
+            return module in subscribed and (is_admin or any(key.startswith(f'{module}.') for key in permission_keys))
+
+        if can_view(Module.PROPERTY):
+            from properties.models import Invoice, Lease, Property, Receipt, Unit
+            properties = scope_model_queryset(Property, request, organization)
+            units = scope_model_queryset(Unit, request, organization)
+            invoices = scope_model_queryset(Invoice, request, organization).exclude(status=Invoice.Status.VOID)
+            month_start = now.date().replace(day=1)
+            receipts = scope_model_queryset(Receipt, request, organization).filter(received_on__gte=month_start)
+            context['property'] = {
+                'properties': properties.count(), 'units': units.count(),
+                'occupied_units': units.filter(status=Unit.Status.OCCUPIED).count(),
+                'active_leases': scope_model_queryset(Lease, request, organization).filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).count(),
+                'outstanding_kes': str(invoices.aggregate(total=Sum('balance'))['total'] or 0),
+                'collections_this_month_kes': str(receipts.aggregate(total=Sum('amount'))['total'] or 0),
+            }
+        if can_view(Module.FACILITY):
+            from facilities.models import PreventiveSchedule, WorkOrder
+            orders = scope_model_queryset(WorkOrder, request, organization).exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
+            context['facility'] = {
+                'open_work_orders': orders.count(),
+                'critical_work_orders': orders.filter(priority=WorkOrder.Priority.CRITICAL).count(),
+                'overdue_work_orders': orders.filter(resolution_due_at__lt=now).count(),
+                'overdue_ppm': scope_model_queryset(PreventiveSchedule, request, organization).filter(is_active=True, next_due_on__lt=now.date()).count(),
+            }
+
+        import json
+        context_str = json.dumps(context, indent=2)
 
         qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
         qm_result = qm_orchestrator.execute_agent(
@@ -321,40 +307,34 @@ class CompanionDashboardViewSet(ViewSet):
         llm_response = qm_result.get('response', '')
 
         if 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
-            response_text = llm_response or (
-                f"📊 **Property Operations Summary for {organization.name}**:\n"
-                f"- **Active Properties**: 24 Portfolio Buildings\n"
-                f"- **Occupancy Rate**: 84.6% (1,056 of 1,248 units occupied)\n"
-                f"- **Monthly Rent Collection**: KES 10.54M collected of KES 12.48M billed (84.5% collection rate).\n"
-                f"- **Outstanding Rent Arrears**: KES 1.94M (5 Top Overdue Tenants: ABC Traders Ltd, Sunset Apartments Ltd, Mega Retailers Ltd).\n"
-                f"- **Action Recommended**: Send automated rent reminders or generate arrears collection report."
-            )
+            data = context.get('property')
+            response_text = llm_response or (f"Property information is not available for your role." if not data else (
+                f"**Live property summary — {context['property_scope']}**\n"
+                f"- Properties: **{data['properties']}**; units: **{data['units']}**; occupied: **{data['occupied_units']}**\n"
+                f"- Active leases: **{data['active_leases']}**\n"
+                f"- Collected this month: **KES {data['collections_this_month_kes']}**\n"
+                f"- Outstanding invoice balance: **KES {data['outstanding_kes']}**"
+            ))
             suggested_actions = [
                 {"label": "Generate Rent Invoices", "action": "generate_invoices", "href": "/property?tab=rent"},
                 {"label": "Send Reminders", "action": "send_reminders", "href": "/property?tab=arrears"},
                 {"label": "View Rent Aging Report", "action": "view_report", "href": "/property?tab=reports"},
             ]
         elif 'facility' in prompt or 'work order' in prompt or 'maintenance' in prompt or 'hvac' in prompt:
-            response_text = llm_response or (
-                f"🔧 **Facility Operations & Maintenance Summary**:\n"
-                f"- **Active Equipment Assets**: 846 registered assets across facilities.\n"
-                f"- **Open Work Orders**: 34 active (7 Urgent/Overdue, 12 In Progress, 15 Pending).\n"
-                f"- **PPM Compliance**: 92% on track for July 2026.\n"
-                f"- **Critical Alert**: Generator PM overdue at Uchumi House (Ref: WO-2026-1788)."
-            )
+            data = context.get('facility')
+            response_text = llm_response or ("Facility information is not available for your role." if not data else (
+                f"**Live facility summary — {context['property_scope']}**\n"
+                f"- Open work orders: **{data['open_work_orders']}**\n"
+                f"- Critical: **{data['critical_work_orders']}**; overdue: **{data['overdue_work_orders']}**\n"
+                f"- Overdue preventive-maintenance schedules: **{data['overdue_ppm']}**"
+            ))
             suggested_actions = [
                 {"label": "+ Dispatch Work Order", "action": "new_wo", "href": "/facility?tab=work-orders"},
                 {"label": "Review Critical Alerts", "action": "alerts", "href": "/facility?tab=overview"},
                 {"label": "PPM Schedule", "action": "ppm", "href": "/facility?tab=planned-maintenance"},
             ]
         elif 'construction' in prompt or 'ticket' in prompt or 'project' in prompt or 'site' in prompt:
-            response_text = llm_response or (
-                f"🏗️ **Construction Monitoring Summary**:\n"
-                f"- **Active Site Projects**: 4 major developments (CE-CONSTRUCTION-001 active).\n"
-                f"- **Open Site Tickets/Issues**: 12 open (3 High Priority structural/quality items).\n"
-                f"- **IPC Progress**: IPC #4 certified at KES 24.5M (Retention 10%).\n"
-                f"- **Next Milestone**: Foundation Slab Pour verification scheduled for Friday."
-            )
+            response_text = llm_response or "Construction data tools are not enabled for this QM workspace yet. Open Monitoring to review current project records."
             suggested_actions = [
                 {"label": "View Projects Directory", "action": "projects", "href": "/monitoring/projects"},
                 {"label": "Review Site Issues", "action": "issues", "href": "/monitoring?tab=tickets"},
@@ -365,7 +345,7 @@ class CompanionDashboardViewSet(ViewSet):
                 f"🤖 **CeEst Operations Companion Status for {request.user.first_name or request.user.username}**:\n"
                 f"- You have **{active_tasks.filter(assignee=request.user).count()} active tasks** assigned to you.\n"
                 f"- **{overdue_count} tasks are overdue** and **{escalated_count} tasks require SLA escalation**.\n"
-                f"- All systems operational (Property, Facility, Sales, Construction Monitoring)."
+                f"- Answers use your authorized live property scope: **{context['property_scope']}**."
             )
             suggested_actions = [
                 {"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"},
@@ -377,6 +357,9 @@ class CompanionDashboardViewSet(ViewSet):
             'prompt': request.data.get('prompt', ''),
             'response': response_text,
             'suggestedActions': suggested_actions,
+            'agent': qm_result.get('agent', 'Quartermaster (QM)'),
+            'agentStatus': qm_result.get('status', 'local'),
+            'groundedAt': now.isoformat(),
             'timestamp': now.isoformat(),
         })
 

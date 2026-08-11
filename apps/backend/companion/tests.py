@@ -3,6 +3,7 @@ from rest_framework.test import APIClient
 from django.test import TestCase, override_settings
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
+from unittest.mock import patch
 
 from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
@@ -80,23 +81,27 @@ class CompanionApiTests(TestCase):
 
     def test_ai_chat_endpoint_with_rule_based_fallback(self):
         self.login(self.admin)
-        response = self.client.post(
-            '/api/v1/companion/dashboard/chat/',
-            {'prompt': 'Show me rent collections'},
-            format='json',
-        )
+        with patch('companion.views.QMAgentOrchestrator.execute_agent', return_value={'agent': 'Quartermaster (QM)', 'status': 'local', 'response': ''}):
+            response = self.client.post(
+                '/api/v1/companion/dashboard/chat/',
+                {'prompt': 'Show me rent collections'},
+                format='json',
+            )
         self.assertEqual(response.status_code, 200)
         self.assertIn('response', response.data)
         self.assertIn('suggestedActions', response.data)
         self.assertTrue(len(response.data['suggestedActions']) > 0)
+        self.assertEqual(response.data['agentStatus'], 'local')
+        self.assertNotIn('24 Portfolio Buildings', response.data['response'])
 
     def test_ai_chat_endpoint_default_prompt(self):
         self.login(self.admin)
-        response = self.client.post(
-            '/api/v1/companion/dashboard/chat/',
-            {'prompt': ''},
-            format='json',
-        )
+        with patch('companion.views.QMAgentOrchestrator.execute_agent', return_value={'agent': 'Quartermaster (QM)', 'status': 'local', 'response': ''}):
+            response = self.client.post(
+                '/api/v1/companion/dashboard/chat/',
+                {'prompt': ''},
+                format='json',
+            )
         self.assertEqual(response.status_code, 200)
         self.assertIn('response', response.data)
 

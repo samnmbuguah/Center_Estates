@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { Alert, Chip } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
@@ -199,13 +201,14 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [dateFilter, setDateFilter] = useState({ from: "", to: "" });
 
   const [aiPrompt, setAiPrompt] = useState("");
-  const [aiResponse, setAiResponse] = useState<{ response?: string; suggestedActions?: { label: string; action: string; href: string }[] } | null>(null);
+  const [aiResponse, setAiResponse] = useState<{ response?: string; agent?: string; agentStatus?: string; groundedAt?: string; suggestedActions?: { label: string; action: string; href: string }[] } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const sendAiPrompt = async (promptText?: string) => {
     const p = promptText || aiPrompt;
     if (!p || !org) return;
-    setAiLoading(true);
+    setAiLoading(true); setAiError("");
     try {
       const res = await apiFetch("/companion/dashboard/chat/", {
         method: "POST",
@@ -214,9 +217,12 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       if (res.ok) {
         setAiResponse(await res.json());
         if (!promptText) setAiPrompt("");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setAiError(String(body.detail ?? "Quartermaster could not answer this request."));
       }
     } catch {
-      /* ignore */
+      setAiError("Quartermaster is temporarily unavailable. Your ERP data was not changed.");
     } finally {
       setAiLoading(false);
     }
@@ -561,7 +567,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                   </div>
 
                   <p className="muted" style={{ fontSize: 12, margin: "0 0 12px" }}>
-                    Ask CeEst Companion to analyze rent arrears, dispatch work orders, or summarize project milestones.
+                    Ask Quartermaster to summarize authorized live ERP data and recommend the next screen to open. QM is read-only and never performs an action without your confirmation.
                   </p>
 
                   <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
@@ -609,6 +615,8 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                     </button>
                   </form>
 
+                  {aiError && <Alert severity="error" sx={{ mb: 1.5 }}>{aiError}</Alert>}
+
                   {aiResponse && (
                     <div
                       style={{
@@ -620,20 +628,24 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                         lineHeight: 1.5,
                       }}
                     >
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
+                        <Chip size="small" label={aiResponse.agent ?? "Quartermaster (QM)"} color="primary" variant="outlined" />
+                        <Chip size="small" label={aiResponse.agentStatus === "success" ? "AI grounded" : "Live local analysis"} color={aiResponse.agentStatus === "success" ? "success" : "default"} />
+                      </div>
                       <div style={{ whiteSpace: "pre-wrap", color: "var(--text)", marginBottom: 10 }}>
                         {aiResponse.response}
                       </div>
                       {aiResponse.suggestedActions && aiResponse.suggestedActions.length > 0 && (
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px dashed var(--border)", paddingTop: 8 }}>
                           {aiResponse.suggestedActions.map((act) => (
-                            <a
+                            <Link
                               key={act.label}
                               href={act.href}
                               className="btn primary sm"
                               style={{ fontSize: 11, padding: "3px 8px", textDecoration: "none" }}
                             >
                               {act.label} →
-                            </a>
+                            </Link>
                           ))}
                         </div>
                       )}

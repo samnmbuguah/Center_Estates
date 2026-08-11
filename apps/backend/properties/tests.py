@@ -173,10 +173,10 @@ class PropertyApiTests(TestCase):
         self.assertEqual(catalogue.status_code, 200)
         categories = {row['category'] for row in catalogue.data['reports']}
         self.assertEqual(categories, {
-            'Financial', 'Collections & Reconciliation', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
+            'Critical Financial', 'Financial', 'Collections & Reconciliation', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
         })
         keys = {row['key'] for row in catalogue.data['reports']}
-        self.assertTrue({'daily-collections', 'collections-property', 'collections-tenant', 'outstanding-balances', 'payment-reconciliation', 'settlement', 'management-fee'}.issubset(keys))
+        self.assertTrue({'tenant-payment-status', 'daily-collections', 'collections-property', 'collections-tenant', 'outstanding-balances', 'payment-reconciliation', 'settlement', 'management-fee'}.issubset(keys))
         for key in ('aging', 'occupancy', 'contractor-expiry', 'tenant-compliance', 'critical-dates'):
             self.assertIn(key, keys)
             exported = self.client.get(f'/api/v1/property/analytics/exports/{key}/', **self.headers)
