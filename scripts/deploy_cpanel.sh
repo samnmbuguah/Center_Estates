@@ -74,6 +74,22 @@ ssh "$REMOTE_HOST" "
     kill -TERM "\${app_pid}" 2>/dev/null || true
   done
 "
+
+  # Do not move on to the frontend release while the restarted API is still
+  # warming up. Existing browser sessions can refresh their access token as
+  # soon as this health gate succeeds.
+  api_ready=0
+  for attempt in {1..12}; do
+    if curl --fail --silent --show-error --max-time 10 "https://${API_DOMAIN}/api/v1/health/" >/dev/null; then
+      api_ready=1
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$api_ready" != "1" ]]; then
+    echo "API did not become healthy after restart; frontend deployment stopped." >&2
+    exit 1
+  fi
 fi
 
 if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then

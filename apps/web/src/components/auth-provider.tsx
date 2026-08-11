@@ -23,6 +23,8 @@ type AuthContextValue = {
   loadDemoIdentities: () => Promise<DemoIdentityGroup[]>;
 };
 
+type SessionLoadResult = "authenticated" | "unauthenticated" | "unavailable";
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -31,20 +33,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const loadSession = useCallback(async (organizationId?: string | null) => {
-    const selected = organizationId ?? localStorage.getItem("ce_organization");
-    const response = await apiFetch("/auth/me/", {}, selected);
-    if (!response.ok) {
-      setSession(null);
-      return false;
+  const loadSession = useCallback(async (organizationId?: string | null): Promise<SessionLoadResult> => {
+    try {
+      const selected = organizationId ?? localStorage.getItem("ce_organization");
+      const response = await apiFetch("/auth/me/", {}, selected);
+      if (response.status === 401 || response.status === 403) {
+        setSession(null);
+        return "unauthenticated";
+      }
+      // A deploy, proxy restart, timeout or upstream 5xx is not evidence that
+      // the signed refresh cookie has expired. Preserve local session state and
+      // let the bootstrap retry instead of forcing a new login.
+      if (!response.ok) return "unavailable";
+      const data = await response.json() as Session;
+      await apiFetch("/auth/csrf/");
+      setSession(data);
+      if (data.activeOrganizationId) localStorage.setItem("ce_organization", data.activeOrganizationId);
+      return "authenticated";
+    } catch {
+      return "unavailable";
     }
-    const data = await response.json() as Session;
-    // Establish a current parent-domain CSRF cookie before authenticated
-    // providers begin sending background mutations such as telemetry.
-    await apiFetch("/auth/csrf/");
-    setSession(data);
-    if (data.activeOrganizationId) localStorage.setItem("ce_organization", data.activeOrganizationId);
-    return true;
   }, []);
 
   useEffect(() => {
@@ -58,13 +66,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
   useEffect(() => {
-    // Session state is synchronized from the external authentication API.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadSession().then((authenticated) => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const synchronize = async (attempt = 0) => {
+      const result = await loadSession();
+      if (cancelled) return;
+      if (result === "unavailable" && attempt < 5) {
+        timer = setTimeout(() => void synchronize(attempt + 1), Math.min(1000 * (2 ** attempt), 8000));
+        return;
+      }
       setLoading(false);
-      if (!authenticated && !isPublicRoute(pathname)) router.replace("/login");
-      if (authenticated && (pathname === "/login" || pathname === "/sign-up")) router.replace("/workspaces");
-    });
+      if (result === "unauthenticated" && !isPublicRoute(pathname)) router.replace("/login");
+      if (result === "authenticated" && (pathname === "/login" || pathname === "/sign-up")) router.replace("/workspaces");
+    };
+    void synchronize();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, [loadSession, pathname, router]);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -82,7 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch { /* non-JSON error body */ }
       throw new Error(message);
     }
-    await loadSession(null);
+    const sessionResult = await loadSession(null);
+    if (sessionResult !== "authenticated") throw new Error("Signed in, but the workspace could not be loaded. Please retry.");
     const returnTo = sessionStorage.getItem("ce_return_after_login");
     sessionStorage.removeItem("ce_return_after_login");
     router.replace(returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/workspaces");
