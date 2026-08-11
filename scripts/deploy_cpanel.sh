@@ -64,6 +64,9 @@ ssh "$REMOTE_HOST" "
   python apps/backend/manage.py migrate --noinput
   python apps/backend/manage.py collectstatic --noinput
   python apps/backend/manage.py check --deploy
+  cron_marker='# center-estates-scheduled-reports'
+  cron_command="*/15 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 ${cron_marker}"
+  (crontab -l 2>/dev/null | grep -vF "${cron_marker}"; echo "${cron_command}") | crontab -
   mkdir -p tmp
   touch tmp/restart.txt
   # CloudLinux LiteSpeed keeps a preloaded lswsgi master alive across the

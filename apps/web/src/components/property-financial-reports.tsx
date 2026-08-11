@@ -6,6 +6,7 @@ import { Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { EmptyState, LoadingState, money } from "@/components/module-ui";
+import { PropertyReportLibrary } from "@/components/property-report-library";
 
 type Row = Record<string, string | number | null>;
 type FinancialData = {
@@ -15,7 +16,7 @@ type FinancialData = {
   expenses: Row[]; budgets: Row[]; service_charge: Row[];
 };
 
-const sections = ["Overview", "Billing & collection", "Arrears", "Income & expense", "VAT & statutory", "Expenses", "Service charge", "Budgets"];
+const sections = ["Overview", "Billing & collection", "Arrears", "Income & expense", "VAT & statutory", "Expenses", "Service charge", "Budgets", "Reports library"];
 
 export function PropertyFinancialReports() {
   const { session } = useAuth(); const organizationId = session?.activeOrganizationId ?? null;
@@ -42,7 +43,8 @@ export function PropertyFinancialReports() {
     {section === 2 && <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,1fr)", lg: "repeat(4,1fr)" }, gap: 1.25 }}>{Object.entries(data?.arrears_ageing ?? {}).map(([bucket, value]) => <Paper key={bucket} variant="outlined" sx={{ p: 2, borderRadius: 3 }}><Typography color="text.secondary">{bucket.replaceAll("_", "–")} days</Typography><Typography variant="h6" color="error.main" sx={{ fontWeight: 900 }}>{money.format(Number(value))}</Typography></Paper>)}</Box>}
     {section === 3 && <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}><ReportCard title="Income by category" rows={data?.income_summary ?? []}/><ReportCard title="Expenses by category" rows={data?.expense_summary ?? []}/></Box>}
     {section === 4 && <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(1,1fr)", md: "repeat(3,1fr)" }, gap: 1.25 }}>{[["Output VAT", data?.vat.output_vat], ["Input VAT", data?.vat.input_vat], ["Net VAT payable", data?.vat.net_vat]].map(([label, value]) => <Paper key={label} variant="outlined" sx={{ p: 2, borderRadius: 3 }}><Typography color="text.secondary">{label}</Typography><Typography variant="h5" sx={{ fontWeight: 900 }}>{money.format(Number(value ?? 0))}</Typography></Paper>)}</Box>}
-    {section > 0 && section !== 3 && <DataTable rows={rows ?? []} columns={columns}/>} 
+    {section > 0 && section !== 3 && section !== 8 && <DataTable rows={rows ?? []} columns={columns}/>}
+    {section === 8 && <PropertyReportLibrary domain="financial"/>}
   </Box>;
 }
 

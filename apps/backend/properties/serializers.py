@@ -116,7 +116,19 @@ class ScheduledReportSerializer(serializers.ModelSerializer):
     report_name = serializers.CharField(source='definition.name', read_only=True)
     class Meta:
         model = ScheduledReport
-        exclude = ('organization', 'created_by', 'last_execution')
+        exclude = ('organization', 'created_by')
+        read_only_fields = ('last_execution', 'last_delivery_at', 'last_delivery_status', 'last_delivery_error')
+
+    def validate_recipients(self, value):
+        from django.core.validators import validate_email
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Recipients must be a list of email addresses.')
+        for recipient in value:
+            try:
+                validate_email(recipient)
+            except Exception:
+                raise serializers.ValidationError(f'{recipient} is not a valid email address.')
+        return value
 
 
 class PaymentGatewayConfigurationSerializer(serializers.ModelSerializer):

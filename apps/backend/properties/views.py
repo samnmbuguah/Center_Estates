@@ -4,15 +4,17 @@ import hashlib
 import hmac
 import json
 import os
+from io import BytesIO, StringIO
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 import uuid
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
+from django.core.files.base import ContentFile
 from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse, QueryDict
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -1499,7 +1501,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
 
 
 class ReportDefinitionViewSet(OrganizationModelViewSet):
-    write_permission = 'property.reports'
+    write_permission = 'property.report'
     queryset = ReportDefinition.objects.select_related('created_by')
     serializer_class = ReportDefinitionSerializer
     search_fields = ('key', 'name', 'description')
@@ -1520,14 +1522,113 @@ class ReportExecutionViewSet(ReadOnlyModelViewSet):
             self.request, organization,
         )
 
+    @action(detail=True, methods=('get',))
+    def download(self, request, pk=None):
+        execution = self.get_object()
+        if execution.status != ReportExecution.Status.COMPLETED or not execution.file:
+            raise ValidationError({'report': 'This report artifact is not available for download.'})
+        execution.file.open('rb')
+        return FileResponse(execution.file, as_attachment=True, filename=os.path.basename(execution.file.name))
+
 
 class ScheduledReportViewSet(OrganizationModelViewSet):
-    write_permission = 'property.reports'
+    write_permission = 'property.report'
     queryset = ScheduledReport.objects.select_related('definition', 'property', 'created_by', 'last_execution')
     serializer_class = ScheduledReportSerializer
 
     def perform_create(self, serializer):
-        serializer.save(organization=self._validate_organization(serializer), created_by=self.request.user)
+        organization = self._validate_organization(serializer)
+        recipients = serializer.validated_data.get('recipients', [])
+        if recipients:
+            from organizations.models import Membership
+            authorized = set(Membership.objects.active().filter(
+                organization=organization, user__email__in=recipients,
+            ).values_list('user__email', flat=True))
+            unauthorized = sorted(set(recipients) - authorized)
+            if unauthorized:
+                raise ValidationError({'recipients': f'Only active organization members can receive scheduled reports: {", ".join(unauthorized)}'})
+        serializer.save(
+            organization=organization, created_by=self.request.user,
+            property=serializer.validated_data.get('property') or get_active_property(self.request, organization),
+        )
+
+    @staticmethod
+    def _next_run(schedule, from_time=None):
+        current = from_time or timezone.now()
+        if schedule.frequency == ScheduledReport.Frequency.DAILY:
+            return current + timedelta(days=1)
+        if schedule.frequency == ScheduledReport.Frequency.WEEKLY:
+            return current + timedelta(days=7)
+        months = 3 if schedule.frequency == ScheduledReport.Frequency.QUARTERLY else 1
+        month_index = current.month - 1 + months
+        year = current.year + month_index // 12; month = month_index % 12 + 1
+        day = min(current.day, calendar.monthrange(year, month)[1])
+        return current.replace(year=year, month=month, day=day)
+
+    @staticmethod
+    def _deliver(schedule, execution):
+        if not schedule.recipients:
+            schedule.last_delivery_status = 'generated'
+            schedule.last_delivery_error = ''
+            return
+        from django.core.mail import EmailMessage
+        try:
+            message = EmailMessage(
+                subject=f'Center Estates report: {schedule.definition.name}',
+                body=f'The scheduled {schedule.definition.name} report is attached. Reporting period: {execution.period_start or "default"} to {execution.period_end or "default"}.',
+                to=schedule.recipients,
+            )
+            execution.file.open('rb')
+            message.attach(execution.file.name.rsplit('/', 1)[-1], execution.file.read())
+            message.send(fail_silently=False)
+            schedule.last_delivery_status = 'delivered'
+            schedule.last_delivery_at = timezone.now()
+            schedule.last_delivery_error = ''
+        except Exception as exc:
+            schedule.last_delivery_status = 'delivery_failed'
+            schedule.last_delivery_error = str(exc)[:1000]
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def run(self, request, pk=None):
+        schedule = ScheduledReport.objects.select_for_update().get(pk=self.get_object().pk)
+        filters = {**schedule.definition.default_filters, **schedule.filters}
+        report_key = filters.pop('_report_key', schedule.definition.key)
+        query = QueryDict('', mutable=True)
+        for key, value in filters.items():
+            if isinstance(value, list): query.setlist(key, [str(item) for item in value])
+            elif value is not None: query[key] = str(value)
+        query['output'] = schedule.output_format
+        original_query = request._request.GET
+        original_property = request._request.META.get('HTTP_X_PROPERTY_ID')
+        request._request.GET = query
+        if schedule.property_id:
+            request._request.META['HTTP_X_PROPERTY_ID'] = str(schedule.property_id)
+        try:
+            analytics = PropertyAnalyticsViewSet(); analytics.request = request
+            response = analytics.export(request, report_kind=report_key)
+        finally:
+            request._request.GET = original_query
+            if original_property is None: request._request.META.pop('HTTP_X_PROPERTY_ID', None)
+            else: request._request.META['HTTP_X_PROPERTY_ID'] = original_property
+        execution = ReportExecution.objects.get(pk=response['X-Report-Execution-ID'])
+        if execution.definition_id != schedule.definition_id:
+            execution.definition = schedule.definition
+            execution.save(update_fields=('definition', 'updated_at'))
+        self._deliver(schedule, execution)
+        schedule.last_execution = execution
+        schedule.next_run_at = self._next_run(schedule)
+        schedule.save(update_fields=('last_execution', 'next_run_at', 'last_delivery_status', 'last_delivery_at', 'last_delivery_error', 'updated_at'))
+        return Response(ReportExecutionSerializer(execution).data, status=201)
+
+    @action(detail=False, methods=('post',), url_path='run-due')
+    def run_due(self, request):
+        due = list(self.get_queryset().filter(is_active=True, next_run_at__lte=timezone.now()).values_list('id', flat=True))
+        created = []
+        for schedule_id in due:
+            response = self.run(request, pk=schedule_id)
+            created.append(response.data)
+        return Response({'queued': len(created), 'executions': created})
 
 
 class RentScheduleViewSet(OrganizationModelViewSet):
@@ -1738,6 +1839,35 @@ class PropertyAnalyticsViewSet(ViewSet):
 
     def _organization(self):
         return get_active_organization(self.request)
+
+    def _complete_export(self, request, report_kind, response, start, end, output_format, row_count=0):
+        organization = self._organization()
+        property_record = get_active_property(request, organization)
+        definition = ReportDefinition.objects.for_organization(organization).filter(key=report_kind, is_active=True).first()
+        filename = f'property-{report_kind}-{start:%Y%m%d}-{end:%Y%m%d}.{output_format}'
+        content = response.content
+        if output_format == 'xlsx':
+            from openpyxl import Workbook
+            workbook = Workbook(write_only=True); sheet = workbook.create_sheet('Report')
+            decoded = content.decode('utf-8-sig')
+            parsed_rows = list(csv.reader(StringIO(decoded)))
+            for csv_row in parsed_rows:
+                sheet.append(csv_row)
+            row_count = max(len(parsed_rows) - 1, 0)
+            buffer = BytesIO(); workbook.save(buffer); content = buffer.getvalue()
+            response = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        execution = ReportExecution.objects.create(
+            organization=organization, definition=definition, report_key=report_kind,
+            property=property_record, period_start=start, period_end=end,
+            filters={key: request.query_params.getlist(key) if len(request.query_params.getlist(key)) > 1 else request.query_params.get(key) for key in request.query_params if key not in ('output',)},
+            output_format=output_format, status=ReportExecution.Status.COMPLETED,
+            generated_by=request.user, generated_at=timezone.now(), row_count=row_count,
+        )
+        execution.file.save(filename, ContentFile(content), save=True)
+        response['X-Report-Execution-ID'] = str(execution.id)
+        response['X-Report-Generated-At'] = execution.generated_at.isoformat()
+        return response
 
     @extend_schema(request=None, responses={200: {'type': 'object'}})
     @action(detail=False, methods=('get',), url_path='tenancy-occupancy')
@@ -2009,18 +2139,18 @@ class PropertyAnalyticsViewSet(ViewSet):
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         return Response({'reports': [
-            {'key': 'tenant-payment-status', 'name': 'Tenants Payments Status Report', 'category': 'Critical Financial', 'critical': True, 'description': 'Monthly tenant billings, receipts and balances carried forward.'},
-            {'key': 'income-expense', 'name': 'Receipts & Expenditure Account', 'category': 'Critical Financial', 'critical': True, 'description': 'Property income, disbursements and cumulative performance.'},
-            {'key': 'outstanding-balances', 'name': 'Outstanding Balances', 'category': 'Critical Financial', 'critical': True, 'description': 'Open tenant invoices and balances requiring collection.'},
-            {'key': 'payment-reconciliation', 'name': 'Payment Reconciliation', 'category': 'Critical Financial', 'critical': True, 'description': 'Bank transactions matched to official receipts.'},
+            {'key': 'tenant-payment-status', 'name': 'Tenants Payments Status Report', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Monthly tenant billings, receipts and balances carried forward.'},
+            {'key': 'income-expense', 'name': 'Receipts & Expenditure Account', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Property income, disbursements and cumulative performance.'},
+            {'key': 'outstanding-balances', 'name': 'Outstanding Balances', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Open tenant invoices and balances requiring collection.'},
+            {'key': 'payment-reconciliation', 'name': 'Payment Reconciliation', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Bank transactions matched to official receipts.'},
             {'key': 'aging', 'name': 'Outstanding Aging', 'category': 'Financial', 'description': 'Arrears grouped by age and tenant.'},
             {'key': 'budget-actual', 'name': 'Budget versus actual', 'category': 'Financial'},
             {'key': 'service-charge', 'name': 'Service charge allocations', 'category': 'Financial'},
-            {'key': 'daily-collections', 'name': 'Daily collections', 'category': 'Collections & Reconciliation'},
-            {'key': 'collections-property', 'name': 'Collections by property', 'category': 'Collections & Reconciliation'},
-            {'key': 'collections-tenant', 'name': 'Collections by tenant', 'category': 'Collections & Reconciliation'},
-            {'key': 'settlement', 'name': 'Settlement report', 'category': 'Collections & Reconciliation'},
-            {'key': 'management-fee', 'name': 'Management fee report', 'category': 'Collections & Reconciliation'},
+            {'key': 'daily-collections', 'name': 'Daily collections', 'category': 'Financial', 'section': 'Collections & reconciliation'},
+            {'key': 'collections-property', 'name': 'Collections by property', 'category': 'Financial', 'section': 'Collections & reconciliation'},
+            {'key': 'collections-tenant', 'name': 'Collections by tenant', 'category': 'Financial', 'section': 'Collections & reconciliation'},
+            {'key': 'settlement', 'name': 'Settlement report', 'category': 'Financial', 'section': 'Collections & reconciliation'},
+            {'key': 'management-fee', 'name': 'Management fee report', 'category': 'Financial', 'section': 'Collections & reconciliation'},
             {'key': 'occupancy', 'name': 'Portfolio occupancy', 'category': 'Tenants & Occupancy'},
             {'key': 'lease-expiry', 'name': 'Lease expiry', 'category': 'Tenants & Occupancy'},
             {'key': 'contractor-expiry', 'name': 'Service provider expiry', 'category': 'Service Providers'},
@@ -2033,7 +2163,10 @@ class PropertyAnalyticsViewSet(ViewSet):
     @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
     def export(self, request, report_kind=None):
         organization = self._organization()
-        output_pdf = request.query_params.get('output') == 'pdf'
+        output_format = request.query_params.get('output', 'csv').lower()
+        if output_format not in ('csv', 'xlsx', 'pdf'):
+            raise ValidationError({'output': 'Output format must be csv, xlsx or pdf.'})
+        output_pdf = output_format == 'pdf'
         today = timezone.localdate()
         try:
             start = date.fromisoformat(request.query_params.get('start', today.replace(day=1).isoformat()))
@@ -2047,8 +2180,10 @@ class PropertyAnalyticsViewSet(ViewSet):
             if not property_record:
                 raise ValidationError({'property': 'Select a property before generating this report.'})
             if report_kind == 'tenant-payment-status':
-                return tenant_payment_status_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
-            return income_expenditure_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
+                response = tenant_payment_status_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
+            else:
+                response = income_expenditure_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
+            return self._complete_export(request, report_kind, response, start, end, output_format)
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="property-{report_kind}.csv"'
         writer = csv.writer(response)
@@ -2172,12 +2307,14 @@ class PropertyAnalyticsViewSet(ViewSet):
             period_start = request.query_params.get('start')
             period_end = request.query_params.get('end')
             period = f'{period_start} — {period_end}' if period_start and period_end else f'As at {timezone.localdate():%d %b %Y}'
-            return tabular_report_pdf(
+            response = tabular_report_pdf(
                 organization, title, f'property-{report_kind}.pdf', response.content,
                 property_name=property_record.name if property_record else 'Portfolio', period=period,
                 generated_by=request.user.get_full_name() or request.user.get_username(),
             )
-        return response
+            return self._complete_export(request, report_kind, response, start, end, output_format)
+        row_count = max(response.content.count(b'\n') - 1, 0)
+        return self._complete_export(request, report_kind, response, start, end, output_format, row_count=row_count)
 
 
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))

@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import os
+import tempfile
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -20,7 +21,7 @@ from .models import (
     BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingRun, Budget, Building, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
     PaymentWebhookEvent, Property, Receipt, ReceiptAllocation, RentSchedule,
-    ReportDefinition, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
+    ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
     TaxConfiguration, TenantMovement, Unit, UnitStatusHistory,
 )
@@ -49,7 +50,9 @@ class PropertyHierarchyTests(TestCase):
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class PropertyApiTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username='property-user', password='test-password')
+        self.user = get_user_model().objects.create_user(
+            username='property-user', email='manager@example.com', password='test-password',
+        )
         self.organization = Organization.objects.create(name='Property Client', slug='property-client')
         self.other = Organization.objects.create(name='Other Client', slug='other-client')
         Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
@@ -266,8 +269,12 @@ class PropertyApiTests(TestCase):
         self.assertEqual(catalogue.status_code, 200)
         categories = {row['category'] for row in catalogue.data['reports']}
         self.assertEqual(categories, {
-            'Critical Financial', 'Financial', 'Collections & Reconciliation', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
+            'Financial', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
         })
+        financial_sections = {
+            row.get('section') for row in catalogue.data['reports'] if row['category'] == 'Financial'
+        }
+        self.assertTrue({'Critical reports', 'Collections & reconciliation'}.issubset(financial_sections))
         keys = {row['key'] for row in catalogue.data['reports']}
         self.assertTrue({'tenant-payment-status', 'daily-collections', 'collections-property', 'collections-tenant', 'outstanding-balances', 'payment-reconciliation', 'settlement', 'management-fee'}.issubset(keys))
         for key in ('aging', 'occupancy', 'contractor-expiry', 'tenant-compliance', 'critical-dates'):
@@ -876,6 +883,44 @@ class PropertyApiTests(TestCase):
         self.assertEqual(Decimal(response.data['kpis']['net_income']), Decimal('400'))
         self.assertEqual(response.data['billing_collection'][0]['invoice'], self.invoice.number)
         self.assertEqual(len(response.data['expenses']), 1)
+
+    def test_exports_are_stored_audited_and_schedules_generate_downloadable_artifacts(self):
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            exported = self.client.get(
+                '/api/v1/property/analytics/exports/occupancy/?start=2026-01-01&end=2026-12-31&output=xlsx',
+                **headers,
+            )
+            self.assertEqual(exported.status_code, 200)
+            self.assertEqual(exported['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            execution = ReportExecution.objects.get(pk=exported['X-Report-Execution-ID'])
+            self.assertEqual(execution.status, ReportExecution.Status.COMPLETED)
+            self.assertEqual(execution.output_format, 'xlsx')
+            self.assertTrue(execution.file.storage.exists(execution.file.name))
+
+            definition = ReportDefinition.objects.create(
+                organization=self.organization, key='saved-occupancy', name='Saved occupancy',
+                domain=ReportDefinition.Domain.TENANCY, default_filters={
+                    '_report_key': 'occupancy', 'start': '2026-01-01', 'end': '2026-12-31',
+                }, created_by=self.user,
+            )
+            self.user.email = 'manager@example.com'; self.user.save(update_fields=('email',))
+            scheduled = self.client.post('/api/v1/property/scheduled-reports/', {
+                'definition': str(definition.id), 'property': str(self.property.id),
+                'frequency': 'monthly', 'next_run_at': '2026-08-11T12:00:00Z',
+                'recipients': ['manager@example.com'], 'filters': {}, 'output_format': 'pdf',
+            }, format='json', **headers)
+            self.assertEqual(scheduled.status_code, 201, scheduled.data)
+            generated = self.client.post(
+                f"/api/v1/property/scheduled-reports/{scheduled.data['id']}/run/", {},
+                format='json', **headers,
+            )
+            self.assertEqual(generated.status_code, 201, generated.data)
+            self.assertEqual(generated.data['status'], ReportExecution.Status.COMPLETED)
+            download = self.client.get(
+                f"/api/v1/property/report-executions/{generated.data['id']}/download/", **headers,
+            )
+            self.assertEqual(download.status_code, 200)
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)

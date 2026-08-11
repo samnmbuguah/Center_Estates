@@ -6,6 +6,7 @@ import { Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { EmptyState, LoadingState, money } from "@/components/module-ui";
+import { PropertyReportLibrary } from "@/components/property-report-library";
 
 type ReportData = {
   period: { start: string; end: string };
@@ -18,7 +19,7 @@ type ReportData = {
   filter_options: { unit_types: string[]; unit_statuses: string[]; lease_statuses: string[] };
 };
 
-const sections = ["Overview", "Tenancy schedule", "Vacancy", "Move ins / move outs", "Income analysis", "Lease expiry"];
+const sections = ["Overview", "Tenancy schedule", "Vacancy", "Move ins / move outs", "Income analysis", "Lease expiry", "Custom reports"];
 
 export function PropertyTenancyReports() {
   const { session } = useAuth();
@@ -78,6 +79,7 @@ export function PropertyTenancyReports() {
     ].map(([label, value]) => <Paper key={String(label)} variant="outlined" sx={{ p: 1.75, borderRadius: 3 }}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography variant="h6" sx={{ fontWeight: 900 }}>{value}</Typography></Paper>)}</Box>
     {section === 0 && <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2 }}><Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}><Typography sx={{ fontWeight: 900, mb: 2 }}>Unit status distribution</Typography>{data?.unit_status_distribution.map(row => <Box key={row.status} sx={{ display: "flex", justifyContent: "space-between", py: 1, borderBottom: 1, borderColor: "divider" }}><Chip size="small" label={row.status}/><strong>{row.count}</strong></Box>)}</Paper><Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}><Typography sx={{ fontWeight: 900 }}>Income outlook</Typography><Typography variant="h4" color="success.main" sx={{ fontWeight: 900, mt: 2 }}>{money.format(Number(kpi.projected_monthly_income_90_days ?? 0))}</Typography><Typography color="text.secondary">Projected monthly income within 90 days, including effective rent escalations.</Typography></Paper></Box>}
     {section === 4 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}><Typography sx={{ fontWeight: 900 }}>Monthly income analysis</Typography><Typography variant="h3" color="success.main" sx={{ fontWeight: 900, my: 2 }}>{money.format(Number(kpi.current_monthly_income ?? 0))}</Typography><Typography color="text.secondary">Current effective monthly rent for active tenancies. Projected in 90 days: {money.format(Number(kpi.projected_monthly_income_90_days ?? 0))}.</Typography></Paper>}
-    {section > 0 && section !== 4 && <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>{!rows?.length ? <EmptyState title={`No ${sections[section].toLowerCase()} records`} description="No records match the selected property, period and filters."/> : <Box sx={{ overflowX: "auto" }}><table className="fc-data-table"><thead><tr>{columns.map(column => <th key={column}>{column.replaceAll("_", " ")}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{String(row[column] ?? "—")}</td>)}</tr>)}</tbody></table></Box>}</Paper>}
+    {section > 0 && section !== 4 && section !== 6 && <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>{!rows?.length ? <EmptyState title={`No ${sections[section].toLowerCase()} records`} description="No records match the selected property, period and filters."/> : <Box sx={{ overflowX: "auto" }}><table className="fc-data-table"><thead><tr>{columns.map(column => <th key={column}>{column.replaceAll("_", " ")}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{String(row[column] ?? "—")}</td>)}</tr>)}</tbody></table></Box>}</Paper>}
+    {section === 6 && <PropertyReportLibrary domain="tenancy"/>}
   </Box>;
 }

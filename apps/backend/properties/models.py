@@ -1006,7 +1006,7 @@ class ReportExecution(OrganizationOwnedModel):
     period_start = models.DateField(null=True, blank=True)
     period_end = models.DateField(null=True, blank=True)
     filters = models.JSONField(default=dict, blank=True)
-    output_format = models.CharField(max_length=12, default='pdf')
+    output_format = models.CharField(max_length=12, choices=(('pdf', 'PDF'), ('csv', 'CSV'), ('xlsx', 'Excel')), default='pdf')
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED)
     generated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='generated_property_reports')
     generated_at = models.DateTimeField(null=True, blank=True)
@@ -1031,10 +1031,13 @@ class ScheduledReport(OrganizationOwnedModel):
     next_run_at = models.DateTimeField()
     recipients = models.JSONField(default=list)
     filters = models.JSONField(default=dict, blank=True)
-    output_format = models.CharField(max_length=12, default='pdf')
+    output_format = models.CharField(max_length=12, choices=(('pdf', 'PDF'), ('csv', 'CSV'), ('xlsx', 'Excel')), default='pdf')
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_scheduled_reports')
     last_execution = models.ForeignKey(ReportExecution, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    last_delivery_at = models.DateTimeField(null=True, blank=True)
+    last_delivery_status = models.CharField(max_length=24, blank=True)
+    last_delivery_error = models.TextField(blank=True)
 
     class Meta:
         ordering = ('next_run_at',)

@@ -175,7 +175,22 @@ def _info_table(rows, styles, widths=None):
 
 def invoice_pdf(invoice: Invoice, generated_by="System"):
     s = _styles(); lease = invoice.lease; tenant = lease.tenant; unit = lease.unit; prop = unit.property
-    metadata = invoice.metadata or {}; lines = metadata.get("lines") if isinstance(metadata.get("lines"), list) else []
+    metadata = invoice.metadata or {}
+    persisted_lines = list(invoice.lines.select_related("billing_item").all())
+    lines = [
+        {
+            "description": line.description,
+            "quantity": line.quantity,
+            "unit_rate": line.unit_rate,
+            "amount": line.subtotal,
+            "vat_rate": line.tax_rate,
+            "vat_amount": line.tax_amount,
+            "total": line.total,
+        }
+        for line in persisted_lines
+    ]
+    if not lines and isinstance(metadata.get("lines"), list):
+        lines = metadata["lines"]
     if not lines:
         label = str(invoice.invoice_type or "Rent").replace("_", " ").title()
         net = invoice.subtotal or (invoice.amount - invoice.tax_amount)
@@ -192,8 +207,15 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
     story.extend([Spacer(1, 5 * mm), Paragraph("Invoice items", s["Section"])])
     data = [["DESCRIPTION", "VAT", "AMOUNT EX VAT", "VAT AMOUNT", "AMOUNT INCL VAT"]]
     for line in lines:
-        net = Decimal(str(line.get("amount", 0))); rate = Decimal(str(line.get("vat_rate", invoice.tax_rate))); tax = (net * rate / 100).quantize(Decimal("0.01"))
-        data.append([Paragraph(str(line.get("description", "Charge")), s["Small"]), f"{rate:g}%", f"{net:,.2f}", f"{tax:,.2f}", f"{net + tax:,.2f}"])
+        net = Decimal(str(line.get("amount", 0))); rate = Decimal(str(line.get("vat_rate", invoice.tax_rate)))
+        tax = Decimal(str(line.get("vat_amount", (net * rate / 100).quantize(Decimal("0.01")))))
+        total = Decimal(str(line.get("total", net + tax)))
+        description = str(line.get("description", "Charge"))
+        quantity = Decimal(str(line.get("quantity", 1)))
+        unit_rate = Decimal(str(line.get("unit_rate", net)))
+        if quantity != 1:
+            description = f"{description} ({quantity:g} × {_money(unit_rate)})"
+        data.append([Paragraph(description, s["Small"]), f"{rate:g}%", f"{net:,.2f}", f"{tax:,.2f}", f"{total:,.2f}"])
     table = Table(data, colWidths=[72 * mm, 18 * mm, 28 * mm, 25 * mm, 30 * mm], repeatRows=1)
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7), ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .35, LINE), ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
     story.extend([table, Spacer(1, 5 * mm)])
@@ -218,7 +240,8 @@ def receipt_pdf(receipt: Receipt, generated_by="System"):
         ("Invoice", invoice.number if invoice else "Unapplied receipt", "Posting status", "Applied" if invoice else "Unapplied"),
     ], s))
     story.extend([Spacer(1, 6 * mm), Paragraph("Amount received", s["Section"]), Table([[Paragraph(amount_in_words(receipt.amount), s["Small"]), Paragraph(f"<b>{_money(receipt.amount)}</b>", s["Right"])]], colWidths=[115 * mm, 57 * mm], style=[("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), .6, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 12), ("BOTTOMPADDING", (0, 0), (-1, -1), 12)]), Spacer(1, 7 * mm)])
-    story.append(Table([["ACCOUNT", "DESCRIPTION", "INVOICE", "AMOUNT"], [tenant.code, "Rent payment", invoice.number if invoice else "—", _money(receipt.amount)]], colWidths=[38 * mm, 70 * mm, 35 * mm, 35 * mm], style=[("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7.5), ("GRID", (0, 0), (-1, -1), .4, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
+    description = invoice.invoice_type.replace("_", " ").title() if invoice else "Unapplied payment"
+    story.append(Table([["ACCOUNT", "DESCRIPTION", "INVOICE", "AMOUNT"], [tenant.code, description, invoice.number if invoice else "—", _money(receipt.amount)]], colWidths=[38 * mm, 70 * mm, 35 * mm, 35 * mm], style=[("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7.5), ("GRID", (0, 0), (-1, -1), .4, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
     story.extend([Spacer(1, 12 * mm), Paragraph(f"Served by: {receipt.received_by.get_full_name() or receipt.received_by.get_username()}", s["Small"]), Paragraph("This computer-generated receipt is valid without a physical stamp. Verify it from the Center Estates tenant ledger.", s["Tiny"])])
     return _doc_response(receipt.organization, f"receipt-{receipt.number}.pdf", story, title="Official Receipt", property_name=prop.name if prop else "Portfolio", period=f"Receipt date: {receipt.received_on:%d %b %Y}", generated_by=generated_by)
 
