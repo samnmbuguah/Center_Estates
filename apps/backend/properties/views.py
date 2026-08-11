@@ -565,7 +565,7 @@ class TenantViewSet(OrganizationModelViewSet):
             raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
         if start and end and start > end:
             raise ValidationError({'period': 'Start date cannot be after end date.'})
-        return tenant_statement_pdf(tenant, start, end)
+        return tenant_statement_pdf(tenant, start, end, request.user.get_full_name() or request.user.get_username())
 
 
 class TenantPortalAccessViewSet(OrganizationModelViewSet):
@@ -676,7 +676,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
 
     @action(detail=True, methods=('get',), url_path='pdf')
     def pdf(self, request, pk=None):
-        return invoice_pdf(self.get_object())
+        return invoice_pdf(self.get_object(), request.user.get_full_name() or request.user.get_username())
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
@@ -827,7 +827,7 @@ class ReceiptViewSet(OrganizationModelViewSet):
 
     @action(detail=True, methods=('get',), url_path='pdf')
     def pdf(self, request, pk=None):
-        return receipt_pdf(self.get_object())
+        return receipt_pdf(self.get_object(), request.user.get_full_name() or request.user.get_username())
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -1428,7 +1428,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
             if start > end:
                 raise ValidationError({'period': 'Start date cannot be after end date.'})
-            return income_expenditure_pdf(organization, property_record, start, end)
+            return income_expenditure_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="property-{report_kind}.csv"'
         writer = csv.writer(response)
@@ -1541,7 +1541,15 @@ class PropertyAnalyticsViewSet(ViewSet):
             raise ValidationError({'report': 'Unknown property report.'})
         if output_pdf:
             title = str(report_kind).replace('-', ' ').title()
-            return tabular_report_pdf(organization, title, f'property-{report_kind}.pdf', response.content)
+            property_record = get_active_property(request, organization)
+            period_start = request.query_params.get('start')
+            period_end = request.query_params.get('end')
+            period = f'{period_start} — {period_end}' if period_start and period_end else f'As at {timezone.localdate():%d %b %Y}'
+            return tabular_report_pdf(
+                organization, title, f'property-{report_kind}.pdf', response.content,
+                property_name=property_record.name if property_record else 'Portfolio', period=period,
+                generated_by=request.user.get_full_name() or request.user.get_username(),
+            )
         return response
 
 
@@ -1567,7 +1575,7 @@ class TenantPortalViewSet(ViewSet):
         ).filter(pk=invoice_id, lease__tenant=access.tenant).first()
         if invoice is None:
             raise PermissionDenied('This invoice is not available in your tenant account.')
-        return invoice_pdf(invoice)
+        return invoice_pdf(invoice, request.user.get_full_name() or request.user.get_username())
 
     @action(detail=False, methods=('get',), url_path=r'receipts/(?P<receipt_id>[0-9a-fA-F-]{36})/pdf')
     def receipt_document(self, request, receipt_id=None):
@@ -1577,7 +1585,7 @@ class TenantPortalViewSet(ViewSet):
         ).filter(pk=receipt_id, tenant=access.tenant).first()
         if receipt is None:
             raise PermissionDenied('This receipt is not available in your tenant account.')
-        return receipt_pdf(receipt)
+        return receipt_pdf(receipt, request.user.get_full_name() or request.user.get_username())
 
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):

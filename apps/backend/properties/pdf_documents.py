@@ -6,15 +6,19 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 from io import BytesIO, StringIO
+from pathlib import Path
 import csv
 
+from django.conf import settings as django_settings
 from django.db.models import Q, Sum
 from django.http import HttpResponse
+from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
@@ -68,12 +72,14 @@ def amount_in_words(value) -> str:
 
 def _branding(organization):
     settings = organization.settings or {}
+    branding = settings.get("branding") if isinstance(settings.get("branding"), dict) else {}
     return {
-        "name": settings.get("company_name") or organization.name,
-        "address": settings.get("address") or "Center Estates Property Management",
-        "phone": settings.get("phone") or "",
-        "email": settings.get("email") or "",
-        "pin": settings.get("tax_pin") or settings.get("pin") or "",
+        "name": branding.get("company_name") or settings.get("company_name") or organization.name,
+        "address": branding.get("address") or settings.get("address") or "Center Estates Property Management",
+        "phone": branding.get("phone") or settings.get("phone") or "",
+        "email": branding.get("email") or settings.get("email") or "",
+        "pin": branding.get("tax_pin") or settings.get("tax_pin") or settings.get("pin") or "",
+        "logo": branding.get("logo_url") or settings.get("logo_url") or "",
     }
 
 
@@ -88,25 +94,61 @@ def _styles():
     return styles
 
 
-def _doc_response(organization, filename: str, story: list, *, wide=False):
+def _logo_path(configured_logo: str) -> Path | None:
+    """Resolve uploaded branding or the bundled Center Estates mark without remote I/O."""
+    candidates = []
+    if configured_logo and not configured_logo.startswith(("http://", "https://", "data:")):
+        relative = configured_logo.lstrip("/")
+        if relative.startswith("media/"):
+            candidates.append(Path(django_settings.MEDIA_ROOT) / relative.removeprefix("media/"))
+        candidates.extend((Path(django_settings.BASE_DIR) / relative, Path(configured_logo)))
+    candidates.append(Path(django_settings.BASE_DIR).parent / "web" / "public" / "center-estates-logo.png")
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _doc_response(
+    organization,
+    filename: str,
+    story: list,
+    *,
+    wide=False,
+    title="REPORT",
+    property_name="Portfolio",
+    period="As at date of generation",
+    generated_by="System",
+):
     buffer = BytesIO(); pagesize = landscape(A4) if wide else A4
     brand = _branding(organization)
+    logo_path = _logo_path(brand["logo"])
+    generated_at = timezone.localtime()
 
     def decorate(canvas, doc):
         canvas.saveState(); width, height = pagesize
-        canvas.setFillColor(NAVY); canvas.rect(0, height - 19 * mm, width, 19 * mm, fill=1, stroke=0)
-        canvas.setFillColor(colors.white); canvas.setFont("Helvetica-Bold", 12)
-        canvas.drawString(15 * mm, height - 11.5 * mm, brand["name"][:72])
-        canvas.setFont("Helvetica", 7); canvas.drawRightString(width - 15 * mm, height - 10.5 * mm, brand["address"][:100])
-        contact = "  ·  ".join(item for item in (brand["phone"], brand["email"], f"PIN {brand['pin']}" if brand["pin"] else "") if item)
-        canvas.drawRightString(width - 15 * mm, height - 14.5 * mm, contact[:120])
+        header_bottom = height - 38 * mm
+        canvas.setFillColor(colors.white); canvas.rect(0, header_bottom, width, 38 * mm, fill=1, stroke=0)
+        if logo_path:
+            canvas.drawImage(ImageReader(str(logo_path)), 14 * mm, height - 25 * mm, width=14 * mm, height=18 * mm, preserveAspectRatio=True, anchor="c", mask="auto")
+        canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 11.5)
+        canvas.drawString(31 * mm, height - 11 * mm, brand["name"][:64])
+        canvas.setFont("Helvetica", 7); canvas.setFillColor(MUTED)
+        canvas.drawString(31 * mm, height - 15.5 * mm, brand["address"][:76])
+        contact = "  |  ".join(item for item in (brand["phone"], brand["email"], f"PIN {brand['pin']}" if brand["pin"] else "") if item)
+        canvas.drawString(31 * mm, height - 19.5 * mm, contact[:96])
+        canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 10)
+        canvas.drawRightString(width - 14 * mm, height - 10.5 * mm, str(title).upper()[:72])
+        canvas.setFont("Helvetica-Bold", 7.5); canvas.drawRightString(width - 14 * mm, height - 15.5 * mm, str(property_name)[:86])
+        canvas.setFont("Helvetica", 7); canvas.setFillColor(MUTED)
+        canvas.drawRightString(width - 14 * mm, height - 19.5 * mm, str(period)[:100])
+        canvas.drawRightString(width - 14 * mm, height - 24 * mm, f"Prepared by: {generated_by}"[:100])
+        canvas.drawRightString(width - 14 * mm, height - 28 * mm, f"Generated: {generated_at:%d %b %Y, %H:%M %Z}")
+        canvas.setFillColor(RED); canvas.rect(14 * mm, header_bottom + 3 * mm, width - 28 * mm, 1.2 * mm, fill=1, stroke=0)
         canvas.setStrokeColor(LINE); canvas.line(15 * mm, 12 * mm, width - 15 * mm, 12 * mm)
         canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 6.5)
         canvas.drawString(15 * mm, 8 * mm, "Generated securely by Center Estates ERP")
         canvas.drawRightString(width - 15 * mm, 8 * mm, f"Page {doc.page}")
         canvas.restoreState()
 
-    doc = BaseDocTemplate(buffer, pagesize=pagesize, rightMargin=14 * mm, leftMargin=14 * mm, topMargin=26 * mm, bottomMargin=17 * mm, title=filename)
+    doc = BaseDocTemplate(buffer, pagesize=pagesize, rightMargin=14 * mm, leftMargin=14 * mm, topMargin=43 * mm, bottomMargin=17 * mm, title=title, author=brand["name"], subject=f"{property_name} — {period}")
     doc.addPageTemplates(PageTemplate(id="document", frames=[Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="body")], onPage=decorate))
     doc.build(story)
     response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
@@ -124,7 +166,7 @@ def _info_table(rows, styles, widths=None):
     return table
 
 
-def invoice_pdf(invoice: Invoice):
+def invoice_pdf(invoice: Invoice, generated_by="System"):
     s = _styles(); lease = invoice.lease; tenant = lease.tenant; unit = lease.unit; prop = unit.property
     metadata = invoice.metadata or {}; lines = metadata.get("lines") if isinstance(metadata.get("lines"), list) else []
     if not lines:
@@ -155,10 +197,10 @@ def invoice_pdf(invoice: Invoice):
     story.extend([Spacer(1, 5 * mm), Paragraph("Payment details", s["Section"]), Paragraph(" · ".join(filter(None, [bank.get("bank_name"), bank.get("branch"), bank.get("account_name"), bank.get("account_number")] )) or "Use the payment instructions shown in the tenant portal.", s["Small"])])
     fiscal = metadata.get("fiscal", {})
     if fiscal: story.extend([Spacer(1, 3 * mm), Paragraph("Fiscal details", s["Section"]), Paragraph(" · ".join(f"{str(k).replace('_', ' ').title()}: {v}" for k, v in fiscal.items()), s["Tiny"])])
-    return _doc_response(invoice.organization, f"invoice-{invoice.number}.pdf", story)
+    return _doc_response(invoice.organization, f"invoice-{invoice.number}.pdf", story, title="Tax Invoice", property_name=prop.name, period=f"Invoice date: {invoice.issued_on:%d %b %Y}", generated_by=generated_by)
 
 
-def receipt_pdf(receipt: Receipt):
+def receipt_pdf(receipt: Receipt, generated_by="System"):
     s = _styles(); tenant = receipt.tenant; invoice = receipt.invoice
     prop = invoice.lease.unit.property if invoice else tenant.property
     story = [Paragraph("OFFICIAL RECEIPT", s["DocTitle"]), Paragraph(f"Receipt no. <b>{receipt.number}</b>", s["Small"]), Spacer(1, 5 * mm)]
@@ -171,10 +213,10 @@ def receipt_pdf(receipt: Receipt):
     story.extend([Spacer(1, 6 * mm), Paragraph("Amount received", s["Section"]), Table([[Paragraph(amount_in_words(receipt.amount), s["Small"]), Paragraph(f"<b>{_money(receipt.amount)}</b>", s["Right"])]], colWidths=[115 * mm, 57 * mm], style=[("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), .6, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 12), ("BOTTOMPADDING", (0, 0), (-1, -1), 12)]), Spacer(1, 7 * mm)])
     story.append(Table([["ACCOUNT", "DESCRIPTION", "INVOICE", "AMOUNT"], [tenant.code, "Rent payment", invoice.number if invoice else "—", _money(receipt.amount)]], colWidths=[38 * mm, 70 * mm, 35 * mm, 35 * mm], style=[("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7.5), ("GRID", (0, 0), (-1, -1), .4, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
     story.extend([Spacer(1, 12 * mm), Paragraph(f"Served by: {receipt.received_by.get_full_name() or receipt.received_by.get_username()}", s["Small"]), Paragraph("This computer-generated receipt is valid without a physical stamp. Verify it from the Center Estates tenant ledger.", s["Tiny"])])
-    return _doc_response(receipt.organization, f"receipt-{receipt.number}.pdf", story)
+    return _doc_response(receipt.organization, f"receipt-{receipt.number}.pdf", story, title="Official Receipt", property_name=prop.name if prop else "Portfolio", period=f"Receipt date: {receipt.received_on:%d %b %Y}", generated_by=generated_by)
 
 
-def tenant_statement_pdf(tenant, start: date | None = None, end: date | None = None):
+def tenant_statement_pdf(tenant, start: date | None = None, end: date | None = None, generated_by="System"):
     s = _styles(); end = end or date.today(); start = start or end.replace(month=1, day=1)
     invoices = Invoice.objects.filter(organization=tenant.organization, lease__tenant=tenant).select_related("lease__unit__property")
     receipts = Receipt.objects.filter(organization=tenant.organization, tenant=tenant)
@@ -201,10 +243,10 @@ def tenant_statement_pdf(tenant, start: date | None = None, end: date | None = N
     table = Table(data, colWidths=[20 * mm, 27 * mm, 28 * mm, 65 * mm, 27 * mm, 27 * mm, 28 * mm], repeatRows=1)
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (3, -1), (-1, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 6.5), ("ALIGN", (4, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .3, LINE), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
     story.extend([Spacer(1, 5 * mm), table])
-    return _doc_response(tenant.organization, f"tenant-statement-{tenant.code}-{start}-{end}.pdf", story, wide=True)
+    return _doc_response(tenant.organization, f"tenant-statement-{tenant.code}-{start}-{end}.pdf", story, wide=True, title="Tenant Statement", property_name=prop.name if prop else "Portfolio", period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by)
 
 
-def income_expenditure_pdf(organization, property_record, start: date, end: date):
+def income_expenditure_pdf(organization, property_record, start: date, end: date, generated_by="System"):
     s = _styles(); year_start = start.replace(month=1, day=1)
     receipts = Receipt.objects.filter(organization=organization, received_on__lte=end).filter(
         Q(invoice__lease__unit__property=property_record) | Q(invoice__isnull=True, tenant__property=property_record),
@@ -234,10 +276,10 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
     story.append(table)
     story.extend([Spacer(1, 5 * mm), Paragraph("Receipt detail", s["Section"]), Table([["DATE", "RECEIPT", "TENANT", "METHOD", "REFERENCE", "AMOUNT"]] + [[row.received_on, row.number, row.tenant.name, row.payment_method, row.external_reference, f"{row.amount:,.2f}"] for row in current_receipts.select_related("tenant")], colWidths=[22*mm,28*mm,55*mm,25*mm,32*mm,30*mm], repeatRows=1, style=[("BACKGROUND",(0,0),(-1,0),NAVY),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),6.5),("GRID",(0,0),(-1,-1),.3,LINE),("ALIGN",(-1,1),(-1,-1),"RIGHT")])])
     story.extend([Spacer(1, 5 * mm), Paragraph("Disbursement detail", s["Section"]), Table([["DATE", "CATEGORY", "SUPPLIER", "REFERENCE", "DESCRIPTION", "AMOUNT"]] + [[row.incurred_on, row.category, row.supplier, row.invoice_number, row.description, f"{row.amount:,.2f}"] for row in current_expenses], colWidths=[22*mm,32*mm,42*mm,28*mm,48*mm,30*mm], repeatRows=1, style=[("BACKGROUND",(0,0),(-1,0),NAVY),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),6.5),("GRID",(0,0),(-1,-1),.3,LINE),("ALIGN",(-1,1),(-1,-1),"RIGHT")])])
-    return _doc_response(organization, f"income-expenditure-{property_record.code}-{start}-{end}.pdf", story, wide=True)
+    return _doc_response(organization, f"income-expenditure-{property_record.code}-{start}-{end}.pdf", story, wide=True, title="Receipts & Expenditure Account", property_name=property_record.name, period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by)
 
 
-def tabular_report_pdf(organization, title: str, filename: str, csv_content: bytes):
+def tabular_report_pdf(organization, title: str, filename: str, csv_content: bytes, *, property_name="Portfolio", period="As at date of generation", generated_by="System"):
     """Render the same authoritative dataset offered as CSV into a readable PDF."""
     s = _styles()
     rows = list(csv.reader(StringIO(csv_content.decode("utf-8"))))
@@ -256,4 +298,4 @@ def tabular_report_pdf(organization, title: str, filename: str, csv_content: byt
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
     story = [Paragraph(title.upper(), s["DocTitle"]), Paragraph(f"Generated {date.today():%d %b %Y}", s["Small"]), Spacer(1, 5 * mm), table]
-    return _doc_response(organization, filename, story, wide=True)
+    return _doc_response(organization, filename, story, wide=True, title=title, property_name=property_name, period=period, generated_by=generated_by)

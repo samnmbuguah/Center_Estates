@@ -41,7 +41,7 @@ tar -czf "$BACKEND_ARCHIVE" \
   --exclude='apps/web/.next/dev' \
   --exclude='apps/web/.next/types' \
   --exclude='apps/web/.next/trace' \
-  passenger_wsgi.py apps/backend
+  passenger_wsgi.py apps/backend apps/web/public/center-estates-logo.png
 
 scp "$BACKEND_ARCHIVE" "${REMOTE_HOST}:${API_PATH}/deploy-api.tar.gz"
 
