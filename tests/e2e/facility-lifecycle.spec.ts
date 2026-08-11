@@ -54,7 +54,7 @@ test("approved service request becomes an evidenced and resolved work order", as
   await expect(workOrderRow).toContainText("in progress");
 
   await workOrderRow.click();
-  await page.getByRole("button", { name: /Labor & Parts|Parts & Labor/ }).click();
+  await page.getByRole("button", { name: /Labor & Parts|Parts & Labor/ }).first().click();
   await page.getByRole("button", { name: "+ Add Cost Item", exact: true }).click();
   const costDialog = page.getByRole("dialog", { name: new RegExp(`Add Cost Item.*${workOrderNumber}`) });
   await costDialog.getByLabel("Cost type").selectOption("labor");
