@@ -14,7 +14,8 @@ class QMAgentOrchestrator:
     def __init__(self, organization_name: str = "Center Estates"):
         self.organization_name = organization_name
         self.api_key = os.environ.get('OPENCODE_API_KEY') or os.environ.get('OPENAI_API_KEY')
-        self.api_url = os.environ.get('OPENCODE_API_URL') or os.environ.get('OPENAI_BASE_URL')
+        base_url = (os.environ.get('OPENCODE_API_URL') or os.environ.get('OPENAI_BASE_URL') or '').rstrip('/')
+        self.api_url = f'{base_url}/chat/completions' if base_url.endswith('/v1') else base_url
         self.model = os.environ.get('OPENCODE_MODEL') or os.environ.get('OPENAI_MODEL') or 'gpt-4o-mini'
 
     @property
@@ -81,7 +82,9 @@ class QMAgentOrchestrator:
                 data=json.dumps(payload).encode('utf-8'),
                 headers={
                     'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {self.api_key}'
+                    'Authorization': f'Bearer {self.api_key}',
+                    'HTTP-Referer': os.environ.get('QM_SITE_URL', 'https://centerestates.com'),
+                    'X-Title': 'Center Estates Quartermaster',
                 },
                 method='POST'
             )
