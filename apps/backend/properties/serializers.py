@@ -122,6 +122,11 @@ class LeaseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Monthly rent must be greater than zero.')
         return value
 
+    def validate_escalation_interval_months(self, value):
+        if not 1 <= value <= 120:
+            raise serializers.ValidationError('Escalation frequency must be between 1 and 120 months.')
+        return value
+
 
 class InvoiceSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)

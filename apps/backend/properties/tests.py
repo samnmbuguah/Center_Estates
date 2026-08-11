@@ -203,9 +203,10 @@ class PropertyApiTests(TestCase):
                 'contact_email': 'jane@acme.test',
             },
             'lease': {
-                'unit': str(available_unit.id), 'term_months': 12, 'starts_on': '2026-09-01',
+                'unit': str(available_unit.id), 'term_months': 72, 'starts_on': '2026-09-01',
                 'area': 1000, 'rent_rate_per_sqft': 100, 'service_charge_rate_per_sqft': 15,
                 'vat_rate': 16, 'security_deposit': 200000, 'billing_day': 1,
+                'escalation_percent': 5, 'escalation_interval_months': 12,
             },
             'utilities': [
                 {'utility': 'Electricity', 'applicable': True, 'rate_per_unit': 10, 'deposit_amount': 10000},
@@ -222,10 +223,23 @@ class PropertyApiTests(TestCase):
         self.assertEqual(tenant.metadata['tenant_application']['contact_name'], 'Jane Wanjiku')
         self.assertEqual(lease.status, Lease.Status.DRAFT)
         self.assertTrue(lease.reference.startswith('LEASE-'))
-        self.assertEqual(lease.ends_on.isoformat(), '2027-09-01')
+        self.assertEqual(lease.ends_on.isoformat(), '2032-09-01')
         self.assertEqual(lease.monthly_rent, Decimal('100000.00'))
+        self.assertEqual(lease.escalation_percent, Decimal('5.00'))
+        self.assertEqual(lease.escalation_interval_months, 12)
         self.assertEqual(lease.metadata['monthly_service_charge_excl_vat'], '15000.00')
         self.assertEqual(response.data['calculations']['total_amount_payable'], '343400.00')
+        activated = self.client.post(f'/api/v1/property/leases/{lease.id}/activate/', {}, format='json', **self.headers)
+        self.assertEqual(activated.status_code, 200, activated.data)
+        schedules = RentSchedule.objects.filter(lease=lease).order_by('period_start')
+        self.assertEqual(schedules.count(), 72)
+        self.assertEqual(schedules[12].period_start.isoformat(), '2027-09-01')
+        self.assertEqual(schedules[12].base_rent, Decimal('100000.00'))
+        self.assertEqual(schedules[12].escalation_amount, Decimal('5000.00'))
+        self.assertEqual(schedules[24].escalation_amount, Decimal('10250.00'))
+        premature = self.client.post(f'/api/v1/property/rent-schedules/{schedules[0].id}/generate-invoice/', {}, format='json', **self.headers)
+        self.assertEqual(premature.status_code, 400)
+        self.assertIn('commencement', str(premature.data).lower())
 
     def test_onboarding_creates_property_buildings_units_and_metadata_atomically(self):
         response = self.client.post('/api/v1/property/properties/onboard/', {
@@ -517,6 +531,30 @@ class PropertyApiTests(TestCase):
         schedule.refresh_from_db()
         self.assertEqual(schedule.status, RentSchedule.Status.INVOICED)
         self.assertEqual(Invoice.objects.filter(rent_schedule_item=schedule).count(), 1)
+
+    def test_expired_lease_cannot_generate_rent_invoice(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        today = timezone.localdate()
+        self.lease.ends_on = today
+        self.lease.save(update_fields=('ends_on',))
+        schedule = RentSchedule.objects.create(
+            organization=self.organization, lease=self.lease,
+            period_start=today - timedelta(days=30), period_end=today,
+            due_on=today - timedelta(days=25), base_rent=Decimal('1000'),
+            escalation_amount=Decimal('0'), service_charge=Decimal('0'), total=Decimal('1000'),
+        )
+        response = self.client.post(f'/api/v1/property/rent-schedules/{schedule.id}/generate-invoice/', {}, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('expired', str(response.data).lower())
+        self.assertFalse(Invoice.objects.filter(rent_schedule_item=schedule).exists())
+        manual = self.client.post('/api/v1/property/invoices/', {
+            'number': 'EXPIRED-LEASE-INVOICE', 'lease': str(self.lease.id), 'invoice_type': 'rent',
+            'issued_on': today, 'due_on': today, 'subtotal': '1000.00', 'tax_rate': '0',
+            'tax_amount': '0', 'amount': '1000.00',
+        }, format='json', **self.headers)
+        self.assertEqual(manual.status_code, 400)
+        self.assertIn('expired', str(manual.data).lower())
 
     def test_invoice_preview_and_bulk_generation_apply_vat_and_create_reviewable_drafts(self):
         from datetime import timedelta

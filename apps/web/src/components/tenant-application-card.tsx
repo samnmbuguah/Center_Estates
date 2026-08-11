@@ -22,7 +22,7 @@ const initialForm = {
   phone: "", email: "", tax_id: "", registration_number: "", contact_name: "",
   contact_phone: "", contact_email: "", unit: "", term_months: "12", starts_on: "",
   rent_rate_per_sqft: "", service_charge_rate_per_sqft: "0", vat_rate: "16",
-  security_deposit: "0", billing_day: "1",
+  security_deposit: "0", billing_day: "1", escalation_percent: "0", escalation_interval_months: "12",
 };
 
 const applicationSections = ["tenant-general", "tenant-lease", "tenant-utilities", "tenant-review"] as const;
@@ -143,7 +143,8 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
             area, rent_rate_per_sqft: Number(form.rent_rate_per_sqft),
             service_charge_rate_per_sqft: Number(form.service_charge_rate_per_sqft),
             vat_rate: Number(form.vat_rate), security_deposit: Number(form.security_deposit),
-            billing_day: Number(form.billing_day),
+            billing_day: Number(form.billing_day), escalation_percent: Number(form.escalation_percent),
+            escalation_interval_months: Number(form.escalation_interval_months),
           },
           utilities: utilities.map((item) => ({ ...item, deposit_amount: item.applicable ? item.rate_per_unit * area : 0 })),
           charges,
@@ -234,9 +235,9 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
             </Paper>
             <Paper id="tenant-lease" className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
               <Typography variant="overline" sx={{ fontWeight: 800 }} color="primary">Lease terms and charges</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Rates calculate against the selected unit’s area. Review the calculated totals before saving.</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Rates calculate against the selected unit’s area. Escalations compound automatically at the selected interval and future invoices use the effective rent.</Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
-                {input("Lease term", "term_months", { select: true, required: true, children: [12, 24, 36, 60].map((months) => <MenuItem key={months} value={String(months)}>{months} months</MenuItem>) })}
+                {input("Lease term", "term_months", { select: true, required: true, children: [12, 24, 36, 60, 72, 120].map((months) => <MenuItem key={months} value={String(months)}>{months} months</MenuItem>) })}
                 {input("Commencement date", "starts_on", { type: "date", required: true, slotProps: { inputLabel: { shrink: true } } })}
                 <TextField label="Expiry date" value={expiryDate} disabled />
                 {input("Applicable rent rate / sq ft", "rent_rate_per_sqft", { type: "number", required: true, inputProps: { min: 0, step: 0.01 } })}
@@ -245,6 +246,9 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
                 {input("Security deposit", "security_deposit", { type: "number", required: true, inputProps: { min: 0, step: 0.01 } })}
                 {input("Billing day", "billing_day", { type: "number", inputProps: { min: 1, max: 28 } })}
                 <TextField label="Lease no." value="Auto-generated on save" disabled />
+                {input("Rent escalation", "escalation_percent", { type: "number", inputProps: { min: 0, max: 100, step: 0.01 }, helperText: "% increase at each escalation" })}
+                {input("Escalation frequency", "escalation_interval_months", { select: true, disabled: !Number(form.escalation_percent), children: [<MenuItem key="12" value="12">Annually</MenuItem>, <MenuItem key="24" value="24">Biennially (every 2 years)</MenuItem>, <MenuItem key="36" value="36">Triennially (every 3 years)</MenuItem>] })}
+                <Alert severity="info" sx={{ gridColumn: { md: "span 3" } }}>Invoices are blocked before commencement and on or after expiry. Billing resumes only from an active renewed lease term.</Alert>
               </Box>
             </Paper>
             <Paper id="tenant-utilities" className="tenant-form-section" variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, overflowX: "auto" }}>

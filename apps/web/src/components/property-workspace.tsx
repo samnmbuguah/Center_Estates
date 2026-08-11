@@ -124,6 +124,7 @@ interface TenantDocumentRow extends Row {
 interface LeaseRow extends Row {
   id: ID; reference?: string; unit?: ID; tenant?: ID; starts_on?: string; ends_on?: string;
   monthly_rent?: number; deposit?: number; escalation_percent?: number; billing_day?: number;
+  escalation_interval_months?: number;
   status?: string; tenant_name?: string; unit_code?: string; property_name?: string;
   created_at?: string; outstanding?: number;
 }
@@ -485,6 +486,7 @@ const detailFields: Partial<Record<PropertyTab, { label: string; key: string; mo
     { label: "Monthly Rent", key: "monthly_rent", money: true },
     { label: "Deposit", key: "deposit", money: true },
     { label: "Escalation %", key: "escalation_percent" },
+    { label: "Escalation interval (months)", key: "escalation_interval_months" },
     { label: "Billing Day", key: "billing_day" },
     { label: "Status", key: "status" },
     { label: "Outstanding", key: "outstanding", money: true },
@@ -4527,6 +4529,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
       monthly_rent: Number(raw.monthly_rent ?? 0),
       deposit: Number(raw.deposit ?? 0),
       escalation_percent: Number(raw.escalation_percent ?? 0),
+      escalation_interval_months: Number(raw.escalation_interval_months ?? 12),
       billing_day: Number(raw.billing_day ?? 1),
       status: "draft",
     };
@@ -4821,6 +4824,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
       method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
       body: JSON.stringify({
         reference: String(form.get("reference") ?? "").trim(),
+        starts_on: String(form.get("starts_on") ?? renewalTarget.ends_on ?? ""),
         ends_on: String(form.get("ends_on") ?? ""),
         monthly_rent: Number(form.get("monthly_rent") ?? 0),
       }),
@@ -5206,6 +5210,9 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
                 <Field label="Escalation %">
                   <input name="escalation_percent" type="number" min={0} defaultValue={0} />
                 </Field>
+                <Field label="Escalation frequency">
+                  <select name="escalation_interval_months" defaultValue="12"><option value="12">Annually</option><option value="24">Biennially</option><option value="36">Triennially</option></select>
+                </Field>
               </div>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowAddLease(false)}>Cancel</button>
@@ -5485,6 +5492,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
               </div>
               <Field label="Renewal reference" required><input name="reference" required placeholder={`${String(renewalTarget.reference ?? "LEASE")}-R1`} /></Field>
               <div className="grid-2">
+                <Field label="New commencement date" required><input name="starts_on" type="date" min={String(renewalTarget.ends_on ?? "")} defaultValue={String(renewalTarget.ends_on ?? "")} required /></Field>
                 <Field label="New end date" required><input name="ends_on" type="date" min={String(renewalTarget.ends_on ?? "")} required /></Field>
                 <Field label="New monthly rent" required><input name="monthly_rent" type="number" min={0.01} step="0.01" defaultValue={Number(renewalTarget.monthly_rent ?? 0)} required /></Field>
               </div>

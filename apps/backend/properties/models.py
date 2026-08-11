@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.conf import settings
@@ -185,6 +187,7 @@ class Lease(OrganizationOwnedModel):
     monthly_rent = models.DecimalField(max_digits=14, decimal_places=2)
     deposit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     escalation_percent = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    escalation_interval_months = models.PositiveSmallIntegerField(default=12)
     billing_day = models.PositiveSmallIntegerField(default=1)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     metadata = models.JSONField(default=dict, blank=True)
@@ -207,11 +210,24 @@ class Lease(OrganizationOwnedModel):
             raise ValidationError({'monthly_rent': 'Monthly rent must be greater than zero.'})
         if self.deposit < 0 or self.escalation_percent < 0:
             raise ValidationError('Deposit and escalation cannot be negative.')
+        if self.escalation_percent and not 1 <= self.escalation_interval_months <= 120:
+            raise ValidationError({'escalation_interval_months': 'Escalation frequency must be between 1 and 120 months.'})
         if not 1 <= self.billing_day <= 28:
             raise ValidationError({'billing_day': 'Billing day must be between 1 and 28.'})
 
     def __str__(self):
         return self.reference
+
+    def effective_rent(self, as_of):
+        """Return compound rent effective on a date within this lease term."""
+        if as_of < self.starts_on:
+            return self.monthly_rent
+        elapsed_months = (as_of.year - self.starts_on.year) * 12 + as_of.month - self.starts_on.month
+        if as_of.day < self.starts_on.day:
+            elapsed_months -= 1
+        steps = elapsed_months // max(self.escalation_interval_months, 1) if self.escalation_percent else 0
+        multiplier = (Decimal('1') + self.escalation_percent / Decimal('100')) ** steps
+        return (self.monthly_rent * multiplier).quantize(Decimal('0.01'))
 
 
 class Invoice(OrganizationOwnedModel):

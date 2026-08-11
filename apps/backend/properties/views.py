@@ -44,6 +44,7 @@ from .serializers import (
     TenantSerializer, UnitSerializer,
 )
 from .pdf_documents import income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf, tenant_statement_pdf
+from .lease_billing import generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
 
 
 class OrganizationModelViewSet(ModelViewSet):
@@ -484,6 +485,13 @@ class TenantViewSet(OrganizationModelViewSet):
         rent_rate = amount('rent_rate_per_sqft')
         service_rate = amount('service_charge_rate_per_sqft')
         security_deposit = amount('security_deposit')
+        escalation_percent = amount('escalation_percent')
+        try:
+            escalation_interval = int(lease_data.get('escalation_interval_months', 12))
+        except (ValueError, TypeError):
+            raise ValidationError({'lease.escalation_interval_months': 'Select a valid escalation frequency.'})
+        if escalation_percent and not 1 <= escalation_interval <= 120:
+            raise ValidationError({'lease.escalation_interval_months': 'Escalation frequency must be between 1 and 120 months.'})
         vat_rate = amount('vat_rate', 16)
         if vat_rate not in (Decimal('0.00'), Decimal('16.00')):
             raise ValidationError({'lease.vat_rate': 'Supported VAT rates are 0% and 16%.'})
@@ -547,6 +555,8 @@ class TenantViewSet(OrganizationModelViewSet):
             organization=organization, reference=lease_reference, unit=unit, tenant=tenant,
             starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
             deposit=security_deposit, billing_day=int(lease_data.get('billing_day', 1)),
+            escalation_percent=escalation_percent,
+            escalation_interval_months=escalation_interval,
             status=Lease.Status.DRAFT,
             metadata={'application_number': application_number, 'term_months': term_months, **calculations},
         )
@@ -596,6 +606,7 @@ class LeaseViewSet(OrganizationModelViewSet):
             raise ValidationError({'unit': 'This unit already has a current lease.'})
         lease.status = Lease.Status.ACTIVE
         lease.save(update_fields=('status', 'updated_at'))
+        generate_rent_schedule(lease)
         lease.unit.status = Unit.Status.OCCUPIED
         lease.unit.save(update_fields=('status', 'updated_at'))
         if lease.tenant.status == Tenant.Status.PROSPECT:
@@ -634,28 +645,34 @@ class LeaseViewSet(OrganizationModelViewSet):
         lease = Lease.objects.select_for_update().get(pk=self.get_object().pk)
         if hasattr(lease, 'renewal'):
             return Response(self.get_serializer(lease.renewal).data)
-        if lease.status not in (Lease.Status.ACTIVE, Lease.Status.EXPIRING):
-            raise ValidationError({'status': 'Only active or expiring leases can be renewed.'})
+        if lease.status not in (Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.EXPIRED):
+            raise ValidationError({'status': 'Only active, expiring or expired leases can be renewed.'})
         reference = str(request.data.get('reference', '')).strip()
         try:
             ends_on = date.fromisoformat(str(request.data.get('ends_on', '')))
+            starts_on = date.fromisoformat(str(request.data.get('starts_on') or lease.ends_on))
             monthly_rent = Decimal(str(request.data.get('monthly_rent', '')))
-        except (ValueError, ArithmeticError):
+            escalation_interval = int(request.data.get('escalation_interval_months', lease.escalation_interval_months))
+        except (ValueError, TypeError, ArithmeticError):
             raise ValidationError({'renewal': 'Reference, end date and monthly rent are required.'})
         if not reference:
             raise ValidationError({'reference': 'A renewal reference is required.'})
-        if ends_on <= lease.ends_on or monthly_rent <= 0:
-            raise ValidationError({'renewal': 'Renewal must extend the term and use a positive rent.'})
+        if starts_on < lease.ends_on or ends_on <= starts_on or monthly_rent <= 0:
+            raise ValidationError({'renewal': 'Renewal must start on or after the old expiry, end after commencement and use a positive rent.'})
+        if not 1 <= escalation_interval <= 120:
+            raise ValidationError({'escalation_interval_months': 'Escalation frequency must be between 1 and 120 months.'})
         renewed = Lease.objects.create(
             organization=lease.organization, reference=reference, unit=lease.unit,
-            tenant=lease.tenant, starts_on=lease.ends_on, ends_on=ends_on,
+            tenant=lease.tenant, starts_on=starts_on, ends_on=ends_on,
             monthly_rent=monthly_rent, deposit=lease.deposit,
             escalation_percent=request.data.get('escalation_percent', lease.escalation_percent),
+            escalation_interval_months=escalation_interval,
             billing_day=lease.billing_day, status=Lease.Status.ACTIVE,
             renewed_from=lease, metadata={'renewed_from': lease.reference},
         )
         lease.status = Lease.Status.EXPIRED
         lease.save(update_fields=('status', 'updated_at'))
+        generate_rent_schedule(renewed)
         return Response(self.get_serializer(renewed).data, status=201)
 
     def perform_destroy(self, instance):
@@ -680,6 +697,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
+        validate_lease_billable(serializer.validated_data['lease'], timezone.localdate())
         amount = serializer.validated_data['amount']
         serializer.save(organization=organization, balance=amount, status=Invoice.Status.DRAFT, prepared_by=self.request.user)
 
@@ -697,6 +715,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
         lease = Lease.objects.for_organization(organization).select_related('tenant', 'unit__property').filter(pk=request.data.get('lease')).first()
         if not lease:
             raise ValidationError({'lease': 'Select a lease in the active organization.'})
+        validate_lease_billable(lease, timezone.localdate())
         subtotal = Decimal(str(request.data.get('subtotal') or request.data.get('amount') or '0'))
         tax_rate = Decimal(str(request.data.get('tax_rate', '0')))
         if subtotal <= 0:
@@ -755,6 +774,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
         invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
         if invoice.status != Invoice.Status.APPROVED:
             raise ValidationError({'status': 'Only approved invoices can be issued.'})
+        validate_lease_billable(invoice.lease, timezone.localdate())
         invoice.status = Invoice.Status.ISSUED
         invoice.issued_by = request.user
         invoice.issued_at = timezone.now()
@@ -1160,6 +1180,12 @@ class RentScheduleViewSet(OrganizationModelViewSet):
             raise ValidationError({'status': 'A waived rent schedule cannot be invoiced.'})
         if schedule.invoice_id:
             return schedule.invoice, False
+        today = timezone.localdate()
+        lease = schedule.lease
+        validate_lease_billable(lease, today)
+        if schedule.period_start < lease.starts_on or schedule.period_start >= lease.ends_on or schedule.period_end > lease.ends_on:
+            raise ValidationError({'rent_schedule': 'The billing period falls outside the active lease term.'})
+        refresh_schedule_amount(schedule)
         tax_amount = (schedule.total * tax_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         invoice = Invoice.objects.create(
             organization=schedule.organization,
