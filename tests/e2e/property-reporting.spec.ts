@@ -16,9 +16,10 @@ test("tenancy report tabs export the selected dataset as Excel", async ({ page }
   await page.getByLabel("Format").click();
   await page.getByRole("option", { name: "Excel" }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("button", { name: /Export Excel/i }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/tenancy-schedule.*\.xlsx$/);
+  await expect(page.getByText(/exported as XLSX/i)).toBeVisible();
 });
 
 test("financial VAT tab exports a branded PDF", async ({ page }, testInfo) => {
@@ -29,7 +30,43 @@ test("financial VAT tab exports a branded PDF", async ({ page }, testInfo) => {
   await page.getByLabel("Format").click();
   await page.getByRole("option", { name: "PDF" }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("button", { name: /Export PDF/i }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/vat-schedule.*\.pdf$/);
+  await expect(page.getByText(/exported as PDF/i)).toBeVisible();
+});
+
+test("critical financial pack cards export tenant payments status PDF", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Download fidelity is covered on desktop");
+  await page.goto("/property?tab=financial-reports");
+  await expect(page.getByRole("heading", { name: "Financial reports" })).toBeVisible();
+  await expect(page.getByText("Critical financial packs")).toBeVisible();
+  const card = page.getByText("Tenants payments status").locator("..").locator("..");
+  const downloadPromise = page.waitForEvent("download");
+  await card.getByRole("button", { name: "PDF", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/tenant-payment-status.*\.pdf$/);
+});
+
+test("period presets refresh financial report KPIs", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Filter controls are desktop-first");
+  await page.goto("/property?tab=financial-reports");
+  await expect(page.getByRole("heading", { name: "Financial reports" })).toBeVisible();
+  await page.getByRole("button", { name: "Year to date" }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByText("Total billed")).toBeVisible();
+  await expect(page.getByText("Collection rate")).toBeVisible();
+});
+
+test("tenancy critical packs expose vacancy and lease expiry exports", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Download fidelity is covered on desktop");
+  await page.goto("/property?tab=tenancy-reports");
+  await expect(page.getByText("Critical tenancy packs")).toBeVisible();
+  await expect(page.getByText("Vacancy register")).toBeVisible();
+  await expect(page.getByText("Lease expiry")).toBeVisible();
+  const vacancy = page.getByText("Vacancy register").locator("..").locator("..");
+  const downloadPromise = page.waitForEvent("download");
+  await vacancy.getByRole("button", { name: "Excel", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/vacancy.*\.xlsx$/);
 });

@@ -385,23 +385,183 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
     return _doc_response(organization, f"income-expenditure-{property_record.code}-{start}-{end}.pdf", story, wide=True, title="Receipts & Expenditure Account", property_name=property_record.name, period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by)
 
 
-def tabular_report_pdf(organization, title: str, filename: str, csv_content: bytes, *, property_name="Portfolio", period="As at date of generation", generated_by="System"):
-    """Render the same authoritative dataset offered as CSV into a readable PDF."""
+def _looks_numeric(value: str) -> bool:
+    text = str(value or "").strip().replace(",", "").replace("KES", "").replace("%", "").strip()
+    if not text or text in {"—", "-"}:
+        return False
+    if text.startswith("(") and text.endswith(")"):
+        text = text[1:-1]
+    try:
+        Decimal(text)
+        return True
+    except Exception:
+        return False
+
+
+def _format_report_cell(value: str, *, header: str = "") -> str:
+    text = str(value if value is not None else "").strip()
+    if not text:
+        return "—"
+    header_l = header.lower()
+    moneyish = any(token in header_l for token in (
+        "amount", "rent", "balance", "billed", "collected", "outstanding", "vat", "tax",
+        "total", "cost", "fee", "income", "expense", "receipt", "subtotal", "variance", "budget",
+        "paid", "net", "charge",
+    )) and "rate" not in header_l and "%" not in text
+    if moneyish and _looks_numeric(text):
+        cleaned = text.replace(",", "").replace("KES", "").strip()
+        negative = cleaned.startswith("(") and cleaned.endswith(")")
+        if negative:
+            cleaned = cleaned[1:-1]
+        try:
+            amount = Decimal(cleaned)
+            formatted = f"{abs(amount):,.2f}"
+            return f"({formatted})" if negative or amount < 0 else formatted
+        except Exception:
+            return text
+    return text
+
+
+def _column_widths(headers: list[str], rows: list[list[str]], page_width: float) -> list[float]:
+    """Weight wider text columns without letting any column collapse."""
+    weights = []
+    for index, header in enumerate(headers):
+        samples = [header] + [row[index] for row in rows[:40] if index < len(row)]
+        average = sum(len(str(sample or "")) for sample in samples) / max(len(samples), 1)
+        weight = max(average, 6)
+        if any(token in header.lower() for token in ("tenant", "description", "supplier", "party", "comments", "reference")):
+            weight *= 1.35
+        if any(token in header.lower() for token in ("amount", "rent", "balance", "total", "vat", "rate", "%")):
+            weight *= 0.85
+        weights.append(weight)
+    total = sum(weights) or 1
+    return [max(page_width * (weight / total), 16 * mm) for weight in weights]
+
+
+def tabular_report_pdf(
+    organization,
+    title: str,
+    filename: str,
+    csv_content: bytes,
+    *,
+    property_name="Portfolio",
+    period="As at date of generation",
+    generated_by="System",
+    subtitle="",
+):
+    """Render the same authoritative dataset offered as CSV into a client-ready PDF."""
     s = _styles()
-    rows = list(csv.reader(StringIO(csv_content.decode("utf-8"))))
+    rows = list(csv.reader(StringIO(csv_content.decode("utf-8-sig"))))
     if not rows:
-        rows = [["No records available"]]
-    column_count = max(len(row) for row in rows)
-    normalized = [row + [""] * (column_count - len(row)) for row in rows]
+        rows = [["Message"], ["No records match the selected property, period and filters."]]
+    headers = [str(cell).replace("_", " ").strip().title() for cell in rows[0]]
+    body = rows[1:] if len(rows) > 1 else []
+    column_count = max(len(headers), max((len(row) for row in body), default=0), 1)
+    headers = (headers + [""] * column_count)[:column_count]
+    body = [row + [""] * (column_count - len(row)) for row in body]
     page_width = landscape(A4)[0] - 28 * mm
-    widths = [page_width / column_count] * column_count
-    data = [[Paragraph(str(cell), s["Tiny"]) for cell in row] for row in normalized]
+    widths = _column_widths(headers, body, page_width)
+    numeric_cols = {
+        index for index, header in enumerate(headers)
+        if body and sum(1 for row in body if _looks_numeric(row[index])) >= max(1, len(body) // 2)
+    }
+    data = [[Paragraph(f"<b>{headers[index]}</b>", s["Tiny"]) for index in range(column_count)]]
+    for row in body:
+        data.append([
+            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Tiny"])
+            for index in range(column_count)
+        ])
     table = Table(data, colWidths=widths, repeatRows=1)
-    table.setStyle(TableStyle([
+    style_commands = [
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
-    story = [Paragraph(title.upper(), s["DocTitle"]), Paragraph(f"Generated {date.today():%d %b %Y}", s["Small"]), Spacer(1, 5 * mm), table]
+        ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+    ]
+    for index in numeric_cols:
+        style_commands.append(("ALIGN", (index, 1), (index, -1), "RIGHT"))
+    if body and str(body[-1][0]).strip().upper() in {"TOTAL", "TOTALS", "GRAND TOTAL", "SURPLUS / (DEFICIT)"}:
+        style_commands.extend([
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eef2ff")),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ])
+    table.setStyle(TableStyle(style_commands))
+    summary = f"{len(body):,} row{'s' if len(body) != 1 else ''} · {property_name} · {period}"
+    if subtitle:
+        summary = f"{subtitle} · {summary}"
+    story = [
+        Paragraph(title.upper(), s["DocTitle"]),
+        Paragraph(summary, s["Small"]),
+        Spacer(1, 3 * mm),
+        Paragraph(
+            "Figures are drawn live from the Center Estates ledger for the selected organization and property scope. "
+            "Export this dataset as Excel or CSV for further analysis.",
+            s["Tiny"],
+        ),
+        Spacer(1, 4 * mm),
+        table,
+    ]
+    if not body:
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph("No matching ledger records were found for this filter set.", s["Small"]))
     return _doc_response(organization, filename, story, wide=True, title=title, property_name=property_name, period=period, generated_by=generated_by)
+
+
+def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summary: dict, *, period: str, generated_by="System"):
+    """Branded arrears register with age buckets and collection priority."""
+    s = _styles()
+    story = [
+        Paragraph("ARREARS AGEING ANALYSIS", s["DocTitle"]),
+        Paragraph(f"Outstanding balances as at <b>{period}</b>", s["Small"]),
+        Spacer(1, 4 * mm),
+    ]
+    bucket_data = [["BUCKET", "AMOUNT (KES)", "SHARE"]]
+    total = sum((Decimal(summary.get(key) or 0) for key in ("current", "31_60", "61_90", "90_plus")), Decimal("0"))
+    labels = (("current", "0–30 days"), ("31_60", "31–60 days"), ("61_90", "61–90 days"), ("90_plus", "90+ days"))
+    for key, label in labels:
+        amount = Decimal(summary.get(key) or 0)
+        share = f"{(amount / total * 100):.1f}%" if total else "0.0%"
+        bucket_data.append([label, f"{amount:,.2f}", share])
+    bucket_data.append(["TOTAL ARREARS", f"{total:,.2f}", "100%"])
+    buckets = Table(bucket_data, colWidths=[55 * mm, 40 * mm, 25 * mm], repeatRows=1)
+    buckets.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("BACKGROUND", (0, -1), (-1, -1), RED),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .3, LINE),
+        ("FONTSIZE", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.extend([Paragraph("Ageing summary", s["Section"]), buckets, Spacer(1, 5 * mm), Paragraph("Tenant arrears detail", s["Section"])])
+    detail = [["INVOICE", "TENANT", "PROPERTY", "UNIT", "DUE ON", "DAYS", "BUCKET", "BILLED", "PAID", "BALANCE", "STATUS"]]
+    for row in rows:
+        detail.append([
+            row.get("invoice", ""), Paragraph(str(row.get("tenant", "")), s["Tiny"]),
+            Paragraph(str(row.get("property", "")), s["Tiny"]), row.get("unit", ""),
+            row.get("due_on", ""), row.get("days_overdue", ""), str(row.get("ageing_bucket", "")).replace("_", "–"),
+            f"{Decimal(row.get('billed') or 0):,.2f}", f"{Decimal(row.get('paid') or 0):,.2f}",
+            f"{Decimal(row.get('balance') or 0):,.2f}", row.get("status", ""),
+        ])
+    if len(detail) == 1:
+        detail.append(["—", "No open arrears for this period", "", "", "", "", "", "", "", "", ""])
+    detail_table = Table(detail, colWidths=[24*mm, 38*mm, 34*mm, 14*mm, 20*mm, 12*mm, 18*mm, 22*mm, 20*mm, 22*mm, 18*mm], repeatRows=1)
+    detail_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (4, 1), (-2, -1), "RIGHT"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
+        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(detail_table)
+    story.extend([
+        Spacer(1, 5 * mm),
+        Paragraph(
+            "Collection priority should focus on balances aged beyond 60 days. "
+            "Figures reconcile to open invoices excluding void and fully paid documents.",
+            s["Tiny"],
+        ),
+    ])
+    return _doc_response(
+        organization, f"arrears-ageing-{date.today():%Y%m%d}.pdf", story, wide=True,
+        title="Arrears Ageing Analysis", property_name=property_name, period=period, generated_by=generated_by,
+    )

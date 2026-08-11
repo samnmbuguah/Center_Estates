@@ -37,7 +37,7 @@ This matrix is the release contract for the three client specifications dated Au
 | Lease expiry | Yes | expiry days, rent, tenant/unit/status | Yes | Yes | PARTIAL |
 | Custom reports | Saved filters | configurable definition | Yes | Yes | PARTIAL |
 
-All rows remain `PARTIAL` until tab-specific browser exports, landlord scope, and filter-refresh behavior have direct acceptance evidence.
+Browser exports now cover tenancy schedule Excel, vacancy Excel, VAT PDF and critical financial pack cards. Rows remain `PARTIAL` until landlord-scoped browser acceptance and golden visual sign-off are complete.
 
 ## Financial reports
 
@@ -61,6 +61,6 @@ All rows remain `PARTIAL` until tab-specific browser exports, landlord scope, an
 | Auditability | PARTIAL | exports and schedules are audited; dashboard view/export filter parity needs broader assertions |
 | Seed history | PARTIAL | twelve-month ledgers, water bulk/check meters, VAT, movements, vacancies, budgets and service charge now seeded; live reseed audit still required |
 | Accessibility/responsiveness | PARTIAL | desktop and mobile browser coverage for dense tables, filters, menus and downloads |
-| Export fidelity | PARTIAL | golden visual samples and reconciliation assertions for every critical PDF family |
+| Export fidelity | PARTIAL | branded PDF/Excel structure tests and golden generation script exist; client visual sign-off still required |
 | Failure/retry behavior | PARTIAL | delivery failure records status/error and short retry window; generation failures tracked by scheduler; browser retry UX present |
 

@@ -1219,6 +1219,61 @@ class PropertyApiTests(TestCase):
             self.assertIn('SMTP unavailable', schedule.last_delivery_error)
             self.assertLessEqual(schedule.next_run_at, timezone.now() + timedelta(hours=1, minutes=1))
 
+    def test_critical_report_pdfs_and_excel_are_branded_and_structured(self):
+        self.property.metadata = {
+            'lr_number': 'Nairobi/Block 1/100',
+            'landlord': {'name': 'Demo Landlord', 'vat_registered': True},
+        }
+        self.property.save(update_fields=('metadata',))
+        self.organization.settings = {
+            'branding': {
+                'company_name': 'Center Estates Demo',
+                'address': 'Nairobi, Kenya',
+                'email': 'reports@centerestates.demo',
+                'tax_pin': 'P000000000X',
+            },
+        }
+        self.organization.save(update_fields=('settings',))
+        self.invoice.tax_amount = Decimal('160')
+        self.invoice.subtotal = Decimal('1000')
+        self.invoice.amount = Decimal('1160')
+        self.invoice.metadata = {'billing_period': '2026-07'}
+        self.invoice.save(update_fields=('tax_amount', 'subtotal', 'amount', 'metadata'))
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            cases = (
+                ('tenancy-schedule', b'TENANCY SCHEDULE', b'Floor'),
+                ('aging', b'ARREARS AGEING', b'BUCKET'),
+                ('vat-schedule', b'VAT', b'Output VAT'),
+                ('billing-schedule', b'BILLING', b'Invoice'),
+                ('income-expense', b'RECEIPTS', b'DISBURSEMENTS'),
+                ('tenant-payment-status', b'TENANTS PAYMENTS STATUS', b'OUTSTANDING'),
+            )
+            for report_kind, title_token, body_token in cases:
+                response = self.client.get(
+                    f'/api/v1/property/analytics/exports/{report_kind}/?start=2026-01-01&end=2026-12-31&output=pdf',
+                    **headers,
+                )
+                self.assertEqual(response.status_code, 200, report_kind)
+                self.assertEqual(response['Content-Type'], 'application/pdf')
+                self.assertGreater(len(response.content), 1200, report_kind)
+                self.assertTrue(response.content.startswith(b'%PDF'), report_kind)
+                # Branded PDFs embed report titles as plain text objects.
+                self.assertIn(title_token[:8], response.content.upper(), report_kind)
+
+            excel = self.client.get(
+                '/api/v1/property/analytics/exports/tenancy-schedule/?start=2026-01-01&end=2026-12-31&output=xlsx',
+                **headers,
+            )
+            self.assertEqual(excel.status_code, 200)
+            self.assertEqual(
+                excel['Content-Type'],
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            )
+            self.assertTrue(excel.content[:2] == b'PK')
+            self.assertTrue(excel['X-Report-Execution-ID'])
+            self.assertIn('Tenancy', excel.get('X-Report-Title', 'Tenancy Schedule'))
+
     def test_approved_water_reading_flows_into_generated_invoice_line(self):
         water_item = BillingItem.objects.create(
             organization=self.organization, code='WATER', name='Water',

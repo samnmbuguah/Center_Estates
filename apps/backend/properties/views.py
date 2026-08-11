@@ -50,9 +50,37 @@ from .serializers import (
     UnitSerializer, UnitStatusHistorySerializer,
 )
 from .pdf_documents import (
-    income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf,
+    arrears_aging_pdf, income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf,
     tenant_payment_status_pdf, tenant_payment_status_rows, tenant_statement_pdf,
 )
+
+REPORT_TITLES = {
+    'tenant-payment-status': 'Tenants Payments Status Report',
+    'income-expense': 'Receipts & Expenditure Account',
+    'aging': 'Arrears Ageing Analysis',
+    'billing-schedule': 'Billing & Collection Register',
+    'expenses-schedule': 'Expense Schedule',
+    'vat-schedule': 'VAT & Statutory Schedule',
+    'occupancy': 'Portfolio Occupancy Register',
+    'tenancy-schedule': 'Tenancy Schedule',
+    'vacancy': 'Vacancy Register',
+    'movements': 'Tenant Movements',
+    'income-analysis': 'Income Analysis',
+    'lease-expiry': 'Lease Expiry Register',
+    'budget-actual': 'Budget versus Actual',
+    'service-charge': 'Service Charge Allocations',
+    'daily-collections': 'Daily Collections',
+    'collections-property': 'Collections by Property',
+    'collections-tenant': 'Collections by Tenant',
+    'outstanding-balances': 'Outstanding Balances',
+    'payment-reconciliation': 'Payment Reconciliation',
+    'settlement': 'Settlement Report',
+    'management-fee': 'Management Fee Report',
+    'contractor-expiry': 'Service Provider Expiry',
+    'work-order-spend': 'Work Order Spend',
+    'tenant-compliance': 'Tenant Document Compliance',
+    'critical-dates': 'Critical Dates Register',
+}
 from .lease_billing import generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
 
 
@@ -135,6 +163,7 @@ class PaymentWebhookViewSet(ViewSet):
     permission_classes = (AllowAny,)
 
     @action(detail=False, methods=('post',), url_path=r'(?P<public_key>[0-9a-fA-F-]{36})')
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     def receive(self, request, public_key=None):
         configuration = PaymentGatewayConfiguration.objects.select_related('organization').filter(
             public_key=public_key, is_enabled=True,
@@ -901,10 +930,14 @@ class ReceiptViewSet(OrganizationModelViewSet):
         raise ValidationError({'receipt': 'Posted receipts cannot be deleted.'})
 
 
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), update=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), partial_update=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]), destroy=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class InvoiceReminderViewSet(ReadOnlyModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = InvoiceReminderSerializer
+
+    queryset = InvoiceReminder.objects.all()
+
 
     def get_queryset(self):
         return InvoiceReminder.objects.for_organization(
@@ -1114,10 +1147,14 @@ class ServiceChargeViewSet(OrganizationModelViewSet):
         return Response(ServiceChargeReconciliationSerializer(reconciliation).data)
 
 
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = ServiceChargeAllocationSerializer
+
+    queryset = ServiceChargeAllocation.objects.all()
+
 
     def get_queryset(self):
         return ServiceChargeAllocation.objects.for_organization(
@@ -1125,10 +1162,14 @@ class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
         ).select_related('service_charge__property', 'unit')
 
 
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class ServiceChargeReconciliationViewSet(ReadOnlyModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = ServiceChargeReconciliationSerializer
+
+    queryset = ServiceChargeReconciliation.objects.all()
+
 
     def get_queryset(self):
         return ServiceChargeReconciliation.objects.for_organization(
@@ -1259,10 +1300,14 @@ class TenantMovementViewSet(OrganizationModelViewSet):
         raise ValidationError({'movement': 'Tenant movement history is immutable.'})
 
 
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class InvoiceLineViewSet(ReadOnlyModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = InvoiceLineSerializer
+
+    queryset = InvoiceLine.objects.all()
+
 
     def get_queryset(self):
         organization = get_active_organization(self.request)
@@ -1550,10 +1595,14 @@ class ReportDefinitionViewSet(OrganizationModelViewSet):
         serializer.save(organization=self._validate_organization(serializer), created_by=self.request.user)
 
 
+@extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class ReportExecutionViewSet(ReadOnlyModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
     serializer_class = ReportExecutionSerializer
+
+    queryset = ReportExecution.objects.all()
+
 
     def get_queryset(self):
         organization = get_active_organization(self.request)
@@ -1886,18 +1935,74 @@ class PropertyAnalyticsViewSet(ViewSet):
         return get_active_organization(self.request)
 
     def _complete_export(self, request, report_kind, response, start, end, output_format, row_count=0):
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+
         organization = self._organization()
         property_record = get_active_property(request, organization)
         definition = ReportDefinition.objects.for_organization(organization).filter(key=report_kind, is_active=True).first()
-        filename = f'property-{report_kind}-{start:%Y%m%d}-{end:%Y%m%d}.{output_format}'
+        friendly = REPORT_TITLES.get(report_kind, report_kind.replace('-', ' ').title())
+        filename = f'{report_kind}-{start:%Y%m%d}-{end:%Y%m%d}.{output_format}'
         content = response.content
         if output_format == 'xlsx':
-            from openpyxl import Workbook
-            workbook = Workbook(write_only=True); sheet = workbook.create_sheet('Report')
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.title = friendly[:31]
             decoded = content.decode('utf-8-sig')
             parsed_rows = list(csv.reader(StringIO(decoded)))
-            for csv_row in parsed_rows:
-                sheet.append(csv_row)
+            header_fill = PatternFill('solid', fgColor='17243B')
+            header_font = Font(color='FFFFFF', bold=True, name='Calibri', size=11)
+            body_font = Font(name='Calibri', size=10)
+            zebra = PatternFill('solid', fgColor='F4F7FA')
+            thin = Border(
+                left=Side(style='thin', color='DBE3EC'),
+                right=Side(style='thin', color='DBE3EC'),
+                top=Side(style='thin', color='DBE3EC'),
+                bottom=Side(style='thin', color='DBE3EC'),
+            )
+            sheet['A1'] = friendly
+            sheet['A1'].font = Font(name='Calibri', size=14, bold=True, color='17243B')
+            sheet['A2'] = f"{property_record.name if property_record else 'Portfolio'} · {start:%d %b %Y} — {end:%d %b %Y}"
+            sheet['A2'].font = Font(name='Calibri', size=10, color='64748B')
+            sheet['A3'] = f"Prepared by {request.user.get_full_name() or request.user.get_username()} · Generated {timezone.localtime():%d %b %Y %H:%M}"
+            sheet['A3'].font = Font(name='Calibri', size=9, color='64748B')
+            start_row = 5
+            headers = parsed_rows[0] if parsed_rows else []
+            money_headers = {
+                index for index, header in enumerate(headers)
+                if any(token in str(header).lower() for token in (
+                    'amount', 'rent', 'balance', 'billed', 'collected', 'outstanding', 'vat', 'tax',
+                    'total', 'cost', 'fee', 'income', 'expense', 'subtotal', 'variance', 'budget', 'paid', 'net', 'charge',
+                )) and 'rate' not in str(header).lower()
+            }
+            for row_index, csv_row in enumerate(parsed_rows, start=start_row):
+                for col_index, value in enumerate(csv_row, start=1):
+                    cell = sheet.cell(row=row_index, column=col_index, value=value)
+                    cell.font = header_font if row_index == start_row else body_font
+                    cell.border = thin
+                    if row_index == start_row:
+                        cell.fill = header_fill
+                        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    else:
+                        if (row_index - start_row) % 2 == 0:
+                            cell.fill = zebra
+                        if (col_index - 1) in money_headers and value not in (None, '', '—'):
+                            try:
+                                cell.value = Decimal(str(value).replace(',', '').replace('KES', '').strip())
+                                cell.number_format = '#,##0.00'
+                                cell.alignment = Alignment(horizontal='right')
+                            except Exception:
+                                pass
+            if parsed_rows:
+                for col_index in range(1, len(parsed_rows[0]) + 1):
+                    letter = get_column_letter(col_index)
+                    samples = [str(parsed_rows[0][col_index - 1] if col_index - 1 < len(parsed_rows[0]) else '')]
+                    samples.extend(str(row[col_index - 1]) for row in parsed_rows[1:40] if col_index - 1 < len(row))
+                    width = min(max(max(len(sample) for sample in samples), 10) + 2, 42)
+                    sheet.column_dimensions[letter].width = width
+                sheet.auto_filter.ref = f"A{start_row}:{get_column_letter(len(parsed_rows[0]))}{start_row + len(parsed_rows) - 1}"
+                sheet.freeze_panes = f'A{start_row + 1}'
             row_count = max(len(parsed_rows) - 1, 0)
             buffer = BytesIO(); workbook.save(buffer); content = buffer.getvalue()
             response = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -1912,6 +2017,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         execution.file.save(filename, ContentFile(content), save=True)
         response['X-Report-Execution-ID'] = str(execution.id)
         response['X-Report-Generated-At'] = execution.generated_at.isoformat()
+        response['X-Report-Title'] = friendly
         return response
 
     @extend_schema(request=None, responses={200: {'type': 'object'}})
@@ -2230,14 +2336,25 @@ class PropertyAnalyticsViewSet(ViewSet):
             raise ValidationError({'period': 'Use ISO dates in YYYY-MM-DD format.'})
         if start > end:
             raise ValidationError({'period': 'Start date cannot be after end date.'})
-        if output_pdf and report_kind in ('income-expense', 'tenant-payment-status'):
+        generated_by = request.user.get_full_name() or request.user.get_username()
+        if output_pdf and report_kind in ('income-expense', 'tenant-payment-status', 'aging'):
             property_record = get_active_property(request, organization)
-            if not property_record:
+            if report_kind in ('income-expense', 'tenant-payment-status') and not property_record:
                 raise ValidationError({'property': 'Select a property before generating this report.'})
             if report_kind == 'tenant-payment-status':
-                response = tenant_payment_status_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
+                response = tenant_payment_status_pdf(organization, property_record, start, end, generated_by)
+            elif report_kind == 'income-expense':
+                response = income_expenditure_pdf(organization, property_record, start, end, generated_by)
             else:
-                response = income_expenditure_pdf(organization, property_record, start, end, request.user.get_full_name() or request.user.get_username())
+                financial = self.financial_reports(request).data
+                response = arrears_aging_pdf(
+                    organization,
+                    property_record.name if property_record else 'Portfolio',
+                    financial.get('arrears') or [],
+                    financial.get('arrears_ageing') or {},
+                    period=f'{start:%d %b %Y} — {end:%d %b %Y}',
+                    generated_by=generated_by,
+                )
             return self._complete_export(request, report_kind, response, start, end, output_format)
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="property-{report_kind}.csv"'
@@ -2421,22 +2538,20 @@ class PropertyAnalyticsViewSet(ViewSet):
         else:
             raise ValidationError({'report': 'Unknown property report.'})
         if output_pdf:
-            title = str(report_kind).replace('-', ' ').title()
+            title = REPORT_TITLES.get(report_kind, str(report_kind).replace('-', ' ').title())
             property_record = get_active_property(request, organization)
-            period_start = request.query_params.get('start')
-            period_end = request.query_params.get('end')
-            period = f'{period_start} — {period_end}' if period_start and period_end else f'As at {timezone.localdate():%d %b %Y}'
+            period = f'{start:%d %b %Y} — {end:%d %b %Y}'
             response = tabular_report_pdf(
-                organization, title, f'property-{report_kind}.pdf', response.content,
+                organization, title, f'{report_kind}.pdf', response.content,
                 property_name=property_record.name if property_record else 'Portfolio', period=period,
-                generated_by=request.user.get_full_name() or request.user.get_username(),
+                generated_by=generated_by,
+                subtitle='Authoritative ledger extract',
             )
             return self._complete_export(request, report_kind, response, start, end, output_format)
         row_count = max(response.content.count(b'\n') - 1, 0)
         return self._complete_export(request, report_kind, response, start, end, output_format, row_count=row_count)
 
 
-@extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class TenantPortalViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
@@ -2485,6 +2600,7 @@ class TenantPortalViewSet(ViewSet):
             request.user.get_full_name() or request.user.get_username(),
         )
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         from facilities.models import ServiceRequest

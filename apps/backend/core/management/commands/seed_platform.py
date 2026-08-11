@@ -204,9 +204,27 @@ class Command(BaseCommand):
                     'cover_image': 'commercial-westlands',
                     'map_label': 'WBC',
                     'neighborhood': 'Westlands',
+                    'lr_number': 'Nairobi/Block 90/441',
+                    'landlord': {
+                        'name': 'Center Estates Holdings Ltd',
+                        'vat_registered': True,
+                        'pin': 'P051234567X',
+                    },
                 },
             },
         )
+        organization_settings = organization.settings or {}
+        branding = organization_settings.get('branding') if isinstance(organization_settings.get('branding'), dict) else {}
+        branding.update({
+            'company_name': 'Center Estates',
+            'address': 'Dolphine Plaza, Mbagathi Road, Nairobi, Kenya',
+            'phone': '+254 722 574 400',
+            'email': 'management@centerestates.com',
+            'tax_pin': 'P051234567X',
+        })
+        organization_settings['branding'] = branding
+        organization.settings = organization_settings
+        organization.save(update_fields=('settings',))
         building, _ = Building.objects.update_or_create(
             organization=organization, property=prop, code='TOWER-A',
             defaults={'name': 'Tower A', 'floors': 12},
@@ -1036,7 +1054,15 @@ class Command(BaseCommand):
                 defaults={
                     'name': spec['name'], 'property_type': spec['type'], 'status': Property.Status.ACTIVE,
                     'city': spec['city'], 'address': spec['address'], 'country': 'KE',
-                    'metadata': {'seed_profile': 'comprehensive', 'portfolio_order': index},
+                    'metadata': {
+                        'seed_profile': 'comprehensive', 'portfolio_order': index,
+                        'lr_number': f'LR/{spec["code"]}/{index:03d}',
+                        'landlord': {
+                            'name': 'Center Estates Holdings Ltd',
+                            'vat_registered': True,
+                            'pin': 'P051234567X',
+                        },
+                    },
                 },
             )
             scoped_building, _ = Building.objects.update_or_create(
