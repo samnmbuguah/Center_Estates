@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { openModuleSection } from "./helpers";
+import { openModuleSection, signInAs } from "./helpers";
 
 const password = process.env.E2E_ADMIN_PASSWORD;
 
@@ -423,21 +423,23 @@ test("property reports follow the four client-approved categories", async ({ pag
 });
 
 test("tenant self-service uses the shared lease and billing ledger", async ({ page }) => {
-  await page.goto("/tenant-portal");
-  await expect(page.getByRole("heading", { name: /Good morning, Acacia Consulting Ltd/ })).toBeVisible();
+  await signInAs(page, "role-facility-occupant");
+  await page.goto("/facility-portal");
+  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Acacia Consulting Ltd/ })).toBeVisible();
   await expect(page.getByText("Westlands Business Centre · 101", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Invoices", exact: true }).click();
-  await expect(page.getByText("INV-2026-0701", { exact: true })).toBeVisible();
+  await expect(page.getByText("INV-2026-0701", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Payments & receipts", exact: true }).click();
-  await expect(page.getByText("RCT-2026-0418", { exact: true })).toBeVisible();
+  await expect(page.getByText("RCT-2026-0418", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Messages & notices", exact: true }).click();
-  await expect(page.getByText("Water shutdown notice", { exact: true })).toBeVisible();
+  await expect(page.getByText("Water shutdown notice", { exact: true }).first()).toBeVisible();
 });
 
 test("tenant can submit a scoped maintenance request", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel tenant request races");
+  await signInAs(page, "role-facility-occupant");
   const requestTitle = `E2E corridor light fault ${Date.now()}`;
-  await page.goto("/tenant-portal");
+  await page.goto("/facility-portal");
   await page.getByRole("button", { name: "Report an issue", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Report an issue" });
   await dialog.getByLabel("Subject").fill(requestTitle);
