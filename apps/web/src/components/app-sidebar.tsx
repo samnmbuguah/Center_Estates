@@ -162,8 +162,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
         role="navigation"
         aria-label="Main navigation"
         style={{
-          width: isMobile ? "100%" : 260,
-          minWidth: isMobile ? "100%" : 260,
+          width: isMobile ? "min(85vw, 320px)" : 260,
+          minWidth: isMobile ? "min(85vw, 320px)" : 260,
           height: "100vh",
           position: isMobile ? "fixed" : "sticky",
           alignSelf: "flex-start",

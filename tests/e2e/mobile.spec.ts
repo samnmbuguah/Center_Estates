@@ -37,7 +37,8 @@ test("More button opens the app-sidebar drawer and scrim closes it", async ({ pa
   await expect(page.locator(".mobile-nav-scrim[aria-label='Close navigation']").first()).toBeVisible({ timeout: 10000 });
   await expect(page.locator("aside, .app-sidebar, [class*='sidebar']").first()).toBeVisible();
 
-  await page.locator(".mobile-nav-scrim").first().click({ position: { x: 5, y: 5 } });
+  // The drawer occupies ~85vw on mobile; the scrim covers the exposed right edge.
+  await page.locator(".mobile-nav-scrim").first().click({ position: { x: 400, y: 400 } });
   await expect(page.locator(".mobile-nav-scrim").first()).toBeHidden({ timeout: 10000 });
 });
 

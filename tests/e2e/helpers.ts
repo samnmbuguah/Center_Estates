@@ -79,6 +79,26 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
           return;
         }
       }
+      // The item may live in a collapsed workflow group; expand via the mobile select.
+      const optionTargets = [TAB_ALIASES[name] ?? name, name];
+      for (const candidate of optionTargets) {
+        const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const option = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${escaped}$`, "i") }).first();
+        if (await option.count()) {
+          const optionText = (await option.textContent())?.trim() ?? "";
+          const groupLabel = optionText.split("—")[0]?.trim();
+          const groupTab = navBar.getByRole("tab", { name: new RegExp(`^${groupLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\d*$`, "i") });
+          if (await groupTab.count()) {
+            await groupTab.first().click();
+            await page.waitForTimeout(500);
+          }
+          const item = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
+          if (await item.count()) {
+            await item.first().click();
+            return;
+          }
+        }
+      }
     }
     // Fallback: open the app-sidebar drawer then navigate via the sub-nav tree.
     const openNav = page.getByRole("button", { name: /open (module )?navigation/i }).first();
