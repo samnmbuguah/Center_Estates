@@ -20,6 +20,7 @@ PROPERTY_LOOKUPS = {
     'properties.TenantMovement': 'unit__property_id',
     'properties.BillingProfile': 'lease__unit__property_id',
     'properties.BillingRun': 'property_id',
+    'properties.BillingCandidate': 'lease__unit__property_id',
     'properties.BillingReadinessIssue': 'lease__unit__property_id',
     'properties.Invoice': 'lease__unit__property_id',
     'properties.InvoiceLine': 'invoice__lease__unit__property_id',

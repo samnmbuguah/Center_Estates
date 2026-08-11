@@ -17,7 +17,7 @@ from facilities.models import MeterReading, ServiceRequest, UtilityMeter
 from notifications.models import Notification
 
 from .models import (
-    BankTransaction, BillingItem, BillingProfile, BillingRun, Budget, Building, CreditNote, Expense, Invoice,
+    BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingRun, Budget, Building, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
     PaymentWebhookEvent, Property, Receipt, ReceiptAllocation, RentSchedule,
     ReportDefinition, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
@@ -150,6 +150,44 @@ class PropertyApiTests(TestCase):
             f"/api/v1/property/tenant-movements/{movement.data['id']}/", {'reason': 'Changed'}, format='json', **self.headers,
         ).status_code, 400)
         self.assertEqual(UnitStatusHistory.objects.count(), 1)
+
+    def test_scheduled_billing_run_prepares_approves_and_generates_itemized_invoice(self):
+        tax = TaxConfiguration.objects.create(
+            organization=self.organization, code='VAT16', name='Output VAT', rate=Decimal('16'),
+            effective_from='2026-01-01', is_active=True,
+        )
+        rent_item = BillingItem.objects.create(
+            organization=self.organization, code='RENT', name='Rent',
+            calculation=BillingItem.Calculation.FIXED, income_category='rent', tax_configuration=tax,
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=rent_item,
+            frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('1000'), effective_from='2026-01-01', billing_day=5,
+        )
+        created = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id), 'period_start': '2026-08-01', 'period_end': '2026-08-31',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        run_url = f"/api/v1/property/billing-runs/{created.data['id']}/"
+        prepared = self.client.post(f'{run_url}prepare/', {}, format='json', **self.headers)
+        self.assertEqual(prepared.status_code, 200, prepared.data)
+        self.assertEqual(prepared.data['totals']['ready'], 1)
+        self.assertEqual(prepared.data['totals']['amount_ready'], '1160.00')
+        candidate = prepared.data['candidates'][0]
+        self.assertEqual(candidate['status'], BillingCandidate.Status.READY)
+        approved = self.client.post(f'{run_url}approve/', {}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        generated = self.client.post(f'{run_url}generate/', {
+            'candidate_ids': [candidate['id']],
+        }, format='json', **self.headers)
+        self.assertEqual(generated.status_code, 201, generated.data)
+        self.assertEqual(generated.data['generated_count'], 1)
+        invoice = Invoice.objects.get(number='INV-2026-000001')
+        self.assertEqual(invoice.status, Invoice.Status.ISSUED)
+        self.assertEqual(invoice.amount, Decimal('1160.00'))
+        self.assertEqual(invoice.metadata['billing_period'], '2026-08')
+        self.assertEqual(InvoiceLine.objects.get(invoice=invoice).description, 'Rent')
 
     @mock.patch.dict(os.environ, {'ECITIZEN_TEST_SECRET': 'client-supplied-signing-secret'})
     def test_tenant_payment_is_signed_idempotent_and_fully_reconciled(self):

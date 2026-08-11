@@ -26,7 +26,7 @@ from core.tenancy import get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
 from .models import (
-    BankTransaction, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
+    BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
     Building, Budget, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
     PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation,
@@ -35,7 +35,7 @@ from .models import (
     TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitStatusHistory, LeaseEscalation,
 )
 from .serializers import (
-    BankTransactionSerializer, BillingItemSerializer, BillingProfileSerializer,
+    BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
     BillingReadinessIssueSerializer, BillingRunSerializer, BuildingSerializer, BudgetSerializer,
     CreditNoteSerializer, ExpenseSerializer, InvoiceReminderSerializer,
     InvoiceLineSerializer, InvoiceSerializer, LeaseEscalationSerializer, LeaseSerializer, PaymentGatewayConfigurationSerializer,
@@ -52,6 +52,14 @@ from .pdf_documents import (
     tenant_payment_status_pdf, tenant_payment_status_rows, tenant_statement_pdf,
 )
 from .lease_billing import generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
+
+
+def next_invoice_number(organization, year):
+    """Allocate an invoice number while holding the organization row lock."""
+    organization.__class__.objects.select_for_update().get(pk=organization.pk)
+    values = Invoice.objects.for_organization(organization).filter(number__startswith=f'INV-{year}-').values_list('number', flat=True)
+    sequences = [int(value.rsplit('-', 1)[-1]) for value in values if value.rsplit('-', 1)[-1].isdigit()]
+    return f'INV-{year}-{max(sequences, default=0) + 1:06d}'
 
 
 class OrganizationModelViewSet(ModelViewSet):
@@ -702,11 +710,13 @@ class InvoiceViewSet(OrganizationModelViewSet):
     def pdf(self, request, pk=None):
         return invoice_pdf(self.get_object(), request.user.get_full_name() or request.user.get_username())
 
+    @transaction.atomic
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
         validate_lease_billable(serializer.validated_data['lease'], timezone.localdate())
         amount = serializer.validated_data['amount']
-        serializer.save(organization=organization, balance=amount, status=Invoice.Status.DRAFT, prepared_by=self.request.user)
+        issued_on = serializer.validated_data.get('issued_on', timezone.localdate())
+        serializer.save(organization=organization, number=next_invoice_number(organization, issued_on.year), balance=amount, status=Invoice.Status.DRAFT, prepared_by=self.request.user)
 
     def perform_update(self, serializer):
         invoice = serializer.instance
@@ -1266,7 +1276,202 @@ class BillingRunViewSet(OrganizationModelViewSet):
     serializer_class = BillingRunSerializer
 
     def perform_create(self, serializer):
-        serializer.save(organization=self._validate_organization(serializer), created_by=self.request.user)
+        organization = self._validate_organization(serializer)
+        active_property = get_active_property(self.request, organization)
+        serializer.save(
+            organization=organization,
+            created_by=self.request.user,
+            property=serializer.validated_data.get('property') or active_property,
+        )
+
+    @staticmethod
+    def _profile_is_due(profile, period_start):
+        months = (period_start.year - profile.effective_from.year) * 12 + period_start.month - profile.effective_from.month
+        intervals = {
+            BillingProfile.Frequency.MONTHLY: 1, BillingProfile.Frequency.QUARTERLY: 3,
+            BillingProfile.Frequency.BIANNUAL: 6, BillingProfile.Frequency.ANNUAL: 12,
+            BillingProfile.Frequency.CUSTOM: max(profile.custom_interval_months, 1),
+        }
+        interval = intervals.get(profile.frequency)
+        return profile.frequency in (BillingProfile.Frequency.METERED, BillingProfile.Frequency.EVENT) or (interval is not None and months >= 0 and months % interval == 0)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def prepare(self, request, pk=None):
+        run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
+        if run.status == BillingRun.Status.GENERATED:
+            raise ValidationError({'status': 'A generated billing run cannot be prepared again.'})
+        run.candidates.filter(invoice__isnull=True).delete()
+        run.issues.all().delete()
+        leases = Lease.objects.for_organization(run.organization).filter(
+            status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
+            starts_on__lte=run.period_end, ends_on__gt=run.period_start,
+        ).select_related('tenant', 'unit__property')
+        if run.property_id:
+            leases = leases.filter(unit__property=run.property)
+        created = 0; ready = 0; issue_count = 0
+        amount_ready = Decimal('0'); amount_issues = Decimal('0')
+        from facilities.models import MeterReading, UtilityMeter
+        for lease in leases:
+            issue_rows = []
+            items = []
+            profiles = lease.billing_profiles.filter(
+                is_active=True, effective_from__lte=run.period_end,
+            ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=run.period_start)).select_related('billing_item__tax_configuration')
+            due_profiles = [profile for profile in profiles if self._profile_is_due(profile, run.period_start)]
+            for profile in due_profiles:
+                value = profile.amount
+                if profile.calculation == BillingItem.Calculation.AREA_RATE:
+                    if not lease.unit.area:
+                        issue_rows.append(('missing_unit_area', 'Unit area is required for area-based billing.', profile))
+                        continue
+                    value = (profile.rate * lease.unit.area).quantize(Decimal('0.01'))
+                elif profile.calculation == BillingItem.Calculation.METERED:
+                    readings = MeterReading.objects.for_organization(run.organization).filter(
+                        meter__property_unit=lease.unit, meter__utility_type=UtilityMeter.Utility.WATER,
+                        read_at__date__range=(run.period_start, run.period_end), status=MeterReading.Status.APPROVED,
+                    ).select_related('meter')
+                    if not readings.exists():
+                        issue_rows.append(('missing_water_reading', 'A valid water meter reading is required.', profile))
+                        continue
+                    value = sum((row.cost for row in readings), Decimal('0'))
+                elif profile.billing_item.code.upper() == 'RENT':
+                    value = lease.effective_rent(run.period_start)
+                elif profile.calculation == BillingItem.Calculation.PERCENTAGE:
+                    value = (lease.effective_rent(run.period_start) * profile.rate / Decimal('100')).quantize(Decimal('0.01'))
+                if value <= 0:
+                    issue_rows.append(('missing_rate', f'{profile.billing_item.name} has no billable amount.', profile))
+                    continue
+                tax = profile.billing_item.tax_configuration
+                tax_rate = tax.rate if tax and tax.is_active and tax.effective_from <= run.period_end and (not tax.effective_to or tax.effective_to >= run.period_start) else Decimal('0')
+                tax_amount = (value * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
+                items.append({'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': profile.billing_item.name, 'quantity': '1', 'unit_rate': str(value), 'subtotal': str(value), 'tax_code': tax.code if tax else '', 'tax_rate': str(tax_rate), 'tax_amount': str(tax_amount), 'total': str(value + tax_amount), 'source_type': 'billing_profile', 'source_id': str(profile.id)})
+            if not any(item['code'].upper() == 'RENT' for item in items):
+                rent = lease.effective_rent(run.period_start)
+                if rent > 0:
+                    items.insert(0, {'billing_item': None, 'code': 'RENT', 'description': 'Rent', 'quantity': '1', 'unit_rate': str(rent), 'subtotal': str(rent), 'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(rent), 'source_type': 'lease', 'source_id': str(lease.id)})
+                else:
+                    issue_rows.append(('missing_rent', 'The lease has no effective rent for this period.', None))
+            allocation = ServiceChargeAllocation.objects.for_organization(run.organization).filter(
+                unit=lease.unit, service_charge__is_active=True, service_charge__starts_on__lte=run.period_end,
+            ).select_related('service_charge').order_by('-service_charge__starts_on').first()
+            if allocation and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
+                items.append({'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': allocation.service_charge.name, 'quantity': '1', 'unit_rate': str(allocation.monthly_amount), 'subtotal': str(allocation.monthly_amount), 'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(allocation.monthly_amount), 'source_type': 'service_charge_allocation', 'source_id': str(allocation.id)})
+            duplicate = Invoice.objects.for_organization(run.organization).filter(
+                lease=lease, metadata__billing_period=run.period_start.strftime('%Y-%m'),
+            ).exclude(status=Invoice.Status.VOID).exists()
+            if duplicate:
+                issue_rows.append(('duplicate_invoice', 'An invoice already exists for this tenancy and billing period.', None))
+            if lease.ends_on <= run.period_end + timedelta(days=90):
+                issue_rows.append(('lease_expiring', f'Lease expires on {lease.ends_on:%d %b %Y}.', None, BillingReadinessIssue.Severity.WARNING))
+            subtotal = sum((Decimal(item['subtotal']) for item in items), Decimal('0'))
+            tax_amount = sum((Decimal(item['tax_amount']) for item in items), Decimal('0'))
+            blocking = any(len(row) < 4 or row[3] == BillingReadinessIssue.Severity.BLOCKING for row in issue_rows)
+            candidate = BillingCandidate.objects.create(
+                organization=run.organization, billing_run=run, lease=lease,
+                invoice_date=run.period_start, due_date=run.period_start.replace(day=min(lease.billing_day, 28)),
+                billing_items=items, subtotal=subtotal, tax_amount=tax_amount, total=subtotal + tax_amount,
+                status=BillingCandidate.Status.ISSUE if blocking else BillingCandidate.Status.READY,
+                issue_summary=[{'code': row[0], 'message': row[1], 'severity': row[3] if len(row) > 3 else BillingReadinessIssue.Severity.BLOCKING} for row in issue_rows],
+            )
+            for row in issue_rows:
+                BillingReadinessIssue.objects.create(
+                    organization=run.organization, billing_run=run, lease=lease,
+                    billing_profile=row[2], code=row[0], message=row[1],
+                    severity=row[3] if len(row) > 3 else BillingReadinessIssue.Severity.BLOCKING,
+                )
+            created += 1
+            if candidate.status == BillingCandidate.Status.READY:
+                ready += 1; amount_ready += candidate.total
+            else:
+                issue_count += 1; amount_issues += candidate.total
+        run.status = BillingRun.Status.REVIEW
+        run.totals = {'candidates': created, 'ready': ready, 'with_issues': issue_count, 'amount_ready': str(amount_ready), 'amount_with_issues': str(amount_issues), 'total_amount': str(amount_ready + amount_issues)}
+        run.save(update_fields=('status', 'totals', 'updated_at'))
+        return Response(self.get_serializer(run).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
+        if run.status != BillingRun.Status.REVIEW:
+            raise ValidationError({'status': 'Prepare and review the billing run before approval.'})
+        if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
+            raise ValidationError({'issues': 'Resolve or authorize every blocking issue before approval.'})
+        run.status = BillingRun.Status.APPROVED; run.approved_by = request.user; run.approved_at = timezone.now()
+        run.save(update_fields=('status', 'approved_by', 'approved_at', 'updated_at'))
+        return Response(self.get_serializer(run).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def exclude(self, request, pk=None):
+        candidate = self.get_object().candidates.filter(pk=request.data.get('candidate')).first()
+        reason = str(request.data.get('reason', '')).strip()
+        if not candidate or candidate.invoice_id:
+            raise ValidationError({'candidate': 'Select an ungenerated candidate from this run.'})
+        if not reason:
+            raise ValidationError({'reason': 'Document why this tenancy is excluded from billing.'})
+        candidate.status = BillingCandidate.Status.EXCLUDED; candidate.exclusion_reason = reason; candidate.excluded_by = request.user
+        candidate.save()
+        return Response(BillingCandidateSerializer(candidate).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def generate(self, request, pk=None):
+        from notifications.models import Notification
+
+        run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
+        if run.status != BillingRun.Status.APPROVED:
+            raise ValidationError({'status': 'The billing run must be approved before invoices are generated.'})
+        requested = request.data.get('candidate_ids')
+        candidates = run.candidates.select_for_update().filter(status=BillingCandidate.Status.READY, invoice__isnull=True).select_related('lease')
+        if isinstance(requested, list):
+            candidates = candidates.filter(pk__in=requested)
+        candidates = list(candidates)
+        if not candidates:
+            raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
+        year = run.period_start.year
+        generated = []
+        for candidate in candidates:
+            invoice = Invoice.objects.create(
+                organization=run.organization, number=next_invoice_number(run.organization, year), lease=candidate.lease,
+                invoice_type='scheduled', issued_on=candidate.invoice_date, due_on=candidate.due_date,
+                subtotal=candidate.subtotal, tax_amount=candidate.tax_amount,
+                tax_rate=(candidate.tax_amount / candidate.subtotal * Decimal('100')).quantize(Decimal('0.01')) if candidate.subtotal else 0,
+                amount=candidate.total, balance=candidate.total, status=Invoice.Status.ISSUED,
+                prepared_by=run.created_by, reviewed_by=run.approved_by, reviewed_at=run.approved_at,
+                issued_by=request.user, issued_at=timezone.now(), metadata={'source': 'billing_run', 'billing_run_id': str(run.id), 'billing_period': run.period_start.strftime('%Y-%m')},
+            )
+            for item in candidate.billing_items:
+                InvoiceLine.objects.create(
+                    organization=run.organization, invoice=invoice,
+                    billing_item_id=item.get('billing_item') or None, description=item['description'],
+                    quantity=Decimal(item['quantity']), unit_rate=Decimal(item['unit_rate']), subtotal=Decimal(item['subtotal']),
+                    tax_code=item.get('tax_code', ''), tax_rate=Decimal(item['tax_rate']), tax_amount=Decimal(item['tax_amount']), total=Decimal(item['total']),
+                    source_type=item.get('source_type', ''), source_id=item.get('source_id', ''),
+                )
+            candidate.invoice = invoice; candidate.status = BillingCandidate.Status.GENERATED; candidate.save()
+            portal_access = TenantPortalAccess.objects.for_organization(run.organization).filter(
+                tenant=candidate.lease.tenant, is_active=True,
+            ).select_related('user').first()
+            if portal_access:
+                Notification.objects.create(
+                    organization=run.organization,
+                    recipient=portal_access.user,
+                    title=f'New invoice: {invoice.number}',
+                    message=f'Your invoice of KES {invoice.amount:,.2f} is due on {invoice.due_on:%d %b %Y}.',
+                    level=Notification.Level.INFO,
+                    action_url='/tenant-portal',
+                    metadata={
+                        'invoice_id': str(invoice.id),
+                        'billing_run_id': str(run.id),
+                        'billing_period': run.period_start.strftime('%Y-%m'),
+                    },
+                )
+            generated.append(invoice)
+        if not run.candidates.filter(status=BillingCandidate.Status.READY, invoice__isnull=True).exists():
+            run.status = BillingRun.Status.GENERATED; run.generated_at = timezone.now(); run.save(update_fields=('status', 'generated_at', 'updated_at'))
+        return Response({'generated_count': len(generated), 'invoices': InvoiceSerializer(generated, many=True).data}, status=201)
 
     @action(detail=True, methods=('post',), url_path='resolve-issue')
     def resolve_issue(self, request, pk=None):
@@ -1283,6 +1488,13 @@ class BillingRunViewSet(OrganizationModelViewSet):
             raise ValidationError({'notes': 'An authorized override requires supporting notes.'})
         issue.status = status; issue.resolution_notes = notes
         issue.resolved_by = request.user; issue.resolved_at = timezone.now(); issue.save()
+        if issue.lease_id and not issue.billing_run.issues.filter(
+            lease=issue.lease, severity=BillingReadinessIssue.Severity.BLOCKING,
+            status=BillingReadinessIssue.Status.OPEN,
+        ).exists():
+            issue.billing_run.candidates.filter(
+                lease=issue.lease, status=BillingCandidate.Status.ISSUE,
+            ).update(status=BillingCandidate.Status.READY, updated_at=timezone.now())
         return Response(BillingReadinessIssueSerializer(issue).data)
 
 

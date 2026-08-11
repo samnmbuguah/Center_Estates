@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import (
-    BankTransaction, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
+    BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
     Building, Budget, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent, Project, Property,
     Receipt, ReceiptAllocation, RentSchedule, ReportDefinition, ReportExecution, ScheduledReport,
@@ -75,9 +75,22 @@ class BillingReadinessIssueSerializer(serializers.ModelSerializer):
         read_only_fields = ('status',)
 
 
+class BillingCandidateSerializer(serializers.ModelSerializer):
+    tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
+    property_name = serializers.CharField(source='lease.unit.property.name', read_only=True)
+    unit_code = serializers.CharField(source='lease.unit.code', read_only=True)
+    lease_reference = serializers.CharField(source='lease.reference', read_only=True)
+    invoice_number = serializers.CharField(source='invoice.number', read_only=True, default='')
+    class Meta:
+        model = BillingCandidate
+        exclude = ('organization', 'excluded_by')
+        read_only_fields = tuple(field.name for field in BillingCandidate._meta.fields if field.name not in ('id', 'organization'))
+
+
 class BillingRunSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True, default='Portfolio')
     issues = BillingReadinessIssueSerializer(many=True, read_only=True)
+    candidates = BillingCandidateSerializer(many=True, read_only=True)
     class Meta:
         model = BillingRun
         exclude = ('organization', 'created_by', 'approved_by', 'approved_at', 'generated_at')
@@ -234,7 +247,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         exclude = ('organization',)
-        read_only_fields = ('balance', 'status', 'tax_amount', 'prepared_by', 'reviewed_by', 'reviewed_at', 'issued_by', 'issued_at')
+        read_only_fields = ('number', 'balance', 'status', 'tax_amount', 'prepared_by', 'reviewed_by', 'reviewed_at', 'issued_by', 'issued_at')
         ref_name = 'PropertyInvoice'
         extra_kwargs = {'amount': {'required': False}, 'subtotal': {'required': False}}
 
@@ -244,8 +257,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
         return value
 
     def validate_tax_rate(self, value):
-        if value not in (0, 16):
-            raise serializers.ValidationError('Supported VAT rates are 0% and 16%.')
+        if value < 0 or value > 100:
+            raise serializers.ValidationError('Tax rate must be between 0 and 100 percent.')
         return value
 
     def validate(self, attrs):

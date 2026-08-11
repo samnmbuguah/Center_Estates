@@ -24,6 +24,7 @@ export const propertyNav: ModuleNavGroup[] = [
   {
     label: "COLLECTIONS",
     items: [
+      { id: "billing",    label: "Billing & Invoicing", icon: "🧾" },
       { id: "financials", label: "Financials",      icon: "💰" },
       { id: "fees",       label: "Management Fees", icon: "🧾" },
     ],

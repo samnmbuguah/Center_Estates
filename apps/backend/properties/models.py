@@ -440,8 +440,8 @@ class Invoice(OrganizationOwnedModel):
             raise ValidationError({'balance': 'Invoice balance must be between zero and the invoice amount.'})
         if self.due_on < self.issued_on:
             raise ValidationError({'due_on': 'Due date cannot be before the issue date.'})
-        if self.tax_rate not in (0, 16):
-            raise ValidationError({'tax_rate': 'Supported VAT rates are 0% and 16%.'})
+        if self.tax_rate < 0 or self.tax_rate > 100:
+            raise ValidationError({'tax_rate': 'Tax rate must be between 0 and 100 percent.'})
         if self.subtotal + self.tax_amount != self.amount:
             raise ValidationError({'amount': 'Invoice total must equal subtotal plus tax.'})
 
@@ -498,6 +498,40 @@ class BillingReadinessIssue(OrganizationOwnedModel):
     class Meta:
         ordering = ('status', '-severity', 'created_at')
         constraints = [models.UniqueConstraint(fields=('billing_run', 'lease', 'billing_profile', 'code'), name='unique_billing_readiness_issue')]
+
+
+class BillingCandidate(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        READY = 'ready', 'Ready'
+        ISSUE = 'issue', 'Has issues'
+        GENERATED = 'generated', 'Generated'
+        EXCLUDED = 'excluded', 'Excluded'
+
+    billing_run = models.ForeignKey(BillingRun, on_delete=models.CASCADE, related_name='candidates')
+    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name='billing_candidates')
+    invoice_date = models.DateField()
+    due_date = models.DateField()
+    billing_items = models.JSONField(default=list)
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
+    tax_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.READY)
+    issue_summary = models.JSONField(default=list, blank=True)
+    exclusion_reason = models.TextField(blank=True)
+    excluded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='excluded_billing_candidates')
+    invoice = models.OneToOneField(Invoice, on_delete=models.PROTECT, null=True, blank=True, related_name='billing_candidate')
+
+    class Meta:
+        ordering = ('lease__tenant__name',)
+        constraints = [models.UniqueConstraint(fields=('billing_run', 'lease'), name='unique_billing_run_lease_candidate')]
+
+    def clean(self):
+        if self.billing_run_id and self.billing_run.organization_id != self.organization_id:
+            raise ValidationError('Billing candidate must belong to the billing-run organization.')
+        if self.lease_id and self.lease.organization_id != self.organization_id:
+            raise ValidationError('Billing candidate must belong to the lease organization.')
+        if self.total != self.subtotal + self.tax_amount:
+            raise ValidationError({'total': 'Candidate total must equal subtotal plus tax.'})
 
 
 class InvoiceLine(OrganizationOwnedModel):

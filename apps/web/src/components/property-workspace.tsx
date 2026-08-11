@@ -10,6 +10,7 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { propertyNav } from "@/lib/module-nav";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import { TenantApplicationCard } from "@/components/tenant-application-card";
+import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -26,6 +27,7 @@ export type PropertyTab =
   | "tenant-documents"
   | "leases"
   | "financials"
+  | "billing"
   | "rent-schedules"
   | "rent"
   | "arrears"
@@ -61,6 +63,7 @@ const labels: Record<PropertyTab, string> = {
   "tenant-documents": "Tenant Documents",
   leases: "Leases",
   financials: "Financials",
+  billing: "Billing & Invoicing",
   "rent-schedules": "Rent Schedules",
   rent: "Rent & Invoices",
   arrears: "Arrears",
@@ -4321,7 +4324,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
         setCriticalServiceCharges(Array.isArray(scData) ? scData as Row[] : []);
-      } else if (tab === "owner-portal" || tab === "forecast") {
+      } else if (tab === "owner-portal" || tab === "forecast" || tab === "billing") {
         setLoading(false);
       } else {
         const ep = endpointFor(tab);
@@ -4401,7 +4404,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     const due = new Date(issued);
     due.setDate(due.getDate() + 30);
     setInvoiceDraft({
-      number: `INV-${issued.getFullYear()}-${String(Date.now()).slice(-6)}`,
+      number: "",
       lease: "", invoice_type: "rent",
       issued_on: issued.toISOString().slice(0, 10), due_on: due.toISOString().slice(0, 10),
       subtotal: "", tax_rate: "0",
@@ -4447,7 +4450,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
     const response = await apiFetch("/property/invoices/", {
       method: "POST",
       body: JSON.stringify({
-        number: invoiceDraft.number.trim(), lease: invoiceDraft.lease,
+        lease: invoiceDraft.lease,
         invoice_type: invoiceDraft.invoice_type, issued_on: invoiceDraft.issued_on,
         due_on: invoiceDraft.due_on, subtotal: Number(invoiceDraft.subtotal),
         tax_rate: Number(invoiceDraft.tax_rate), metadata: { source: "manual", property_name: invoicePreview.property },
@@ -4969,6 +4972,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {tab === "tenant-documents" && <TenantDocumentsView rows={rows} loading={loading} search={search} setSearch={setSearch} onUpload={() => setShowUploadDoc(true)} onDownload={downloadDocument} onVerify={(row) => void runPropertyAction("tenant-documents", row.id, "verify", "Document verification failed.")} onReject={setDocumentRejectTarget} />}
         {tab === "leases" && <LeasesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAddLease={() => setShowAddLease(true)} onDownloadTemplate={downloadTenancyTemplate} onLeaseAction={runLeaseAction} onSelectRow={setSelectedRow} />}
         {tab === "financials" && <FinancialsView financialsSection={financialsSection} setFinancialsSection={setFinancialsSection} rows={rows} rentInvoices={rentInvoices} analytics={analytics} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} rentSection={rentSection} setRentSection={setRentSection} onGenerateInvoice={(row, taxRate = 0) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.", { tax_rate: taxRate })} onRefresh={() => void loadData()} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} onAddCreditNote={() => setFinancialIntake("credit-note")} onAddInvoice={openInvoiceComposer} onDownloadInvoicePdf={downloadInvoicePdf} onDownloadReceiptPdf={downloadReceiptPdf} canFinance={canFinance} canApprove={canApprove} />}
+        {tab === "billing" && <PropertyBillingDashboard onNavigate={(next) => handleSelectTab(next as PropertyTab)} onSingleInvoice={openInvoiceComposer} />}
         {tab === "rent-schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={(row, taxRate = 0) => void runPropertyAction("rent-schedules", row.id, "generate-invoice", "Rent invoice generation failed.", { tax_rate: taxRate })} onRefresh={() => void loadData()} canFinance={canFinance} />}
         {tab === "rent" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={handleSelectTab} onRecordReceipt={openRecordReceipt} onSendReminder={(row) => void sendInvoiceReminder(row)} onInvoiceAction={(row, action) => { if (action === "void") setConfirmVoidInvoice(row); else void runPropertyAction("invoices", row.id, action, "Invoice action failed."); }} onSelectRow={setSelectedRow} onAddInvoice={openInvoiceComposer} onDownloadPdf={downloadInvoicePdf} canFinance={canFinance} canApprove={canApprove} />}
         {tab === "arrears" && <ArrearsView rows={rows} analytics={analytics} loading={loading} search={search} setSearch={setSearch} onNavigateReminders={navigateRemindersForTenant} />}
@@ -5320,8 +5324,8 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
           <Modal title="Create invoice draft" onClose={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }} wide>
             <form onSubmit={submitInvoiceDraft} style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="invoice-composer">
               <div className="grid-2">
-                <Field label="Invoice number" required>
-                  <input required value={invoiceDraft.number} onChange={(e) => updateInvoiceDraft("number", e.target.value)} data-testid="invoice-number" />
+                <Field label="Invoice number">
+                  <input readOnly value="Auto-generated on save" aria-label="Invoice number is generated automatically" />
                 </Field>
                 <Field label="Lease" required>
                   <select required value={invoiceDraft.lease} onChange={(e) => updateInvoiceDraft("lease", e.target.value)} data-testid="invoice-lease">
