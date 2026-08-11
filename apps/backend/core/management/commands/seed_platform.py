@@ -171,6 +171,10 @@ class Command(BaseCommand):
                 defaults={'name': role_name, 'is_system': True},
             )
             business_role.permissions.set(permission_catalog[f'{module}.{suffix}'] for suffix in granted)
+            # Facility roles that create work orders need read-only access to
+            # property references for the work-order property dropdown.
+            if module == Module.FACILITY and ('work' in granted or 'inspect' in granted or 'administer' in granted):
+                business_role.permissions.add(permission_catalog['property.view'])
             seed_role_user(f'role-{role_slug}', first_name, last_name, business_role)
 
         prop, _ = Property.objects.update_or_create(
