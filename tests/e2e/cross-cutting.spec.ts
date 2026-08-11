@@ -120,7 +120,9 @@ test("organization switcher works", async ({ page }) => {
     }
   }
 
-  await expect(page.locator("h1").first()).toBeVisible();
+  // The workspaces title renders as h1 on desktop; the module-card grid is
+  // the reliable signal across viewports.
+  await expect(page.locator(".module-card, .module-workspace, h1").first()).toBeVisible();
 
   expect(errors).toEqual([]);
 });
