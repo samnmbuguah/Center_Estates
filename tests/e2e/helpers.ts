@@ -63,7 +63,12 @@ const PROPERTY_PARENTS: Record<string, string> = {
 
 /** Open a module section by name, preferring horizontal tabs, then the sidebar sub-nav tree. */
 export async function openModuleSection(page: Page, name: string, testInfo?: TestInfo) {
-  const isMobile = Boolean(testInfo?.project.name.startsWith("mobile"));
+  // Detect mobile from the project name when available, else from the
+  // viewport (openTab callers may not forward testInfo).
+  const isMobile = Boolean(
+    (testInfo?.project.name.startsWith("mobile"))
+    || (!testInfo && (await page.viewportSize()).width < 768),
+  );
   if (isMobile) {
     // Mobile: the group tabs and page buttons are hidden (CSS media query);
     // the module select dropdown is the navigation surface.
@@ -219,8 +224,8 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
 }
 
 /** Open a horizontal module tab directly. */
-export async function openTab(page: Page, name: string) {
-  await openModuleSection(page, name);
+export async function openTab(page: Page, name: string, testInfo?: TestInfo) {
+  await openModuleSection(page, name, testInfo);
 }
 
 /** Sign in with a generous navigation timeout (slower under parallel load). */
