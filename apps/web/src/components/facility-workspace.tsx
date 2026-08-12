@@ -3621,10 +3621,10 @@ function ReportsView({ dashboard }: { dashboard: Dashboard }) {
                 { color: "#3b82f6", label: "Open / In Progress", count: openWO },
                 { color: "#ef4444", label: "Overdue", count: overdueWO },
               ].map((item) => (
-                <span key={item.label} style={{ alignItems: "center", color: "#667084", display: "flex", fontSize: 12, gap: 8 }}>
+                <span key={item.label} style={{ alignItems: "center", color: "#000000", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
                   <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
                   {item.label}
-                  <b style={{ marginLeft: "auto" }}>{item.count}</b>
+                  <b style={{ marginLeft: "auto", color: "#000000" }}>{item.count}</b>
                 </span>
               ))}
             </div>
@@ -3638,9 +3638,9 @@ function ReportsView({ dashboard }: { dashboard: Dashboard }) {
             <div style={{ alignItems: "flex-end", display: "flex", gap: 12, height: 140 }}>
               {months.map((m, i) => (
                 <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#4b5563" }}>{costData[i]}M</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#000000" }}>{costData[i]}M</span>
                   <div style={{ background: "#e23b3b", borderRadius: "4px 4px 0 0", height: `${(costData[i] / maxCost) * 100}%`, minHeight: 4, width: "100%" }} />
-                  <span style={{ color: "#8a96a7", fontSize: 9 }}>{m}</span>
+                  <span style={{ color: "#000000", fontSize: 11, fontWeight: 800 }}>{m}</span>
                 </div>
               ))}
             </div>
@@ -3652,18 +3652,18 @@ function ReportsView({ dashboard }: { dashboard: Dashboard }) {
           <PanelHeader title="Compliance Trend" />
           <div className="fc-sla-gauge">
             <div className="donut" style={{ background: `conic-gradient(#22c55e 0% ${compliance}%, #edf0f5 ${compliance}% 100%)`, height: 120, width: 120, marginBottom: 10 }}>
-              <strong style={{ fontSize: 20 }}>{compliance}%</strong>
-              <small>On Track</small>
+              <strong style={{ fontSize: 20, fontWeight: 900, color: "#000000" }}>{compliance}%</strong>
+              <small style={{ color: "#000000", fontWeight: 800 }}>On Track</small>
             </div>
             <div style={{ textAlign: "center" }}>
               <div style={{ background: "#edf0f5", borderRadius: 99, height: 4, marginBottom: 8, overflow: "hidden", width: 120 }}>
                 <i style={{ background: "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${compliance}%` }} />
               </div>
-              <span style={{ color: "#778197", fontSize: 11 }}>Target: 90%</span>
+              <span style={{ color: "#000000", fontSize: 12, fontWeight: 800 }}>Target: 90%</span>
             </div>
           </div>
           <div style={{ borderTop: "1px solid var(--line)", padding: "12px 18px" }}>
-            <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View Detailed Report →</button>
+            <button style={{ background: "none", border: 0, color: "#dc2626", cursor: "pointer", fontSize: 13, fontWeight: 800 }}>View Detailed Report →</button>
           </div>
         </article>
       </div>
@@ -3671,8 +3671,8 @@ function ReportsView({ dashboard }: { dashboard: Dashboard }) {
       {/* Recent Reports */}
       <article className="data-panel" style={{ marginTop: 16 }}>
         <div className="fc-table-toolbar">
-          <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Recent Reports</span>
-          <button className="fc-toolbar-btn">View All Reports</button>
+          <span style={{ color: "#000000", fontWeight: 800, fontSize: 14 }}>Recent Reports</span>
+          <button className="fc-toolbar-btn" style={{ fontWeight: 800 }}>View All Reports</button>
         </div>
         <div className="table-scroll">
           <table className="fc-data-table">
@@ -3689,13 +3689,13 @@ function ReportsView({ dashboard }: { dashboard: Dashboard }) {
             <tbody>
               {recentReports.map((r, i) => (
                 <tr key={i}>
-                  <td><strong style={{ fontSize: 12 }}>{r.name}</strong></td>
+                  <td><strong style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>{r.name}</strong></td>
                   <td><FcStatus value={r.type.toLowerCase()} /></td>
-                  <td style={{ fontSize: 12, color: "#6b7890" }}>{r.generated}</td>
-                  <td style={{ fontSize: 11, color: "#6b7890" }}>{r.date}</td>
+                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{r.generated}</td>
+                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{r.date}</td>
                   <td><FcStatus value={r.status} /></td>
                   <td>
-                    <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 11, padding: "3px 8px" }}>↓ Download</button>
+                    <button style={{ background: "#ffffff", border: "1px solid #94a3b8", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 800, color: "#000000", padding: "4px 10px" }}>↓ Download</button>
                   </td>
                 </tr>
               ))}
