@@ -6,6 +6,9 @@ All Center Estates data-entry workflows must preserve entered data until the ser
 
 - Native HTML forms are automatically saved per user, organization, route and form identity by `FormRecoveryProvider`.
 - React-controlled Property Onboarding and Tenant Application cards use typed `useFormDraft` state persistence because they are not native `<form>` elements.
+- Restored forms display the `DraftBanner` UI component showing relative save timestamps (e.g. `Saved 5 mins ago`), file re-attachment prompts, and instant **Discard Draft** action controls.
+- File input metadata (file name, size, type) is tracked in draft envelopes, providing users with visual placeholders for documents requiring re-selection.
+- Cross-tab draft synchronization is supported via `BroadcastChannel` (`ce-form-draft-channel`), updating form states seamlessly across multiple active browser windows.
 - Drafts are restored after navigation, refresh, transient network failure, server error or an expired access token.
 - A successful form mutation clears the corresponding native-form draft. Controlled forms clear their draft only after their primary record is created.
 - Access tokens are refreshed once automatically. A fully expired session redirects to login and returns to the previous route afterward.

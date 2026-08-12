@@ -12,6 +12,7 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useFormDraft } from "@/lib/form-drafts";
 import { usePropertyContext } from "@/lib/property-context";
 import { useToast } from "@/components/monitoring/hooks/useToast";
+import { DraftBanner } from "@/components/draft-banner";
 
 type Unit = { id: string; code: string; floor?: string; unit_type?: string; area?: string | number; status?: string };
 type Utility = { utility: string; applicable: boolean; rate_per_unit: number };
@@ -47,7 +48,7 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
   const { toast } = useToast();
   const organizationId = session?.activeOrganizationId ?? null;
   const draftScope = `${organizationId || "unknown"}:${session?.user.id || "unknown"}:${activeProperty?.id || "no-property"}`;
-  const [form, setForm, clearForm, formRestored] = useFormDraft("tenant-application:form", initialForm, draftScope);
+  const [form, setForm, clearForm, formRestored, formSavedAt] = useFormDraft("tenant-application:form", initialForm, draftScope);
   const [units, setUnits] = useState<Unit[]>([]);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const initialUtilities: Utility[] = [
@@ -194,7 +195,16 @@ export function TenantApplicationCard({ open, onClose, onSaved }: { open: boolea
       </AppBar>
 
       <Box sx={{ bgcolor: "background.default", minHeight: "100%", py: { xs: 1, md: 2 } }}>
-        {draftRestored && <Alert severity="info" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => { clearDraft(); setForm(initialForm); setUtilities(initialUtilities); }}>Discard draft</Button>}>Your unsaved tenant application was restored.</Alert>}
+        <DraftBanner
+          restored={draftRestored}
+          savedAt={formSavedAt}
+          onDiscard={() => {
+            clearDraft();
+            setForm(initialForm);
+            setUtilities(initialUtilities);
+          }}
+          message="Your unsaved tenant application draft was restored."
+        />
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 2fr) minmax(320px, 1fr)" }, gap: 2 }}>
           <Stack spacing={2}>

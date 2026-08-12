@@ -127,3 +127,28 @@ test("property: financials invoices section renders with management actions", as
   await expect(page.locator(".module-workspace, .module-nav-bar").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /New invoice|Record Rent Payment/i }).first()).toBeVisible();
 });
+
+test("property onboarding: autosaved draft restores on reload and can be discarded", async ({ page }) => {
+  await page.goto("/property-onboarding");
+  await page.getByLabel(/Property name/i).waitFor({ timeout: 20000 });
+  const draftName = `Draft Test Property ${Date.now()}`;
+  await page.getByLabel(/Property name/i).fill(draftName);
+  
+  // Reload page to test draft restoration
+  await page.reload();
+  await page.getByLabel(/Property name/i).waitFor({ timeout: 20000 });
+  
+  // Verify draft restored and field value persisted
+  await expect(page.getByLabel(/Property name/i)).toHaveValue(draftName);
+  await expect(page.getByText(/Your unsaved property onboarding draft was restored/i)).toBeVisible();
+  
+  // Test Discard Draft button
+  const discardBtn = page.getByRole("button", { name: /Discard draft/i });
+  await expect(discardBtn).toBeVisible();
+  await discardBtn.click();
+  
+  // Verify draft cleared and input reset
+  await page.getByLabel(/Property name/i).waitFor({ timeout: 20000 });
+  await expect(page.getByLabel(/Property name/i)).toHaveValue("");
+});
+

@@ -13,6 +13,7 @@ import { apiFetch } from "@/lib/api";
 import { useFormDraft } from "@/lib/form-drafts";
 import { usePropertyContext } from "@/lib/property-context";
 import { useToast } from "@/components/monitoring/hooks/useToast";
+import { DraftBanner } from "@/components/draft-banner";
 
 type Values = Record<string, string>;
 type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; description: string; building_index: string };
@@ -84,7 +85,7 @@ export function PropertyOnboardingForm() {
   const organizationId = session?.activeOrganizationId ?? null;
   const [section, setSection] = useState("general");
   const draftScope = `${organizationId || "unknown"}:${session?.user.id || "unknown"}`;
-  const [values, setValues, clearValues, valuesRestored] = useFormDraft<Values>("property-onboarding:values", initialValues, draftScope);
+  const [values, setValues, clearValues, valuesRestored, valuesSavedAt] = useFormDraft<Values>("property-onboarding:values", initialValues, draftScope);
   const [vatRegistered, setVatRegistered] = useState(false);
   const [units, setUnits, clearUnits, unitsRestored] = useFormDraft<UnitDraft[]>("property-onboarding:units", [], draftScope);
   const [unitDraft, setUnitDraft] = useState<UnitDraft>(blankUnit);
@@ -253,7 +254,17 @@ export function PropertyOnboardingForm() {
       </Box>
     </Box>
     <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto">{sections.map(([id, label]) => <Tab key={id} value={id} label={label} />)}</Tabs></Paper>
-    {restoredDraft && <Alert severity="info" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => { clearDraft(); window.location.reload(); }}>Discard draft</Button>}>Your unsaved property onboarding draft was restored. For security, please reselect any document files.</Alert>}
+    <DraftBanner
+      restored={restoredDraft}
+      savedAt={valuesSavedAt}
+      hasFiles={documents.some((item) => Boolean(item.file))}
+      fileCount={documents.length}
+      onDiscard={() => {
+        clearDraft();
+        window.location.reload();
+      }}
+      message="Your unsaved property onboarding draft was restored."
+    />
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
     <Box sx={{ display: "grid", gap: 2 }}>
       <Section id="general" title="General information">
