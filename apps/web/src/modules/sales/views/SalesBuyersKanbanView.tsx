@@ -46,7 +46,7 @@ export function SalesBuyersKanbanView() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(250px, 1fr))", gap: 16, overflowX: "auto", paddingBottom: 12 }}>
+      <div className="kanban-scroll" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(250px, 1fr))", gap: 16, paddingBottom: 12 }}>
         {stages.map((stg) => {
           const stgLeads = leads.filter((l) => l.stage === stg.id);
 

@@ -2868,10 +2868,11 @@ a.profile-dropdown-item { text-decoration: none; }
 .heading-actions { align-items: center; display: flex; gap: 10px; }
 .heading-actions > button:not(.primary-action) { background: white; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); cursor: pointer; font-weight: 700; padding: 11px 16px; }
 .primary-action { background: #dc3030 !important; border: 0 !important; border-radius: 8px; color: white !important; cursor: pointer; font-weight: 700; padding: 12px 17px; }
-.module-tabs { border-bottom: 1px solid var(--line); display: flex; gap: 24px; margin-bottom: 25px; overflow-x: auto; }
+.module-tabs { border-bottom: 1px solid var(--line); display: flex; gap: 24px; margin-bottom: 25px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.module-tabs::-webkit-scrollbar { display: none; }
 .module-tabs button { background: transparent; border: 0; border-bottom: 3px solid transparent; color: #687188; cursor: pointer; font-weight: 700; padding: 12px 2px; white-space: nowrap; }
 .module-tabs button.active { border-color: #dc3030; color: #19243a; }
-.kpi-grid { display: grid; gap: 15px; grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
+.kpi-grid { display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 18px; }
 .kpi-card { background: white; border: 1px solid var(--line); border-radius: 11px; cursor: pointer; display: grid; padding: 19px; text-align: left; transition: box-shadow .15s, transform .15s; }
 .kpi-card:hover { box-shadow: 0 9px 24px #15203910; transform: translateY(-2px); }
 .kpi-card > span { color: #000000; font-size: 13px; font-weight: 800; }
@@ -3338,8 +3339,11 @@ a.profile-dropdown-item { text-decoration: none; }
   display: flex;
   gap: 0;
   overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 0 18px;
 }
+.fc-detail-tabs::-webkit-scrollbar { display: none; }
 .fc-detail-tabs button {
   background: transparent;
   border: 0;
@@ -5664,3 +5668,137 @@ button, a, input, select, textarea { transition: border-color .16s ease, box-sha
   .ce-loader *, .ce-data-loading *, .module-workspace-content > * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   .card, button, a, input, select, textarea { transition-duration: .01ms !important; }
 }
+
+/* ============================================================
+   UX ENHANCEMENT UTILITIES — Sticky sub-tabs, breadcrumbs,
+   empty-state CTAs, chip filter bars, Kanban scroll
+   ============================================================ */
+
+/* Sticky inner sub-tab bars (second-level nav beneath main tabs) */
+.sticky-subtab-bar {
+  position: sticky;
+  top: 84px;
+  z-index: 20;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 0 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.sticky-subtab-bar::-webkit-scrollbar { display: none; }
+.sticky-subtab-bar button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 10px 14px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.sticky-subtab-bar button.active { border-bottom-color: #dc2626; color: #000000; }
+.sticky-subtab-bar button:hover:not(.active) { color: #0f172a; }
+
+/* Module breadcrumb trail */
+.module-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.module-breadcrumb a, .module-breadcrumb button {
+  background: none;
+  border: 0;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.module-breadcrumb a:hover, .module-breadcrumb button:hover { color: #dc2626; }
+.module-breadcrumb .crumb-sep { color: #94a3b8; font-size: 14px; }
+.module-breadcrumb .crumb-current { color: #000000; font-weight: 900; }
+
+/* Enhanced Empty State with CTA button */
+.empty-state-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  text-align: center;
+  gap: 12px;
+}
+.empty-state-cta .empty-icon { font-size: 48px; margin-bottom: 4px; }
+.empty-state-cta h3 { font-size: 18px; font-weight: 900; color: #000000; margin: 0; }
+.empty-state-cta p { font-size: 13px; font-weight: 700; color: #0f172a; margin: 0; max-width: 360px; line-height: 1.5; }
+.empty-state-cta .empty-cta-btn {
+  margin-top: 8px;
+  background: #dc2626;
+  color: #ffffff;
+  border: 0;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, transform 0.15s;
+}
+.empty-state-cta .empty-cta-btn:hover { background: #b91c1c; transform: translateY(-1px); }
+
+/* Chip filter bar — wraps instead of scrolling */
+.chip-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.chip-filter {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 99px;
+  color: #0f172a;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 12px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.chip-filter.active { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+.chip-filter:hover:not(.active) { background: #e2e8f0; }
+
+/* Kanban board scroll container — thin scrollbar only */
+.kanban-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  padding-bottom: 12px;
+}
+.kanban-scroll::-webkit-scrollbar { height: 6px; }
+.kanban-scroll::-webkit-scrollbar-track { background: transparent; }
+.kanban-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* Flex panel children — prevent overflow blowout */
+.flex-panel-child { min-width: 0; flex: 1; }
+
+/* Project tabs — hide scrollbar handle */
+.project-tabs { display: flex; gap: 28px; overflow-x: auto; scrollbar-width: none; }
+.project-tabs::-webkit-scrollbar { display: none; }
+

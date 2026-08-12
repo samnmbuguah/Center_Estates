@@ -562,7 +562,7 @@ function TasksView({ rows, search, setSearch, openTask, canTask }: {
       {range && rows.length > 0 && (
         <div className="data-panel" style={{ padding: 18 }}>
           <SectionHeader eyebrow="Gantt" title="Timeline View" />
-          <div style={{ overflowX: "auto" }}>
+          <div className="kanban-scroll">
             <div style={{ minWidth: 720 }}>
               {rows.map((r) => {
                 const start = new Date(String(r.starts_on)).getTime();
@@ -1340,7 +1340,7 @@ function OverviewView({ dash, setTab, openRegister, canRegister }: {
 
       <div className="data-panel" style={{ padding: 16 }}>
         <SectionHeader eyebrow="Workflow" title="11-Step Bid Pipeline" />
-        <div style={{ alignItems: "center", display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6 }}>
+        <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 6, paddingBottom: 6 }}>
           {steps.map((s, i) => (
             <Fragment key={s.label}>
               <button type="button" className="btn ghost sm" style={{ alignItems: "center", display: "flex", gap: 6, flexShrink: 0, fontSize: 11, padding: "5px 9px" }} onClick={() => setTab(s.tab)}>

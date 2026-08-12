@@ -1737,7 +1737,7 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd, orga
               <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Create PPM Task</button>
             </div>
             {/* Week grid */}
-            <div className="fc-ppm-week-grid" style={{ overflowX: "auto" }}>
+            <div className="fc-ppm-week-grid kanban-scroll">
               <div className="fc-ppm-time-col">
                 <div className="fc-ppm-day-header" />
                 {["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00"].map((t) => (
@@ -1780,7 +1780,7 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd, orga
               </div>
               <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Create PPM Task</button>
             </div>
-            <div style={{ padding: "14px 18px", overflowX: "auto" }}>
+            <div className="kanban-scroll" style={{ padding: "14px 18px" }}>
               {(() => {
                 const freqDays: Record<string, number> = { weekly: 7, monthly: 30, quarterly: 90, biannual: 180, annual: 365 };
                 const sortedTasks = [...displayRows].sort((a, b) => {
@@ -2652,7 +2652,7 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdm
       </div>
 
       {/* Tabs */}
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16, overflowX: "auto" }}>
+      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16, overflowX: "auto", scrollbarWidth: "none" }}>
         {(["overview", "electricity", "water", "generator", "solar", "gas", "reconciliation", "waste", "reports"] as const).map((t) => {
           const tabLabels: Record<string, string> = { overview: "Overview", electricity: "Electricity", water: "Water", generator: "Generator Fuel", solar: "Solar", gas: "Gas", reconciliation: "Bulk / Check", waste: "Waste", reports: "Reports" };
           return (

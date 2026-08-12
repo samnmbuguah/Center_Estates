@@ -50,7 +50,7 @@ export function FacilityWorkOrdersKanbanView() {
       </div>
 
       {/* 5-Column Kanban Board */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(260px, 1fr))", gap: 16, overflowX: "auto", paddingBottom: 12 }}>
+      <div className="kanban-scroll" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(260px, 1fr))", gap: 16, paddingBottom: 12 }}>
         {columns.map((col) => {
           const colItems = items.filter((i) => i.status === col.id);
 
