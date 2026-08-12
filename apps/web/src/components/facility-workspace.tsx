@@ -3370,7 +3370,7 @@ function ExpenditureView({ rows, organizationId }: { rows: Row[]; organizationId
             <tbody>
               {expenditures.length > 0 ? expenditures.map((e) => (
                 <tr key={String(e.id)}>
-                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{e.date ? new Date(e.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
+                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{e.date && (typeof e.date === "string" || typeof e.date === "number") ? new Date(e.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : String(e.date ?? "—")}</td>
                   <td style={{ fontSize: 12, fontWeight: 700, color: "#000000", textTransform: "capitalize" }}>{String(e.category ?? "—")}</td>
                   <td style={{ fontSize: 12, fontWeight: 700, color: "#000000" }}>{String(e.description ?? "—")}</td>
                   <td style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>{money.format(Number(e.amount ?? 0))}</td>
