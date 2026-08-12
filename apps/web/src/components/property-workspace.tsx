@@ -1523,16 +1523,6 @@ function TenancyView({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-      <SubTabs
-        active={section}
-        onChange={(id) => setSection(id as TenancySection)}
-        tabs={[
-          { id: "occupancy", label: "Occupancy" },
-          { id: "tenants", label: "Tenants" },
-          { id: "leases", label: "Leases" },
-          { id: "documents", label: "Documents" },
-        ]}
-      />
       {section === "occupancy" && (
         <UnitsView rows={unitsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} />
       )}
@@ -2628,18 +2618,6 @@ function FinancialsView({
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-      <SubTabs
-        active={financialsSection}
-        onChange={(id) => setFinancialsSection(id as FinancialsSection)}
-        tabs={[
-          { id: "schedules", label: "Schedules" },
-          { id: "invoices", label: "Invoices" },
-          { id: "receipts", label: "Receipts" },
-          { id: "allocations", label: "Allocations" },
-          { id: "reconciliation", label: "Reconciliation" },
-          { id: "credit-notes", label: "Credit Notes" },
-        ]}
-      />
       {financialsSection === "schedules" && <RentSchedulesView rows={rows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={onGenerateInvoice} onRefresh={onRefresh} canFinance={canFinance} />}
       {financialsSection === "invoices" && <RentView rows={rows} rentInvoices={rentInvoices} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={setTab} onRecordReceipt={onRecordReceipt} onSendReminder={onSendReminder} onInvoiceAction={onInvoiceAction} onSelectRow={onSelectRow} onAddInvoice={onAddInvoice} onDownloadPdf={onDownloadInvoicePdf} canFinance={canFinance} canApprove={canApprove} />}
       {financialsSection === "receipts" && <ReceiptsView rows={rows} creditNotes={creditNotes} loading={loading} search={search} setSearch={setSearch} onRecordReceipt={onRecordReceipt} onDownloadPdf={onDownloadReceiptPdf} />}
@@ -2669,16 +2647,6 @@ function ServiceChargesView({
 
   return (
     <>
-      <SubTabs
-        active={scSection}
-        onChange={(id) => setScSection(id as ScSection)}
-        tabs={[
-          { id: "setup", label: "Setup" },
-          { id: "allocations", label: "Allocations" },
-          { id: "reconciliations", label: "Reconciliations" },
-          { id: "budget", label: "Budget & Estimate" },
-        ]}
-      />
 
       {scSection === "setup" && (
         <>
