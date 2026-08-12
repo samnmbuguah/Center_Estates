@@ -4979,13 +4979,6 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
       groups={propertyNav}
       activeId={tab}
       onSelect={handleSelectTab}
-      actions={
-        <div className="row" style={{ gap: 10, alignItems: "center" }}>
-          <span className="muted" style={{ fontSize: 12 }}>📅 {todayStr}</span>
-          {canFinance && <button className="btn ghost sm" data-testid="property-record-receipt-btn" onClick={() => openRecordReceipt()}>+ Record Receipt</button>}
-          {canLease && <button className="btn ghost sm" data-testid="property-add-tenant-btn" onClick={() => setShowAddTenant(true)}>+ Add Tenant</button>}
-        </div>
-      }
     >
       <div className="property-workspace" style={{ padding: "16px 24px", width: "100%", boxSizing: "border-box" }}>
         {error && <ErrorBanner message={error} onRetry={() => { setError(""); loadData(); }} />}

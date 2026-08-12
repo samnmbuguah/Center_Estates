@@ -2199,12 +2199,6 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
       accent="#7c3aed"
       activeId={tab}
       onSelect={selectTab}
-      actions={
-        <div className="row" style={{ gap: 10, alignItems: "center" }}>
-          <span className="muted" style={{ fontSize: 13, whiteSpace: "nowrap" }}>📅 {todayStr}</span>
-          {canRegister && <button type="button" className="btn primary sm" onClick={openRegister}>+ Register Invitation</button>}
-        </div>
-      }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {error && <ErrorBanner message={error} onRetry={loadData} />}

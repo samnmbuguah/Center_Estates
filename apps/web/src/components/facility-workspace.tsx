@@ -3949,13 +3949,6 @@ export function FacilityWorkspace({ defaultTab = "overview" }: { defaultTab?: Ta
       accent="#e23b3b"
       activeId={tab}
       onSelect={selectTab}
-      actions={
-        canWork ? (
-          <button className="primary-action" onClick={() => setShowCreate(true)}>
-            + New Work Order
-          </button>
-        ) : null
-      }
     >
       <div className="facility-app">
         {error && (

@@ -494,14 +494,6 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       accent="#0d9488"
       activeId={tab}
       onSelect={(id) => { setSearch(""); setTab(id as CompanionTab); }}
-      actions={
-        isManager ? (
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn ghost sm" onClick={() => setShowTemplate(true)}>+ Template</button>
-            <button className="btn primary sm" data-testid="companion-assign-btn" onClick={() => { if (isManager) loadStaffOptions(); setShowAssign(true); }}>+ Assign Task</button>
-          </div>
-        ) : null
-      }
     >
       <div className="valuation-workspace" style={{ padding: "16px 24px" }}>
         {msg && <ErrorBanner message={msg} onRetry={() => setMsg("")} />}

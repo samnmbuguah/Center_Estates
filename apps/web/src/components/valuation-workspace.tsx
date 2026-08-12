@@ -2246,12 +2246,6 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       accent="#0891b2"
       activeId={tab}
       onSelect={selectTab}
-      actions={
-        <div className="row">
-          <span className="pill pill-cyan" style={{ whiteSpace: "nowrap" }}>📅 {todayStr}</span>
-          {canCoordinate && <button className="btn primary sm" onClick={openNewInstruction}>+ New Instruction</button>}
-        </div>
-      }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {error ? <ErrorBanner message={error} onRetry={loadData} /> : null}

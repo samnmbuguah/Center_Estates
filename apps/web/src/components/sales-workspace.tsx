@@ -2776,11 +2776,6 @@ export function SalesWorkspace({ initialTab = "overview" }: { initialTab?: strin
       accent="#ea580c"
       activeId={tab}
       onSelect={selectTab}
-      actions={
-        <div className="row">
-          {canSell && <button className="btn primary sm" onClick={openBuyerRegistration}>+ Register Buyer</button>}
-        </div>
-      }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {error && <ErrorBanner message={error} onRetry={loadData} />}
