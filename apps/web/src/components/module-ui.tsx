@@ -245,3 +245,86 @@ export function Modal({ title, onClose, children, wide }: { title: ReactNode; on
     </Dialog>
   );
 }
+
+export type DataTableColumn<T> = {
+  id: string;
+  header: string;
+  accessor: (row: T, index: number) => ReactNode;
+  align?: "left" | "center" | "right";
+  width?: string | number;
+};
+
+export function DataTable<T>({
+  rows,
+  columns,
+  keyExtractor,
+  emptyTitle = "No records found",
+  emptyDescription = "There are no entries in this view.",
+  onRowClick,
+}: {
+  rows: T[];
+  columns: DataTableColumn<T>[];
+  keyExtractor: (row: T, index: number) => string | number;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  onRowClick?: (row: T) => void;
+}) {
+  if (!rows || rows.length === 0) {
+    return <EmptyState title={emptyTitle} description={emptyDescription} />;
+  }
+
+  return (
+    <div className="table-scroll" style={{ overflowX: "auto", width: "100%" }}>
+      <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col.id}
+                style={{
+                  textAlign: col.align || "left",
+                  width: col.width,
+                  padding: "12px 14px",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: "var(--text-primary)",
+                  borderBottom: "2px solid var(--border-color)",
+                }}
+              >
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr
+              key={keyExtractor(row, index)}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              style={{
+                cursor: onRowClick ? "pointer" : "default",
+                borderBottom: "1px solid var(--border-subtle)",
+              }}
+            >
+              {columns.map((col) => (
+                <td
+                  key={col.id}
+                  style={{
+                    textAlign: col.align || "left",
+                    padding: "12px 14px",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {col.accessor(row, index)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+

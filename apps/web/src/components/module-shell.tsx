@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode } from "react";
+import { createElement, type CSSProperties, type ReactNode } from "react";
 import {
   propertyNav,
   facilityNav,
@@ -44,6 +44,19 @@ export type EntityOption = {
 };
 
 export type SubTab = { id: string; label: string; icon?: string };
+
+export type PluggableTabRegistry<T extends string = string, P = any> = Record<T, React.ComponentType<P>>;
+
+export function renderTabContent<T extends string, P = any>(
+  registry: PluggableTabRegistry<T, P>,
+  activeId: T,
+  props: P,
+  fallback?: ReactNode,
+): ReactNode {
+  const ViewComponent = registry[activeId];
+  if (!ViewComponent) return fallback ?? null;
+  return createElement(ViewComponent as any, props as any);
+}
 
 type ModuleShellProps = {
   moduleKey: string;
