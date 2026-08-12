@@ -147,7 +147,7 @@ export function PortfolioOverviewWorkspace() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
         <div>
           <p style={{ color: "#dc2626", fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
-            Command Center
+            Portfolio Management
           </p>
           <h1 style={{ fontSize: 26, fontWeight: 900, color: "#000000", margin: "4px 0 0", letterSpacing: "-0.02em" }}>
             Portfolio Overview
@@ -245,11 +245,11 @@ export function PortfolioOverviewWorkspace() {
             </p>
           </div>
 
-          <div style={{ position: "relative", minWidth: 260 }}>
-            <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b" }} />
+          <div style={{ position: "relative", width: "100%", maxWidth: 340, minWidth: 280 }}>
+            <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
             <input
               type="text"
-              placeholder="Search properties by name, code, or city…"
+              placeholder="Search properties..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
@@ -260,6 +260,7 @@ export function PortfolioOverviewWorkspace() {
                 fontWeight: 700,
                 color: "#000000",
                 width: "100%",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -313,8 +314,8 @@ export function PortfolioOverviewWorkspace() {
                       </span>
                     </td>
                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
-                      <button
-                        onClick={() => setEditingProperty(prop)}
+                      <Link
+                        href={`/property-onboarding?edit=${prop.id}`}
                         style={{
                           background: "#ffffff",
                           border: "1px solid #cbd5e1",
@@ -327,11 +328,12 @@ export function PortfolioOverviewWorkspace() {
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 6,
+                          textDecoration: "none",
                         }}
                       >
                         <Edit3 size={14} />
                         <span>Edit Details</span>
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))

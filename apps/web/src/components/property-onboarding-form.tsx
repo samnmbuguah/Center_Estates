@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert, Box, Button, Chip, Divider, FormControlLabel, IconButton,
   MenuItem, Paper, Switch, Tab, Tabs, TextField, Typography,
@@ -79,6 +79,8 @@ function RowList<T>({ rows, columns, render, onRemove, empty }: { rows: T[]; col
 
 export function PropertyOnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams?.get("edit");
   const { session } = useAuth();
   const { selectProperty } = usePropertyContext();
   const { toast } = useToast();
@@ -103,6 +105,45 @@ export function PropertyOnboardingForm() {
   const [error, setError] = useState("");
   const restoredDraft = valuesRestored || unitsRestored || utilitiesRestored || assetsRestored || contactsRestored || providersRestored;
   const clearDraft = () => { clearValues(); clearUnits(); clearUtilities(); clearAssets(); clearContacts(); clearProviders(); };
+
+  useEffect(() => {
+    if (!editId) return;
+    let active = true;
+    apiFetch(`/property/properties/${editId}/`, {}, organizationId)
+      .then(async (res) => {
+        if (active && res.ok) {
+          const prop = await res.json();
+          setValues((curr) => ({
+            ...curr,
+            name: prop.name || "",
+            code: prop.code || "",
+            property_type: prop.property_type || "commercial",
+            address: prop.address || "",
+            city: prop.city || "",
+            country: prop.country || "KE",
+            status: prop.status || "active",
+            landlord_name: prop.metadata?.landlord?.name || prop.landlord_name || "Landlord",
+            landlord_type: prop.metadata?.landlord?.type || "individual",
+            county: prop.metadata?.location?.county || prop.city || "Nairobi",
+            notes: prop.notes || prop.metadata?.notes || "",
+          }));
+          if (Array.isArray(prop.units) && prop.units.length > 0) {
+            setUnits(prop.units.map((u: any) => ({
+              unit_no: u.unit_no || u.code || "",
+              unit_type: u.unit_type || "commercial",
+              floor: String(u.floor || "1"),
+              use: u.use || "Office",
+              area: String(u.area || "500"),
+              rateable_area: String(u.rateable_area || u.area || "500"),
+              description: u.description || "",
+              building_index: "0",
+            })));
+          }
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [editId, organizationId, setValues, setUnits]);
 
   const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => setValues(current => ({ ...current, [name]: event.target.value }));
   const totalArea = useMemo(() => units.reduce((sum, unit) => sum + Number(unit.area || 0), 0), [units]);
@@ -206,8 +247,10 @@ export function PropertyOnboardingForm() {
       notes: values.notes || "", onboarding_status: "draft",
     };
     try {
-      const response = await apiFetch("/property/properties/onboard/", {
-        method: "POST",
+      const endpoint = editId ? `/property/properties/${editId}/` : "/property/properties/onboard/";
+      const method = editId ? "PATCH" : "POST";
+      const response = await apiFetch(endpoint, {
+        method,
         body: JSON.stringify({
           property: { name: values.name.trim(), property_type: values.property_type, status: values.status, address: values.address, city: values.city, country: values.country, metadata },
           building: { count: Number(values.building_count || 0), floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" },
@@ -220,26 +263,29 @@ export function PropertyOnboardingForm() {
         const body = await response.json().catch(() => ({}));
         throw new Error(Object.values(body as Record<string, unknown>).flat().join(" ") || "Property onboarding failed.");
       }
-      const result = await response.json() as { property: { id: string; name: string; code?: string; status?: string; city?: string } };
+      const result = await response.json() as { property?: { id: string; name: string; code?: string; status?: string; city?: string }; id?: string; name?: string; code?: string; status?: string; city?: string };
+      const savedProp = result.property ?? (result.id ? (result as { id: string; name: string; code?: string; status?: string; city?: string }) : null);
       clearDraft();
       const failedDocuments: string[] = [];
-      for (const document of documents.filter(item => item.file)) {
-        const body = new FormData();
-        body.append("title", document.name);
-        body.append("category", `property_${document.type}`);
-        body.append("file", document.file as File);
-        body.append("original_filename", (document.file as File).name);
-        if (document.expires_on) body.append("expires_on", document.expires_on);
-        body.append("metadata", JSON.stringify({ property_id: result.property.id, reference: document.reference }));
-        const upload = await apiFetch("/documents/documents/", { method: "POST", body }, organizationId);
-        if (!upload.ok) failedDocuments.push(document.name);
+      if (savedProp) {
+        for (const document of documents.filter(item => item.file)) {
+          const body = new FormData();
+          body.append("title", document.name);
+          body.append("category", `property_${document.type}`);
+          body.append("file", document.file as File);
+          body.append("original_filename", (document.file as File).name);
+          if (document.expires_on) body.append("expires_on", document.expires_on);
+          body.append("metadata", JSON.stringify({ property_id: savedProp.id, reference: document.reference }));
+          const upload = await apiFetch("/documents/documents/", { method: "POST", body }, organizationId);
+          if (!upload.ok) failedDocuments.push(document.name);
+        }
+        selectProperty({ id: savedProp.id, name: savedProp.name, code: savedProp.code, status: savedProp.status, location: savedProp.city });
       }
-      selectProperty({ id: result.property.id, name: result.property.name, code: result.property.code, status: result.property.status, location: result.property.city });
       if (failedDocuments.length) {
-        setError(`Property was created, but these files could not be uploaded: ${failedDocuments.join(", ")}. You can retry from Documents.`);
+        setError(`Property was saved, but these files could not be uploaded: ${failedDocuments.join(", ")}. You can retry from Documents.`);
         return;
       }
-      toast.success(`${result.property.name} was created successfully.`);
+      toast.success(`${savedProp?.name || values.name} was ${editId ? "updated" : "created"} successfully.`);
       router.push("/overview");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Property onboarding failed."); }
     finally { setSaving(false); }
@@ -247,7 +293,7 @@ export function PropertyOnboardingForm() {
 
   return <Box className="property-onboarding-card" sx={{ width: "100%", maxWidth: 1320, mx: "auto", px: { xs: 1.5, md: 3 }, py: 2.5 }}>
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/workspaces")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800 }}>Property Onboarding Card</Typography><Typography color="text.secondary" variant="body2">Codes and internal IDs are generated automatically.</Typography></Box></Box>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/overview")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800 }}>{editId ? `Edit Property: ${values.name || "Loading..."}` : "Property Onboarding Card"}</Typography><Typography color="text.secondary" variant="body2">{editId ? "Update property attributes, structure, and associated details." : "Codes and internal IDs are generated automatically."}</Typography></Box></Box>
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
         {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-template.csv", [["utility_type","supply_mode","account_number","provider","bill_cycle","meter_number","opening_reading","reading_date","tariff","unit","status"],["water","postpaid","WTR-100","County Water","monthly","MTR-WTR-100","250","2026-08-01","120","m³","active"],["electricity","prepaid","KPLC-200","KPLC","prepaid","MTR-KPLC-200","","","0","kWh","active"]])}>Utility template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload utilities<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
         <Button variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save & Close"}</Button>

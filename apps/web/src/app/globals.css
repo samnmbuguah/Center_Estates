@@ -4848,7 +4848,7 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 .empty-state { text-align: center; padding: 32px; }
 
 /* Table scroll container */
-.table-scroll { overflow: auto; max-height: 400px; }
+.table-scroll { overflow-x: auto; }
 
 /* Compact card variant */
 .card-compact { padding: 12px 14px; }
