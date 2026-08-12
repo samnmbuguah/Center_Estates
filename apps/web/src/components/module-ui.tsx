@@ -176,6 +176,35 @@ export function SearchInput({ value, onChange, placeholder }: { value: string; o
   );
 }
 
+export function ViewToolbar({
+  title,
+  subtitle,
+  search,
+  onSearch,
+  placeholder,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  search?: string;
+  onSearch?: (v: string) => void;
+  placeholder?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="view-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+      <div>
+        <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>{title}</h3>
+        {subtitle && <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", margin: "2px 0 0" }}>{subtitle}</p>}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {onSearch && <SearchInput value={search ?? ""} onChange={onSearch} placeholder={placeholder} />}
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function Pagination({ page, pageSize, total, onPage }: { page: number; pageSize: number; total: number; onPage: (p: number) => void }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (pages <= 1) return null;
