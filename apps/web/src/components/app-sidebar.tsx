@@ -260,6 +260,30 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             <span>Dashboard</span>
           </Link>
 
+          {/* Portfolio Overview link — Displays property register, statistics, and edit details */}
+          <Link
+            className={`nav-link ${pathname === "/overview" ? "active" : ""}`}
+            href="/overview"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: isMobile ? "16px" : "9px 12px",
+              justifyContent: "flex-start",
+              borderRadius: 6,
+              background: pathname === "/overview" ? "#e52e2e" : "transparent",
+              color: "#ffffff",
+              fontWeight: pathname === "/overview" ? 700 : 500,
+              textDecoration: "none",
+              fontSize: isMobile ? 16 : 13,
+            }}
+            onClick={onCloseMobile}
+            title="Portfolio Overview"
+          >
+            <span style={{ fontSize: isMobile ? 20 : 15 }}>🏢</span>
+            <span>Portfolio Overview</span>
+          </Link>
+
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>
               <Link className="nav-link" href="/tickets" onClick={onCloseMobile} title="Tickets" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : "9px 12px", justifyContent: "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
