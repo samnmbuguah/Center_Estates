@@ -142,7 +142,6 @@ export function ModuleShell({
                     >
                       {group.icon ? <span aria-hidden="true">{group.icon}</span> : null}
                       {group.label}
-                      <small>{group.items.length}</small>
                     </button>
                   );
                 })}

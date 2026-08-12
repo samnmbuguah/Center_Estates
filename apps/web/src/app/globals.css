@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  /* Light Theme Defaults - High Contrast Legibility Tokens */
-  --bg-app: #f8fafc;
+  /* Light Theme Defaults - Ultra-Clean Pure Light Tokens */
+  --bg-app: #ffffff;
   --bg-surface: #ffffff;
   --bg-sidebar: #0f172a;
   --bg-sidebar-hover: #1e293b;
@@ -37,7 +37,7 @@
   --muted: var(--text-secondary);
   --line: var(--border-color);
   --surface: var(--bg-surface);
-  --surface-2: var(--bg-app);
+  --surface-2: #ffffff;
   --brand: var(--brand-accent);
   --brand-deep: var(--brand-accent-deep);
   --navy: var(--bg-sidebar);
@@ -135,13 +135,13 @@
 /* An explicit light selection must win even when the operating system prefers
    dark mode. These are also the contrast source of truth for module chrome. */
 [data-theme="light"] {
-  --bg-app: #f8fafc;
+  --bg-app: #ffffff;
   --bg-surface: #ffffff;
   --bg-sidebar: #0f172a;
   --bg-sidebar-hover: #1e293b;
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #475569;
+  --text-primary: #000000;
+  --text-secondary: #0f172a;
+  --text-muted: #0f172a;
   --border-color: #cbd5e1;
   --border-subtle: #e2e8f0;
   --brand-primary: #c81e1e;
@@ -151,7 +151,7 @@
   --muted: var(--text-muted);
   --line: var(--border-color);
   --surface: var(--bg-surface);
-  --surface-2: var(--bg-app);
+  --surface-2: #ffffff;
   --text: var(--text-primary);
   --text-tertiary: var(--text-muted);
 }
@@ -2849,10 +2849,10 @@ a.profile-dropdown-item { text-decoration: none; }
 .kpi-grid { display: grid; gap: 15px; grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
 .kpi-card { background: white; border: 1px solid var(--line); border-radius: 11px; cursor: pointer; display: grid; padding: 19px; text-align: left; transition: box-shadow .15s, transform .15s; }
 .kpi-card:hover { box-shadow: 0 9px 24px #15203910; transform: translateY(-2px); }
-.kpi-card > span { color: var(--muted); font-size: 12px; font-weight: 700; }
-.kpi-card strong { font-size: 25px; margin: 11px 0 5px; }
-.kpi-card small { color: #778197; }
-.kpi-card i { color: #d62f2f; font-size: 11px; font-style: normal; font-weight: 700; margin-top: 16px; }
+.kpi-card > span { color: #000000; font-size: 13px; font-weight: 800; }
+.kpi-card strong { font-size: 26px; margin: 11px 0 5px; color: #000000; font-weight: 800; }
+.kpi-card small { color: #0f172a; font-size: 13px; font-weight: 700; }
+.kpi-card i { color: #d62f2f; font-size: 11px; font-style: normal; font-weight: 800; margin-top: 16px; }
 .kpi-card.warning { border-top: 3px solid #e9a234; }
 .dashboard-columns { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.65fr) minmax(300px, .75fr); }
 .data-panel { background: white; border: 1px solid var(--line); border-radius: 11px; min-width: 0; overflow: hidden; }
@@ -2949,9 +2949,9 @@ a.profile-dropdown-item { text-decoration: none; }
   justify-content: center;
   width: 44px;
 }
-.fc-kpi-label { color: var(--muted); font-size: 11px; font-weight: 700; }
-.fc-kpi-value { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.025em; margin: 2px 0 4px; }
-.fc-kpi-sub { color: #778197; font-size: 11px; }
+.fc-kpi-label { color: #000000; font-size: 13px; font-weight: 800; }
+.fc-kpi-value { display: block; font-size: 26px; font-weight: 800; color: #000000; letter-spacing: -.025em; margin: 2px 0 4px; }
+.fc-kpi-sub { color: #0f172a; font-size: 13px; font-weight: 700; }
 .fc-kpi-link { color: #e23b3b; display: block; font-size: 11px; font-weight: 700; margin-top: 10px; }
 .fc-kpi-trend-up { color: #16a34a; font-size: 11px; font-weight: 700; }
 .fc-kpi-trend-down { color: #dc2626; font-size: 11px; font-weight: 700; }
@@ -3258,15 +3258,16 @@ a.profile-dropdown-item { text-decoration: none; }
 .fc-filter-header strong { font-size: 13px; font-weight: 700; }
 .fc-filter-header button { background: none; border: 0; color: #e23b3b; cursor: pointer; font-size: 12px; font-weight: 700; }
 .fc-filter-section { padding: 12px 16px; border-bottom: 1px solid #f0f2f6; }
-.fc-filter-section label { color: #6b7280; display: block; font-size: 11px; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; }
+.fc-filter-section label { color: #000000; display: block; font-size: 12px; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; }
 .fc-filter-section select {
   background: white;
-  border: 1px solid #d7dce5;
+  border: 1px solid #94a3b8;
   border-radius: 8px;
-  color: inherit;
+  color: #000000;
   font: inherit;
-  font-size: 12px;
-  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 750;
+  padding: 9px 10px;
   width: 100%;
 }
 
@@ -5421,40 +5422,39 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 }
 
 .module-nav-groups button {
-  padding: 8px 11px;
+  padding: 10px 14px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: .045em;
+  letter-spacing: .03em;
   text-transform: uppercase;
+  color: #000000;
 }
 
 .module-nav-groups button small {
-  min-width: 18px;
-  padding: 1px 5px;
-  border-radius: 999px;
-  background: rgba(100, 116, 139, .12);
-  font-size: 9px;
-  text-align: center;
+  display: none !important;
 }
 
 .module-nav-groups button.active {
   background: var(--bg-surface);
-  color: var(--text-primary);
+  color: #000000;
+  font-weight: 900;
   box-shadow: inset 0 -3px 0 var(--module-accent, var(--brand-primary)), 0 1px 4px rgba(15, 23, 42, .12);
 }
 
 .module-nav-pages button {
-  padding: 8px 12px;
+  padding: 9px 14px;
   border-radius: 7px;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 14px;
+  font-weight: 800;
+  color: #000000;
 }
 
-.module-nav-pages button:hover { background: var(--bg-app); color: var(--text-primary); }
+.module-nav-pages button:hover { background: var(--bg-app); color: #000000; }
 .module-nav-pages button.active {
   background: color-mix(in srgb, var(--module-accent, var(--brand-primary)) 14%, var(--bg-surface));
-  color: var(--text-primary);
+  color: #000000;
+  font-weight: 900;
   box-shadow: inset 0 -2px 0 var(--module-accent, var(--brand-primary));
 }
 
