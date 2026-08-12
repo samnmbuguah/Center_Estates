@@ -261,10 +261,10 @@ function DashboardView({
                     { color: "#f59e0b", label: "Pending", count: Math.round(openWO * 0.27) },
                     { color: "#22c55e", label: "Completed Today", count: Number(kpi.completedToday ?? 0) },
                   ].map((item) => (
-                    <span key={item.label} style={{ alignItems: "center", color: "#667084", display: "flex", fontSize: 12, gap: 8 }}>
+                    <span key={item.label} style={{ alignItems: "center", color: "#000000", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
                       <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
                       {item.label}
-                      <b style={{ marginLeft: "auto" }}>{item.count}</b>
+                      <b style={{ marginLeft: "auto", color: "#000000" }}>{item.count}</b>
                     </span>
                   ))}
                 </div>
@@ -277,30 +277,34 @@ function DashboardView({
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: "1.1rem" }}>⚠️</span>
                       <div>
-                        <strong style={{ color: "#991b1b", fontSize: "0.85rem" }}>SLA Escalation Alert: {overdueWO} Overdue Orders</strong>
-                        <div style={{ color: "#7f1d1d", fontSize: "0.75rem" }}>High-priority tickets require immediate technician dispatch</div>
+                        <strong style={{ color: "#991b1b", fontSize: "0.88rem", fontWeight: 800 }}>SLA Escalation Alert: {overdueWO} Overdue Orders</strong>
+                        <div style={{ color: "#7f1d1d", fontSize: "0.78rem", fontWeight: 700 }}>High-priority tickets require immediate technician dispatch</div>
                       </div>
                     </div>
-                    <button onClick={() => setTab("work-orders")} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "4px 10px", borderRadius: 6, fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                    <button onClick={() => setTab("work-orders")} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 6, fontSize: "0.78rem", fontWeight: 800, cursor: "pointer" }}>
                       Dispatch Now
                     </button>
                   </div>
                 )}
-                <p style={{ color: "#8a96a7", fontSize: 11, fontWeight: 700, margin: "0 0 10px", textTransform: "uppercase" }}>
+                <p style={{ color: "#000000", fontSize: 13, fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
                   Recent Work Orders
                 </p>
                 <div className="fc-wo-recent">
-                  {dashboard.recentWorkOrders.slice(0, 5).map((row) => (
-                    <div key={String(row.id)} className="fc-wo-row">
-                      <span className="fc-wo-id">{String(row.number ?? "—")}</span>
-                      <div className="fc-wo-title">
-                        <strong>{String(row.title ?? "—")}</strong>
-                        <small>{String(row.property_name ?? "—")}</small>
+                  {dashboard.recentWorkOrders.slice(0, 5).map((row) => {
+                    const rawNum = String(row.number ?? row.id ?? "—");
+                    const shortNum = rawNum.length > 12 ? `#WO-${rawNum.slice(-6)}` : rawNum;
+                    return (
+                      <div key={String(row.id)} className="fc-wo-row">
+                        <span className="fc-wo-id">{shortNum}</span>
+                        <div className="fc-wo-title">
+                          <strong>{String(row.title ?? "—")}</strong>
+                          <small>{String(row.property_name ?? "—")}</small>
+                        </div>
+                        <FcStatus value={String(row.priority ?? "low")} />
+                        <FcStatus value={String(row.status ?? "open")} />
                       </div>
-                      <FcStatus value={String(row.priority ?? "low")} />
-                      <FcStatus value={String(row.status ?? "open")} />
-                    </div>
-                  ))}
+                    );
+                  })}
                   {dashboard.recentWorkOrders.length === 0 && <EmptyState message="No recent work orders." />}
                 </div>
               </div>
@@ -407,17 +411,21 @@ function DashboardView({
           <article className="data-panel">
             <PanelHeader title="Critical Alerts" badge={dashboard.urgentWorkOrders.length} action={() => setTab("work-orders")} />
             <div className="fc-alert-list">
-              {dashboard.urgentWorkOrders.slice(0, 5).map((row) => (
-                <button key={String(row.id)} className="fc-alert-item" onClick={() => setTab("work-orders")}>
-                  <span className="fc-alert-icon danger">⚠</span>
-                  <div className="fc-alert-body">
-                    <strong>{String(row.title ?? "—")}</strong>
-                    <small>{String(row.property_name ?? "—")}</small>
-                    <em>{String(row.number ?? "—")}</em>
-                  </div>
-                  <span className="fc-alert-chevron">›</span>
-                </button>
-              ))}
+              {dashboard.urgentWorkOrders.slice(0, 5).map((row) => {
+                const rawNum = String(row.number ?? row.id ?? "—");
+                const shortNum = rawNum.length > 12 ? `#WO-${rawNum.slice(-6)}` : rawNum;
+                return (
+                  <button key={String(row.id)} className="fc-alert-item" onClick={() => setTab("work-orders")}>
+                    <span className="fc-alert-icon danger">⚠</span>
+                    <div className="fc-alert-body">
+                      <strong>{String(row.title ?? "—")}</strong>
+                      <small>{String(row.property_name ?? "—")}</small>
+                      <em>{shortNum}</em>
+                    </div>
+                    <span className="fc-alert-chevron">›</span>
+                  </button>
+                );
+              })}
               {dashboard.urgentWorkOrders.length === 0 && (
                 <div style={{ color: "#8a96a7", fontSize: 12, padding: "20px 18px", textAlign: "center" }}>
                   No critical alerts. All clear! ✓
