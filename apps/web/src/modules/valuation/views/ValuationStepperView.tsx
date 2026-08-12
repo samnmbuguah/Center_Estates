@@ -1,6 +1,6 @@
-"use client";
-
+import { useState } from "react";
 import { CheckCircle2, Clock, FileCheck, Search, ShieldCheck } from "lucide-react";
+import { Pagination } from "@/components/module-ui";
 
 type ValuationItem = {
   id: string;
@@ -13,10 +13,23 @@ type ValuationItem = {
 };
 
 export function ValuationStepperView() {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const instructions: ValuationItem[] = [
     { id: "1", code: "#VAL-2026-001", property: "Westlands Business Centre", valuationType: "Commercial Mortgage Valuation", step: 4, valuerName: "Samuel Njuguna (Registered Valuer)", estimatedValue: 485000000 },
     { id: "2", code: "#VAL-2026-002", property: "Parklands Residential Suites", valuationType: "Asset Market Valuation", step: 2, valuerName: "Mercy Wanjiku", estimatedValue: 210000000 },
   ];
+
+  const filtered = instructions.filter(
+    (item) =>
+      item.code.toLowerCase().includes(search.toLowerCase()) ||
+      item.property.toLowerCase().includes(search.toLowerCase()) ||
+      item.valuationType.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const steps = [
     { num: 1, label: "Instruction Received" },
@@ -28,17 +41,39 @@ export function ValuationStepperView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px" }}>
-        <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
-          Valuation Instruction Milestone Stepper
-        </h2>
-        <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 750 }}>
-          Track real-time progress of professional valuation reports from initial site inspection to final signed dispatch.
-        </span>
+      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
+            Valuation Instruction Milestone Stepper
+          </h2>
+          <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 750 }}>
+            Track real-time progress of professional valuation reports from initial site inspection to final signed dispatch.
+          </span>
+        </div>
+
+        <div style={{ position: "relative", minWidth: 260 }}>
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+          <input
+            type="text"
+            placeholder="Search instructions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              padding: "8px 12px 8px 36px",
+              borderRadius: 8,
+              border: "1px solid #cbd5e1",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#000000",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {instructions.map((item) => (
+        {paginated.map((item) => (
           <div key={item.id} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div>
@@ -89,6 +124,8 @@ export function ValuationStepperView() {
           </div>
         ))}
       </div>
+
+      <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
-"use client";
-
+import { useState } from "react";
 import { DataTable, type DataTableColumn, ViewToolbar, Panel, Badge } from "@/components/module-ui";
+import { FacilityWorkOrdersKanbanView } from "./FacilityWorkOrdersKanbanView";
 
 export type WorkOrderRow = {
   id: string;
@@ -28,6 +28,8 @@ export function FacilityWorkOrdersView({
   onCreateWorkOrder?: () => void;
   onSelectRow?: (row: WorkOrderRow) => void;
 }) {
+  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
+
   const columns: DataTableColumn<WorkOrderRow>[] = [
     {
       id: "number",
@@ -89,6 +91,39 @@ export function FacilityWorkOrdersView({
           onSearch={setSearch}
           placeholder="Search work order number, title, or facility…"
         >
+          <div style={{ display: "inline-flex", borderRadius: 8, border: "1px solid #cbd5e1", overflow: "hidden", background: "#f8fafc", marginRight: 8 }}>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              style={{
+                padding: "6px 12px",
+                fontSize: 12,
+                fontWeight: 800,
+                border: 0,
+                background: viewMode === "table" ? "#0f172a" : "transparent",
+                color: viewMode === "table" ? "#ffffff" : "#475569",
+                cursor: "pointer",
+              }}
+            >
+              📋 Table View
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("kanban")}
+              style={{
+                padding: "6px 12px",
+                fontSize: 12,
+                fontWeight: 800,
+                border: 0,
+                background: viewMode === "kanban" ? "#0f172a" : "transparent",
+                color: viewMode === "kanban" ? "#ffffff" : "#475569",
+                cursor: "pointer",
+              }}
+            >
+              📊 Kanban Board
+            </button>
+          </div>
+
           {onCreateWorkOrder && (
             <button className="btn primary sm" onClick={onCreateWorkOrder} style={{ fontWeight: 800 }}>
               + New Work Order
@@ -97,16 +132,20 @@ export function FacilityWorkOrdersView({
         </ViewToolbar>
       )}
 
-      <Panel title="Work Orders Queue">
-        <DataTable
-          rows={filtered}
-          columns={columns}
-          keyExtractor={(row, index) => row.id || index}
-          emptyTitle="No work orders found"
-          emptyDescription="Create a new work order to dispatch maintenance teams."
-          onRowClick={onSelectRow}
-        />
-      </Panel>
+      {viewMode === "kanban" ? (
+        <FacilityWorkOrdersKanbanView />
+      ) : (
+        <Panel title="Work Orders Queue">
+          <DataTable
+            rows={filtered}
+            columns={columns}
+            keyExtractor={(row, index) => row.id || index}
+            emptyTitle="No work orders found"
+            emptyDescription="Create a new work order to dispatch maintenance teams."
+            onRowClick={onSelectRow}
+          />
+        </Panel>
+      )}
     </div>
   );
 }

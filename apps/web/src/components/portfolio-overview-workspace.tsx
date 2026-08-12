@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
+import { Pagination } from "@/components/module-ui";
 import { Building2, Edit3, Plus, Search, CheckCircle2, AlertCircle, Wrench, Users, DollarSign } from "lucide-react";
 
 type PropertyRecord = {
@@ -127,6 +128,13 @@ export function PortfolioOverviewWorkspace() {
     }
   };
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
   const filtered = propertiesList.filter((p) => {
     const q = search.toLowerCase();
     return (
@@ -136,6 +144,8 @@ export function PortfolioOverviewWorkspace() {
       p.city?.toLowerCase().includes(q)
     );
   });
+
+  const paginatedProps = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const totalUnits = propertiesList.reduce((acc, p) => acc + (p.total_units || 0), 0);
   const totalOccupied = propertiesList.reduce((acc, p) => acc + (p.occupied_units || 0), 0);
@@ -292,7 +302,7 @@ export function PortfolioOverviewWorkspace() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((prop) => (
+                paginatedProps.map((prop) => (
                   <tr key={prop.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 900, color: "#000000", fontFamily: "ui-monospace, monospace" }}>
                       {prop.code || `PROP-${prop.id.slice(0, 6)}`}
@@ -340,6 +350,9 @@ export function PortfolioOverviewWorkspace() {
               )}
             </tbody>
           </table>
+        </div>
+        <div style={{ padding: "0 20px 16px" }}>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       </article>
 

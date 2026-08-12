@@ -1,6 +1,6 @@
-"use client";
-
-import { CheckCircle2, Award, Star, DollarSign, Clock, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, Award, Star, DollarSign, Clock, ShieldCheck, Search } from "lucide-react";
+import { Pagination } from "@/components/module-ui";
 
 type BidRow = {
   vendor: string;
@@ -12,15 +12,22 @@ type BidRow = {
 };
 
 export function TenderBiddingMatrixView() {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const bids: BidRow[] = [
     { vendor: "Apex Construction Ltd", bidAmount: 14200000, timeline: "45 Days", rating: 4.8, compliance: "100% Compliant", recommended: true },
     { vendor: "BuildCorp Engineering", bidAmount: 15800000, timeline: "60 Days", rating: 4.5, compliance: "100% Compliant" },
     { vendor: "Safari Electrical Contractors", bidAmount: 16500000, timeline: "50 Days", rating: 4.2, compliance: "Minor Variance" },
   ];
 
+  const filtered = bids.filter((b) => b.vendor.toLowerCase().includes(search.toLowerCase()));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Tender Vendor Bidding Comparison Matrix
@@ -28,6 +35,26 @@ export function TenderBiddingMatrixView() {
           <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 750 }}>
             Side-by-side comparative analysis of incoming contractor bids highlighting price, timeline, and rating.
           </span>
+        </div>
+
+        <div style={{ position: "relative", minWidth: 260 }}>
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+          <input
+            type="text"
+            placeholder="Search contractors..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              padding: "8px 12px 8px 36px",
+              borderRadius: 8,
+              border: "1px solid #cbd5e1",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#000000",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          />
         </div>
       </div>
 
@@ -45,7 +72,7 @@ export function TenderBiddingMatrixView() {
               </tr>
             </thead>
             <tbody>
-              {bids.map((b) => (
+              {paginated.map((b) => (
                 <tr key={b.vendor} style={{ background: b.recommended ? "#f0fdf4" : "transparent", borderBottom: "1px solid #f1f5f9" }}>
                   <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 900, color: "#000000" }}>
                     {b.vendor}
@@ -89,6 +116,9 @@ export function TenderBiddingMatrixView() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div style={{ padding: "0 20px 16px" }}>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       </div>
     </div>

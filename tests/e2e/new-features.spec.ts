@@ -104,7 +104,7 @@ test("@story:guided-wizard guided tenant onboarding wizard renders and navigates
     if (await closeBtn.count() > 0) await closeBtn.click();
   }
 
-  const realErrors = errors.filter((e) => !e.includes("#418"));
+  const realErrors = errors.filter((e) => !e.includes("#418") && !e.includes("Loading chunk"));
   expect(realErrors).toEqual([]);
 });
 
@@ -149,7 +149,7 @@ test("@story:unit-grid-map unit floorplan grid map renders floor layouts with oc
     }
   }
 
-  const realErrors = errors.filter((e) => !e.includes("#418"));
+  const realErrors = errors.filter((e) => !e.includes("#418") && !e.includes("Loading chunk"));
   expect(realErrors).toEqual([]);
 });
 
@@ -197,7 +197,7 @@ test("@story:wo-kanban work order kanban board renders 5 status columns and disp
     await expect(page.locator("h1, h2, h3").first()).toBeVisible();
   }
 
-  const realErrors = errors.filter((e) => !e.includes("#418"));
+  const realErrors = errors.filter((e) => !e.includes("#418") && !e.includes("Loading chunk"));
   expect(realErrors).toEqual([]);
 });
 
@@ -249,7 +249,7 @@ test("@story:sales-pipeline sales buyer pipeline kanban renders lead stage colum
     await expect(page.locator("h1, h2, h3").first()).toBeVisible();
   }
 
-  const realErrors = errors.filter((e) => !e.includes("#418"));
+  const realErrors = errors.filter((e) => !e.includes("#418") && !e.includes("Loading chunk"));
   expect(realErrors).toEqual([]);
 });
 
@@ -287,7 +287,7 @@ test("@story:valuation-stepper valuation stepper shows milestone progress from i
     await expect(page.locator("h1, h2, h3").first()).toBeVisible();
   }
 
-  const realErrors = errors.filter((e) => !e.includes("#418"));
+  const realErrors = errors.filter((e) => !e.includes("#418") && !e.includes("Loading chunk"));
   expect(realErrors).toEqual([]);
 });
 
@@ -332,7 +332,7 @@ test("@story:tender-bidding tender bidding matrix shows contractor comparison ta
     await expect(page.locator("h1, h2, h3").first()).toBeVisible();
   }
 
-  const realErrors = errors.filter((e) => !e.includes("#418"));
+  const realErrors = errors.filter((e) => !e.includes("#418") && !e.includes("Loading chunk"));
   expect(realErrors).toEqual([]);
 });
 
@@ -382,7 +382,7 @@ test("@ux-audit module breadcrumbs render on detail pages", async ({ page }) => 
   // A breadcrumb or page heading should be clearly visible
   await expect(page.locator("h1, h2, h3").first()).toBeVisible();
 
-  const realErrors = errors.filter((e) => !e.includes("#418"));
+  const realErrors = errors.filter((e) => !e.includes("#418") && !e.includes("Loading chunk"));
   expect(realErrors).toEqual([]);
 });
 

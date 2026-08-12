@@ -529,36 +529,40 @@ html {
   }
   
   /* Card-based table layout for mobile */
-  .table-card {
+  .table-card, .fc-data-table {
     display: block;
   }
   
-  .table-card thead {
+  .table-card thead, .fc-data-table thead {
     display: none;
   }
   
-  .table-card tbody,
-  .table-card tr,
-  .table-card td {
+  .table-card tbody, .table-card tr, .table-card td,
+  .fc-data-table tbody, .fc-data-table tr, .fc-data-table td {
     display: block;
     width: 100%;
+    box-sizing: border-box;
   }
   
-  .table-card tr {
-    margin-bottom: 16px;
+  .table-card tr, .fc-data-table tr {
+    margin-bottom: 14px;
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 16px;
+    border-radius: 10px;
+    padding: 14px;
     background: var(--surface);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
   
-  .table-card td {
+  .table-card td, .fc-data-table td {
     text-align: left;
-    padding: 8px 0;
+    padding: 6px 0;
     border-bottom: 1px solid var(--line);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    white-space: normal !important;
+  }
+  .fc-data-table td:last-child {
+    border-bottom: 0;
+    text-align: left !important;
+    padding-top: 10px;
   }
   
   .table-card td::before {

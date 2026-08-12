@@ -20,6 +20,7 @@ export function PropertyUnitsGridMapView({
   onNavigate: (tab: string) => void;
 }) {
   const [showWizard, setShowWizard] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState<UnitItem | null>(null);
   const [units] = useState<UnitItem[]>([
     { id: "101", code: "U-101", floor: "Floor 1", type: "Commercial Office", status: "occupied", tenantName: "Apex Solutions Ltd", rent: 45000 },
     { id: "102", code: "U-102", floor: "Floor 1", type: "Commercial Office", status: "vacant", rent: 45000 },
@@ -179,7 +180,10 @@ export function PropertyUnitsGridMapView({
 
                         {isVacant && (
                           <button
-                            onClick={() => setShowWizard(true)}
+                            onClick={() => {
+                              setSelectedUnit(u);
+                              setShowWizard(true);
+                            }}
                             style={{ background: "#dc2626", color: "#fff", border: 0, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
                           >
                             Assign Tenant
@@ -206,10 +210,14 @@ export function PropertyUnitsGridMapView({
       {/* Onboarding Wizard Modal */}
       {showWizard && (
         <GuidedTenantWizardModal
-          onClose={() => setShowWizard(false)}
-          onComplete={(data) => {
-            alert(`Tenant ${data.tenantName} successfully onboarded to Unit ${data.unitCode}!`);
+          onClose={() => {
             setShowWizard(false);
+            setSelectedUnit(null);
+          }}
+          onComplete={(data) => {
+            alert(`Tenant ${data.tenantName} successfully onboarded to Unit ${data.unitCode || selectedUnit?.code || ""}!`);
+            setShowWizard(false);
+            setSelectedUnit(null);
           }}
         />
       )}
