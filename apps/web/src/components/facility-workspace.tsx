@@ -3291,19 +3291,19 @@ function ExpenditureView({ rows, organizationId }: { rows: Row[]; organizationId
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20, margin: 0, letterSpacing: "-.02em" }}>Expenditure & Landlord Floats</h2>
-          <p style={{ color: "#8a96a7", fontSize: 13, margin: "4px 0 0" }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, color: "#000000", margin: 0, letterSpacing: "-.02em" }}>Expenditure & Landlord Floats</h2>
+          <p style={{ color: "#0f172a", fontSize: 14, fontWeight: 750, margin: "4px 0 0" }}>
             Track the landlord float cash-flow advance against facilities expenditure.
           </p>
         </div>
-        <button className="fc-toolbar-btn primary" onClick={() => setShowRecord(true)}>+ Record Expenditure</button>
+        <button className="fc-toolbar-btn primary" onClick={() => setShowRecord(true)} style={{ fontWeight: 800 }}>+ Record Expenditure</button>
       </div>
 
       {/* Landlord Float balance card */}
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(4, minmax(0,1fr))", marginBottom: 16 }}>
         <div className="data-panel" style={{ background: "linear-gradient(135deg, #0f2744, #1e3a5f)", border: 0 }}>
-          <span style={{ color: "rgba(255,255,255,0.6)", display: "block", fontSize: 11, marginBottom: 8 }}>LANDLORD FLOAT ALLOCATED</span>
-          <strong style={{ color: "#fff", display: "block", fontSize: 26 }}>{money.format(floatAllocated)}</strong>
+          <span style={{ color: "#ffffff", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>LANDLORD FLOAT ALLOCATED</span>
+          <strong style={{ color: "#fff", display: "block", fontSize: 26, fontWeight: 900 }}>{money.format(floatAllocated)}</strong>
           <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10 }}>
             <input
               type="number"
@@ -3311,35 +3311,35 @@ function ExpenditureView({ rows, organizationId }: { rows: Row[]; organizationId
               step={1000}
               defaultValue={floatAllocated}
               onBlur={(e) => { const v = Number(e.target.value); if (Number.isFinite(v) && v >= 0) setFloatAllocated(v); }}
-              style={{ width: "100%", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 6, color: "#fff", fontSize: 12, padding: "6px 10px" }}
+              style={{ width: "100%", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 6, color: "#fff", fontSize: 13, fontWeight: 700, padding: "6px 10px" }}
               aria-label="Float allocation amount"
             />
           </div>
         </div>
-        <div className="data-panel">
-          <span style={{ color: "#8a96a7", display: "block", fontSize: 11, marginBottom: 8 }}>SPENT</span>
-          <strong style={{ display: "block", fontSize: 26, color: "#b91c1c" }}>{money.format(spent)}</strong>
-          <span style={{ color: "#6b7280", fontSize: 11 }}>{spentPct}% of allocated float</span>
+        <div className="data-panel" style={{ padding: 18 }}>
+          <span style={{ color: "#000000", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>SPENT</span>
+          <strong style={{ display: "block", fontSize: 26, color: "#b91c1c", fontWeight: 900 }}>{money.format(spent)}</strong>
+          <span style={{ color: "#0f172a", fontSize: 12, fontWeight: 700 }}>{spentPct}% of allocated float</span>
         </div>
-        <div className="data-panel">
-          <span style={{ color: "#8a96a7", display: "block", fontSize: 11, marginBottom: 8 }}>REMAINING BALANCE</span>
-          <strong style={{ display: "block", fontSize: 26, color: remaining < 0 ? "#b91c1c" : "#15803d" }}>{money.format(Math.max(remaining, 0))}</strong>
-          {remaining < 0 && <span style={{ color: "#b91c1c", fontSize: 11, fontWeight: 700 }}>Float exceeded by {money.format(Math.abs(remaining))}</span>}
+        <div className="data-panel" style={{ padding: 18 }}>
+          <span style={{ color: "#000000", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>REMAINING BALANCE</span>
+          <strong style={{ display: "block", fontSize: 26, color: remaining < 0 ? "#b91c1c" : "#15803d", fontWeight: 900 }}>{money.format(Math.max(remaining, 0))}</strong>
+          {remaining < 0 && <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 800 }}>Float exceeded by {money.format(Math.abs(remaining))}</span>}
         </div>
-        <div className="data-panel">
-          <span style={{ color: "#8a96a7", display: "block", fontSize: 11, marginBottom: 8 }}>FLOAT UTILIZATION</span>
+        <div className="data-panel" style={{ padding: 18 }}>
+          <span style={{ color: "#000000", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>FLOAT UTILIZATION</span>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
             <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 10, overflow: "hidden" }}>
               <i style={{ background: spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${spentPct}%` }} />
             </div>
-            <strong style={{ fontSize: 16 }}>{spentPct}%</strong>
+            <strong style={{ fontSize: 16, fontWeight: 900, color: "#000000" }}>{spentPct}%</strong>
           </div>
-          <span style={{ color: "#6b7280", fontSize: 11 }}>remaining = float − sum(spent)</span>
+          <span style={{ color: "#0f172a", fontSize: 12, fontWeight: 700 }}>remaining = float − sum(spent)</span>
         </div>
       </div>
 
       {/* Note about backend */}
-      <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, color: "#92400e", fontSize: 12, marginBottom: 16, padding: "10px 14px" }}>
+      <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, color: "#92400e", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: "12px 16px" }}>
         The backend has no dedicated <code>/facility/expenses/</code> endpoint, so this ledger is derived from{" "}
         <code>/facility/work-order-cost-items/</code> (approved spend) plus expenditures recorded locally in this browser. When a
         backend expenses model is added, point this view at it for organization-wide tracking.
@@ -3349,10 +3349,10 @@ function ExpenditureView({ rows, organizationId }: { rows: Row[]; organizationId
       <div className="data-panel">
         <div className="fc-table-toolbar">
           <div className="fc-table-toolbar-left">
-            <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Expenditures ({expenditures.length})</span>
+            <span style={{ color: "#000000", fontWeight: 800, fontSize: 14 }}>Expenditures ({expenditures.length})</span>
           </div>
           <div className="fc-table-toolbar-right">
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(expenditures, "facility-expenditures.csv")}>↓ Export</button>
+            <button className="fc-toolbar-btn" onClick={() => exportCsv(expenditures, "facility-expenditures.csv")} style={{ fontWeight: 800 }}>↓ Export</button>
           </div>
         </div>
         <div className="table-scroll">
@@ -3370,11 +3370,11 @@ function ExpenditureView({ rows, organizationId }: { rows: Row[]; organizationId
             <tbody>
               {expenditures.length > 0 ? expenditures.map((e) => (
                 <tr key={String(e.id)}>
-                  <td style={{ fontSize: 11, color: "#6b7890" }}>{String(e.date ?? "—")}</td>
-                  <td style={{ fontSize: 12, textTransform: "capitalize" }}>{String(e.category ?? "—")}</td>
-                  <td style={{ fontSize: 12 }}>{String(e.description ?? "—")}</td>
-                  <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(e.amount ?? 0))}</td>
-                  <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(e.float_ref ?? "—")}</td>
+                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{e.date ? new Date(e.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
+                  <td style={{ fontSize: 12, fontWeight: 700, color: "#000000", textTransform: "capitalize" }}>{String(e.category ?? "—")}</td>
+                  <td style={{ fontSize: 12, fontWeight: 700, color: "#000000" }}>{String(e.description ?? "—")}</td>
+                  <td style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>{money.format(Number(e.amount ?? 0))}</td>
+                  <td style={{ fontSize: 12, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#000000" }}>{String(e.float_ref ?? "—")}</td>
                   <td><FcStatus value={String(e.status ?? "pending")} /></td>
                 </tr>
               )) : (
