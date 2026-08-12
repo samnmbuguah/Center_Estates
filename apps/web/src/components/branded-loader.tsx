@@ -13,7 +13,7 @@ export function BrandedLoader({ message = "Preparing your workspace", compact = 
         <span className="ce-loader-orbit ce-loader-orbit--inner" />
         <span className="ce-loader-beacon ce-loader-beacon--one" />
         <span className="ce-loader-beacon ce-loader-beacon--two" />
-        <div className="ce-loader-logo"><BrandLogo /></div>
+        <div className="ce-loader-logo"><BrandLogo showWordmark={false} dark={false} size="lg" /></div>
         <div className="ce-loader-skyline"><i /><i /><i /><i /><i /></div>
         <span className="ce-loader-scan" />
       </div>

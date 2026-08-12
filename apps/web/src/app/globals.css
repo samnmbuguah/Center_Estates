@@ -5598,10 +5598,10 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 .ce-loader-beacon--one { top: 31px; right: 34px; }
 .ce-loader-beacon--two { bottom: 35px; left: 30px; animation-delay: -.9s; }
 .ce-loader-copy { display: grid; justify-items: center; gap: 7px; text-align: center; }
-.ce-loader-copy strong { font-size: clamp(17px, 2vw, 21px); letter-spacing: -.02em; }
-.ce-loader-copy > span:not(.ce-loader-dots) { color: var(--text-secondary, var(--muted)); font-size: 13px; }
+.ce-loader-copy strong { font-size: 22px; font-weight: 900; color: #000000; letter-spacing: -.02em; }
+.ce-loader-copy > span:not(.ce-loader-dots) { color: #0f172a; font-size: 14px; font-weight: 750; }
 .ce-loader-dots { display: inline-flex; align-items: center; gap: 5px; min-height: 12px; }
-.ce-loader-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); animation: ce-dot 1.25s ease-in-out infinite; }
+.ce-loader-dots i { width: 6px; height: 6px; border-radius: 50%; background: #dc2626; animation: ce-dot 1.25s ease-in-out infinite; }
 .ce-loader-dots i:nth-child(2) { animation-delay: .15s; }
 .ce-loader-dots i:nth-child(3) { animation-delay: .3s; }
 
