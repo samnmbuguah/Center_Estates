@@ -8,7 +8,6 @@ from properties.models import Property
 
 PROPERTY_LOOKUPS = {
     # Property management
-    'properties.Property': 'pk',
     'properties.Building': 'property_id',
     'properties.Unit': 'property_id',
     'properties.Project': 'property_id',

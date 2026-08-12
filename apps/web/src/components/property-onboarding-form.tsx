@@ -109,7 +109,7 @@ export function PropertyOnboardingForm() {
   useEffect(() => {
     if (!editId) return;
     let active = true;
-    apiFetch(`/property/properties/${editId}/`, {}, organizationId)
+    apiFetch(`/property/properties/${editId}/`, { headers: { "X-Property-Scope": "portfolio" } }, organizationId)
       .then(async (res) => {
         if (active && res.ok) {
           const prop = await res.json();
@@ -251,6 +251,7 @@ export function PropertyOnboardingForm() {
       const method = editId ? "PATCH" : "POST";
       const response = await apiFetch(endpoint, {
         method,
+        headers: { "X-Property-Scope": "portfolio" },
         body: JSON.stringify({
           property: { name: values.name.trim(), property_type: values.property_type, status: values.status, address: values.address, city: values.city, country: values.country, metadata },
           building: { count: Number(values.building_count || 0), floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" },
