@@ -29,7 +29,7 @@ type Pulse = {
 
 export function PortfolioOverviewWorkspace() {
   const { session } = useAuth();
-  const { properties: contextProps, refreshProperties } = usePropertyContext();
+  const { properties: contextProps } = usePropertyContext();
   const sessionOrganization = session?.activeOrganizationId ?? null;
 
   const [pulse, setPulse] = useState<Pulse>({});
@@ -114,7 +114,7 @@ export function PortfolioOverviewWorkspace() {
         setTimeout(() => {
           setEditingProperty(null);
           setSaveSuccess(false);
-          refreshProperties();
+          void fetchData();
         }, 1200);
       } else {
         alert("Failed to update property. Please try again.");
