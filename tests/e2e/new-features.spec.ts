@@ -6,10 +6,12 @@ const PASS = process.env.E2E_ADMIN_PASSWORD || "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f
 
 async function signIn(page: Page) {
   await page.goto(`${BASE}/login`);
-  await page.locator("#username").fill(ADMIN);
-  await page.locator("#password").fill(PASS);
-  await page.locator("button[type=submit]").click();
-  await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
+  if (page.url().includes("/login") && (await page.locator("#username").count()) > 0) {
+    await page.locator("#username").fill(ADMIN);
+    await page.locator("#password").fill(PASS);
+    await page.locator("button[type=submit]").click();
+    await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
+  }
 }
 
 test.beforeEach(async ({ page }) => signIn(page));
