@@ -4991,8 +4991,8 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 
 .module-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
   width: 100%;
 }
 
@@ -5606,7 +5606,7 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 .ce-loader-dots i:nth-child(3) { animation-delay: .3s; }
 
 .ce-data-loading { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--border-color); border-radius: 14px; background: var(--bg-surface); }
-.ce-data-loading-head { display: flex; align-items: center; gap: 9px; color: var(--text-secondary, var(--muted)); font-size: 12px; font-weight: 700; }
+.ce-data-loading-head { display: flex; align-items: center; gap: 9px; color: var(--text-primary); font-size: 14px; font-weight: 800; }
 .ce-data-loading-head .ce-loader-dots { margin-left: 2px; }
 .ce-mini-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 36%, transparent); animation: ce-beacon 1.8s ease-out infinite; }
 .ce-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

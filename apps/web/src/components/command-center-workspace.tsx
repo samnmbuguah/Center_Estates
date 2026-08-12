@@ -132,51 +132,104 @@ export function CommandCenterWorkspace() {
           {portfolioView === "calendar" ? <ModuleCalendarView moduleName="Portfolio" portfolio /> : null}
           {portfolioView ? <div style={{ height: 24 }} /> : null}
           <section aria-labelledby="modules-heading">
-            <div className="section-heading command-section-heading">
+            <div className="section-heading command-section-heading" style={{ marginBottom: 20 }}>
               <div>
-                <p className="eyebrow">Access your modules</p>
-                <h2 id="modules-heading">ERP modules</h2>
-                <span>Open a module to continue where your team left off.</span>
+                <p className="eyebrow" style={{ fontSize: 12, fontWeight: 800, color: "var(--brand-primary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Access your modules</p>
+                <h2 id="modules-heading" style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", margin: "0 0 6px" }}>ERP modules</h2>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Open a module to continue where your team left off.</span>
               </div>
-              <span className="status-pill">{subscribedModules.length} active</span>
+              <span className="status-pill" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#059669", fontWeight: 800, fontSize: 12, px: 1.5, py: 0.5 }}>{subscribedModules.length} active</span>
             </div>
 
-            <div className="module-grid">
+            <div className="module-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
               {subscribedModules.map((module) => {
                 const live = moduleStats(module.slug);
-                const stats = live ?? module.stats.map((stat) => ({ label: stat.label, value: stat.value }));
-                const permissions = new Set(session?.permissions ?? []);
-                const actions = (quickActions[module.slug] ?? []).filter(action => !action.permission || permissions.has("*") || permissions.has(action.permission));
+                const stats = (live ?? module.stats.map((stat) => ({ label: stat.label, value: stat.value }))).slice(0, 2);
                 return (
-                  <article className="module-card design-module-card" key={module.slug} style={{ "--module-accent": module.accent } as CSSProperties}>
-                    <header>
-                      <span className="module-icon" style={{ background: `${module.accent}18`, color: module.accent }}>
-                        {module.icon}
-                      </span>
-                      <span className="module-live">
-                        <i style={{ background: module.accent }} />
-                        {live ? "Live" : "Available"}
-                      </span>
-                    </header>
-                    <Link className="module-card-primary-link" href={`/${module.slug}`}>
-                      <h3>{module.name}</h3>
-                      <p>{module.description}</p>
-                    </Link>
-                    <div className="module-stat-row">
-                      {stats.map((stat) => (
-                        <span key={stat.label}>
-                          <small>{stat.label}</small>
-                          <b>{stat.value}</b>
-                        </span>
-                      ))}
+                  <Link
+                    key={module.slug}
+                    href={`/${module.slug}`}
+                    className="module-card design-module-card portrait-module-card"
+                    style={{
+                      "--module-accent": module.accent,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      textAlign: "center",
+                      padding: "24px 18px 18px",
+                      borderRadius: 16,
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      textDecoration: "none",
+                      color: "inherit",
+                      position: "relative",
+                      transition: "all 0.2s ease-in-out",
+                    } as CSSProperties}
+                  >
+                    <div
+                      className="module-icon-circle"
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: "50%",
+                        background: `${module.accent}18`,
+                        color: module.accent,
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: 26,
+                        marginBottom: 16,
+                      }}
+                    >
+                      {module.icon}
                     </div>
-                    <div className="module-quick-actions" aria-label={`${module.name} quick actions`}>
-                      {actions.map((action) => <Link key={action.href} href={action.href}>{action.label}<span aria-hidden>→</span></Link>)}
-                    </div>
-                    <Link className="open-link" href={`/${module.slug}`}>
-                      Open workspace <span aria-hidden>→</span>
-                    </Link>
-                  </article>
+
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.25 }}>
+                      {module.name}
+                    </h3>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 20px", minHeight: 38, lineHeight: 1.45 }}>
+                      {module.description}
+                    </p>
+
+                    {stats.length > 0 && (
+                      <div
+                        className="module-card-kpis"
+                        style={{
+                          width: "100%",
+                          display: "grid",
+                          gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
+                          gap: 8,
+                          paddingTop: 14,
+                          borderTop: "1px solid var(--border-subtle)",
+                          marginTop: "auto",
+                          textAlign: "left",
+                        }}
+                      >
+                        {stats.map((stat) => (
+                          <div key={stat.label} style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontSize: 15, fontWeight: 900, color: "var(--text-primary)" }}>{stat.value}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginTop: 2 }}>{stat.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <span
+                      className="card-arrow-indicator"
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        bottom: 14,
+                        right: 14,
+                        fontSize: 14,
+                        fontWeight: 800,
+                        color: "var(--text-primary)",
+                        opacity: 0.6,
+                        transition: "opacity 0.15s ease, transform 0.15s ease",
+                      }}
+                    >
+                      ›
+                    </span>
+                  </Link>
                 );
               })}
             </div>
