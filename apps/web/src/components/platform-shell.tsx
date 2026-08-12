@@ -55,7 +55,7 @@ const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; ico
 
 export default function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { activeProperty, properties, propertyContextReady } = usePropertyContext();
+  const { activeProperty, properties, propertyContextReady, selectProperty } = usePropertyContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -249,10 +249,43 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
       />}
 
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>
-        {/* MUI AppBar Header */}
-        <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 76, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
-          <Toolbar variant="dense" sx={{ width: "100%", height: "100%", display: "grid", gridTemplateColumns: "auto minmax(0, 1fr) auto", gap: { xs: 1, md: 2.5 }, px: { xs: 1.5, md: 3 } }}>
-            <BrandLogo size="md" href="/workspaces" showWordmark dark={false} />
+        {/* MUI AppBar Header — Increased height (84px) for Property Switcher Dropdown */}
+        <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 84, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
+          <Toolbar variant="dense" sx={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: { xs: 1, md: 2.5 }, px: { xs: 1.5, md: 3 } }}>
+            {/* Top Navbar Left: Prominent Logo + Property Switcher Dropdown inside Module Workspace */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              {moduleWorkspaceActive && (
+                <BrandLogo size="lg" href="/workspaces" showWordmark dark={false} />
+              )}
+              {moduleWorkspaceActive && activeProperty && (
+                <Box sx={{ minWidth: 220 }}>
+                  <select
+                    aria-label="Select property"
+                    value={activeProperty.id}
+                    onChange={(e) => {
+                      const sel = properties.find((p) => p.id === e.target.value);
+                      if (sel) selectProperty(sel);
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid var(--border-color)",
+                      background: "#ffffff",
+                      color: "#000000",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code ? `${p.code} — ` : ""}{p.name}
+                      </option>
+                    ))}
+                  </select>
+                </Box>
+              )}
+            </Box>
 
             <Box sx={{ width: "min(520px, 100%)", justifySelf: "center", position: "relative", ml: { xs: 0, md: 2 } }}>
               <TextField
