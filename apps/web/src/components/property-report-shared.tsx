@@ -72,7 +72,7 @@ export function ReportToolbar({
       <Box>
         <Typography variant="overline" color="primary" sx={{ fontWeight: 900 }}>Reports & analytics</Typography>
         <Typography variant="h5" sx={{ fontWeight: 900 }}>{title}</Typography>
-        <Typography variant="body2" color="text.secondary">{subtitle}</Typography>
+        <Typography variant="body2" color="text.primary" sx={{ fontWeight: 800 }}>{subtitle}</Typography>
       </Box>
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
         {children}
@@ -138,7 +138,7 @@ export function ReportDataTable({ rows, columns }: { rows: Array<Record<string, 
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
       <Box sx={{ px: 2, py: 1.25, borderBottom: 1, borderColor: "divider", display: "flex", justifyContent: "space-between", gap: 1 }}>
         <Typography sx={{ fontWeight: 800 }}>{rows.length.toLocaleString()} record{rows.length === 1 ? "" : "s"}</Typography>
-        <Typography variant="caption" color="text.secondary">Scroll horizontally on smaller screens · Export for full formatting</Typography>
+        <Typography variant="caption" color="text.primary" sx={{ fontWeight: 800 }}>Scroll horizontally on smaller screens · Export for full formatting</Typography>
       </Box>
       <Box sx={{ overflowX: "auto" }}>
         <table className="fc-data-table">
@@ -170,7 +170,7 @@ export function CriticalReportCards({
       {items.map(item => (
         <Paper key={item.key} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
           <Typography sx={{ fontWeight: 900 }}>{item.title}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: .5, mb: 1.5 }}>{item.description}</Typography>
+          <Typography variant="body2" color="text.primary" sx={{ fontWeight: 800, mt: .5, mb: 1.5 }}>{item.description}</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Button size="small" variant="contained" onClick={() => onExport(item.key, "pdf")}>PDF</Button>
             <Button size="small" variant="outlined" onClick={() => onExport(item.key, "xlsx")}>Excel</Button>

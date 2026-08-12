@@ -107,7 +107,7 @@ export function PropertyFinancialReports() {
           ["Net income", k.net_income, "success"],
         ].map(([label, value, color]) => (
           <Paper key={String(label)} variant="outlined" sx={{ p: 1.75, borderRadius: 3, borderTop: 3, borderTopColor: `${color}.main` }}>
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
+            <Typography variant="caption" color="text.primary" sx={{ fontWeight: 800 }}>{label}</Typography>
             <Typography variant="h6" sx={{ fontWeight: 900 }}>
               {String(label).includes("rate") ? value : money.format(Number(value ?? 0))}
             </Typography>
@@ -142,7 +142,7 @@ export function PropertyFinancialReports() {
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,1fr)", lg: "repeat(4,1fr)" }, gap: 1.25 }}>
             {Object.entries(data?.arrears_ageing ?? {}).map(([bucket, value]) => (
               <Paper key={bucket} variant="outlined" sx={{ p: 2, borderRadius: 3, borderTop: 3, borderTopColor: "error.main" }}>
-                <Typography color="text.secondary">{bucket.replaceAll("_", "–")} days</Typography>
+                <Typography color="text.primary" sx={{ fontWeight: 800 }}>{bucket.replaceAll("_", "–")} days</Typography>
                 <Typography variant="h6" color="error.main" sx={{ fontWeight: 900 }}>{money.format(Number(value))}</Typography>
               </Paper>
             ))}
@@ -165,7 +165,7 @@ export function PropertyFinancialReports() {
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3,1fr)" }, gap: 1.25 }}>
             {[["Output VAT", data?.vat.output_vat], ["Input VAT", data?.vat.input_vat], ["Net VAT payable", data?.vat.net_vat]].map(([label, value]) => (
               <Paper key={String(label)} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                <Typography color="text.secondary">{label}</Typography>
+                <Typography color="text.primary" sx={{ fontWeight: 800 }}>{label}</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 900 }}>{money.format(Number(value ?? 0))}</Typography>
               </Paper>
             ))}
@@ -199,7 +199,7 @@ function ReportCard({ title, rows, valueKey = "total" }: { title: string; rows: 
               : money.format(Number(row[valueKey] ?? row.collected ?? 0))}
           </Typography>
         </Box>
-      )) : <Typography color="text.secondary">No transactions in this period.</Typography>}
+      )) : <Typography color="text.primary" sx={{ fontWeight: 800 }}>No transactions in this period.</Typography>}
     </Paper>
   );
 }

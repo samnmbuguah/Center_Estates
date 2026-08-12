@@ -162,23 +162,23 @@ export function ModuleShell({
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "10px 16px", background: "var(--bg-app)", border: "1px solid var(--border-color)", borderRadius: 8, marginBottom: 14 }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-secondary)" }}>
+                <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-primary)" }}>
                   Viewing {entityLabel}:
                 </span>
-                <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>
+                <strong style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>
                   {entities.find((e) => e.id === activeEntityId)?.name ?? `All ${entityLabel}s`}
                 </strong>
-                <span style={{ fontSize: 11, padding: "2px 8px", background: "var(--success-bg)", color: "var(--success)", fontWeight: 700, borderRadius: 12 }}>
+                <span style={{ fontSize: 12, padding: "3px 10px", background: "var(--success-bg)", color: "var(--success)", fontWeight: 800, borderRadius: 12 }}>
                   {entities.find((e) => e.id === activeEntityId)?.status ?? "Active"}
                 </span>
                 {entities.find((e) => e.id === activeEntityId)?.location && (
-                  <small style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  <small style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
                     📍 {entities.find((e) => e.id === activeEntityId)?.location}
                   </small>
                 )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>Switch {entityLabel}:</label>
+                <label style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>Switch {entityLabel}:</label>
                 <select
                   value={activeEntityId ?? ""}
                   onChange={(e) => onSelectEntity?.(e.target.value)}

@@ -405,7 +405,22 @@ function SubTabs({ tabs, active, onChange }: { tabs: { id: string; label: string
         variant="scrollable"
         scrollButtons="auto"
         aria-label="Workspace sections"
-        sx={{ minHeight: 42, "& .MuiTab-root": { minHeight: 42, px: 2, py: 1, fontSize: 13, fontWeight: 700, textTransform: "none" } }}
+        sx={{
+          minHeight: 44,
+          "& .MuiTab-root": {
+            minHeight: 44,
+            px: 2.5,
+            py: 1,
+            fontSize: 14,
+            fontWeight: 800,
+            textTransform: "none",
+            color: "var(--text-primary)",
+            "&.Mui-selected": {
+              color: "var(--brand-primary)",
+              fontWeight: 800,
+            },
+          },
+        }}
       >
         {tabs.map((t) => <Tab key={t.id} value={t.id} label={t.label} />)}
       </Tabs>

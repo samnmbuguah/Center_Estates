@@ -139,7 +139,7 @@ export function PropertyTenancyReports() {
           ["Overdue tenants", kpi.overdue_tenants],
         ].map(([label, value]) => (
           <Paper key={String(label)} variant="outlined" sx={{ p: 1.75, borderRadius: 3, borderTop: 3, borderTopColor: "primary.main" }}>
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
+            <Typography variant="caption" color="text.primary" sx={{ fontWeight: 800 }}>{label}</Typography>
             <Typography variant="h6" sx={{ fontWeight: 900 }}>{value}</Typography>
           </Paper>
         ))}
@@ -154,14 +154,14 @@ export function PropertyTenancyReports() {
                 <Box key={row.status} sx={{ display: "flex", justifyContent: "space-between", py: 1, borderBottom: 1, borderColor: "divider" }}>
                   <Chip size="small" label={row.status} /><strong>{row.count}</strong>
                 </Box>
-              )) : <Typography color="text.secondary">No units in the selected scope.</Typography>}
+              )) : <Typography color="text.primary" sx={{ fontWeight: 800 }}>No units in the selected scope.</Typography>}
             </Paper>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
               <Typography sx={{ fontWeight: 900 }}>Income outlook</Typography>
               <Typography variant="h4" color="success.main" sx={{ fontWeight: 900, mt: 2 }}>
                 {money.format(Number(kpi.projected_monthly_income_90_days ?? 0))}
               </Typography>
-              <Typography color="text.secondary">
+              <Typography color="text.primary" sx={{ fontWeight: 800 }}>
                 Projected monthly income within 90 days, including effective rent escalations.
               </Typography>
               <Typography variant="body2" sx={{ mt: 2 }}>
@@ -194,7 +194,7 @@ export function PropertyTenancyReports() {
             <Typography variant="h3" color="success.main" sx={{ fontWeight: 900, my: 2 }}>
               {money.format(Number(kpi.current_monthly_income ?? 0))}
             </Typography>
-            <Typography color="text.secondary">
+            <Typography color="text.primary" sx={{ fontWeight: 800 }}>
               Current effective monthly rent for active tenancies. Projected in 90 days: {money.format(Number(kpi.projected_monthly_income_90_days ?? 0))}.
             </Typography>
           </Paper>

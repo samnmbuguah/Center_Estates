@@ -151,13 +151,13 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
 
 export function PageHead({ eyebrow, title, subtitle, actions }: { eyebrow?: string; title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
-    <section className="page-head portfolio-head" style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+    <section className="page-head portfolio-head" style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
       <div>
-        {eyebrow && <p className="eyebrow" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--primary)", margin: "0 0 4px" }}>{eyebrow}</p>}
-        <h1 style={{ fontSize: 24, fontWeight: 800, margin: "2px 0 4px", color: "var(--text)" }}>{title}</h1>
-        {subtitle && <p className="muted" style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>{subtitle}</p>}
+        {eyebrow && <p className="eyebrow" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 800, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--brand-primary)", margin: "0 0 4px" }}>{eyebrow}</p>}
+        <h1 style={{ fontSize: 26, fontWeight: 800, margin: "2px 0 6px", color: "var(--text-primary)" }}>{title}</h1>
+        {subtitle && <p className="muted" style={{ fontSize: 14, fontWeight: 600, margin: 0, color: "var(--text-secondary)" }}>{subtitle}</p>}
       </div>
-      {actions && <div className="portfolio-toolbar" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>{actions}</div>}
+      {actions && <div className="portfolio-toolbar" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>{actions}</div>}
     </section>
   );
 }
@@ -171,7 +171,7 @@ export function SearchInput({ value, onChange, placeholder }: { value: string; o
       placeholder={placeholder ?? "Search records…"}
       size="small"
       slotProps={{ htmlInput: { "aria-label": placeholder ?? "Search records" } }}
-      sx={{ minWidth: { xs: "100%", sm: 240 }, "& .MuiInputBase-root": { bgcolor: "background.paper" } }}
+      sx={{ minWidth: { xs: "100%", sm: 240 }, "& .MuiInputBase-root": { bgcolor: "background.paper", fontWeight: 600 } }}
     />
   );
 }
@@ -180,14 +180,14 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (pages <= 1) return null;
   return (
-    <div className="fc-pagination" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 14 }}>
-      <span className="fc-pager-info" style={{ fontSize: 12, color: "var(--muted)" }}>
+    <div className="fc-pagination" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16 }}>
+      <span className="fc-pager-info" style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
         Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
       </span>
-      <div className="row" style={{ gap: 6 }}>
-        <button className="btn ghost sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Prev</button>
-        <span className="mono" style={{ fontSize: 12, padding: "0 8px", color: "var(--muted)" }}>{page} / {pages}</span>
-        <button className="btn ghost sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>Next →</button>
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn ghost sm" disabled={page <= 1} onClick={() => onPage(page - 1)} style={{ fontWeight: 700 }}>← Prev</button>
+        <span className="mono" style={{ fontSize: 13, fontWeight: 800, padding: "0 8px", color: "var(--text-primary)" }}>{page} / {pages}</span>
+        <button className="btn ghost sm" disabled={page >= pages} onClick={() => onPage(page + 1)} style={{ fontWeight: 700 }}>Next →</button>
       </div>
     </div>
   );
