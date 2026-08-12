@@ -138,7 +138,7 @@ export function CommandCenterWorkspace() {
                 <h2 id="modules-heading" style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", margin: "0 0 6px" }}>ERP modules</h2>
                 <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Open a module to continue where your team left off.</span>
               </div>
-              <span className="status-pill" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#059669", fontWeight: 800, fontSize: 12, px: 1.5, py: 0.5 }}>{subscribedModules.length} active</span>
+              <span className="status-pill" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#059669", fontWeight: 800, fontSize: 12, padding: "4px 12px" }}>{subscribedModules.length} active</span>
             </div>
 
             <div className="module-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
