@@ -9,7 +9,7 @@ async function signIn(page: Page) {
   await page.locator("#username").fill(ADMIN);
   await page.locator("#password").fill(PASS);
   await page.locator("button[type=submit]").click();
-  await expect(page).toHaveURL(/(\\/|\\/workspaces)$/, { timeout: 30000 });
+  await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
 }
 
 test.beforeEach(async ({ page }) => signIn(page));
