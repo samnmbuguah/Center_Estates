@@ -18,15 +18,19 @@ export const propertyNav: ModuleNavGroup[] = [
   {
     label: "TENANCY",
     items: [
-      { id: "tenancy", label: "Tenants & Occupancy", icon: "👥" },
+      { id: "tenants", label: "Tenant Register", icon: "👥" },
+      { id: "units", label: "Units & Occupancy", icon: "🏢" },
+      { id: "leases", label: "Lease Agreements", icon: "📄" },
+      { id: "tenant-documents", label: "Compliance & Docs", icon: "📎" },
     ],
   },
   {
     label: "COLLECTIONS",
     items: [
-      { id: "billing",    label: "Billing & Invoicing", icon: "🧾" },
-      { id: "financials", label: "Financials",      icon: "💰" },
-      { id: "fees",       label: "Management Fees", icon: "🧾" },
+      { id: "billing", label: "Billing & Invoicing", icon: "🧾" },
+      { id: "financials", label: "Receipts & Payment Ledger", icon: "💰" },
+      { id: "arrears", label: "Arrears & Recovery", icon: "⚠️" },
+      { id: "fees", label: "Management Fees", icon: "🧾" },
     ],
   },
   {
@@ -38,15 +42,14 @@ export const propertyNav: ModuleNavGroup[] = [
   {
     label: "REPORTS",
     items: [
-      { id: "tenancy-reports", label: "Tenancy & Occupancy", icon: "🏘️" },
-      { id: "financial-reports", label: "Financial Reports", icon: "📊" },
-      { id: "reports", label: "Reports", icon: "📈" },
+      { id: "tenancy-reports", label: "Tenancy Analytics", icon: "🏘️" },
+      { id: "financial-reports", label: "Financial Analytics", icon: "📊" },
     ],
   },
   {
     label: "INSIGHTS",
     items: [
-      { id: "forecast",     label: "5-Year Forecast" },
+      { id: "forecast", label: "5-Year Forecast", icon: "📈" },
     ],
   },
   {

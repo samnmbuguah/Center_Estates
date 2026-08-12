@@ -1898,17 +1898,6 @@ function RentView({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-      <SubTabs
-        active={rentSection}
-        onChange={(id) => setRentSection(id as RentSection)}
-        tabs={[
-          { id: "invoices", label: "Invoices" },
-          { id: "receipts", label: "Receipts" },
-          { id: "arrears", label: "Arrears" },
-          { id: "reminders", label: "Reminders" },
-          { id: "ledger", label: "Ledger" },
-        ]}
-      />
 
       <KpiStrip>
         <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} link="View invoices" onClick={() => setRentSection("invoices")} />
