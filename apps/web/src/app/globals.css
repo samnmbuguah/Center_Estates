@@ -1371,16 +1371,47 @@ html {
   }
 }
 
-/* Improved Color Contrast for All Text */
+/* ============================================================
+   SYSTEM-WIDE GREY FONT ELIMINATION (Light Mode)
+   Replaces every known grey/muted hex code with bold dark charcoal
+   so all text is fully legible in light mode.
+   ============================================================ */
+
+/* .muted class and small tags — override to bold dark charcoal */
 small, .text-sm, .text-xs, .text-caption, .muted {
-  color: var(--text-secondary) !important;
+  color: #0f172a !important;
+  font-weight: 750;
 }
 
-/* Remove overly aggressive global text color override - was breaking UI */
-/* Specific overrides for muted text only */
+/* var(--muted) inline style overrides */
 [style*="color: var(--muted)"] {
-  color: var(--text-secondary) !important;
+  color: #0f172a !important;
+  font-weight: 750;
 }
+[style*="color: var(--text-muted)"] {
+  color: #0f172a !important;
+  font-weight: 750;
+}
+
+/* Hardcoded grey hex inline style overrides (light mode only) */
+:root:not([data-theme="dark"]) [style*="color: #8a96a7"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #6b7280"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #64748b"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #94a3b8"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #9ca3af"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #718096"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #a0aec0"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #b8c8d7"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #778197"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #69738a"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #566177"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #667084"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #5a6478"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #4b5563"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: #3b465d"] { color: #0f172a !important; font-weight: 750; }
+/* var(--muted, #...) fallback patterns */
+:root:not([data-theme="dark"]) [style*="color: var(--muted, #8a96a7)"] { color: #0f172a !important; font-weight: 750; }
+:root:not([data-theme="dark"]) [style*="color: var(--muted, #6b7280)"] { color: #0f172a !important; font-weight: 750; }
 
 /* Fix light mode specific color issues - only for known problematic colors */
 [data-theme="light"] [style*="color: #b8c8d7"] {
@@ -4357,7 +4388,7 @@ h3 { margin: 26px 0 12px; font-size: 18px; font-weight: 700; color: var(--text);
   border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
 }
 .stat { font-family: "IBM Plex Mono"; font-size: 32px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
-.muted { color: var(--muted); font-size: 15px; }
+.muted { color: #0f172a !important; font-size: 15px; font-weight: 750; }
 
 /* ---------- Tables ---------- */
 table { width: 100%; border-collapse: collapse; }

@@ -279,7 +279,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                   >
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.code ? `${p.code} — ` : ""}{p.name}
+                        {p.name}
                       </option>
                     ))}
                   </select>
@@ -488,7 +488,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
           </Toolbar>
         </AppBar>
 
-        {moduleWorkspaceActive ? <PropertyContextBar /> : null}
+        {/* PropertyContextBar removed — property context is managed via the top navbar dropdown */}
         <div className="property-scoped-route">
           {children}
         </div>
