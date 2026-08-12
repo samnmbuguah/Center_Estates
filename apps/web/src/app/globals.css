@@ -265,6 +265,31 @@
   color: var(--text-secondary) !important;
 }
 
+/* LIGHT MODE GREY FONT ELIMINATION OVERRIDE — System-Wide High Contrast Bold Black */
+:root:not([data-theme="dark"]), [data-theme="light"] {
+  [style*="color: #8a96a7"],
+  [style*="color: #6b7280"],
+  [style*="color: #64748b"],
+  [style*="color: #94a3b8"],
+  [style*="color: #6b7890"],
+  [style*="color: #778197"],
+  [style*="color: #4b5563"],
+  [style*="color: #667084"],
+  [style*="color: #5a6478"],
+  [style*="color: #69738a"],
+  [style*="color: #3b465d"],
+  [style*="color: #566177"],
+  [style*="color:#8a96a7"],
+  [style*="color:#6b7280"],
+  [style*="color:#64748b"],
+  [style*="color:#94a3b8"],
+  [style*="color:#6b7890"],
+  [style*="color:#778197"] {
+    color: #0f172a !important;
+    font-weight: 750 !important;
+  }
+}
+
 /* Fix specific component backgrounds in dark mode */
 [data-theme="dark"] .card,
 [data-theme="dark"] [class*="card"],
