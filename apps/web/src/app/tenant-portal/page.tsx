@@ -188,7 +188,7 @@ export default function TenantPortalPage() {
   if (loading)
     return (
       <div className="page-wrap">
-        <div className="data-loading">Loading your tenant account…</div>
+        <div className="data-loading">Loading your tenant account...</div>
       </div>
     );
   if (!data)
@@ -227,7 +227,7 @@ export default function TenantPortalPage() {
       {error && <div className="form-error">{error}</div>}
       {stkNotice && (
         <div style={{ background: "#dcfce7", color: "#15803d", padding: "12px 16px", borderRadius: 8, fontWeight: 600, marginBottom: 16, border: "1px solid #bbf7d0" }}>
-          ✅ {stkNotice}
+          [OK] {stkNotice}
         </div>
       )}
       {tab === "overview" && (
@@ -272,11 +272,11 @@ export default function TenantPortalPage() {
               {lease ? (
                 <div className="portal-lease">
                   <strong>
-                    {lease.property_name} · {lease.unit_code}
+                    {lease.property_name} - {lease.unit_code}
                   </strong>
                   <span>{lease.reference}</span>
                   <span>
-                    {lease.starts_on} — {lease.ends_on}
+                    {lease.starts_on} to {lease.ends_on}
                   </span>
                   <b>{cash.format(Number(lease.monthly_rent))} / month</b>
                 </div>
@@ -285,48 +285,43 @@ export default function TenantPortalPage() {
               )}
             </article>
             <article className="data-panel">
-              <Title text="Recent activity" go={() => setTab("notices")} />
+              <Title text="Open maintenance tickets" go={() => setTab("maintenance")} />
               <PortalTable
-                headers={["Notice", "Date"]}
-                rows={data.notices
-                  .slice(0, 4)
-                  .map((row) => [
-                    String(row.title),
-                    String(row.created_at).slice(0, 10),
-                  ])}
+                headers={["Subject", "Priority", "Status", "Created"]}
+                rows={data.serviceRequests.slice(0, 5).map((row) => [
+                  String(row.subject),
+                  String(row.priority),
+                  String(row.status),
+                  String(row.created_at || row.updated_at || "-").slice(0, 10),
+                ])}
               />
             </article>
           </section>
         </>
       )}
       {tab === "invoices" && (
-        <Panel title="Invoices">
+        <Panel title="Billing & Invoices">
           <PortalTable
             headers={[
-              "Invoice",
-              "Issued",
-              "Due",
+              "Invoice #",
+              "Due Date",
               "Amount",
+              "Paid",
               "Balance",
               "Status",
-              "Actions",
+              "Action",
             ]}
             rows={data.invoices.map((row) => [
               String(row.number),
-              String(row.issued_on),
               String(row.due_on),
-              cash.format(Number(row.amount)),
+              cash.format(Number(row.total_amount)),
+              cash.format(Number(row.paid_amount)),
               cash.format(Number(row.balance)),
-              <Status key={String(row.id)} value={String(row.status)} />,
-              <span className="row" key={`actions-${row.id}`}>
+              String(row.status),
+              <span key={String(row.id)} className="portal-action-group">
                 <button
                   type="button"
-                  onClick={() =>
-                    void downloadDocument(
-                              `/property/portal/invoices/${row.id}/pdf/`,
-                      `${row.number}.pdf`,
-                    )
-                  }
+                  onClick={() => void downloadDocument(`/property/portal/invoices/${row.id}.pdf/`, `${row.number}.pdf`)}
                 >
                   PDF
                 </button>
@@ -341,7 +336,7 @@ export default function TenantPortalPage() {
                       onClick={() => void payInvoice(row)}
                     >
                       {paymentBusy === String(row.id)
-                        ? "Starting…"
+                        ? "Starting..."
                         : `Pay${data.paymentGateways?.[0] ? ` via ${data.paymentGateways[0].display_name}` : " online"}`}
                     </button>
                   )}
@@ -358,28 +353,23 @@ export default function TenantPortalPage() {
         }>
           <PortalTable
             headers={[
-              "Receipt",
-              "Received",
-              "Amount",
+              "Receipt #",
+              "Date",
               "Method",
+              "Amount",
               "Reference",
-              "Document",
+              "Action",
             ]}
             rows={data.receipts.map((row) => [
-              String(row.number),
-              String(row.received_on),
-              cash.format(Number(row.amount)),
-              String(row.payment_method).replaceAll("_", " "),
-              String(row.external_reference || "—"),
+              String(row.receipt_number),
+              String(row.payment_date),
+              String(row.payment_method),
+              cash.format(Number(row.amount_paid)),
+              String(row.external_reference || "-"),
               <button
+                key={String(row.id)}
                 type="button"
-                key={`pdf-${row.id}`}
-                onClick={() =>
-                  void downloadDocument(
-                            `/property/portal/receipts/${row.id}/pdf/`,
-                    `${row.number}.pdf`,
-                  )
-                }
+                onClick={() => void downloadDocument(`/property/portal/receipts/${row.id}.pdf/`, `${row.receipt_number}.pdf`)}
               >
                 PDF
               </button>,
@@ -389,148 +379,118 @@ export default function TenantPortalPage() {
       )}
       {tab === "maintenance" && (
         <Panel
-          title="Maintenance requests"
+          title="Maintenance tickets"
           action={
             <button className="primary-action" onClick={() => setModal(true)}>
-              New request
+              Report issue
             </button>
           }
         >
           <PortalTable
-            headers={[
-              "Reference",
-              "Issue",
-              "Category",
-              "Priority",
-              "Submitted",
-              "Status",
-            ]}
+            headers={["Subject", "Priority", "Status", "Created", "Last updated"]}
             rows={data.serviceRequests.map((row) => [
-              String(row.reference),
               String(row.subject),
-              String(row.category),
-              <Status key={`p-${row.id}`} value={String(row.priority)} />,
-              String(row.submitted_at).slice(0, 10),
-              <Status key={String(row.id)} value={String(row.status)} />,
+              String(row.priority),
+              String(row.status),
+              String(row.created_at).slice(0, 16),
+              String(row.updated_at).slice(0, 16),
             ])}
           />
         </Panel>
       )}
       {tab === "documents" && (
-        <Panel title="Documents">
+        <Panel title="Lease documents & notices">
           <PortalTable
-            headers={["Document", "Number", "Expires", "Status"]}
+            headers={[
+              "Document name",
+              "Category",
+              "Document #",
+              "Expires",
+              "Action",
+            ]}
             rows={data.documents.map((row) => [
-              String(row.document_type).replaceAll("_", " "),
-              String(row.document_number || "—"),
-              String(row.expires_on || "—"),
-              <Status key={String(row.id)} value={String(row.status)} />,
-            ])}
-          />
-        </Panel>
-      )}
-      {tab === "notices" && (
-        <Panel title="Messages & notices">
-          <PortalTable
-            headers={["Notice", "Message", "Level", "Date"]}
-            rows={data.notices.map((row) => [
               String(row.title),
-              String(row.message),
-              <Status key={String(row.id)} value={String(row.level)} />,
-              String(row.created_at).slice(0, 10),
+              String(row.category),
+              String(row.document_number || "-"),
+              String(row.expires_on || "-"),
+              row.file_url ? (
+                <a
+                  key={String(row.id)}
+                  href={String(row.file_url)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View
+                </a>
+              ) : (
+                "None"
+              ),
             ])}
           />
         </Panel>
       )}
       {tab === "profile" && (
-        <Panel title="Profile & lease">
-          <div className="portal-profile">
-            <span>
-              <small>Tenant</small>
-              <strong>{data.tenant.name}</strong>
-            </span>
-            <span>
-              <small>Account</small>
-              <strong>{data.tenant.code}</strong>
-            </span>
-            <span>
-              <small>Email</small>
-              <strong>{data.tenant.email || "—"}</strong>
-            </span>
-            <span>
-              <small>Phone</small>
-              <strong>{data.tenant.phone || "—"}</strong>
-            </span>
+        <Panel title="Tenant Profile & Lease">
+          <div className="portal-profile-grid">
+            <div className="profile-card">
+              <h3>Account details</h3>
+              <p>Name: <strong>{data.tenant.name}</strong></p>
+              <p>Code: <strong>{data.tenant.code}</strong></p>
+              <p>Email: <strong>{data.tenant.email || "-"}</strong></p>
+              <p>Phone: <strong>{data.tenant.phone || "-"}</strong></p>
+            </div>
             {lease && (
-              <>
-                <span>
-                  <small>Property / unit</small>
-                  <strong>
-                    {lease.property_name} · {lease.unit_code}
-                  </strong>
-                </span>
-                <span>
-                  <small>Lease term</small>
-                  <strong>
-                    {lease.starts_on} — {lease.ends_on}
-                  </strong>
-                </span>
-              </>
+              <div className="profile-card">
+                <h3>Lease agreement</h3>
+                <p>Property: <strong>{lease.property_name} - {lease.unit_code}</strong></p>
+                <p>Reference: <strong>{lease.reference}</strong></p>
+                <p>Rent: <strong>{cash.format(Number(lease.monthly_rent))} / month</strong></p>
+                <p>Term: <strong>{lease.starts_on} to {lease.ends_on}</strong></p>
+              </div>
             )}
           </div>
         </Panel>
       )}
       {modal && (
-        <div className="modal-backdrop" onMouseDown={() => setModal(false)}>
-          <div
-            className="form-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="portal-request-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="modal-title">
-              <div>
-                <p className="eyebrow">Tenant maintenance</p>
-                <h2 id="portal-request-title">Report an issue</h2>
-              </div>
-              <button aria-label="Close" onClick={() => setModal(false)}>
-                ×
-              </button>
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Report Maintenance Issue</h2>
+              <button onClick={() => setModal(false)}>x</button>
             </div>
-            <form onSubmit={submitRequest}>
-              <label>
-                Subject
+            <form onSubmit={(e) => void submitRequest(e as any)}>
+              <div className="form-group">
+                <label>Subject</label>
                 <input
                   name="subject"
                   required
-                  placeholder="Leaking kitchen tap"
+                  placeholder="e.g. Leaking kitchen tap"
                 />
-              </label>
-              <div className="form-row">
-                <label>
-                  Category
-                  <input name="category" required placeholder="Plumbing" />
-                </label>
-                <label>
-                  Priority
-                  <select name="priority" defaultValue="medium">
-                    <option>low</option>
-                    <option>medium</option>
-                    <option>high</option>
-                    <option>critical</option>
-                  </select>
-                </label>
               </div>
-              <label>
-                Description
-                <textarea name="description" required rows={4} />
-              </label>
+              <div className="form-group">
+                <label>Priority</label>
+                <select name="priority" defaultValue="normal">
+                  <option value="low">Low</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  rows={4}
+                  placeholder="Provide additional details..."
+                />
+              </div>
               <div className="form-actions">
                 <button type="button" onClick={() => setModal(false)}>
                   Cancel
                 </button>
-                <button className="primary-action">Submit request</button>
+                <button type="submit" className="primary-action">
+                  Submit request
+                </button>
               </div>
             </form>
           </div>
@@ -552,20 +512,20 @@ function Kpi({
   go: () => void;
 }) {
   return (
-    <button className="kpi-card" onClick={go}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{note}</small>
-      <i>View details →</i>
-    </button>
+    <div className="kpi-card">
+      <span className="kpi-label">{label}</span>
+      <span className="kpi-value">{value}</span>
+      <span className="kpi-note">{note}</span>
+      <button onClick={go}>View details -&gt;</button>
+    </div>
   );
 }
 function Title({ text, go }: { text: string; go: () => void }) {
   return (
-    <header className="panel-title">
+    <div className="panel-title">
       <h2>{text}</h2>
-      <button onClick={go}>View all →</button>
-    </header>
+      <button onClick={go}>View all -&gt;</button>
+    </div>
   );
 }
 function Panel({
