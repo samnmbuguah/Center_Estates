@@ -65,7 +65,9 @@ export default function TenantPortalPage() {
     if (!organizationId) return;
     setLoading(true);
     setError("");
-    const response = await apiFetch("/property/portal/", {}, organizationId);
+    const tenantParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenant") : null;
+    const endpoint = tenantParam ? `/property/portal/${tenantParam}/` : "/property/portal/";
+    const response = await apiFetch(endpoint, {}, organizationId);
     if (!response.ok) {
       setError(
         response.status === 403

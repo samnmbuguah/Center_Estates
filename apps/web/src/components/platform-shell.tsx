@@ -167,6 +167,23 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     return base.filter((r) => `${r.name} ${r.detail}`.toLowerCase().includes(term));
   }, [allowedSlugs, query, session?.permissions]);
 
+  const activeModuleSlug = useMemo(() => {
+    const segment = pathname.split("/")[1] || "";
+    return segment.toLowerCase();
+  }, [pathname]);
+
+  const activeIdentityGroups = useMemo(() => {
+    if (activeModuleSlug === "companion") {
+      return [];
+    }
+    if (!activeModuleSlug || activeModuleSlug === "overview" || activeModuleSlug === "workspaces") {
+      return identityGroups;
+    }
+    return identityGroups.filter(
+      (g) => g.module === activeModuleSlug || g.module === "platform" || g.module === "all"
+    );
+  }, [identityGroups, activeModuleSlug]);
+
   useEffect(() => {
     // Theme is now managed by useTheme hook
   }, []);
@@ -454,12 +471,12 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                   </Box>
                   <Divider />
                   <MenuItem onClick={() => setProfileOpen(false)}><ListItemIcon><HelpCircle size={18} /></ListItemIcon><ListItemText primary={<TourLauncher />} /></MenuItem>
-                  {session?.canSwitchIdentity && identityGroups.length > 0 && (
+                  {session?.canSwitchIdentity && activeIdentityGroups.length > 0 && (
                     <>
                       <Box sx={{ px: 2, py: 1 }}>
                         <Typography variant="overline" sx={{ fontSize: 10, color: "text.secondary" }}>Switch Identity</Typography>
                       </Box>
-                      {identityGroups.map((group) => (
+                      {activeIdentityGroups.map((group) => (
                         <Box key={group.label} sx={{ mb: 1 }}>
                           <Typography variant="caption" sx={{ px: 2, fontSize: 10, color: "text.secondary", fontWeight: 700, textTransform: "uppercase" }}>
                             {group.label}

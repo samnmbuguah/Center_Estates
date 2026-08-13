@@ -85,6 +85,7 @@ const labels: Record<PropertyTab, string> = {
   "tenancy-reports": "Tenancy & Occupancy Reports",
   "financial-reports": "Financial Reports",
   fees: "Fee Invoicing",
+  "owner-portal": "Owner Portal",
   forecast: "5-Year Forecast",
   "critical-dates": "Critical Dates",
   tickets: "Tickets & Issues",
@@ -5039,7 +5040,9 @@ export function PropertyWorkspace({ initialTab = "properties", standaloneOnboard
   };
 
   const openTenantPortal = (row: Row) => {
-    setPortalTenant(row as TenantRow);
+    if (typeof window !== "undefined") {
+      window.location.href = `/tenant-portal?tenant=${row.id}`;
+    }
   };
 
   const downloadDocument = (row: Row) => {
