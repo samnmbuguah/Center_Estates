@@ -92,10 +92,10 @@ def _branding(organization):
 
 def _styles():
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="DocTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=NAVY, spaceAfter=5))
-    styles.add(ParagraphStyle(name="Section", parent=styles["Heading3"], fontName="Helvetica-Bold", fontSize=9, leading=12, textColor=RED, spaceBefore=7, spaceAfter=5, uppercase=True))
-    styles.add(ParagraphStyle(name="Small", parent=styles["BodyText"], fontSize=7.5, leading=10, textColor=NAVY))
-    styles.add(ParagraphStyle(name="Tiny", parent=styles["BodyText"], fontSize=6.5, leading=8, textColor=MUTED))
+    styles.add(ParagraphStyle(name="DocTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=16, leading=20, textColor=NAVY, spaceAfter=4))
+    styles.add(ParagraphStyle(name="Section", parent=styles["Heading3"], fontName="Helvetica-Bold", fontSize=9.5, leading=13, textColor=RED, spaceBefore=7, spaceAfter=5, uppercase=True))
+    styles.add(ParagraphStyle(name="Small", parent=styles["BodyText"], fontSize=8.5, leading=11, textColor=NAVY))
+    styles.add(ParagraphStyle(name="Tiny", parent=styles["BodyText"], fontSize=8, leading=10.5, textColor=NAVY))
     styles.add(ParagraphStyle(name="Right", parent=styles["Small"], alignment=TA_RIGHT))
     styles.add(ParagraphStyle(name="CenterSmall", parent=styles["Small"], alignment=TA_CENTER))
     return styles
@@ -137,22 +137,21 @@ def _doc_response(
             canvas.drawImage(ImageReader(str(logo_path)), 14 * mm, height - 25 * mm, width=14 * mm, height=18 * mm, preserveAspectRatio=True, anchor="c", mask="auto")
         canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 11.5)
         canvas.drawString(31 * mm, height - 11 * mm, brand["name"][:64])
-        canvas.setFont("Helvetica", 7); canvas.setFillColor(MUTED)
+        canvas.setFont("Helvetica", 7.5); canvas.setFillColor(MUTED)
         canvas.drawString(31 * mm, height - 15.5 * mm, brand["address"][:76])
         contact = "  |  ".join(item for item in (brand["phone"], brand["email"], f"PIN {brand['pin']}" if brand["pin"] else "") if item)
         canvas.drawString(31 * mm, height - 19.5 * mm, contact[:96])
-        canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 10)
-        canvas.drawRightString(width - 14 * mm, height - 10.5 * mm, str(title).upper()[:72])
-        canvas.setFont("Helvetica-Bold", 7.5); canvas.drawRightString(width - 14 * mm, height - 15.5 * mm, str(property_name)[:86])
-        canvas.setFont("Helvetica", 7); canvas.setFillColor(MUTED)
-        canvas.drawRightString(width - 14 * mm, height - 19.5 * mm, str(period)[:100])
-        canvas.drawRightString(width - 14 * mm, height - 24 * mm, f"Prepared by: {generated_by}"[:100])
-        canvas.drawRightString(width - 14 * mm, height - 28 * mm, f"Generated: {generated_at:%d %b %Y, %H:%M %Z}")
+        canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 10.5)
+        canvas.drawRightString(width - 14 * mm, height - 11 * mm, str(title).upper()[:72])
+        canvas.setFont("Helvetica-Bold", 8); canvas.drawRightString(width - 14 * mm, height - 16 * mm, str(property_name)[:86])
+        canvas.setFont("Helvetica", 7.5); canvas.setFillColor(MUTED)
+        canvas.drawRightString(width - 14 * mm, height - 21 * mm, str(period)[:100])
         canvas.setFillColor(RED); canvas.rect(14 * mm, header_bottom + 3 * mm, width - 28 * mm, 1.2 * mm, fill=1, stroke=0)
-        canvas.setStrokeColor(LINE); canvas.line(15 * mm, 12 * mm, width - 15 * mm, 12 * mm)
-        canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 6.5)
-        canvas.drawString(15 * mm, 8 * mm, "Generated securely by Center Estates ERP")
-        canvas.drawRightString(width - 15 * mm, 8 * mm, f"Page {doc.page}")
+        canvas.setStrokeColor(LINE); canvas.line(14 * mm, 12 * mm, width - 14 * mm, 12 * mm)
+        canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 7)
+        footer_text = f"Generated securely by Center Estates ERP  ·  Prepared by: {generated_by}  ·  Generated: {generated_at:%d %b %Y, %H:%M %Z}"
+        canvas.drawString(14 * mm, 7.5 * mm, footer_text)
+        canvas.drawRightString(width - 14 * mm, 7.5 * mm, f"Page {doc.page}")
         canvas.restoreState()
 
     doc = BaseDocTemplate(buffer, pagesize=pagesize, rightMargin=14 * mm, leftMargin=14 * mm, topMargin=43 * mm, bottomMargin=17 * mm, title=title, author=brand["name"], subject=f"{property_name} — {period}")
@@ -168,8 +167,8 @@ def _info_table(rows, styles, widths=None):
     data = []
     for left_label, left_value, right_label, right_value in rows:
         data.append([Paragraph(f"<b>{left_label}</b>", styles["Tiny"]), Paragraph(str(left_value or "—"), styles["Small"]), Paragraph(f"<b>{right_label}</b>", styles["Tiny"]), Paragraph(str(right_value or "—"), styles["Small"])])
-    table = Table(data, colWidths=widths or [28 * mm, 59 * mm, 30 * mm, 55 * mm], hAlign="LEFT")
-    table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("LINEBELOW", (0, 0), (-1, -1), .3, LINE)]))
+    table = Table(data, colWidths=widths or [30 * mm, 62 * mm, 32 * mm, 58 * mm], hAlign="LEFT")
+    table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("TOPPADDING", (0, 0), (-1, -1), 4), ("LINEBELOW", (0, 0), (-1, -1), .3, LINE)]))
     return table
 
 
@@ -195,7 +194,7 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
         label = str(invoice.invoice_type or "Rent").replace("_", " ").title()
         net = invoice.subtotal or (invoice.amount - invoice.tax_amount)
         lines = [{"description": f"{label} — {prop.name} / {unit.code}", "amount": net, "vat_rate": invoice.tax_rate}]
-    story = [Paragraph("TAX INVOICE", s["DocTitle"]), Paragraph(f"Invoice no. <b>{invoice.number}</b>", s["Small"]), Spacer(1, 5 * mm)]
+    story = [Paragraph(f"Invoice no. <b>{invoice.number}</b>", s["Small"]), Spacer(1, 4 * mm)]
     landlord = (prop.metadata or {}).get("landlord", {})
     story.append(_info_table([
         ("Tenant no.", tenant.code, "Invoice date", invoice.issued_on.strftime("%d %b %Y")),
@@ -217,10 +216,10 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
             description = f"{description} ({quantity:g} × {_money(unit_rate)})"
         data.append([Paragraph(description, s["Small"]), f"{rate:g}%", f"{net:,.2f}", f"{tax:,.2f}", f"{total:,.2f}"])
     table = Table(data, colWidths=[72 * mm, 18 * mm, 28 * mm, 25 * mm, 30 * mm], repeatRows=1)
-    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7), ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .35, LINE), ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .35, LINE), ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
     story.extend([table, Spacer(1, 5 * mm)])
     totals = Table([["Total amount excl. VAT", _money(invoice.subtotal or invoice.amount - invoice.tax_amount)], ["Total VAT", _money(invoice.tax_amount)], ["Invoice total", _money(invoice.amount)], ["Previous tenant balance", _money(Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).exclude(pk=invoice.pk).aggregate(v=Sum("balance"))["v"] or 0)], ["TOTAL AMOUNT DUE", _money(Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).aggregate(v=Sum("balance"))["v"] or 0)]], colWidths=[55 * mm, 43 * mm], hAlign="RIGHT")
-    totals.setStyle(TableStyle([("ALIGN", (1, 0), (1, -1), "RIGHT"), ("LINEBELOW", (0, 0), (-1, -2), .3, LINE), ("BACKGROUND", (0, -1), (-1, -1), RED), ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+    totals.setStyle(TableStyle([("ALIGN", (1, 0), (1, -1), "RIGHT"), ("LINEBELOW", (0, 0), (-1, -2), .3, LINE), ("BACKGROUND", (0, -1), (-1, -1), RED), ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8.5), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
     story.append(totals)
     bank = (prop.metadata or {}).get("bank_details", {})
     story.extend([Spacer(1, 5 * mm), Paragraph("Payment details", s["Section"]), Paragraph(" · ".join(filter(None, [bank.get("bank_name"), bank.get("branch"), bank.get("account_name"), bank.get("account_number")] )) or "Use the payment instructions shown in the tenant portal.", s["Small"])])
@@ -232,17 +231,17 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
 def receipt_pdf(receipt: Receipt, generated_by="System"):
     s = _styles(); tenant = receipt.tenant; invoice = receipt.invoice
     prop = invoice.lease.unit.property if invoice else tenant.property
-    story = [Paragraph("OFFICIAL RECEIPT", s["DocTitle"]), Paragraph(f"Receipt no. <b>{receipt.number}</b>", s["Small"]), Spacer(1, 5 * mm)]
+    story = [Paragraph(f"Receipt no. <b>{receipt.number}</b>", s["Small"]), Spacer(1, 4 * mm)]
     story.append(_info_table([
         ("Received from", tenant.name, "Receipt date", receipt.received_on.strftime("%d %b %Y")),
         ("Tenant account", tenant.code, "Payment method", receipt.payment_method.replace("_", " ").title()),
         ("Property", prop.name if prop else "—", "Cheque / reference", receipt.external_reference or "—"),
         ("Invoice", invoice.number if invoice else "Unapplied receipt", "Posting status", "Applied" if invoice else "Unapplied"),
     ], s))
-    story.extend([Spacer(1, 6 * mm), Paragraph("Amount received", s["Section"]), Table([[Paragraph(amount_in_words(receipt.amount), s["Small"]), Paragraph(f"<b>{_money(receipt.amount)}</b>", s["Right"])]], colWidths=[115 * mm, 57 * mm], style=[("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), .6, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 12), ("BOTTOMPADDING", (0, 0), (-1, -1), 12)]), Spacer(1, 7 * mm)])
+    story.extend([Spacer(1, 6 * mm), Paragraph("Amount received", s["Section"]), Table([[Paragraph(amount_in_words(receipt.amount), s["Small"]), Paragraph(f"<b>{_money(receipt.amount)}</b>", s["Right"])]], colWidths=[115 * mm, 57 * mm], style=[("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), .6, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 10), ("BOTTOMPADDING", (0, 0), (-1, -1), 10)]), Spacer(1, 6 * mm)])
     description = invoice.invoice_type.replace("_", " ").title() if invoice else "Unapplied payment"
-    story.append(Table([["ACCOUNT", "DESCRIPTION", "INVOICE", "AMOUNT"], [tenant.code, description, invoice.number if invoice else "—", _money(receipt.amount)]], colWidths=[38 * mm, 70 * mm, 35 * mm, 35 * mm], style=[("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7.5), ("GRID", (0, 0), (-1, -1), .4, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
-    story.extend([Spacer(1, 12 * mm), Paragraph(f"Served by: {receipt.received_by.get_full_name() or receipt.received_by.get_username()}", s["Small"]), Paragraph("This computer-generated receipt is valid without a physical stamp. Verify it from the Center Estates tenant ledger.", s["Tiny"])])
+    story.append(Table([["ACCOUNT", "DESCRIPTION", "INVOICE", "AMOUNT"], [tenant.code, description, invoice.number if invoice else "—", _money(receipt.amount)]], colWidths=[38 * mm, 70 * mm, 35 * mm, 35 * mm], style=[("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), .4, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
+    story.extend([Spacer(1, 10 * mm), Paragraph(f"Served by: {receipt.received_by.get_full_name() or receipt.received_by.get_username()}", s["Small"]), Paragraph("This computer-generated receipt is valid without a physical stamp. Verify it from the Center Estates tenant ledger.", s["Tiny"])])
     return _doc_response(receipt.organization, f"receipt-{receipt.number}.pdf", story, title="Official Receipt", property_name=prop.name if prop else "Portfolio", period=f"Receipt date: {receipt.received_on:%d %b %Y}", generated_by=generated_by)
 
 
@@ -261,18 +260,45 @@ def tenant_statement_pdf(tenant, start: date | None = None, end: date | None = N
         events.append((row.issued_on, row.number, row.invoice.number, f"Credit note: {row.reason}", Decimal("0"), row.amount))
     events.sort(key=lambda item: (item[0], item[1]))
     lease = tenant.leases.select_related("unit__property").order_by("-starts_on").first(); prop = lease.unit.property if lease else tenant.property
-    story = [Paragraph("TENANT STATEMENT", s["DocTitle"]), Paragraph(f"Statement period: <b>{start:%d %b %Y} — {end:%d %b %Y}</b>", s["Small"]), Spacer(1, 4 * mm)]
-    story.append(_info_table([("Tenant", tenant.name, "Property", prop.name if prop else "—"), ("Tenant no.", tenant.code, "Unit / floor", f"{lease.unit.code} / {lease.unit.floor or '—'}" if lease else "—"), ("Tenant PIN", tenant.tax_id, "Lease no.", lease.reference if lease else "—"), ("Commencement", lease.starts_on if lease else "—", "Expiry", lease.ends_on if lease else "—")], s))
+    story = [
+        _info_table([
+            ("Tenant", tenant.name, "Property", prop.name if prop else "—"),
+            ("Tenant no.", tenant.code, "Unit / floor", f"{lease.unit.code} / {lease.unit.floor or '—'}" if lease else "—"),
+            ("Tenant PIN", tenant.tax_id, "Lease no.", lease.reference if lease else "—"),
+            ("Commencement", lease.starts_on if lease else "—", "Expiry", lease.ends_on if lease else "—"),
+        ], s, widths=[34 * mm, 100 * mm, 35 * mm, 100 * mm]),
+        Spacer(1, 5 * mm)
+    ]
     data = [["POSTING DATE", "DOCUMENT NO.", "TRANSACTION REF.", "DESCRIPTION", "DEBIT", "CREDIT", "BALANCE"]]
     balance = opening
     data.append([start.strftime("%d/%m/%Y"), "", "", "Opening balance", "", "", f"{balance:,.2f}"])
     for posted, document, reference, description, debit, credit in events:
         balance += debit - credit
-        data.append([posted.strftime("%d/%m/%Y"), document, reference or "", Paragraph(description, s["Tiny"]), f"{debit:,.2f}" if debit else "", f"{credit:,.2f}" if credit else "", f"{balance:,.2f}"])
+        data.append([
+            posted.strftime("%d/%m/%Y"),
+            Paragraph(document, s["Small"]),
+            Paragraph(reference or "", s["Small"]),
+            Paragraph(description, s["Small"]),
+            f"{debit:,.2f}" if debit else "",
+            f"{credit:,.2f}" if credit else "",
+            f"{balance:,.2f}"
+        ])
     data.append(["", "", "", "TOTALS", f"{sum((event[4] for event in events), Decimal('0')):,.2f}", f"{sum((event[5] for event in events), Decimal('0')):,.2f}", f"{balance:,.2f}"])
-    table = Table(data, colWidths=[20 * mm, 27 * mm, 28 * mm, 65 * mm, 27 * mm, 27 * mm, 28 * mm], repeatRows=1)
-    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (3, -1), (-1, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 6.5), ("ALIGN", (4, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .3, LINE), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
-    story.extend([Spacer(1, 5 * mm), table])
+    table = Table(data, colWidths=[24 * mm, 42 * mm, 44 * mm, 73 * mm, 28 * mm, 28 * mm, 30 * mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BACKGROUND", (0, -1), (-1, -1), PALE),
+        ("FONTNAME", (3, -1), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("ALIGN", (4, 1), (-1, -1), "RIGHT"),
+        ("GRID", (0, 0), (-1, -1), .3, LINE),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5)
+    ]))
+    story.append(table)
     return _doc_response(tenant.organization, f"tenant-statement-{tenant.code}-{start}-{end}.pdf", story, wide=True, title="Tenant Statement", property_name=prop.name if prop else "Portfolio", period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by)
 
 
@@ -317,30 +343,27 @@ def tenant_payment_status_pdf(organization, property_record, start: date, end: d
     s = _styles(); rows = tenant_payment_status_rows(organization, property_record, start, end)
     metadata = property_record.metadata or {}; landlord = metadata.get("landlord", {})
     story = [
-        Paragraph("TENANTS PAYMENTS STATUS REPORT", s["DocTitle"]),
-        Paragraph(f"Billings and collections for <b>{start:%d %b %Y} — {end:%d %b %Y}</b>", s["Small"]),
-        Spacer(1, 4 * mm),
         _info_table([
             ("Client", landlord.get("name") or "—", "Property", property_record.name),
             ("Property code", property_record.code, "LR no.", metadata.get("lr_number") or "—"),
             ("Address", property_record.address, "Reporting month", end.strftime("%B %Y")),
-        ], s, widths=[23 * mm, 77 * mm, 28 * mm, 80 * mm]),
+        ], s, widths=[30 * mm, 100 * mm, 35 * mm, 104 * mm]),
         Spacer(1, 5 * mm), Paragraph(f"BILLINGS ({end:%B %Y})", s["Section"]),
     ]
     data = [["TENANT", "UNIT / NO.", "RENT / MONTH", "PAYMENT MODE", "BILLINGS UP TO", "BALANCE B/F", "CURRENT", "TOTAL BILLINGS", "RECEIPTS", "OUTSTANDING C/F"]]
     for row in rows:
         data.append([
-            Paragraph(str(row["tenant"]), s["Tiny"]), row["unit"], _accounting(row["rent"]), row["payment_mode"],
+            Paragraph(str(row["tenant"]), s["Small"]), row["unit"], _accounting(row["rent"]), row["payment_mode"],
             row["billed_to"].strftime("%d/%m/%Y"), _accounting(row["opening"]), _accounting(row["current"]),
             _accounting(row["total"]), _accounting(row["receipts"], credit=True), _accounting(row["closing"]),
         ])
     totals = {key: sum((Decimal(row[key]) for row in rows), Decimal("0")) for key in ("rent", "opening", "current", "total", "receipts", "closing")}
     data.append(["TOTAL", "", _accounting(totals["rent"]), "", "", _accounting(totals["opening"]), _accounting(totals["current"]), _accounting(totals["total"]), _accounting(totals["receipts"], credit=True), _accounting(totals["closing"])])
-    table = Table(data, colWidths=[42*mm, 19*mm, 25*mm, 23*mm, 24*mm, 24*mm, 22*mm, 25*mm, 23*mm, 26*mm], repeatRows=1)
+    table = Table(data, colWidths=[55*mm, 18*mm, 26*mm, 22*mm, 24*mm, 26*mm, 24*mm, 26*mm, 24*mm, 24*mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e5e7eb")), ("TEXTCOLOR", (0, 0), (-1, -1), colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eeeeee")), ("FONTSIZE", (0, 0), (-1, -1), 5.8),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eeeeee")), ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("ALIGN", (2, 1), (-1, -1), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("GRID", (0, 0), (-1, -1), .45, colors.black), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
@@ -422,14 +445,11 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
     lr_number = metadata.get("lr_number") or metadata.get("lr_no") or "—"
 
     story = [
-        Paragraph("RECEIPTS & EXPENDITURE ACCOUNT", s["DocTitle"]),
-        Paragraph(f"Statement for the period <b>{start:%d %b %Y} — {end:%d %b %Y}</b>", s["Small"]),
-        Spacer(1, 4 * mm),
         _info_table([
             ("PROPERTY", property_record.name, "STATEMENT PERIOD", f"{start:%d %b %Y} — {end:%d %b %Y}"),
             ("L.R No.", lr_number, "PROPERTY CODE", property_record.code),
             ("CLIENT / LANDLORD", landlord.get("name") or "Landlord", "CURRENCY", "KES"),
-        ], s, widths=[35 * mm, 65 * mm, 35 * mm, 55 * mm]),
+        ], s, widths=[40 * mm, 90 * mm, 40 * mm, 99 * mm]),
         Spacer(1, 5 * mm),
     ]
 
@@ -450,17 +470,17 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
     data.append(["TOTAL DISBURSEMENTS", "", f"{total_exp_curr:,.2f}", p_pct(total_exp_curr, total_rec_curr), f"{total_exp_ytd:,.2f}", p_pct(total_exp_ytd, total_rec_ytd)])
     data.append(["SURPLUS / (DEFICIT) ON PROPERTY", "", f"{surplus_curr:,.2f}", p_pct(surplus_curr, total_rec_curr), f"{surplus_ytd:,.2f}", p_pct(surplus_ytd, total_rec_ytd)])
 
-    table = Table(data, colWidths=[70 * mm, 22 * mm, 34 * mm, 16 * mm, 34 * mm, 14 * mm], repeatRows=1)
+    table = Table(data, colWidths=[105 * mm, 26 * mm, 46 * mm, 18 * mm, 46 * mm, 28 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
-        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8.5),
         ("ALIGN", (2, 1), (-1, -1), "RIGHT"), ("ALIGN", (1, 1), (1, -1), "CENTER"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
         ("BACKGROUND", (0, 5), (-1, 5), colors.HexColor("#eef2ff")), ("FONTNAME", (0, 5), (-1, 5), "Helvetica-Bold"),
         ("BACKGROUND", (0, -2), (-1, -2), colors.HexColor("#fee2e2")), ("FONTNAME", (0, -2), (-1, -2), "Helvetica-Bold"),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#dcfce7")), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
     ]))
     story.append(table)
 
@@ -479,11 +499,11 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
                 ] for r in current_receipts.select_related("tenant", "invoice")
             ] +
             [["TOTALS", "", f"{rent_curr:,.2f}", f"{sc_curr:,.2f}", f"{other_curr:,.2f}", f"{total_rec_curr:,.2f}"]],
-            colWidths=[65 * mm, 30 * mm, 26 * mm, 26 * mm, 26 * mm, 27 * mm],
+            colWidths=[75 * mm, 38 * mm, 38 * mm, 38 * mm, 38 * mm, 42 * mm],
             repeatRows=1,
             style=[
                 ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
                 ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
                 ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ]
@@ -499,15 +519,15 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
                 [
                     row.incurred_on.strftime("%d/%m/%Y"), _cat_key(row.category),
                     row.supplier or "—", row.invoice_number or "—",
-                    Paragraph(row.description or "—", s["Tiny"]), f"{row.amount:,.2f}"
+                    Paragraph(row.description or "—", s["Small"]), f"{row.amount:,.2f}"
                 ] for row in current_expenses
             ] +
             [["TOTALS", "", "", "", "", f"{total_exp_curr:,.2f}"]],
-            colWidths=[22 * mm, 36 * mm, 40 * mm, 25 * mm, 47 * mm, 30 * mm],
+            colWidths=[26 * mm, 45 * mm, 55 * mm, 35 * mm, 64 * mm, 44 * mm],
             repeatRows=1,
             style=[
                 ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
                 ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
                 ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ]
@@ -522,40 +542,25 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
 
 
 def _looks_numeric(value: str) -> bool:
-    text = str(value or "").strip().replace(",", "").replace("KES", "").replace("%", "").strip()
-    if not text or text in {"—", "-"}:
-        return False
-    if text.startswith("(") and text.endswith(")"):
-        text = text[1:-1]
+    cleaned = str(value or "").replace(",", "").replace("%", "").replace("KES", "").replace("$", "").strip()
+    if not cleaned: return False
     try:
-        Decimal(text)
+        float(cleaned)
         return True
-    except Exception:
+    except ValueError:
         return False
 
 
 def _format_report_cell(value: str, *, header: str = "") -> str:
-    text = str(value if value is not None else "").strip()
-    if not text:
-        return "—"
-    header_l = header.lower()
-    moneyish = any(token in header_l for token in (
-        "amount", "rent", "balance", "billed", "collected", "outstanding", "vat", "tax",
-        "total", "cost", "fee", "income", "expense", "receipt", "subtotal", "variance", "budget",
-        "paid", "net", "charge",
-    )) and "rate" not in header_l and "%" not in text
-    if moneyish and _looks_numeric(text):
-        cleaned = text.replace(",", "").replace("KES", "").strip()
-        negative = cleaned.startswith("(") and cleaned.endswith(")")
-        if negative:
-            cleaned = cleaned[1:-1]
+    raw = str(value or "").strip()
+    if not raw: return "—"
+    if _looks_numeric(raw) and not any(k in header.lower() for k in ("code", "no", "number", "id", "phone", "pin", "unit", "lease")):
         try:
-            amount = Decimal(cleaned)
-            formatted = f"{abs(amount):,.2f}"
-            return f"({formatted})" if negative or amount < 0 else formatted
-        except Exception:
-            return text
-    return text
+            val = float(raw.replace(",", "").replace("%", "").replace("KES", "").strip())
+            return f"{val:,.2f}"
+        except ValueError:
+            pass
+    return raw
 
 
 def _column_widths(headers: list[str], rows: list[list[str]], page_width: float) -> list[float]:
@@ -601,10 +606,10 @@ def tabular_report_pdf(
         index for index, header in enumerate(headers)
         if body and sum(1 for row in body if _looks_numeric(row[index])) >= max(1, len(body) // 2)
     }
-    data = [[Paragraph(f"<b>{headers[index]}</b>", s["Tiny"]) for index in range(column_count)]]
+    data = [[Paragraph(f"<b>{headers[index]}</b>", s["Small"]) for index in range(column_count)]]
     for row in body:
         data.append([
-            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Tiny"])
+            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Small"])
             for index in range(column_count)
         ])
     table = Table(data, colWidths=widths, repeatRows=1)
@@ -623,35 +628,18 @@ def tabular_report_pdf(
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ])
     table.setStyle(TableStyle(style_commands))
-    summary = f"{len(body):,} row{'s' if len(body) != 1 else ''} · {property_name} · {period}"
-    if subtitle:
-        summary = f"{subtitle} · {summary}"
     story = [
-        Paragraph(title.upper(), s["DocTitle"]),
-        Paragraph(summary, s["Small"]),
-        Spacer(1, 3 * mm),
-        Paragraph(
-            "Figures are drawn live from the Center Estates ledger for the selected organization and property scope. "
-            "Export this dataset as Excel or CSV for further analysis.",
-            s["Tiny"],
-        ),
-        Spacer(1, 4 * mm),
         table,
     ]
-    if not body:
-        story.append(Spacer(1, 4 * mm))
-        story.append(Paragraph("No matching ledger records were found for this filter set.", s["Small"]))
-    return _doc_response(organization, filename, story, wide=True, title=title, property_name=property_name, period=period, generated_by=generated_by)
+    return _doc_response(
+        organization, filename, story, wide=True, title=title, property_name=property_name,
+        period=period, generated_by=generated_by,
+    )
 
 
 def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summary: dict, *, period: str, generated_by="System"):
     """Branded arrears register with age buckets and collection priority."""
     s = _styles()
-    story = [
-        Paragraph("ARREARS AGEING ANALYSIS", s["DocTitle"]),
-        Paragraph(f"Outstanding balances as at <b>{period}</b>", s["Small"]),
-        Spacer(1, 4 * mm),
-    ]
     bucket_data = [["BUCKET", "AMOUNT (KES)", "SHARE"]]
     total = sum((Decimal(summary.get(key) or 0) for key in ("current", "31_60", "61_90", "90_plus")), Decimal("0"))
     labels = (("current", "0–30 days"), ("31_60", "31–60 days"), ("61_90", "61–90 days"), ("90_plus", "90+ days"))
@@ -666,27 +654,27 @@ def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summar
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("BACKGROUND", (0, -1), (-1, -1), RED),
         ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .3, LINE),
-        ("FONTSIZE", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
-    story.extend([Paragraph("Ageing summary", s["Section"]), buckets, Spacer(1, 5 * mm), Paragraph("Tenant arrears detail", s["Section"])])
+    story = [Paragraph("Ageing summary", s["Section"]), buckets, Spacer(1, 5 * mm), Paragraph("Tenant arrears detail", s["Section"])]
     detail = [["INVOICE", "TENANT", "PROPERTY", "UNIT", "DUE ON", "DAYS", "BUCKET", "BILLED", "PAID", "BALANCE", "STATUS"]]
     for row in rows:
         detail.append([
-            row.get("invoice", ""), Paragraph(str(row.get("tenant", "")), s["Tiny"]),
-            Paragraph(str(row.get("property", "")), s["Tiny"]), row.get("unit", ""),
+            row.get("invoice", ""), Paragraph(str(row.get("tenant", "")), s["Small"]),
+            Paragraph(str(row.get("property", "")), s["Small"]), row.get("unit", ""),
             row.get("due_on", ""), row.get("days_overdue", ""), str(row.get("ageing_bucket", "")).replace("_", "–"),
             f"{Decimal(row.get('billed') or 0):,.2f}", f"{Decimal(row.get('paid') or 0):,.2f}",
             f"{Decimal(row.get('balance') or 0):,.2f}", row.get("status", ""),
         ])
     if len(detail) == 1:
         detail.append(["—", "No open arrears for this period", "", "", "", "", "", "", "", "", ""])
-    detail_table = Table(detail, colWidths=[24*mm, 38*mm, 34*mm, 14*mm, 20*mm, 12*mm, 18*mm, 22*mm, 20*mm, 22*mm, 18*mm], repeatRows=1)
+    detail_table = Table(detail, colWidths=[26*mm, 42*mm, 36*mm, 15*mm, 22*mm, 14*mm, 20*mm, 24*mm, 22*mm, 26*mm, 22*mm], repeatRows=1)
     detail_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (4, 1), (-2, -1), "RIGHT"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
-        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
     ]))
     story.append(detail_table)
     story.extend([
@@ -694,7 +682,7 @@ def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summar
         Paragraph(
             "Collection priority should focus on balances aged beyond 60 days. "
             "Figures reconcile to open invoices excluding void and fully paid documents.",
-            s["Tiny"],
+            s["Small"],
         ),
     ])
     return _doc_response(
