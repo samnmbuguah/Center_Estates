@@ -14,7 +14,14 @@ import { ThemeProvider } from "@/theme/theme-provider";
 export const metadata: Metadata = {
   title: "Center Estates ERP",
   description: "Unified estate and property operations platform",
-  icons: { icon: "/logo.png", shortcut: "/logo.png", apple: "/logo.png" },
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -24,6 +31,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased" data-theme="light">
+      <head>
+        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="shortcut icon" href="/logo.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+      </head>
       <body>
         <AppRouterCacheProvider>
           <AuthProvider>
