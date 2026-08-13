@@ -117,113 +117,113 @@ export const facilityNav: ModuleNavGroup[] = [
 
 
 export const salesNav: ModuleNavGroup[] = [
-  { label: "Overview", icon: "⌂", items: [{ id: "overview", label: "Dashboard" }] },
+  { label: "OVERVIEW", icon: "▦", items: [{ id: "overview", label: "Sales Dashboard", icon: "▦" }] },
   {
-    label: "Pipeline",
+    label: "PIPELINE",
     icon: "◈",
     items: [
-      { id: "inventory", label: "Projects & units" },
-      { id: "buyers", label: "Buyers" },
-      { id: "sales", label: "Sales" },
-      { id: "site-visits", label: "Site visits" },
+      { id: "inventory", label: "Projects & Units", icon: "🏢" },
+      { id: "buyers", label: "Buyers & Leads", icon: "👥" },
+      { id: "sales", label: "Property Sales", icon: "🤝" },
+      { id: "site-visits", label: "Site Visits", icon: "📍" },
     ],
   },
   {
-    label: "Collections",
+    label: "COLLECTIONS",
     icon: "◎",
     items: [
-      { id: "installments", label: "Installments" },
-      { id: "payments", label: "Payments" },
-      { id: "commissions", label: "Commissions" },
+      { id: "installments", label: "Payment Schedules", icon: "📅" },
+      { id: "payments", label: "Buyer Payments", icon: "💰" },
+      { id: "commissions", label: "Sales Commissions", icon: "🧾" },
     ],
   },
   {
-    label: "Insights",
+    label: "INSIGHTS",
     icon: "◌",
     items: [
-      { id: "performance", label: "Agent performance" },
-      { id: "reports", label: "Reports" },
-      { id: "documents", label: "Legal documents" },
-      { id: "audit-events", label: "Audit trail" },
+      { id: "performance", label: "Agent Performance", icon: "📊" },
+      { id: "reports", label: "Sales Reports", icon: "📈" },
+      { id: "documents", label: "Legal Documents", icon: "📎" },
+      { id: "audit-events", label: "Audit Trail", icon: "📜" },
     ],
   },
-  { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },
+  { label: "WORKSPACE", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues", icon: "🎫" }, { id: "calendar", label: "Calendar", icon: "📅" }] },
 ];
 
 export const tenderNav: ModuleNavGroup[] = [
-  { label: "Overview", icon: "⌂", items: [{ id: "overview", label: "Dashboard" }] },
+  { label: "OVERVIEW", icon: "▦", items: [{ id: "overview", label: "Tender Dashboard", icon: "▦" }] },
   {
-    label: "Pursuit",
+    label: "PURSUIT",
     icon: "◈",
     items: [
-      { id: "tenders", label: "Invitations" },
-      { id: "requirements", label: "AI analysis" },
-      { id: "decisions", label: "Bid / no-bid" },
-      { id: "tasks", label: "Planning" },
+      { id: "tenders", label: "Invitations & RFPs", icon: "📩" },
+      { id: "requirements", label: "AI Requirement Analysis", icon: "✦" },
+      { id: "decisions", label: "Bid / No-Bid Decisions", icon: "⚖️" },
+      { id: "tasks", label: "Proposal Planning", icon: "📋" },
     ],
   },
   {
-    label: "Production",
+    label: "PRODUCTION",
     icon: "▣",
     items: [
-      { id: "company-documents", label: "Company documents" },
-      { id: "proposals", label: "Proposals" },
-      { id: "financial-items", label: "Financial BOQ" },
-      { id: "reviews", label: "Review & approval" },
-      { id: "packaging", label: "Packaging" },
+      { id: "company-documents", label: "Company Document Vault", icon: "📂" },
+      { id: "proposals", label: "Proposal Sections", icon: "📄" },
+      { id: "financial-items", label: "Financial BOQ", icon: "💰" },
+      { id: "reviews", label: "Review & Approvals", icon: "🔍" },
+      { id: "packaging", label: "Tender Packaging", icon: "📦" },
     ],
   },
   {
-    label: "Close-out",
+    label: "CLOSE-OUT",
     icon: "◌",
     items: [
-      { id: "submissions", label: "Submissions" },
-      { id: "outcomes", label: "Awards & regrets" },
-      { id: "reports", label: "Reports" },
-      { id: "audit-events", label: "Audit trail" },
+      { id: "submissions", label: "Submissions Log", icon: "📤" },
+      { id: "outcomes", label: "Awards & Regrets", icon: "🏆" },
+      { id: "reports", label: "Tender Analytics", icon: "📊" },
+      { id: "audit-events", label: "Audit Trail", icon: "📜" },
     ],
   },
-  { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },
+  { label: "WORKSPACE", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues", icon: "🎫" }, { id: "calendar", label: "Calendar", icon: "📅" }] },
 ];
 
 export const valuationNav: ModuleNavGroup[] = [
-  { label: "Overview", icon: "⌂", items: [{ id: "overview", label: "Overview" }] },
+  { label: "OVERVIEW", icon: "▦", items: [{ id: "overview", label: "Valuation Overview", icon: "▦" }] },
   {
-    label: "Instructions",
+    label: "INSTRUCTIONS",
     icon: "◈",
     items: [
-      { id: "instructions", label: "Instructions" },
-      { id: "inspections", label: "Site inspections" },
-      { id: "comparables", label: "Comparable evidence" },
+      { id: "instructions", label: "Valuation Instructions", icon: "📋" },
+      { id: "inspections", label: "Site Inspections", icon: "🔍" },
+      { id: "comparables", label: "Comparable Evidence", icon: "🏷️" },
     ],
   },
   {
-    label: "Reporting",
+    label: "REPORTING",
     icon: "▣",
     items: [
-      { id: "draft-reports", label: "Draft reports" },
-      { id: "final-reports", label: "Final reports" },
+      { id: "draft-reports", label: "Draft Reports", icon: "📝" },
+      { id: "final-reports", label: "Final Reports & Sign-off", icon: "📜" },
     ],
   },
   {
-    label: "Commercial",
+    label: "COMMERCIAL",
     icon: "◎",
     items: [
-      { id: "invoices", label: "Client invoicing" },
-      { id: "payments", label: "Payments" },
-      { id: "clients", label: "Clients" },
+      { id: "invoices", label: "Client Invoicing", icon: "🧾" },
+      { id: "payments", label: "Fee Collections", icon: "💰" },
+      { id: "clients", label: "Client Directory", icon: "🏢" },
     ],
   },
   {
-    label: "Insights",
+    label: "INSIGHTS",
     icon: "◌",
     items: [
-      { id: "analytics", label: "Analytics" },
-      { id: "reports", label: "Reports" },
-      { id: "audit-events", label: "Audit trail" },
+      { id: "analytics", label: "Performance Analytics", icon: "📊" },
+      { id: "reports", label: "Valuation Reports", icon: "📈" },
+      { id: "audit-events", label: "Audit Trail", icon: "📜" },
     ],
   },
-  { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },
+  { label: "WORKSPACE", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues", icon: "🎫" }, { id: "calendar", label: "Calendar", icon: "📅" }] },
 ];
 
 export const constructionNav: ModuleNavGroup[] = [  {
