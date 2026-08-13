@@ -109,25 +109,59 @@ export function PeriodFilterBar({
   extra?: ReactNode;
 }) {
   const presets = periodPresets();
+  const [selectedPreset, setSelectedPreset] = useState("custom");
+
+  const handlePresetChange = (key: string) => {
+    setSelectedPreset(key);
+    const index = key === "this_month" ? 0 : key === "last_month" ? 1 : key === "ytd" ? 2 : key === "last_12" ? 3 : -1;
+    if (index >= 0 && presets[index]) {
+      onStart(presets[index].start);
+      onEnd(presets[index].end);
+    }
+  };
+
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", gap: 1.25, flexWrap: "wrap", alignItems: "center" }}>
-      <TextField type="date" size="small" label="From" value={start} onChange={event => onStart(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-      <TextField type="date" size="small" label="To" value={end} onChange={event => onEnd(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+      <TextField
+        type="date"
+        size="small"
+        label="From"
+        value={start}
+        onChange={event => {
+          setSelectedPreset("custom");
+          onStart(event.target.value);
+        }}
+        slotProps={{ inputLabel: { shrink: true } }}
+      />
+      <TextField
+        type="date"
+        size="small"
+        label="To"
+        value={end}
+        onChange={event => {
+          setSelectedPreset("custom");
+          onEnd(event.target.value);
+        }}
+        slotProps={{ inputLabel: { shrink: true } }}
+      />
       {extra}
-      {presets.map(preset => (
-        <Button
-          key={preset.label}
-          size="small"
-          variant="outlined"
-          onClick={() => {
-            onStart(preset.start);
-            onEnd(preset.end);
-          }}
-        >
-          {preset.label}
-        </Button>
-      ))}
-      <Button variant="contained" color="inherit" onClick={onApply}>Apply</Button>
+      <TextField
+        select
+        size="small"
+        label="Period"
+        value={selectedPreset}
+        onChange={event => handlePresetChange(event.target.value)}
+        sx={{ minWidth: 160 }}
+      >
+        <MenuItem value="custom">Custom Range</MenuItem>
+        <MenuItem value="this_month">This month</MenuItem>
+        <MenuItem value="last_month">Last month</MenuItem>
+        <MenuItem value="ytd">Year to date</MenuItem>
+        <MenuItem value="last_12">Last 12 months</MenuItem>
+      </TextField>
+      <Button variant="contained" color="primary" onClick={onApply} sx={{ fontWeight: 800 }}>
+        Filter
+      </Button>
     </Paper>
   );
 }

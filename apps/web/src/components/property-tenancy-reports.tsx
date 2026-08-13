@@ -114,20 +114,6 @@ export function PropertyTenancyReports() {
         onStart={setStart}
         onEnd={setEnd}
         onApply={() => void load()}
-        extra={<>
-          <TextField select size="small" label="Unit type" value={unitType} onChange={event => setUnitType(event.target.value)} sx={{ minWidth: 140 }}>
-            <MenuItem value="">All types</MenuItem>
-            {data?.filter_options.unit_types.map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}
-          </TextField>
-          <TextField select size="small" label="Unit status" value={unitStatus} onChange={event => setUnitStatus(event.target.value)} sx={{ minWidth: 140 }}>
-            <MenuItem value="">All statuses</MenuItem>
-            {data?.filter_options.unit_statuses.map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}
-          </TextField>
-          <TextField select size="small" label="Tenancy status" value={leaseStatus} onChange={event => setLeaseStatus(event.target.value)} sx={{ minWidth: 150 }}>
-            <MenuItem value="">All statuses</MenuItem>
-            {data?.filter_options.lease_statuses.map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}
-          </TextField>
-        </>}
       />
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,1fr)", lg: "repeat(6,1fr)" }, gap: 1.25 }}>
         {[

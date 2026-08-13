@@ -13,6 +13,8 @@ export const propertyNav: ModuleNavGroup[] = [
     label: "OVERVIEW",
     items: [
       { id: "overview", label: "Portfolio Overview", icon: "▦" },
+      { id: "properties", label: "Properties Register", icon: "🏢" },
+      { id: "buildings", label: "Buildings", icon: "🏗️" },
     ],
   },
   {
@@ -30,6 +32,8 @@ export const propertyNav: ModuleNavGroup[] = [
       { id: "billing", label: "Billing & Invoicing", icon: "🧾" },
       { id: "financials", label: "Receipts & Payment Ledger", icon: "💰" },
       { id: "arrears", label: "Arrears & Recovery", icon: "⚠️" },
+      { id: "budgets", label: "Budgets & Estimates", icon: "📑" },
+      { id: "expenses", label: "Expenses", icon: "💸" },
       { id: "fees", label: "Management Fees", icon: "🧾" },
     ],
   },
@@ -52,6 +56,8 @@ export const propertyNav: ModuleNavGroup[] = [
     label: "INSIGHTS",
     items: [
       { id: "forecast", label: "5-Year Forecast", icon: "📈" },
+      { id: "critical-dates", label: "Critical Dates", icon: "⏰" },
+      { id: "owner-portal", label: "Owner Portal", icon: "👑" },
     ],
   },
   {

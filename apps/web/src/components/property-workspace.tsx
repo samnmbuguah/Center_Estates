@@ -2698,9 +2698,10 @@ function FinancialsView({
 /* ─── SERVICE CHARGES ─── */
 
 function ServiceChargesView({
-  rows, scSection, setScSection, loading, setTab, onAdd, onAllocate, onReconcile,
+  rows, scSection, setScSection, loading, search, setSearch, setTab, onAdd, onAllocate, onReconcile,
 }: {
   rows: Row[]; scSection: ScSection; setScSection: (s: ScSection) => void; loading: boolean;
+  search?: string; setSearch?: (v: string) => void;
   setTab: (t: PropertyTab) => void;
   onAdd: () => void;
   onAllocate: (row: ServiceChargeRow) => void;
@@ -2717,60 +2718,60 @@ function ServiceChargesView({
       <ViewToolbar
         title="Service Charge Management"
         subtitle="Configure cost centres, apportion unit budgets, and run period reconciliations"
-        actions={
-          <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ display: "inline-flex", borderRadius: 8, border: "1px solid #cbd5e1", overflow: "hidden", background: "#f8fafc" }}>
-              <button
-                type="button"
-                onClick={() => setScSection("setup")}
-                style={{
-                  padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
-                  background: scSection === "setup" ? "#0f172a" : "transparent",
-                  color: scSection === "setup" ? "#ffffff" : "#475569",
-                }}
-              >
-                📋 Cost Centres
-              </button>
-              <button
-                type="button"
-                onClick={() => setScSection("allocations")}
-                style={{
-                  padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
-                  background: scSection === "allocations" ? "#0f172a" : "transparent",
-                  color: scSection === "allocations" ? "#ffffff" : "#475569",
-                }}
-              >
-                📊 Allocations
-              </button>
-              <button
-                type="button"
-                onClick={() => setScSection("reconciliations")}
-                style={{
-                  padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
-                  background: scSection === "reconciliations" ? "#0f172a" : "transparent",
-                  color: scSection === "reconciliations" ? "#ffffff" : "#475569",
-                }}
-              >
-                ⚖️ Reconciliations
-              </button>
-              <button
-                type="button"
-                onClick={() => setScSection("budget")}
-                style={{
-                  padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
-                  background: scSection === "budget" ? "#0f172a" : "transparent",
-                  color: scSection === "budget" ? "#ffffff" : "#475569",
-                }}
-              >
-                💰 Budget vs Actual
-              </button>
-            </div>
-            <button className="btn primary sm" onClick={onAdd} style={{ fontWeight: 800 }}>
-              + Set Up Charge
-            </button>
-          </div>
-        }
-      />
+        search={search}
+        onSearch={setSearch}
+        placeholder="Search service charges…"
+      >
+        <div style={{ display: "inline-flex", borderRadius: 8, border: "1px solid #cbd5e1", overflow: "hidden", background: "#f8fafc", gap: 0 }}>
+          <button
+            type="button"
+            onClick={() => setScSection("setup")}
+            style={{
+              padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
+              background: scSection === "setup" ? "#0f172a" : "transparent",
+              color: scSection === "setup" ? "#ffffff" : "#475569",
+            }}
+          >
+            📋 Cost Centres
+          </button>
+          <button
+            type="button"
+            onClick={() => setScSection("allocations")}
+            style={{
+              padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
+              background: scSection === "allocations" ? "#0f172a" : "transparent",
+              color: scSection === "allocations" ? "#ffffff" : "#475569",
+            }}
+          >
+            📊 Allocations
+          </button>
+          <button
+            type="button"
+            onClick={() => setScSection("reconciliations")}
+            style={{
+              padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
+              background: scSection === "reconciliations" ? "#0f172a" : "transparent",
+              color: scSection === "reconciliations" ? "#ffffff" : "#475569",
+            }}
+          >
+            ⚖️ Reconciliations
+          </button>
+          <button
+            type="button"
+            onClick={() => setScSection("budget")}
+            style={{
+              padding: "6px 14px", fontSize: 12, fontWeight: 800, border: 0, cursor: "pointer",
+              background: scSection === "budget" ? "#0f172a" : "transparent",
+              color: scSection === "budget" ? "#ffffff" : "#475569",
+            }}
+          >
+            💰 Budget vs Actual
+          </button>
+        </div>
+        <button className="btn primary sm" onClick={onAdd} style={{ fontWeight: 800 }}>
+          + Set Up Charge
+        </button>
+      </ViewToolbar>
 
       {scSection === "setup" && (
         <>
@@ -5084,7 +5085,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {tab === "receipt-allocations" && <ReceiptAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "bank-reconciliation" && <BankReconciliationView rows={rows} loading={loading} search={search} setSearch={setSearch} onMatch={(r) => setMatchTarget(r as BankTransactionRow)} />}
         {tab === "credit-notes" && <CreditNotesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setFinancialIntake("credit-note")} />}
-        {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} onReconcile={setReconciliationTarget} />}
+        {tab === "service-charges" && <ServiceChargesView rows={rows} scSection={scSection} setScSection={setScSection} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddServiceCharge(true)} onAllocate={(row) => void generateServiceChargeAllocations(row)} onReconcile={setReconciliationTarget} />}
         {tab === "service-charge-allocations" && <ServiceChargeAllocationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "service-charge-reconciliations" && <ServiceChargeReconciliationsView rows={rows} loading={loading} search={search} setSearch={setSearch} />}
         {tab === "budgets" && <BudgetsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onSelectRow={setSelectedRow} onAdd={() => setFinancialIntake("budget")} onAction={(row, action) => { if (action === "reject") setConfirmRejectBudget(row); else void runPropertyAction("budgets", row.id, action, "Budget action failed."); }} />}
