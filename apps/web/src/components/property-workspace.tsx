@@ -565,10 +565,10 @@ function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFin
             <strong style={{ fontSize: 14 }}>Owner & Portfolio Overview</strong>
           </div>
           <div style={{ display: "flex", gap: 6, background: "var(--surface-3)", padding: 4, borderRadius: 8 }}>
-            <button className={`btn sm ${overviewMode === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
+            <button className={`btn sm ${(overviewMode as string) === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
               🏢 Operations
             </button>
-            <button className={`btn sm ${overviewMode === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
+            <button className={`btn sm ${(overviewMode as string) === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
               👑 Owner Overview
             </button>
           </div>
@@ -657,10 +657,10 @@ function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFin
           <strong style={{ fontSize: 14 }}>Executive Overview</strong>
         </div>
         <div style={{ display: "flex", gap: 6, background: "var(--surface-3)", padding: 4, borderRadius: 8 }}>
-          <button className={`btn sm ${overviewMode === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
+          <button className={`btn sm ${(overviewMode as string) === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
             🏢 Operations
           </button>
-          <button className={`btn sm ${overviewMode === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
+          <button className={`btn sm ${(overviewMode as string) === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
             👑 Owner Overview
           </button>
         </div>

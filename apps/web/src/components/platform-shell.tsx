@@ -68,6 +68,28 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     return () => window.removeEventListener('open-mobile-menu', handleOpenMobileMenu);
   }, []);
 
+  // Auto-recover from Next.js ChunkLoadError caused by new cPanel deployments
+  useEffect(() => {
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (
+        reason &&
+        (reason.name === "ChunkLoadError" ||
+          String(reason.message || "").includes("Loading chunk") ||
+          String(reason).includes("ChunkLoadError"))
+      ) {
+        const lastReload = sessionStorage.getItem("ce_chunk_reload_ts");
+        const now = Date.now();
+        if (!lastReload || now - Number(lastReload) > 10000) {
+          sessionStorage.setItem("ce_chunk_reload_ts", String(now));
+          window.location.reload();
+        }
+      }
+    };
+    window.addEventListener("unhandledrejection", handleRejection);
+    return () => window.removeEventListener("unhandledrejection", handleRejection);
+  }, []);
+
   const [identityGroups, setIdentityGroups] = useState<DemoIdentityGroup[]>([]);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");

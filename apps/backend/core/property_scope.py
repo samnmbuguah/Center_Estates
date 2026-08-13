@@ -100,6 +100,12 @@ def get_active_property(request, organization, *, required=False):
     cached = getattr(request, '_active_property_cache', {}).get(cache_key)
     if cached is not None:
         return cached
+    # Guard against non-UUID values (e.g. bare integers) that would cause a 500
+    import uuid as _uuid
+    try:
+        _uuid.UUID(str(property_id))
+    except (ValueError, AttributeError):
+        raise ValidationError({'property': 'Invalid property ID format. Expected a UUID.'})
     property_record = Property.objects.filter(pk=property_id, organization=organization).first()
     if property_record is None:
         raise PermissionDenied('The selected property is not available in this organization.')

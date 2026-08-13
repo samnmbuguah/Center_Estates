@@ -10,9 +10,8 @@ import type { ModuleNavGroup } from "@/components/module-shell";
 
 export const propertyNav: ModuleNavGroup[] = [
   {
-    label: "OVERVIEW",
+    label: "PORTFOLIO",
     items: [
-      { id: "overview", label: "Portfolio Overview", icon: "▦" },
       { id: "properties", label: "Properties Register", icon: "🏢" },
       { id: "buildings", label: "Buildings", icon: "🏗️" },
     ],
