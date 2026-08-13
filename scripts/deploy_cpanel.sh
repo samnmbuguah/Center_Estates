@@ -108,14 +108,14 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     # avoids cPanel's workspace/node_modules symlink limitation and removes a
     # slow npm install from every web release.
     standalone='apps/web/.next/standalone/apps/web'
-    test -f "${standalone}/server.js"
-    mkdir -p "${standalone}/.next/static" "${standalone}/public"
-    cp -rn apps/web/.next/static/* "${standalone}/.next/static/" 2>/dev/null || cp -a apps/web/.next/static/* "${standalone}/.next/static/"
-    cp -a apps/web/public/* "${standalone}/public/" 2>/dev/null || true
+    test -f "\${standalone}/server.js"
+    mkdir -p "\${standalone}/.next/static" "\${standalone}/public"
+    cp -rn apps/web/.next/static/* "\${standalone}/.next/static/" 2>/dev/null || cp -a apps/web/.next/static/* "\${standalone}/.next/static/"
+    cp -a apps/web/public/* "\${standalone}/public/" 2>/dev/null || true
     mkdir -p tmp
     touch tmp/restart.txt
     # Kill any cached background next-server workers to force LiteSpeed to spin up a clean server process
-    pkill -9 -u $(id -u) -f 'next-server' 2>/dev/null || true
+    pkill -9 -u \$(id -u) -f 'next-server' 2>/dev/null || true
   "
 fi
 
