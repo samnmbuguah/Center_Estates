@@ -5106,7 +5106,7 @@ export function PropertyWorkspace({ initialTab = "properties", standaloneOnboard
         {error && <ErrorBanner message={error} onRetry={() => { setError(""); loadData(); }} />}
 
         {!standaloneOnboarding && !showAddTenant && <>
-        {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} isOwner={session?.role === "owner" || session?.role === "landlord"} />}
+        {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} isOwner={Boolean(session?.roles?.includes("owner") || session?.roles?.includes("landlord"))} />}
         {tab === "properties" && <PropertiesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddProperty(true)} onSelectRow={handleSelectRow} />}
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
