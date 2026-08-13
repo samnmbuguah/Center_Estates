@@ -36,7 +36,9 @@ export const propertyNav: ModuleNavGroup[] = [
   {
     label: "SERVICE CHARGE",
     items: [
-      { id: "service-charges", label: "Service Charge", icon: "⚡" },
+      { id: "service-charges", label: "Service Charge Schemes", icon: "⚡" },
+      { id: "service-charge-allocations", label: "Charge Allocations", icon: "📊" },
+      { id: "service-charge-reconciliations", label: "Reconciliations", icon: "⚖️" },
     ],
   },
   {
