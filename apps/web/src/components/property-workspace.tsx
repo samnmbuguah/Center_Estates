@@ -4130,7 +4130,7 @@ function CriticalDatesView({ leases, contractors, inspections, serviceCharges, l
 
 /* ─── MAIN WORKSPACE ─── */
 
-export function PropertyWorkspace({ initialTab = "overview", standaloneOnboarding = false }: { initialTab?: string; standaloneOnboarding?: boolean }) {
+export function PropertyWorkspace({ initialTab = "properties", standaloneOnboarding = false }: { initialTab?: string; standaloneOnboarding?: boolean }) {
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
   const { selectProperty, activeProperty } = usePropertyContext();
@@ -4145,10 +4145,9 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
       const q = new URLSearchParams(window.location.search).get("tab");
       if (q && labels[q as PropertyTab]) return q as PropertyTab;
     }
-    // No explicit tab and no active property context → land on the property
-    // selector so the user picks a property before accessing its data.
+    // Default directly to properties register inside Property Management module.
     if (!activeProperty && typeof window !== "undefined") return "properties";
-    return (initialTab as PropertyTab) || "overview";
+    return (initialTab as PropertyTab) || "properties";
   });
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
