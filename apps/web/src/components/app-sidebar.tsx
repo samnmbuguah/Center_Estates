@@ -228,7 +228,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 fontWeight: 800,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                color: "rgba(255,255,255,0.35)",
+                color: "rgba(255,255,255,0.4)",
                 lineHeight: 1.4,
               }}
             >
@@ -244,19 +244,19 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: isMobile ? "16px" : "9px 12px",
+              padding: isMobile ? "14px 16px" : "9px 12px",
               justifyContent: "flex-start",
               borderRadius: 6,
-              background: (pathname === "/workspaces" || pathname === "/") ? "#e52e2e" : "transparent",
-              color: "#ffffff",
+              background: (pathname === "/workspaces" || pathname === "/") ? "#e23b3b" : "transparent",
+              color: (pathname === "/workspaces" || pathname === "/") ? "#ffffff" : "#cbd5e1",
               fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
               textDecoration: "none",
-              fontSize: isMobile ? 16 : 13,
+              fontSize: isMobile ? 15 : 13,
             }}
             onClick={onCloseMobile}
             title="Dashboard"
           >
-            <span style={{ fontSize: isMobile ? 20 : 15 }}><LayoutDashboard size={isMobile ? 24 : 18} /></span>
+            <span style={{ fontSize: isMobile ? 20 : 15, display: "flex" }}><LayoutDashboard size={isMobile ? 22 : 18} /></span>
             <span>Dashboard</span>
           </Link>
 
@@ -268,42 +268,116 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: isMobile ? "16px" : "9px 12px",
+              padding: isMobile ? "14px 16px" : "9px 12px",
               justifyContent: "flex-start",
               borderRadius: 6,
-              background: pathname === "/overview" ? "#e52e2e" : "transparent",
-              color: "#ffffff",
+              background: pathname === "/overview" ? "#e23b3b" : "transparent",
+              color: pathname === "/overview" ? "#ffffff" : "#cbd5e1",
               fontWeight: pathname === "/overview" ? 700 : 500,
               textDecoration: "none",
-              fontSize: isMobile ? 16 : 13,
+              fontSize: isMobile ? 15 : 13,
             }}
             onClick={onCloseMobile}
             title="Portfolio Overview"
           >
-            <span style={{ fontSize: isMobile ? 20 : 15 }}>🏢</span>
+            <span style={{ fontSize: isMobile ? 18 : 15 }}>🏢</span>
             <span>Portfolio Overview</span>
           </Link>
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>
-              <Link className="nav-link" href="/tickets" onClick={onCloseMobile} title="Tickets" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : "9px 12px", justifyContent: "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
-                <CircleAlert size={isMobile ? 24 : 18} /><span>Tickets</span>
+              <Link
+                className={`nav-link ${pathname === "/tickets" ? "active" : ""}`}
+                href="/tickets"
+                onClick={onCloseMobile}
+                title="Tickets"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: isMobile ? "14px 16px" : "9px 12px",
+                  justifyContent: "flex-start",
+                  borderRadius: 6,
+                  background: pathname === "/tickets" ? "#e23b3b" : "transparent",
+                  color: pathname === "/tickets" ? "#ffffff" : "#cbd5e1",
+                  fontWeight: pathname === "/tickets" ? 700 : 500,
+                  textDecoration: "none",
+                  fontSize: isMobile ? 15 : 13,
+                }}
+              >
+                <CircleAlert size={isMobile ? 22 : 18} /><span>Tickets</span>
               </Link>
-              <Link className="nav-link" href="/calendar" onClick={onCloseMobile} title="Calendar" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : "9px 12px", justifyContent: "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
-                <CalendarDays size={isMobile ? 24 : 18} /><span>Calendar</span>
+
+              <Link
+                className={`nav-link ${pathname === "/calendar" ? "active" : ""}`}
+                href="/calendar"
+                onClick={onCloseMobile}
+                title="Calendar"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: isMobile ? "14px 16px" : "9px 12px",
+                  justifyContent: "flex-start",
+                  borderRadius: 6,
+                  background: pathname === "/calendar" ? "#e23b3b" : "transparent",
+                  color: pathname === "/calendar" ? "#ffffff" : "#cbd5e1",
+                  fontWeight: pathname === "/calendar" ? 700 : 500,
+                  textDecoration: "none",
+                  fontSize: isMobile ? 15 : 13,
+                }}
+              >
+                <CalendarDays size={isMobile ? 22 : 18} /><span>Calendar</span>
               </Link>
             </>
           )}
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "property")) && (
-            <Link className="nav-link" data-testid="property-onboarding-link" href="/property-onboarding" onClick={onCloseMobile} title="Property onboarding" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : "9px 12px", justifyContent: "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}>
-              <span style={{ fontSize: isMobile ? 20 : 15 }}>🏗️</span><span>Property onboarding</span>
+            <Link
+              className={`nav-link ${pathname === "/property-onboarding" ? "active" : ""}`}
+              data-testid="property-onboarding-link"
+              href="/property-onboarding"
+              onClick={onCloseMobile}
+              title="Property onboarding"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: isMobile ? "14px 16px" : "9px 12px",
+                justifyContent: "flex-start",
+                borderRadius: 6,
+                background: pathname === "/property-onboarding" ? "#e23b3b" : "transparent",
+                color: pathname === "/property-onboarding" ? "#ffffff" : "#cbd5e1",
+                fontWeight: pathname === "/property-onboarding" ? 700 : 500,
+                textDecoration: "none",
+                fontSize: isMobile ? 15 : 13,
+              }}
+            >
+              <span style={{ fontSize: isMobile ? 18 : 15 }}>🏗️</span><span>Property onboarding</span>
             </Link>
           )}
 
           {isAdministrator && !activeModuleSlug ? (
-            <Link className="nav-link" href="/analytics" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : "9px 12px", justifyContent: "flex-start", borderRadius: 6, color: "#fff", background: pathname === "/analytics" ? "rgba(229,46,46,0.35)" : "transparent", textDecoration: "none", fontSize: isMobile ? 16 : 13 }} onClick={onCloseMobile} title="Usage Analytics">
-              <ChartNoAxesCombined size={isMobile ? 24 : 18} /><span>Usage Analytics</span>
+            <Link
+              className={`nav-link ${pathname === "/analytics" ? "active" : ""}`}
+              href="/analytics"
+              onClick={onCloseMobile}
+              title="Usage Analytics"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: isMobile ? "14px 16px" : "9px 12px",
+                justifyContent: "flex-start",
+                borderRadius: 6,
+                background: pathname === "/analytics" ? "#e23b3b" : "transparent",
+                color: pathname === "/analytics" ? "#ffffff" : "#cbd5e1",
+                fontWeight: pathname === "/analytics" ? 700 : 500,
+                textDecoration: "none",
+                fontSize: isMobile ? 15 : 13,
+              }}
+            >
+              <ChartNoAxesCombined size={isMobile ? 22 : 18} /><span>Usage Analytics</span>
             </Link>
           ) : null}
 
@@ -318,11 +392,12 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: isMobile ? "14px" : "8px 12px",
+                padding: isMobile ? "14px 16px" : "9px 12px",
                 justifyContent: "flex-start",
                 borderRadius: 6,
-                background: pathname === "/settings" ? "rgba(229,46,46,0.35)" : "transparent",
-                color: "#b8c8d7",
+                background: pathname === "/settings" ? "#e23b3b" : "transparent",
+                color: pathname === "/settings" ? "#ffffff" : "#cbd5e1",
+                fontWeight: pathname === "/settings" ? 700 : 500,
                 textDecoration: "none",
                 fontSize: isMobile ? 15 : 13,
               }}
@@ -340,11 +415,12 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: isMobile ? "14px" : "8px 12px",
+                padding: isMobile ? "14px 16px" : "9px 12px",
                 justifyContent: "flex-start",
                 borderRadius: 6,
-                background: pathname === "/administration" ? "rgba(229,46,46,0.35)" : "transparent",
-                color: "#b8c8d7",
+                background: pathname === "/administration" ? "#e23b3b" : "transparent",
+                color: pathname === "/administration" ? "#ffffff" : "#cbd5e1",
+                fontWeight: pathname === "/administration" ? 700 : 500,
                 textDecoration: "none",
                 fontSize: isMobile ? 15 : 13,
               }}
