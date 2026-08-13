@@ -10,6 +10,7 @@ import { FormRecoveryProvider } from "@/components/form-recovery-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { PropertyWorkspaceProvider } from "@/lib/property-context";
 import { ThemeProvider } from "@/theme/theme-provider";
+import ChunkErrorRecovery from "@/components/chunk-error-recovery";
 
 export const metadata: Metadata = {
   title: "Center Estates ERP",
@@ -37,6 +38,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body>
+        <ChunkErrorRecovery />
         <AppRouterCacheProvider>
           <AuthProvider>
             <ThemeProvider>

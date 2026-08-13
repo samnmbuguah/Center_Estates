@@ -108,24 +108,14 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     # avoids cPanel's workspace/node_modules symlink limitation and removes a
     # slow npm install from every web release.
     standalone='apps/web/.next/standalone/apps/web'
-    test -f \"\${standalone}/server.js\"
-    rm -rf \"\${standalone}/.next/static\" \"\${standalone}/public\"
-    mkdir -p \"\${standalone}/.next\"
-    cp -a apps/web/.next/static \"\${standalone}/.next/static\"
-    cp -a apps/web/public \"\${standalone}/public\"
+    test -f "${standalone}/server.js"
+    mkdir -p "${standalone}/.next/static" "${standalone}/public"
+    cp -rn apps/web/.next/static/* "${standalone}/.next/static/" 2>/dev/null || cp -a apps/web/.next/static/* "${standalone}/.next/static/"
+    cp -a apps/web/public/* "${standalone}/public/" 2>/dev/null || true
     mkdir -p tmp
     touch tmp/restart.txt
-    # LiteSpeed can keep Next workers alive after Passenger's restart marker is
-    # touched. Those workers cache the old build file list and return 404 for
-    # newly deployed chunks, even when the files exist. Restart only workers
-    # whose cwd is this application's standalone directory.
-    web_pids=\$(pgrep -u \$(id -u) -f '^next-server \\(v' || true)
-    for web_pid in \${web_pids}; do
-      worker_cwd=\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)
-      if [ \"\${worker_cwd}\" = \"${FRONTEND_PATH}/\${standalone}\" ]; then
-        kill -TERM \"\${web_pid}\" 2>/dev/null || true
-      fi
-    done
+    # Kill any cached background next-server workers to force LiteSpeed to spin up a clean server process
+    pkill -9 -u $(id -u) -f 'next-server' 2>/dev/null || true
   "
 fi
 
