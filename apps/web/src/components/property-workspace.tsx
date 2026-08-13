@@ -5392,8 +5392,8 @@ export function PropertyWorkspace({ initialTab = "properties", standaloneOnboard
                 <Field label="Document Number">
                   <input name="document_number" placeholder="Reference on the document" />
                 </Field>
-                <Field label="File URL" required>
-                  <input name="file_url" required placeholder="https://… or /media/documents/…" />
+                <Field label="File URL (Optional)">
+                  <input name="file_url" placeholder="https://… or /media/documents/… (optional)" />
                 </Field>
               </div>
               <div className="grid-2">

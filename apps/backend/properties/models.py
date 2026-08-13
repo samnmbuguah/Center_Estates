@@ -871,7 +871,7 @@ class TenantDocument(OrganizationOwnedModel):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='documents')
     document_type = models.CharField(max_length=60)
     document_number = models.CharField(max_length=100, blank=True)
-    file_url = models.CharField(max_length=500)
+    file_url = models.CharField(max_length=500, blank=True, default='')
     issued_on = models.DateField(null=True, blank=True)
     expires_on = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)

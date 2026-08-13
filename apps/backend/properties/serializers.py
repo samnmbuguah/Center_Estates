@@ -386,6 +386,7 @@ class ServiceChargeReconciliationSerializer(serializers.ModelSerializer):
 
 class TenantDocumentSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+    file_url = serializers.CharField(required=False, allow_blank=True, default='')
 
     class Meta:
         model = TenantDocument
