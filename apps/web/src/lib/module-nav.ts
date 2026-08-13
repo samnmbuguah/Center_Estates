@@ -57,7 +57,6 @@ export const propertyNav: ModuleNavGroup[] = [
     items: [
       { id: "forecast", label: "5-Year Forecast", icon: "📈" },
       { id: "critical-dates", label: "Critical Dates", icon: "⏰" },
-      { id: "owner-portal", label: "Owner Portal", icon: "👑" },
     ],
   },
   {

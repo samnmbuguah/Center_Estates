@@ -85,7 +85,6 @@ const labels: Record<PropertyTab, string> = {
   "tenancy-reports": "Tenancy & Occupancy Reports",
   "financial-reports": "Financial Reports",
   fees: "Fee Invoicing",
-  "owner-portal": "Owner Portal",
   forecast: "5-Year Forecast",
   "critical-dates": "Critical Dates",
   tickets: "Tickets & Issues",
@@ -549,11 +548,36 @@ function RowDetailPanel({ tab, row }: { tab: PropertyTab; row: Row }) {
 
 /* ─── OVERVIEW ─── */
 
-function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFinance }: { dashboard: DashboardData | null; loading: boolean; setTab: (t: PropertyTab) => void; canOperate: boolean; canLease: boolean; canFinance: boolean }) {
+function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFinance, isOwner = false }: { dashboard: DashboardData | null; loading: boolean; setTab: (t: PropertyTab) => void; canOperate: boolean; canLease: boolean; canFinance: boolean; isOwner?: boolean }) {
+  const [overviewMode, setOverviewMode] = useState<"standard" | "owner">(isOwner ? "owner" : "standard");
+
   if (loading && !dashboard) return <LoadingState rows={8} />;
   if (!dashboard) {
     return <EmptyState icon="🏢" title="Dashboard unavailable" description="Add properties, units and leases to unlock portfolio, collection and occupancy analytics." />;
   }
+
+  if (overviewMode === "owner") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "10px 16px", borderRadius: 12, border: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 16 }}>👑</span>
+            <strong style={{ fontSize: 14 }}>Owner & Portfolio Overview</strong>
+          </div>
+          <div style={{ display: "flex", gap: 6, background: "var(--surface-3)", padding: 4, borderRadius: 8 }}>
+            <button className={`btn sm ${overviewMode === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
+              🏢 Operations
+            </button>
+            <button className={`btn sm ${overviewMode === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
+              👑 Owner Overview
+            </button>
+          </div>
+        </div>
+        <OwnerPortalView />
+      </div>
+    );
+  }
+
   const k = dashboard.kpis ?? {};
   const properties = Number(k.properties ?? 0);
   const units = Number(k.units ?? 0);
@@ -627,6 +651,20 @@ function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFin
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "10px 16px", borderRadius: 12, border: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>📊</span>
+          <strong style={{ fontSize: 14 }}>Executive Overview</strong>
+        </div>
+        <div style={{ display: "flex", gap: 6, background: "var(--surface-3)", padding: 4, borderRadius: 8 }}>
+          <button className={`btn sm ${overviewMode === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
+            🏢 Operations
+          </button>
+          <button className={`btn sm ${overviewMode === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
+            👑 Owner Overview
+          </button>
+        </div>
+      </div>
       <KpiStrip>
         {getKpiCards()}
       </KpiStrip>
@@ -5066,7 +5104,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {error && <ErrorBanner message={error} onRetry={() => { setError(""); loadData(); }} />}
 
         {!standaloneOnboarding && !showAddTenant && <>
-        {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} />}
+        {tab === "overview" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} isOwner={session?.role === "owner" || session?.role === "landlord"} />}
         {tab === "properties" && <PropertiesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} onAdd={() => setShowAddProperty(true)} onSelectRow={handleSelectRow} />}
         {tab === "buildings" && <BuildingsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
         {tab === "units" && <UnitsView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
@@ -5094,7 +5132,7 @@ export function PropertyWorkspace({ initialTab = "overview", standaloneOnboardin
         {tab === "tenancy-reports" && <PropertyTenancyReports />}
         {tab === "financial-reports" && <PropertyFinancialReports />}
         {tab === "fees" && <FeesView rows={rows} loading={loading} search={search} setSearch={setSearch} setTab={handleSelectTab} />}
-        {tab === "owner-portal" && <OwnerPortalView />}
+        {(tab as string) === "owner-portal" && <OverviewView dashboard={dashboard} loading={loading} setTab={handleSelectTab} canOperate={canOperate} canLease={canLease} canFinance={canFinance} isOwner={true} />}
         {tab === "forecast" && <ForecastView />}
         {tab === "critical-dates" && <CriticalDatesView leases={rows} contractors={contractors} inspections={inspections} serviceCharges={criticalServiceCharges} loading={loading} setTab={handleSelectTab} />}
         {tab === "tickets" && <ModuleTicketsView moduleName="Property" />}
