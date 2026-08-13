@@ -307,6 +307,53 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             </Link>
           ) : null}
 
+          {/* Settings & Administration Links */}
+          <div style={{ marginTop: "12px", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 4 }}>
+            <Link
+              className={`nav-link ${pathname === "/settings" ? "active" : ""}`}
+              href="/settings"
+              onClick={onCloseMobile}
+              title="Settings"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: isMobile ? "14px" : "8px 12px",
+                justifyContent: "flex-start",
+                borderRadius: 6,
+                background: pathname === "/settings" ? "rgba(229,46,46,0.35)" : "transparent",
+                color: "#b8c8d7",
+                textDecoration: "none",
+                fontSize: isMobile ? 15 : 13,
+              }}
+            >
+              <span style={{ fontSize: isMobile ? 18 : 15 }}>⚙️</span>
+              <span>Settings</span>
+            </Link>
+
+            <Link
+              className={`nav-link ${pathname === "/administration" ? "active" : ""}`}
+              href="/administration"
+              onClick={onCloseMobile}
+              title="Administration"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: isMobile ? "14px" : "8px 12px",
+                justifyContent: "flex-start",
+                borderRadius: 6,
+                background: pathname === "/administration" ? "rgba(229,46,46,0.35)" : "transparent",
+                color: "#b8c8d7",
+                textDecoration: "none",
+                fontSize: isMobile ? 15 : 13,
+              }}
+            >
+              <span style={{ fontSize: isMobile ? 18 : 15 }}>🛡️</span>
+              <span>Administration</span>
+            </Link>
+          </div>
+
         </Box>
       </aside>
     </>

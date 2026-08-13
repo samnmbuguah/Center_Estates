@@ -660,7 +660,7 @@ class PaymentGatewayConfiguration(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Payment gateway property must belong to the same organization.')
-        if self.is_enabled and (not self.checkout_url_template or not self.webhook_secret_env):
+        if self.is_enabled and self.provider != self.Provider.MPESA and (not self.checkout_url_template or not self.webhook_secret_env):
             raise ValidationError('Enabled gateways require a checkout URL template and webhook secret environment key.')
 
 

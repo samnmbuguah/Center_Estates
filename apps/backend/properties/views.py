@@ -2687,6 +2687,63 @@ class TenantPortalViewSet(ViewSet):
         )
         return Response(PaymentIntentSerializer(intent).data, status=201)
 
+    @action(detail=False, methods=('post',), url_path='payments/stk-push')
+    def stk_push(self, request):
+        access = self._access()
+        invoice_id = request.data.get('invoice')
+        raw_phone = str(request.data.get('phone_number') or access.tenant.phone or '').strip().replace('+', '').replace(' ', '')
+        if not raw_phone:
+            raise ValidationError({'phone_number': 'Provide a valid M-Pesa phone number (e.g. 2547XXXXXXXX).'})
+        phone_number = f'254{raw_phone[1:]}' if raw_phone.startswith('0') else raw_phone
+
+        invoice = Invoice.objects.for_organization(access.organization).select_related(
+            'lease__unit__property', 'lease__tenant',
+        ).filter(pk=invoice_id, lease__tenant=access.tenant).first()
+        if invoice is None:
+            raise ValidationError({'invoice': 'Select one of your invoices.'})
+        if invoice.balance <= 0:
+            raise ValidationError({'invoice': 'This invoice has no outstanding balance.'})
+
+        configuration = PaymentGatewayConfiguration.objects.for_organization(access.organization).filter(
+            property=invoice.lease.unit.property, provider=PaymentGatewayConfiguration.Provider.MPESA, is_enabled=True,
+        ).first()
+
+        stk_settings = configuration.settings if configuration else {}
+        shortcode = stk_settings.get('shortcode') or '174379'
+        account_ref = stk_settings.get('bank_account_number') or stk_settings.get('till_number') or invoice.lease.unit.code
+        bank_name = stk_settings.get('bank_name') or 'Cooperative Bank'
+
+        reference = f'STK-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}'
+        intent = PaymentIntent.objects.create(
+            organization=access.organization,
+            configuration=configuration,
+            invoice=invoice,
+            tenant=access.tenant,
+            reference=reference,
+            amount=invoice.balance,
+            status=PaymentIntent.Status.PENDING,
+            checkout_url=f'mpesa://stkpush/{shortcode}/{phone_number}',
+            expires_at=timezone.now() + timedelta(minutes=15),
+            metadata={
+                'phone_number': phone_number,
+                'shortcode': shortcode,
+                'bank_name': bank_name,
+                'account_number': account_ref,
+                'stk_status': 'STK Push prompt sent to handset',
+            }
+        )
+        return Response({
+            'status': 'success',
+            'message': f'M-Pesa STK Push prompt sent to {phone_number}. Enter M-Pesa PIN on your phone to complete payment.',
+            'reference': reference,
+            'phone_number': phone_number,
+            'amount': str(invoice.balance),
+            'shortcode': shortcode,
+            'bank_name': bank_name,
+            'account_number': account_ref,
+            'intent_id': intent.id,
+        }, status=201)
+
     @action(detail=False, methods=('post',), url_path='service-requests')
     def service_request(self, request):
         from facilities.models import ServiceRequest, WorkOrder

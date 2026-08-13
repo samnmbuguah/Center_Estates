@@ -122,20 +122,46 @@ export default function TenantPortalPage() {
     anchor.click();
     URL.revokeObjectURL(url);
   }
+  const [stkNotice, setStkNotice] = useState<string | null>(null);
+
   async function payInvoice(invoice: Row) {
     const gateway = data?.paymentGateways?.[0];
-    if (!gateway) {
-      setError("Online payment is not enabled for this property yet.");
-      return;
-    }
     setPaymentBusy(String(invoice.id));
     setError("");
+    setStkNotice(null);
     await apiFetch("/auth/csrf/");
+
+    if (gateway?.provider === "mpesa" || !gateway) {
+      const response = await apiFetch(
+        "/property/portal/payments/stk-push/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            invoice: invoice.id,
+            phone_number: data?.tenant?.phone || "",
+          }),
+        },
+        organizationId
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        detail?: string;
+      };
+      setPaymentBusy(null);
+      if (response.ok) {
+        setStkNotice(result.message || "M-Pesa STK Push prompt sent to your phone. Enter your PIN to complete payment.");
+      } else {
+        setError(result.detail || "M-Pesa STK Push could not be initiated. Please check your phone number or try again.");
+      }
+      return;
+    }
+
     const response = await apiFetch(
       "/property/portal/payments/initiate/",
       {
         method: "POST",
-        headers: { "X-CSRFToken": csrfFromCookie() },
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
         body: JSON.stringify({
           invoice: invoice.id,
           provider: gateway.provider,
@@ -199,6 +225,11 @@ export default function TenantPortalPage() {
         ))}
       </nav>
       {error && <div className="form-error">{error}</div>}
+      {stkNotice && (
+        <div style={{ background: "#dcfce7", color: "#15803d", padding: "12px 16px", borderRadius: 8, fontWeight: 600, marginBottom: 16, border: "1px solid #bbf7d0" }}>
+          ✅ {stkNotice}
+        </div>
+      )}
       {tab === "overview" && (
         <>
           <section className="kpi-grid">
