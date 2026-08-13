@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Button, Chip, MenuItem, Paper, TextField, Typography } from "@mui/material";
 import { money } from "@/components/module-ui";
 
@@ -108,8 +108,18 @@ export function PeriodFilterBar({
   onApply: () => void;
   extra?: ReactNode;
 }) {
-  const presets = periodPresets();
-  const [selectedPreset, setSelectedPreset] = useState("custom");
+  const presets = useMemo(() => periodPresets(), []);
+  const [selectedPreset, setSelectedPreset] = useState("this_month");
+
+  useEffect(() => {
+    const match = presets.findIndex(p => p.start === start && p.end === end);
+    const keys = ["this_month", "last_month", "ytd", "last_12"];
+    if (match >= 0 && keys[match]) {
+      setSelectedPreset(keys[match]);
+    } else {
+      setSelectedPreset("custom");
+    }
+  }, [start, end, presets]);
 
   const handlePresetChange = (key: string) => {
     setSelectedPreset(key);
@@ -117,6 +127,7 @@ export function PeriodFilterBar({
     if (index >= 0 && presets[index]) {
       onStart(presets[index].start);
       onEnd(presets[index].end);
+      queueMicrotask(() => onApply());
     }
   };
 

@@ -16,6 +16,37 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => signIn(page));
 
+test.afterAll(async ({ request }) => {
+  try {
+    const apiBase = BASE.includes("centerestates.com") ? "https://api.centerestates.com/api/v1" : `${BASE}/api/v1`;
+    const csrfRes = await request.get(`${apiBase}/auth/csrf/`, { headers: { Referer: BASE } });
+    const csrfData = (await csrfRes.json().catch(() => ({}))) as { csrfToken?: string };
+    const loginRes = await request.post(`${apiBase}/auth/login/`, {
+      data: { username: ADMIN, password: PASS },
+      headers: { Referer: BASE, "X-CSRFToken": csrfData.csrfToken || "" },
+    });
+    if (loginRes.ok()) {
+      const propRes = await request.get(`${apiBase}/property/properties/`, {
+        headers: { Referer: BASE, "X-Property-Scope": "portfolio" },
+      });
+      if (propRes.ok()) {
+        const props = (await propRes.json().catch(() => [])) as Array<{ id: string; name?: string; code?: string }>;
+        const e2eProps = props.filter((p) =>
+          String(p.name || "").toUpperCase().startsWith("E2E") ||
+          String(p.code || "").toUpperCase().startsWith("E2E")
+        );
+        for (const p of e2eProps) {
+          await request.delete(`${apiBase}/property/properties/${p.id}/`, {
+            headers: { Referer: BASE, "X-Property-Scope": "portfolio", "X-CSRFToken": csrfData.csrfToken || "" },
+          });
+        }
+      }
+    }
+  } catch {
+    // Ignore cleanup failures
+  }
+});
+
 // ──────────────────────────────────────────────────────────────────────────────
 // 1. GUIDED 3-STEP TENANT ONBOARDING WIZARD
 // ──────────────────────────────────────────────────────────────────────────────

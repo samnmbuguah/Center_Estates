@@ -353,36 +353,172 @@ def tenant_payment_status_pdf(organization, property_record, start: date, end: d
 
 
 def income_expenditure_pdf(organization, property_record, start: date, end: date, generated_by="System"):
-    s = _styles(); year_start = start.replace(month=1, day=1)
+    s = _styles()
+    year_start = start.replace(month=1, day=1)
+
     receipts = Receipt.objects.filter(organization=organization, received_on__lte=end).filter(
         Q(invoice__lease__unit__property=property_record) | Q(invoice__isnull=True, tenant__property=property_record),
     )
-    expenses = Expense.objects.filter(organization=organization, property=property_record, incurred_on__lte=end, status__in=(Expense.Status.APPROVED, Expense.Status.PAID))
-    current_receipts = receipts.filter(received_on__gte=start); ytd_receipts = receipts.filter(received_on__gte=year_start)
-    current_expenses = expenses.filter(incurred_on__gte=start); ytd_expenses = expenses.filter(incurred_on__gte=year_start)
-    receipt_groups = defaultdict(Decimal); receipt_ytd = defaultdict(Decimal)
-    for row in current_receipts.select_related("invoice"): receipt_groups[(row.invoice.invoice_type if row.invoice else "other").replace("_", " ").title()] += row.amount
-    for row in ytd_receipts.select_related("invoice"): receipt_ytd[(row.invoice.invoice_type if row.invoice else "other").replace("_", " ").title()] += row.amount
-    expense_groups = {row["category"]: row["total"] for row in current_expenses.values("category").annotate(total=Sum("amount"))}
-    expense_ytd = {row["category"]: row["total"] for row in ytd_expenses.values("category").annotate(total=Sum("amount"))}
-    total_income = sum(receipt_groups.values(), Decimal("0")); total_income_ytd = sum(receipt_ytd.values(), Decimal("0")); total_expense = sum(expense_groups.values(), Decimal("0")); total_expense_ytd = sum(expense_ytd.values(), Decimal("0"))
-    metadata = property_record.metadata or {}; landlord = metadata.get("landlord", {})
-    story = [Paragraph("RECEIPTS & EXPENDITURE ACCOUNT", s["DocTitle"]), Paragraph(f"Statement for <b>{start:%d %b %Y} — {end:%d %b %Y}</b>", s["Small"]), Spacer(1, 4 * mm), _info_table([("Property", property_record.name, "Property code", property_record.code), ("LR no.", metadata.get("lr_number") or "—", "Client / landlord", landlord.get("name") or "—"), ("Address", property_record.address, "City", property_record.city)], s), Spacer(1, 5 * mm)]
-    data = [["CATEGORY", "CURRENT PERIOD", "%", f"CUMULATIVE {end.year}", "%"]]
-    data.append([Paragraph("<b>[A] RECEIPTS</b>", s["Small"]), "", "", "", ""])
-    for label in sorted(set(receipt_groups) | set(receipt_ytd)):
-        cur, ytd = receipt_groups[label], receipt_ytd[label]; data.append([label, f"{cur:,.2f}", f"{(cur / total_income * 100) if total_income else 0:.1f}%", f"{ytd:,.2f}", f"{(ytd / total_income_ytd * 100) if total_income_ytd else 0:.1f}%"])
-    data.append(["TOTAL RECEIPTS", f"{total_income:,.2f}", "100%", f"{total_income_ytd:,.2f}", "100%"])
-    data.append([Paragraph("<b>[B] DISBURSEMENTS</b>", s["Small"]), "", "", "", ""])
-    for label in sorted(set(expense_groups) | set(expense_ytd)):
-        cur, ytd = expense_groups.get(label, 0), expense_ytd.get(label, 0); data.append([label, f"{cur:,.2f}", f"{(cur / total_income * 100) if total_income else 0:.1f}%", f"{ytd:,.2f}", f"{(ytd / total_income_ytd * 100) if total_income_ytd else 0:.1f}%"])
-    data.extend([["TOTAL DISBURSEMENTS", f"{total_expense:,.2f}", f"{(total_expense / total_income * 100) if total_income else 0:.1f}%", f"{total_expense_ytd:,.2f}", f"{(total_expense_ytd / total_income_ytd * 100) if total_income_ytd else 0:.1f}%"], ["SURPLUS / (DEFICIT)", f"{total_income - total_expense:,.2f}", "", f"{total_income_ytd - total_expense_ytd:,.2f}", ""]])
-    table = Table(data, colWidths=[82 * mm, 34 * mm, 18 * mm, 34 * mm, 18 * mm], repeatRows=1)
-    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("BACKGROUND", (0, -1), (-1, -1), RED), ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"), ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7), ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -2), .3, LINE), ("ROWBACKGROUNDS", (0, 1), (-1, -2), (colors.white, PALE)), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
+    expenses = Expense.objects.filter(
+        organization=organization, property=property_record, incurred_on__lte=end,
+        status__in=(Expense.Status.APPROVED, Expense.Status.PAID)
+    )
+
+    current_receipts = receipts.filter(received_on__gte=start)
+    ytd_receipts = receipts.filter(received_on__gte=year_start)
+    current_expenses = expenses.filter(incurred_on__gte=start)
+    ytd_expenses = expenses.filter(incurred_on__gte=year_start)
+
+    rent_curr = sum((r.amount for r in current_receipts if not r.invoice or r.invoice.invoice_type == "rent"), Decimal("0"))
+    rent_ytd = sum((r.amount for r in ytd_receipts if not r.invoice or r.invoice.invoice_type == "rent"), Decimal("0"))
+
+    sc_curr = sum((r.amount for r in current_receipts if r.invoice and r.invoice.invoice_type == "service_charge"), Decimal("0"))
+    sc_ytd = sum((r.amount for r in ytd_receipts if r.invoice and r.invoice.invoice_type == "service_charge"), Decimal("0"))
+
+    other_curr = sum((r.amount for r in current_receipts if r.invoice and r.invoice.invoice_type not in ("rent", "service_charge")), Decimal("0"))
+    other_ytd = sum((r.amount for r in ytd_receipts if r.invoice and r.invoice.invoice_type not in ("rent", "service_charge")), Decimal("0"))
+
+    total_rec_curr = rent_curr + sc_curr + other_curr
+    total_rec_ytd = rent_ytd + sc_ytd + other_ytd
+
+    categories = [
+        "1 Utilities", "2 Services", "3 Repairs", "4 Consumables", "5 Maintenance",
+        "6 Salaries & Wages", "7 Management Fees & VAT", "8 Letting Fees & VAT",
+        "9 Administration Expenses", "10 Insurance", "11 Land Rents & Rates", "12 Deposit Refunds"
+    ]
+
+    def _cat_key(cat_str: str) -> str:
+        c = (cat_str or "").lower()
+        if "util" in c or "water" in c or "power" in c or "elec" in c: return "1 Utilities"
+        if "service" in c or "secu" in c or "clean" in c: return "2 Services"
+        if "repair" in c: return "3 Repairs"
+        if "consum" in c or "bulb" in c: return "4 Consumables"
+        if "maint" in c or "lift" in c or "gen" in c: return "5 Maintenance"
+        if "sal" in c or "wag" in c or "care" in c or "staff" in c or "nssf" in c: return "6 Salaries & Wages"
+        if "manag" in c or "fee" in c: return "7 Management Fees & VAT"
+        if "letting" in c or "agent" in c: return "8 Letting Fees & VAT"
+        if "admin" in c or "airtime" in c or "transport" in c: return "9 Administration Expenses"
+        if "insur" in c: return "10 Insurance"
+        if "rate" in c or "rent" in c or "land" in c: return "11 Land Rents & Rates"
+        if "ref" in c or "dep" in c: return "12 Deposit Refunds"
+        return "9 Administration Expenses"
+
+    exp_curr_map = defaultdict(Decimal)
+    exp_ytd_map = defaultdict(Decimal)
+
+    for e in current_expenses:
+        exp_curr_map[_cat_key(e.category)] += e.amount
+    for e in ytd_expenses:
+        exp_ytd_map[_cat_key(e.category)] += e.amount
+
+    total_exp_curr = sum(exp_curr_map.values(), Decimal("0"))
+    total_exp_ytd = sum(exp_ytd_map.values(), Decimal("0"))
+
+    surplus_curr = total_rec_curr - total_exp_curr
+    surplus_ytd = total_rec_ytd - total_exp_ytd
+
+    metadata = property_record.metadata or {}
+    landlord = metadata.get("landlord", {})
+    lr_number = metadata.get("lr_number") or metadata.get("lr_no") or "—"
+
+    story = [
+        Paragraph("RECEIPTS & EXPENDITURE ACCOUNT", s["DocTitle"]),
+        Paragraph(f"Statement for the period <b>{start:%d %b %Y} — {end:%d %b %Y}</b>", s["Small"]),
+        Spacer(1, 4 * mm),
+        _info_table([
+            ("PROPERTY", property_record.name, "STATEMENT PERIOD", f"{start:%d %b %Y} — {end:%d %b %Y}"),
+            ("L.R No.", lr_number, "PROPERTY CODE", property_record.code),
+            ("CLIENT / LANDLORD", landlord.get("name") or "Landlord", "CURRENCY", "KES"),
+        ], s, widths=[35 * mm, 65 * mm, 35 * mm, 55 * mm]),
+        Spacer(1, 5 * mm),
+    ]
+
+    p_pct = lambda part, tot: f"{(part / tot * 100) if tot else 0:.1f}%"
+    data = [["CATEGORY", "REF", "CURRENT PERIOD", "%", f"CUMULATIVE {end.year}", "%"]]
+    data.append([Paragraph("<b>[A] RECEIPTS</b>", s["Small"]), "", "", "", "", ""])
+    data.append(["1 Rent received as per statement", "Note (A)", f"{rent_curr:,.2f}", p_pct(rent_curr, total_rec_curr), f"{rent_ytd:,.2f}", p_pct(rent_ytd, total_rec_ytd)])
+    data.append(["2 Service Charges received", "Note (A)", f"{sc_curr:,.2f}", p_pct(sc_curr, total_rec_curr), f"{sc_ytd:,.2f}", p_pct(sc_ytd, total_rec_ytd)])
+    data.append(["3 Others (Rent Deposit / Misc)", "Note (A)", f"{other_curr:,.2f}", p_pct(other_curr, total_rec_curr), f"{other_ytd:,.2f}", p_pct(other_ytd, total_rec_ytd)])
+    data.append(["TOTAL RECEIPTS", "", f"{total_rec_curr:,.2f}", "100%", f"{total_rec_ytd:,.2f}", "100%"])
+
+    data.append([Paragraph("<b>[B] DISBURSEMENTS</b>", s["Small"]), "", "", "", "", ""])
+    for idx, cat in enumerate(categories, 1):
+        c_val = exp_curr_map[cat]
+        y_val = exp_ytd_map[cat]
+        data.append([cat, f"Note (B{idx})", f"{c_val:,.2f}", p_pct(c_val, total_rec_curr), f"{y_val:,.2f}", p_pct(y_val, total_rec_ytd)])
+
+    data.append(["TOTAL DISBURSEMENTS", "", f"{total_exp_curr:,.2f}", p_pct(total_exp_curr, total_rec_curr), f"{total_exp_ytd:,.2f}", p_pct(total_exp_ytd, total_rec_ytd)])
+    data.append(["SURPLUS / (DEFICIT) ON PROPERTY", "", f"{surplus_curr:,.2f}", p_pct(surplus_curr, total_rec_curr), f"{surplus_ytd:,.2f}", p_pct(surplus_ytd, total_rec_ytd)])
+
+    table = Table(data, colWidths=[70 * mm, 22 * mm, 34 * mm, 16 * mm, 34 * mm, 14 * mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+        ("ALIGN", (2, 1), (-1, -1), "RIGHT"), ("ALIGN", (1, 1), (1, -1), "CENTER"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
+        ("BACKGROUND", (0, 5), (-1, 5), colors.HexColor("#eef2ff")), ("FONTNAME", (0, 5), (-1, 5), "Helvetica-Bold"),
+        ("BACKGROUND", (0, -2), (-1, -2), colors.HexColor("#fee2e2")), ("FONTNAME", (0, -2), (-1, -2), "Helvetica-Bold"),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#dcfce7")), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
     story.append(table)
-    story.extend([Spacer(1, 5 * mm), Paragraph("Receipt detail", s["Section"]), Table([["DATE", "RECEIPT", "TENANT", "METHOD", "REFERENCE", "AMOUNT"]] + [[row.received_on, row.number, row.tenant.name, row.payment_method, row.external_reference, f"{row.amount:,.2f}"] for row in current_receipts.select_related("tenant")], colWidths=[22*mm,28*mm,55*mm,25*mm,32*mm,30*mm], repeatRows=1, style=[("BACKGROUND",(0,0),(-1,0),NAVY),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),6.5),("GRID",(0,0),(-1,-1),.3,LINE),("ALIGN",(-1,1),(-1,-1),"RIGHT")])])
-    story.extend([Spacer(1, 5 * mm), Paragraph("Disbursement detail", s["Section"]), Table([["DATE", "CATEGORY", "SUPPLIER", "REFERENCE", "DESCRIPTION", "AMOUNT"]] + [[row.incurred_on, row.category, row.supplier, row.invoice_number, row.description, f"{row.amount:,.2f}"] for row in current_expenses], colWidths=[22*mm,32*mm,42*mm,28*mm,48*mm,30*mm], repeatRows=1, style=[("BACKGROUND",(0,0),(-1,0),NAVY),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),6.5),("GRID",(0,0),(-1,-1),.3,LINE),("ALIGN",(-1,1),(-1,-1),"RIGHT")])])
-    return _doc_response(organization, f"income-expenditure-{property_record.code}-{start}-{end}.pdf", story, wide=True, title="Receipts & Expenditure Account", property_name=property_record.name, period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by)
+
+    story.extend([
+        Spacer(1, 6 * mm),
+        Paragraph("NOTES [A] RECEIPTS DETAIL BREAKDOWN", s["Section"]),
+        Table(
+            [["TENANT / UNIT CODE", "RECEIPT NO.", "RENT", "SERVICE CHARGE", "DEPOSITS", "TOTAL"]] +
+            [
+                [
+                    f"{r.tenant.name} ({r.tenant.code})", r.number,
+                    f"{r.amount:,.2f}" if (not r.invoice or r.invoice.invoice_type == "rent") else "0.00",
+                    f"{r.amount:,.2f}" if (r.invoice and r.invoice.invoice_type == "service_charge") else "0.00",
+                    f"{r.amount:,.2f}" if (r.invoice and r.invoice.invoice_type not in ("rent", "service_charge")) else "0.00",
+                    f"{r.amount:,.2f}"
+                ] for r in current_receipts.select_related("tenant", "invoice")
+            ] +
+            [["TOTALS", "", f"{rent_curr:,.2f}", f"{sc_curr:,.2f}", f"{other_curr:,.2f}", f"{total_rec_curr:,.2f}"]],
+            colWidths=[65 * mm, 30 * mm, 26 * mm, 26 * mm, 26 * mm, 27 * mm],
+            repeatRows=1,
+            style=[
+                ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+                ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ]
+        )
+    ])
+
+    story.extend([
+        Spacer(1, 6 * mm),
+        Paragraph("NOTES [B] DISBURSEMENTS DETAIL BREAKDOWN", s["Section"]),
+        Table(
+            [["DATE", "CATEGORY", "SUPPLIER / PAYEE", "REFERENCE", "DESCRIPTION", "AMOUNT"]] +
+            [
+                [
+                    row.incurred_on.strftime("%d/%m/%Y"), _cat_key(row.category),
+                    row.supplier or "—", row.invoice_number or "—",
+                    Paragraph(row.description or "—", s["Tiny"]), f"{row.amount:,.2f}"
+                ] for row in current_expenses
+            ] +
+            [["TOTALS", "", "", "", "", f"{total_exp_curr:,.2f}"]],
+            colWidths=[22 * mm, 36 * mm, 40 * mm, 25 * mm, 47 * mm, 30 * mm],
+            repeatRows=1,
+            style=[
+                ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
+                ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ]
+        )
+    ])
+
+    return _doc_response(
+        organization, f"income-expenditure-{property_record.code}-{start}-{end}.pdf", story,
+        wide=True, title="Receipts & Expenditure Account", property_name=property_record.name,
+        period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by
+    )
 
 
 def _looks_numeric(value: str) -> bool:
