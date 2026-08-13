@@ -2701,7 +2701,7 @@ function ServiceChargesView({
   rows, scSection, setScSection, loading, search, setSearch, setTab, onAdd, onAllocate, onReconcile,
 }: {
   rows: Row[]; scSection: ScSection; setScSection: (s: ScSection) => void; loading: boolean;
-  search?: string; setSearch?: (v: string) => void;
+  search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void;
   onAdd: () => void;
   onAllocate: (row: ServiceChargeRow) => void;
