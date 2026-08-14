@@ -269,22 +269,27 @@ export function PortfolioOverviewWorkspace() {
             </p>
           </div>
 
-          <div style={{ position: "relative", width: "100%", maxWidth: 340, minWidth: 280 }}>
-            <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+          <div style={{ position: "relative", width: "100%", maxWidth: 360, minWidth: 260 }}>
+            <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
             <input
               type="text"
               placeholder="Search properties..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
-                padding: "8px 12px 8px 36px",
+                paddingTop: 9,
+                paddingBottom: 9,
+                paddingRight: 14,
+                paddingLeft: 40,
                 borderRadius: 8,
                 border: "1px solid #cbd5e1",
                 fontSize: 13,
-                fontWeight: 700,
-                color: "#000000",
+                fontWeight: 600,
+                color: "#0f172a",
+                background: "#ffffff",
                 width: "100%",
                 boxSizing: "border-box",
+                outline: "none",
               }}
             />
           </div>
