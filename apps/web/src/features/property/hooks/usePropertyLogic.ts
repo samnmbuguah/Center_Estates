@@ -30,15 +30,20 @@ export function usePropertyLogic({
   const canFinance = can("property.finance");
   const canApprove = can("property.approve");
   const searchParams = useSearchParams();
+  const normalizeLegacyTab = (value: string): PropertyTab => {
+    if (value === "financials") return "receipts";
+    if (value === "tenancy") return "tenants";
+    return value as PropertyTab;
+  };
 
   const [tab, setTab] = useState<PropertyTab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab");
-      if (q && labels[q as PropertyTab]) return q as PropertyTab;
+      if (q && labels[q as PropertyTab]) return normalizeLegacyTab(q);
     }
     // Default directly to properties register inside Property Management module.
     if (!activeProperty && typeof window !== "undefined") return "properties";
-    return (initialTab as PropertyTab) || "properties";
+    return normalizeLegacyTab(initialTab || "properties");
   });
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -53,8 +58,6 @@ export function usePropertyLogic({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rentSection, setRentSection] = useState<RentSection>("invoices");
-  const [scSection, setScSection] = useState<ScSection>("setup");
-  const [financialsSection, setFinancialsSection] = useState<FinancialsSection>("schedules");
   const [tenancySection, setTenancySection] = useState<TenancySection>("occupancy");
   const [tenantsRows, setTenantsRows] = useState<Row[]>([]);
   const [leasesRows, setLeasesRows] = useState<Row[]>([]);
@@ -121,7 +124,7 @@ export function usePropertyLogic({
       setSearch("");
       setSelectedRow(null);
       setRows([]);
-      setTab(requested);
+      setTab(normalizeLegacyTab(requested));
     });
     return () => { cancelled = true; };
   }, [searchParams]);
@@ -134,7 +137,7 @@ export function usePropertyLogic({
   useEffect(() => {
     if (searchParams.get("action") !== "add-tenant") return;
     queueMicrotask(() => {
-      setTab("tenancy");
+      setTab("tenants");
       setShowAddTenant(true);
     });
   }, [searchParams]);
@@ -169,21 +172,6 @@ export function usePropertyLogic({
   const rentEndpoint = (s: RentSection): string => {
     if (s === "receipts") return "receipts";
     if (s === "reminders") return "invoice-reminders";
-    return "invoices";
-  };
-
-  const scEndpoint = (s: ScSection): string => {
-    if (s === "allocations") return "service-charge-allocations";
-    if (s === "reconciliations") return "service-charge-reconciliations";
-    return "service-charges";
-  };
-
-  const financialEndpoint = (s: FinancialsSection): string => {
-    if (s === "schedules") return "rent-schedules";
-    if (s === "receipts") return "receipts";
-    if (s === "allocations") return "receipt-allocations";
-    if (s === "reconciliation") return "bank-transactions";
-    if (s === "credit-notes") return "credit-notes";
     return "invoices";
   };
 
@@ -223,7 +211,7 @@ export function usePropertyLogic({
         const data = await res.json();
         if (version !== loadVersion.current) return;
         setRows((data as { reports?: Row[] }).reports ?? []);
-      } else if (tab === "rent" || (tab === "financials" && financialsSection === "invoices")) {
+      } else if (tab === "rent") {
         if (rentSection === "arrears") {
           const agingRes = await apiFetch("/property/analytics/aging/?search=", {}, organizationId);
           if (!agingRes.ok) { fail(); return; }
@@ -258,7 +246,7 @@ export function usePropertyLogic({
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(listData) ? listData as Row[] : []);
         setFinancial(finData as FinancialAnalytics);
-      } else if (tab === "receipts" || (tab === "financials" && financialsSection === "receipts")) {
+      } else if (tab === "receipts") {
         const [listRes, cnRes] = await Promise.all([
           apiFetch(`/property/receipts/?search=${q}`, {}, organizationId),
           apiFetch("/property/credit-notes/?search=", {}, organizationId),
@@ -298,15 +286,6 @@ export function usePropertyLogic({
         }
         setLeasesRows(leasesList);
         setTenantDocsRows(docsList);
-      } else if (tab === "financials") {
-        const ep = financialEndpoint(financialsSection);
-        const res = await apiFetch(`/property/${ep}/?search=${q}`, {}, organizationId);
-        if (!res.ok) { fail(); return; }
-        const data = await res.json();
-        if (version !== loadVersion.current) return;
-        const list = Array.isArray(data) ? data as Row[] : [];
-        setRows(list);
-        if (financialsSection === "credit-notes") setCreditNotes(list);
       } else if (tab === "properties") {
         const [listRes, dashRes] = await Promise.all([
           apiFetch(`/property/properties/?search=${q}`, {}, organizationId),
@@ -342,7 +321,7 @@ export function usePropertyLogic({
           setRows(list);
         }
       } else if (tab === "service-charges") {
-        const res = await apiFetch(`/property/${scEndpoint(scSection)}/?search=${q}`, {}, organizationId);
+        const res = await apiFetch(`/property/service-charges/?search=${q}`, {}, organizationId);
         if (!res.ok) { fail(); return; }
         const data = await res.json();
         if (version !== loadVersion.current) return;
@@ -386,7 +365,7 @@ export function usePropertyLogic({
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, organizationId, activeProperty?.id, rentSection, scSection, financialsSection, standaloneOnboarding]);
+  }, [tab, search, organizationId, activeProperty?.id, rentSection, standaloneOnboarding]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);
@@ -499,9 +478,8 @@ export function usePropertyLogic({
     if (response.ok) {
       setShowInvoiceComposer(false);
       setInvoicePreview(null);
-      setFinancialsSection("invoices");
       setRentSection("invoices");
-      await loadData();
+      setTab("rent");
     } else {
       const body = await response.json().catch(() => ({}));
       setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Invoice draft could not be saved.");
@@ -677,7 +655,6 @@ export function usePropertyLogic({
     }, organizationId);
     if (res.ok) {
       setShowAddServiceCharge(false);
-      setScSection("setup");
       setTab("service-charges");
       loadData();
     } else {
@@ -834,6 +811,14 @@ export function usePropertyLogic({
 
   const downloadTenancyTemplate = () => {
     void downloadReportCSV("lease-expiry");
+  };
+
+  const handleInvoiceAction = (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => {
+    if (action === "void") {
+      handleVoidInvoicePrompt(row);
+      return;
+    }
+    void runPropertyAction("invoices", row.id, action, `Invoice ${action.replace(/-/g, " ")} failed.`);
   };
 
   async function runLeaseAction(row: LeaseRow, action: "activate" | "renew" | "terminate") {
@@ -1037,10 +1022,6 @@ export function usePropertyLogic({
     error,
     rentSection,
     setRentSection,
-    scSection,
-    setScSection,
-    financialsSection,
-    setFinancialsSection,
     tenancySection,
     setTenancySection,
     tenantsRows,
@@ -1139,6 +1120,11 @@ export function usePropertyLogic({
     handleCreateExpense,
     handleCreateCreditNote,
     handleQuickReceipt,
+    handleInvoiceAction,
+    downloadInvoicePdf,
+    downloadReceiptPdf,
+    downloadTenantStatement,
+    generateServiceChargeAllocations,
     fetchData: loadData,
   };
 }

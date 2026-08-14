@@ -252,17 +252,21 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
         ))}
       </div>
 
-      {/* Utility type selector */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {(["overview", "electricity", "water", "generator", "solar", "gas", "reconciliation", "waste", "reports"] as const).map((t) => {
-          const tabLabels: Record<string, string> = { overview: "📊 Overview", electricity: "⚡ Electricity", water: "💧 Water", generator: "⛽ Generator", solar: "☀️ Solar", gas: "🔥 Gas", reconciliation: "🔄 Reconcile", waste: "🗑 Waste", reports: "📋 Reports" };
-          return (
-            <button key={t} type="button" onClick={() => setSubTab(t)} style={{ background: subTab === t ? "#e23b3b" : "#f1f5f9", border: 0, borderRadius: 6, color: subTab === t ? "#ffffff" : "#475569", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "6px 12px", whiteSpace: "nowrap", transition: "all 0.15s" }}>
-              {tabLabels[t]}
-            </button>
-          );
-        })}
-      </div>
+      {/* Utility type/workflow is a page control, not a third navigation level. */}
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, width: "fit-content", fontSize: 12, fontWeight: 700 }}>
+        Utility view
+        <select className="fc-toolbar-select" aria-label="Utility view" value={subTab} onChange={(event) => setSubTab(event.target.value)}>
+          <option value="overview">Overview</option>
+          <option value="electricity">Electricity</option>
+          <option value="water">Water</option>
+          <option value="generator">Generator</option>
+          <option value="solar">Solar</option>
+          <option value="gas">Gas</option>
+          <option value="reconciliation">Meter reconciliation</option>
+          <option value="waste">Waste</option>
+          <option value="reports">Reports</option>
+        </select>
+      </label>
 
       {subTab === "reconciliation" ? (
         <div style={{ display: "grid", gap: 16 }}>

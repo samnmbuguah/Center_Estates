@@ -107,8 +107,6 @@ export function RentView({
   onRefresh?: () => void;
 }) {
   const currentInvoices = invoices || rentInvoices;
-  const currentSection = activeSection || rentSection || "invoices";
-  const setCurrentSection = onSectionChange || setRentSection;
   const totalBilled = currentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = currentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
   const collected = Math.max(totalBilled - outstanding, 0);
@@ -133,17 +131,17 @@ export function RentView({
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
 
       <KpiStrip>
-        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} link="View invoices" onClick={() => setRentSection("invoices")} />
-        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={kM(collected)} sub={`${collectionRate}% collection rate`} link="View receipts" onClick={() => setRentSection("receipts")} />
-        <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub="Billed vs collected" link="View invoices" onClick={() => setRentSection("invoices")} />
-        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid balances" link="View arrears" onClick={() => setRentSection("arrears")} />
-        <KpiCard icon="📅" iconBg="#fff7ed" iconColor="#ea580c" label="Due This Month" value={kN(dueThisMonth)} sub="Open invoices" link="View invoices" onClick={() => setRentSection("invoices")} />
+        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} link="View invoices" onClick={() => setTab("rent")} />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={kM(collected)} sub={`${collectionRate}% collection rate`} link="View receipts" onClick={() => setTab("receipts")} />
+        <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub="Billed vs collected" link="View invoices" onClick={() => setTab("rent")} />
+        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid balances" link="View arrears" onClick={() => setTab("arrears")} />
+        <KpiCard icon="📅" iconBg="#fff7ed" iconColor="#ea580c" label="Due This Month" value={kN(dueThisMonth)} sub="Open invoices" link="View invoices" onClick={() => setTab("rent")} />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 18, width: "100%" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
 
-      {rentSection === "invoices" && (
+      {(
         <Panel title="Rent Invoices & Collection Ledger" action={<div className="row" style={{ gap: 8 }}>{canFinance && <button className="btn ghost sm" onClick={onAddInvoice}>+ New invoice</button>}<button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Rent Payment</button></div>}>
           <ListState loading={loading} empty={rows.length === 0} emptyTitle="No invoices found" emptyDesc="Generate invoices from rent schedules or issue draft invoices.">
             <div className="table-scroll">
@@ -398,4 +396,3 @@ export function RentView({
 }
 
 /* ─── ARREARS ─── */
-

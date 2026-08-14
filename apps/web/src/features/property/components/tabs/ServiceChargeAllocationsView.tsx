@@ -39,7 +39,6 @@ export function ServiceChargeAllocationsView({ rows, loading, search, setSearch 
                 <tr>
                   <th>Allocation</th>
                   <th>Charge</th>
-                  <th>Property</th>
                   <th>Unit</th>
                   <th>Ratio</th>
                   <th>Monthly Amount</th>
@@ -52,7 +51,6 @@ export function ServiceChargeAllocationsView({ rows, loading, search, setSearch 
                   <tr key={String(a.id)}>
                     <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{shortId(a.id)}</td>
                     <td style={{ fontSize: 12 }}>{String(a.service_charge_name ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(a.property_name ?? "—")}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{String(a.unit_code ?? "—")}</td>
                     <td className="mono">{Number((Number(a.ratio ?? 0) * 100).toFixed(2))}%</td>
                     <td className="mono">{kM(a.monthly_amount)}</td>
@@ -70,4 +68,3 @@ export function ServiceChargeAllocationsView({ rows, loading, search, setSearch 
 }
 
 /* ─── SERVICE CHARGE RECONCILIATIONS (dedicated tab) ─── */
-

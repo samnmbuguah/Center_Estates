@@ -28,9 +28,20 @@ export const propertyNav: ModuleNavGroup[] = [
   {
     label: "COLLECTIONS",
     items: [
-      { id: "billing", label: "Billing & Invoicing", icon: "🧾" },
-      { id: "financials", label: "Receipts & Payment Ledger", icon: "💰" },
+      { id: "billing", label: "Billing Overview", icon: "🧾" },
+      { id: "rent", label: "Invoice Register", icon: "📄" },
+      { id: "rent-schedules", label: "Payment Schedules", icon: "📅" },
+      { id: "receipts", label: "Receipts", icon: "💰" },
+      { id: "receipt-allocations", label: "Receipt Allocations", icon: "🔗" },
+      { id: "bank-reconciliation", label: "Bank Reconciliation", icon: "🏦" },
+      { id: "credit-notes", label: "Credit Notes", icon: "↩️" },
+      { id: "reminders", label: "Payment Reminders", icon: "🔔" },
       { id: "arrears", label: "Arrears & Recovery", icon: "⚠️" },
+    ],
+  },
+  {
+    label: "FINANCE",
+    items: [
       { id: "budgets", label: "Budgets & Estimates", icon: "📑" },
       { id: "expenses", label: "Expenses", icon: "💸" },
       { id: "fees", label: "Management Fees", icon: "🧾" },

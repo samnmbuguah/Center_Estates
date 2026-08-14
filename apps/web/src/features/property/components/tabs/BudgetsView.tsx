@@ -42,7 +42,7 @@ export function BudgetsView({ rows, loading, search, setSearch, setTab, onSelect
         <KpiCard icon="▽" iconBg="#fee2e2" iconColor="#dc2626" label="Variance" value={kM(totalVariance)} sub="Budget less actual" />
       </KpiStrip>
 
-      <ViewToolbar title="Budgets & Estimates" subtitle="Budget registers, utilization and variance tracking" search={search} onSearch={setSearch} placeholder="Search by property, category or year…">
+      <ViewToolbar title="Budgets & Estimates" subtitle="Budget versus actual performance for the selected property" search={search} onSearch={setSearch} placeholder="Search by category or year…">
         <button className="btn primary sm" onClick={onAdd}>+ Add budget line</button>
       </ViewToolbar>
 
@@ -83,7 +83,6 @@ export function BudgetsView({ rows, loading, search, setSearch, setTab, onSelect
               <thead>
                 <tr>
                   <th>Budget</th>
-                  <th>Property</th>
                   <th>Type</th>
                   <th>Year</th>
                   <th>Total</th>
@@ -100,7 +99,6 @@ export function BudgetsView({ rows, loading, search, setSearch, setTab, onSelect
                   return (
                     <tr key={String(b.id)} onClick={() => onSelectRow(b)}>
                       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(b.category ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(b.property_name ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String(b.category ?? "—")}</td>
                       <td className="mono" style={{ fontSize: 12 }}>{String(b.year ?? "—")}</td>
                       <td className="mono">{kM(b.amount)}</td>
@@ -141,4 +139,3 @@ export function BudgetsView({ rows, loading, search, setSearch, setTab, onSelect
 }
 
 /* ─── EXPENSES ─── */
-

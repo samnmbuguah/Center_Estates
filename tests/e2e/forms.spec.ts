@@ -113,19 +113,22 @@ test("sales: new listing form submits", async ({ page }, testInfo) => {
   expect(body).toContain(listingTitle);
 });
 
-test("property: financials invoices section renders with management actions", async ({ page }) => {
+test("property: invoice register is a direct second-level page", async ({ page }) => {
   await page.goto("/property");
-  const finNav = page.locator(".module-nav-bar").getByRole("button", { name: /Financials/i });
-  if (await finNav.count()) await finNav.click();
+  const invoiceNav = page.locator(".module-nav-bar").getByRole("button", { name: /Invoice Register/i });
+  await invoiceNav.click();
   await page.waitForTimeout(1500);
-  // The Invoices sub-tab exposes void/issue management actions.
-  const invoicesTab = page.getByRole("tab", { name: "Invoices", exact: true }).first();
-  if (await invoicesTab.count()) {
-    await invoicesTab.click();
-    await page.waitForTimeout(1500);
-  }
   await expect(page.locator(".module-workspace, .module-nav-bar").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /New invoice|Record Rent Payment/i }).first()).toBeVisible();
+});
+
+test("property: service charge workflows use only two navigation levels", async ({ page }) => {
+  await page.goto("/property?tab=service-charges");
+  await expect(page.getByText("Service Charge Schemes", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Budget vs Actual", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cost Centres", exact: true })).toHaveCount(0);
+  await page.locator(".module-nav-bar").getByRole("button", { name: /Charge Allocations/i }).click();
+  await expect(page.getByText("Charge Allocations", { exact: true }).first()).toBeVisible();
 });
 
 test("property onboarding: autosaved draft restores on reload and can be discarded", async ({ page }) => {
@@ -151,4 +154,3 @@ test("property onboarding: autosaved draft restores on reload and can be discard
   await page.getByLabel(/Property name/i).waitFor({ timeout: 20000 });
   await expect(page.getByLabel(/Property name/i)).toHaveValue("");
 });
-

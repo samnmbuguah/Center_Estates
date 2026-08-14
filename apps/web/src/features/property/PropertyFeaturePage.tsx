@@ -28,7 +28,6 @@ import { ReceiptsView } from "./components/tabs/ReceiptsView";
 import { ReceiptAllocationsView } from "./components/tabs/ReceiptAllocationsView";
 import { BankReconciliationView } from "./components/tabs/BankReconciliationView";
 import { CreditNotesView } from "./components/tabs/CreditNotesView";
-import { FinancialsView } from "./components/tabs/FinancialsView";
 import { ServiceChargesView } from "./components/tabs/ServiceChargesView";
 import { ServiceChargeAllocationsView } from "./components/tabs/ServiceChargeAllocationsView";
 import { ServiceChargeReconciliationsView } from "./components/tabs/ServiceChargeReconciliationsView";
@@ -75,13 +74,13 @@ export function PropertyFeaturePage({
       case "leases":
         return <LeasesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddLease(true)} setTab={logic.setTab} canLease={logic.canLease} onRenew={logic.setRenewalTarget} onTerminate={logic.setTerminationTarget} onRefresh={logic.fetchData} />;
       case "financials":
-        return <FinancialsView activeSection={logic.financialsSection as any} onSectionChange={logic.setFinancialsSection} schedulesRows={logic.rows} invoicesRows={logic.rentInvoices} receiptsRows={logic.rows} allocationsRows={logic.rows} bankTransactionsRows={logic.rows} creditNotesRows={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} onGenerateInvoice={logic.handleGenerateScheduleInvoice} onComposeInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onQuickReceipt={logic.handleQuickReceipt} onVoidInvoice={logic.handleVoidInvoicePrompt} onMatchBankTx={logic.setMatchTarget} onAddCreditNote={() => logic.handleCreateCreditNote(null)} onRefresh={logic.fetchData} />;
+        return <ReceiptsView rows={logic.rows} receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
       case "billing":
         return <PropertyBillingDashboard onNavigate={(t) => logic.setTab(t as PropertyTab)} onSingleInvoice={() => logic.setShowInvoiceComposer(true)} />;
       case "rent-schedules":
         return <RentSchedulesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onGenerateInvoice={logic.handleGenerateScheduleInvoice} onRefresh={logic.fetchData} canFinance={logic.canFinance} />;
       case "rent":
-        return <RentView activeSection={logic.rentSection as any} onSectionChange={logic.setRentSection} invoices={logic.rentInvoices} receipts={logic.rows} arrears={logic.rows} reminders={logic.rows} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} onComposeInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onQuickReceipt={logic.handleQuickReceipt} onSendReminder={logic.handleSendReminder} onVoidInvoice={logic.handleVoidInvoicePrompt} onRefresh={logic.fetchData} />;
+        return <RentView invoices={logic.rentInvoices} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} canApprove={logic.canApprove} onAddInvoice={() => logic.setShowInvoiceComposer(true)} onComposeInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={(invoiceId) => { logic.setReceiptInvoice(invoiceId ?? ""); logic.setShowRecordReceipt(true); }} onQuickReceipt={logic.handleQuickReceipt} onSendReminder={logic.handleSendReminder} onInvoiceAction={logic.handleInvoiceAction} onVoidInvoice={logic.handleVoidInvoicePrompt} onSelectRow={logic.setSelectedRow} onDownloadPdf={logic.downloadInvoicePdf} onRefresh={logic.fetchData} />;
       case "arrears":
         return <ArrearsView rows={logic.rows} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSendReminder={logic.handleSendReminder} />;
       case "reminders":
@@ -95,7 +94,7 @@ export function PropertyFeaturePage({
       case "credit-notes":
         return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} />;
       case "service-charges":
-        return <ServiceChargesView activeSection={logic.scSection as any} onSectionChange={logic.setScSection} setupRows={logic.rows} allocationsRows={logic.rows} reconciliationsRows={logic.rows} budgetRows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} onAddSetup={() => logic.setShowAddServiceCharge(true)} onReconcile={logic.setReconciliationTarget} onSelectRow={logic.setSelectedRow} onAddBudget={() => logic.handleCreateBudget(null)} onBudgetAction={(b, a) => { if (a === "approve") logic.handleApproveBudget(b); else if (a === "reject") logic.handleRejectBudgetPrompt(b); }} onRefresh={logic.fetchData} />;
+        return <ServiceChargesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.setShowAddServiceCharge(true)} onAllocate={logic.generateServiceChargeAllocations} onReconcile={logic.setReconciliationTarget} />;
       case "service-charge-allocations":
         return <ServiceChargeAllocationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
       case "service-charge-reconciliations":

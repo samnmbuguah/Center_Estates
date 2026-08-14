@@ -220,24 +220,17 @@ export function PlannedMaintenanceView({
         </div>
       </article>
 
-      {/* View mode switcher */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        {([
-          { key: "list", label: "☰ List" },
-          { key: "calendar", label: "📅 Calendar" },
-          { key: "gantt", label: "📊 Gantt" },
-          { key: "templates", label: "📝 Templates" },
-          { key: "plans", label: "🛠 Plans" },
-        ] as const).map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setSubTab(key)}
-            style={{ background: subTab === key ? "#0f172a" : "#f1f5f9", border: 0, borderRadius: 6, color: subTab === key ? "#ffffff" : "#475569", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "6px 12px", whiteSpace: "nowrap", transition: "all 0.15s" }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* This changes presentation inside one workflow; it is intentionally a control, not another navigation level. */}
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, width: "fit-content", fontSize: 12, fontWeight: 700 }}>
+        View maintenance as
+        <select className="fc-toolbar-select" aria-label="Maintenance view" value={subTab} onChange={(event) => setSubTab(event.target.value)}>
+          <option value="list">List</option>
+          <option value="calendar">Calendar</option>
+          <option value="gantt">Gantt schedule</option>
+          <option value="templates">Templates</option>
+          <option value="plans">Plans</option>
+        </select>
+      </label>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: subTab === "list" ? "1fr" : "240px minmax(0,1fr)" }}>
         {/* Maintenance plans sidebar */}

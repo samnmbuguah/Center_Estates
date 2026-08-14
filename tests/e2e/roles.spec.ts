@@ -210,10 +210,7 @@ test("@role:property-accountant @module:property @story:ROLE-PROPERTY-ACCOUNTANT
     await draftRow.getByRole("button", { name: "Issue", exact: true }).click();
     await expect(draftRow).toContainText("issued");
   }
-  // The Financials page is the active module nav item; its Invoices section is
-  // an MUI sub-tab selected below it.
-  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Receipts & Payment Ledger/i);
-  await expect(page.getByRole("tab", { name: "Invoices", exact: true }).first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Invoice Register/i);
 
   await openModuleSection(page, "Receipts");
   await page.getByRole("button", { name: "+ Record Receipt", exact: true }).last().click();

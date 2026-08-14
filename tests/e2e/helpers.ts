@@ -31,8 +31,8 @@ const TAB_ALIASES: Record<string, string | string[]> = {
   "Tenancy Analytics": "Tenancy Analytics",
   "Financial reports": "Financial Analytics",
   "Financial Analytics": "Financial Analytics",
-  Invoices: "Receipts & Payment Ledger",
-  Receipts: "Receipts & Payment Ledger",
+  Invoices: "Invoice Register",
+  Receipts: "Receipts",
   // Facility
   "Work orders": "Maintenance",
   "Work Orders": "Maintenance",
@@ -103,11 +103,7 @@ function aliasTargets(name: string): string[] {
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
 
-/** Map section names to the sub-tab label on a consolidated page (e.g. property Financials). */
-const SUBTAB_ALIASES: Record<string, string> = {
-  Invoices: "Invoices",
-  Receipts: "Receipts",
-};
+const SUBTAB_ALIASES: Record<string, string> = {};
 
 const PROPERTY_PARENTS: Record<string, string> = {};
 
@@ -200,8 +196,8 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
         const groupedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${resolvedEscaped}$`, "i") });
         await expect(groupedTab, `Navigation page "${resolvedOptionLabel}" should be available`).toBeVisible();
         await groupedTab.click();
-        // Some pages (e.g. property Financials) expose sub-sections as MUI tabs.
-        // If the test asked for a specific section, activate the matching sub-tab.
+        // A module may expose a view control using tab semantics; module page
+        // navigation itself remains limited to the two levels above.
         const subTabName = SUBTAB_ALIASES[name] ?? name;
         if (subTabName !== resolvedOptionLabel) {
           const subTab = page.getByRole("tab", { name: subTabName, exact: true }).first();
