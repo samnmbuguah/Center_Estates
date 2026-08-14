@@ -11,6 +11,7 @@ import {
   type Session,
 } from "@/lib/api";
 import { isPublicRoute } from "@/lib/public-routes";
+import { OrganizationBrandingSync } from "@/lib/organization-branding";
 
 const QM_LOGIN_BRIEF_STORAGE_KEY = "ce_qm_brief_after_login";
 
@@ -196,7 +197,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [session, loading, login, logout, selectOrganization, can, switchIdentity, stopImpersonate, loadDemoIdentities],
   );
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>
+    <OrganizationBrandingSync session={session} loading={loading} />
+    {children}
+  </AuthContext.Provider>;
 }
 
 export function useAuth() {

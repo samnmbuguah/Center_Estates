@@ -1,3 +1,5 @@
+import { BrandedLoader } from "@/components/branded-loader";
+
 export default function Loading() {
-  return <div className="page-wrap"><div className="loading-card">Loading module…</div></div>;
+  return <BrandedLoader message="Opening this module" />;
 }
