@@ -464,14 +464,6 @@ function SiteAgentDashboard() {
         )}
       </div>
 
-      <div className="data-panel" style={{ padding: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Quick Actions</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-          <button type="button" className="btn ghost" style={{ textAlign: "left" }}>📋 Log Daily Activity</button>
-          <button type="button" className="btn ghost" style={{ textAlign: "left" }}>⚠️ Report Issue</button>
-          <button type="button" className="btn ghost" style={{ textAlign: "left" }}>🔍 Schedule Inspection</button>
-        </div>
-      </div>
     </div>
   );
 }

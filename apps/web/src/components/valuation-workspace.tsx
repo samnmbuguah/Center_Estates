@@ -497,15 +497,6 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
             </div>
           </Panel>
 
-          <Panel title="Quick Actions">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn primary" style={{ textAlign: "left" }} onClick={openNewInstruction}>📐 New Instruction Intake</button>
-              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("inspections")}>📍 Schedule Site Inspection</button>
-              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("comparables")}>📊 Comparable Evidence Registry</button>
-              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("draft-reports")}>📝 Review Draft Reports</button>
-              <button className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("invoices")}>💰 Issue Fee Invoices</button>
-            </div>
-          </Panel>
         </div>
       </div>
     </div>
@@ -626,24 +617,6 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Panel title="Quick Actions">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn ghost sm" onClick={setShowAddModal}>+ New Instruction</button>
-              <button className="btn ghost sm" onClick={() => setTab("inspections")}>Schedule Inspection</button>
-              <button className="btn ghost sm" onClick={() => setTab("draft-reports")}>Upload Draft</button>
-              <button className="btn ghost sm" onClick={() => {
-                const hdr = "Reference,Client,Property,Type,Purpose,Instructed,Due,Fee,Priority,Status,Valuer\n";
-                const body = rows.map((r) => [String(r.reference ?? ""), String(r.client_name ?? ""), String(r.property_description ?? ""), String(r.valuation_type ?? ""), String(r.purpose ?? ""), String(r.instructed_on ?? ""), String(r.due_on ?? ""), String(r.quoted_fee ?? ""), String(r.priority ?? ""), String(r.status ?? ""), String(r.valuer_name ?? "")].join(",")).join("\n");
-                const blob = new Blob([hdr + body], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "valuation-instructions.csv";
-                a.click();
-                URL.revokeObjectURL(url);
-              }}>Download Register</button>
-            </div>
-          </Panel>
 
           <Panel title="Overdue Instructions" badge={overdueList.length}>
             {overdueList.length ? (
@@ -837,14 +810,6 @@ function InspectionsView({ rows, search, setSearch, setShowAddModal }: {
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <Panel title="Quick Actions">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn ghost sm" onClick={setShowAddModal}>Schedule Inspection</button>
-              <button className="btn ghost sm" disabled title="Mobile app integration coming soon">Record Inspection (Mobile)</button>
-              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Inspection Report</button>
-              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Photos / Documents</button>
-            </div>
-          </Panel>
 
           <Panel title="Status This Month">
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1038,15 +1003,6 @@ function DraftReportsView({ rows, search, setSearch, canReview, openReview, setS
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <Panel title="Quick Actions">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn ghost sm" onClick={setShowAddModal}>+ New Instruction</button>
-              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Revised Draft</button>
-              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Supporting Documents</button>
-              <button className="btn ghost sm" disabled title="Internal notes integration coming soon">Add Internal Note</button>
-              <button className="btn ghost sm" disabled title="Messaging integration coming soon">Request Information</button>
-            </div>
-          </Panel>
         </div>
       </div>
     </div>
@@ -1143,15 +1099,6 @@ function FinalReportsView({ rows, search, setSearch, setTab }: {
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <Panel title="Quick Actions">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn ghost sm" disabled title="Email delivery integration coming soon">Resend Report</button>
-              <button className="btn ghost sm" onClick={() => setTab("invoices")}>Generate Invoice</button>
-              <button className="btn ghost sm" onClick={() => setTab("invoices")}>View Invoice</button>
-              <button className="btn ghost sm" onClick={() => setTab("payments")}>Record Payment</button>
-              <button className="btn ghost sm" disabled title="CRM follow-up integration coming soon">Add Follow Up</button>
-            </div>
-          </Panel>
 
           <Panel title="Delivery Status (This Month)">
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1255,26 +1202,6 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCr
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <Panel title="Quick Actions">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button className="btn ghost sm" onClick={setShowCreateInvoice}>Create New Invoice</button>
-              <button className="btn ghost sm" disabled title="Credit note feature coming soon">Create Credit Note</button>
-              <button className="btn ghost sm" onClick={setShowRecordPayment}>Record Payment</button>
-              <button className="btn ghost sm" disabled title="File upload integration coming soon">Upload Payment Proof</button>
-              <button className="btn ghost sm" disabled title="Email integration coming soon">Send Statement of Account</button>
-              <button className="btn ghost sm" onClick={() => {
-                const hdr = "Number,Instruction,Client,Issued,Due,Total,Paid,Balance,Status\n";
-                const body = rows.map((r) => [String(r.number ?? ""), String(r.instruction_reference ?? ""), String(r.client_name ?? ""), String(r.issued_on ?? ""), String(r.due_on ?? ""), String(r.total ?? ""), String(Math.round((Number(r.total ?? 0) - Number(r.balance ?? 0)) * 100) / 100), String(r.balance ?? ""), String(r.status ?? "")].join(",")).join("\n");
-                const blob = new Blob([hdr + body], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "valuation-invoices.csv";
-                a.click();
-                URL.revokeObjectURL(url);
-              }}>Download Invoice Register</button>
-            </div>
-          </Panel>
         </div>
       </div>
 

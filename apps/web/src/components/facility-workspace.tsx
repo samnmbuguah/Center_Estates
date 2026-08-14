@@ -455,37 +455,6 @@ function DashboardView({
 
           </article>
 
-          {/* Quick Actions */}
-          <article className="data-panel">
-            <PanelHeader title="Quick Actions" />
-            <div className="fc-quick-actions">
-              {canWork && (
-                <button className="fc-quick-action" onClick={() => setShowCreate(true)}>
-                  <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span className="fc-qa-icon" style={{ background: "#fee2e2", color: "#b91c1c" }}>📝</span>
-                    New Work Order
-                  </span>
-                  <span className="fc-qa-chevron">›</span>
-                </button>
-              )}
-              {[
-                { icon: "📨", bg: "#dbeafe", color: "#1d4ed8", label: "New Service Request", tab: "service-requests" as Tab },
-                { icon: "📅", bg: "#fef3c7", color: "#92400e", label: "Schedule Maintenance", tab: "planned-maintenance" as Tab },
-                { icon: "▣", bg: "#dcfce7", color: "#166534", label: "Add New Asset", tab: "assets" as Tab },
-                { icon: "🏢", bg: "#ede9fe", color: "#6d28d9", label: "Buildings & Locations", tab: "buildings" as Tab },
-                { icon: "⚡", bg: "#e0f2fe", color: "#0284c7", label: "Report an Issue", tab: "service-requests" as Tab },
-              ].map((item) => (
-                <button key={item.label} className="fc-quick-action" onClick={() => setTab(item.tab)}>
-                  <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span className="fc-qa-icon" style={{ background: item.bg, color: item.color }}>{item.icon}</span>
-                    {item.label}
-                  </span>
-                  <span className="fc-qa-chevron">›</span>
-                </button>
-              ))}
-            </div>
-          </article>
-
           {/* Maintenance due */}
           {dashboard.dueMaintenance.length > 0 && (
             <article className="data-panel">
@@ -1653,20 +1622,23 @@ function PlannedMaintenanceView({ rows, kpis, onAction, permissions, onAdd, orga
         </div>
       </article>
 
-      {/* View tabs */}
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {(["calendar", "list", "gantt", "templates", "plans"] as const).map((t) => {
-          const labels: Record<string, string> = { calendar: "Calendar View", list: "List View", gantt: "Gantt View", templates: "Task Templates", plans: "Maintenance Plans" };
-          return (
-            <button
-              key={t}
-              onClick={() => setSubTab(t)}
-              style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", whiteSpace: "nowrap" }}
-            >
-              {labels[t]}
-            </button>
-          );
-        })}
+      {/* View mode switcher */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        {([
+          { key: "list", label: "☰ List" },
+          { key: "calendar", label: "📅 Calendar" },
+          { key: "gantt", label: "📊 Gantt" },
+          { key: "templates", label: "📝 Templates" },
+          { key: "plans", label: "🛠 Plans" },
+        ] as const).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setSubTab(key)}
+            style={{ background: subTab === key ? "#0f172a" : "#f1f5f9", border: 0, borderRadius: 6, color: subTab === key ? "#ffffff" : "#475569", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "6px 12px", whiteSpace: "nowrap", transition: "all 0.15s" }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: subTab === "list" ? "1fr" : "240px minmax(0,1fr)" }}>
@@ -2030,32 +2002,19 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
         <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" />
       </div>
 
-      {/* Tabs */}
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {(["list", "calendar", "templates", "checklists", "reports"] as const).map((t) => {
-          const tabLabels: Record<string, string> = { list: "Inspection List", calendar: "Calendar View", templates: "Templates", checklists: "Checklists", reports: "Reports" };
-          return (
-            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px" }}>
-              {tabLabels[t]}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Filter inspections by sub-tab */}
-      {(() => {
-        const filteredRows = subTab === "list" ? displayRows
-          : subTab === "templates" ? displayRows.filter((r) => String(r.status) === "completed")
-          : subTab === "checklists" ? displayRows.filter((r) => Number(r.score ?? 0) >= 90)
-          : subTab === "reports" ? displayRows.filter((r) => String(r.status) === "overdue" || Number(r.violations ?? 0) > 0)
-          : displayRows;
-        return (
+      {/* Table Toolbar & View Filter (NO 3rd level nested subtabs) */}
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 340px" : "1fr" }}>
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
               <input placeholder="Search inspections…" data-testid="insp-search-input" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
-              {["All Buildings", "All Categories", "All Types", "All Status"].map((f) => (
+              <select className="fc-toolbar-select" value={subTab} onChange={(e) => setSubTab(e.target.value as any)}>
+                <option value="list">All Inspections</option>
+                <option value="templates">Completed Templates</option>
+                <option value="checklists">High Compliance (90%+)</option>
+                <option value="reports">Overdue / Defect Reports</option>
+              </select>
+              {["All Buildings", "All Categories", "All Types"].map((f) => (
                 <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
               ))}
             </div>
@@ -2065,72 +2024,75 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
               <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-inspection-btn">+ New Inspection</button>
             </div>
           </div>
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Inspection ID</th>
-                  <th>Inspection Name</th>
-                  <th>Asset / System</th>
-                  <th>Building / Location</th>
-                  <th>Type</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Score</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row) => {
-                  const score = Number(row.score ?? 0);
-                  const status = String(row.status ?? "scheduled");
-                  const typeMap: Record<string, string> = { "INSP-2026-0056": "statutory", "INSP-2026-0055": "routine", "INSP-2026-0054": "routine", "INSP-2026-0053": "routine", "INSP-2026-0052": "preventive", "INSP-2026-0051": "routine" };
-                  const insType = typeMap[String(row.reference)] ?? "routine";
-                  return (
-                    <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
-                      <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(row.reference ?? "—")}</span></td>
-                      <td><strong style={{ fontSize: 12 }}>{String(row.title ?? "—")}</strong></td>
-                      <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.asset_name ?? "—")}</td>
-                      <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.property_name ?? "—")}</td>
-                      <td><FcStatus value={insType} /></td>
-                      <td style={{ fontSize: 11, color: "#6b7890" }}>{String(row.scheduled_on ?? "—")}</td>
-                      <td><FcStatus value={status.replace("_", "-")} /></td>
-                      <td>
-                        {score > 0 ? (
-                          <div className="fc-score">
-                            <span className="fc-score-dot" style={{ background: score >= 90 ? "#22c55e" : score >= 75 ? "#f59e0b" : "#ef4444" }} />
-                            <span style={{ fontSize: 12, fontWeight: 700 }}>{score}%</span>
-                          </div>
-                        ) : <span style={{ color: "#9aacbf", fontSize: 12 }}>—</span>}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>👁</button>
-                          {permissions.canInspect && ["scheduled", "in_progress"].includes(status) && (
-                            <button onClick={(e) => { e.stopPropagation(); onAction(row, "complete"); }} style={{ background: "#e23b3b", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
-                              Complete
-                            </button>
-                          )}
-                          <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
-                        </div>
-                      </td>
+
+          {(() => {
+            const filteredRows = subTab === "list" ? displayRows
+              : subTab === "templates" ? displayRows.filter((r) => String(r.status) === "completed")
+              : subTab === "checklists" ? displayRows.filter((r) => Number(r.score ?? 0) >= 90)
+              : subTab === "reports" ? displayRows.filter((r) => String(r.status) === "overdue" || Number(r.violations ?? 0) > 0)
+              : displayRows;
+            return (
+              <div className="table-scroll">
+                <table className="fc-data-table">
+                  <thead>
+                    <tr>
+                      <th>Inspection Name</th>
+                      <th>Asset / System</th>
+                      <th>Building / Location</th>
+                      <th>Type</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Score</th>
+                      <th>Actions</th>
                     </tr>
-                  );
-                })}
-                {filteredRows.length === 0 && <tr><td colSpan={10}><EmptyState message="No service requests have been recorded for this property." /></td></tr>}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {filteredRows.map((row) => {
+                      const score = Number(row.score ?? 0);
+                      const status = String(row.status ?? "scheduled");
+                      const typeMap: Record<string, string> = { "INSP-2026-0056": "statutory", "INSP-2026-0055": "routine", "INSP-2026-0054": "routine", "INSP-2026-0053": "routine", "INSP-2026-0052": "preventive", "INSP-2026-0051": "routine" };
+                      const insType = typeMap[String(row.reference)] ?? "routine";
+                      return (
+                        <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
+                          <td>
+                            <strong style={{ fontSize: 13, color: "#0f172a", display: "block" }}>{String(row.title ?? "—")}</strong>
+                            {row.reference && <small style={{ fontSize: 10, color: "#64748b" }}>{String(row.reference)}</small>}
+                          </td>
+                          <td style={{ fontSize: 12, color: "#1e293b", fontWeight: 600 }}>{String(row.asset_name ?? "—")}</td>
+                          <td style={{ fontSize: 12, color: "#1e293b", fontWeight: 600 }}>{String(row.property_name ?? "—")}</td>
+                          <td><FcStatus value={insType} /></td>
+                          <td style={{ fontSize: 12, color: "#1e293b", fontWeight: 600 }}>{String(row.scheduled_on ?? "—")}</td>
+                          <td><FcStatus value={status.replace("_", "-")} /></td>
+                          <td>
+                            {score > 0 ? (
+                              <div className="fc-score">
+                                <span className="fc-score-dot" style={{ background: score >= 90 ? "#22c55e" : score >= 75 ? "#f59e0b" : "#ef4444" }} />
+                                <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{score}%</span>
+                              </div>
+                            ) : <span style={{ color: "#9aacbf", fontSize: 12 }}>—</span>}
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>👁</button>
+                              {permissions.canInspect && ["scheduled", "in_progress"].includes(status) && (
+                                <button onClick={(e) => { e.stopPropagation(); onAction(row, "complete"); }} style={{ background: "#e23b3b", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
+                                  Complete
+                                </button>
+                              )}
+                              <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredRows.length === 0 && <tr><td colSpan={8}><EmptyState message="No inspection records found." /></td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
           <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to {filteredRows.length} of {totalInsp} inspections</span>
-            <div className="fc-pager">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} className={`fc-page-btn ${n === 1 ? "active" : ""}`}>{n}</button>
-              ))}
-              <button className="fc-page-btn">…</button>
-              <button className="fc-page-btn">7</button>
-              <button className="fc-page-btn">›</button>
-            </div>
+            <span className="fc-pager-info">Showing {displayRows.length} inspections</span>
           </div>
         </article>
 
@@ -2213,7 +2175,6 @@ function InspectionsView({ rows, kpis, onAction, permissions, onAdd }: { rows: R
           </div>
         )}
       </div>
-      ); })()}
     </>
   );
 }
@@ -2245,18 +2206,7 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { row
         <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction Score" value="—" sub="No data available" />
       </div>
 
-      {/* Tabs */}
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {(["all", "mine", "open", "in_progress", "completed", "cancelled"] as const).map((t) => {
-          const tabLabels: Record<string, string> = { all: "All Requests", mine: "My Requests", open: "Open", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" };
-          return (
-            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 14px", whiteSpace: "nowrap" }}>
-              {tabLabels[t]}
-            </button>
-          );
-        })}
-      </div>
-
+      {/* Toolbar with inline view filter (no 3rd-level subtabs) */}
       {(() => {
         const filteredRows = subTab === "all" ? displayRows
           : subTab === "mine" ? displayRows.filter((r) => String(r.tenant_name ?? "").includes("John"))
@@ -2266,13 +2216,20 @@ function ServiceRequestsView({ rows, kpis, onAction, permissions, onAdd }: { row
           : subTab === "cancelled" ? displayRows.filter((r) => String(r.status) === "cancelled")
           : displayRows;
         return (
-
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 360px" : "1fr" }}>
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
               <input placeholder="Search requests…" data-testid="sr-search-input" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 180 }} />
-              {["All Buildings", "All Categories", "All Priority", "All Status"].map((f) => (
+              <select className="fc-toolbar-select" value={subTab} onChange={(e) => setSubTab(e.target.value as any)}>
+                <option value="all">All Requests</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="mine">My Requests</option>
+              </select>
+              {["All Buildings", "All Categories", "All Priority"].map((f) => (
                 <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
               ))}
             </div>
@@ -2651,12 +2608,12 @@ function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove, canAdm
         ))}
       </div>
 
-      {/* Tabs */}
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16, overflowX: "auto", scrollbarWidth: "none" }}>
+      {/* Utility type selector */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {(["overview", "electricity", "water", "generator", "solar", "gas", "reconciliation", "waste", "reports"] as const).map((t) => {
-          const tabLabels: Record<string, string> = { overview: "Overview", electricity: "Electricity", water: "Water", generator: "Generator Fuel", solar: "Solar", gas: "Gas", reconciliation: "Bulk / Check", waste: "Waste", reports: "Reports" };
+          const tabLabels: Record<string, string> = { overview: "📊 Overview", electricity: "⚡ Electricity", water: "💧 Water", generator: "⛽ Generator", solar: "☀️ Solar", gas: "🔥 Gas", reconciliation: "🔄 Reconcile", waste: "🗑 Waste", reports: "📋 Reports" };
           return (
-            <button key={t} type="button" onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "12px 12px", whiteSpace: "nowrap" }}>
+            <button key={t} type="button" onClick={() => setSubTab(t)} style={{ background: subTab === t ? "#e23b3b" : "#f1f5f9", border: 0, borderRadius: 6, color: subTab === t ? "#ffffff" : "#475569", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "6px 12px", whiteSpace: "nowrap", transition: "all 0.15s" }}>
               {tabLabels[t]}
             </button>
           );
@@ -2995,6 +2952,13 @@ function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Row[]; kp
   };
   const expiringCount = hasData ? displayRows.filter(isExpiringRow).length : 4;
 
+  const filteredRows = subTab === "all" ? displayRows
+    : subTab === "approved" ? displayRows.filter((r) => String(r.status) === "active")
+    : subTab === "blacklisted" ? displayRows.filter((r) => String(r.status) === "blacklisted")
+    : subTab === "expiring" ? displayRows.filter(isExpiringRow)
+    : subTab === "performance" ? displayRows.filter((r) => Number(r.rating ?? 0) >= 4.0)
+    : displayRows;
+
   return (
     <>
       <div className="fc-kpi-strip six-col">
@@ -3007,44 +2971,28 @@ function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Row[]; kp
       </div>
 
       {/* Tabs */}
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
-        {(["all", "category", "performance", "approved", "expiring", "blacklisted"] as const).map((t) => {
-          const tabLabels: Record<string, string> = { all: "All Contractors", category: "By Category", performance: "By Performance", approved: "Approved", expiring: "Expiring Soon", blacklisted: "Blacklisted" };
-          return (
-            <button key={t} onClick={() => setSubTab(t)} style={{ background: "transparent", border: 0, borderBottom: subTab === t ? "2px solid #e23b3b" : "2px solid transparent", color: subTab === t ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 14px", whiteSpace: "nowrap" }}>
-              {tabLabels[t]}
-              {t === "expiring" && expiringCount > 0 && (
-                <span style={{ background: "#fee2e2", borderRadius: 99, color: "#b91c1c", fontSize: 10, fontWeight: 800, marginLeft: 6, padding: "1px 7px" }}>{expiringCount}</span>
-              )}
-            </button>
-          );
-        })}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, paddingBottom: 8 }}>
-          {canAdminister && <button className="fc-toolbar-btn primary" style={{ marginRight: 0 }} onClick={onAdd}>+ Add Contractor</button>}
-        </div>
-      </div>
-
-      {(() => {
-        const filteredRows = subTab === "all" ? displayRows
-          : subTab === "approved" ? displayRows.filter((r) => String(r.status) === "active")
-          : subTab === "blacklisted" ? displayRows.filter((r) => String(r.status) === "blacklisted")
-          : subTab === "expiring" ? displayRows.filter(isExpiringRow)
-          : subTab === "category" ? displayRows
-          : subTab === "performance" ? displayRows.filter((r) => Number(r.rating ?? 0) >= 4.0)
-          : displayRows;
-        return (
-
+      {/* Table Toolbar & View Filters (NO 3rd level nested subtabs) */}
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 360px" : "1fr" }}>
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
               <input placeholder="Search contractors…" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
-              {["All Categories", "All Status", "All Risk Levels"].map((f) => (
+              <select className="fc-toolbar-select" value={subTab} onChange={(e) => setSubTab(e.target.value as any)}>
+                <option value="all">All Contractors</option>
+                <option value="approved">Approved / Active</option>
+                <option value="blacklisted">Blacklisted</option>
+                <option value="expiring">Expiring Soon ({expiringCount})</option>
+                <option value="performance">Top Performers (4.0★+)</option>
+              </select>
+              {["All Categories", "All Risk Levels"].map((f) => (
                 <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
               ))}
               <button className="fc-toolbar-btn">Filters</button>
             </div>
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(filteredRows, "contractors.csv")}>↓ Export</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "contractors.csv")}>↓ Export</button>
+              {canAdminister && <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Add Contractor</button>}
+            </div>
           </div>
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -3195,7 +3143,6 @@ function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Row[]; kp
           </div>
         )}
       </div>
-      ); })()}
     </>
   );
 }

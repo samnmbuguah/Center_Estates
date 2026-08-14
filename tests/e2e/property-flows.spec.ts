@@ -138,8 +138,7 @@ test("rent collection view shows invoices and collection KPIs", async ({ page })
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.goto("/property");
-  await openTab(page, "Rent & invoices");
+  await page.goto("/property?tab=rent");
   await page.waitForTimeout(500);
 
   const totalBilled = page.locator("text=/Total Billed|total billed/i").first();
@@ -183,8 +182,7 @@ test("receipts list shows receipt data and credit notes", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.goto("/property");
-  await openTab(page, "Receipts");
+  await page.goto("/property?tab=receipts");
   await page.waitForTimeout(1500);
 
   await expect(page.locator("table, [role=table], .fc-alert-list").first()).toBeVisible();
@@ -192,7 +190,7 @@ test("receipts list shows receipt data and credit notes", async ({ page }) => {
   const appliedText = page.locator("text=/Applied|applied/i").first();
   if (await appliedText.count() > 0) await expect(appliedText).toBeVisible();
 
-  await openTab(page, "Credit notes");
+  await page.goto("/property?tab=credit-notes");
   await page.waitForTimeout(1000);
 
   await expect(page.locator("table, [role=table], .fc-alert-list").first()).toBeVisible();
@@ -213,8 +211,7 @@ test("bank reconciliation shows matched transaction", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.goto("/property");
-  await openTab(page, "Bank reconciliation");
+  await page.goto("/property?tab=bank-reconciliation");
   await page.waitForTimeout(1500);
 
   await expect(page.getByRole("heading", { name: /Bank Reconciliation|RECONCILIATION/i }).first()).toBeVisible();
@@ -258,8 +255,8 @@ test("expenses view shows expense records with status badges", async ({ page }) 
   await openTab(page, "Expenses");
   await page.waitForTimeout(2000);
 
-  // Expenses are consolidated into the property Financials page.
-  await expect(page.getByRole("heading", { name: /RENT|FINANCIAL|INVOICE/i }).first()).toBeVisible();
+  // Expenses are tracked on their own register page.
+  await expect(page.getByRole("heading", { name: /EXPENSE|Expenses/i }).first()).toBeVisible();
   await expect(
     page.locator("table, [role=table]").first().or(page.getByText(/No invoices|No data|No expenses|empty/i).first())
   ).toBeVisible();
@@ -271,14 +268,11 @@ test("property reports show report catalogue with export capability", async ({ p
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.goto("/property");
-  await openTab(page, "Reports");
+  await page.goto("/property?tab=reports");
   await page.waitForTimeout(1500);
 
-  await expect(page.getByRole("heading", { name: /REPORT CATEGORIES|REPORT/i }).first()).toBeVisible();
-  await expect(
-    page.locator("table, [role=table], .report-card").first().or(page.getByText(/No reports|No data|empty/i).first())
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Property reports/i })).toBeVisible();
+  await expect(page.getByText("All reports", { exact: false }).first()).toBeVisible();
 
   const downloadBtn = page.getByRole("button", { name: /CSV|Export|Download/i }).first();
   if (await downloadBtn.count() > 0) await expect(downloadBtn).toBeVisible();
@@ -331,8 +325,7 @@ test("rent schedules tab renders data", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.goto("/property");
-  await openTab(page, "Rent schedules");
+  await page.goto("/property?tab=rent-schedules");
   await page.waitForTimeout(500);
 
   const table = page.locator("table, [role=table]").first();

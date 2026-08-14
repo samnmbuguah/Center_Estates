@@ -19,7 +19,7 @@ test("approved service request becomes an evidenced and resolved work order", as
   const workOrderNumber = `SR-${reference}`;
 
   await page.goto("/facility");
-  const propertySelector = page.getByLabel("Current property");
+  const propertySelector = page.getByLabel("Select property");
   const westlands = await propertySelector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
   await propertySelector.selectOption(westlands ?? "");
   await openModuleSection(page, "Service Requests", testInfo);

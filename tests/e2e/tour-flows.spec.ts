@@ -164,7 +164,7 @@ test("facility service request user story: create a service request", async ({ p
 });
 
 test("property add property user story: create a property via the wizard", async ({ page }) => {
-  await page.goto(`${BASE_URL}/property-onboarding`);
+  await page.goto(`${BASE}/property-onboarding`);
   await page.getByTestId("prop-name-input").waitFor({ timeout: 20000 });
 
   const unique = `E2E Tower ${Date.now()}`;

@@ -678,12 +678,12 @@ function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFin
                 {/* Header Legend */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
                   <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#000000" }}>
-                      <i style={{ width: 12, height: 12, background: "#0f172a", borderRadius: 3, display: "inline-block" }} />
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+                      <i style={{ width: 14, height: 3, background: "#0f172a", borderRadius: 2, display: "inline-block" }} />
                       Billed Rent (KES)
                     </span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#000000" }}>
-                      <i style={{ width: 12, height: 12, background: "#16a34a", borderRadius: 3, display: "inline-block" }} />
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#16a34a" }}>
+                      <i style={{ width: 14, height: 3, background: "#16a34a", borderRadius: 2, display: "inline-block" }} />
                       Collected Rent (KES)
                     </span>
                   </div>
@@ -692,65 +692,101 @@ function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFin
                   </span>
                 </div>
 
-                {/* HD Dual-Bar & Collection Rate Chart */}
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: 210, paddingTop: 30, borderBottom: "2px solid #cbd5e1", paddingBottom: 8, position: "relative" }}>
-                  {/* Dashed Background Grid Lines */}
-                  {[100, 75, 50, 25, 0].map((pct) => (
-                    <div key={pct} style={{ position: "absolute", left: 0, right: 0, bottom: `${pct}%`, borderTop: "1px dashed #e2e8f0", zIndex: 0 }} />
-                  ))}
+                {/* SVG Line Chart */}
+                {(() => {
+                  const svgW = 700;
+                  const svgH = 220;
+                  const pX = 50;
+                  const pY = 30;
+                  const cW = svgW - pX * 2;
+                  const cH = svgH - pY * 2;
 
-                  {trend.map((b) => {
-                    const billedVal = Number(b.billed || 0);
-                    const collectedVal = Number(b.collected || 0);
-                    const billedHeightPct = trendMax > 0 ? (billedVal / trendMax) * 100 : 10;
-                    const collectedHeightPct = trendMax > 0 ? (collectedVal / trendMax) * 100 : 10;
-                    const ratePct = billedVal > 0 ? Math.round((collectedVal / billedVal) * 100) : 0;
+                  const billedPoints = trend.map((b, i) => {
+                    const x = pX + (i / Math.max(trend.length - 1, 1)) * cW;
+                    const y = pY + cH - (trendMax > 0 ? (Number(b.billed || 0) / trendMax) * cH : 0);
+                    return { x, y, val: Number(b.billed || 0), month: b.month };
+                  });
 
-                    return (
-                      <div key={b.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1, height: "100%", justifyContent: "flex-end" }}>
-                        {/* Rate Badge Above Bar */}
-                        <span style={{ fontSize: 10, fontWeight: 800, color: ratePct >= 90 ? "#16a34a" : "#dc2626", background: "#ffffff", padding: "2px 6px", borderRadius: 4, border: "1px solid #cbd5e1", marginBottom: 6 }}>
-                          {ratePct}%
-                        </span>
+                  const collectedPoints = trend.map((b, i) => {
+                    const x = pX + (i / Math.max(trend.length - 1, 1)) * cW;
+                    const y = pY + cH - (trendMax > 0 ? (Number(b.collected || 0) / trendMax) * cH : 0);
+                    const billed = Number(b.billed || 0);
+                    const collected = Number(b.collected || 0);
+                    const rate = billed > 0 ? Math.round((collected / billed) * 100) : 0;
+                    return { x, y, val: collected, month: b.month, rate };
+                  });
 
-                        {/* Dual Vertical Bar Pillars */}
-                        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 140, width: "100%", justifyContent: "center" }}>
-                          {/* Billed Pillar */}
-                          <div
-                            title={`Billed: KES ${billedVal.toLocaleString()}`}
-                            style={{
-                              width: "35%",
-                              maxWidth: 24,
-                              height: `${Math.max(billedHeightPct, 4)}%`,
-                              background: "linear-gradient(180deg, #2b3e60 0%, #0f172a 100%)",
-                              borderRadius: "5px 5px 0 0",
-                              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                              transition: "all 0.3s ease",
-                            }}
-                          />
-                          {/* Collected Pillar */}
-                          <div
-                            title={`Collected: KES ${collectedVal.toLocaleString()}`}
-                            style={{
-                              width: "35%",
-                              maxWidth: 24,
-                              height: `${Math.max(collectedHeightPct, 4)}%`,
-                              background: "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
-                              borderRadius: "5px 5px 0 0",
-                              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                              transition: "all 0.3s ease",
-                            }}
-                          />
-                        </div>
+                  const billedPath = billedPoints.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
+                  const collectedPath = collectedPoints.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
+                  const areaPath = `${collectedPath} L ${collectedPoints[collectedPoints.length - 1]?.x ?? 0} ${pY + cH} L ${collectedPoints[0]?.x ?? 0} ${pY + cH} Z`;
 
-                        {/* Month Label */}
-                        <span style={{ color: "#000000", fontSize: 12, fontWeight: 900, marginTop: 10, textTransform: "uppercase" }}>
-                          {b.month}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                  return (
+                    <div style={{ width: "100%", overflowX: "auto" }}>
+                      <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: "100%", height: "auto", display: "block" }}>
+                        <defs>
+                          <linearGradient id="collGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Grid lines & Y-Axis labels */}
+                        {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
+                          const y = pY + cH * (1 - pct);
+                          const val = Math.round(trendMax * pct);
+                          return (
+                            <g key={pct}>
+                              <line x1={pX} y1={y} x2={pX + cW} y2={y} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
+                              <text x={pX - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">
+                                {val >= 1000000 ? `${(val / 1000000).toFixed(1)}M` : val >= 1000 ? `${Math.round(val / 1000)}k` : val}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Filled Area beneath collected line */}
+                        <path d={areaPath} fill="url(#collGradient)" />
+
+                        {/* Line 1: Billed Rent Line (Dark Navy) */}
+                        <path d={billedPath} fill="none" stroke="#0f172a" strokeWidth="2.5" strokeDasharray="5 4" opacity="0.8" />
+
+                        {/* Line 2: Collected Rent Line (Vibrant Green) */}
+                        <path d={collectedPath} fill="none" stroke="#16a34a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                        {/* Data Points & Month Labels */}
+                        {collectedPoints.map((pt, i) => {
+                          const bPt = billedPoints[i];
+                          return (
+                            <g key={pt.month}>
+                              {/* Billed Dot */}
+                              <circle cx={bPt.x} cy={bPt.y} r="4" fill="#0f172a">
+                                <title>{`Billed: KES ${bPt.val.toLocaleString()}`}</title>
+                              </circle>
+
+                              {/* Collected Dot */}
+                              <circle cx={pt.x} cy={pt.y} r="6" fill="#16a34a" stroke="#ffffff" strokeWidth="2">
+                                <title>{`Collected: KES ${pt.val.toLocaleString()} (${pt.rate}% rate)`}</title>
+                              </circle>
+
+                              {/* Collection Rate Badge */}
+                              <g transform={`translate(${pt.x}, ${pt.y - 14})`}>
+                                <rect x="-16" y="-10" width="32" height="15" rx="4" fill="#ffffff" stroke="#16a34a" strokeWidth="1" />
+                                <text x="0" y="1" textAnchor="middle" fontSize="9" fontWeight="800" fill="#16a34a">
+                                  {pt.rate}%
+                                </text>
+                              </g>
+
+                              {/* Month Label */}
+                              <text x={pt.x} y={pY + cH + 20} textAnchor="middle" fontSize="11" fontWeight="800" fill="#0f172a">
+                                {pt.month.toUpperCase()}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <EmptyState icon="📊" title="No collection history" description="Billed and collected figures will appear here once invoices and receipts are recorded." />
@@ -918,17 +954,6 @@ function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFin
             </div>
           </Panel>
 
-          <Panel title="Quick Actions">
-            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, width: 260 }}>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("leases")}>Add New Lease →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("tenants")}>Add New Tenant →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("rent")}>Generate Invoice →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("rent")}>Record Rent Payment →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("arrears")}>Manage Arrears →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Collection Report →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Outstanding Rent Report →</button>
-            </div>
-          </Panel>
         </div>
       </div>
     </div>
@@ -2186,16 +2211,6 @@ function RentView({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16, width: 260 }}>
-          <Panel title="Quick Actions">
-            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setRentSection("invoices")}>Generate Invoice →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => onRecordReceipt()}>Record Payment / Receipt →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setRentSection("reminders")}>Send Payment Reminder →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("arrears")}>Manage Arrears →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Download Aging Report →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Export Collection Report →</button>
-            </div>
-          </Panel>
         </div>
       </div>
 
@@ -3189,16 +3204,6 @@ function BudgetsView({ rows, loading, search, setSearch, setTab, onSelectRow, on
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18, width: 260 }}>
-          <Panel title="Quick Actions">
-            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={onAdd}>Add Budget Line →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Copy Budget →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Upload Budget CSV →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Download Budget Template →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Submit for Approval →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Export Budget Report →</button>
-            </div>
-          </Panel>
         </div>
       </div>
     </>
@@ -3322,14 +3327,6 @@ function ExpensesView({ rows, financial, loading, search, setSearch, setTab, onA
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18, width: 260 }}>
-          <Panel title="Quick Actions">
-            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={onAdd}>Record Expense →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("receipts")}>Upload Receipt / Invoice →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("receipts")}>Manage Categories →</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>View Cash Flow Statement →</button>
-            </div>
-          </Panel>
         </div>
       </div>
 
@@ -3513,15 +3510,6 @@ function FeesView({ rows, loading, search, setSearch, setTab }: {
           )}
         </Panel>
 
-        <Panel title="Quick Actions">
-          <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Generate Invoices →</button>
-            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("receipts")}>Record Payment →</button>
-            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("reports")}>Download Fee Report →</button>
-            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("service-charges")}>Manage Fee Schemes →</button>
-            <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }} onClick={() => setTab("arrears")}>View Arrears →</button>
-          </div>
-        </Panel>
       </div>
 
       <div className="card" style={{ padding: 14, background: "var(--surface-2)", border: "1px dashed var(--primary)" }}>
@@ -3783,13 +3771,6 @@ function OwnerPortalView() {
             </div>
           </Panel>
 
-          <Panel title="Quick Actions">
-            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }}>📥 Download Portfolio Report</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }}>📊 Export to Excel</button>
-              <button className="btn ghost sm" style={{ textAlign: "left", justifyContent: "flex-start", width: "100%" }}>📧 Share with Stakeholders</button>
-            </div>
-          </Panel>
         </div>
       </div>
     </div>

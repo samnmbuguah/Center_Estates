@@ -9,57 +9,102 @@ import { expect, type Page, type TestInfo } from "@playwright/test";
  * - Mobile: app-sidebar drawer toggled via the "Open module navigation" / hamburger button
  */
 
-const TAB_ALIASES: Record<string, string> = {
-  "Receipt allocations": "Allocations", "Credit notes": "Credit Notes",
-  "Bank reconciliation": "Reconciliation", "Bank Reconciliation": "Reconciliation", "Charge allocations": "Allocations",
-  "Rent & invoices": "Invoices", "Rent schedules": "Schedules",
-  Budgets: "Budget & Estimate", Expenses: "Property Expenses",
-  "Tenant documents": "Documents",
-  "Work orders": "Maintenance", "Work Orders": "Maintenance", Contractors: "Vendors & Contracts",
-  Buildings: "Buildings & Locations", Assets: "Assets & Inventory",
+const TAB_ALIASES: Record<string, string | string[]> = {
+  // Property — one page per workflow item (no more consolidated group pages)
+  Tenants: "Tenant Register",
+  Leases: "Lease Agreements",
+  "Tenant documents": "Compliance & Docs",
+  Properties: "Properties Register",
+  "Property Register": "Properties Register",
+  "Service charge": "Service Charge Schemes",
+  "Charge Setup": "Service Charge Schemes",
+  "Charge allocations": "Charge Allocations",
+  Reconciliations: "Reconciliations",
+  Budgets: "Budgets & Estimates",
+  "Budgets & Estimates": "Budgets & Estimates",
+  Expenses: "Expenses",
+  "Property Expenses": "Expenses",
+  Arrears: "Arrears & Recovery",
+  Fees: "Management Fees",
+  "Fee Invoicing": "Management Fees",
+  "Tenancy reports": "Tenancy Analytics",
+  "Tenancy Analytics": "Tenancy Analytics",
+  "Financial reports": "Financial Analytics",
+  "Financial Analytics": "Financial Analytics",
+  // Facility
+  "Work orders": "Maintenance",
+  "Work Orders": "Maintenance",
+  Contractors: "Vendors & Contracts",
+  Buildings: "Buildings & Locations",
+  Assets: "Assets & Inventory",
   Utilities: "Energy & Utilities",
-  Invoicing: "Client invoicing", Inspections: "Site inspections",
-  Projects: "Project Portfolio", Milestones: "Progress",
-  // Property sections consolidated into group-level pages after the redesign.
-  Arrears: "Financials", Receipts: "Financials", Allocations: "Financials",
-  "Rent & invoices": "Financials", "Rent schedules": "Financials",
-  "Bank reconciliation": "Financials", "Credit notes": "Financials",
-  "Charge Setup": "Service Charge", "Charge allocations": "Service Charge",
-  "Budgets & Estimates": "Service Charge", "Property Expenses": "Financials",
-  Budgets: "Service Charge", Expenses: "Financials",
-  Leases: "Tenants & Occupancy", Tenants: "Tenants & Occupancy",
-  "Tenant documents": "Tenants & Occupancy",
-  "Property Register": "Portfolio Overview", Properties: "Portfolio Overview",
-  "Service charge": "Service Charge",
+  Expenditure: "Expenditure & Floats",
+  // Sales
+  Inventory: "Projects & Units",
+  Buyers: "Buyers & Leads",
+  Sales: "Property Sales",
+  "Site visits": "Site Visits",
+  Payments: ["Buyer Payments", "Fee Collections"],
+  Commissions: "Sales Commissions",
+  Installments: "Payment Schedules",
+  "Payment schedules": "Payment Schedules",
+  "Agent performance": "Agent Performance",
+  Documents: "Legal Documents",
+  "Legal documents": "Legal Documents",
+  "Audit trail": "Audit Trail",
+  "Audit events": "Audit Trail",
+  // Tender
+  Invitations: "Invitations & RFPs",
+  Tenders: "Invitations & RFPs",
+  Requirements: "AI Requirement Analysis",
+  Decisions: "Bid / No-Bid Decisions",
+  "Proposal planning": "Proposal Planning",
+  "Company documents": "Company Document Vault",
+  Proposals: "Proposal Sections",
+  "Financial BOQ": "Financial BOQ",
+  Reviews: "Review & Approvals",
+  "Review & approval": "Review & Approvals",
+  Packaging: "Tender Packaging",
+  Submissions: "Submissions Log",
+  Outcomes: "Awards & Regrets",
+  // Valuation
+  Instructions: "Valuation Instructions",
+  Inspections: "Site Inspections",
+  Comparables: "Comparable Evidence",
+  "Draft reports": "Draft Reports",
+  "Final reports": "Final Reports & Sign-off",
+  Invoicing: "Client Invoicing",
+  Clients: "Client Directory",
+  Analytics: "Performance Analytics",
+  Reports: ["Sales Reports", "Valuation Reports"],
+  // Monitoring (construction)
+  Projects: "Project Portfolio",
+  Milestones: "Progress",
+  "Daily logs": "Daily Logs",
+  Issues: "Issues",
+  Risks: "Risks",
+  Quality: "Quality",
+  RFIs: "RFIs",
+  // Companion
+  Tasks: "All tasks",
+  "My tasks": "My tasks",
+  Delegations: "Delegations",
+  "Staff history": "Staff history",
+  "Performance dashboard": "Performance dashboard",
 };
+
+/** Flatten a name + optional aliases into the ordered list of candidate labels. */
+function aliasTargets(name: string): string[] {
+  const alias = TAB_ALIASES[name];
+  return [name, ...(Array.isArray(alias) ? alias : alias ? [alias] : [])];
+}
 
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
 
 /** Map section names to the sub-tab label on a consolidated page (e.g. property Financials). */
-const SUBTAB_ALIASES: Record<string, string> = {
-  "Rent & invoices": "Invoices", "Rent schedules": "Schedules",
-  "Bank reconciliation": "Reconciliation", "Credit notes": "Credit Notes",
-  Receipts: "Receipts", Arrears: "Invoices", Allocations: "Allocations",
-  "Receipt allocations": "Allocations", Invoices: "Invoices",
-  Expenses: "Invoices", "Property Expenses": "Invoices",
-  "Charge Setup": "Setup", "Charge allocations": "Allocations",
-  Reconciliations: "Reconciliations", Budgets: "Budget & Estimate",
-  "Budgets & Estimates": "Budget & Estimate",
-};
+const SUBTAB_ALIASES: Record<string, string> = {};
 
-const PROPERTY_PARENTS: Record<string, string> = {
-  "Property Register": "Properties", Buildings: "Properties",
-  "Unit Occupancy": "Tenants & Occupancy", Occupancy: "Tenants & Occupancy",
-  Tenants: "Tenants & Occupancy", Leases: "Tenants & Occupancy", "Tenant documents": "Tenants & Occupancy",
-  Invoices: "Financials", "Rent & invoices": "Financials", "Rent Roll": "Financials", "Rent schedules": "Financials", Arrears: "Financials",
-  Reminders: "Financials",
-  Receipts: "Financials", Allocations: "Financials", "Receipt allocations": "Financials",
-  "Bank Reconciliation": "Financials", "Bank reconciliation": "Financials",
-  "Credit Notes": "Financials", "Credit notes": "Financials",
-  "Charge Setup": "Service Charge", "Charge allocations": "Service Charge", Reconciliations: "Service Charge",
-  "Budgets & Estimates": "Service Charge", Budgets: "Service Charge",
-  "Property Expenses": "Income & Expenses", "Fee Invoicing": "Income & Expenses", Expenses: "Income & Expenses",
-};
+const PROPERTY_PARENTS: Record<string, string> = {};
 
 /** Open a module section by name, preferring horizontal tabs, then the sidebar sub-nav tree. */
 export async function openModuleSection(page: Page, name: string, testInfo?: TestInfo) {
@@ -75,8 +120,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
     const navBar = page.locator(".module-nav-bar");
     await navBar.first().waitFor({ state: "attached", timeout: 10000 }).catch(() => {});
     if (await navBar.count()) {
-      const optionTargets = [TAB_ALIASES[name] ?? name, name];
-      for (const candidate of optionTargets) {
+      for (const candidate of aliasTargets(name)) {
         const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const option = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${escaped}$`, "i") }).first();
         if (await option.count()) {
@@ -86,8 +130,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
         }
       }
       // Fall back to visible buttons when the select is unavailable.
-      const targets = [TAB_ALIASES[name] ?? name, name];
-      for (const candidate of targets) {
+      for (const candidate of aliasTargets(name)) {
         const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const tab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i") });
         if (await tab.count()) {
@@ -114,10 +157,9 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
   const navBar = page.locator(".module-nav-bar");
   await navBar.first().waitFor({ state: "attached", timeout: 20000 }).catch(() => {});
   if (await navBar.count()) {
-    // Try the raw name first (matches most modules), then the alias.
-    // Aliases are ambiguous across modules (e.g. Inspections vs Site inspections).
-    const targets = [name, TAB_ALIASES[name] ?? name];
-    for (const candidate of targets) {
+    // Try the raw name first (matches most modules), then the aliases.
+    // Aliases are ambiguous across modules (e.g. Reports → Sales/Valuation Reports).
+    for (const candidate of aliasTargets(name)) {
       const candidateEscaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // Accessible name is "<icon> Label" or just "Label"; anchor to exact label.
       const requestedTab = navBar.getByRole("button", { name: new RegExp(`^[^a-zA-Z0-9]*${candidateEscaped}$`, "i") });
@@ -130,11 +172,10 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
     // The redesigned module navigation shows pages for one workflow group at a
     // time. Resolve the page's group from the mobile select, activate that
     // group, then click the now-visible page tab. Options carry the full item
-    // label, so try the alias first, then the raw name.
-    const optionTargets = [TAB_ALIASES[name] ?? name, name];
+    // label, so try the aliases first, then the raw name.
     let option: ReturnType<typeof navBar.locator> | null = null;
     let resolvedOptionLabel = name;
-    for (const candidate of optionTargets) {
+    for (const candidate of aliasTargets(name)) {
       const candidateEscaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const opt = navBar.locator("option").filter({ hasText: new RegExp(`—\\s*${candidateEscaped}$`, "i") }).first();
       if (await opt.count()) {
@@ -204,7 +245,7 @@ export async function openModuleSection(page: Page, name: string, testInfo?: Tes
       await invoicesButton.click();
       if (name === "Rent & invoices") return;
     }
-    const target = TAB_ALIASES[name] ?? name;
+    const target = aliasTargets(name)[0];
     const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const childScope = page.locator(".property-workspace");
     const childName = new RegExp(`^[^a-zA-Z0-9]*${escaped}$`, "i");

@@ -19,7 +19,7 @@ const openSalesTab = openModuleSection;
 
 test("sales overview renders dashboard with KPIs", async ({ page }) => {
   await page.goto("/sales");
-  await expect(page.getByRole("heading", { name: "Sales Management" })).toBeVisible();
+  await expect(page.locator(".module-workspace-sales .module-nav-bar")).toBeVisible();
 
   await expect(page.getByText("Available Units", { exact: true })).toBeVisible();
   await expect(page.getByText("Pipeline Value", { exact: true })).toBeVisible();
@@ -65,8 +65,7 @@ test("buyers list shows buyers with search functionality", async ({ page }, test
 });
 
 test("leads tab shows lead funnel and pipeline", async ({ page }, testInfo) => {
-  await page.goto("/sales");
-  await openSalesTab(page, "Leads", testInfo);
+  await page.goto("/sales?tab=leads");
 
   await expect(page.getByText("Total Leads", { exact: true })).toBeVisible();
   await expect(page.getByText("New", { exact: true }).first()).toBeVisible();
@@ -141,8 +140,7 @@ test("commissions list shows agent commissions with status", async ({ page }, te
 });
 
 test("bank reconciliation renders import zone and transaction table", async ({ page }, testInfo) => {
-  await page.goto("/sales");
-  await openSalesTab(page, "Bank reconciliation", testInfo);
+  await page.goto("/sales?tab=bank-reconciliation");
 
   await expect(page.locator("table")).toBeVisible();
 });

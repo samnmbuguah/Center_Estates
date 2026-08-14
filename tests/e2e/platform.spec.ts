@@ -26,10 +26,10 @@ test("subscribed modules navigate through the unified shell", async ({ page }) =
     ["valuation", "Valuation Management"],
     ["companion", "Companion & Staff Performance"],
   ] as const;
-  for (const [slug, heading] of modules) {
+  for (const [slug] of modules) {
     await page.goto("/workspaces");
     await page.locator(`a.module-card[href="/${slug}"]`).click();
-    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await expect(page.locator(`.module-workspace-${slug} .module-nav-bar`)).toBeVisible();
     await expect(page.locator(".form-error")).toHaveCount(0);
   }
 });
@@ -80,30 +80,29 @@ test("property command center renders live portfolio intelligence", async ({ pag
   await expect(page.locator(".chart-month")).toHaveCount(new Date().getMonth() + 1);
 });
 
-test("property navigation uses the client-approved consolidated hierarchy", async ({ page }) => {
+test("property navigation uses the client-approved grouped hierarchy", async ({ page }) => {
   await page.goto("/property?tab=overview");
   const navigation = page.locator(".module-nav-bar");
   await expect(navigation.getByRole("tab", { name: /TENANCY/ })).toBeVisible();
   await expect(navigation.getByRole("tab", { name: /COLLECTIONS/ })).toBeVisible();
   await navigation.getByRole("tab", { name: /TENANCY/ }).click();
-  await expect(navigation.getByRole("button", { name: /Tenants & Occupancy$/ })).toBeVisible();
-  await navigation.getByRole("tab", { name: /COLLECTIONS/ }).click();
-  await expect(navigation.getByRole("button", { name: /Financials$/ })).toBeVisible();
-  await expect(navigation.getByRole("button", { name: /Management Fees$/ })).toBeVisible();
-  await expect(navigation.getByRole("button", { name: /Rent Collection$/ })).toHaveCount(0);
-  await navigation.getByRole("tab", { name: /TENANCY/ }).click();
-  await navigation.getByRole("button", { name: /Tenants & Occupancy$/ }).click();
-  for (const label of ["Occupancy", "Tenants", "Leases", "Documents"]) {
-    await expect(page.locator(".property-workspace").getByRole("tab", { name: label, exact: true })).toBeVisible();
+  for (const label of ["Tenant Register", "Units & Occupancy", "Lease Agreements", "Compliance & Docs"]) {
+    await expect(navigation.getByRole("button", { name: label, exact: true })).toBeVisible();
   }
+  await navigation.getByRole("tab", { name: /COLLECTIONS/ }).click();
+  for (const label of ["Billing & Invoicing", "Receipts & Payment Ledger", "Arrears & Recovery", "Budgets & Estimates", "Expenses", "Management Fees"]) {
+    await expect(navigation.getByRole("button", { name: label, exact: true })).toBeVisible();
+  }
+  await expect(navigation.getByRole("button", { name: /Tenants & Occupancy$/ })).toHaveCount(0);
+  await expect(navigation.getByRole("button", { name: /Financials$/ })).toHaveCount(0);
 });
 
 test("public marketing and authenticated command center have distinct responsibilities", async ({ browser, page }) => {
   const context = await browser.newContext();
   const publicPage = await context.newPage();
   await publicPage.goto("/");
-  // The redesigned landing redirects to the authenticated command center.
-  await expect(publicPage.getByText(/ERP modules|Good (morning|afternoon|evening)|Center Estates/i).first()).toBeVisible();
+  // The marketing landing keeps the public brand page; auth lives behind /login.
+  await expect(publicPage.getByText(/Center Estates/i).first()).toBeVisible();
 
   for (const route of ["/product", "/pricing", "/about", "/blog", "/faq", "/demo", "/contact", "/docs", "/sign-up", "/login"]) {
     await publicPage.goto(route);
@@ -147,7 +146,7 @@ test("property switching refreshes data without resetting module navigation stat
   await page.goto("/facility?tab=assets");
   await openModuleSection(page, "Planned Maintenance");
   await expect(page.locator('.module-nav-pages button[aria-current="page"]')).toContainText("Planned Maintenance");
-  const selector = page.getByLabel("Current property");
+  const selector = page.getByLabel("Select property");
   const target = await selector.locator("option").nth(1).getAttribute("value");
   await selector.selectOption(target ?? "");
   await expect(page.locator('.module-nav-pages button[aria-current="page"]')).toContainText("Planned Maintenance");
@@ -196,8 +195,7 @@ test("horizontal navigation remains legible in light and dark themes", async ({ 
 });
 
 test("property invoice composer previews VAT before creating a reviewable draft", async ({ page }) => {
-  await page.goto("/property?tab=financials");
-  await page.getByRole("tab", { name: "Invoices", exact: true }).click();
+  await page.goto("/property?tab=rent");
   await page.getByRole("button", { name: "+ New invoice", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create invoice draft" });
   await expect(dialog).toBeVisible();
@@ -297,7 +295,7 @@ test("property finance can configure and allocate a service charge", async ({ pa
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel service-charge races");
   await page.goto("/property");
   await openModuleSection(page, "Service charge");
-  await page.getByRole("button", {name:"+ Set up charge",exact:true}).click();
+  await page.getByRole("button", { name: "+ Set Up Charge", exact: true }).click();
   const dialog=page.getByRole("dialog",{name:"Set up service charge"});
   const name=`E2E Service Charge ${Date.now()}`;
   await dialog.getByLabel("Property").selectOption({index:1});
@@ -329,8 +327,7 @@ test("property finance can reconcile a service charge period", async ({ page }, 
 
 test("property finance can issue an audited credit note", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel invoice balance races");
-  await page.goto("/property");
-  await openModuleSection(page, "Credit notes");
+  await page.goto("/property?tab=credit-notes");
   await page.getByRole("button", { name: "+ Issue credit note", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Issue credit note" });
   const number = `E2E-CN-${Date.now()}`;
@@ -411,13 +408,13 @@ test("property arrears, service-charge and report data are connected", async ({ 
 });
 
 test("property reports follow the four client-approved categories", async ({ page }) => {
-  await page.goto("/property");
-  await openModuleSection(page, "Reports");
+  await page.goto("/property?tab=reports");
+  await expect(page.getByRole("heading", { name: "Property reports", exact: true })).toBeVisible();
   for (const category of ["Financial", "Tenants & Occupancy", "Service Providers", "Compliance & Risk"]) {
-    await expect(page.getByRole("heading", { name: `${category} Reports`, exact: true })).toBeVisible();
+    await expect(page.getByText(category, { exact: true }).first()).toBeVisible();
   }
   const downloadPromise = page.waitForEvent("download");
-  await page.getByText("Service provider expiry", { exact: true }).locator("..").getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByText("Service provider expiry", { exact: true }).locator("..").getByRole("button", { name: "CSV", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("property-contractor-expiry.csv");
 });
@@ -689,7 +686,7 @@ test("authenticated module pages do not produce browser errors", async ({ page }
   page.on("pageerror", (error) => errors.push(error.message));
   for (const path of ["/property", "/facility", "/sales", "/tender", "/valuation", "/monitoring", "/companion"]) {
     await page.goto(path);
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(page.locator(".module-nav-bar")).toBeVisible();
   }
   expect(errors).toEqual([]);
 });
@@ -699,8 +696,8 @@ test("monitoring workspace tabs handle empty or missing API payloads without thr
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/monitoring");
   
-  // Test core horizontal tabs to verify resilience against empty/partial API data
-  const tabs = ["Overview", "Tickets", "Programme", "Milestones", "Financials", "Risks", "Documents", "Reports", "Daily Logs", "Procurement"];
+  // Test core nav pages to verify resilience against empty/partial API data
+  const tabs = ["Progress", "Daily logs", "Issues", "Risks", "Quality", "RFIs", "Tickets", "Calendar"];
   for (const tabLabel of tabs) {
     const tabBtn = page.getByRole("button", { name: tabLabel, exact: true });
     if (await tabBtn.isVisible()) {
@@ -719,7 +716,7 @@ test("companion module appears in command center and renders without errors", as
   const companionCard = page.locator("a.module-card[href='/companion']");
   await expect(companionCard).toBeVisible();
   await companionCard.click();
-  await expect(page.getByRole("heading", { name: "Companion & Staff Performance", exact: true })).toBeVisible();
+  await expect(page.locator(".module-workspace-companion .module-nav-bar")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -728,7 +725,7 @@ test("companion workspace renders all tabs without browser errors", async ({ pag
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/companion");
   await page.waitForLoadState("networkidle");
-  await expect(page.locator("h1")).toBeVisible();
+  await expect(page.locator(".module-nav-bar")).toBeVisible();
   
   // Click through companion tabs
   const tabs = ["All tasks", "My tasks", "Templates", "Performance dashboard"];

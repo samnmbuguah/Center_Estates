@@ -31,7 +31,7 @@ test("monitoring overview renders executive dashboard", async ({ page }) => {
   await page.goto("/monitoring");
   await page.waitForTimeout(2000);
 
-  await expect(page.locator("h1").first()).toBeVisible();
+  await expect(page.locator("h1, h2").first()).toBeVisible();
   // Super administrators land on the operations dashboard by default.
   await expect(page.getByText(/Administrator Dashboard|Total Projects|System administration/i).first()).toBeVisible();
 

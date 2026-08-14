@@ -1414,15 +1414,6 @@ function OverviewView({ dash, setTab, openRegister, canRegister }: {
             </div>
           </div>
 
-          <div className="data-panel" style={{ padding: 18 }}>
-            <SectionHeader eyebrow="Quick Actions" title="Shortcuts" />
-            <div style={{ display: "grid", gap: 8 }}>
-              {canRegister && <button type="button" className="btn primary" style={{ textAlign: "left" }} onClick={openRegister}>📨 Register Tender Invitation</button>}
-              <button type="button" className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("requirements")}>✨ Run AI Requirement Analysis</button>
-              <button type="button" className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("decisions")}>⚖️ Open Bid / No-Bid Gate</button>
-              <button type="button" className="btn ghost" style={{ textAlign: "left" }} onClick={() => setTab("company-documents")}>🗄️ Review Vault Expiry</button>
-            </div>
-          </div>
         </div>
       </div>
     </>
