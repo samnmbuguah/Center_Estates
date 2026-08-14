@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Alert, Box, Button, Chip, Paper, TextField, Typography } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
@@ -87,6 +87,40 @@ function greeting() {
   if (h < 12) return "Good Morning";
   if (h < 17) return "Good Afternoon";
   return "Good Evening";
+}
+
+/** Lightweight markdown → HTML renderer for QM assistant responses. */
+function renderQmMarkdown(text: string): string {
+  return text
+    // Headings
+    .replace(/^### (.+)$/gm, '<h4 style="margin:10px 0 4px;font-size:0.92rem;font-weight:700">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 style="margin:12px 0 4px;font-size:1rem;font-weight:800">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 style="margin:14px 0 6px;font-size:1.1rem;font-weight:800">$1</h2>')
+    // Bold + Italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Inline code
+    .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.08);padding:1px 5px;border-radius:4px;font-size:0.85em">$1</code>')
+    // Bullet lists (- or *)
+    .replace(/^[\-\*] (.+)$/gm, '<li style="margin:2px 0">$1</li>')
+    // Numbered lists
+    .replace(/^\d+\.\s+(.+)$/gm, '<li style="margin:2px 0">$1</li>')
+    // Wrap consecutive <li> in <ul>
+    .replace(/(<li[^>]*>.*<\/li>)(\n<li[^>]*>.*<\/li>)*/g, (match) => `<ul style="margin:6px 0;padding-left:18px">${match}</ul>`)
+    // Horizontal rules
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(0,0,0,0.12);margin:10px 0"/>')
+    // Paragraphs — double newlines
+    .replace(/\n\n/g, '</p><p style="margin:6px 0">')
+    // Single newlines
+    .replace(/\n/g, '<br/>')
+    // Wrap in paragraph
+    .replace(/^(.+)$/, '<p style="margin:4px 0">$1</p>');
+}
+
+function QmMarkdown({ text }: { text: string }) {
+  const html = useMemo(() => renderQmMarkdown(text), [text]);
+  return <div dangerouslySetInnerHTML={{ __html: html }} style={{ lineHeight: 1.65, fontSize: '0.875rem' }} />;
 }
 
 /** SSR-safe greeting: new Date() during render mismatches hydration (#418). */
@@ -612,8 +646,12 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>What would you like to know?</Typography>
                     <Typography variant="body2" color="text.secondary">Quartermaster combines live ERP figures with operational guidance. It will tell you when information is unavailable instead of inventing an answer.</Typography>
                   </Box> : aiMessages.map((message, index) => <Box key={`${message.role}-${index}`} sx={{ alignSelf: message.role === "user" ? "flex-end" : "flex-start", maxWidth: "86%" }}>
-                    <Paper elevation={0} sx={{ p: 1.5, borderRadius: 2.5, bgcolor: message.role === "user" ? "primary.main" : "action.hover", color: message.role === "user" ? "primary.contrastText" : "text.primary", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                      {message.text}
+                    <Paper elevation={0} sx={{ p: 1.5, borderRadius: 2.5, bgcolor: message.role === "user" ? "primary.main" : "action.hover", color: message.role === "user" ? "primary.contrastText" : "text.primary", lineHeight: 1.6 }}>
+                      {message.role === "user" ? (
+                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{message.text}</Typography>
+                      ) : (
+                        <QmMarkdown text={message.text} />
+                      )}
                     </Paper>
                     {message.response?.suggestedActions?.length ? <Box sx={{ display: "flex", gap: .75, flexWrap: "wrap", mt: .75 }}>{message.response.suggestedActions.map((action) => <Button key={action.label} component={Link} href={action.href} size="small" variant="outlined">{action.label}</Button>)}</Box> : null}
                   </Box>)}
