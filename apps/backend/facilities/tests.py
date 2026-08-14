@@ -11,7 +11,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import Contractor, FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -60,6 +60,30 @@ class FacilityApiTests(TestCase):
         self.assertEqual(response.data['kpis']['activeAssets'], 1)
         self.assertEqual(response.data['kpis']['openWorkOrders'], 1)
         self.assertEqual(response.data['kpis']['overdueWorkOrders'], 1)
+
+    def test_dashboard_and_contractors_honor_selected_property(self):
+        assigned = Contractor.objects.create(
+            organization=self.organization, code='V-1', name='Main Lift Vendor', specialty='Lifts', status=Contractor.Status.ACTIVE,
+        )
+        self.work_order.contractor = assigned
+        self.work_order.save(update_fields=('contractor', 'updated_at'))
+        second_property = Property.objects.create(organization=self.organization, code='P3', name='Branch Building')
+        branch_vendor = Contractor.objects.create(
+            organization=self.organization, code='V-2', name='Branch Vendor', specialty='HVAC', status=Contractor.Status.ACTIVE,
+        )
+        WorkOrder.objects.create(
+            organization=self.organization, number='WO-BRANCH', title='Branch HVAC', category='HVAC',
+            property=second_property, contractor=branch_vendor, reported_by=self.user,
+            status=WorkOrder.Status.OPEN, reported_at=timezone.now(),
+        )
+        scoped_headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+
+        dashboard = self.client.get('/api/v1/facility/dashboard/', **scoped_headers)
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(dashboard.data['kpis']['openWorkOrders'], 1)
+        self.assertEqual(dashboard.data['kpis']['contractors'], 1)
+        contractors = self.client.get('/api/v1/facility/contractors/', **scoped_headers)
+        self.assertEqual([row['name'] for row in contractors.data], ['Main Lift Vendor'])
 
     def test_work_order_create_sets_reporter_and_organization(self):
         response = self.client.post('/api/v1/facility/work-orders/', {

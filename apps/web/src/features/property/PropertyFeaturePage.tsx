@@ -36,7 +36,6 @@ import { BudgetsView } from "./components/tabs/BudgetsView";
 import { ExpensesView } from "./components/tabs/ExpensesView";
 import { FeesView } from "./components/tabs/FeesView";
 import { ReportsView } from "./components/tabs/ReportsView";
-import { OwnerPortalView } from "./components/tabs/OwnerPortalView";
 import { ForecastView } from "./components/tabs/ForecastView";
 import { CriticalDatesView } from "./components/tabs/CriticalDatesView";
 
@@ -114,9 +113,9 @@ export function PropertyFeaturePage({
       case "financial-reports":
         return <PropertyFinancialReports />;
       case "owner-portal":
-        return <OwnerPortalView />;
+        return <OverviewView dashboard={logic.dashboard} loading={logic.loading} setTab={logic.setTab} canOperate={logic.canOperate} canLease={logic.canLease} canFinance={logic.canFinance} />;
       case "forecast":
-        return <ForecastView />;
+        return <ForecastView dashboard={logic.dashboard} />;
       case "critical-dates":
         return <CriticalDatesView leases={logic.leasesRows} contractors={logic.contractors} inspections={logic.inspections} serviceCharges={logic.criticalServiceCharges} loading={logic.loading} setTab={logic.setTab} />;
       case "tickets":
@@ -143,7 +142,7 @@ export function PropertyFeaturePage({
       moduleKey="property"
       moduleName="Property"
       title="Property Management"
-      subtitle="Commercial, residential & mixed-use portfolio operations"
+      subtitle="Operations, occupancy and financial performance for the selected property"
       groups={propertyNav}
       activeId={logic.tab}
       onSelect={(id) => logic.handleSelectTab(id as PropertyTab)}

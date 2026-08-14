@@ -42,6 +42,7 @@ PROPERTY_LOOKUPS = {
     'properties.ScheduledReport': 'property_id',
     # Facility management
     'facilities.FacilityAsset': 'property_id',
+    'facilities.Contractor': 'work_orders__property_id',
     'facilities.WorkOrder': 'property_id',
     'facilities.WorkOrderEvent': 'work_order__property_id',
     'facilities.WorkOrderCostItem': 'work_order__property_id',
@@ -119,6 +120,8 @@ def scope_queryset_to_property(queryset, request, organization):
     property_record = get_active_property(request, organization)
     if property_record is None:
         return queryset
+    if queryset.model._meta.label == 'properties.Property':
+        return queryset.filter(pk=property_record.pk)
     if queryset.model._meta.label == 'properties.Tenant':
         return queryset.filter(
             Q(property_id=property_record.pk) | Q(leases__unit__property_id=property_record.pk),

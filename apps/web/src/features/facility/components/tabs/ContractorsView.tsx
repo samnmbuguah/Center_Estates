@@ -44,27 +44,16 @@ function FcKpiCard({
   );
 }
 
-export function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Row[]; kpis: Record<string, string | number>; onAdd: () => void; canAdminister: boolean }) {
+export function ContractorsView({ rows, onAdd, canAdminister }: { rows: Row[]; onAdd: () => void; canAdminister: boolean }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [subTab, setSubTab] = useState("all");
 
-  const displayRows = rows.length > 0 ? rows : [
-    { id: 1, code: "C-2018-25487", name: "Aqua Solutions Ltd.", specialty: "Plumbing & Drainage", contact_name: "0721 345 678", rating: 4.6, status: "active", insurance_expires_on: "12 Dec 2026" },
-    { id: 2, code: "C-PG-001", name: "PowerGen Ltd.", specialty: "Electrical Systems", contact_name: "0712 654 321", rating: 4.4, status: "active", insurance_expires_on: "24 Aug 2026" },
-    { id: 3, code: "C-FT-001", name: "FireTech Services", specialty: "Fire Safety Systems", contact_name: "0733 987 654", rating: 4.8, status: "active", insurance_expires_on: "30 Nov 2026" },
-    { id: 4, code: "C-EL-001", name: "Elevate Ltd.", specialty: "Lift Systems", contact_name: "0709 876 543", rating: 4.5, status: "active", insurance_expires_on: "05 Mar 2027" },
-    { id: 5, code: "C-SE-001", name: "SecureEye Ltd.", specialty: "CCTV / Access Control", contact_name: "0725 111 222", rating: 4.2, status: "active", insurance_expires_on: "18 Jun 2026" },
-    { id: 6, code: "C-CM-001", name: "CoolMax Systems", specialty: "HVAC Systems", contact_name: "0731 222 333", rating: 4.1, status: "active", insurance_expires_on: "22 Oct 2026" },
-    { id: 7, code: "C-GC-001", name: "GreenClean Ltd.", specialty: "Cleaning Services", contact_name: "0714 555 888", rating: 3.9, status: "inactive", insurance_expires_on: "15 Jan 2027" },
-    { id: 8, code: "C-RF-001", name: "Rapid Fix Ltd.", specialty: "Specialized Repairs", contact_name: "0788 999 111", rating: 2.1, status: "blacklisted", insurance_expires_on: "—" },
-  ];
-
-  const hasData = rows.length > 0;
-  const totalContractors = Number(kpis?.contractors ?? (hasData ? rows.length : 68));
-  const activeContractors = hasData ? rows.filter((r) => String(r.status) === "active").length : 56;
-  const avgRating = hasData
+  const displayRows = rows;
+  const totalContractors = rows.length;
+  const activeContractors = rows.filter((r) => String(r.status) === "active").length;
+  const avgRating = rows.length
     ? (rows.reduce((s, r) => s + Number(r.rating ?? 0), 0) / rows.length).toFixed(1)
-    : "4.3";
+    : "0.0";
 
   const [nowMs] = useState(() => Date.now());
   const daysUntil = (value: string | number | boolean | null | undefined | unknown): number | null => {
@@ -77,7 +66,7 @@ export function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Ro
     const days = daysUntil(r.insurance_expires_on ?? r.license_expires_on);
     return days !== null && days >= 0 && days <= 30;
   };
-  const expiringCount = hasData ? displayRows.filter(isExpiringRow).length : 4;
+  const expiringCount = displayRows.filter(isExpiringRow).length;
 
   const filteredRows = subTab === "all" ? displayRows
     : subTab === "approved" ? displayRows.filter((r) => String(r.status) === "active")
@@ -89,9 +78,9 @@ export function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Ro
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="👷" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Contractors" value={totalContractors.toLocaleString()} sub="Active across all locations" />
+        <FcKpiCard icon="👷" iconBg="#e0e7ff" iconColor="#4f46e5" label="Assigned Contractors" value={totalContractors.toLocaleString()} sub="Used at this property" />
         <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active Contractors" value={String(activeContractors)} sub={totalContractors ? `${Math.round((activeContractors / totalContractors) * 100)}% of total` : "0% of total"} />
-        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Average Rating" value={`${avgRating} / 5`} sub="Across all contractors" />
+        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Average Rating" value={`${avgRating} / 5`} sub="Assigned contractors" />
         <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="—" sub="No data available" />
         <FcKpiCard icon="📄" iconBg="#fee2e2" iconColor="#b91c1c" label="Contracts Expiring" value={String(expiringCount)} sub={expiringCount ? "Within 30 days" : "No expirations"} />
         <FcKpiCard icon="💰" iconBg="#fdf4ff" iconColor="#9333ea" label="Total Spend (YTD)" value="—" sub="No data available" />
@@ -162,11 +151,11 @@ export function ContractorsView({ rows, kpis, onAdd, canAdminister }: { rows: Ro
                       <td>
                         <div>
                           <Stars rating={rating} />
-                          <small style={{ color: "#8a96a7", display: "block", fontSize: 10 }}>{rating.toFixed(1)} (23 reviews)</small>
+                          <small style={{ color: "#8a96a7", display: "block", fontSize: 10 }}>{rating.toFixed(1)} rating</small>
                         </div>
                       </td>
-                      <td style={{ fontSize: 12 }}>2.1 hrs</td>
-                      <td style={{ fontSize: 12, fontWeight: 700 }}>{statusStr === "active" ? "1+" : "—"}</td>
+                      <td style={{ fontSize: 12 }}>—</td>
+                      <td style={{ fontSize: 12, fontWeight: 700 }}>—</td>
                       <td style={{ fontSize: 12, fontWeight: 700 }}>—</td>
                       <td>
                         <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>

@@ -26,7 +26,6 @@ export function FeesView({ rows, loading, search, setSearch, setTab }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void;
 }) {
   const charges = rows as ServiceChargeRow[];
-  const totalProperties = new Set(charges.map((c) => String(c.property))).size || charges.length;
   const totalBudget = charges.reduce((s, c) => s + Number(c.annual_budget ?? 0), 0);
   const monthlyFees = totalBudget / 12;
   const feesInvoiced = totalBudget * 0.75;
@@ -62,13 +61,13 @@ export function FeesView({ rows, loading, search, setSearch, setTab }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
       <KpiStrip cols={4}>
-        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Properties Under Management" value={kN(totalProperties)} sub="Active properties" />
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Fee Schemes" value={kN(charges.length)} sub="Selected property" />
         <KpiCard icon="💰" iconBg="#dbeafe" iconColor="#2563eb" label="Monthly Fees Due" value={kM(monthlyFees)} sub="Estimated monthly" />
         <KpiCard icon="🧾" iconBg="#fef3c7" iconColor="#d97706" label="Fees Invoiced" value={kM(feesInvoiced)} sub="Year to date" />
         <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Fees Paid" value={kM(feesPaid)} sub={`${pct(feesPaid, feesInvoiced)}% collected`} />
       </KpiStrip>
 
-      <ViewToolbar title="Fee Invoicing" subtitle="Management fee tracking and invoicing across properties" search={search} onSearch={setSearch} placeholder="Search property or fee scheme…" />
+      <ViewToolbar title="Fee Invoicing" subtitle="Management fee tracking for the selected property" search={search} onSearch={setSearch} placeholder="Search fee scheme…" />
 
       <Panel title="Fee Summary" action={<div className="row" style={{ gap: 8 }}>
         <button className="btn ghost sm" onClick={() => setTab("reports")}>Download Fee Report →</button>
@@ -167,4 +166,3 @@ export function FeesView({ rows, loading, search, setSearch, setTab }: {
 }
 
 /* ─── REPORTS ─── */
-

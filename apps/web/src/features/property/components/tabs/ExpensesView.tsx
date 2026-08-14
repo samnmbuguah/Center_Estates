@@ -57,7 +57,7 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
         <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Transactions" value={kN(expenses.length)} sub="Recent expense lines" link="View expenses" onClick={() => setTab("expenses")} />
       </KpiStrip>
 
-      <ViewToolbar title="Property Expenses" subtitle="Track and analyse income and expenses across your properties" search={search} onSearch={setSearch} placeholder="Search supplier, category or property…">
+      <ViewToolbar title="Property Expenses" subtitle="Track and analyse income and expenses for the selected property" search={search} onSearch={setSearch} placeholder="Search supplier or category…">
         <button className="btn primary sm" onClick={onAdd}>+ Record expense</button>
       </ViewToolbar>
 
@@ -186,4 +186,3 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
 }
 
 /* ─── FEES ─── */
-

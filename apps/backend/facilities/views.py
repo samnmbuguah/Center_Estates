@@ -643,6 +643,7 @@ class FacilityDashboardViewSet(ViewSet):
         schedules = scope_model_queryset(PreventiveSchedule, request, organization)
         requests = scope_model_queryset(ServiceRequest, request, organization)
         readings = scope_model_queryset(MeterReading, request, organization)
+        contractors = scope_model_queryset(Contractor, request, organization)
         active_work = work_orders.exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
         overdue = active_work.filter(resolution_due_at__lt=now)
         due_schedules = schedules.filter(is_active=True, next_due_on__lte=timezone.localdate())
@@ -658,7 +659,7 @@ class FacilityDashboardViewSet(ViewSet):
                 'openRequests': requests.exclude(status__in=(ServiceRequest.Status.RESOLVED, ServiceRequest.Status.CLOSED)).count(),
                 'utilityConsumption': readings.filter(read_at__year=now.year).aggregate(total=Sum('consumption'))['total'] or 0,
                 'utilityCost': readings.filter(read_at__year=now.year).aggregate(total=Sum('cost'))['total'] or 0,
-                'contractors': Contractor.objects.for_organization(organization).filter(status=Contractor.Status.ACTIVE).count(),
+                'contractors': contractors.filter(status=Contractor.Status.ACTIVE).count(),
             },
             'recentWorkOrders': WorkOrderSerializer(work_orders[:6], many=True).data,
             'urgentWorkOrders': WorkOrderSerializer(active_work.filter(priority__in=(WorkOrder.Priority.HIGH, WorkOrder.Priority.CRITICAL))[:5], many=True).data,
@@ -682,7 +683,7 @@ class FacilityAnalyticsViewSet(ViewSet):
         assets = scope_model_queryset(FacilityAsset, request, organization)
         work_orders = scope_model_queryset(WorkOrder, request, organization)
         inspections = scope_model_queryset(Inspection, request, organization)
-        contractors = Contractor.objects.for_organization(organization)
+        contractors = scope_model_queryset(Contractor, request, organization)
         readings = scope_model_queryset(MeterReading, request, organization)
 
         return Response({
@@ -729,7 +730,7 @@ class FacilityAnalyticsViewSet(ViewSet):
             rows = scope_model_queryset(Inspection, request, organization).values_list('reference', 'title', 'status', 'completed_on')
             header = ['Reference', 'Title', 'Status', 'Completed']
         elif export_type == 'contractors':
-            rows = Contractor.objects.for_organization(organization).values_list('name', 'category', 'status', 'rating')
+            rows = scope_model_queryset(Contractor, request, organization).values_list('name', 'specialty', 'status', 'rating')
             header = ['Name', 'Category', 'Status', 'Rating']
         else:
             return Response({'error': 'Unknown export type. Use: assets, work-orders, inspections, contractors'}, status=400)

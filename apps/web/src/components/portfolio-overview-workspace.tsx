@@ -6,7 +6,7 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
 import { Pagination } from "@/components/module-ui";
-import { Building2, Edit3, Plus, Search, CheckCircle2, AlertCircle, Wrench, Users, DollarSign } from "lucide-react";
+import { Building2, Edit3, Plus, Search, CheckCircle2, Wrench, Users, DollarSign } from "lucide-react";
 
 type PropertyRecord = {
   id: string;
@@ -19,6 +19,12 @@ type PropertyRecord = {
   occupied_units?: number;
   occupancy_rate?: number;
   monthly_revenue?: number;
+  units?: number;
+  occupied?: number;
+  vacant?: number;
+  occupancy?: number;
+  monthlyRent?: number;
+  outstanding?: number;
   status?: string;
   notes?: string;
 };
@@ -30,7 +36,7 @@ type Pulse = {
 
 export function PortfolioOverviewWorkspace() {
   const { session } = useAuth();
-  const { properties: contextProps } = usePropertyContext();
+  const { properties: contextProps, selectProperty } = usePropertyContext();
   const sessionOrganization = session?.activeOrganizationId ?? null;
 
   const [pulse, setPulse] = useState<Pulse>({});
@@ -45,9 +51,10 @@ export function PortfolioOverviewWorkspace() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [pulseRes, propsRes] = await Promise.all([
+      const [pulseRes, propsRes, dashboardRes] = await Promise.all([
         apiFetch("/workspace/pulse/", { headers: { "X-Property-Scope": "portfolio" } }, sessionOrganization),
         apiFetch("/property/properties/", { headers: { "X-Property-Scope": "portfolio" } }, sessionOrganization),
+        apiFetch("/property/dashboard/", { headers: { "X-Property-Scope": "portfolio" } }, sessionOrganization),
       ]);
 
       if (pulseRes.ok) {
@@ -58,7 +65,14 @@ export function PortfolioOverviewWorkspace() {
       if (propsRes.ok) {
         const propsData = await propsRes.json();
         const results = Array.isArray(propsData) ? propsData : propsData.results || [];
-        setPropertiesList(results);
+        if (dashboardRes.ok) {
+          const dashboardData = await dashboardRes.json();
+          const summaries = Array.isArray(dashboardData.portfolio) ? dashboardData.portfolio : [];
+          const summaryById = new Map(summaries.map((row: PropertyRecord) => [String(row.id), row]));
+          setPropertiesList(results.map((property: PropertyRecord) => ({ ...property, ...(summaryById.get(String(property.id)) ?? {}) })));
+        } else {
+          setPropertiesList(results);
+        }
       } else if (contextProps && contextProps.length > 0) {
         setPropertiesList(contextProps as PropertyRecord[]);
       }
@@ -147,9 +161,9 @@ export function PortfolioOverviewWorkspace() {
 
   const paginatedProps = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const totalUnits = propertiesList.reduce((acc, p) => acc + (p.total_units || 0), 0);
-  const totalOccupied = propertiesList.reduce((acc, p) => acc + (p.occupied_units || 0), 0);
-  const overallOccupancy = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 85;
+  const totalUnits = propertiesList.reduce((acc, p) => acc + Number(p.units ?? p.total_units ?? 0), 0);
+  const totalOccupied = propertiesList.reduce((acc, p) => acc + Number(p.occupied ?? p.occupied_units ?? 0), 0);
+  const overallOccupancy = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
 
   return (
     <main className="page-wrap command-center" style={{ padding: "24px 32px", maxWidth: 1400, margin: "0 auto" }}>
@@ -213,7 +227,7 @@ export function PortfolioOverviewWorkspace() {
           <strong style={{ fontSize: 28, fontWeight: 900, color: "#000000", display: "block" }}>
             {pulse.property?.tenants ?? totalOccupied} <span style={{ fontSize: 16, color: "#16a34a" }}>({overallOccupancy}%)</span>
           </strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Total units: {totalUnits || 28}</span>
+          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Total units: {totalUnits}</span>
         </article>
 
         <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12 }}>
@@ -224,7 +238,7 @@ export function PortfolioOverviewWorkspace() {
             <small style={{ fontSize: 12, fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>Rent Outstanding</small>
           </div>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "#000000", display: "block" }}>
-            {pulse.property ? `KES ${pulse.property.outstanding.toLocaleString()}` : "KES 142,500"}
+            KES {Number(pulse.property?.outstanding ?? propertiesList.reduce((sum, property) => sum + Number(property.outstanding ?? 0), 0)).toLocaleString()}
           </strong>
           <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Current billing period</span>
         </article>
@@ -237,9 +251,9 @@ export function PortfolioOverviewWorkspace() {
             <small style={{ fontSize: 12, fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>Open Maintenance</small>
           </div>
           <strong style={{ fontSize: 28, fontWeight: 900, color: "#000000", display: "block" }}>
-            {pulse.facility?.openWorkOrders ?? 7}
+            {pulse.facility?.openWorkOrders ?? 0}
           </strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>PPM Compliance: {pulse.facility?.compliance ?? 92}%</span>
+          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>PPM Compliance: {pulse.facility?.compliance ?? 0}%</span>
         </article>
       </div>
 
@@ -308,19 +322,19 @@ export function PortfolioOverviewWorkspace() {
                       {prop.code || `PROP-${prop.id.slice(0, 6)}`}
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 800, color: "#000000" }}>
-                      <Link href={`/property?id=${prop.id}`} style={{ color: "#000000", textDecoration: "none" }}>
+                      <Link href="/property" onClick={() => selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") })} style={{ color: "#000000", textDecoration: "none" }}>
                         {prop.name}
                       </Link>
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "#0f172a", textTransform: "capitalize" }}>
-                      {prop.property_type || "Commercial Office"}
+                      {prop.property_type || "—"}
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "#0f172a" }}>
-                      {prop.address ? `${prop.address}${prop.city ? `, ${prop.city}` : ""}` : "Westlands, Nairobi"}
+                      {prop.address ? `${prop.address}${prop.city ? `, ${prop.city}` : ""}` : prop.city || "—"}
                     </td>
                     <td style={{ padding: "14px 20px" }}>
                       <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
-                        {prop.total_units || 28} Units ({prop.occupancy_rate || 85}% Occupied)
+                        {Number(prop.units ?? prop.total_units ?? 0)} Units ({Number(prop.occupancy ?? prop.occupancy_rate ?? 0)}% Occupied)
                       </span>
                     </td>
                     <td style={{ padding: "14px 20px", textAlign: "right" }}>

@@ -94,9 +94,14 @@ class TaskViewSet(CompanionModelViewSet):
         organization = self._validate_organization(serializer)
         now = timezone.now()
         assignee = serializer.validated_data.get('assignee')
+        active_property = get_active_property(self.request, organization)
+        requested_property = serializer.validated_data.get('property')
+        if active_property and requested_property and requested_property.pk != active_property.pk:
+            raise ValidationError({'property': 'Create the task for the property currently selected in the workspace.'})
         count = Task.objects.filter(organization=organization).count()
         task = serializer.save(
             organization=organization,
+            property=requested_property or active_property,
             reference=f'CPN-{now:%Y}-{count + 1:04d}',
             status=Task.Status.PENDING,
         )
@@ -505,7 +510,11 @@ class PerformanceViewSet(ViewSet):
         return Response({
             'user': {'id': str(user.pk), 'username': user.username, 'name': user.get_full_name() or user.username},
             'tasks': TaskSerializer(tasks[:50], many=True).data,
-            'events': TaskEventSerializer(TaskEvent.objects.filter(organization=organization, task__assignee=user).select_related('actor').order_by('-created_at')[:50], many=True).data,
+            'events': TaskEventSerializer(
+                scope_model_queryset(TaskEvent, request, organization)
+                .filter(task__assignee=user).select_related('actor').order_by('-created_at')[:50],
+                many=True,
+            ).data,
         })
 
 

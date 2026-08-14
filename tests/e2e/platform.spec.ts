@@ -69,7 +69,7 @@ test("property rent ledger registers and receipt dialog are usable", async ({ pa
   await expect(dialog).toBeHidden();
 });
 
-test("property command center renders live portfolio intelligence", async ({ page }) => {
+test("property module renders selected-property intelligence", async ({ page }) => {
   test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   await page.goto("/property?tab=overview");
   await expect(page.getByRole("heading", { name: "Monthly rent collection trend" })).toBeVisible();
@@ -77,7 +77,9 @@ test("property command center renders live portfolio intelligence", async ({ pag
   await expect(page.getByText("Actual (KES)")).toBeVisible();
   await expect(page.getByLabel("Rent collection summary")).toContainText("Variance");
   await expect(page.getByRole("heading", { name: "Lease expiry overview" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Property portfolio summary" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Property performance" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Property portfolio summary" })).toHaveCount(0);
+  await expect(page.getByText("All Properties", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Rent Ageing Heatmap" })).toBeVisible();
   await expect(page.getByText("Westlands Business Centre", { exact: true })).toBeVisible();
   await expect(page.locator(".chart-month")).toHaveCount(new Date().getMonth() + 1);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
@@ -20,40 +20,14 @@ import {
   kM, kN, fmtDate, daysUntil, daysLeftLabel, overdueLabel, pct,
   occupancyTone, shortId, exportCsv, exportLeaseICS,
 } from "../../utils/property.utils";
-import { OwnerPortalView } from "./OwnerPortalView";
-
-export function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFinance, isOwner = false }: { dashboard: DashboardData | null; loading: boolean; setTab: (t: PropertyTab) => void; canOperate: boolean; canLease: boolean; canFinance: boolean; isOwner?: boolean }) {
-  const [overviewMode, setOverviewMode] = useState<"standard" | "owner">(isOwner ? "owner" : "standard");
+export function OverviewView({ dashboard, loading, setTab, canOperate, canLease, canFinance }: { dashboard: DashboardData | null; loading: boolean; setTab: (t: PropertyTab) => void; canOperate: boolean; canLease: boolean; canFinance: boolean }) {
 
   if (loading && !dashboard) return <LoadingState rows={8} />;
   if (!dashboard) {
-    return <EmptyState icon="🏢" title="Dashboard unavailable" description="Add properties, units and leases to unlock portfolio, collection and occupancy analytics." />;
-  }
-
-  if (overviewMode === "owner") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 18, width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "10px 16px", borderRadius: 12, border: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 16 }}>👑</span>
-            <strong style={{ fontSize: 14 }}>Owner & Portfolio Overview</strong>
-          </div>
-          <div style={{ display: "flex", gap: 6, background: "var(--surface-3)", padding: 4, borderRadius: 8 }}>
-            <button className={`btn sm ${(overviewMode as string) === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
-              🏢 Operations
-            </button>
-            <button className={`btn sm ${(overviewMode as string) === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
-              👑 Owner Overview
-            </button>
-          </div>
-        </div>
-        <OwnerPortalView />
-      </div>
-    );
+    return <EmptyState icon="🏢" title="Dashboard unavailable" description="Add units and leases to this property to unlock collection and occupancy analytics." />;
   }
 
   const k = dashboard.kpis ?? {};
-  const properties = Number(k.properties ?? 0);
   const units = Number(k.units ?? 0);
   const occupied = Number(k.occupiedUnits ?? 0);
   const occupancyRate = Number(k.occupancyRate ?? 0);
@@ -61,11 +35,11 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
   const collected = Number(k.collectedYtd ?? 0);
   const billedTotal = collected + outstanding;
   const collectionRate = billedTotal > 0 ? Math.round((collected / billedTotal) * 100) : 0;
-  const monthlyRent = (dashboard.portfolio ?? []).reduce((s, p) => s + Number(p.monthlyRent ?? 0), 0);
+  const currentProperty = dashboard.propertySummary ?? dashboard.portfolio?.[0];
+  const monthlyRent = Number(currentProperty?.monthlyRent ?? 0);
   const trend = dashboard.collectionTrend ?? [];
   const leaseExpiry = dashboard.leaseExpiry ?? [];
   const aging = dashboard.aging ?? [];
-  const portfolio = dashboard.portfolio ?? [];
   const overdue = dashboard.overdueInvoices ?? [];
   const trendExpected = trend.reduce((sum, point) => sum + Number(point.expected ?? point.billed ?? 0), 0);
   const trendActual = trend.reduce((sum, point) => sum + Number(point.actual ?? point.collected ?? 0), 0);
@@ -92,7 +66,7 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
         <>
           <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Outstanding Rent" value={kM(outstanding)} sub="Uncollected balance" link="View arrears" onClick={() => setTab("arrears")} />
           <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub={`${kM(collected)} collected YTD`} link="View collections" onClick={() => setTab("rent")} />
-          <KpiCard icon="💵" iconBg="#dcfce7" iconColor="#16a34a" label="Monthly Rent" value={kM(monthlyRent)} sub="Portfolio monthly rent" link="View rent" onClick={() => setTab("rent")} />
+          <KpiCard icon="💵" iconBg="#dcfce7" iconColor="#16a34a" label="Monthly Rent" value={kM(monthlyRent)} sub="Current property" link="View rent" onClick={() => setTab("rent")} />
           <KpiCard icon="📊" iconBg="#fef3c7" iconColor="#d97706" label="Arrears Aging" value={kM(agingTotal)} sub="Total arrears balance" link="View arrears" onClick={() => setTab("arrears")} />
         </>
       );
@@ -101,9 +75,9 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
       // Leasing dashboard - focus on occupancy and leases
       return (
         <>
-          <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
+          <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Property Units" value={kN(units)} sub="Selected property" link="View details" onClick={() => setTab("properties")} />
           <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
-          <KpiCard icon="▣" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy Rate" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
+          <KpiCard icon="▣" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy Rate" value={`${occupancyRate}%`} sub="Current property" link="View units" onClick={() => setTab("units")} />
           <KpiCard icon="📋" iconBg="#dbeafe" iconColor="#2563eb" label="Active Leases" value={kN(k.activeLeases ?? 0)} sub="Lease agreements" link="View leases" onClick={() => setTab("leases")} />
         </>
       );
@@ -112,7 +86,7 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
       // Operations dashboard - focus on properties and units
       return (
         <>
-          <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
+          <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Property Units" value={kN(units)} sub="Selected property" link="View details" onClick={() => setTab("properties")} />
           <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(units)} sub={`${kN(occupied)} occupied`} link="View units" onClick={() => setTab("units")} />
           <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
           <KpiCard icon="📦" iconBg="#fef3c7" iconColor="#d97706" label="Vacant Units" value={kN(units - occupied)} sub="Available for lease" link="View units" onClick={() => setTab("units")} />
@@ -122,13 +96,13 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
     // Default - show all KPIs
     return (
       <>
-        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Properties" value={kN(properties)} sub={`${kN(units)} total units`} link="View portfolio" onClick={() => setTab("properties")} />
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Property Units" value={kN(units)} sub="Selected property" link="View details" onClick={() => setTab("properties")} />
         <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(units)} sub={`${kN(occupied)} occupied`} link="View units" onClick={() => setTab("units")} />
         <KpiCard icon="🔑" iconBg="#dcfce7" iconColor="#16a34a" label="Occupied Units" value={kN(occupied)} sub={`${occupancyRate}% occupancy`} link="View occupancy" onClick={() => setTab("units")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Rent" value={kM(monthlyRent)} sub="Portfolio monthly rent" link="View rent" onClick={() => setTab("rent")} />
+        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Rent" value={kM(monthlyRent)} sub="Current property" link="View rent" onClick={() => setTab("rent")} />
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding Rent" value={kM(outstanding)} sub="Uncollected balance" link="View arrears" onClick={() => setTab("arrears")} />
         <KpiCard icon="◔" iconBg="#e0f2fe" iconColor="#0284c7" label="Collection Rate" value={`${collectionRate}%`} sub={`${kM(collected)} collected YTD`} link="View collections" onClick={() => setTab("rent")} />
-        <KpiCard icon="▣" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="▣" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy" value={`${occupancyRate}%`} sub="Current property" link="View units" onClick={() => setTab("units")} />
       </>
     );
   };
@@ -138,15 +112,7 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "10px 16px", borderRadius: 12, border: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 16 }}>📊</span>
-          <strong style={{ fontSize: 14 }}>Executive Overview</strong>
-        </div>
-        <div style={{ display: "flex", gap: 6, background: "var(--surface-3)", padding: 4, borderRadius: 8 }}>
-          <button className={`btn sm ${(overviewMode as string) === "standard" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("standard")}>
-            🏢 Operations
-          </button>
-          <button className={`btn sm ${(overviewMode as string) === "owner" ? "primary" : "ghost"}`} onClick={() => setOverviewMode("owner")}>
-            👑 Owner Overview
-          </button>
+          <strong style={{ fontSize: 14 }}>{String(currentProperty?.name ?? "Selected property")} overview</strong>
         </div>
       </div>
       <KpiStrip>
@@ -299,39 +265,22 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
             )}
           </Panel>
 
-          <Panel title="Property Portfolio Summary" action={<button className="btn ghost sm" onClick={() => setTab("properties")}>All Properties →</button>}>
-            {portfolio.length > 0 ? (
-              <div className="table-scroll">
-                <table className="fc-data-table">
-                  <thead>
-                    <tr>
-                      <th>Property</th>
-                      <th>Units</th>
-                      <th>Occupied</th>
-                      <th>Vacant</th>
-                      <th>Occupancy %</th>
-                      <th>Monthly Rent</th>
-                      <th>Outstanding</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {portfolio.map((p) => (
-                      <tr key={String(p.id)}>
-                        <td><strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong></td>
-                        <td className="mono">{kN(p.units)}</td>
-                        <td className="mono">{kN(p.occupied)}</td>
-                        <td className="mono">{kN(p.vacant)}</td>
-                        <td><Badge tone={occupancyTone(Number(p.occupancy ?? 0))}>{pct(p.occupied, p.units)}%</Badge></td>
-                        <td className="mono">{kM(p.monthlyRent)}</td>
-                        <td className="mono" style={{ color: "var(--danger)" }}>{kM(p.outstanding)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <EmptyState icon="🏢" title="No portfolio records" description="Property occupancy and rent summaries appear here once properties are added." />
-            )}
+          <Panel title="Property Performance" action={<button className="btn ghost sm" onClick={() => setTab("properties")}>Property details →</button>}>
+            <div style={{ padding: "18px 20px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+              {[
+                ["Units", kN(currentProperty?.units ?? units)],
+                ["Occupied", kN(currentProperty?.occupied ?? occupied)],
+                ["Vacant", kN(currentProperty?.vacant ?? Math.max(units - occupied, 0))],
+                ["Occupancy", `${Number(currentProperty?.occupancy ?? occupancyRate)}%`],
+                ["Monthly rent", kM(monthlyRent)],
+                ["Outstanding", kM(currentProperty?.outstanding ?? outstanding)],
+              ].map(([label, value]) => (
+                <div key={label} className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
+                  <div className="muted" style={{ fontSize: 11, fontWeight: 800 }}>{label}</div>
+                  <strong style={{ display: "block", marginTop: 4, fontSize: 16 }}>{value}</strong>
+                </div>
+              ))}
+            </div>
           </Panel>
         </div>
 

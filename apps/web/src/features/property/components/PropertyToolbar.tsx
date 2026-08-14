@@ -7,7 +7,7 @@ import { SearchInput, LoadingState, EmptyState } from "@/components/module-ui";
 export function ViewToolbar({
   title, subtitle, search, onSearch, placeholder = "Search records…", searchTestid, children,
 }: {
-  title: string; subtitle?: string; search: string; onSearch: (v: string) => void;
+  title: string; subtitle?: string; search?: string; onSearch?: (v: string) => void;
   placeholder?: string; searchTestid?: string; children?: ReactNode;
 }) {
   return (
@@ -17,18 +17,18 @@ export function ViewToolbar({
         {subtitle && <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>{subtitle}</p>}
       </div>
       <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-        {searchTestid ? (
+        {onSearch && searchTestid ? (
           <input
             type="text"
             data-testid={searchTestid}
-            value={search}
+            value={search ?? ""}
             onChange={(e) => onSearch(e.target.value)}
             placeholder={placeholder ?? "Search records…"}
             style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, minWidth: 240 }}
           />
-        ) : (
-          <SearchInput value={search} onChange={onSearch} placeholder={placeholder} />
-        )}
+        ) : onSearch ? (
+          <SearchInput value={search ?? ""} onChange={onSearch} placeholder={placeholder} />
+        ) : null}
         {children}
       </div>
     </div>

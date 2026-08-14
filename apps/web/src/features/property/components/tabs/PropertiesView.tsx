@@ -28,17 +28,10 @@ export function PropertiesView({
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAdd: () => void; onSelectRow: (r: Row) => void;
 }) {
-  const [filterType, setFilterType] = useState("");
-  const [filterLocation, setFilterLocation] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
   const props = rows as PropertyRow[];
-  const filtered = props.filter((p) =>
-    (!filterType || p.property_type === filterType) &&
-    (!filterLocation || p.city === filterLocation) &&
-    (!filterStatus || p.status === filterStatus)
-  );
+  const filtered = props;
   const pagedRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalUnits = props.reduce((s, p) => s + Number(p.units_count ?? 0), 0);
   const totalBuildings = props.reduce((s, p) => s + Number(p.buildings_count ?? 0), 0);
@@ -46,45 +39,29 @@ export function PropertiesView({
   const totalOccupied = props.reduce((s, p) => s + Number(p.occupied ?? 0), 0);
   const vacant = Math.max(totalUnits - totalOccupied, 0);
   const occupancyRate = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
-  const types = [...new Set(props.map((p) => p.property_type).filter(Boolean))];
-  const locations = [...new Set(props.map((p) => p.city).filter(Boolean))];
-  const statuses = [...new Set(props.map((p) => p.status).filter(Boolean))];
-  const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
   return (
     <>
       <KpiStrip cols={6}>
-        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Properties" value={kN(props.length)} sub="Portfolio count" link="View register" onClick={() => setTab("properties")} />
-        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(totalUnits)} sub="Across portfolio" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Property" value={props[0]?.name ? String(props[0].name) : "—"} sub="Currently selected" link="View details" onClick={() => setTab("properties")} />
+        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(totalUnits)} sub="At this property" link="View units" onClick={() => setTab("units")} />
         <KpiCard icon="🏗" iconBg="#fef3c7" iconColor="#d97706" label="Buildings" value={kN(totalBuildings)} sub="Registered buildings" link="View buildings" onClick={() => setTab("buildings")} />
-        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active properties" link="View register" onClick={() => setTab("properties")} />
-        <KpiCard icon="◌" iconBg="#fee2e2" iconColor="#dc2626" label="Vacant Units" value={kN(vacant)} sub="Across portfolio" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="▣" iconBg="#e0f2fe" iconColor="#0284c7" label="Occupancy %" value={`${occupancyRate}%`} sub="Portfolio occupancy" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Status" value={active ? "Active" : String(props[0]?.status ?? "—")} sub="Property status" link="View details" onClick={() => setTab("properties")} />
+        <KpiCard icon="◌" iconBg="#fee2e2" iconColor="#dc2626" label="Vacant Units" value={kN(vacant)} sub="At this property" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="▣" iconBg="#e0f2fe" iconColor="#0284c7" label="Occupancy %" value={`${occupancyRate}%`} sub="Current property" link="View units" onClick={() => setTab("units")} />
       </KpiStrip>
 
-      <ViewToolbar title="Property Register" subtitle="Manage all properties across your portfolio" search={search} onSearch={setSearch} searchTestid="property-search-input" placeholder="Search by name, code or city…">
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selStyle}>
-          <option value="">All Types</option>
-          {types.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} style={selStyle}>
-          <option value="">All Locations</option>
-          {locations.map((l) => <option key={l} value={l}>{l}</option>)}
-        </select>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={selStyle}>
-          <option value="">All Status</option>
-          {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+      <ViewToolbar title="Property Details" subtitle="Identity, occupancy and operating details for the property selected above">
         <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
           { key: "name", label: "Property" }, { key: "code", label: "Code" }, { key: "property_type", label: "Type" },
           { key: "city", label: "Location" }, { key: "units_count", label: "Units" }, { key: "occupied", label: "Occupied" },
           { key: "occupancy", label: "Occupancy %" }, { key: "monthlyRent", label: "Monthly Rent" },
           { key: "outstanding", label: "Outstanding" }, { key: "status", label: "Status" },
-        ], "properties.csv")}>Export CSV</button>
+        ], "property-details.csv")}>Export CSV</button>
       </ViewToolbar>
 
-      <Panel title="Properties">
-        <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No properties found" emptyDesc="Add a property to start building your portfolio hierarchy.">
+      <Panel title="Selected Property">
+        <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No property selected" emptyDesc="Choose a property from the selector at the top of the workspace.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
@@ -136,4 +113,3 @@ export function PropertiesView({
 }
 
 /* ─── BUILDINGS ─── */
-

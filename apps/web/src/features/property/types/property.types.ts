@@ -224,6 +224,7 @@ export interface DashboardData {
   }[];
   leaseExpiry?: { label: string; count: number }[];
   aging?: { label: string; amount: number }[];
+  propertySummary?: PropertyRow | null;
   portfolio?: PropertyRow[];
   overdueInvoices?: InvoiceRow[];
   propertyMix?: { property_type: string; count: number }[];

@@ -99,11 +99,39 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['kpis']['activeTenants'], 1)
         self.assertEqual(response.data['portfolio'][0]['name'], 'Owned Property')
         self.assertEqual(response.data['portfolio'][0]['occupied'], 1)
+        self.assertIsNone(response.data['propertySummary'])
         self.assertEqual(len(response.data['aging']), 4)
         self.assertTrue(response.data['collectionTrend'])
         july = next(point for point in response.data['collectionTrend'] if point['month'] == 'Jul')
         self.assertEqual(july['expected'], Decimal('1000'))
         self.assertEqual(july['actual'], Decimal('0'))
+
+    def test_dashboard_separates_selected_property_from_portfolio_scope(self):
+        second = Property.objects.create(
+            organization=self.organization, code='OWN-002', name='Second Property', status=Property.Status.ACTIVE,
+        )
+        Unit.objects.create(
+            organization=self.organization, property=second, code='201', status=Unit.Status.AVAILABLE,
+        )
+
+        scoped = self.client.get(
+            '/api/v1/property/dashboard/',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(scoped.status_code, 200)
+        self.assertEqual(scoped.data['kpis']['properties'], 1)
+        self.assertEqual(scoped.data['kpis']['units'], 1)
+        self.assertEqual(scoped.data['propertySummary']['name'], 'Owned Property')
+        self.assertEqual([row['name'] for row in scoped.data['portfolio']], ['Owned Property'])
+
+        portfolio = self.client.get(
+            '/api/v1/property/dashboard/',
+            **{**self.headers, 'HTTP_X_PROPERTY_SCOPE': 'portfolio'},
+        )
+        self.assertEqual(portfolio.status_code, 200)
+        self.assertEqual(portfolio.data['kpis']['properties'], 2)
+        self.assertIsNone(portfolio.data['propertySummary'])
+        self.assertCountEqual([row['name'] for row in portfolio.data['portfolio']], ['Owned Property', 'Second Property'])
 
     def test_effective_dated_billing_and_reporting_foundation_is_scoped_and_persisted(self):
         tax = self.client.post('/api/v1/property/tax-configurations/', {

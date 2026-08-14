@@ -49,20 +49,15 @@ export function TenantsView({
   canLease?: boolean;
   onRefresh?: () => void;
 }) {
-  const [filterProperty, setFilterProperty] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
   const tenants = rows as TenantRow[];
-  const filtered = tenants.filter((t) =>
-    (!filterProperty || t.property === filterProperty) &&
-    (!filterStatus || t.status === filterStatus)
-  );
+  const filtered = tenants.filter((t) => !filterStatus || t.status === filterStatus);
   const pagedRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const active = tenants.filter((t) => t.status === "active").length;
   const prospects = tenants.filter((t) => t.status === "prospect").length;
   const outstanding = tenants.reduce((s, t) => s + Number(t.outstanding ?? 0), 0);
-  const propertyNames = [...new Set(tenants.map((t) => t.property).filter(Boolean))];
   const statuses = [...new Set(tenants.map((t) => t.status).filter(Boolean))];
   const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
@@ -75,18 +70,14 @@ export function TenantsView({
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Combined arrears" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
-      <ViewToolbar title="Tenant Register" subtitle="Manage all tenants across your properties" search={search} onSearch={setSearch} searchTestid="tenant-search-input" placeholder="Search tenant name, email, phone…">
-        <select value={filterProperty} onChange={(e) => setFilterProperty(e.target.value)} style={selStyle}>
-          <option value="">All Properties</option>
-          {propertyNames.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+      <ViewToolbar title="Tenant Register" subtitle="Tenants and occupancy for the selected property" search={search} onSearch={setSearch} searchTestid="tenant-search-input" placeholder="Search tenant name, email, phone…">
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={selStyle}>
           <option value="">All Status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
           { key: "name", label: "Name" }, { key: "code", label: "Code" }, { key: "tenant_type", label: "Type" },
-          { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "property", label: "Property" },
+          { key: "email", label: "Email" }, { key: "phone", label: "Phone" },
           { key: "unit", label: "Unit" }, { key: "status", label: "Status" },
           { key: "outstanding", label: "Outstanding" }, { key: "created_at", label: "Registered" },
         ], "tenants.csv")}>Export CSV</button>
@@ -101,7 +92,7 @@ export function TenantsView({
               <thead>
                 <tr>
                   <th>Tenant</th>
-                  <th>Property / Unit</th>
+                  <th>Unit</th>
                   <th>Contact</th>
                   <th>Lease Start</th>
                   <th>Lease End</th>
@@ -118,8 +109,7 @@ export function TenantsView({
                       <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "—")}</div>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12 }}>{String(t.property ?? "—")}</span>
-                      {t.unit ? <div className="muted" style={{ fontSize: 11 }}>{String(t.unit)}</div> : null}
+                      <span className="mono" style={{ fontSize: 12 }}>{String(t.unit ?? "—")}</span>
                     </td>
                     <td style={{ fontSize: 12 }}>
                       <div>{t.email ? String(t.email) : "—"}</div>
@@ -150,4 +140,3 @@ export function TenantsView({
 }
 
 /* ─── TENANT DOCUMENTS ─── */
-

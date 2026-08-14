@@ -52,7 +52,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab }: {
         )}
       </KpiStrip>
 
-      <ViewToolbar title="Occupancy Register" subtitle="Lettable and non-lettable units with area and typology across your properties" search={search} onSearch={setSearch} placeholder="Search by code, type or property…">
+      <ViewToolbar title="Occupancy Register" subtitle="Lettable and non-lettable units at the selected property" search={search} onSearch={setSearch} placeholder="Search by unit code, type or building…">
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className={`btn sm ${view === "residential" ? "primary" : "ghost"}`} data-testid="occupancy-residential-btn" onClick={() => setView("residential")}>Residential View</button>
           <button type="button" className={`btn sm ${view === "commercial" ? "primary" : "ghost"}`} data-testid="occupancy-commercial-btn" onClick={() => setView("commercial")}>Commercial View</button>
@@ -100,7 +100,6 @@ export function UnitsView({ rows, loading, search, setSearch, setTab }: {
               <thead>
                 <tr>
                   <th>Unit Code</th>
-                  <th>Property</th>
                   <th>Building</th>
                   <th>Floor</th>
                   {view === "commercial" ? (
@@ -122,7 +121,6 @@ export function UnitsView({ rows, loading, search, setSearch, setTab }: {
                   return (
                     <tr key={String(u.id)}>
                       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(u.code ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(u.property_name ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String(u.building_name ?? "—")}</td>
                       <td className="mono" style={{ fontSize: 12 }}>{String(u.floor ?? "—")}</td>
                       {view === "commercial" ? (
@@ -148,4 +146,3 @@ export function UnitsView({ rows, loading, search, setSearch, setTab }: {
 }
 
 /* ─── PROJECTS ─── */
-

@@ -204,7 +204,7 @@ export function usePropertyLogic({
       }
     };
     try {
-      if (tab === "overview") {
+      if (tab === "overview" || tab === "owner-portal" || tab === "forecast") {
         const res = await apiFetch("/property/dashboard/", {}, organizationId);
         if (!res.ok) { fail(); return; }
         const data = await res.json();
@@ -364,7 +364,7 @@ export function usePropertyLogic({
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
         setCriticalServiceCharges(Array.isArray(scData) ? scData as Row[] : []);
-      } else if (tab === "owner-portal" || tab === "forecast" || tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports") {
+      } else if (tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports") {
         setLoading(false);
       } else {
         const ep = endpointFor(tab);

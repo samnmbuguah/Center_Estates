@@ -16,20 +16,30 @@ async function signIn(page: Page) {
 test.beforeEach(async ({ page }) => signIn(page));
 
 
-test("property overview renders all KPIs and charts correctly", async ({ page }) => {
+test("property overview is scoped to the selected property", async ({ page }) => {
   const errors: string[] = [];
+  const dashboardScopes: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/property/dashboard/")) {
+      const propertyId = request.headers()["x-property-id"];
+      if (propertyId) dashboardScopes.push(propertyId);
+    }
+  });
 
   await page.goto("/property");
   await page.waitForTimeout(2000);
 
   await expect(page.getByText(/Outstanding Rent|Monthly Rent|Collection Rate|Arrears Aging/i).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: /MONTHLY RENT COLLECTION TREND|PROPERTY PORTFOLIO SUMMARY|LEASE EXPIRY OVERVIEW/i }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /MONTHLY RENT COLLECTION TREND|PROPERTY PERFORMANCE|LEASE EXPIRY OVERVIEW/i }).first()).toBeVisible();
   await expect(page.getByText("Expected (KES)")).toBeVisible();
   await expect(page.getByText("Actual (KES)")).toBeVisible();
   await expect(page.getByLabel("Rent collection summary")).toContainText("Variance");
   await expect(page.getByLabel("Rent collection summary")).toContainText("Collection rate");
   await expect(page.locator("h2, h3, .panel-title").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Property Portfolio Summary/i })).toHaveCount(0);
+  await expect(page.getByText("All Properties", { exact: true })).toHaveCount(0);
+  expect(dashboardScopes.length).toBeGreaterThan(0);
 
   await expectNoPageErrors(page, errors);
 });

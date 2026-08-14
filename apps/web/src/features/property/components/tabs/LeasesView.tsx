@@ -54,15 +54,11 @@ export function LeasesView({
   onRefresh?: () => void;
 }) {
   const handleAdd = onAdd || onAddLease || (() => {});
-  const [filterProperty, setFilterProperty] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
   const leases = rows as LeaseRow[];
-  const filtered = leases.filter((l) =>
-    (!filterProperty || l.property_name === filterProperty) &&
-    (!filterStatus || l.status === filterStatus)
-  );
+  const filtered = leases.filter((l) => !filterStatus || l.status === filterStatus);
   const pagedRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const active = leases.filter((l) => l.status === "active").length;
   const expired = leases.filter((l) => l.status === "expired").length;
@@ -72,7 +68,6 @@ export function LeasesView({
   }).length;
   const monthlyRent = leases.filter((l) => ["active", "expiring"].includes(String(l.status))).reduce((s, l) => s + Number(l.monthly_rent ?? 0), 0);
   const outstanding = leases.reduce((s, l) => s + Number(l.outstanding ?? 0), 0);
-  const propertyNames = [...new Set(leases.map((l) => l.property_name).filter(Boolean))];
   const statuses = [...new Set(leases.map((l) => l.status).filter(Boolean))];
   const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
@@ -87,18 +82,14 @@ export function LeasesView({
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid lease balances" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
-      <ViewToolbar title="Lease Register" subtitle="Manage all lease agreements across your properties" search={search} onSearch={setSearch} placeholder="Search lease no, tenant or unit…">
-        <select value={filterProperty} onChange={(e) => setFilterProperty(e.target.value)} style={selStyle}>
-          <option value="">All Properties</option>
-          {propertyNames.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+      <ViewToolbar title="Lease Register" subtitle="Lease agreements for the selected property" search={search} onSearch={setSearch} placeholder="Search lease no, tenant or unit…">
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={selStyle}>
           <option value="">All Status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
           { key: "reference", label: "Reference" }, { key: "tenant_name", label: "Tenant" },
-          { key: "property_name", label: "Property" }, { key: "unit_code", label: "Unit" },
+          { key: "unit_code", label: "Unit" },
           { key: "starts_on", label: "Start" }, { key: "ends_on", label: "End" },
           { key: "monthly_rent", label: "Monthly Rent" }, { key: "deposit", label: "Deposit" },
           { key: "escalation_percent", label: "Escalation %" }, { key: "status", label: "Status" },
@@ -130,7 +121,6 @@ export function LeasesView({
                 <tr>
                   <th>Lease No</th>
                   <th>Tenant</th>
-                  <th>Property</th>
                   <th>Unit</th>
                   <th>Start</th>
                   <th>End</th>
@@ -146,7 +136,6 @@ export function LeasesView({
                   <tr key={String(l.id)} onClick={() => onSelectRow(l)}>
                     <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(l.reference ?? "—")}</td>
                     <td><strong style={{ fontSize: 12 }}>{String(l.tenant_name ?? "—")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(l.property_name ?? "—")}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{String(l.unit_code ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(l.starts_on)}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(l.ends_on)}</td>
@@ -181,4 +170,3 @@ export function LeasesView({
 }
 
 /* ─── TENANCY (consolidated Tenants / Leases / Documents) ─── */
-

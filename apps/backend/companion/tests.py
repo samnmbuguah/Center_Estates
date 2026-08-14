@@ -9,6 +9,7 @@ from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
 from subscriptions.models import Subscription
 from companion.models import TaskEvent
+from properties.models import Property
 
 User = get_user_model()
 
@@ -62,6 +63,29 @@ class CompanionApiTests(TestCase):
         self.assertLessEqual(len(queries), 10, f'Dashboard used {len(queries)} queries')
         self.assertEqual(len(res.data["recentTasks"]), 1)
         self.assertEqual(res.data["recentTasks"][0]["title"], "Task for staff")
+
+    def test_tasks_and_dashboard_honor_selected_property(self):
+        first = Property.objects.create(organization=self.organization, code='CP-1', name='Companion One')
+        second = Property.objects.create(organization=self.organization, code='CP-2', name='Companion Two')
+        headers = {'HTTP_X_PROPERTY_ID': str(first.id)}
+        self.login(self.admin)
+        created = self.client.post(
+            '/api/v1/companion/tasks/',
+            {'title': 'First property task', 'assignee': str(self.staff.pk)},
+            format='json', **headers,
+        )
+        self.assertEqual(created.status_code, 201, created.content)
+        self.assertEqual(str(created.data['property']), str(first.id))
+        self.client.post(
+            '/api/v1/companion/tasks/',
+            {'title': 'Second property task', 'assignee': str(self.staff.pk), 'property': str(second.id)},
+            format='json', HTTP_X_PROPERTY_ID=str(second.id),
+        )
+
+        self.login(self.staff)
+        dashboard = self.client.get('/api/v1/companion/dashboard/', **headers)
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual([row['title'] for row in dashboard.data['recentTasks']], ['First property task'])
 
     def test_performance_requires_manager(self):
         self.login(self.staff)

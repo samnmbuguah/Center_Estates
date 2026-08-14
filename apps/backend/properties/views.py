@@ -1921,6 +1921,11 @@ class PropertyDashboardViewSet(ViewSet):
                 'monthlyRent': leases.filter(unit__property=property_record, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).aggregate(total=Sum('monthly_rent'))['total'] or Decimal('0'),
                 'outstanding': property_invoices.aggregate(total=Sum('balance'))['total'] or Decimal('0'),
             })
+        active_property = get_active_property(request, organization)
+        property_summary = next(
+            (row for row in portfolio if active_property and str(row['id']) == str(active_property.id)),
+            None,
+        )
         return Response({
             'kpis': {
                 'properties': properties.count(), 'units': total_units, 'occupiedUnits': occupied,
@@ -1935,6 +1940,10 @@ class PropertyDashboardViewSet(ViewSet):
             'collectionTrend': collection_trend,
             'leaseExpiry': lease_expiry,
             'aging': [{'label': label, 'amount': amount} for label, amount in aging.items()],
+            # Module workspaces consume one explicitly selected property. The
+            # portfolio collection remains available only to callers that
+            # deliberately request X-Property-Scope: portfolio (for /overview).
+            'propertySummary': property_summary,
             'portfolio': portfolio,
         })
 

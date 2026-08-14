@@ -557,7 +557,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                 <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, background: "linear-gradient(135deg, rgba(13,148,136,.1), transparent)" }}>
                   <Chip size="small" label="Quartermaster AI" color="primary" variant="outlined" />
                   <Typography sx={{ fontWeight: 800, mt: 1 }}>Need an operational answer?</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ my: 1 }}>Open the dedicated QM workspace for grounded portfolio, rent, task and maintenance analysis.</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ my: 1 }}>Open the dedicated QM workspace for grounded rent, task and maintenance analysis at the selected property.</Typography>
                   <Button variant="contained" size="small" onClick={() => setTab("qm")}>Open Quartermaster</Button>
                 </Paper>
 
@@ -638,7 +638,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                     ["Rent collections", "Summarize rent collections and outstanding balances for this property"],
                     ["Maintenance risks", "Check open work orders, overdue maintenance and critical alerts"],
                     ["My priorities", "What should I prioritize from my tasks today?"],
-                    ["Portfolio snapshot", "Give me a concise operational summary of the live data I can access"],
+                    ["Property snapshot", "Give me a concise operational summary for the selected property"],
                   ].map(([label, prompt]) => <Button key={label} variant="text" onClick={() => void sendAiPrompt(prompt)} disabled={aiLoading} sx={{ justifyContent: "flex-start", textAlign: "left" }}>{label}</Button>)}</Box>
                 </Paper>
                 <Alert severity="info">QM can analyse and navigate, but it does not create, approve or delete records without an explicit workflow and confirmation.</Alert>
