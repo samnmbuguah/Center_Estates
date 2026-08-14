@@ -63,7 +63,7 @@ test("approved service request becomes an evidenced and resolved work order", as
   const costRow = page.getByRole("row").filter({ hasText: "Electrical technician labour" });
   await expect(costRow).toContainText("3,000");
 
-  await page.getByRole("button", { name: "Media", exact: true }).click();
+  await detailTabs.getByRole("tab", { name: /Media/ }).click();
   await page.getByRole("button", { name: "+ Attach Evidence", exact: true }).click();
   const mediaDialog = page.getByRole("dialog", { name: new RegExp(`Attach Work Evidence.*${workOrderNumber}`) });
   await mediaDialog.getByLabel("File URL").fill("https://centerestates.com/images/facility.jpg");
