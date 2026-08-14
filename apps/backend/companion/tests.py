@@ -4,11 +4,13 @@ from django.test import TestCase, override_settings
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from unittest.mock import patch
+import os
 
 from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
 from subscriptions.models import Subscription
 from companion.models import TaskEvent
+from companion.qm_agent import QMAgentOrchestrator
 from properties.models import Property
 
 User = get_user_model()
@@ -31,6 +33,17 @@ class CompanionApiTests(TestCase):
 
     def login(self, user):
         self.client.force_authenticate(user=user)
+
+    def test_qm_uses_nvidia_nim_configuration(self):
+        with patch.dict(os.environ, {
+            'NVIDIA_API_KEY': 'test-key',
+            'NVIDIA_API_URL': 'https://integrate.api.nvidia.com/v1',
+            'NVIDIA_MODEL': 'meta/llama-3.3-70b-instruct',
+        }, clear=True):
+            agent = QMAgentOrchestrator()
+        self.assertTrue(agent.configured)
+        self.assertEqual(agent.api_url, 'https://integrate.api.nvidia.com/v1/chat/completions')
+        self.assertEqual(agent.model, 'meta/llama-3.3-70b-instruct')
 
     def test_admin_can_create_and_complete_task(self):
         self.login(self.admin)

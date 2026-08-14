@@ -7,7 +7,7 @@ import { Sparkles } from "lucide-react";
 
 const QmChatWindow = dynamic(() => import("@/components/qm-chat-window"), {
   ssr: false,
-  loading: () => <Box sx={{ position: "fixed", left: 18, bottom: 82, zIndex: 1400, p: 2 }}><CircularProgress size={26} aria-label="Opening Quartermaster" /></Box>,
+  loading: () => <Box sx={{ position: "fixed", right: 18, bottom: 82, zIndex: 1400, p: 2 }}><CircularProgress size={26} aria-label="Opening Quartermaster" /></Box>,
 });
 
 const LOGIN_BRIEF_KEY = "ce_qm_brief_after_login";
@@ -42,12 +42,12 @@ export function QmChatLauncher({ enabled, organizationId, offsetForSidebar = fal
   if (!enabled) return null;
   return (
     <>
-      {!open && <Tooltip title="Ask Quartermaster" placement="right">
+      {!open && <Tooltip title="Ask Quartermaster" placement="left">
         <Fab
           color="primary"
           aria-label="Open Quartermaster AI companion"
           onClick={() => { setInitialPrompt(undefined); setLoaded(true); setOpen(true); }}
-          sx={{ position: "fixed", left: { xs: 14, md: offsetForSidebar ? 278 : 18 }, bottom: 18, zIndex: 1250, background: "linear-gradient(135deg, #0d9488, #0f172a)", boxShadow: 8 }}
+          sx={{ position: "fixed", right: 18, bottom: 18, zIndex: 1250, background: "linear-gradient(135deg, #0d9488, #0f172a)", boxShadow: 8 }}
         >
           <Badge color="success" variant="dot" overlap="circular"><Sparkles size={23} /></Badge>
         </Fab>

@@ -1,6 +1,6 @@
 """
 Quartermaster (QM) AI Agent Harness & ERP Tool Orchestrator for Center Estates.
-Uses OpenCode API key (or OpenAI compatible key) to execute multi-tenant AI operations across ERP modules.
+Uses an NVIDIA NIM (OpenAI-compatible) endpoint to execute multi-tenant AI operations across ERP modules.
 """
 
 import json
@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 class QMAgentOrchestrator:
     def __init__(self, organization_name: str = "Center Estates"):
         self.organization_name = organization_name
-        self.api_key = os.environ.get('OPENCODE_API_KEY') or os.environ.get('OPENAI_API_KEY')
-        base_url = (os.environ.get('OPENCODE_API_URL') or os.environ.get('OPENAI_BASE_URL') or '').rstrip('/')
+        self.api_key = os.environ.get('NVIDIA_API_KEY')
+        base_url = (os.environ.get('NVIDIA_API_URL') or 'https://integrate.api.nvidia.com/v1').rstrip('/')
         self.api_url = f'{base_url}/chat/completions' if base_url.endswith('/v1') else base_url
-        self.model = os.environ.get('OPENCODE_MODEL') or os.environ.get('OPENAI_MODEL') or 'gpt-4o-mini'
+        self.model = os.environ.get('NVIDIA_MODEL') or 'meta/llama-3.3-70b-instruct'
 
     @property
     def configured(self):
@@ -48,7 +48,7 @@ class QMAgentOrchestrator:
         ]
 
     def execute_agent(self, prompt: str, user_name: str, context_str: str) -> dict:
-        """Executes a Quartermaster AI Agent turn using the OpenCode LLM key"""
+        """Execute a Quartermaster turn through NVIDIA NIM."""
         if not self.configured:
             return {
                 "agent": "Quartermaster (QM)",
@@ -88,8 +88,6 @@ class QMAgentOrchestrator:
                 headers={
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {self.api_key}',
-                    'HTTP-Referer': os.environ.get('QM_SITE_URL', 'https://centerestates.com'),
-                    'X-Title': 'Center Estates Quartermaster',
                 },
                 method='POST'
             )

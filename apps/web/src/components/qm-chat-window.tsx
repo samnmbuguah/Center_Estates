@@ -85,7 +85,7 @@ export default function QmChatWindow({
       elevation={18}
       sx={{
         position: "fixed",
-        left: { xs: 8, sm: 18 },
+        right: { xs: 8, sm: 18 },
         bottom: { xs: 8, sm: 18 },
         zIndex: 1400,
         width: { xs: "calc(100vw - 16px)", sm: 410 },
