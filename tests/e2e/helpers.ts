@@ -31,6 +31,8 @@ const TAB_ALIASES: Record<string, string | string[]> = {
   "Tenancy Analytics": "Tenancy Analytics",
   "Financial reports": "Financial Analytics",
   "Financial Analytics": "Financial Analytics",
+  Invoices: "Receipts & Payment Ledger",
+  Receipts: "Receipts & Payment Ledger",
   // Facility
   "Work orders": "Maintenance",
   "Work Orders": "Maintenance",
@@ -102,7 +104,10 @@ function aliasTargets(name: string): string[] {
 const SIDEBAR_ALIASES: Record<string, string> = { "Service charge": "Service Charge" };
 
 /** Map section names to the sub-tab label on a consolidated page (e.g. property Financials). */
-const SUBTAB_ALIASES: Record<string, string> = {};
+const SUBTAB_ALIASES: Record<string, string> = {
+  Invoices: "Invoices",
+  Receipts: "Receipts",
+};
 
 const PROPERTY_PARENTS: Record<string, string> = {};
 

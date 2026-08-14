@@ -86,7 +86,6 @@ export function WorkOrdersView({
           <p style={{ color: "#8a96a7", fontSize: 13, margin: 0 }}>Monitor maintenance performance, compliance and asset reliability in real time.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button className="fc-toolbar-btn">Quick Actions</button>
           {permissions.canWork && (
             <button className="fc-toolbar-btn primary" onClick={() => setShowCreate(true)} data-testid="facility-create-work-order-btn">+ Create Work Order</button>
           )}

@@ -150,3 +150,14 @@ test("facility preventive and service workflows are interactive", async ({ page 
   await openFacilityTab(page, "Service requests", testInfo);
   await expect(page.locator(".fc-kpi-card, .data-panel").getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
 });
+
+test("facility reports export current operational data", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Download verification runs once on desktop");
+  await page.goto("/facility");
+  await openFacilityTab(page, "Reports & BI", testInfo);
+  await expect(page.getByRole("heading", { name: "Operational report exports" })).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV" }).first().click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/assets.*\.csv|center-estates-assets\.csv/i);
+});

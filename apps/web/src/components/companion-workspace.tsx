@@ -794,7 +794,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : (
               <>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <label style={{ fontSize: 12, fontWeight: 600 }}>From:</label>
                   <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
                   <label style={{ fontSize: 12, fontWeight: 600 }}>To:</label>
@@ -810,7 +810,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
                   <KpiCard icon="📈" label="Adoption Score" value={`${kpis.adoptionScore ?? 0}%`} sub="System adoption" />
                 </KpiStrip>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
                   <div className="card" style={{ padding: 18 }}>
                     <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>⚠️ Staff Requiring Attention</h3>
                     <div className="table-scroll" style={{ maxHeight: 320 }}>

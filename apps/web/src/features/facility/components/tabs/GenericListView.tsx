@@ -30,7 +30,7 @@ export function GenericListView({ tab, rows }: { tab: FacilityTab; rows: Row[] }
   return (
     <article className="data-panel">
       <div className="fc-table-toolbar">
-        <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>{facilityLabels[tab]}</span>
+        <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13 }}>{facilityLabels[tab]}</span>
       </div>
       {rows.length > 0 ? (
         <div className="table-scroll">

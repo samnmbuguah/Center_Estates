@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { FacilityDashboard } from "../../types/facility.types";
-import { FcStatus } from "../FacilityToolbar";
+import { apiErrorMessage, apiFetch } from "@/lib/api";
+import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { Download, FileSpreadsheet } from "lucide-react";
 
 function PanelHeader({ title }: { title: string }) {
   return (
@@ -40,23 +43,40 @@ function FcKpiCard({
   );
 }
 
-export function ReportsView({ dashboard }: { dashboard: FacilityDashboard }) {
+export function ReportsView({ dashboard, organizationId }: { dashboard: FacilityDashboard; organizationId: string | null }) {
+  const [downloading, setDownloading] = useState("");
+  const [error, setError] = useState("");
   const kpi = dashboard.kpis;
   const openWO = Number(kpi?.openWorkOrders ?? 0);
-  const completedWO = Number(kpi?.completedToday ?? 18);
+  const completedWO = Number(kpi?.completedToday ?? 0);
   const overdueWO = Number(kpi?.overdueWorkOrders ?? 0);
-  const compliance = Number(kpi?.maintenanceCompliance ?? 92);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
-  const costData = [3.2, 3.8, 4.1, 3.6, 4.25, 3.9, 4.5];
-  const maxCost = Math.max(...costData);
+  const compliance = Number(kpi?.maintenanceCompliance ?? 0);
 
-  const recentReports = [
-    { name: "Monthly KPI Summary", date: "01 Jun 2026", generated: "Admin User", type: "KPI", status: "ready" },
-    { name: "PPM Compliance Report", date: "28 May 2026", generated: "James Kariuki", type: "Compliance", status: "ready" },
-    { name: "Work Order Analysis", date: "25 May 2026", generated: "Admin User", type: "Analysis", status: "ready" },
-    { name: "Contractor Performance", date: "22 May 2026", generated: "Mary Wanjiku", type: "Performance", status: "ready" },
-    { name: "Sustainability Report", date: "20 May 2026", generated: "Admin User", type: "Sustainability", status: "ready" },
+  const exports = [
+    { type: "assets", title: "Asset register", description: "Current assets, categories, condition and property locations." },
+    { type: "work-orders", title: "Work order register", description: "Maintenance workload, priority, ownership and status." },
+    { type: "inspections", title: "Inspection register", description: "Scheduled and completed inspections with findings." },
+    { type: "contractors", title: "Vendor and contractor register", description: "Approved service providers and contract details." },
   ];
+
+  async function downloadReport(type: string, title: string) {
+    if (!organizationId) return;
+    setDownloading(type); setError("");
+    try {
+      const response = await apiFetch(`/facility/analytics/exports/?type=${type}`, {}, organizationId);
+      if (!response.ok) throw new Error(await apiErrorMessage(response, `${title} could not be exported.`));
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `center-estates-${type}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : `${title} could not be exported.`);
+    } finally { setDownloading(""); }
+  }
 
   return (
     <>
@@ -70,7 +90,8 @@ export function ReportsView({ dashboard }: { dashboard: FacilityDashboard }) {
         <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction" value="—" sub="No data available" />
       </div>
 
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr 1fr" }}>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         {/* Donut: Work Orders by Status */}
         <article className="data-panel">
           <PanelHeader title="Work Order Status Breakdown" />
@@ -85,27 +106,11 @@ export function ReportsView({ dashboard }: { dashboard: FacilityDashboard }) {
                 { color: "#3b82f6", label: "Open / In Progress", count: openWO },
                 { color: "#ef4444", label: "Overdue", count: overdueWO },
               ].map((item) => (
-                <span key={item.label} style={{ alignItems: "center", color: "#000000", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
+                <span key={item.label} style={{ alignItems: "center", color: "var(--text-primary)", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
                   <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
                   {item.label}
-                  <b style={{ marginLeft: "auto", color: "#000000" }}>{item.count}</b>
+                  <b style={{ marginLeft: "auto", color: "var(--text-primary)" }}>{item.count}</b>
                 </span>
-              ))}
-            </div>
-          </div>
-        </article>
-
-        {/* Bar chart: Monthly Maintenance Cost */}
-        <article className="data-panel">
-          <PanelHeader title="Maintenance Cost Trend (KES)" />
-          <div style={{ padding: "18px" }}>
-            <div style={{ alignItems: "flex-end", display: "flex", gap: 12, height: 140 }}>
-              {months.map((m, i) => (
-                <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#000000" }}>{costData[i]}M</span>
-                  <div style={{ background: "#e23b3b", borderRadius: "4px 4px 0 0", height: `${(costData[i] / maxCost) * 100}%`, minHeight: 4, width: "100%" }} />
-                  <span style={{ color: "#000000", fontSize: 11, fontWeight: 800 }}>{m}</span>
-                </div>
               ))}
             </div>
           </div>
@@ -116,57 +121,41 @@ export function ReportsView({ dashboard }: { dashboard: FacilityDashboard }) {
           <PanelHeader title="Compliance Trend" />
           <div className="fc-sla-gauge">
             <div className="donut" style={{ background: `conic-gradient(#22c55e 0% ${compliance}%, #edf0f5 ${compliance}% 100%)`, height: 120, width: 120, marginBottom: 10 }}>
-              <strong style={{ fontSize: 20, fontWeight: 900, color: "#000000" }}>{compliance}%</strong>
-              <small style={{ color: "#000000", fontWeight: 800 }}>On Track</small>
+              <strong style={{ fontSize: 20, fontWeight: 900, color: "var(--text-primary)" }}>{compliance}%</strong>
+              <small style={{ color: "var(--text-primary)", fontWeight: 800 }}>{compliance >= 90 ? "On track" : "Needs attention"}</small>
             </div>
             <div style={{ textAlign: "center" }}>
               <div style={{ background: "#edf0f5", borderRadius: 99, height: 4, marginBottom: 8, overflow: "hidden", width: 120 }}>
                 <i style={{ background: "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${compliance}%` }} />
               </div>
-              <span style={{ color: "#000000", fontSize: 12, fontWeight: 800 }}>Target: 90%</span>
+              <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 800 }}>Target: 90%</span>
             </div>
-          </div>
-          <div style={{ borderTop: "1px solid var(--line)", padding: "12px 18px" }}>
-            <button style={{ background: "none", border: 0, color: "#dc2626", cursor: "pointer", fontSize: 13, fontWeight: 800 }}>View Detailed Report →</button>
           </div>
         </article>
       </div>
 
-      {/* Recent Reports */}
-      <article className="data-panel" style={{ marginTop: 16 }}>
-        <div className="fc-table-toolbar">
-          <span style={{ color: "#000000", fontWeight: 800, fontSize: 14 }}>Recent Reports</span>
-          <button className="fc-toolbar-btn" style={{ fontWeight: 800 }}>View All Reports</button>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead>
-              <tr>
-                <th>Report Name</th>
-                <th>Type</th>
-                <th>Generated</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentReports.map((r, i) => (
-                <tr key={i}>
-                  <td><strong style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>{r.name}</strong></td>
-                  <td><FcStatus value={r.type.toLowerCase()} /></td>
-                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{r.generated}</td>
-                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{r.date}</td>
-                  <td><FcStatus value={r.status} /></td>
-                  <td>
-                    <button style={{ background: "#ffffff", border: "1px solid #94a3b8", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 800, color: "#000000", padding: "4px 10px" }}>↓ Download</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </article>
+      <Paper variant="outlined" sx={{ mt: 2, p: { xs: 2, md: 2.5 }, borderRadius: 2 }}>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>Operational report exports</Typography>
+          <Typography variant="body2" color="text.secondary">Exports use the current organization and selected property context. Open them in Excel or your reporting tool for further analysis.</Typography>
+        </Box>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 1.5 }}>
+          {exports.map((report) => (
+            <Paper key={report.type} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+                <FileSpreadsheet size={22} color="#15803d" aria-hidden="true" />
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ fontWeight: 800 }}>{report.title}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, mb: 1.25 }}>{report.description}</Typography>
+                  <Button size="small" variant="outlined" startIcon={<Download size={15} />} disabled={Boolean(downloading)} onClick={() => void downloadReport(report.type, report.title)}>
+                    {downloading === report.type ? "Preparing…" : "Export CSV"}
+                  </Button>
+                </Box>
+              </Stack>
+            </Paper>
+          ))}
+        </Box>
+      </Paper>
     </>
   );
 }

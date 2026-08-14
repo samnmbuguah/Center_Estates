@@ -104,8 +104,8 @@ export function ExpenditureView({ rows, organizationId }: { rows: Row[]; organiz
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: "#000000", margin: 0, letterSpacing: "-.02em" }}>Expenditure & Landlord Floats</h2>
-          <p style={{ color: "#0f172a", fontSize: 14, fontWeight: 750, margin: "4px 0 0" }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, color: "var(--text-primary)", margin: 0, letterSpacing: "-.02em" }}>Expenditure & Landlord Floats</h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: 14, fontWeight: 750, margin: "4px 0 0" }}>
             Track the landlord float cash-flow advance against facilities expenditure.
           </p>
         </div>
@@ -113,7 +113,7 @@ export function ExpenditureView({ rows, organizationId }: { rows: Row[]; organiz
       </div>
 
       {/* Landlord Float balance card */}
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(4, minmax(0,1fr))", marginBottom: 16 }}>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginBottom: 16 }}>
         <div className="data-panel" style={{ background: "linear-gradient(135deg, #0f2744, #1e3a5f)", border: 0 }}>
           <span style={{ color: "#ffffff", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>LANDLORD FLOAT ALLOCATED</span>
           <strong style={{ color: "#fff", display: "block", fontSize: 26, fontWeight: 900 }}>{money.format(floatAllocated)}</strong>
@@ -130,24 +130,24 @@ export function ExpenditureView({ rows, organizationId }: { rows: Row[]; organiz
           </div>
         </div>
         <div className="data-panel" style={{ padding: 18 }}>
-          <span style={{ color: "#000000", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>SPENT</span>
+          <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>SPENT</span>
           <strong style={{ display: "block", fontSize: 26, color: "#b91c1c", fontWeight: 900 }}>{money.format(spent)}</strong>
-          <span style={{ color: "#0f172a", fontSize: 12, fontWeight: 700 }}>{spentPct}% of allocated float</span>
+          <span style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 }}>{spentPct}% of allocated float</span>
         </div>
         <div className="data-panel" style={{ padding: 18 }}>
-          <span style={{ color: "#000000", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>REMAINING BALANCE</span>
+          <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>REMAINING BALANCE</span>
           <strong style={{ display: "block", fontSize: 26, color: remaining < 0 ? "#b91c1c" : "#15803d", fontWeight: 900 }}>{money.format(Math.max(remaining, 0))}</strong>
           {remaining < 0 && <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 800 }}>Float exceeded by {money.format(Math.abs(remaining))}</span>}
         </div>
         <div className="data-panel" style={{ padding: 18 }}>
-          <span style={{ color: "#000000", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>FLOAT UTILIZATION</span>
+          <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>FLOAT UTILIZATION</span>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
             <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 10, overflow: "hidden" }}>
               <i style={{ background: spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${spentPct}%` }} />
             </div>
-            <strong style={{ fontSize: 16, fontWeight: 900, color: "#000000" }}>{spentPct}%</strong>
+            <strong style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{spentPct}%</strong>
           </div>
-          <span style={{ color: "#0f172a", fontSize: 12, fontWeight: 700 }}>remaining = float − sum(spent)</span>
+          <span style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 }}>remaining = float − sum(spent)</span>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export function ExpenditureView({ rows, organizationId }: { rows: Row[]; organiz
       <div className="data-panel">
         <div className="fc-table-toolbar">
           <div className="fc-table-toolbar-left">
-            <span style={{ color: "#000000", fontWeight: 800, fontSize: 14 }}>Expenditures ({expenditures.length})</span>
+            <span style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 14 }}>Expenditures ({expenditures.length})</span>
           </div>
           <div className="fc-table-toolbar-right">
             <button className="fc-toolbar-btn" onClick={() => exportCsv(expenditures, "facility-expenditures.csv")} style={{ fontWeight: 800 }}>↓ Export</button>
@@ -183,11 +183,11 @@ export function ExpenditureView({ rows, organizationId }: { rows: Row[]; organiz
             <tbody>
               {expenditures.length > 0 ? expenditures.map((e) => (
                 <tr key={String(e.id)}>
-                  <td style={{ fontSize: 12, fontWeight: 750, color: "#000000" }}>{e.date && (typeof e.date === "string" || typeof e.date === "number") ? new Date(e.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : String(e.date ?? "—")}</td>
-                  <td style={{ fontSize: 12, fontWeight: 700, color: "#000000", textTransform: "capitalize" }}>{String(e.category ?? "—")}</td>
-                  <td style={{ fontSize: 12, fontWeight: 700, color: "#000000" }}>{String(e.description ?? "—")}</td>
-                  <td style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>{money.format(Number(e.amount ?? 0))}</td>
-                  <td style={{ fontSize: 12, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#000000" }}>{String(e.float_ref ?? "—")}</td>
+                  <td style={{ fontSize: 12, fontWeight: 750, color: "var(--text-primary)" }}>{e.date && (typeof e.date === "string" || typeof e.date === "number") ? new Date(e.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : String(e.date ?? "—")}</td>
+                  <td style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "capitalize" }}>{String(e.category ?? "—")}</td>
+                  <td style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{String(e.description ?? "—")}</td>
+                  <td style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>{money.format(Number(e.amount ?? 0))}</td>
+                  <td style={{ fontSize: 12, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "var(--text-primary)" }}>{String(e.float_ref ?? "—")}</td>
                   <td><FcStatus value={String(e.status ?? "pending")} /></td>
                 </tr>
               )) : (

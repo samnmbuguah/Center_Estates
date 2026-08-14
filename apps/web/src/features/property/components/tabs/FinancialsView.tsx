@@ -111,8 +111,21 @@ export function FinancialsView({
   const aRows = allocationsRows || rows;
   const bRows = bankTransactionsRows || rows;
   const cRows = creditNotesRows || creditNotes;
+  const changeSection = onSectionChange || setFinancialsSection || (() => {});
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+      <SubTabs
+        active={currentSection}
+        onChange={(section) => changeSection(section as FinancialsSection)}
+        tabs={[
+          { id: "schedules", label: "Payment schedules" },
+          { id: "invoices", label: "Invoices" },
+          { id: "receipts", label: "Receipts" },
+          { id: "allocations", label: "Receipt allocations" },
+          { id: "reconciliation", label: "Bank reconciliation" },
+          { id: "credit-notes", label: "Credit notes" },
+        ]}
+      />
       {currentSection === "schedules" && <RentSchedulesView rows={sRows} loading={loading} search={search} setSearch={setSearch} onGenerateInvoice={onGenerateInvoice} onRefresh={onRefresh} canFinance={canFinance} />}
       {currentSection === "invoices" && <RentView rows={sRows} invoices={iRows} rentInvoices={iRows} analytics={analytics} rentSection={rentSection} setRentSection={setRentSection} loading={loading} setTab={setTab} onRecordReceipt={onRecordReceipt} onQuickReceipt={onQuickReceipt} onComposeInvoice={onComposeInvoice} onSendReminder={onSendReminder} onInvoiceAction={onInvoiceAction} onVoidInvoice={onVoidInvoice} onSelectRow={onSelectRow} onAddInvoice={onAddInvoice} onDownloadPdf={onDownloadInvoicePdf} canFinance={canFinance} canApprove={canApprove} onRefresh={onRefresh} />}
       {currentSection === "receipts" && <ReceiptsView rows={rRows} receipts={rRows} creditNotes={cRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onRecordReceipt={onRecordReceipt} onAddCreditNote={onAddCreditNote} onDownloadPdf={onDownloadReceiptPdf} canFinance={canFinance} onRefresh={onRefresh} />}
@@ -124,4 +137,3 @@ export function FinancialsView({
 }
 
 /* ─── SERVICE CHARGES ─── */
-

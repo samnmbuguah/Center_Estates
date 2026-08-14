@@ -149,10 +149,10 @@ export function OverviewView({
                     { color: "#f59e0b", label: "Pending", count: Math.round(openWO * 0.27) },
                     { color: "#22c55e", label: "Completed Today", count: Number(kpi.completedToday ?? 0) },
                   ].map((item) => (
-                    <span key={item.label} style={{ alignItems: "center", color: "#000000", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
+                    <span key={item.label} style={{ alignItems: "center", color: "var(--text-primary)", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
                       <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
                       {item.label}
-                      <b style={{ marginLeft: "auto", color: "#000000" }}>{item.count}</b>
+                      <b style={{ marginLeft: "auto", color: "var(--text-primary)" }}>{item.count}</b>
                     </span>
                   ))}
                 </div>
@@ -174,7 +174,7 @@ export function OverviewView({
                     </button>
                   </div>
                 )}
-                <p style={{ color: "#000000", fontSize: 13, fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                <p style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
                   Recent Work Orders
                 </p>
                 <div className="fc-wo-recent">
@@ -200,7 +200,7 @@ export function OverviewView({
           </article>
 
           {/* Charts row: Assets by Category + Maintenance Compliance + Service Requests */}
-          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.1fr .9fr 1fr" }}>
+          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
             {/* Assets by Category */}
             <article className="data-panel">
               <PanelHeader title="Assets by Category" action={() => setTab("assets")} />
@@ -226,8 +226,8 @@ export function OverviewView({
                       return (
                         <div key={item.category} style={{ alignItems: "center", display: "flex", fontSize: 11, gap: 6 }}>
                           <i style={{ background: colors[i], borderRadius: "50%", display: "inline-block", flexShrink: 0, height: 7, width: 7 }} />
-                          <span style={{ color: "#5a6478", flex: 1 }}>{item.category || "Other"}</span>
-                          <b style={{ color: "#27364a" }}>{pct}%</b>
+                          <span style={{ color: "var(--text-secondary)", flex: 1 }}>{item.category || "Other"}</span>
+                          <b style={{ color: "var(--text-primary)" }}>{pct}%</b>
                         </div>
                       );
                     })}

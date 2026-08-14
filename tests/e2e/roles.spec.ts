@@ -20,13 +20,13 @@ const moduleCases = ["property", "facility", "valuation", "companion"] as const;
 for (const module of moduleCases) {
   test(`@role:viewer @module:${module} @story:ROLE-${module.toUpperCase()}-VIEW viewer sees only their module`, async ({ page }, testInfo) => {
     await signInAs(page, `role-${module}-viewer`);
-    const moduleLinks = page.locator("article.module-card");
+    const moduleLinks = page.locator("a.module-card");
     await expect(moduleLinks).toHaveCount(1);
     if (testInfo.project.name.startsWith("mobile")) {
       await page.getByRole("button", { name: "Open navigation" }).click();
     }
-    // The card's primary link carries the full module name (h3), not the slug.
-    await page.locator("article.module-card a.module-card-primary-link").first().click();
+    // The entire redesigned module card is the link target.
+    await moduleLinks.first().click();
     // The redesigned workspace shell no longer renders a module title heading;
     // its navigation bar is the reliable signal that the module loaded.
     await expect(page.locator(".module-nav-bar, .module-workspace").first()).toBeVisible();
@@ -212,7 +212,7 @@ test("@role:property-accountant @module:property @story:ROLE-PROPERTY-ACCOUNTANT
   }
   // The Financials page is the active module nav item; its Invoices section is
   // an MUI sub-tab selected below it.
-  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Financials/i);
+  await expect(page.locator(".module-nav-pages [aria-current='page']")).toContainText(/Receipts & Payment Ledger/i);
   await expect(page.getByRole("tab", { name: "Invoices", exact: true }).first()).toHaveAttribute("aria-selected", "true");
 
   await openModuleSection(page, "Receipts");
@@ -233,7 +233,8 @@ test("@role:facility-technician @module:facility @story:ROLE-FACILITY-TECHNICIAN
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel work order races");
   await signInAs(page, "role-facility-technician");
   await page.goto("/facility");
-  await page.getByRole("button", { name: "+ New Work Order", exact: true }).click();
+  await openTab(page, "Work Orders");
+  await page.getByRole("button", { name: "+ Create Work Order", exact: true }).click();
   const create = page.locator(".form-modal").filter({ hasText: "New Work Order" });
   const number = `WO-ROLE-${Date.now()}`;
   await create.getByLabel("Work order number").fill(number);

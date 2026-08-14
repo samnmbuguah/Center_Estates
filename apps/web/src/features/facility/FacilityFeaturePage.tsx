@@ -18,6 +18,7 @@ import { ExpenditureView } from "./components/tabs/ExpenditureView";
 import { InventoryView } from "./components/tabs/InventoryView";
 import { GenericListView } from "./components/tabs/GenericListView";
 import { FacilityModals } from "./components/modals/FacilityModals";
+import { ErrorBanner, LoadingState } from "@/components/module-ui";
 
 export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: FacilityTab }) {
   const logic = useFacilityLogic(defaultTab);
@@ -35,14 +36,11 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
     >
       <div className="facility-app">
         {logic.error && (
-          <div className="form-error" style={{ marginBottom: 16 }}>
-            {logic.error}
-            <button onClick={logic.load}>Retry</button>
-          </div>
+          <ErrorBanner message={logic.error} onRetry={logic.load} />
         )}
 
         {logic.loading ? (
-          <div className="data-loading">Loading facility operations…</div>
+          <LoadingState rows={6} />
         ) : logic.tab === "overview" && logic.dashboard ? (
           <OverviewView dashboard={logic.dashboard} setTab={logic.setTab} setShowCreate={logic.setShowCreate} canWork={logic.canWork} />
         ) : logic.tab === "buildings" ? (
@@ -102,7 +100,7 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             canAdminister={logic.canAdminister}
           />
         ) : logic.tab === "reports" ? (
-          logic.dashboard ? <ReportsView dashboard={logic.dashboard} /> : null
+          logic.dashboard ? <ReportsView dashboard={logic.dashboard} organizationId={logic.organizationId} /> : null
         ) : logic.tab === "expenditure" ? (
           <ExpenditureView rows={logic.rows} organizationId={logic.organizationId} />
         ) : logic.tab === "spare-parts" ? (
