@@ -198,6 +198,16 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
     return response;
   }
 
+  // Authentication reads must reflect the cookies that exist at request
+  // time. A login-page bootstrap `/me/` call can still be in flight when a
+  // fast user submits the form; reusing that pre-login response after cookies
+  // are set makes a valid sign-in appear to fail intermittently.
+  if (fullPath.startsWith("/auth/")) {
+    const response = await fetchWithSession(fullPath, init, headers);
+    if (cleanPath === "/auth/csrf/") await rememberCsrfToken(response);
+    return response.clone();
+  }
+
   const cacheKey = [
     fullPath,
     headers.get("X-Organization-ID") ?? "",

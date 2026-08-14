@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 test("caretaker reading is unit-scoped, validated and manager-approved", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "The desktop register is the manager review surface");
   await page.goto("/facility");
-  const propertySelector = page.getByLabel("Current property");
+  const propertySelector = page.getByLabel("Select property");
   const westlands = await propertySelector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
   await propertySelector.selectOption(westlands ?? "");
   await openModuleSection(page, "Utilities", testInfo);
@@ -53,7 +53,7 @@ test("dedicated caretaker portal provides a property-scoped meter entry surface"
   test.skip(testInfo.project.name.startsWith("mobile"), "The desktop register verifies the complete field-entry form");
   await page.goto("/caretaker-portal");
   await expect(page).toHaveURL(/\/caretaker-portal/);
-  const propertySelector = page.getByLabel("Current property");
+  const propertySelector = page.getByLabel("Select property");
   const westlands = await propertySelector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
   await propertySelector.selectOption(westlands ?? "");
   await openModuleSection(page, "Meter readings", testInfo);

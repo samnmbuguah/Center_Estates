@@ -3,11 +3,6 @@ import { openModuleSection, signInAs } from "./helpers";
 
 const password = process.env.E2E_ADMIN_PASSWORD;
 
-async function openFacilitySection(page: import("@playwright/test").Page, group: string, section: string) {
-  await page.getByRole("tab", { name: new RegExp(`^${group}\\s+\\d+$`, "i") }).click();
-  await page.getByRole("button", { name: section, exact: true }).click();
-}
-
 test.beforeEach(async ({ page }) => {
   if (!password) throw new Error("E2E_ADMIN_PASSWORD is required");
   await signInAs(page, process.env.E2E_ADMIN_USERNAME ?? "admin", password);
@@ -45,7 +40,7 @@ test("approved service request becomes an evidenced and resolved work order", as
   await requestRow.getByRole("button", { name: "Create WO", exact: true }).click();
   await expect(requestRow).toContainText("assigned");
 
-  await openFacilitySection(page, "Maintenance", "Maintenance");
+  await openModuleSection(page, "Work orders", testInfo);
   const workOrderRow = page.getByRole("row").filter({ hasText: workOrderNumber });
   await expect(workOrderRow).toContainText("open");
   await workOrderRow.getByRole("button", { name: "Assign", exact: true }).click();
@@ -81,7 +76,7 @@ test("approved service request becomes an evidenced and resolved work order", as
   await workOrderRow.getByRole("button", { name: "Complete", exact: true }).click();
   await expect(workOrderRow).toContainText("completed");
 
-  await openFacilitySection(page, "Operations", "Service Requests");
+  await openModuleSection(page, "Service Requests", testInfo);
   await requestRow.getByRole("button", { name: "Resolve", exact: true }).click();
   const resolveDialog = page.getByRole("dialog", { name: "Resolve Service Request" });
   await resolveDialog.getByLabel("Satisfaction score").fill("5");

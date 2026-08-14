@@ -46,9 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // let the bootstrap retry instead of forcing a new login.
       if (!response.ok) return "unavailable";
       const data = await response.json() as Session;
-      await apiFetch("/auth/csrf/");
       setSession(data);
       if (data.activeOrganizationId) localStorage.setItem("ce_organization", data.activeOrganizationId);
+      // Warm the CSRF token for the next mutation without making a temporary
+      // CSRF endpoint failure invalidate an otherwise healthy session.
+      void apiFetch("/auth/csrf/").catch(() => undefined);
       return "authenticated";
     } catch {
       return "unavailable";

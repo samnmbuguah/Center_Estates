@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useMemo } from "react";
 import { Box, Button, Chip, MenuItem, Paper, TextField, Typography } from "@mui/material";
 import { money } from "@/components/module-ui";
 
@@ -67,6 +67,7 @@ export function ReportToolbar({
   exportDisabled?: boolean;
   children?: ReactNode;
 }) {
+  const exportLabel = exportFormat === "xlsx" ? "Excel" : exportFormat.toUpperCase();
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
       <Box>
@@ -86,7 +87,7 @@ export function ReportToolbar({
           <MenuItem value="csv">CSV</MenuItem>
         </TextField>
         <Button variant="contained" onClick={onExport} disabled={exportDisabled || exporting}>
-          {exporting ? "Preparing…" : `Export ${exportFormat.toUpperCase()}`}
+          {exporting ? "Preparing…" : `Export ${exportLabel}`}
         </Button>
       </Box>
     </Paper>
@@ -109,20 +110,13 @@ export function PeriodFilterBar({
   extra?: ReactNode;
 }) {
   const presets = useMemo(() => periodPresets(), []);
-  const [selectedPreset, setSelectedPreset] = useState("this_month");
-
-  useEffect(() => {
+  const selectedPreset = useMemo(() => {
     const match = presets.findIndex(p => p.start === start && p.end === end);
     const keys = ["this_month", "last_month", "ytd", "last_12"];
-    if (match >= 0 && keys[match]) {
-      setSelectedPreset(keys[match]);
-    } else {
-      setSelectedPreset("custom");
-    }
+    return match >= 0 && keys[match] ? keys[match] : "custom";
   }, [start, end, presets]);
 
   const handlePresetChange = (key: string) => {
-    setSelectedPreset(key);
     const index = key === "this_month" ? 0 : key === "last_month" ? 1 : key === "ytd" ? 2 : key === "last_12" ? 3 : -1;
     if (index >= 0 && presets[index]) {
       onStart(presets[index].start);
@@ -139,7 +133,6 @@ export function PeriodFilterBar({
         label="From"
         value={start}
         onChange={event => {
-          setSelectedPreset("custom");
           onStart(event.target.value);
         }}
         slotProps={{ inputLabel: { shrink: true } }}
@@ -150,7 +143,6 @@ export function PeriodFilterBar({
         label="To"
         value={end}
         onChange={event => {
-          setSelectedPreset("custom");
           onEnd(event.target.value);
         }}
         slotProps={{ inputLabel: { shrink: true } }}
@@ -213,13 +205,13 @@ export function CriticalReportCards({
   return (
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.5 }}>
       {items.map(item => (
-        <Paper key={item.key} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+        <Paper component="article" aria-label={item.title} key={item.key} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
           <Typography sx={{ fontWeight: 900 }}>{item.title}</Typography>
           <Typography variant="body2" color="text.primary" sx={{ fontWeight: 800, mt: .5, mb: 1.5 }}>{item.description}</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button size="small" variant="contained" onClick={() => onExport(item.key, "pdf")}>PDF</Button>
-            <Button size="small" variant="outlined" onClick={() => onExport(item.key, "xlsx")}>Excel</Button>
-            <Button size="small" variant="outlined" onClick={() => onExport(item.key, "csv")}>CSV</Button>
+            <Button aria-label={`Export ${item.title} as PDF`} size="small" variant="contained" onClick={() => onExport(item.key, "pdf")}>PDF</Button>
+            <Button aria-label={`Export ${item.title} as Excel`} size="small" variant="outlined" onClick={() => onExport(item.key, "xlsx")}>Excel</Button>
+            <Button aria-label={`Export ${item.title} as CSV`} size="small" variant="outlined" onClick={() => onExport(item.key, "csv")}>CSV</Button>
           </Box>
         </Paper>
       ))}

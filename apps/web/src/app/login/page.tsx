@@ -1,24 +1,21 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { Alert, Button, IconButton, InputAdornment, Paper, TextField } from "@mui/material";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 
+const subscribeToHydration = () => () => undefined;
+
 export default function LoginPage() {
   const { login } = useAuth();
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -30,7 +27,6 @@ export default function LoginPage() {
     setError("");
     try {
       await login(username, password);
-      router.push("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invalid username or password. Please try again.");
     } finally {
@@ -47,7 +43,7 @@ export default function LoginPage() {
   return (
     <div className="login-root" style={{ display: "flex", minHeight: "100vh", background: "#f7f7f5", fontFamily: "'DM Sans', Inter, system-ui, sans-serif", color: "#1c1d21" }}>
       {/* Left Visual Branding Hero Side */}
-      <div style={{ flex: 1.2, background: "linear-gradient(105deg, rgba(255,255,255,.98), rgba(255,255,255,.82)), url('/images/hero.jpg') center / cover", padding: 52, display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative", overflow: "hidden", borderRight: "1px solid #e4e2de" }}>
+      <div className="login-visual" style={{ flex: 1.2, background: "linear-gradient(105deg, rgba(255,255,255,.96), rgba(255,255,255,.76)), url('/images/hero.jpg') center / cover", padding: 52, display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative", overflow: "hidden", borderRight: "1px solid #e4e2de" }}>
         {/* Glow Effects */}
         <div style={{ position: "absolute", top: "-10%", left: "-10%", width: "50%", height: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(0,0,0,0) 70%)", borderRadius: "50%", pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: "-10%", right: "-10%", width: "60%", height: "60%", background: "radial-gradient(circle, rgba(16,185,129,0.12) 0%, rgba(0,0,0,0) 70%)", borderRadius: "50%", pointerEvents: "none" }} />
@@ -62,7 +58,7 @@ export default function LoginPage() {
           <span style={{ display: "inline-block", background: "#fce8e8", border: "1px solid #f3c3c1", color: "#9b2422", padding: "4px 12px", borderRadius: 20, fontSize: "0.75rem", fontWeight: 700, marginBottom: 16 }}>
             CONNECTED ESTATE OPERATIONS
           </span>
-          <h1 style={{ fontSize: "2.5rem", fontWeight: 800, lineHeight: 1.15, margin: "0 0 16px 0", color: "#ffffff" }}>
+          <h1 style={{ fontSize: "2.5rem", fontWeight: 800, lineHeight: 1.15, margin: "0 0 16px 0", color: "#111827" }}>
             Run every estate with clarity and control
           </h1>
           <p style={{ color: "#44484f", fontSize: "1rem", lineHeight: 1.6, maxWidth: 520, margin: "0 0 32px 0" }}>
@@ -96,7 +92,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Login Form Side */}
-      <div style={{ flex: 1, background: "#fff", padding: 48, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+      <div className="login-form-panel" style={{ flex: 1, background: "#fff", padding: 48, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <Paper elevation={0} sx={{ width: "100%", maxWidth: 440, p: { xs: 3, sm: 4 }, border: "1px solid #e4e2de", borderRadius: 3, boxShadow: "0 12px 36px rgba(0,0,0,.08)" }}>
           <div style={{ marginBottom: 32 }}>
             <h1 style={{ fontSize: "1.8rem", fontWeight: 800, margin: "0 0 8px 0", color: "#1c1d21" }}>Welcome back</h1>
