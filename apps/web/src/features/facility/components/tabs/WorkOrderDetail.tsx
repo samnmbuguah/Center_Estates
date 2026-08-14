@@ -47,7 +47,10 @@ export function WorkOrderDetail({
     setAttachments(attachmentResponse.ok ? await attachmentResponse.json() : []);
   }, [row.number, organizationId]);
 
-  useEffect(() => { void loadEvidence(); }, [loadEvidence]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadEvidence(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadEvidence]);
 
   async function submitCostItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,14 +124,14 @@ export function WorkOrderDetail({
           </span>
         </div>
       </div>
-      <div style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
+      <div role="tablist" aria-label="Work order details" style={{ borderBottom: "1px solid var(--line)", display: "flex", gap: 0, marginBottom: 16 }}>
         {([
           { id: "overview", label: "Overview" },
           { id: "history", label: `History${events.length ? ` (${events.length})` : ""}` },
           { id: "parts", label: `Parts & Labor${costItems.length ? ` (${costItems.length})` : ""}` },
           { id: "media", label: `Media${attachments.length ? ` (${attachments.length})` : ""}` },
         ] as const).map((t) => (
-          <button key={t.id} onClick={() => setDetailTab(t.id)} style={{ background: "transparent", border: 0, borderBottom: detailTab === t.id ? "2px solid #e23b3b" : "2px solid transparent", color: detailTab === t.id ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", textTransform: "capitalize" }}>
+          <button key={t.id} role="tab" aria-selected={detailTab === t.id} onClick={() => setDetailTab(t.id)} style={{ background: "transparent", border: 0, borderBottom: detailTab === t.id ? "2px solid #e23b3b" : "2px solid transparent", color: detailTab === t.id ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", textTransform: "capitalize" }}>
             {t.label}
           </button>
         ))}
