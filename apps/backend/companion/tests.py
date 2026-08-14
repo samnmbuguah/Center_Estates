@@ -38,13 +38,13 @@ class CompanionApiTests(TestCase):
         with patch.dict(os.environ, {
             'NVIDIA_API_KEY': 'test-key',
             'NVIDIA_API_URL': 'https://integrate.api.nvidia.com/v1',
-            'NVIDIA_MODEL': 'meta/llama-3.3-70b-instruct',
+            'NVIDIA_MODEL': 'meta/llama-3.1-8b-instruct',
             'NVIDIA_TIMEOUT_SECONDS': '24',
         }, clear=True):
             agent = QMAgentOrchestrator()
         self.assertTrue(agent.configured)
         self.assertEqual(agent.api_url, 'https://integrate.api.nvidia.com/v1/chat/completions')
-        self.assertEqual(agent.model, 'meta/llama-3.3-70b-instruct')
+        self.assertEqual(agent.model, 'meta/llama-3.1-8b-instruct')
         self.assertEqual(agent.timeout_seconds, 24)
 
     def test_admin_can_create_and_complete_task(self):

@@ -38,7 +38,7 @@ services:
       GUNICORN_WORKERS: "3"
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       NVIDIA_API_URL: ${NVIDIA_API_URL:-https://integrate.api.nvidia.com/v1}
-      NVIDIA_MODEL: ${NVIDIA_MODEL:-meta/llama-3.3-70b-instruct}
+      NVIDIA_MODEL: ${NVIDIA_MODEL:-meta/llama-3.1-8b-instruct}
       NVIDIA_TIMEOUT_SECONDS: ${NVIDIA_TIMEOUT_SECONDS:-30}
     secrets:
       - django_secret

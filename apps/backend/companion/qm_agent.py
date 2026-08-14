@@ -16,7 +16,7 @@ class QMAgentOrchestrator:
         self.api_key = os.environ.get('NVIDIA_API_KEY')
         base_url = (os.environ.get('NVIDIA_API_URL') or 'https://integrate.api.nvidia.com/v1').rstrip('/')
         self.api_url = f'{base_url}/chat/completions' if base_url.endswith('/v1') else base_url
-        self.model = os.environ.get('NVIDIA_MODEL') or 'meta/llama-3.3-70b-instruct'
+        self.model = os.environ.get('NVIDIA_MODEL') or 'meta/llama-3.1-8b-instruct'
         self.timeout_seconds = min(max(int(os.environ.get('NVIDIA_TIMEOUT_SECONDS', '30')), 5), 45)
 
     @property
@@ -79,7 +79,7 @@ class QMAgentOrchestrator:
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.3,
-            "max_tokens": 450
+            "max_tokens": 350
         }
 
         try:
