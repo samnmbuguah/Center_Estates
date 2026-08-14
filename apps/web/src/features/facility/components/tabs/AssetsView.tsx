@@ -56,19 +56,7 @@ export function AssetsView({
     "Plumbing & Drainage": "🔧",
   };
 
-  const displayRows =
-    rows.length > 0
-      ? rows
-      : [
-          { id: 1, code: "AST-0001248", name: "OTIS Lift – Lift 1", category: "Lift Systems", property_name: "Cradle Building – Ground Floor", condition: "operational", health_score: 92 },
-          { id: 2, code: "AST-0001247", name: "Fire Pump Set 1", category: "Fire Safety", property_name: "Cradle Building – Basement", condition: "operational", health_score: 89 },
-          { id: 3, code: "AST-0001246", name: "Main DB – MDB 1", category: "Electrical Systems", property_name: "Cradle Building – Ground Floor", condition: "operational", health_score: 90 },
-          { id: 4, code: "AST-0001245", name: "Water Tank – 20,000L", category: "Water Supply", property_name: "Roof Level", condition: "operational", health_score: 85 },
-          { id: 5, code: "AST-0001244", name: "CCTV Camera – CAM 12", category: "CCTV / Access Control", property_name: "Block A – Lobby", condition: "operational", health_score: 83 },
-          { id: 6, code: "AST-0001243", name: "Generator 500KVA", category: "Electrical Systems", property_name: "Generator Room", condition: "maintenance", health_score: 65 },
-          { id: 7, code: "AST-0001242", name: "Plumbing Booster Pump", category: "Plumbing & Drainage", property_name: "Basement", condition: "operational", health_score: 87 },
-          { id: 8, code: "AST-0001241", name: "Water Heater – WH 2", category: "Water Supply", property_name: "5th Floor", condition: "out_of_service", health_score: 30 },
-        ];
+  const displayRows = rows;
 
   const totalAssets = Number(kpis?.activeAssets ?? displayRows.length);
   const maintenanceCount = displayRows.filter((r) => ["maintenance", "fair", "poor"].includes(String(r.condition))).length;
@@ -93,42 +81,12 @@ export function AssetsView({
       </div>
 
       <div className="fc-assets-layout">
-        {/* Filters */}
-        <div>
-          <div className="fc-filter-panel">
-            <div className="fc-filter-header">
-              <strong>Filters</strong>
-              <button>Clear All</button>
-            </div>
-            {[
-              { label: "Building", options: ["All Buildings", "Finance House", "Uchumi House", "Utalii House"] },
-              { label: "Floor / Location", options: ["All Floors", "Ground Floor", "Basement", "Roof Level"] },
-              { label: "Category", options: ["All Categories", "HVAC", "Electrical", "Mechanical", "Fire Safety", "Plumbing"] },
-              { label: "Asset Type", options: ["All Types"] },
-              { label: "Status", options: ["All Status", "Operational", "Under Maintenance", "Out of Service"] },
-              { label: "Condition", options: ["All Conditions", "Good", "Fair", "Poor"] },
-              { label: "Vendor", options: ["All Vendors"] },
-            ].map((f) => (
-              <div key={f.label} className="fc-filter-section">
-                <label>{f.label}</label>
-                <select className="fc-toolbar-select" style={{ width: "100%" }}>
-                  {f.options.map((o) => <option key={o}>{o}</option>)}
-                </select>
-              </div>
-            ))}
-            <div style={{ padding: "14px 16px", display: "flex", gap: 8 }}>
-              <button className="fc-toolbar-btn primary" style={{ flex: 1, justifyContent: "center" }}>Apply Filters</button>
-              <button className="fc-toolbar-btn" style={{ flex: 1, justifyContent: "center" }}>Reset</button>
-            </div>
-          </div>
-        </div>
-
         {/* Main content */}
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 320px" : "1fr" }}>
-          <article className="data-panel">
+        <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 320px" : "1fr", width: "100%" }}>
+          <article className="data-panel" style={{ width: "100%" }}>
             <div className="fc-table-toolbar">
               <div className="fc-table-toolbar-left">
-                <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Assets ({displayRows.length})</span>
+                <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13 }}>Assets ({displayRows.length})</span>
               </div>
               <div className="fc-table-toolbar-right">
                 <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "assets.csv")}>↑ Export</button>
@@ -151,7 +109,13 @@ export function AssetsView({
                   </tr>
                 </thead>
                 <tbody>
-                  {displayRows.map((row) => {
+                  {displayRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: "center", padding: "32px 16px", color: "var(--text-secondary)" }}>
+                        No assets registered yet. Click &quot;+ Add New Asset&quot; to register equipment or fixtures.
+                      </td>
+                    </tr>
+                  ) : displayRows.map((row) => {
                     const cond = String(row.condition ?? "operational");
                     const health = Number(row.health_score ?? 80);
                     const cat = String(row.category ?? "");
@@ -167,19 +131,19 @@ export function AssetsView({
                             <span className="fc-asset-icon" style={{ background: "#f0f4ff", color: "#4f46e5" }}>
                               {assetIcons[cat] ?? "⚙️"}
                             </span>
-                            <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>
+                            <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>
                               {String(row.code ?? "—")}
                             </span>
                           </div>
                         </td>
                         <td><strong style={{ fontSize: 12 }}>{String(row.name ?? "—")}</strong></td>
                         <td style={{ fontSize: 12 }}>{cat}</td>
-                        <td style={{ fontSize: 11, color: "#6b7890" }}>{String(row.property_name ?? "—")}</td>
+                        <td style={{ fontSize: 11, color: "var(--text-secondary)" }}>{String(row.property_name ?? "—")}</td>
                         <td><FcStatus value={cond.replace("_", " ")} /></td>
                         <td><FcStatus value={health >= 75 ? "good" : health >= 50 ? "fair" : "poor"} /></td>
                         <td><HealthBar pct={health} /></td>
                         <td>
-                          <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
+                          <button style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
                         </td>
                       </tr>
                     );

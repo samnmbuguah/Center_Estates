@@ -167,20 +167,16 @@ export function PlannedMaintenanceView({
     [],
   ];
 
-  const displayRows = rows.length > 0 ? rows : [
-    { id: 1, code: "PPM-2026-0456", name: "Lift Preventive Maintenance", asset_name: "LIFT-2", property_name: "Cradle Building – Block A", frequency: "Monthly", next_due_on: "15 May 2026, 09:00 AM", is_active: true },
-    { id: 2, code: "PPM-2026-0457", name: "Fire Pump Test", asset_name: "FP-02", property_name: "Cradle Building – Basement", frequency: "Monthly", next_due_on: "15 May 2026, 10:00 AM", is_active: true },
-    { id: 3, code: "PPM-2026-0458", name: "Electrical DB Inspection", asset_name: "DB-MDB-1", property_name: "Cradle Building – Ground Floor", frequency: "Monthly", next_due_on: "15 May 2026, 09:30 AM", is_active: true },
-  ];
+  const displayRows = rows;
 
-  const compliance = Number(kpis?.maintenanceCompliance ?? 92);
-  const completedTasks = rows.length > 0 ? rows.filter((r) => r.last_completed_on).length : 168;
-  const scheduledTasks = rows.length > 0 ? rows.length : 183;
-  const upcomingTasks = rows.length > 0 ? rows.filter((r) => !r.last_completed_on).length : 24;
-  const overdueTasks = rows.length > 0 ? rows.filter((r) => !r.last_completed_on && String(r.next_due_on ?? "").length).length : 7;
+  const compliance = Number(kpis?.maintenanceCompliance ?? 0);
+  const completedTasks = rows.filter((r) => r.last_completed_on).length;
+  const scheduledTasks = rows.length;
+  const upcomingTasks = rows.filter((r) => !r.last_completed_on).length;
+  const overdueTasks = rows.filter((r) => !r.last_completed_on && String(r.next_due_on ?? "").length).length;
   const uniqueTechnicians = rows.length > 0
     ? new Set(rows.map((r) => String(r.assigned_to ?? "")).filter(Boolean)).size
-    : null;
+    : 0;
 
   return (
     <>
@@ -189,7 +185,7 @@ export function PlannedMaintenanceView({
         <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed Tasks" value={String(completedTasks)} sub={`of ${scheduledTasks} scheduled`} />
         <FcKpiCard icon="⏰" iconBg="#fef3c7" iconColor="#92400e" label="Upcoming Tasks" value={String(upcomingTasks)} sub="Next 7 days" />
         <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Tasks" value={String(overdueTasks)} sub="Require attention" />
-        <FcKpiCard icon="👷" iconBg="#f0f4ff" iconColor="#4f46e5" label="Technicians Assigned" value={uniqueTechnicians ? String(uniqueTechnicians) : "—"} sub="Active this week" />
+        <FcKpiCard icon="👷" iconBg="#f0f4ff" iconColor="#4f46e5" label="Technicians Assigned" value={String(uniqueTechnicians)} sub="Active this week" />
         <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Maintenance Cost (MTD)" value="—" sub="No data available" />
       </div>
 
@@ -476,22 +472,28 @@ export function PlannedMaintenanceView({
                   </tr>
                 </thead>
                 <tbody>
-                  {displayRows.map((row) => (
+                  {displayRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: "center", padding: "32px 16px", color: "var(--text-secondary)" }}>
+                        No planned maintenance schedules found. Click &quot;+ Add Schedule&quot; to configure preventive maintenance.
+                      </td>
+                    </tr>
+                  ) : displayRows.map((row) => (
                     <tr key={String(row.id)}>
-                      <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(row.code ?? "—")}</span></td>
+                      <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(row.code ?? "—")}</span></td>
                       <td><strong style={{ fontSize: 12 }}>{String(row.name ?? "—")}</strong></td>
                       <td style={{ fontSize: 12 }}>{String(row.asset_name ?? "—")}</td>
-                      <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.property_name ?? "—")}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.property_name ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String(row.frequency ?? "Monthly")}</td>
                       <td style={{ fontSize: 12 }}>{String(row.next_due_on ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>James Kariuki</td>
+                      <td style={{ fontSize: 12 }}>{String(row.assigned_to_name ?? "—")}</td>
                       <td><FcStatus value="scheduled" /></td>
                       <td>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>👁</button>
-                          <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>✏</button>
+                          <button style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>👁</button>
+                          <button style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>✏</button>
                           {permissions.canAdminister && Boolean(row.is_active) && (
-                            <button onClick={() => onAction(row, "generate-work-order")} style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>⋯</button>
+                            <button onClick={() => onAction(row, "generate-work-order")} style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>⋯</button>
                           )}
                         </div>
                       </td>

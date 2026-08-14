@@ -58,33 +58,26 @@ export function InspectionsView({
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [subTab, setSubTab] = useState("list");
 
-  const displayRows = rows.length > 0 ? rows : [
-    { id: 1, reference: "INSP-2026-0056", title: "Lift Safety Inspection", asset_name: "LIFT-1", property_name: "Cradle Building – Ground Floor", scheduled_on: "18 May 2026, 09:30 AM", score: 96, violations: 0, status: "completed" },
-    { id: 2, reference: "INSP-2026-0055", title: "Fire Extinguisher Check", asset_name: "FE-01 to 35", property_name: "Cradle Building – All Floors", scheduled_on: "18 May 2026, 08:45 AM", score: 94, violations: 1, status: "completed" },
-    { id: 3, reference: "INSP-2026-0054", title: "Water Tank Inspection", asset_name: "WT-1", property_name: "Cradle Building – Roof", scheduled_on: "17 May 2026, 11:15 AM", score: 90, violations: 0, status: "completed" },
-    { id: 4, reference: "INSP-2026-0053", title: "Electrical DB Inspection", asset_name: "DB-MDB-1", property_name: "Cradle Building – Basement", scheduled_on: "17 May 2026, 10:20 AM", score: 0, violations: 0, status: "in_progress" },
-    { id: 5, reference: "INSP-2026-0052", title: "Generator Inspection", asset_name: "GEN-001", property_name: "Cradle Building – Generator Room", scheduled_on: "16 May 2026, 04:00 PM", score: 98, violations: 0, status: "completed" },
-    { id: 6, reference: "INSP-2026-0051", title: "CCTV System Check", asset_name: "CCTV-01 to 16", property_name: "Cradle Building – All Floors", scheduled_on: "16 May 2026, 02:30 PM", score: 72, violations: 3, status: "overdue" },
-  ];
+  const displayRows = rows;
 
   const hasData = rows.length > 0;
-  const totalInsp = hasData ? rows.length : 56;
-  const completedInsp = hasData ? rows.filter((r) => !["scheduled", "in_progress"].includes(String(r.status))).length : 42;
-  const inProgressInsp = hasData ? rows.filter((r) => String(r.status) === "in_progress").length : 8;
-  const overdueInsp = hasData ? rows.filter((r) => String(r.status) === "overdue").length : 6;
-  const defectsFound = hasData ? rows.reduce((s, r) => s + Number(r.violations ?? 0), 0) : 38;
-  const scoredRows = hasData ? rows.filter((r) => Number(r.score ?? 0) > 0) : [];
-  const complianceScore = scoredRows.length ? Math.round(scoredRows.reduce((s, r) => s + Number(r.score ?? 0), 0) / scoredRows.length) : Number(kpis?.maintenanceCompliance ?? 92);
+  const totalInsp = rows.length;
+  const completedInsp = rows.filter((r) => !["scheduled", "in_progress"].includes(String(r.status))).length;
+  const inProgressInsp = rows.filter((r) => String(r.status) === "in_progress").length;
+  const overdueInsp = rows.filter((r) => String(r.status) === "overdue").length;
+  const defectsFound = rows.reduce((s, r) => s + Number(r.violations ?? 0), 0);
+  const scoredRows = rows.filter((r) => Number(r.score ?? 0) > 0);
+  const complianceScore = scoredRows.length ? Math.round(scoredRows.reduce((s, r) => s + Number(r.score ?? 0), 0) / scoredRows.length) : Number(kpis?.maintenanceCompliance ?? 0);
   const pctOfTotal = (n: number) => (totalInsp ? Math.round((n / totalInsp) * 100) : 0);
 
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "↑ 12% vs last month"} />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "0"} />
         <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={String(completedInsp)} sub={`${pctOfTotal(completedInsp)}%`} />
         <FcKpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="In Progress" value={String(inProgressInsp)} sub={`${pctOfTotal(inProgressInsp)}%`} />
         <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueInsp)} sub={`${pctOfTotal(overdueInsp)}%`} />
-        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="#9333ea" label="Defects Found" value={String(defectsFound)} sub="This month" />
+        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="#9333ea" label="Defects Found" value={String(defectsFound)} sub="All items" />
         <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" />
       </div>
 
@@ -93,19 +86,15 @@ export function InspectionsView({
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
-              <input placeholder="Search inspections…" data-testid="insp-search-input" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
+              <input placeholder="Search inspections…" data-testid="insp-search-input" style={{ border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
               <select className="fc-toolbar-select" value={subTab} onChange={(e) => setSubTab(e.target.value)}>
                 <option value="list">All Inspections</option>
                 <option value="templates">Completed Templates</option>
                 <option value="checklists">High Compliance (90%+)</option>
                 <option value="reports">Overdue / Defect Reports</option>
               </select>
-              {["All Buildings", "All Categories", "All Types"].map((f) => (
-                <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
-              ))}
             </div>
             <div className="fc-table-toolbar-right">
-              <button className="fc-toolbar-btn">Filters</button>
               <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "inspections.csv")}>↓ Export</button>
               <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-inspection-btn">+ New Inspection</button>
             </div>
@@ -133,7 +122,13 @@ export function InspectionsView({
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((row) => {
+                    {filteredRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: "center", padding: "32px 16px", color: "var(--text-secondary)" }}>
+                          No inspections recorded. Click &quot;+ New Inspection&quot; to create an inspection.
+                        </td>
+                      </tr>
+                    ) : filteredRows.map((row) => {
                       const score = Number(row.score ?? 0);
                       const status = String(row.status ?? "scheduled");
                       const typeMap: Record<string, string> = { "INSP-2026-0056": "statutory", "INSP-2026-0055": "routine", "INSP-2026-0054": "routine", "INSP-2026-0053": "routine", "INSP-2026-0052": "preventive", "INSP-2026-0051": "routine" };

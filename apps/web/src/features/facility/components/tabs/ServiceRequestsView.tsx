@@ -49,18 +49,13 @@ export function ServiceRequestsView({
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [subTab, setSubTab] = useState("all");
 
-  const displayRows = rows.length > 0 ? rows : [
-    { id: 1, reference: "SR-2026-0188", subject: "AC not cooling in meeting room", property_name: "Finance House", category: "HVAC", priority: "high", status: "in_progress", tenant_name: "TechNova Ltd", submitted_at: "18 May 2026", response_due_at: "18 May 2026" },
-    { id: 2, reference: "SR-2026-0187", subject: "Water leak in washroom 3rd floor", property_name: "Uchumi House", category: "Plumbing", priority: "critical", status: "open", tenant_name: "Alpha Corp", submitted_at: "18 May 2026", response_due_at: "18 May 2026" },
-    { id: 3, reference: "SR-2026-0186", subject: "Flickering lights in reception", property_name: "Utalii House", category: "Electrical", priority: "medium", status: "new", tenant_name: "Beta Ltd", submitted_at: "17 May 2026", response_due_at: "19 May 2026" },
-    { id: 4, reference: "SR-2026-0185", subject: "Door handle broken in office 402", property_name: "Finance House", category: "Carpentry", priority: "low", status: "resolved", tenant_name: "Gamma Inc", submitted_at: "16 May 2026", response_due_at: "18 May 2026" },
-  ];
+  const displayRows = rows;
 
   const priorityColors: Record<string, string> = { high: "#b91c1c", medium: "#a16207", low: "#15803d" };
   const catIcons: Record<string, string> = { "Plumbing": "💧", "Electrical": "⚡", "HVAC": "❄️", "Fire Safety": "🔥", "Carpentry": "🪚", "General": "🔧" };
 
   const hasData = rows.length > 0;
-  const totalReq = Number(kpis?.openRequests ?? 0);
+  const totalReq = Number(kpis?.openRequests ?? rows.length);
   const openReq = rows.filter((r) => ["new", "approved", "assigned"].includes(String(r.status))).length;
   const inProgressReq = rows.filter((r) => String(r.status) === "in_progress").length;
   const completedReq = rows.filter((r) => ["resolved", "closed"].includes(String(r.status))).length;
@@ -70,10 +65,10 @@ export function ServiceRequestsView({
     <>
       <div className="fc-kpi-strip" style={{ gridTemplateColumns: "repeat(7, minmax(0,1fr))" }}>
         <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Open Requests" value={String(totalReq)} sub="Awaiting resolution" />
-        <FcKpiCard icon="📂" iconBg="#fff3cd" iconColor="#92400e" label="Open" value={String(openReq)} sub={hasData ? "New & assigned" : "29.7%"} />
-        <FcKpiCard icon="⏳" iconBg="#dbeafe" iconColor="#1d4ed8" label="In Progress" value={String(inProgressReq)} sub={hasData ? "Active" : "35.2%"} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#166534" label="Completed" value={String(completedReq)} sub={hasData ? "Resolved & closed" : "31.3%"} />
-        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueReq)} sub={hasData ? "Past SLA" : "3.9%"} />
+        <FcKpiCard icon="📂" iconBg="#fff3cd" iconColor="#92400e" label="Open" value={String(openReq)} sub={hasData ? "New & assigned" : "0"} />
+        <FcKpiCard icon="⏳" iconBg="#dbeafe" iconColor="#1d4ed8" label="In Progress" value={String(inProgressReq)} sub={hasData ? "Active" : "0"} />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#166534" label="Completed" value={String(completedReq)} sub={hasData ? "Resolved & closed" : "0"} />
+        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueReq)} sub={hasData ? "Past SLA" : "0"} />
         <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="—" sub="No data available" />
         <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction Score" value="—" sub="No data available" />
       </div>
@@ -91,7 +86,7 @@ export function ServiceRequestsView({
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
-              <input placeholder="Search requests…" data-testid="sr-search-input" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 180 }} />
+              <input placeholder="Search requests…" data-testid="sr-search-input" style={{ border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 180 }} />
               <select className="fc-toolbar-select" value={subTab} onChange={(e) => setSubTab(e.target.value)}>
                 <option value="all">All Requests</option>
                 <option value="open">Open</option>
@@ -100,9 +95,6 @@ export function ServiceRequestsView({
                 <option value="cancelled">Cancelled</option>
                 <option value="mine">My Requests</option>
               </select>
-              {["All Buildings", "All Categories", "All Priority"].map((f) => (
-                <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
-              ))}
             </div>
             <div className="fc-table-toolbar-right">
               <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-request-btn">+ New Service Request</button>
@@ -125,7 +117,13 @@ export function ServiceRequestsView({
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.map((row) => {
+                {filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: "center", padding: "32px 16px", color: "var(--text-secondary)" }}>
+                      No service requests found. Click &quot;+ New Service Request&quot; to log a maintenance issue.
+                    </td>
+                  </tr>
+                ) : filteredRows.map((row) => {
                   const priority = String(row.priority ?? "low");
                   const status = String(row.status ?? "open");
                   const ref = String(row.reference ?? "");

@@ -214,6 +214,27 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [aiError, setAiError] = useState("");
   const [aiMessages, setAiMessages] = useState<{ role: "user" | "assistant"; text: string; response?: typeof aiResponse }[]>([]);
 
+  const selectTab = (id: string) => {
+    if (id === tab) return;
+    setSearch("");
+    setRows([]);
+    setTab(id as CompanionTab);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("tab", id);
+      window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const next = new URLSearchParams(window.location.search).get("tab") as CompanionTab | null;
+      if (next && labels[next]) setTab(next);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const sendAiPrompt = async (promptText?: string) => {
     const p = promptText || aiPrompt;
     if (!p || !org) return;
@@ -513,7 +534,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       accent="#0d9488"
       groups={filteredNavGroups}
       activeId={tab}
-      onSelect={(id) => { setSearch(""); setTab(id as CompanionTab); }}
+      onSelect={selectTab}
     >
       <div className="valuation-workspace" style={{ padding: "16px 24px" }}>
         {msg && <ErrorBanner message={msg} onRetry={() => setMsg("")} />}
