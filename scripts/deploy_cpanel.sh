@@ -23,6 +23,12 @@ fi
 
 echo "Deploying API to ${REMOTE_HOST}:${API_PATH} and frontend to ${REMOTE_HOST}:${FRONTEND_PATH}"
 
+# Always take a snapshot of live database and media before release
+if [[ "${SKIP_BACKUP:-0}" != "1" ]]; then
+  echo "Taking pre-deploy backup..."
+  "$(dirname "$0")/backup_cpanel.sh" "${REMOTE_HOST}" "${DOMAIN}" "${API_DOMAIN}" || echo "Warning: Pre-deploy backup encountered an issue; proceeding cautiously."
+fi
+
 if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ) && "${SKIP_BUILD:-0}" != "1" ]]; then
   NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build
 fi
