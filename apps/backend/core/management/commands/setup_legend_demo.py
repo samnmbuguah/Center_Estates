@@ -144,6 +144,19 @@ class Command(BaseCommand):
             membership.roles.set([role])
             managers[username] = user
 
+        # Platform superusers still need an explicit tenant membership so the
+        # session can offer that organization in the top-bar switcher. Keep it
+        # non-default to preserve the existing Center Estates landing context.
+        Membership.objects.update_or_create(
+            organization=organization,
+            user=admin,
+            defaults={
+                "status": Membership.Status.ACTIVE,
+                "is_default": False,
+                "is_organization_admin": True,
+            },
+        )
+
         if Property.objects.filter(organization=organization).exists():
             self.stdout.write(self.style.WARNING("Legend operational data already exists; account and branding setup refreshed without cloning it again."))
             self.stdout.write(self.style.SUCCESS("Legend Management Limited demo setup is ready."))
