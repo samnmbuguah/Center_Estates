@@ -1151,7 +1151,7 @@ class PropertyApiTests(TestCase):
         report_headings = {
             'tenancy-schedule': b'Escalation %', 'vacancy': b'Days vacant',
             'movements': b'Movement', 'income-analysis': b'Annualized income',
-            'billing-schedule': b'Total billed', 'vat-schedule': b'Taxable value',
+            'billing-schedule': b'Outstanding C/F', 'vat-schedule': b'Taxable value',
             'expenses-schedule': b'Budget code',
         }
         with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
@@ -1174,6 +1174,18 @@ class PropertyApiTests(TestCase):
                 )
                 self.assertEqual(pdf_response.status_code, 200, report_key)
                 self.assertEqual(pdf_response['Content-Type'], 'application/pdf')
+
+            billing_csv = self.client.get(
+                '/api/v1/property/analytics/exports/billing-schedule/?start=2026-01-01&end=2026-12-31&output=csv',
+                **headers,
+            )
+            billing_header = billing_csv.content.decode('utf-8-sig').splitlines()[0]
+            self.assertEqual(
+                billing_header,
+                'Tenant,Unit / no.,Rent / month,Payment mode,Billings up to,Balance B/F,Current billings,Total billings,Receipts,Outstanding C/F',
+            )
+            for removed_column in ('Invoice', 'Property', 'Issued date', 'Due date'):
+                self.assertNotIn(removed_column, billing_header)
 
     def test_financial_reports_reconcile_live_ledgers(self):
         self.invoice.subtotal = Decimal('1000'); self.invoice.save(update_fields=('subtotal',))
@@ -1276,9 +1288,9 @@ class PropertyApiTests(TestCase):
                 ('tenancy-schedule', b'TENANCY SCHEDULE', b'Floor'),
                 ('aging', b'ARREARS AGEING', b'BUCKET'),
                 ('vat-schedule', b'VAT', b'Output VAT'),
-                ('billing-schedule', b'BILLING', b'Tenant'),
+                ('billing-schedule', b"TENANTS PAYMENT'S STATUS", b'OUTSTANDING'),
                 ('income-expense', b'RECEIPTS', b'DISBURSEMENTS'),
-                ('tenant-payment-status', b'TENANTS PAYMENTS STATUS', b'OUTSTANDING'),
+                ('tenant-payment-status', b"TENANTS PAYMENT'S STATUS", b'OUTSTANDING'),
             )
             for report_kind, title_token, body_token in cases:
                 response = self.client.get(

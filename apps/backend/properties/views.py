@@ -57,10 +57,10 @@ from .pdf_documents import (
 )
 
 REPORT_TITLES = {
-    'tenant-payment-status': 'Tenants Payments Status Report',
+    'tenant-payment-status': "Tenants Payment's Status Report",
     'income-expense': 'Receipts & Expenditure Account',
     'aging': 'Arrears Ageing Analysis',
-    'billing-schedule': 'Billing & Collection Register',
+    'billing-schedule': "Tenants Payment's Status Report",
     'expenses-schedule': 'Expense Schedule',
     'vat-schedule': 'VAT & Statutory Schedule',
     'occupancy': 'Portfolio Occupancy Register',
@@ -2321,7 +2321,7 @@ class PropertyAnalyticsViewSet(ViewSet):
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         return Response({'reports': [
-            {'key': 'tenant-payment-status', 'name': 'Tenants Payments Status Report', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Monthly tenant billings, receipts and balances carried forward.'},
+            {'key': 'tenant-payment-status', 'name': "Tenants Payment's Status Report", 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Monthly tenant billings, receipts and balances carried forward.'},
             {'key': 'income-expense', 'name': 'Receipts & Expenditure Account', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Property income, disbursements and cumulative performance.'},
             {'key': 'outstanding-balances', 'name': 'Outstanding Balances', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Open tenant invoices and balances requiring collection.'},
             {'key': 'payment-reconciliation', 'name': 'Payment Reconciliation', 'category': 'Financial', 'section': 'Critical reports', 'critical': True, 'description': 'Bank transactions matched to official receipts.'},
@@ -2358,11 +2358,11 @@ class PropertyAnalyticsViewSet(ViewSet):
         if start > end:
             raise ValidationError({'period': 'Start date cannot be after end date.'})
         generated_by = request.user.get_full_name() or request.user.get_username()
-        if output_pdf and report_kind in ('income-expense', 'tenant-payment-status', 'aging'):
+        if output_pdf and report_kind in ('income-expense', 'tenant-payment-status', 'billing-schedule', 'aging'):
             property_record = get_active_property(request, organization)
-            if report_kind in ('income-expense', 'tenant-payment-status') and not property_record:
+            if report_kind in ('income-expense', 'tenant-payment-status', 'billing-schedule') and not property_record:
                 raise ValidationError({'property': 'Select a property before generating this report.'})
-            if report_kind == 'tenant-payment-status':
+            if report_kind in ('tenant-payment-status', 'billing-schedule'):
                 response = tenant_payment_status_pdf(organization, property_record, start, end, generated_by)
             elif report_kind == 'income-expense':
                 response = income_expenditure_pdf(organization, property_record, start, end, generated_by)
@@ -2380,7 +2380,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="property-{report_kind}.csv"'
         writer = csv.writer(response)
-        if report_kind == 'tenant-payment-status':
+        if report_kind in ('tenant-payment-status', 'billing-schedule'):
             property_record = get_active_property(request, organization)
             if not property_record:
                 raise ValidationError({'property': 'Select a property before generating this report.'})
@@ -2403,15 +2403,6 @@ class PropertyAnalyticsViewSet(ViewSet):
                 writer.writerow(('Income', receipt.received_on, receipt.tenant.name, receipt.payment_method, receipt.number, receipt.amount))
             for expense in scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end)).select_related('property'):
                 writer.writerow(('Expense', expense.incurred_on, expense.property.name, expense.category, expense.invoice_number, expense.amount))
-        elif report_kind == 'billing-schedule':
-            writer.writerow(('Tenant', 'Unit', 'Billing period', 'Subtotal', 'VAT', 'Total billed', 'Collected', 'Outstanding', 'Status'))
-            rows = scope_model_queryset(Invoice, request, organization).filter(issued_on__range=(start, end)).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property')
-            for invoice in rows:
-                collected = invoice.receipts.aggregate(total=Sum('amount'))['total'] or Decimal('0')
-                billing_period = invoice.metadata.get('billing_period', '') or (invoice.issued_on.strftime('%b %Y') if invoice.issued_on else '—')
-                writer.writerow((invoice.lease.tenant.name, invoice.lease.unit.code, billing_period,
-                                 invoice.subtotal, invoice.tax_amount, invoice.amount, collected,
-                                 invoice.balance, invoice.status))
         elif report_kind == 'expenses-schedule':
             writer.writerow(('Date', 'Supplier', 'Property', 'Category', 'Description', 'Reference', 'Net', 'VAT', 'Total', 'Status', 'Budget code', 'Cost centre'))
             rows = scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end)).select_related('property')

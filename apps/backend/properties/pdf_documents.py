@@ -15,7 +15,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -28,7 +28,9 @@ from .models import CreditNote, Expense, Invoice, Lease, Receipt
 
 RED = colors.HexColor("#dc2626")
 NAVY = colors.HexColor("#17243b")
-MUTED = colors.HexColor("#64748b")
+# Metadata must remain readable after browser scaling and office printing.
+# The previous slate-500 was too faint in addresses, periods and footers.
+MUTED = colors.HexColor("#334155")
 LINE = colors.HexColor("#dbe3ec")
 PALE = colors.HexColor("#f4f7fa")
 GREEN = colors.HexColor("#047857")
@@ -125,8 +127,9 @@ def _doc_response(
     property_name="Portfolio",
     period="As at date of generation",
     generated_by="System",
+    pagesize_override=None,
 ):
-    buffer = BytesIO(); pagesize = landscape(A4) if wide else A4
+    buffer = BytesIO(); pagesize = pagesize_override or (landscape(A4) if wide else A4)
     brand = _branding(organization)
     logo_path = _logo_path(brand["logo"])
     generated_at = timezone.localtime()
@@ -139,18 +142,18 @@ def _doc_response(
             canvas.drawImage(ImageReader(str(logo_path)), 14 * mm, height - 25 * mm, width=14 * mm, height=18 * mm, preserveAspectRatio=True, anchor="c", mask="auto")
         canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 11.5)
         canvas.drawString(31 * mm, height - 11 * mm, brand["name"][:64])
-        canvas.setFont("Helvetica", 7.5); canvas.setFillColor(MUTED)
+        canvas.setFont("Helvetica", 8.25); canvas.setFillColor(MUTED)
         canvas.drawString(31 * mm, height - 15.5 * mm, brand["address"][:76])
         contact = "  |  ".join(item for item in (brand["phone"], brand["email"], f"PIN {brand['pin']}" if brand["pin"] else "") if item)
         canvas.drawString(31 * mm, height - 19.5 * mm, contact[:96])
         canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 10.5)
         canvas.drawRightString(width - 14 * mm, height - 11 * mm, str(title).upper()[:72])
         canvas.setFont("Helvetica-Bold", 8); canvas.drawRightString(width - 14 * mm, height - 16 * mm, str(property_name)[:86])
-        canvas.setFont("Helvetica", 7.5); canvas.setFillColor(MUTED)
+        canvas.setFont("Helvetica", 8.25); canvas.setFillColor(MUTED)
         canvas.drawRightString(width - 14 * mm, height - 21 * mm, str(period)[:100])
         canvas.setFillColor(RED); canvas.rect(14 * mm, header_bottom + 3 * mm, width - 28 * mm, 1.2 * mm, fill=1, stroke=0)
         canvas.setStrokeColor(LINE); canvas.line(14 * mm, 12 * mm, width - 14 * mm, 12 * mm)
-        canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 7)
+        canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 7.5)
         footer_text = f"Generated securely by Center Estates ERP  ·  Prepared by: {generated_by}  ·  Generated: {generated_at:%d %b %Y, %H:%M %Z}"
         canvas.drawString(14 * mm, 7.5 * mm, footer_text)
         canvas.drawRightString(width - 14 * mm, 7.5 * mm, f"Page {doc.page}")
@@ -343,16 +346,39 @@ def tenant_payment_status_rows(organization, property_record, start: date, end: 
 
 def tenant_payment_status_pdf(organization, property_record, start: date, end: date, generated_by="System"):
     s = _styles(); rows = tenant_payment_status_rows(organization, property_record, start, end)
+    header_style = ParagraphStyle(
+        "TenantPaymentHeader",
+        parent=s["Tiny"],
+        fontName="Helvetica-Bold",
+        fontSize=6.6,
+        leading=7.6,
+        alignment=TA_CENTER,
+        textColor=colors.black,
+    )
     metadata = property_record.metadata or {}; landlord = metadata.get("landlord", {})
     story = [
         _info_table([
-            ("Client", landlord.get("name") or "—", "Property", property_record.name),
-            ("Property code", property_record.code, "LR no.", metadata.get("lr_number") or "—"),
-            ("Address", property_record.address, "Reporting month", end.strftime("%B %Y")),
-        ], s, widths=[30 * mm, 100 * mm, 35 * mm, 104 * mm]),
-        Spacer(1, 5 * mm), Paragraph(f"BILLINGS ({end:%B %Y})", s["Section"]),
+            ("CLIENT", landlord.get("name") or "—", "PROPERTY", property_record.name),
+            ("L.R No.", metadata.get("lr_number") or metadata.get("lr_no") or "—", "MONTH", end.strftime("%B %Y")),
+        ], s, widths=[24 * mm, 92 * mm, 24 * mm, 107 * mm]),
+        Spacer(1, 5 * mm),
     ]
-    data = [["TENANT", "UNIT / NO.", "RENT / MONTH", "PAYMENT MODE", "BILLINGS UP TO", "BALANCE B/F", "CURRENT", "TOTAL BILLINGS", "RECEIPTS", "OUTSTANDING C/F"]]
+    month_label = end.strftime("%B %Y").upper()
+    data = [
+        [
+            Paragraph("NAME OF TENANT", header_style),
+            Paragraph("No.", header_style),
+            Paragraph("Rent Per<br/>Month", header_style),
+            Paragraph("Mode of<br/>Payment", header_style),
+            Paragraph("Billings<br/>Upto", header_style),
+            Paragraph(f"BILLINGS<br/>({month_label})", header_style),
+            "",
+            "",
+            Paragraph(f"Receipts Upto<br/>{end:%d.%m.%Y}", header_style),
+            Paragraph("Outstanding<br/>Balance C/F", header_style),
+        ],
+        ["", "", "", "", "", Paragraph("Balance B/F", header_style), Paragraph("Current", header_style), Paragraph("Total Current<br/>Billings", header_style), "", ""],
+    ]
     for row in rows:
         data.append([
             Paragraph(str(row["tenant"]), s["Small"]), row["unit"], _accounting(row["rent"]), row["payment_mode"],
@@ -361,19 +387,26 @@ def tenant_payment_status_pdf(organization, property_record, start: date, end: d
         ])
     totals = {key: sum((Decimal(row[key]) for row in rows), Decimal("0")) for key in ("rent", "opening", "current", "total", "receipts", "closing")}
     data.append(["TOTAL", "", _accounting(totals["rent"]), "", "", _accounting(totals["opening"]), _accounting(totals["current"]), _accounting(totals["total"]), _accounting(totals["receipts"], credit=True), _accounting(totals["closing"])])
-    table = Table(data, colWidths=[55*mm, 18*mm, 26*mm, 22*mm, 24*mm, 26*mm, 24*mm, 26*mm, 24*mm, 24*mm], repeatRows=1)
+    table = Table(data, colWidths=[42*mm, 14*mm, 24*mm, 21*mm, 23*mm, 24*mm, 21*mm, 27*mm, 25*mm, 26*mm], repeatRows=2)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e5e7eb")), ("TEXTCOLOR", (0, 0), (-1, -1), colors.black),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1)), ("SPAN", (2, 0), (2, 1)),
+        ("SPAN", (3, 0), (3, 1)), ("SPAN", (4, 0), (4, 1)), ("SPAN", (5, 0), (7, 0)),
+        ("SPAN", (8, 0), (8, 1)), ("SPAN", (9, 0), (9, 1)),
+        ("BACKGROUND", (0, 0), (-1, 1), colors.white), ("TEXTCOLOR", (0, 0), (-1, -1), colors.black),
+        ("FONTNAME", (0, 0), (-1, 1), "Helvetica-Bold"), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eeeeee")), ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("ALIGN", (2, 1), (-1, -1), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("GRID", (0, 0), (-1, -1), .45, colors.black), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("ALIGN", (0, 0), (-1, 1), "CENTER"), ("ALIGN", (2, 2), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), .45, colors.black),
+        ("TOPPADDING", (0, 0), (-1, 1), 4), ("BOTTOMPADDING", (0, 0), (-1, 1), 4),
+        ("TOPPADDING", (0, 2), (-1, -1), 5), ("BOTTOMPADDING", (0, 2), (-1, -1), 5),
     ]))
     story.append(table)
     return _doc_response(
         organization, f"tenants-payments-status-{property_record.code}-{end:%Y-%m}.pdf", story,
-        wide=True, title="Tenants Payments Status Report", property_name=property_record.name,
+        wide=True, title="Tenants Payment's Status Report", property_name=property_record.name,
         period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by,
+        pagesize_override=landscape(letter),
     )
 
 
@@ -451,7 +484,7 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
             ("PROPERTY", property_record.name, "STATEMENT PERIOD", f"{start:%d %b %Y} — {end:%d %b %Y}"),
             ("L.R No.", lr_number, "PROPERTY CODE", property_record.code),
             ("CLIENT / LANDLORD", landlord.get("name") or "Landlord", "CURRENCY", "KES"),
-        ], s, widths=[40 * mm, 90 * mm, 40 * mm, 99 * mm]),
+        ], s, widths=[29 * mm, 58 * mm, 32 * mm, 65 * mm]),
         Spacer(1, 5 * mm),
     ]
 
@@ -472,7 +505,7 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
     data.append(["TOTAL DISBURSEMENTS", "", f"{total_exp_curr:,.2f}", p_pct(total_exp_curr, total_rec_curr), f"{total_exp_ytd:,.2f}", p_pct(total_exp_ytd, total_rec_ytd)])
     data.append(["SURPLUS / (DEFICIT) ON PROPERTY", "", f"{surplus_curr:,.2f}", p_pct(surplus_curr, total_rec_curr), f"{surplus_ytd:,.2f}", p_pct(surplus_ytd, total_rec_ytd)])
 
-    table = Table(data, colWidths=[105 * mm, 26 * mm, 46 * mm, 18 * mm, 46 * mm, 28 * mm], repeatRows=1)
+    table = Table(data, colWidths=[70 * mm, 18 * mm, 30 * mm, 14 * mm, 32 * mm, 20 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
@@ -501,7 +534,7 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
                 ] for r in current_receipts.select_related("tenant", "invoice")
             ] +
             [["TOTALS", "", f"{rent_curr:,.2f}", f"{sc_curr:,.2f}", f"{other_curr:,.2f}", f"{total_rec_curr:,.2f}"]],
-            colWidths=[75 * mm, 38 * mm, 38 * mm, 38 * mm, 38 * mm, 42 * mm],
+            colWidths=[50 * mm, 24 * mm, 25 * mm, 25 * mm, 25 * mm, 30 * mm],
             repeatRows=1,
             style=[
                 ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -525,7 +558,7 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
                 ] for row in current_expenses
             ] +
             [["TOTALS", "", "", "", "", f"{total_exp_curr:,.2f}"]],
-            colWidths=[26 * mm, 45 * mm, 55 * mm, 35 * mm, 64 * mm, 44 * mm],
+            colWidths=[18 * mm, 30 * mm, 35 * mm, 25 * mm, 45 * mm, 26 * mm],
             repeatRows=1,
             style=[
                 ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -538,8 +571,9 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
 
     return _doc_response(
         organization, f"income-expenditure-{property_record.code}-{start}-{end}.pdf", story,
-        wide=True, title="Receipts & Expenditure Account", property_name=property_record.name,
-        period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by
+        wide=False, title="Receipts & Expenditure Account", property_name=property_record.name,
+        period=f"{start:%d %b %Y} — {end:%d %b %Y}", generated_by=generated_by,
+        pagesize_override=letter,
     )
 
 

@@ -42,7 +42,7 @@ test("critical financial pack cards export tenant payments status PDF", async ({
   await expect(page.getByRole("heading", { name: "Financial reports" })).toBeVisible();
   await expect(page.getByText("Critical financial packs")).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export Tenants payments status as PDF", exact: true }).click();
+  await page.getByRole("button", { name: "Export Tenants payment's status as PDF", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/tenant-payment-status.*\.pdf$/);
 });

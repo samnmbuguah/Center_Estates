@@ -19,7 +19,7 @@ type FinancialData = {
 };
 
 const sections = ["Overview", "Billing & collection", "Arrears", "Income & expense", "VAT & statutory", "Expenses", "Service charge", "Budgets", "Reports library"];
-const exportKinds = ["income-expense", "billing-schedule", "aging", "income-expense", "vat-schedule", "expenses-schedule", "service-charge", "budget-actual"];
+const exportKinds = ["income-expense", "tenant-payment-status", "aging", "income-expense", "vat-schedule", "expenses-schedule", "service-charge", "budget-actual"];
 
 export function PropertyFinancialReports() {
   const { session } = useAuth();
@@ -127,7 +127,7 @@ export function PropertyFinancialReports() {
             <CriticalReportCards
               onExport={(key, format) => void exportReport(key, format)}
               items={[
-                { key: "tenant-payment-status", title: "Tenants payments status", description: "Monthly billings, receipts and balances carried forward by tenant and unit." },
+                { key: "tenant-payment-status", title: "Tenants payment's status", description: "Monthly billings, receipts and balances carried forward by tenant and unit." },
                 { key: "income-expense", title: "Receipts & expenditure", description: "Income and disbursements with cumulative year-to-date performance." },
                 { key: "aging", title: "Arrears ageing", description: "Open balances by age bucket with collection priority detail." },
                 { key: "vat-schedule", title: "VAT schedule", description: "Output and input VAT transactions for the selected period." },
