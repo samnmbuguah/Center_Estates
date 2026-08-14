@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { signInAs } from "./helpers";
+import { openModuleSection, signInAs } from "./helpers";
 
 const password = process.env.E2E_ADMIN_PASSWORD;
 
@@ -115,8 +115,7 @@ test("sales: new listing form submits", async ({ page }, testInfo) => {
 
 test("property: invoice register is a direct second-level page", async ({ page }) => {
   await page.goto("/property");
-  const invoiceNav = page.locator(".module-nav-bar").getByRole("button", { name: /Invoice Register/i });
-  await invoiceNav.click();
+  await openModuleSection(page, "Invoices");
   await page.waitForTimeout(1500);
   await expect(page.locator(".module-workspace, .module-nav-bar").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /New invoice|Record Rent Payment/i }).first()).toBeVisible();
