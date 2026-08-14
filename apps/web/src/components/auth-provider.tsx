@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import {
   apiFetch,
+  clearApiCache,
   csrfFromCookie,
   type DemoIdentityGroup,
   type Session,
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadSession, pathname, router]);
 
   const login = useCallback(async (username: string, password: string) => {
+    clearApiCache();
     await apiFetch("/auth/csrf/");
     const response = await apiFetch("/auth/login/", {
       method: "POST",
@@ -111,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadSession, router]);
 
   const logout = useCallback(async () => {
+    clearApiCache();
     await apiFetch("/auth/csrf/");
     await apiFetch("/auth/logout/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } });
     localStorage.removeItem("ce_organization");
@@ -120,11 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const selectOrganization = useCallback(async (id: string) => {
+    clearApiCache();
     localStorage.setItem("ce_organization", id);
     await loadSession(id);
   }, [loadSession]);
 
   const switchIdentity = useCallback(async (username: string) => {
+    clearApiCache();
     await apiFetch("/auth/csrf/");
     const organizationId = localStorage.getItem("ce_organization");
     const response = await apiFetch(
@@ -146,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadSession, router]);
 
   const stopImpersonate = useCallback(async () => {
+    clearApiCache();
     await apiFetch("/auth/csrf/");
     const organizationId = localStorage.getItem("ce_organization");
     const response = await apiFetch(

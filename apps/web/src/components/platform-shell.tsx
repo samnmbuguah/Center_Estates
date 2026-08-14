@@ -420,25 +420,22 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              {session.user.isSuperuser && session.organizations.length > 1 ? <FormControl size="small" sx={{ minWidth: { xs: 0, md: 150 }, display: { xs: "none", sm: "flex" } }}>
-                <InputLabel>Organization</InputLabel>
-                <Select
-                  value={activeOrganization?.id ?? ""}
-                  label="Organization"
-                  onChange={(e) => selectOrganization(e.target.value)}
-                >
-                  {session.organizations.map((organization) => (
-                    <MenuItem value={organization.id} key={organization.id}>
-                      {organization.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl> : (
-                <Box sx={{ display: { xs: "none", sm: "flex" }, flexDirection: "column", minWidth: 130 }} aria-label="Current organization">
-                  <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Organization</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 800 }}>{activeOrganization?.name}</Typography>
-                </Box>
-              )}
+              {session.organizations.length > 1 ? (
+                <FormControl size="small" sx={{ minWidth: { xs: 0, md: 150 }, display: { xs: "none", sm: "flex" } }}>
+                  <InputLabel>Organization</InputLabel>
+                  <Select
+                    value={activeOrganization?.id ?? ""}
+                    label="Organization"
+                    onChange={(e) => selectOrganization(e.target.value)}
+                  >
+                    {session.organizations.map((organization) => (
+                      <MenuItem value={organization.id} key={organization.id}>
+                        {organization.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ) : null}
 
               <IconButton onClick={toggleThemeHandler} title={`Switch to ${mode === "dark" ? "Light" : "Dark"} Mode`}>
                 {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}

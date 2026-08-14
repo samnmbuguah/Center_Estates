@@ -51,6 +51,11 @@ const inFlightGets = new Map<string, Promise<Response>>();
 let csrfTokenCache = "";
 let refreshPromise: Promise<boolean> | null = null;
 
+export function clearApiCache() {
+  getResponseCache.clear();
+  inFlightGets.clear();
+}
+
 function rememberGet(cacheKey: string, response: Response) {
   const now = Date.now();
   for (const [key, entry] of getResponseCache) {
@@ -142,10 +147,12 @@ async function rememberCsrfToken(response: Response) {
 
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {
   const headers = new Headers(init.headers);
-  if (organizationId) headers.set("X-Organization-ID", organizationId);
+  const activeOrgId = organizationId ?? (typeof window !== "undefined" ? localStorage.getItem("ce_organization") : null);
+  if (activeOrgId && !headers.has("X-Organization-ID")) {
+    headers.set("X-Organization-ID", activeOrgId);
+  }
   if (typeof window !== "undefined" && !headers.has("X-Property-Scope") && !headers.has("X-Property-ID")) {
-    const activeOrganization = organizationId ?? localStorage.getItem("ce_organization");
-    const raw = localStorage.getItem(activeOrganization ? `ce-active-property:${activeOrganization}` : "ce-active-property");
+    const raw = localStorage.getItem(activeOrgId ? `ce-active-property:${activeOrgId}` : "ce-active-property");
     if (raw) {
       try {
         const property = JSON.parse(raw) as { id?: string };
