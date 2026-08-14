@@ -770,8 +770,8 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
 
         {/* PERFORMANCE DASHBOARD */}
         {tab === "performance" && (
-          !isManager ? (
-            <EmptyState icon="🔒" title="Manager Access Required" description="Performance analytics and team SLA metrics require an administrator or manager role." />
+          !isSuperAdmin ? (
+            <EmptyState icon="🔒" title="Super Admin Access Required" description="Performance analytics and team SLA metrics are available to platform super administrators only." />
           ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : (
@@ -834,8 +834,8 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
 
         {/* STAFF HISTORY */}
         {tab === "staff" && (
-          !isManager ? (
-            <EmptyState icon="🔒" title="Manager Access Required" description="Staff productivity tracking requires an administrator or manager role." />
+          !isSuperAdmin ? (
+            <EmptyState icon="🔒" title="Super Admin Access Required" description="Staff productivity tracking is available to platform super administrators only." />
           ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : staff.length === 0 ? (
