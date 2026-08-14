@@ -1890,7 +1890,15 @@ class PropertyDashboardViewSet(ViewSet):
             month_collected = receipts.filter(received_on__year=today.year, received_on__month=month).aggregate(
                 total=Sum('amount'),
             )['total'] or Decimal('0')
-            collection_trend.append({'month': date(today.year, month, 1).strftime('%b'), 'billed': billed, 'collected': month_collected})
+            collection_trend.append({
+                'month': date(today.year, month, 1).strftime('%b'),
+                # Expected collection is the value posted for the month. Keep the
+                # original keys during the API transition for older clients.
+                'expected': billed,
+                'actual': month_collected,
+                'billed': billed,
+                'collected': month_collected,
+            })
         expiry_ranges = ((0, 30, '0–30 days'), (31, 60, '31–60 days'), (61, 90, '61–90 days'))
         lease_expiry = [
             {'label': label, 'count': leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING), ends_on__range=(today + timedelta(days=start), today + timedelta(days=end))).count()}

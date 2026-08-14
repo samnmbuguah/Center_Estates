@@ -214,7 +214,14 @@ export interface ReportItem {
 
 export interface DashboardData {
   kpis?: Record<string, number | string>;
-  collectionTrend?: { month: string; billed: number; collected: number }[];
+  collectionTrend?: {
+    month: string;
+    expected: number;
+    actual: number;
+    /** Backward-compatible aliases returned during the dashboard API transition. */
+    billed?: number;
+    collected?: number;
+  }[];
   leaseExpiry?: { label: string; count: number }[];
   aging?: { label: string; amount: number }[];
   portfolio?: PropertyRow[];

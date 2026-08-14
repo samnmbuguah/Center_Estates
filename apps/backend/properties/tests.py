@@ -101,6 +101,9 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['portfolio'][0]['occupied'], 1)
         self.assertEqual(len(response.data['aging']), 4)
         self.assertTrue(response.data['collectionTrend'])
+        july = next(point for point in response.data['collectionTrend'] if point['month'] == 'Jul')
+        self.assertEqual(july['expected'], Decimal('1000'))
+        self.assertEqual(july['actual'], Decimal('0'))
 
     def test_effective_dated_billing_and_reporting_foundation_is_scoped_and_persisted(self):
         tax = self.client.post('/api/v1/property/tax-configurations/', {

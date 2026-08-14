@@ -67,7 +67,17 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
   const aging = dashboard.aging ?? [];
   const portfolio = dashboard.portfolio ?? [];
   const overdue = dashboard.overdueInvoices ?? [];
-  const trendMax = Math.max(...trend.map((b) => Number(b.billed ?? 0)), 1);
+  const trendExpected = trend.reduce((sum, point) => sum + Number(point.expected ?? point.billed ?? 0), 0);
+  const trendActual = trend.reduce((sum, point) => sum + Number(point.actual ?? point.collected ?? 0), 0);
+  const trendVariance = trendActual - trendExpected;
+  const trendCollectionRate = trendExpected > 0 ? Math.round((trendActual / trendExpected) * 1000) / 10 : 0;
+  const trendMax = Math.max(
+    ...trend.flatMap((point) => [
+      Number(point.expected ?? point.billed ?? 0),
+      Number(point.actual ?? point.collected ?? 0),
+    ]),
+    1,
+  );
   const expiryMax = Math.max(...leaseExpiry.map((e) => Number(e.count ?? 0)), 1);
   const agingTotal = aging.reduce((s, a) => s + Number(a.amount ?? 0), 0);
   const donut = billedTotal > 0
@@ -148,20 +158,42 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
           <Panel title="Monthly Rent Collection Trend" action={<button className="btn ghost sm" onClick={() => setTab("rent")} style={{ fontWeight: 800 }}>Collection Ledger →</button>}>
             {trend.length > 0 ? (
               <div style={{ padding: "20px 24px" }}>
+                <div
+                  aria-label="Rent collection summary"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                    gap: 10,
+                    marginBottom: 18,
+                  }}
+                >
+                  {[
+                    { label: "Expected", value: money.format(trendExpected), color: "var(--text)" },
+                    { label: "Actual", value: money.format(trendActual), color: "#15803d" },
+                    { label: "Variance", value: money.format(trendVariance), color: trendVariance >= 0 ? "#15803d" : "#dc2626" },
+                    { label: "Collection rate", value: `${trendCollectionRate}%`, color: trendCollectionRate >= 90 ? "#15803d" : "#d97706" },
+                  ].map((item) => (
+                    <div key={item.label} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", background: "var(--surface-2)" }}>
+                      <div style={{ color: "var(--muted)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>{item.label}</div>
+                      <div style={{ color: item.color, fontSize: 16, fontWeight: 900, marginTop: 3 }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+
                 {/* Header Legend */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
                   <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
-                      <i style={{ width: 14, height: 3, background: "#0f172a", borderRadius: 2, display: "inline-block" }} />
-                      Billed Rent (KES)
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "var(--text)" }}>
+                      <i style={{ width: 14, height: 3, background: "var(--text)", borderRadius: 2, display: "inline-block" }} />
+                      Expected (KES)
                     </span>
                     <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#16a34a" }}>
                       <i style={{ width: 14, height: 3, background: "#16a34a", borderRadius: 2, display: "inline-block" }} />
-                      Collected Rent (KES)
+                      Actual (KES)
                     </span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
-                    Avg Collection Rate: <strong style={{ color: "#16a34a", fontWeight: 900 }}>94.2%</strong>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text)" }}>
+                    Period Collection Rate: <strong style={{ color: trendCollectionRate >= 90 ? "#16a34a" : "#d97706", fontWeight: 900 }}>{trendCollectionRate}%</strong>
                   </span>
                 </div>
 
@@ -174,24 +206,25 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
                   const cW = svgW - pX * 2;
                   const cH = svgH - pY * 2;
 
-                  const billedPoints = trend.map((b, i) => {
+                  const expectedPoints = trend.map((b, i) => {
                     const x = pX + (i / Math.max(trend.length - 1, 1)) * cW;
-                    const y = pY + cH - (trendMax > 0 ? (Number(b.billed || 0) / trendMax) * cH : 0);
-                    return { x, y, val: Number(b.billed || 0), month: b.month };
+                    const expected = Number(b.expected ?? b.billed ?? 0);
+                    const y = pY + cH - (trendMax > 0 ? (expected / trendMax) * cH : 0);
+                    return { x, y, val: expected, month: b.month };
                   });
 
-                  const collectedPoints = trend.map((b, i) => {
+                  const actualPoints = trend.map((b, i) => {
                     const x = pX + (i / Math.max(trend.length - 1, 1)) * cW;
-                    const y = pY + cH - (trendMax > 0 ? (Number(b.collected || 0) / trendMax) * cH : 0);
-                    const billed = Number(b.billed || 0);
-                    const collected = Number(b.collected || 0);
-                    const rate = billed > 0 ? Math.round((collected / billed) * 100) : 0;
-                    return { x, y, val: collected, month: b.month, rate };
+                    const expected = Number(b.expected ?? b.billed ?? 0);
+                    const actual = Number(b.actual ?? b.collected ?? 0);
+                    const y = pY + cH - (trendMax > 0 ? (actual / trendMax) * cH : 0);
+                    const rate = expected > 0 ? Math.round((actual / expected) * 100) : 0;
+                    return { x, y, val: actual, month: b.month, rate };
                   });
 
-                  const billedPath = billedPoints.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
-                  const collectedPath = collectedPoints.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
-                  const areaPath = `${collectedPath} L ${collectedPoints[collectedPoints.length - 1]?.x ?? 0} ${pY + cH} L ${collectedPoints[0]?.x ?? 0} ${pY + cH} Z`;
+                  const expectedPath = expectedPoints.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
+                  const actualPath = actualPoints.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
+                  const areaPath = `${actualPath} L ${actualPoints[actualPoints.length - 1]?.x ?? 0} ${pY + cH} L ${actualPoints[0]?.x ?? 0} ${pY + cH} Z`;
 
                   return (
                     <div style={{ width: "100%", overflowX: "auto" }}>
@@ -217,28 +250,28 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
                           );
                         })}
 
-                        {/* Filled Area beneath collected line */}
+                        {/* Filled area beneath the actual collection line */}
                         <path d={areaPath} fill="url(#collGradient)" />
 
-                        {/* Line 1: Billed Rent Line (Dark Navy) */}
-                        <path d={billedPath} fill="none" stroke="#0f172a" strokeWidth="2.5" strokeDasharray="5 4" opacity="0.8" />
+                        {/* Line 1: Expected collection */}
+                        <path d={expectedPath} fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="5 4" opacity="0.8" />
 
-                        {/* Line 2: Collected Rent Line (Vibrant Green) */}
-                        <path d={collectedPath} fill="none" stroke="#16a34a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                        {/* Line 2: Actual collection */}
+                        <path d={actualPath} fill="none" stroke="#16a34a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
 
                         {/* Data Points & Month Labels */}
-                        {collectedPoints.map((pt, i) => {
-                          const bPt = billedPoints[i];
+                        {actualPoints.map((pt, i) => {
+                          const expectedPoint = expectedPoints[i];
                           return (
                             <g key={pt.month}>
-                              {/* Billed Dot */}
-                              <circle cx={bPt.x} cy={bPt.y} r="4" fill="#0f172a">
-                                <title>{`Billed: KES ${bPt.val.toLocaleString()}`}</title>
+                              {/* Expected dot */}
+                              <circle cx={expectedPoint.x} cy={expectedPoint.y} r="4" fill="currentColor">
+                                <title>{`Expected: KES ${expectedPoint.val.toLocaleString()}`}</title>
                               </circle>
 
-                              {/* Collected Dot */}
+                              {/* Actual dot */}
                               <circle cx={pt.x} cy={pt.y} r="6" fill="#16a34a" stroke="#ffffff" strokeWidth="2">
-                                <title>{`Collected: KES ${pt.val.toLocaleString()} (${pt.rate}% rate)`}</title>
+                                <title>{`Actual: KES ${pt.val.toLocaleString()} (${pt.rate}% of expected)`}</title>
                               </circle>
 
                               {/* Collection Rate Badge */}
@@ -250,7 +283,7 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
                               </g>
 
                               {/* Month Label */}
-                              <text x={pt.x} y={pY + cH + 20} textAnchor="middle" fontSize="11" fontWeight="800" fill="#0f172a">
+                              <text x={pt.x} y={pY + cH + 20} textAnchor="middle" fontSize="11" fontWeight="800" fill="currentColor">
                                 {pt.month.toUpperCase()}
                               </text>
                             </g>
@@ -262,7 +295,7 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
                 })()}
               </div>
             ) : (
-              <EmptyState icon="📊" title="No collection history" description="Billed and collected figures will appear here once invoices and receipts are recorded." />
+              <EmptyState icon="📊" title="No collection history" description="Expected and actual figures will appear here once invoices and receipts are recorded." />
             )}
           </Panel>
 
@@ -434,4 +467,3 @@ export function OverviewView({ dashboard, loading, setTab, canOperate, canLease,
 }
 
 /* ─── PROPERTIES ─── */
-

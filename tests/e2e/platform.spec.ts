@@ -73,6 +73,9 @@ test("property command center renders live portfolio intelligence", async ({ pag
   test.skip(true, "Superseded by module-flows suites; asserts demo seed data absent in production.");
   await page.goto("/property?tab=overview");
   await expect(page.getByRole("heading", { name: "Monthly rent collection trend" })).toBeVisible();
+  await expect(page.getByText("Expected (KES)")).toBeVisible();
+  await expect(page.getByText("Actual (KES)")).toBeVisible();
+  await expect(page.getByLabel("Rent collection summary")).toContainText("Variance");
   await expect(page.getByRole("heading", { name: "Lease expiry overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Property portfolio summary" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Rent Ageing Heatmap" })).toBeVisible();
