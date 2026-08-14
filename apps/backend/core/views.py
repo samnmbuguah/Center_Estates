@@ -168,17 +168,20 @@ class TicketsFeedView(APIView):
     def get(self, request):
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)
-        if not membership:
+        is_admin = getattr(request.user, 'is_superuser', False) or (membership and membership.is_organization_admin)
+        if not membership and not is_admin:
             return Response({'detail': 'An active organization membership is required.'}, status=403)
-        membership = Membership.objects.prefetch_related('roles__permissions').get(pk=membership.pk)
-        subscribed = set(organization.subscriptions.available().values_list('module', flat=True))
-        permission_keys = {
-            permission.key for role in membership.roles.all() for permission in role.permissions.all()
-        }
-        is_admin = membership.is_organization_admin or request.user.is_superuser
+        if membership:
+            membership = Membership.objects.prefetch_related('roles__permissions').get(pk=membership.pk)
+            permission_keys = {
+                permission.key for role in membership.roles.all() for permission in role.permissions.all()
+            }
+        else:
+            permission_keys = set()
+        subscribed = set(organization.subscriptions.available().values_list('module', flat=True)) if organization else set()
 
         def can(module):
-            return module in subscribed and (is_admin or any(key.startswith(f'{module}.') for key in permission_keys))
+            return is_admin or (module in subscribed and any(key.startswith(f'{module}.') for key in permission_keys))
 
         active_property = get_active_property(request, organization)
         tickets = []
@@ -207,7 +210,7 @@ class TicketsFeedView(APIView):
 
         if can(Module.FACILITY) or can(Module.PROPERTY):
             from facilities.models import WorkOrder, ServiceRequest
-            for order in scope_model_queryset(WorkOrder, request, organization).select_related('property', 'assigned_to', 'reported_by').order_by('-updated_at')[:50]:
+            for order in scope_model_queryset(WorkOrder, request, organization).select_related('property', 'assigned_to', 'reported_by').order_by('-reported_at')[:50]:
                 add(
                     id=f'work-order:{order.pk}',
                     reference=order.number,
@@ -220,10 +223,10 @@ class TicketsFeedView(APIView):
                     property_record=order.property,
                     assigned_to=order.assigned_to.get_username() if order.assigned_to else None,
                     raised_by=order.reported_by.get_username() if order.reported_by else None,
-                    created_at=order.created_at,
-                    updated_at=order.updated_at,
+                    created_at=order.reported_at,
+                    updated_at=getattr(order, 'updated_at', order.reported_at),
                 )
-            for req in scope_model_queryset(ServiceRequest, request, organization).select_related('property', 'occupant', 'assigned_to').order_by('-updated_at')[:50]:
+            for req in scope_model_queryset(ServiceRequest, request, organization).select_related('property', 'tenant', 'work_order__assigned_to').order_by('-submitted_at')[:50]:
                 add(
                     id=f'service-request:{req.pk}',
                     reference=req.reference,
@@ -234,10 +237,10 @@ class TicketsFeedView(APIView):
                     module='facility',
                     source_url='/facility?tab=service-requests',
                     property_record=req.property,
-                    assigned_to=req.assigned_to.get_username() if req.assigned_to else None,
-                    raised_by=req.occupant.get_username() if req.occupant else None,
-                    created_at=req.created_at,
-                    updated_at=req.updated_at,
+                    assigned_to=req.work_order.assigned_to.get_username() if req.work_order and req.work_order.assigned_to else None,
+                    raised_by=req.tenant.name if req.tenant else None,
+                    created_at=req.submitted_at,
+                    updated_at=getattr(req, 'updated_at', req.submitted_at),
                 )
 
         if can(Module.COMPANION):
@@ -284,7 +287,7 @@ class TicketsFeedView(APIView):
             except Exception:
                 pass
 
-        tickets.sort(key=lambda t: t.get('updated_at') or '', reverse=True)
+        tickets.sort(key=lambda t: t.get('updated_at') or t.get('created_at') or '', reverse=True)
         return Response({'results': tickets, 'count': len(tickets)})
 
 
