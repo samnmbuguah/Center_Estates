@@ -1,14 +1,9 @@
 "use client";
 
-import { Fragment } from "react";
+import dynamic from "next/dynamic";
 import { ModuleShell } from "@/components/module-shell";
 import { propertyNav } from "@/lib/module-nav";
-import { DetailDrawer, ErrorBanner } from "@/components/module-ui";
-import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
-import { TenantApplicationCard } from "@/components/tenant-application-card";
-import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
-import { PropertyTenancyReports } from "@/components/property-tenancy-reports";
-import { PropertyFinancialReports } from "@/components/property-financial-reports";
+import { DetailDrawer, ErrorBanner, LoadingState } from "@/components/module-ui";
 
 import { PropertyTab, TenantRow, BankTransactionRow, labels } from "./types/property.types";
 import { usePropertyLogic } from "./hooks/usePropertyLogic";
@@ -44,6 +39,12 @@ import { ReportsView } from "./components/tabs/ReportsView";
 import { OwnerPortalView } from "./components/tabs/OwnerPortalView";
 import { ForecastView } from "./components/tabs/ForecastView";
 import { CriticalDatesView } from "./components/tabs/CriticalDatesView";
+
+const PropertyBillingDashboard = dynamic(() => import("@/components/property-billing-dashboard").then((module) => module.PropertyBillingDashboard), { loading: () => <LoadingState rows={7} /> });
+const PropertyTenancyReports = dynamic(() => import("@/components/property-tenancy-reports").then((module) => module.PropertyTenancyReports), { loading: () => <LoadingState rows={7} /> });
+const PropertyFinancialReports = dynamic(() => import("@/components/property-financial-reports").then((module) => module.PropertyFinancialReports), { loading: () => <LoadingState rows={7} /> });
+const ModuleTicketsView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleTicketsView), { loading: () => <LoadingState rows={6} /> });
+const ModuleCalendarView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleCalendarView), { loading: () => <LoadingState rows={6} /> });
 
 export function PropertyFeaturePage({
   initialTab = "properties",

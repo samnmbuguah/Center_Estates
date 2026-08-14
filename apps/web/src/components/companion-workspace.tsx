@@ -8,6 +8,7 @@ import { ModuleShell } from "@/components/module-shell";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { companionNav } from "@/lib/module-nav";
 import { usePropertyContext } from "@/lib/property-context";
+import { QmMarkdown } from "@/components/qm-markdown";
 import {
   Badge,
   DetailDrawer,
@@ -87,40 +88,6 @@ function greeting() {
   if (h < 12) return "Good Morning";
   if (h < 17) return "Good Afternoon";
   return "Good Evening";
-}
-
-/** Lightweight markdown → HTML renderer for QM assistant responses. */
-function renderQmMarkdown(text: string): string {
-  return text
-    // Headings
-    .replace(/^### (.+)$/gm, '<h4 style="margin:10px 0 4px;font-size:0.92rem;font-weight:700">$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3 style="margin:12px 0 4px;font-size:1rem;font-weight:800">$1</h3>')
-    .replace(/^# (.+)$/gm, '<h2 style="margin:14px 0 6px;font-size:1.1rem;font-weight:800">$1</h2>')
-    // Bold + Italic
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.08);padding:1px 5px;border-radius:4px;font-size:0.85em">$1</code>')
-    // Bullet lists (- or *)
-    .replace(/^[\-\*] (.+)$/gm, '<li style="margin:2px 0">$1</li>')
-    // Numbered lists
-    .replace(/^\d+\.\s+(.+)$/gm, '<li style="margin:2px 0">$1</li>')
-    // Wrap consecutive <li> in <ul>
-    .replace(/(<li[^>]*>.*<\/li>)(\n<li[^>]*>.*<\/li>)*/g, (match) => `<ul style="margin:6px 0;padding-left:18px">${match}</ul>`)
-    // Horizontal rules
-    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(0,0,0,0.12);margin:10px 0"/>')
-    // Paragraphs — double newlines
-    .replace(/\n\n/g, '</p><p style="margin:6px 0">')
-    // Single newlines
-    .replace(/\n/g, '<br/>')
-    // Wrap in paragraph
-    .replace(/^(.+)$/, '<p style="margin:4px 0">$1</p>');
-}
-
-function QmMarkdown({ text }: { text: string }) {
-  const html = useMemo(() => renderQmMarkdown(text), [text]);
-  return <div dangerouslySetInnerHTML={{ __html: html }} style={{ lineHeight: 1.65, fontSize: '0.875rem' }} />;
 }
 
 /** SSR-safe greeting: new Date() during render mismatches hydration (#418). */

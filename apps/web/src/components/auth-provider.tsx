@@ -11,6 +11,8 @@ import {
 } from "@/lib/api";
 import { isPublicRoute } from "@/lib/public-routes";
 
+const QM_LOGIN_BRIEF_STORAGE_KEY = "ce_qm_brief_after_login";
+
 type AuthContextValue = {
   session: Session | null;
   loading: boolean;
@@ -102,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const sessionResult = await loadSession(null);
     if (sessionResult !== "authenticated") throw new Error("Signed in, but the workspace could not be loaded. Please retry.");
+    sessionStorage.setItem(QM_LOGIN_BRIEF_STORAGE_KEY, "1");
     const returnTo = sessionStorage.getItem("ce_return_after_login");
     sessionStorage.removeItem("ce_return_after_login");
     router.replace(returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/workspaces");
@@ -111,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await apiFetch("/auth/csrf/");
     await apiFetch("/auth/logout/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } });
     localStorage.removeItem("ce_organization");
+    sessionStorage.removeItem(QM_LOGIN_BRIEF_STORAGE_KEY);
     setSession(null);
     router.replace("/login");
   }, [router]);

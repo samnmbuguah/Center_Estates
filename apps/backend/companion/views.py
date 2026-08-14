@@ -12,6 +12,7 @@ from rest_framework.viewsets import ModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.serializers import GenericObjectSerializer
+from config.throttling import QMChatRateThrottle
 from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
@@ -214,6 +215,7 @@ from .qm_agent import QMAgentOrchestrator
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
+    permission_map = {'chat': 'companion.view'}
 
     serializer_class = GenericObjectSerializer
 
@@ -246,10 +248,12 @@ class CompanionDashboardViewSet(ViewSet):
             'escalatedTasks': TaskSerializer(active.filter(escalated=True).order_by('-escalated_at')[:10], many=True).data,
         })
 
-    @action(detail=False, methods=('post',))
+    @action(detail=False, methods=('post',), throttle_classes=(QMChatRateThrottle,))
     def chat(self, request):
         organization = get_active_organization(request)
         raw_prompt = str(request.data.get('prompt', '')).strip()
+        if len(raw_prompt) > 2000:
+            raise ValidationError({'prompt': 'Keep your question under 2,000 characters.'})
         prompt = raw_prompt.lower()
         now = timezone.now()
 
@@ -275,6 +279,9 @@ class CompanionDashboardViewSet(ViewSet):
 
         def can_view(module):
             return module in subscribed and (is_admin or any(key.startswith(f'{module}.') for key in permission_keys))
+
+        def can(permission):
+            return is_admin or permission in permission_keys
 
         if can_view(Module.PROPERTY):
             from properties.models import Invoice, Lease, Property, Receipt, Unit
@@ -311,7 +318,32 @@ class CompanionDashboardViewSet(ViewSet):
         )
         llm_response = qm_result.get('response', '')
 
-        if 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
+        if any(term in prompt for term in ('brief', 'priorit', 'start of day', 'today')):
+            parts = [
+                f"**Your operational briefing — {context['property_scope']}**",
+                f"- Active tasks: **{context['my_tasks']['active']}**; overdue: **{overdue_count}**; escalated: **{escalated_count}**",
+            ]
+            property_data = context.get('property')
+            facility_data = context.get('facility')
+            if property_data:
+                parts.append(
+                    f"- Property: **{property_data['occupied_units']} of {property_data['units']} units occupied**; "
+                    f"KES **{property_data['collections_this_month_kes']}** collected this month; "
+                    f"KES **{property_data['outstanding_kes']}** outstanding"
+                )
+            if facility_data:
+                parts.append(
+                    f"- Facility: **{facility_data['open_work_orders']} open work orders**, "
+                    f"including **{facility_data['critical_work_orders']} critical** and **{facility_data['overdue_work_orders']} overdue**; "
+                    f"**{facility_data['overdue_ppm']}** overdue PPM schedules"
+                )
+            response_text = llm_response or '\n'.join(parts)
+            suggested_actions = [{"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"}]
+            if property_data:
+                suggested_actions.append({"label": "Review Collections", "action": "collections", "href": "/property?tab=rent"})
+            if facility_data:
+                suggested_actions.append({"label": "Review Work Orders", "action": "work_orders", "href": "/facility?tab=work-orders"})
+        elif 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
             data = context.get('property')
             response_text = llm_response or (f"Property information is not available for your role." if not data else (
                 f"**Live property summary — {context['property_scope']}**\n"
@@ -320,11 +352,12 @@ class CompanionDashboardViewSet(ViewSet):
                 f"- Collected this month: **KES {data['collections_this_month_kes']}**\n"
                 f"- Outstanding invoice balance: **KES {data['outstanding_kes']}**"
             ))
-            suggested_actions = [
-                {"label": "Generate Rent Invoices", "action": "generate_invoices", "href": "/property?tab=rent"},
-                {"label": "Send Reminders", "action": "send_reminders", "href": "/property?tab=arrears"},
-                {"label": "View Rent Aging Report", "action": "view_report", "href": "/property?tab=reports"},
-            ]
+            suggested_actions = [{"label": "View Rent Aging", "action": "view_report", "href": "/property?tab=arrears"}]
+            if can('property.finance'):
+                suggested_actions[:0] = [
+                    {"label": "Generate Rent Invoices", "action": "generate_invoices", "href": "/property?tab=billing"},
+                    {"label": "Send Reminders", "action": "send_reminders", "href": "/property?tab=arrears"},
+                ]
         elif 'facility' in prompt or 'work order' in prompt or 'maintenance' in prompt or 'hvac' in prompt:
             data = context.get('facility')
             response_text = llm_response or ("Facility information is not available for your role." if not data else (
@@ -334,10 +367,11 @@ class CompanionDashboardViewSet(ViewSet):
                 f"- Overdue preventive-maintenance schedules: **{data['overdue_ppm']}**"
             ))
             suggested_actions = [
-                {"label": "+ Dispatch Work Order", "action": "new_wo", "href": "/facility?tab=work-orders"},
                 {"label": "Review Critical Alerts", "action": "alerts", "href": "/facility?tab=overview"},
                 {"label": "PPM Schedule", "action": "ppm", "href": "/facility?tab=planned-maintenance"},
             ]
+            if can('facility.work') or can('facility.manage'):
+                suggested_actions.insert(0, {"label": "+ Dispatch Work Order", "action": "new_wo", "href": "/facility?tab=work-orders"})
         elif 'construction' in prompt or 'ticket' in prompt or 'project' in prompt or 'site' in prompt:
             response_text = llm_response or "Construction data tools are not enabled for this QM workspace yet. Open Monitoring to review current project records."
             suggested_actions = [

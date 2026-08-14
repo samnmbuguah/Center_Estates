@@ -253,6 +253,7 @@ REST_FRAMEWORK = {
         'token_refresh': os.environ.get('AUTH_REFRESH_RATE', '30/minute'),
         'password_reset': '100/hour',
         'api_write': '1000/hour',
+        'qm_chat': os.environ.get('QM_CHAT_RATE', '60/hour'),
     },
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { ModuleShell } from "@/components/module-shell";
-import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import { FacilityTab } from "./types/facility.types";
 import { useFacilityLogic } from "./hooks/useFacilityLogic";
 import { OverviewView } from "./components/tabs/OverviewView";
@@ -13,12 +13,15 @@ import { InspectionsView } from "./components/tabs/InspectionsView";
 import { ServiceRequestsView } from "./components/tabs/ServiceRequestsView";
 import { UtilitiesView } from "./components/tabs/UtilitiesView";
 import { ContractorsView } from "./components/tabs/ContractorsView";
-import { ReportsView } from "./components/tabs/ReportsView";
-import { ExpenditureView } from "./components/tabs/ExpenditureView";
 import { InventoryView } from "./components/tabs/InventoryView";
 import { GenericListView } from "./components/tabs/GenericListView";
 import { FacilityModals } from "./components/modals/FacilityModals";
 import { ErrorBanner, LoadingState } from "@/components/module-ui";
+
+const ReportsView = dynamic(() => import("./components/tabs/ReportsView").then((module) => module.ReportsView), { loading: () => <LoadingState rows={6} /> });
+const ExpenditureView = dynamic(() => import("./components/tabs/ExpenditureView").then((module) => module.ExpenditureView), { loading: () => <LoadingState rows={6} /> });
+const ModuleTicketsView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleTicketsView), { loading: () => <LoadingState rows={6} /> });
+const ModuleCalendarView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleCalendarView), { loading: () => <LoadingState rows={6} /> });
 
 export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: FacilityTab }) {
   const logic = useFacilityLogic(defaultTab);

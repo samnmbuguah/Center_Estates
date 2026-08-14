@@ -105,6 +105,27 @@ class CompanionApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('response', response.data)
 
+    def test_ai_daily_brief_is_grounded_and_role_aware(self):
+        self.login(self.staff)
+        with patch('companion.views.QMAgentOrchestrator.execute_agent', return_value={'agent': 'Quartermaster (QM)', 'status': 'local', 'response': ''}):
+            response = self.client.post(
+                '/api/v1/companion/dashboard/chat/',
+                {'prompt': 'Brief me on today priorities'},
+                format='json',
+            )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn('operational briefing', response.data['response'])
+        self.assertEqual(response.data['suggestedActions'][0]['label'], 'View My Tasks')
+
+    def test_ai_chat_rejects_oversized_prompts(self):
+        self.login(self.admin)
+        response = self.client.post(
+            '/api/v1/companion/dashboard/chat/',
+            {'prompt': 'x' * 2001},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_telemetry_requires_authentication_and_accepts_batches(self):
         anonymous = self.client.post('/api/v1/companion/telemetry/', {
             'events': [{'event': 'page_view', 'module': 'property'}],

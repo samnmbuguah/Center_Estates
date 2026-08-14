@@ -37,6 +37,7 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [propertyContextReady, setPropertyContextReady] = useState(false);
   const organizationId = session?.activeOrganizationId ?? null;
+  const needsPropertyContext = Boolean(session?.modules.some((module) => module.slug === "property" || module.slug === "facility"));
   const storageKey = organizationId ? `${STORAGE_KEY}:${organizationId}` : STORAGE_KEY;
 
   // Hydrate the last property for this organization after mount.
@@ -54,7 +55,7 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
   }, [storageKey]);
 
   useEffect(() => {
-    if (!organizationId) {
+    if (!organizationId || !needsPropertyContext) {
       queueMicrotask(() => {
         setProperties([]);
         setActiveProperty(null);
@@ -97,7 +98,7 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
         }
       });
     return () => { cancelled = true; };
-  }, [organizationId, storageKey]);
+  }, [needsPropertyContext, organizationId, storageKey]);
 
   const selectProperty = useCallback((p: PropertyContextValue | null) => {
     setActiveProperty(p);

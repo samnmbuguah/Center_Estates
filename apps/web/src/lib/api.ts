@@ -34,12 +34,26 @@ export type Session = {
   canSwitchIdentity?: boolean;
 };
 
-const GET_CACHE_MS = 750;
+const GET_CACHE_MS = 30_000;
+const MAX_GET_CACHE_ENTRIES = 120;
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
 const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
 const inFlightGets = new Map<string, Promise<Response>>();
 let csrfTokenCache = "";
 let refreshPromise: Promise<boolean> | null = null;
+
+function rememberGet(cacheKey: string, response: Response) {
+  const now = Date.now();
+  for (const [key, entry] of getResponseCache) {
+    if (entry.expiresAt <= now) getResponseCache.delete(key);
+  }
+  while (getResponseCache.size >= MAX_GET_CACHE_ENTRIES) {
+    const oldest = getResponseCache.keys().next().value;
+    if (!oldest) break;
+    getResponseCache.delete(oldest);
+  }
+  getResponseCache.set(cacheKey, { expiresAt: now + GET_CACHE_MS, response: response.clone() });
+}
 
 function announceExpiredSession() {
   if (typeof window === "undefined") return;
@@ -224,7 +238,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   const request = fetchWithSession(fullPath, init, headers)
     .then(async (response) => {
       if (response.ok) {
-        getResponseCache.set(cacheKey, { expiresAt: Date.now() + GET_CACHE_MS, response: response.clone() });
+        rememberGet(cacheKey, response);
       } else if (!fullPath.startsWith("/auth/") && !fullPath.includes("/telemetry/")) {
         announceApiError(await apiErrorMessage(response, "The requested information could not be loaded."));
       }

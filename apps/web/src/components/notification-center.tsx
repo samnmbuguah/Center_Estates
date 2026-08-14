@@ -16,23 +16,34 @@ export function NotificationCenter() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [unread, setUnread] = useState(0);
+  const [inboxLoaded, setInboxLoaded] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadSummary = useCallback(async () => {
     try {
-      const [itemsResponse, summaryResponse] = await Promise.all([
-        apiFetch("/notifications/?ordering=-created_at"), apiFetch("/notifications/summary/"),
-      ]);
-      if (itemsResponse.ok) {
-        const payload = await itemsResponse.json() as { results?: Notice[] } | Notice[];
-        setNotices(Array.isArray(payload) ? payload.slice(0, 12) : (payload.results ?? []).slice(0, 12));
-      }
+      const summaryResponse = await apiFetch("/notifications/summary/");
       if (summaryResponse.ok) setUnread(Number((await summaryResponse.json() as { unread: number }).unread || 0));
     } catch {
       // Notifications must never break the primary workflow when connectivity is intermittent.
     }
   }, []);
 
-  useEffect(() => { void load(); const id = window.setInterval(load, 60_000); return () => window.clearInterval(id); }, [load]);
+  const loadInbox = useCallback(async () => {
+    try {
+      const response = await apiFetch("/notifications/?ordering=-created_at");
+      if (!response.ok) return;
+      const payload = await response.json() as { results?: Notice[] } | Notice[];
+      setNotices(Array.isArray(payload) ? payload.slice(0, 12) : (payload.results ?? []).slice(0, 12));
+      setInboxLoaded(true);
+    } catch { /* the primary workflow remains available */ }
+  }, []);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => void loadSummary(), 0);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") void loadSummary(); };
+    const id = window.setInterval(refreshWhenVisible, 120_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => { window.clearTimeout(initial); window.clearInterval(id); document.removeEventListener("visibilitychange", refreshWhenVisible); };
+  }, [loadSummary]);
 
   async function markRead(notice: Notice) {
     if (!notice.read_at) {
@@ -51,7 +62,7 @@ export function NotificationCenter() {
   }
 
   return <>
-    <IconButton aria-label={`${unread} unread notifications`} onClick={(event) => setAnchor(event.currentTarget)}>
+    <IconButton aria-label={`${unread} unread notifications`} onClick={(event) => { setAnchor(event.currentTarget); if (!inboxLoaded) void loadInbox(); }}>
       <Badge badgeContent={unread} color="error" max={99}><Bell size={19} /></Badge>
     </IconButton>
     <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)} slotProps={{ paper: { sx: { width: { xs: 330, sm: 390 }, maxHeight: 520, borderRadius: 3 } } }}>

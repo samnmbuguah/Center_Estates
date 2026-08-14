@@ -3,21 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { modules, ACTIVE_MODULES, activeModules } from "@/lib/modules";
+import { modules, ACTIVE_MODULES } from "@/lib/modules";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie, type DemoIdentityGroup } from "@/lib/api";
 import { useCallback } from "react";
 
-import { HardHat, Search, Moon, Sun, ChevronDown, Building2, Settings, LogOut, HelpCircle, ClipboardCheck, FileSpreadsheet } from "lucide-react";
+import { Search, Moon, Sun, LogOut, HelpCircle } from "lucide-react";
 import AppSidebar from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { isPublicRoute } from "@/lib/public-routes";
 import { usePropertyContext } from "@/lib/property-context";
-import { PropertyContextBar } from "@/components/property-context-bar";
 import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
 import { BrandedLoader } from "@/components/branded-loader";
 import { NotificationCenter } from "@/components/notification-center";
+import { QmChatLauncher } from "@/components/qm-chat-launcher";
 import { useTheme } from "@/theme/theme-provider";
 import {
   AppBar,
@@ -59,7 +59,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const [menuOpen, setMenuOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(null);
 
   // Listen for custom event to open mobile menu
   useEffect(() => {
@@ -233,8 +232,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   if (loading || !session) return <BrandedLoader message="Preparing your workspace" />;
 
   const allowed = new Set(allowedSlugs);
-  const requestedModule = pathname.split("/")[1];
-  const isKnownModule = modules.some((module) => module.slug === requestedModule);
   const activeOrganization = session.organizations.find((item) => item.id === session.activeOrganizationId);
   const activeModule = modules.find((module) => (
     pathname === `/${module.slug}` || pathname.startsWith(`/${module.slug}/`)
@@ -592,6 +589,11 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
         </div>
       </div>
     )}
+    <QmChatLauncher
+      enabled={allowed.has("companion")}
+      organizationId={session.activeOrganizationId}
+      offsetForSidebar={!moduleWorkspaceActive}
+    />
   </TelemetryProvider>
   );
 }
