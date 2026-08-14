@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Paper, Tab, Tabs, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, Paper, Tab, Tabs, Typography } from "@mui/material";
+import { AlertTriangle, BadgeDollarSign, BanknoteArrowDown, CircleGauge, ReceiptText, WalletCards } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { EmptyState, LoadingState, money } from "@/components/module-ui";
 import { PropertyReportLibrary } from "@/components/property-report-library";
 import {
-  CriticalReportCards, ExportFormat, PeriodFilterBar, ReportDataTable, ReportToolbar,
+  CriticalReportCards, ExportFormat, PeriodFilterBar, ReportDataTable, ReportKpiCard, ReportToolbar,
 } from "@/components/property-report-shared";
 
 type Row = Record<string, string | number | null>;
@@ -77,6 +78,7 @@ export function PropertyFinancialReports() {
             : section === 7 ? data?.budgets
               : [];
   const columns = rows?.length ? Object.keys(rows[0]) : [];
+  const propertyName = String(data?.collection_performance?.[0]?.property ?? "Selected property");
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -88,31 +90,23 @@ export function PropertyFinancialReports() {
         onExport={() => void exportReport()}
         exporting={exporting}
         exportDisabled={section === 8}
+        scope={`${propertyName} · ${start} to ${end}`}
       />
-      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
-        <Tabs value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto">
+      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden", p: .5, bgcolor: "background.paper" }}>
+        <Tabs aria-label="Financial report views" value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 42, "& .MuiTab-root": { minHeight: 42, borderRadius: 2, px: 2 }, "& .Mui-selected": { bgcolor: "action.selected" } }}>
           {sections.map(label => <Tab key={label} label={label} />)}
         </Tabs>
       </Paper>
       {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void load()}>Retry</Button>}>{error}</Alert>}
       {notice && <Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert>}
       <PeriodFilterBar start={start} end={end} onStart={setStart} onEnd={setEnd} onApply={() => void load()} />
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,1fr)", lg: "repeat(6,1fr)" }, gap: 1.25 }}>
-        {[
-          ["Total billed", k.total_billed, "primary"],
-          ["Total collected", k.total_collected, "success"],
-          ["Collection rate", `${k.collection_rate ?? 0}%`, "primary"],
-          ["Total arrears", k.total_arrears, "error"],
-          ["Total expenses", k.total_expenses, "warning"],
-          ["Net income", k.net_income, "success"],
-        ].map(([label, value, color]) => (
-          <Paper key={String(label)} variant="outlined" sx={{ p: 1.75, borderRadius: 3, borderTop: 3, borderTopColor: `${color}.main` }}>
-            <Typography variant="caption" color="text.primary" sx={{ fontWeight: 800 }}>{label}</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 900 }}>
-              {String(label).includes("rate") ? value : money.format(Number(value ?? 0))}
-            </Typography>
-          </Paper>
-        ))}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,minmax(0,1fr))", md: "repeat(3,minmax(0,1fr))", xl: "repeat(6,minmax(0,1fr))" }, gap: 1.25 }}>
+        <ReportKpiCard icon={ReceiptText} label="Total billed" value={money.format(Number(k.total_billed ?? 0))} helper="Charges raised in period" />
+        <ReportKpiCard icon={BadgeDollarSign} label="Total collected" value={money.format(Number(k.total_collected ?? 0))} helper="Receipts allocated" tone="success" />
+        <ReportKpiCard icon={CircleGauge} label="Collection rate" value={`${k.collection_rate ?? 0}%`} helper="Collected against billed" tone="info" />
+        <ReportKpiCard icon={AlertTriangle} label="Total arrears" value={money.format(Number(k.total_arrears ?? 0))} helper="Outstanding tenant balances" tone="error" />
+        <ReportKpiCard icon={BanknoteArrowDown} label="Total expenses" value={money.format(Number(k.total_expenses ?? 0))} helper="Posted expenditure" tone="warning" />
+        <ReportKpiCard icon={WalletCards} label="Net income" value={money.format(Number(k.net_income ?? 0))} helper="Collections less expenses" tone="success" />
       </Box>
 
       {section === 0 && (
@@ -123,7 +117,10 @@ export function PropertyFinancialReports() {
             <ReportCard title="Expense summary" rows={data?.expense_summary ?? []} />
           </Box>
           <Box>
-            <Typography sx={{ fontWeight: 900, mb: 1.25 }}>Critical financial packs</Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 2, mb: 1.25 }}>
+              <Box><Typography variant="h6" sx={{ fontWeight: 900 }}>Critical financial packs</Typography><Typography variant="body2" color="text.secondary">Client-ready statements with branded PDF, Excel and CSV outputs.</Typography></Box>
+              <Chip size="small" label="4 report packs" variant="outlined" />
+            </Box>
             <CriticalReportCards
               onExport={(key, format) => void exportReport(key, format)}
               items={[
@@ -188,8 +185,9 @@ export function PropertyFinancialReports() {
 
 function ReportCard({ title, rows, valueKey = "total" }: { title: string; rows: Row[]; valueKey?: string }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-      <Typography sx={{ fontWeight: 900, mb: 1 }}>{title}</Typography>
+    <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+      <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}><Typography sx={{ fontWeight: 900 }}>{title}</Typography><Chip size="small" label={`${rows.length} categor${rows.length === 1 ? "y" : "ies"}`} variant="outlined" /></Box>
+      <Box sx={{ px: 2, pb: 1 }}>
       {rows.length ? rows.slice(0, 8).map((row, index) => (
         <Box key={index} sx={{ display: "flex", justifyContent: "space-between", gap: 1, py: 1, borderBottom: 1, borderColor: "divider" }}>
           <Typography variant="body2">{String(row.property ?? row.category ?? "Other")}</Typography>
@@ -199,7 +197,8 @@ function ReportCard({ title, rows, valueKey = "total" }: { title: string; rows: 
               : money.format(Number(row[valueKey] ?? row.collected ?? 0))}
           </Typography>
         </Box>
-      )) : <Typography color="text.primary" sx={{ fontWeight: 800 }}>No transactions in this period.</Typography>}
+      )) : <Typography color="text.secondary" variant="body2" sx={{ py: 2 }}>No transactions in this period.</Typography>}
+      </Box>
     </Paper>
   );
 }

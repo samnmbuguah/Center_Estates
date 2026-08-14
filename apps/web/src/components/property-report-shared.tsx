@@ -1,7 +1,9 @@
 "use client";
 
 import { ReactNode, useMemo } from "react";
+import { alpha } from "@mui/material/styles";
 import { Box, Button, Chip, MenuItem, Paper, TextField, Typography } from "@mui/material";
+import { CalendarRange, Download, FileSpreadsheet, FileText, Filter, History, type LucideIcon } from "lucide-react";
 import { money } from "@/components/module-ui";
 
 export type ExportFormat = "pdf" | "xlsx" | "csv";
@@ -57,6 +59,7 @@ export function ReportToolbar({
   exporting,
   exportDisabled,
   children,
+  scope,
 }: {
   title: string;
   subtitle: string;
@@ -66,16 +69,31 @@ export function ReportToolbar({
   exporting?: boolean;
   exportDisabled?: boolean;
   children?: ReactNode;
+  scope?: string;
 }) {
   const exportLabel = exportFormat === "xlsx" ? "Excel" : exportFormat.toUpperCase();
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
-      <Box>
-        <Typography variant="overline" color="primary" sx={{ fontWeight: 900 }}>Reports & analytics</Typography>
-        <Typography variant="h5" sx={{ fontWeight: 900 }}>{title}</Typography>
-        <Typography variant="body2" color="text.primary" sx={{ fontWeight: 800 }}>{subtitle}</Typography>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: { xs: 2, md: 2.5 }, borderRadius: 3, overflow: "hidden", position: "relative",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2.5, flexWrap: "wrap",
+        background: theme => `linear-gradient(120deg, ${alpha(theme.palette.primary.main, .1)}, ${alpha(theme.palette.background.paper, .98)} 48%, ${alpha(theme.palette.info.main, .06)})`,
+        "&::after": { content: '""', position: "absolute", width: 180, height: 180, borderRadius: "50%", right: -90, top: -115, background: theme => alpha(theme.palette.primary.main, .08) },
+      }}
+    >
+      <Box sx={{ display: "flex", gap: 1.75, alignItems: "flex-start", minWidth: 0, position: "relative", zIndex: 1 }}>
+        <Box sx={{ width: 44, height: 44, flex: "0 0 auto", borderRadius: 2.5, display: "grid", placeItems: "center", bgcolor: "primary.main", color: "primary.contrastText", boxShadow: theme => `0 8px 22px ${alpha(theme.palette.primary.main, .25)}` }}>
+          <FileText size={22} />
+        </Box>
+        <Box>
+          <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900, letterSpacing: ".11em", lineHeight: 1 }}>Reporting workspace</Typography>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 900, mt: .35 }}>{title}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: .35, maxWidth: 760 }}>{subtitle}</Typography>
+          {scope && <Chip size="small" variant="outlined" label={scope} sx={{ mt: 1, bgcolor: "background.paper", fontWeight: 800 }} />}
+        </Box>
       </Box>
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", position: "relative", zIndex: 1, ml: { xs: 0, md: "auto" } }}>
         {children}
         <TextField
           select size="small" label="Format" value={exportFormat}
@@ -86,7 +104,7 @@ export function ReportToolbar({
           <MenuItem value="xlsx">Excel</MenuItem>
           <MenuItem value="csv">CSV</MenuItem>
         </TextField>
-        <Button variant="contained" onClick={onExport} disabled={exportDisabled || exporting}>
+        <Button variant="contained" startIcon={<Download size={17} />} onClick={onExport} disabled={exportDisabled || exporting} sx={{ minHeight: 40, px: 2 }}>
           {exporting ? "Preparing…" : `Export ${exportLabel}`}
         </Button>
       </Box>
@@ -126,47 +144,44 @@ export function PeriodFilterBar({
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", gap: 1.25, flexWrap: "wrap", alignItems: "center" }}>
-      <TextField
-        type="date"
-        size="small"
-        label="From"
-        value={start}
-        onChange={event => {
-          onStart(event.target.value);
-        }}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
-      <TextField
-        type="date"
-        size="small"
-        label="To"
-        value={end}
-        onChange={event => {
-          onEnd(event.target.value);
-        }}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
-      {extra}
-      <TextField
-        select
-        size="small"
-        label="Period"
-        value={selectedPreset}
-        onChange={event => handlePresetChange(event.target.value)}
-        sx={{ minWidth: 160 }}
-      >
-        <MenuItem value="custom">Custom Range</MenuItem>
-        <MenuItem value="this_month">This month</MenuItem>
-        <MenuItem value="last_month">Last month</MenuItem>
-        <MenuItem value="ytd">Year to date</MenuItem>
-        <MenuItem value="last_12">Last 12 months</MenuItem>
-      </TextField>
-      <Button variant="contained" color="primary" onClick={onApply} sx={{ fontWeight: 800 }}>
-        Filter
-      </Button>
+    <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
+      <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 1.5, alignItems: { xs: "stretch", md: "center" } }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: { md: 180 } }}>
+          <Box sx={{ width: 36, height: 36, borderRadius: 2, display: "grid", placeItems: "center", bgcolor: theme => alpha(theme.palette.primary.main, .1), color: "primary.main" }}><CalendarRange size={18} /></Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">Reporting period</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 900 }}>{selectedPreset === "custom" ? "Custom date range" : presets.find((_, index) => ["this_month", "last_month", "ytd", "last_12"][index] === selectedPreset)?.label}</Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: "flex", gap: 1, flex: 1, flexWrap: "wrap", alignItems: "center" }}>
+          <TextField type="date" size="small" label="From" value={start} onChange={event => onStart(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: { xs: "1 1 145px", md: "0 1 170px" } }} />
+          <TextField type="date" size="small" label="To" value={end} onChange={event => onEnd(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ flex: { xs: "1 1 145px", md: "0 1 170px" } }} />
+          {extra}
+          <TextField select size="small" label="Period" value={selectedPreset} onChange={event => handlePresetChange(event.target.value)} sx={{ minWidth: 155, flex: { xs: "1 1 150px", md: "0 0 155px" } }}>
+            <MenuItem value="custom">Custom range</MenuItem>
+            <MenuItem value="this_month">This month</MenuItem>
+            <MenuItem value="last_month">Last month</MenuItem>
+            <MenuItem value="ytd">Year to date</MenuItem>
+            <MenuItem value="last_12">Last 12 months</MenuItem>
+          </TextField>
+          <Button variant="contained" color="primary" startIcon={<Filter size={16} />} onClick={onApply} sx={{ fontWeight: 800, minHeight: 40, px: 2 }}>Apply filters</Button>
+        </Box>
+      </Box>
     </Paper>
   );
+}
+
+export function ReportKpiCard({ icon: Icon, label, value, helper, tone = "primary" }: { icon: LucideIcon; label: string; value: ReactNode; helper: string; tone?: "primary" | "success" | "warning" | "error" | "info" }) {
+  return <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 3, minWidth: 0, transition: "transform .18s ease, box-shadow .18s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: 2 } }}>
+    <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800 }}>{label}</Typography>
+        <Typography variant="h6" sx={{ fontWeight: 900, mt: .25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</Typography>
+      </Box>
+      <Box sx={{ width: 36, height: 36, flex: "0 0 auto", borderRadius: 2, display: "grid", placeItems: "center", bgcolor: theme => alpha(theme.palette[tone].main, .11), color: `${tone}.main` }}><Icon size={18} /></Box>
+    </Box>
+    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: .75 }}>{helper}</Typography>
+  </Paper>;
 }
 
 export function ReportDataTable({ rows, columns }: { rows: Array<Record<string, string | number | null>>; columns: string[] }) {
@@ -205,13 +220,19 @@ export function CriticalReportCards({
   return (
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.5 }}>
       {items.map(item => (
-        <Paper component="article" aria-label={item.title} key={item.key} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-          <Typography sx={{ fontWeight: 900 }}>{item.title}</Typography>
-          <Typography variant="body2" color="text.primary" sx={{ fontWeight: 800, mt: .5, mb: 1.5 }}>{item.description}</Typography>
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button aria-label={`Export ${item.title} as PDF`} size="small" variant="contained" onClick={() => onExport(item.key, "pdf")}>PDF</Button>
-            <Button aria-label={`Export ${item.title} as Excel`} size="small" variant="outlined" onClick={() => onExport(item.key, "xlsx")}>Excel</Button>
-            <Button aria-label={`Export ${item.title} as CSV`} size="small" variant="outlined" onClick={() => onExport(item.key, "csv")}>CSV</Button>
+        <Paper component="article" aria-label={item.title} key={item.key} variant="outlined" sx={{ p: 2, borderRadius: 3, display: "flex", flexDirection: "column", minHeight: 168, transition: "border-color .18s ease, box-shadow .18s ease", "&:hover": { borderColor: "primary.main", boxShadow: 2 } }}>
+          <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start" }}>
+            <Box sx={{ width: 38, height: 38, borderRadius: 2, flex: "0 0 auto", display: "grid", placeItems: "center", bgcolor: theme => alpha(theme.palette.primary.main, .1), color: "primary.main" }}><FileSpreadsheet size={19} /></Box>
+            <Box>
+              <Typography sx={{ fontWeight: 900 }}>{item.title}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: .35 }}>{item.description}</Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: "auto", pt: 1.75, borderTop: 1, borderColor: "divider" }}>
+            <Button aria-label={`Export ${item.title} as PDF`} size="small" variant="contained" startIcon={<Download size={14} />} onClick={() => onExport(item.key, "pdf")}>PDF</Button>
+            <Button aria-label={`Export ${item.title} as Excel`} size="small" variant="text" onClick={() => onExport(item.key, "xlsx")}>Excel</Button>
+            <Button aria-label={`Export ${item.title} as CSV`} size="small" variant="text" onClick={() => onExport(item.key, "csv")}>CSV</Button>
+            <Chip size="small" icon={<History size={13} />} label="Audited export" variant="outlined" sx={{ ml: { sm: "auto" } }} />
           </Box>
         </Paper>
       ))}

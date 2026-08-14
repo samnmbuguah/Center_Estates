@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Chip, MenuItem, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, LinearProgress, Paper, Tab, Tabs, Typography } from "@mui/material";
+import { AlertTriangle, Banknote, Building2, DoorOpen, Gauge, UsersRound } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { EmptyState, LoadingState, money } from "@/components/module-ui";
 import { PropertyReportLibrary } from "@/components/property-report-library";
 import {
-  CriticalReportCards, ExportFormat, PeriodFilterBar, ReportDataTable, ReportToolbar,
+  CriticalReportCards, ExportFormat, PeriodFilterBar, ReportDataTable, ReportKpiCard, ReportToolbar,
 } from "@/components/property-report-shared";
 
 type ReportData = {
@@ -89,6 +90,7 @@ export function PropertyTenancyReports() {
           : [];
   const columns = rows?.length ? Object.keys(rows[0]) : [];
   const schedule = data?.tenancy_schedule ?? [];
+  const propertyName = String(schedule[0]?.property ?? data?.vacant_units?.[0]?.property ?? "Selected property");
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -100,9 +102,10 @@ export function PropertyTenancyReports() {
         onExport={() => void exportReport()}
         exporting={exporting}
         exportDisabled={section === 6}
+        scope={`${propertyName} · ${start} to ${end}`}
       />
-      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
-        <Tabs value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto">
+      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden", p: .5, bgcolor: "background.paper" }}>
+        <Tabs aria-label="Tenancy report views" value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 42, "& .MuiTab-root": { minHeight: 42, borderRadius: 2, px: 2 }, "& .Mui-selected": { bgcolor: "action.selected" } }}>
           {sections.map(label => <Tab key={label} label={label} />)}
         </Tabs>
       </Paper>
@@ -115,51 +118,48 @@ export function PropertyTenancyReports() {
         onEnd={setEnd}
         onApply={() => void load()}
       />
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,1fr)", lg: "repeat(6,1fr)" }, gap: 1.25 }}>
-        {[
-          ["Total units", kpi.total_units],
-          ["Occupied units", kpi.occupied_units],
-          ["Vacant units", kpi.vacant_units],
-          ["Occupancy rate", `${kpi.occupancy_rate ?? 0}%`],
-          ["Potential income", money.format(Number(kpi.current_monthly_income ?? 0))],
-          ["Overdue tenants", kpi.overdue_tenants],
-        ].map(([label, value]) => (
-          <Paper key={String(label)} variant="outlined" sx={{ p: 1.75, borderRadius: 3, borderTop: 3, borderTopColor: "primary.main" }}>
-            <Typography variant="caption" color="text.primary" sx={{ fontWeight: 800 }}>{label}</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 900 }}>{value}</Typography>
-          </Paper>
-        ))}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,minmax(0,1fr))", md: "repeat(3,minmax(0,1fr))", xl: "repeat(6,minmax(0,1fr))" }, gap: 1.25 }}>
+        <ReportKpiCard icon={Building2} label="Total units" value={String(kpi.total_units ?? 0)} helper="Units in this property" />
+        <ReportKpiCard icon={UsersRound} label="Occupied units" value={String(kpi.occupied_units ?? 0)} helper="Active tenancies" tone="success" />
+        <ReportKpiCard icon={DoorOpen} label="Vacant units" value={String(kpi.vacant_units ?? 0)} helper="Available to let" tone="warning" />
+        <ReportKpiCard icon={Gauge} label="Occupancy rate" value={`${kpi.occupancy_rate ?? 0}%`} helper="Occupied against total" tone="info" />
+        <ReportKpiCard icon={Banknote} label="Potential income" value={money.format(Number(kpi.current_monthly_income ?? 0))} helper="Current monthly rent" tone="success" />
+        <ReportKpiCard icon={AlertTriangle} label="Overdue tenants" value={String(kpi.overdue_tenants ?? 0)} helper="Accounts requiring action" tone="error" />
       </Box>
 
       {section === 0 && (
         <Box sx={{ display: "grid", gap: 2 }}>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2 }}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-              <Typography sx={{ fontWeight: 900, mb: 2 }}>Unit status distribution</Typography>
+            <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: "divider" }}><Typography sx={{ fontWeight: 900 }}>Unit status distribution</Typography><Typography variant="caption" color="text.secondary">Current availability across this property</Typography></Box>
+              <Box sx={{ p: 2 }}>
               {(data?.unit_status_distribution ?? []).length ? data?.unit_status_distribution.map(row => (
-                <Box key={row.status} sx={{ display: "flex", justifyContent: "space-between", py: 1, borderBottom: 1, borderColor: "divider" }}>
-                  <Chip size="small" label={row.status} /><strong>{row.count}</strong>
+                <Box key={row.status} sx={{ py: 1 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: .75 }}><Chip size="small" label={row.status} /><Typography sx={{ fontWeight: 900 }}>{row.count}</Typography></Box>
+                  <LinearProgress variant="determinate" value={Number(kpi.total_units) ? row.count / Number(kpi.total_units) * 100 : 0} color={row.status === "occupied" ? "success" : "primary"} sx={{ height: 6, borderRadius: 4 }} />
                 </Box>
               )) : <Typography color="text.primary" sx={{ fontWeight: 800 }}>No units in the selected scope.</Typography>}
+              </Box>
             </Paper>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-              <Typography sx={{ fontWeight: 900 }}>Income outlook</Typography>
-              <Typography variant="h4" color="success.main" sx={{ fontWeight: 900, mt: 2 }}>
+            <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: "divider" }}><Typography sx={{ fontWeight: 900 }}>Income outlook</Typography><Typography variant="caption" color="text.secondary">Effective rent with scheduled escalations</Typography></Box>
+              <Box sx={{ p: 2 }}>
+              <Typography variant="h4" color="success.main" sx={{ fontWeight: 900 }}>
                 {money.format(Number(kpi.projected_monthly_income_90_days ?? 0))}
               </Typography>
-              <Typography color="text.primary" sx={{ fontWeight: 800 }}>
-                Projected monthly income within 90 days, including effective rent escalations.
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 2 }}>
-                Current monthly income: <strong>{money.format(Number(kpi.current_monthly_income ?? 0))}</strong>
-              </Typography>
-              <Typography variant="body2" color="error.main">
-                Overdue amount: <strong>{money.format(Number(kpi.overdue_amount ?? 0))}</strong>
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Projected monthly income within 90 days.</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mt: 2 }}>
+                <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2 }}><Typography variant="caption" color="text.secondary">Current income</Typography><Typography sx={{ fontWeight: 900 }}>{money.format(Number(kpi.current_monthly_income ?? 0))}</Typography></Box>
+                <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2 }}><Typography variant="caption" color="text.secondary">Overdue amount</Typography><Typography color="error.main" sx={{ fontWeight: 900 }}>{money.format(Number(kpi.overdue_amount ?? 0))}</Typography></Box>
+              </Box>
+              </Box>
             </Paper>
           </Box>
           <Box>
-            <Typography sx={{ fontWeight: 900, mb: 1.25 }}>Critical tenancy packs</Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 2, mb: 1.25 }}>
+              <Box><Typography variant="h6" sx={{ fontWeight: 900 }}>Critical tenancy packs</Typography><Typography variant="body2" color="text.secondary">Operational schedules for occupancy, movement and renewal decisions.</Typography></Box>
+              <Chip size="small" label="4 report packs" variant="outlined" />
+            </Box>
             <CriticalReportCards
               onExport={(key, format) => void exportReport(key, format)}
               items={[
