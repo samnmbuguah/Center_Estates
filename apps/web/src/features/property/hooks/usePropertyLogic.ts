@@ -214,23 +214,28 @@ export function usePropertyLogic({
       } else if (tab === "rent") {
         if (rentSection === "arrears") {
           const agingRes = await apiFetch("/property/analytics/aging/?search=", {}, organizationId);
-          if (!agingRes.ok) { fail(); return; }
-          const agingData = await agingRes.json();
-          if (version !== loadVersion.current) return;
-          setAnalytics(agingData as AgingAnalytics);
-          setRows(((agingData as AgingAnalytics).tenants ?? []) as Row[]);
+          if (agingRes.ok) {
+            const agingData = await agingRes.json();
+            if (version !== loadVersion.current) return;
+            setAnalytics(agingData as AgingAnalytics);
+            setRows(((agingData as AgingAnalytics).tenants ?? []) as Row[]);
+          } else {
+            setRows([]);
+          }
         } else {
           const [listRes, agingRes] = await Promise.all([
             apiFetch(`/property/${rentEndpoint(rentSection)}/?search=${q}`, {}, organizationId),
             apiFetch("/property/analytics/aging/?search=", {}, organizationId),
           ]);
-          if (!listRes.ok || !agingRes.ok) { fail(); return; }
+          if (!listRes.ok) { fail(); return; }
           const listData = await listRes.json();
-          const agingData = await agingRes.json();
           if (version !== loadVersion.current) return;
           const list = Array.isArray(listData) ? listData as Row[] : [];
           setRows(list);
-          setAnalytics(agingData as AgingAnalytics);
+          if (agingRes.ok) {
+            const agingData = await agingRes.json().catch(() => null);
+            if (agingData) setAnalytics(agingData as AgingAnalytics);
+          }
           if (rentSection === "invoices" || rentSection === "ledger") {
             setRentInvoices(list as InvoiceRow[]);
           }
@@ -240,23 +245,27 @@ export function usePropertyLogic({
           apiFetch(`/property/expenses/?search=${q}`, {}, organizationId),
           apiFetch("/property/analytics/income-expenses/?search=", {}, organizationId),
         ]);
-        if (!listRes.ok || !finRes.ok) { fail(); return; }
+        if (!listRes.ok) { fail(); return; }
         const listData = await listRes.json();
-        const finData = await finRes.json();
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(listData) ? listData as Row[] : []);
-        setFinancial(finData as FinancialAnalytics);
+        if (finRes.ok) {
+          const finData = await finRes.json().catch(() => null);
+          if (finData) setFinancial(finData as FinancialAnalytics);
+        }
       } else if (tab === "receipts") {
         const [listRes, cnRes] = await Promise.all([
           apiFetch(`/property/receipts/?search=${q}`, {}, organizationId),
           apiFetch("/property/credit-notes/?search=", {}, organizationId),
         ]);
-        if (!listRes.ok || !cnRes.ok) { fail(); return; }
+        if (!listRes.ok) { fail(); return; }
         const listData = await listRes.json();
-        const cnData = await cnRes.json();
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(listData) ? listData as Row[] : []);
-        setCreditNotes(Array.isArray(cnData) ? cnData as Row[] : []);
+        if (cnRes.ok) {
+          const cnData = await cnRes.json().catch(() => []);
+          setCreditNotes(Array.isArray(cnData) ? cnData as Row[] : []);
+        }
       } else if (tab === "tenancy") {
         const [unitsRes, tenantsRes, leasesRes, docsRes, ageRes] = await Promise.all([
           apiFetch(`/property/units/?search=${q}`, {}, organizationId),

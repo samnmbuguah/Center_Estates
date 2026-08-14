@@ -68,7 +68,11 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       apiFetch("/property/invoices/", {}, organizationId),
     ]);
     if (!runResponse.ok || !invoiceResponse.ok) {
-      setError(await apiErrorMessage(!runResponse.ok ? runResponse : invoiceResponse, "Billing information could not be loaded."));
+      if (runResponse.status === 403 || invoiceResponse.status === 403) {
+        setError("Billing and invoice generation requires Finance or Platform Administrator access for this organization.");
+      } else {
+        setError(await apiErrorMessage(!runResponse.ok ? runResponse : invoiceResponse, "Billing information could not be loaded."));
+      }
       setLoading(false); return;
     }
     const runRows = await runResponse.json() as BillingRun[];

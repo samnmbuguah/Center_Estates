@@ -32,6 +32,8 @@ class HasDomainPermission(HasModuleSubscription):
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
+        if getattr(request.user, 'is_superuser', False):
+            return True
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)
         key = getattr(view, 'required_permission', self.permission_key)
@@ -41,7 +43,7 @@ class HasDomainPermission(HasModuleSubscription):
 class HasModuleActionPermission(HasModuleSubscription):
     """Require a module role permission selected from the requested action.
 
-    Organization administrators remain unrestricted. Other members must receive
+    Organization administrators and superusers remain unrestricted. Other members must receive
     explicit ``<module>.view``, ``<module>.manage``, ``<module>.approve`` or
     ``<module>.report`` permission through an organization role.
     """
@@ -55,6 +57,8 @@ class HasModuleActionPermission(HasModuleSubscription):
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
+        if getattr(request.user, 'is_superuser', False):
+            return True
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)
         if not membership:
