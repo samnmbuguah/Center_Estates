@@ -82,15 +82,15 @@ export function ReportToolbar({
         "&::after": { content: '""', position: "absolute", width: 180, height: 180, borderRadius: "50%", right: -90, top: -115, background: theme => alpha(theme.palette.primary.main, .08) },
       }}
     >
-      <Box sx={{ display: "flex", gap: 1.75, alignItems: "flex-start", minWidth: 0, position: "relative", zIndex: 1 }}>
+      <Box sx={{ display: "flex", gap: { xs: 1.25, sm: 1.75 }, alignItems: "flex-start", minWidth: 0, flex: "1 1 520px", position: "relative", zIndex: 1 }}>
         <Box sx={{ width: 44, height: 44, flex: "0 0 auto", borderRadius: 2.5, display: "grid", placeItems: "center", bgcolor: "primary.main", color: "primary.contrastText", boxShadow: theme => `0 8px 22px ${alpha(theme.palette.primary.main, .25)}` }}>
           <FileText size={22} />
         </Box>
-        <Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900, letterSpacing: ".11em", lineHeight: 1 }}>Reporting workspace</Typography>
           <Typography variant="h5" component="h2" sx={{ fontWeight: 900, mt: .35 }}>{title}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: .35, maxWidth: 760 }}>{subtitle}</Typography>
-          {scope && <Chip size="small" variant="outlined" label={scope} sx={{ mt: 1, bgcolor: "background.paper", fontWeight: 800 }} />}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: .35, maxWidth: 760, overflowWrap: "anywhere" }}>{subtitle}</Typography>
+          {scope && <Chip size="small" variant="outlined" label={scope} sx={{ mt: 1, maxWidth: "100%", bgcolor: "background.paper", fontWeight: 800, "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" } }} />}
         </Box>
       </Box>
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", position: "relative", zIndex: 1, ml: { xs: 0, md: "auto" } }}>
