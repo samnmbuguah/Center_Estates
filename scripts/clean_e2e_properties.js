@@ -1,6 +1,6 @@
 const API_BASE = "https://api.centerestates.com/api/v1";
-const ADMIN = "admin";
-const PASS = "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f";
+const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
+const PASS = process.env.E2E_ADMIN_PASSWORD;
 
 function extractCookies(response, existingMap = {}) {
   const map = { ...existingMap };
@@ -22,6 +22,7 @@ function cookieString(map) {
 }
 
 async function run() {
+  if (!PASS) throw new Error("E2E_ADMIN_PASSWORD is required.");
   console.log("Logging in to Center Estates API...");
   let cookieMap = {};
 

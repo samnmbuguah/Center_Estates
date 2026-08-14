@@ -30,6 +30,7 @@ type GatewayConfig = {
 
 export default function AdministrationPage() {
   const { session } = useAuth();
+  const isSuperAdministrator = Boolean(session?.user.isSuperuser);
   const organizationId = session?.activeOrganizationId ?? null;
   const [tab, setTab] = useState<"mpesa" | "roles" | "orgs" | "tax" | "audit">("mpesa");
   const [properties, setProperties] = useState<PropertyItem[]>([]);
@@ -50,7 +51,7 @@ export default function AdministrationPage() {
   const [tillNumber, setTillNumber] = useState("");
 
   const loadProperties = useCallback(async () => {
-    if (!organizationId) return;
+    if (!organizationId || !isSuperAdministrator) return;
     try {
       const res = await apiFetch("/property/properties/", {}, organizationId);
       if (res.ok) {
@@ -64,10 +65,10 @@ export default function AdministrationPage() {
     } catch (err) {
       console.error("Failed to load properties", err);
     }
-  }, [organizationId, selectedPropertyId]);
+  }, [organizationId, selectedPropertyId, isSuperAdministrator]);
 
   const loadGateway = useCallback(async () => {
-    if (!organizationId || !selectedPropertyId) return;
+    if (!organizationId || !selectedPropertyId || !isSuperAdministrator) return;
     setLoading(true);
     try {
       const res = await apiFetch(`/property/payment-gateways/?property=${selectedPropertyId}`, {}, organizationId);
@@ -102,7 +103,7 @@ export default function AdministrationPage() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, selectedPropertyId]);
+  }, [organizationId, selectedPropertyId, isSuperAdministrator]);
 
   useEffect(() => {
     void loadProperties();
@@ -164,6 +165,20 @@ export default function AdministrationPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (session && !isSuperAdministrator) {
+    return (
+      <main style={{ padding: "48px 32px", maxWidth: 760, margin: "0 auto" }}>
+        <div className="card" style={{ padding: 32, textAlign: "center" }}>
+          <Shield size={38} aria-hidden="true" style={{ margin: "0 auto 12px", color: "#dc2626" }} />
+          <h1 style={{ margin: "0 0 8px", fontSize: "1.5rem" }}>Super administrator access required</h1>
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            Organization administration, platform integrations and access control are restricted to the Center Estates super administrator.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (

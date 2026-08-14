@@ -15,10 +15,31 @@ class MembershipSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='organization.name')
     slug = serializers.CharField(source='organization.slug')
     is_admin = serializers.BooleanField(source='is_organization_admin')
+    company_name = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
+    primary_color = serializers.SerializerMethodField()
+
+    @staticmethod
+    def _branding(obj):
+        settings = obj.organization.settings or {}
+        branding = settings.get('branding', {})
+        return branding if isinstance(branding, dict) else {}
+
+    def get_company_name(self, obj):
+        return self._branding(obj).get('company_name') or obj.organization.name
+
+    def get_logo_url(self, obj):
+        return self._branding(obj).get('logo_url') or ''
+
+    def get_primary_color(self, obj):
+        return self._branding(obj).get('primary_color') or ''
 
     class Meta:
         model = Membership
-        fields = ('id', 'name', 'slug', 'is_default', 'is_admin')
+        fields = (
+            'id', 'name', 'slug', 'is_default', 'is_admin',
+            'company_name', 'logo_url', 'primary_color',
+        )
 
 
 def serialize_modules(organization, membership=None):

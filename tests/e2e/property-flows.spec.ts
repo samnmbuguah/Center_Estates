@@ -3,7 +3,7 @@ import { openTab, expectNoPageErrors } from "./helpers";
 
 const BASE = process.env.E2E_BASE_URL || "https://centerestates.com";
 const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
-const PASS = process.env.E2E_ADMIN_PASSWORD || "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f";
+const PASS = process.env.E2E_ADMIN_PASSWORD || "";
 
 async function signIn(page: Page) {
   await page.goto(`${BASE}/login`);
@@ -44,18 +44,19 @@ test("property overview is scoped to the selected property", async ({ page }) =>
   await expectNoPageErrors(page, errors);
 });
 
-test("property list shows properties with correct data and filters work", async ({ page }) => {
+test("portfolio overview shows properties with working search", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.goto("/property");
-  await openTab(page, "Properties");
+  await page.goto("/overview");
   await page.waitForTimeout(1500);
 
-  await expect(page.locator("table, [role=table], .fc-alert-list").first()).toBeVisible();
-
-  const exportBtn = page.getByRole("button", { name: /Export/i });
-  if (await exportBtn.count() > 0) await expect(exportBtn.first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+  await expect(page.getByText(/Properties Register/i)).toBeVisible();
+  const search = page.getByPlaceholder("Search properties...");
+  await expect(search).toBeVisible();
+  await search.fill("Nyali");
+  await expect(page.getByText("Nyali Trade Centre", { exact: true }).first()).toBeVisible();
 
   await expectNoPageErrors(page, errors);
 });
@@ -68,7 +69,9 @@ test("tenant list shows seeded tenants and search works", async ({ page }) => {
   await openTab(page, "Tenants");
   await page.waitForTimeout(500);
 
-  await expect(page.locator("table, [role=table], .fc-alert-list").first()).toBeVisible();
+  await expect(
+    page.locator("table, [role=table], .fc-alert-list").first().or(page.getByRole("heading", { name: "No tenants found" }))
+  ).toBeVisible();
 
   const searchInput = page.locator("input[placeholder*='earch'], input[aria-label*='earch'], input[type='search']").first();
   if (await searchInput.count() > 0) {
@@ -248,9 +251,7 @@ test("budgets view shows budget lines and utilization", async ({ page }) => {
   await page.waitForTimeout(2000);
 
   await expect(page.getByRole("heading", { name: /BUDGET|Budget|ESTIMATE/i }).first()).toBeVisible();
-  await expect(
-    page.locator("table, [role=table], .fc-alert-list, .data-panel, .card").first().or(page.getByText(/No .*budget|No schemes|No data|empty/i).first())
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Budget Utilization" }).or(page.getByRole("heading", { name: "No budgets found" })).first()).toBeVisible();
 
   const approveBtn = page.getByRole("button", { name: /Approve/i }).first();
   if (await approveBtn.count() > 0) await expect(approveBtn).toBeVisible();

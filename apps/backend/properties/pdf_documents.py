@@ -112,7 +112,11 @@ def _logo_path(configured_logo: str) -> Path | None:
         relative = configured_logo.lstrip("/")
         if relative.startswith("media/"):
             candidates.append(Path(django_settings.MEDIA_ROOT) / relative.removeprefix("media/"))
-        candidates.extend((Path(django_settings.BASE_DIR) / relative, Path(configured_logo)))
+        candidates.extend((
+            Path(django_settings.BASE_DIR) / relative,
+            Path(django_settings.BASE_DIR).parent / "web" / "public" / relative,
+            Path(configured_logo),
+        ))
     candidates.append(Path(django_settings.BASE_DIR).parent / "web" / "public" / "center-estates-logo.png")
     return next((path for path in candidates if path.is_file()), None)
 

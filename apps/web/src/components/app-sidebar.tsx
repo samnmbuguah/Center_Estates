@@ -51,6 +51,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   }, []);
 
   const isAdministrator = Boolean(session?.user.isSuperuser || session?.permissions.includes("*") || session?.roles.includes("admin"));
+  const activeOrganization = session?.organizations.find((organization) => organization.id === session.activeOrganizationId);
 
   return (
     <>
@@ -194,7 +195,14 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <BrandLogo size="sm" showWordmark dark />
+            <BrandLogo
+              size="sm"
+              showWordmark
+              dark
+              brandName={activeOrganization?.company_name || activeOrganization?.name}
+              logoUrl={activeOrganization?.logo_url}
+              primaryColor={activeOrganization?.primary_color}
+            />
           </Box>
           {isMobile && (
             <IconButton
@@ -406,7 +414,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
               <span>Settings</span>
             </Link>
 
-            <Link
+            {isAdministrator && <Link
               className={`nav-link ${pathname === "/administration" ? "active" : ""}`}
               href="/administration"
               onClick={onCloseMobile}
@@ -427,7 +435,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             >
               <span style={{ fontSize: isMobile ? 18 : 15 }}>🛡️</span>
               <span>Administration</span>
-            </Link>
+            </Link>}
           </div>
 
         </Box>

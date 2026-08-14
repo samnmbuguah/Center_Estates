@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { openModuleSection } from "./helpers";
 
-const password = process.env.E2E_ADMIN_PASSWORD || "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f";
+const password = process.env.E2E_ADMIN_PASSWORD || "";
 
 async function signIn(page: Page) {
   if (!password) throw new Error("E2E_ADMIN_PASSWORD is required");

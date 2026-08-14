@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 const BASE = process.env.E2E_BASE_URL || "https://centerestates.com";
 const ADMIN = process.env.E2E_ADMIN_USERNAME || "admin";
-const PASS = process.env.E2E_ADMIN_PASSWORD || "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f";
+const PASS = process.env.E2E_ADMIN_PASSWORD || "";
 
 async function signIn(page: Page) {
   await page.goto(`${BASE}/login`);

@@ -1,4 +1,13 @@
-export type Organization = { id: string; name: string; slug: string; is_default: boolean; is_admin: boolean };
+export type Organization = {
+  id: string;
+  name: string;
+  slug: string;
+  is_default: boolean;
+  is_admin: boolean;
+  company_name?: string;
+  logo_url?: string;
+  primary_color?: string;
+};
 export type ModuleEntitlement = { slug: string; name: string; limits: Record<string, unknown> };
 export type DemoIdentity = {
   id: number;

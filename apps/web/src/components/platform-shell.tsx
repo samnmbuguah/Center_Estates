@@ -291,7 +291,15 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
             {/* Top Navbar Left: Prominent Logo + Property Switcher Dropdown inside Module Workspace */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               {moduleWorkspaceActive && (
-                <BrandLogo size="lg" href="/workspaces" showWordmark dark={false} />
+                <BrandLogo
+                  size="lg"
+                  href="/workspaces"
+                  showWordmark
+                  dark={false}
+                  brandName={activeOrganization?.company_name || activeOrganization?.name}
+                  logoUrl={activeOrganization?.logo_url}
+                  primaryColor={activeOrganization?.primary_color}
+                />
               )}
               {moduleWorkspaceActive && activeProperty && (
                 <Box sx={{ minWidth: 220 }}>
@@ -412,7 +420,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <FormControl size="small" sx={{ minWidth: { xs: 0, md: 150 }, display: { xs: "none", sm: "flex" } }}>
+              {session.user.isSuperuser && session.organizations.length > 1 ? <FormControl size="small" sx={{ minWidth: { xs: 0, md: 150 }, display: { xs: "none", sm: "flex" } }}>
                 <InputLabel>Organization</InputLabel>
                 <Select
                   value={activeOrganization?.id ?? ""}
@@ -425,7 +433,12 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                     </MenuItem>
                   ))}
                 </Select>
-              </FormControl>
+              </FormControl> : (
+                <Box sx={{ display: { xs: "none", sm: "flex" }, flexDirection: "column", minWidth: 130 }} aria-label="Current organization">
+                  <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Organization</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 800 }}>{activeOrganization?.name}</Typography>
+                </Box>
+              )}
 
               <IconButton onClick={toggleThemeHandler} title={`Switch to ${mode === "dark" ? "Light" : "Dark"} Mode`}>
                 {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}

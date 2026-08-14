@@ -11,28 +11,37 @@ export function BrandLogo({
   showWordmark = true,
   href,
   dark = true,
+  brandName = "Center Estates",
+  tagline = "Estate ERP",
+  logoUrl,
+  primaryColor = "#e52e2e",
 }: {
   size?: "sm" | "md" | "lg";
   showWordmark?: boolean;
   href?: string;
   dark?: boolean;
+  brandName?: string;
+  tagline?: string;
+  logoUrl?: string;
+  primaryColor?: string;
 }) {
   const dims = { sm: 30, md: 38, lg: 48 };
   const d = dims[size];
   const wordmarkColor = dark ? "#ffffff" : "var(--text)";
   const subColor = dark ? "#ef4444" : "var(--muted)";
+  const customLogo = Boolean(logoUrl);
 
   const inner = (
     <>
       <div
         style={{
-          width: d,
+          width: customLogo ? Math.round(d * 3.8) : d,
           height: d,
           borderRadius: Math.round(d * 0.28),
           flexShrink: 0,
           display: "grid",
           placeItems: "center",
-          background: "linear-gradient(145deg, #e52e2e, #b91c1c)",
+          background: customLogo ? "#ffffff" : `linear-gradient(145deg, ${primaryColor}, #7f1d1d)`,
           boxShadow: `0 ${Math.round(d * 0.12)}px ${Math.round(d * 0.3)}px rgba(229,46,46,0.35)`,
           color: "#fff",
           fontWeight: 900,
@@ -40,15 +49,15 @@ export function BrandLogo({
           letterSpacing: "-0.02em",
         }}
       >
-        <img src="/center-estates-logo.png" alt="Center Estates" width={d} height={d} loading="eager" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", borderRadius: "inherit", display: "block", background: "#fff" }} />
+        <img src={logoUrl || "/center-estates-logo.png"} alt={brandName} width={customLogo ? Math.round(d * 3.8) : d} height={d} loading="eager" decoding="async" style={{ width: "100%", height: "100%", objectFit: customLogo ? "contain" : "cover", objectPosition: "center", borderRadius: "inherit", display: "block", background: "#fff" }} />
       </div>
-      {showWordmark && (
+      {showWordmark && !customLogo && (
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, minWidth: 0, marginLeft: 2 }}>
           <span style={{ fontSize: size === "lg" ? 18 : 15, fontWeight: 900, color: wordmarkColor, letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
-            Center Estates
+            {brandName}
           </span>
           <span style={{ fontSize: size === "lg" ? 10 : 9, fontWeight: 800, color: subColor, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap", marginTop: -1 }}>
-            Estate ERP
+            {tagline}
           </span>
         </div>
       )}
