@@ -13,7 +13,7 @@ test("administrator sees the concise role catalogue and feature matrix", async (
   await page.goto("/administration");
   await page.getByRole("button", { name: /Roles & User Access/i }).click();
   await expect(page.getByRole("heading", { name: "Roles and feature access" })).toBeVisible();
-  await page.getByLabel("Role").click();
+  await page.getByRole("combobox", { name: "Role", exact: true }).click();
   await expect(page.getByRole("option", { name: "Portfolio Manager" })).toBeVisible();
   await expect(page.getByRole("option", { name: "Finance Officer" })).toBeVisible();
   await expect(page.getByRole("option", { name: "Operations Staff" })).toBeVisible();
