@@ -114,8 +114,16 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     cp -a apps/web/public/* "\${standalone}/public/" 2>/dev/null || true
     mkdir -p tmp
     touch tmp/restart.txt
-    # Kill any cached background next-server workers to force LiteSpeed to spin up a clean server process
-    pkill -9 -u \$(id -u) -f 'next-server' 2>/dev/null || true
+    # Restart only this application's Next worker. A broad process kill also
+    # matches this remote shell because its command text contains
+    # the Next process name, which used to terminate SSH with exit 255 after an
+    # otherwise successful upload.
+    web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == \"next-server\" {print \$1}')
+    for web_pid in \${web_pids}; do
+      if [ \"\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)\" = \"${FRONTEND_PATH}/apps/web/.next/standalone/apps/web\" ]; then
+        kill -TERM \"\${web_pid}\" 2>/dev/null || true
+      fi
+    done
   "
 fi
 
