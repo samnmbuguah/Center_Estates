@@ -141,9 +141,9 @@ export default function LoginPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[
                 { label: "Super Admin", user: "admin" },
-                { label: "Property Manager", user: "role-property-admin" },
-                { label: "Facility Technician", user: "role-facility-technician" },
-                { label: "Valuation Inspector", user: "role-valuer-inspector" },
+                { label: "Portfolio Manager", user: "role-portfolio-manager" },
+                { label: "Operations Staff", user: "role-operations-staff" },
+                { label: "Finance Officer", user: "role-finance-officer" },
               ].map((p) => (
                 <button
                   key={p.user}

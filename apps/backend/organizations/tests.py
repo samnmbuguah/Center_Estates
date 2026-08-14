@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
 
 from core.models import Module
 
@@ -61,3 +62,72 @@ class OrganizationRoleTests(TestCase):
             organization=self.first, is_organization_admin=True,
         )
         self.assertTrue(admin.has_permission('anything'))
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class OrganizationAccessApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='access-admin')
+        self.organization = Organization.objects.create(name='Access Org', slug='access-org')
+        self.membership = Membership.objects.create(
+            user=self.user,
+            organization=self.organization,
+            is_organization_admin=True,
+            is_default=True,
+        )
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.view_permission = Permission.objects.create(
+            key='property.view', label='View Property Management', module=Module.PROPERTY,
+        )
+        self.manage_permission = Permission.objects.create(
+            key='property.manage', label='Manage Property Management', module=Module.PROPERTY,
+        )
+
+    def test_administrator_can_create_update_and_delete_custom_role(self):
+        created = self.client.post(
+            '/api/v1/access/roles/',
+            {'name': 'Regional Supervisor', 'permission_keys': ['property.view']},
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        role_id = created.data['id']
+        self.assertEqual(created.data['slug'], 'regional-supervisor')
+        self.assertEqual(created.data['permission_keys'], ['property.view'])
+
+        updated = self.client.patch(
+            f'/api/v1/access/roles/{role_id}/',
+            {'permission_keys': ['property.view', 'property.manage']},
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertCountEqual(updated.data['permission_keys'], ['property.view', 'property.manage'])
+
+        deleted = self.client.delete(f'/api/v1/access/roles/{role_id}/', **self.headers)
+        self.assertEqual(deleted.status_code, 204)
+
+    def test_non_administrator_cannot_manage_roles(self):
+        self.membership.is_organization_admin = False
+        self.membership.save()
+        response = self.client.get('/api/v1/access/roles/', **self.headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_role_catalog_hides_legacy_system_presets(self):
+        Role.objects.create(
+            organization=self.organization, name='Legacy Inspector', slug='facility-inspector', is_system=True,
+        )
+        Role.objects.create(
+            organization=self.organization, name='Portfolio Manager', slug='portfolio-manager', is_system=True,
+        )
+        custom = Role.objects.create(
+            organization=self.organization, name='Custom Desk', slug='custom-desk', is_system=False,
+        )
+        response = self.client.get('/api/v1/access/roles/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        slugs = {item['slug'] for item in response.data}
+        self.assertIn('portfolio-manager', slugs)
+        self.assertIn(custom.slug, slugs)
+        self.assertNotIn('facility-inspector', slugs)

@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
-import { CreditCard, Shield, Building, FileText, Activity, Key, CheckCircle, AlertCircle, Save, Smartphone } from "lucide-react";
+import { CreditCard, Shield, Building, FileText, Activity, CheckCircle, AlertCircle, Save } from "lucide-react";
+import { RoleAccessManager } from "@/components/role-access-manager";
 
 type PropertyItem = { id: string; name: string; code: string };
 type GatewayConfig = {
@@ -404,30 +405,7 @@ export default function AdministrationPage() {
       {/* TAB 2: ROLES & USER ACCESS */}
       {tab === "roles" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <h2 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>🔐 Role-Based Access & User Permissions</h2>
-          <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
-            Overview of platform roles and feature entitlements across Super Administrators, Property Managers, Financial Accountants, Caretakers, and Tenants.
-          </p>
-
-          <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {[
-              { role: "Super Administrator", desc: "Full administrative access to all properties, organizations, system settings, and audit logs.", badge: "Platform Superuser" },
-              { role: "Property Manager", desc: "Can manage property profiles, buildings, unit allocations, tenants, and lease agreements.", badge: "Property Operations" },
-              { role: "Financial Accountant", desc: "Access to billing, rent schedules, receipt allocations, bank reconciliations, and financial PDF reports.", badge: "Finance & Accounts" },
-              { role: "Caretaker / Field Staff", desc: "Access to meter reading entry, site maintenance work orders, and field task management.", badge: "Facility Operations" },
-              { role: "Tenant / Client", desc: "Access to standalone Tenant Portal for viewing rent invoices, receipts, and submitting maintenance tickets.", badge: "Client Portal" },
-            ].map((item) => (
-              <div key={item.role} style={{ padding: 16, border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <strong style={{ fontSize: 15, color: "var(--text)" }}>{item.role}</strong>
-                  <span style={{ fontSize: 11, padding: "2px 8px", background: "#eef2ff", color: "#3730a3", borderRadius: 12, fontWeight: 700 }}>
-                    {item.badge}
-                  </span>
-                </div>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{item.desc}</p>
-              </div>
-            ))}
-          </div>
+          <RoleAccessManager organizationId={organizationId} />
         </div>
       )}
 

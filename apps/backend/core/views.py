@@ -27,6 +27,13 @@ from core.property_scope import get_active_property, scope_model_queryset
 from organizations.models import Membership
 
 IMPERSONATOR_COOKIE = getattr(settings, 'JWT_IMPERSONATOR_COOKIE', 'ce_impersonator')
+VISIBLE_DEMO_IDENTITIES = {
+    'admin',
+    'role-portfolio-manager',
+    'role-finance-officer',
+    'role-operations-staff',
+    'role-read-only',
+}
 
 
 class CalendarFeedView(APIView):
@@ -361,6 +368,12 @@ class DemoIdentitiesView(APIView):
             user = membership.user
             if not _is_demo_identity(user) and not membership.is_organization_admin:
                 continue
+            # Keep the client-facing identity switcher concise. Specialist
+            # seeded users remain valid for automated acceptance tests and
+            # existing bookmarks, but are configured as permission presets
+            # rather than presented as separate day-to-day roles.
+            if user.username not in VISIBLE_DEMO_IDENTITIES and not membership.is_organization_admin and not user.is_superuser:
+                continue
             roles = list(membership.roles.all())
             primary = roles[0] if roles else None
             module = primary.permissions.first().module if primary and primary.permissions.exists() else 'platform'
@@ -382,7 +395,7 @@ class DemoIdentitiesView(APIView):
                 'isAdmin': bool(membership.is_organization_admin or user.is_superuser),
                 'isCurrent': user.pk == request.user.pk,
             })
-        module_order = ['platform', 'property', 'facility', 'sales', 'tender', 'valuation', 'monitoring']
+        module_order = ['platform', 'property', 'facility', 'companion', 'sales', 'tender', 'valuation', 'monitoring']
         groups = []
         for module in module_order:
             items = [item for item in identities if item['module'] == module]

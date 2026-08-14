@@ -190,6 +190,52 @@ class Command(BaseCommand):
                 business_role.permissions.add(permission_catalog['property.view'])
             seed_role_user(f'role-{role_slug}', first_name, last_name, business_role)
 
+        # Keep the client-facing role catalogue deliberately small. The
+        # specialist roles above remain available to existing demo journeys,
+        # while administrators configure day-to-day access from these four
+        # broad presets or create a custom role in the feature matrix.
+        core_roles = {
+            'portfolio-manager': (
+                'Portfolio Manager',
+                tuple(key for key in permission_catalog if key.startswith(('property.', 'facility.', 'companion.'))),
+            ),
+            'finance-officer': (
+                'Finance Officer',
+                ('property.view', 'property.finance', 'property.approve', 'property.report', 'companion.view'),
+            ),
+            'operations-staff': (
+                'Operations Staff',
+                (
+                    'property.view', 'facility.view', 'facility.manage', 'facility.work',
+                    'facility.inspect', 'facility.report', 'companion.view', 'companion.manage',
+                    'companion.assign',
+                ),
+            ),
+            'read-only': (
+                'Read Only',
+                (
+                    'property.view', 'property.report', 'facility.view', 'facility.report',
+                    'companion.view', 'companion.report',
+                ),
+            ),
+        }
+        core_people = {
+            'portfolio-manager': ('Morgan', 'Manager'),
+            'finance-officer': ('Faith', 'Finance'),
+            'operations-staff': ('Otieno', 'Operations'),
+            'read-only': ('Rita', 'Reviewer'),
+        }
+        for role_slug, (role_name, keys) in core_roles.items():
+            core_role, created = Role.objects.get_or_create(
+                organization=organization,
+                slug=role_slug,
+                defaults={'name': role_name, 'is_system': True},
+            )
+            if created:
+                core_role.permissions.set(permission_catalog[key] for key in keys)
+            first_name, last_name = core_people[role_slug]
+            seed_role_user(f'role-{role_slug}', first_name, last_name, core_role)
+
         prop, _ = Property.objects.update_or_create(
             organization=organization, code='CE-NRB-001',
             defaults={
