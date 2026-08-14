@@ -347,7 +347,7 @@ export const constructionNav: ModuleNavGroup[] = [  {
 ];
 
 export const companionNav: ModuleNavGroup[] = [
-  { label: "Companion", icon: "🧭", items: [{ id: "overview", label: "My Companion" }, { id: "qm", label: "Quartermaster AI", icon: "✦" }] },
+  { label: "Companion", icon: "🧭", items: [{ id: "overview", label: "My Companion" }] },
   {
     label: "Tasks",
     icon: "◈",

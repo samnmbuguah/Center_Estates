@@ -243,25 +243,67 @@
   border-color: var(--border-color) !important;
 }
 
-/* Fix text colors in dark mode */
+/* Fix text colors in dark mode — Ensure all hardcoded black/dark text becomes crisp and legible */
+[data-theme="dark"] [style*="color: #000000"],
+[data-theme="dark"] [style*="color: #000"],
+[data-theme="dark"] [style*="color: black"],
+[data-theme="dark"] [style*="color:#000000"],
+[data-theme="dark"] [style*="color:#000"],
 [data-theme="dark"] [style*="color: #0f172a"],
-[data-theme="dark"] [style*="color: #334155"],
+[data-theme="dark"] [style*="color:#0f172a"],
 [data-theme="dark"] [style*="color: #1e293b"],
+[data-theme="dark"] [style*="color:#1e293b"],
+[data-theme="dark"] [style*="color: #334155"],
+[data-theme="dark"] [style*="color:#334155"],
 [data-theme="dark"] [style*="color: #475569"],
+[data-theme="dark"] [style*="color:#475569"],
 [data-theme="dark"] [style*="color: #111827"],
+[data-theme="dark"] [style*="color:#111827"],
 [data-theme="dark"] [style*="color: #1f2937"],
-[data-theme="dark"] [style*="color: #374151"] {
+[data-theme="dark"] [style*="color:#1f2937"],
+[data-theme="dark"] [style*="color: #374151"],
+[data-theme="dark"] [style*="color:#374151"] {
   color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] [style*="color: #64748b"],
+[data-theme="dark"] [style*="color:#64748b"],
 [data-theme="dark"] [style*="color: #94a3b8"],
+[data-theme="dark"] [style*="color:#94a3b8"],
 [data-theme="dark"] [style*="color: #8a96a7"],
-[data-theme="dark"] [style*="color: #9ca3af"],
+[data-theme="dark"] [style*="color:#8a96a7"],
 [data-theme="dark"] [style*="color: #6b7280"],
-[data-theme="dark"] [style*="color: #9ca3af"],
+[data-theme="dark"] [style*="color:#6b7280"],
 [data-theme="dark"] [style*="color: #4b5563"],
-[data-theme="dark"] [style*="color: #6b7280"] {
+[data-theme="dark"] [style*="color:#4b5563"],
+[data-theme="dark"] [style*="color: #667084"],
+[data-theme="dark"] [style*="color:#667084"],
+[data-theme="dark"] [style*="color: #5a6478"],
+[data-theme="dark"] [style*="color:#5a6478"],
+[data-theme="dark"] [style*="color: #69738a"],
+[data-theme="dark"] [style*="color:#69738a"],
+[data-theme="dark"] [style*="color: #3b465d"],
+[data-theme="dark"] [style*="color:#3b465d"],
+[data-theme="dark"] [style*="color: #566177"],
+[data-theme="dark"] [style*="color:#566177"] {
+  color: var(--text-secondary) !important;
+}
+
+/* Headings, strong, labels in dark mode */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6,
+[data-theme="dark"] strong,
+[data-theme="dark"] b {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .muted,
+[data-theme="dark"] small,
+[data-theme="dark"] label {
   color: var(--text-secondary) !important;
 }
 
@@ -290,24 +332,48 @@
   }
 }
 
-/* Fix specific component backgrounds in dark mode */
+/* Fix specific component backgrounds and text in dark mode */
 [data-theme="dark"] .card,
+[data-theme="dark"] .data-panel,
 [data-theme="dark"] [class*="card"],
 [data-theme="dark"] [class*="panel"],
 [data-theme="dark"] [class*="Panel"] {
   background: var(--bg-surface) !important;
   border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] table,
 [data-theme="dark"] [class*="table"] {
   background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] thead tr,
+[data-theme="dark"] thead th {
+  background: #0f172a !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
 }
 
 [data-theme="dark"] td,
 [data-theme="dark"] th {
   background: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
   border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #0f172a !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--text-muted) !important;
 }
 
 * { box-sizing: border-box; }

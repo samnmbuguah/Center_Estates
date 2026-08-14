@@ -559,13 +559,6 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, background: "linear-gradient(135deg, rgba(13,148,136,.1), transparent)" }}>
-                  <Chip size="small" label="Quartermaster AI" color="primary" variant="outlined" />
-                  <Typography sx={{ fontWeight: 800, mt: 1 }}>Need an operational answer?</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ my: 1 }}>Open the dedicated QM workspace for grounded rent, task and maintenance analysis at the selected property.</Typography>
-                  <Button variant="contained" size="small" onClick={() => setTab("qm")}>Open Quartermaster</Button>
-                </Paper>
-
                 <div className="card" style={{ padding: 18 }}>
                   <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>🚨 Escalated</h3>
                   {escalatedTasks.length === 0 ? (
