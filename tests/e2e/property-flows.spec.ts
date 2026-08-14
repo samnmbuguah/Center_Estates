@@ -25,6 +25,10 @@ test("property overview renders all KPIs and charts correctly", async ({ page })
 
   await expect(page.getByText(/Outstanding Rent|Monthly Rent|Collection Rate|Arrears Aging/i).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: /MONTHLY RENT COLLECTION TREND|PROPERTY PORTFOLIO SUMMARY|LEASE EXPIRY OVERVIEW/i }).first()).toBeVisible();
+  await expect(page.getByText("Expected (KES)")).toBeVisible();
+  await expect(page.getByText("Actual (KES)")).toBeVisible();
+  await expect(page.getByLabel("Rent collection summary")).toContainText("Variance");
+  await expect(page.getByLabel("Rent collection summary")).toContainText("Collection rate");
   await expect(page.locator("h2, h3, .panel-title").first()).toBeVisible();
 
   await expectNoPageErrors(page, errors);
