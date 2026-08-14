@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
@@ -416,10 +416,17 @@ class PerformanceViewSet(ViewSet):
     serializer_class = GenericObjectSerializer
 
     def _require_manager(self, request):
+        if getattr(request.user, 'is_superuser', False):
+            return
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)
-        if not (membership and (membership.is_organization_admin or membership.has_permission('companion.performance.view'))):
-            raise ValidationError('Performance analytics are available to administrators and managers only.')
+        if not (membership and (
+            membership.is_organization_admin or
+            membership.has_permission('companion.performance.view') or
+            membership.has_permission('companion.performance') or
+            membership.has_permission('companion.manage')
+        )):
+            raise PermissionDenied('Performance analytics are available to administrators and managers only.')
 
     @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     @extend_schema(request=None, responses={200: {"type": "object"}})

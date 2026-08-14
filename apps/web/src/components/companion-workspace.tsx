@@ -237,7 +237,14 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("daily");
 
-  const isManager = can("companion.assign") || can("companion.performance.view") || can("*");
+  const isManager = Boolean(
+    session?.user?.isAdmin ||
+    can("companion.assign") ||
+    can("companion.performance.view") ||
+    can("companion.performance") ||
+    can("companion.manage") ||
+    can("*")
+  );
   const canRecordMeters = can("facility.work") || can("facility.manage") || can("*");
 
   const inputStyle = { width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" };
@@ -253,23 +260,20 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
         else setDash(null);
       } else if (tab === "qm") {
         setRows([]);
-      } else if (tab === "performance") {
+      } else if (tab === "performance" || tab === "staff") {
+        if (!isManager) {
+          setDash(null);
+          setStaff([]);
+          setLoading(false);
+          return;
+        }
         const res = await apiFetch(`/companion/performance/?from=${dateFilter.from}&to=${dateFilter.to}`, {}, org);
         if (res.ok) {
           const data = await res.json();
           setDash(data);
           setStaff(Array.isArray(data.staff) ? data.staff : []);
         } else {
-          setError("Performance analytics require an administrator or manager role.");
           setDash(null);
-        }
-      } else if (tab === "staff") {
-        const res = await apiFetch(`/companion/performance/?from=${dateFilter.from}&to=${dateFilter.to}`, {}, org);
-        if (res.ok) {
-          const data = await res.json();
-          setStaff(Array.isArray(data.staff) ? data.staff : []);
-        } else {
-          setError("Staff analytics require an administrator or manager role.");
         }
       } else if (tab === "templates") {
         const res = await apiFetch(`/companion/templates/?search=${encodeURIComponent(search)}`, {}, org);
@@ -493,6 +497,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       title="Companion & Staff Performance"
       subtitle="Daily work, task assignment and staff productivity — SLA and adoption analytics."
       accent="#0d9488"
+      groups={filteredNavGroups}
       activeId={tab}
       onSelect={(id) => { setSearch(""); setTab(id as CompanionTab); }}
     >
@@ -758,6 +763,9 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
 
         {/* PERFORMANCE DASHBOARD */}
         {tab === "performance" && (
+          !isManager ? (
+            <EmptyState icon="🔒" title="Manager Access Required" description="Performance analytics and team SLA metrics require an administrator or manager role." />
+          ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : (
               <>
@@ -814,10 +822,14 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               </>
             )}
           </div>
+          )
         )}
 
         {/* STAFF HISTORY */}
         {tab === "staff" && (
+          !isManager ? (
+            <EmptyState icon="🔒" title="Manager Access Required" description="Staff productivity tracking requires an administrator or manager role." />
+          ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : staff.length === 0 ? (
               <EmptyState icon="👥" title="No staff data available" description="Staff performance analytics require an administrator or manager role. Ensure you have the correct permissions to view team productivity metrics." />
@@ -844,6 +856,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               </div>
             )}
           </div>
+          )
         )}
 
         {/* AUDIT TRAIL */}
