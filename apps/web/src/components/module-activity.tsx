@@ -33,9 +33,9 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
   const [error, setError] = useState("");
   const load = useCallback(() => {
     setLoading(true); setError("");
-    void apiFetch("/construction/tickets/", portfolio ? { headers: { "X-Property-Scope": "portfolio" } } : undefined)
+    void apiFetch("/tickets-feed/", portfolio ? { headers: { "X-Property-Scope": "portfolio" } } : undefined)
       .then(async (response) => {
-        if (!response.ok) throw new Error("Ticket access is not enabled for this workspace.");
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "Tickets could not be loaded."));
         const data = await response.json();
         setRows(Array.isArray(data) ? data : (data.results ?? []));
       })
@@ -44,15 +44,20 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
   }, [portfolio]);
   useEffect(() => { queueMicrotask(load); }, [activeProperty?.id, load]);
 
+  const moduleKey = moduleName.toLowerCase() === "portfolio" ? "all" : moduleName.toLowerCase();
+  const relevantRows = useMemo(() => rows.filter((row) => (
+    portfolio || moduleKey === "all" || String(row.module) === moduleKey
+  )), [rows, portfolio, moduleKey]);
+
   return (
     <section aria-labelledby="module-tickets-heading">
       <div className="page-head" style={{ marginBottom: 16 }}>
-        <div><p className="eyebrow">{moduleName} operations</p><h2 id="module-tickets-heading">Tickets & issues</h2><p className="muted">{portfolio ? "Issues across your accessible projects." : `Issues scoped to ${activeProperty?.name ?? "the current property"}.`}</p></div>
-        <span className="status-pill"><CircleAlert size={14} /> {rows.length} visible</span>
+        <div><p className="eyebrow">{moduleName} operations</p><h2 id="module-tickets-heading">Tickets & issues</h2><p className="muted">{portfolio ? "Issues across your accessible projects and operations." : `Issues scoped to ${activeProperty?.name ?? "the current property"}.`}</p></div>
+        <span className="status-pill"><CircleAlert size={14} /> {relevantRows.length} visible</span>
       </div>
-      {loading ? <ActivityState message="Loading tickets…" onRetry={load} /> : error ? <ActivityState message={error} onRetry={load} /> : rows.length === 0 ? <ActivityState message="No tickets are recorded for this property." onRetry={load} /> : (
-        <div className="data-panel table-scroll"><table className="fc-data-table"><thead><tr><th>Reference</th><th>Title</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead><tbody>
-          {rows.map((row, index) => <tr key={String(row.id ?? index)}><td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td><td>{String(row.title ?? row.subject ?? row.description ?? "—")}</td><td>{String(row.priority ?? "—")}</td><td><span className="status-pill">{String(row.status ?? "open")}</span></td><td>{formatDate(row.updated_at ?? row.created_at)}</td></tr>)}
+      {loading ? <ActivityState message="Loading tickets…" onRetry={load} /> : error ? <ActivityState message={error} onRetry={load} /> : relevantRows.length === 0 ? <ActivityState message={activeProperty ? "No open tickets or issues are recorded for this property." : "No open tickets or issues recorded in this organization."} onRetry={load} /> : (
+        <div className="data-panel table-scroll"><table className="fc-data-table"><thead><tr><th>Reference</th><th>Title</th><th>Module</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead><tbody>
+          {relevantRows.map((row, index) => <tr key={String(row.id ?? index)}><td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td><td>{String(row.title ?? row.subject ?? row.description ?? "—")}</td><td><span style={{ textTransform: "capitalize", fontSize: "0.85rem" }}>{String(row.module ?? "general")}</span></td><td>{String(row.priority ?? "—")}</td><td><span className="status-pill">{String(row.status ?? "open")}</span></td><td>{formatDate(row.updated_at ?? row.created_at)}</td></tr>)}
         </tbody></table></div>
       )}
     </section>

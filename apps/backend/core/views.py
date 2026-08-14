@@ -159,6 +159,135 @@ class CalendarFeedView(APIView):
         return Response({'results': events, 'count': len(events), 'start': starts_on, 'end': ends_on})
 
 
+class TicketsFeedView(APIView):
+    """Role-aware, cross-cutting tickets and operational issues feed assembled from active modules."""
+
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def get(self, request):
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        if not membership:
+            return Response({'detail': 'An active organization membership is required.'}, status=403)
+        membership = Membership.objects.prefetch_related('roles__permissions').get(pk=membership.pk)
+        subscribed = set(organization.subscriptions.available().values_list('module', flat=True))
+        permission_keys = {
+            permission.key for role in membership.roles.all() for permission in role.permissions.all()
+        }
+        is_admin = membership.is_organization_admin or request.user.is_superuser
+
+        def can(module):
+            return module in subscribed and (is_admin or any(key.startswith(f'{module}.') for key in permission_keys))
+
+        active_property = get_active_property(request, organization)
+        tickets = []
+
+        def add(*, id, reference, title, description, priority, status, module, source_url,
+                property_record=None, assigned_to=None, raised_by=None, created_at=None, updated_at=None):
+            property_id = str(property_record.id) if property_record else None
+            if active_property and property_id and property_id != str(active_property.id):
+                return
+            tickets.append({
+                'id': str(id),
+                'reference': reference or f'TICKET-{id}',
+                'title': title or 'Untitled Ticket',
+                'description': description or '',
+                'priority': priority or 'normal',
+                'status': status or 'open',
+                'module': module,
+                'source_url': source_url,
+                'property': property_id,
+                'property_name': property_record.name if property_record else '',
+                'assigned_to': str(assigned_to) if assigned_to else '',
+                'raised_by': str(raised_by) if raised_by else '',
+                'created_at': created_at.isoformat() if created_at else None,
+                'updated_at': updated_at.isoformat() if updated_at else None,
+            })
+
+        if can(Module.FACILITY) or can(Module.PROPERTY):
+            from facilities.models import WorkOrder, ServiceRequest
+            for order in scope_model_queryset(WorkOrder, request, organization).select_related('property', 'assigned_to', 'reported_by').order_by('-updated_at')[:50]:
+                add(
+                    id=f'work-order:{order.pk}',
+                    reference=order.number,
+                    title=order.title,
+                    description=order.description,
+                    priority=order.priority,
+                    status=order.status,
+                    module='facility',
+                    source_url='/facility?tab=work-orders',
+                    property_record=order.property,
+                    assigned_to=order.assigned_to.get_username() if order.assigned_to else None,
+                    raised_by=order.reported_by.get_username() if order.reported_by else None,
+                    created_at=order.created_at,
+                    updated_at=order.updated_at,
+                )
+            for req in scope_model_queryset(ServiceRequest, request, organization).select_related('property', 'occupant', 'assigned_to').order_by('-updated_at')[:50]:
+                add(
+                    id=f'service-request:{req.pk}',
+                    reference=req.reference,
+                    title=req.subject,
+                    description=req.description,
+                    priority=req.priority,
+                    status=req.status,
+                    module='facility',
+                    source_url='/facility?tab=service-requests',
+                    property_record=req.property,
+                    assigned_to=req.assigned_to.get_username() if req.assigned_to else None,
+                    raised_by=req.occupant.get_username() if req.occupant else None,
+                    created_at=req.created_at,
+                    updated_at=req.updated_at,
+                )
+
+        if can(Module.COMPANION):
+            from companion.models import Task
+            companion_tasks = scope_model_queryset(Task, request, organization).select_related('property', 'assignee', 'assigned_by').order_by('-updated_at')[:50]
+            if not is_admin:
+                companion_tasks = companion_tasks.filter(Q(assignee=request.user) | Q(assigned_by=request.user))
+            for task in companion_tasks:
+                add(
+                    id=f'task:{task.pk}',
+                    reference=task.reference,
+                    title=task.title,
+                    description=task.description,
+                    priority=task.priority,
+                    status=task.status,
+                    module='companion',
+                    source_url='/companion',
+                    property_record=task.property,
+                    assigned_to=task.assignee.get_username() if task.assignee else None,
+                    raised_by=task.assigned_by.get_username() if task.assigned_by else None,
+                    created_at=task.created_at,
+                    updated_at=task.updated_at,
+                )
+
+        if can(Module.MONITORING):
+            try:
+                from construction.models import Ticket as ConstructionTicket
+                for ticket in scope_model_queryset(ConstructionTicket, request, organization).select_related('project__property', 'assigned_to', 'raised_by').order_by('-updated_at')[:50]:
+                    add(
+                        id=f'site-ticket:{ticket.pk}',
+                        reference=ticket.reference,
+                        title=ticket.title,
+                        description=ticket.body,
+                        priority=ticket.priority,
+                        status=ticket.status,
+                        module='monitoring',
+                        source_url='/monitoring?tab=tickets',
+                        property_record=getattr(ticket.project, 'property', None),
+                        assigned_to=ticket.assigned_to.get_username() if ticket.assigned_to else None,
+                        raised_by=ticket.raised_by.get_username() if ticket.raised_by else None,
+                        created_at=ticket.created_at,
+                        updated_at=ticket.updated_at,
+                    )
+            except Exception:
+                pass
+
+        tickets.sort(key=lambda t: t.get('updated_at') or '', reverse=True)
+        return Response({'results': tickets, 'count': len(tickets)})
+
+
 def _set_token_cookie(response, name, value, max_age, path):
     response.set_cookie(
         name, value, max_age=max_age, httponly=True, secure=not settings.DEBUG,

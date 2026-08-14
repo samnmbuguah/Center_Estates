@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     DemoIdentitiesView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
     PasswordResetRequestView, RefreshView, RegisterView, StopImpersonateView,
-    CalendarFeedView, WorkspaceInboxView, WorkspacePulseView, csrf, health, security_audit,
+    CalendarFeedView, TicketsFeedView, WorkspaceInboxView, WorkspacePulseView, csrf, health, security_audit,
 )
 
 urlpatterns = [
@@ -22,5 +22,6 @@ urlpatterns = [
     path('workspace/inbox/', WorkspaceInboxView.as_view(), name='workspace-inbox'),
     path('workspace/pulse/', WorkspacePulseView.as_view(), name='workspace-pulse'),
     path('calendar-feed/', CalendarFeedView.as_view(), name='calendar-feed'),
+    path('tickets-feed/', TicketsFeedView.as_view(), name='tickets-feed'),
     path('security/audit/', security_audit, name='security-audit'),
 ]
