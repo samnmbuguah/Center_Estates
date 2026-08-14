@@ -246,6 +246,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
     session?.user?.isSuperuser ||
     can("*")
   );
+  const canAssign = can("companion.assign") || can("companion.manage") || isSuperAdmin;
   const canRecordMeters = can("facility.work") || can("facility.manage") || can("*");
 
   const inputStyle = { width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" };
@@ -667,7 +668,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               <SearchInput value={search} onChange={setSearch} placeholder="Search tasks by title, reference, source…" />
             </div>
             {loading ? <LoadingState rows={5} /> : rows.length === 0 ? (
-              <EmptyState icon="🗂️" title="No tasks found" description={tab === "my-tasks" ? "You have no tasks matching this filter. Check back later or ask your manager to assign work." : tab === "delegations" ? "No tasks have been delegated to others yet. Use the delegate action on any task to reassign it." : "No tasks have been created yet. Assign a task to a staff member to get started."} action={isManager ? <button className="btn primary sm" onClick={() => { if (isManager) loadStaffOptions(); setShowAssign(true); }}>+ Assign Task</button> : null} />
+              <EmptyState icon="🗂️" title="No tasks found" description={tab === "my-tasks" ? "You have no tasks matching this filter. Check back later or ask your manager to assign work." : tab === "delegations" ? "No tasks have been delegated to others yet. Use the delegate action on any task to reassign it." : "No tasks have been created yet. Assign a task to a staff member to get started."} action={canAssign ? <button className="btn primary sm" onClick={() => { if (isSuperAdmin) loadStaffOptions(); setShowAssign(true); }}>+ Assign Task</button> : null} />
             ) : (
               <div className="card" style={{ padding: 18 }}>
                 <div className="table-scroll">

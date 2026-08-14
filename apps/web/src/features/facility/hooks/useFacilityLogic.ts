@@ -38,6 +38,11 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     if (!organizationId) return;
     setLoading(true);
     setError("");
+    if (tab === "tickets" || tab === "calendar") {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
     const apiTab = tab === "buildings" ? "assets" : tab;
     let path: string;
     if (tab === "overview" || tab === "reports") {
@@ -55,9 +60,9 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
       setLoading(false);
       return;
     }
-    const data = await response.json();
+    const data = await response.json().catch(() => (tab === "overview" || tab === "reports" ? {} : []));
     if (tab === "overview" || tab === "reports") setDashboard(data as FacilityDashboard);
-    else setRows(data as Row[]);
+    else setRows(Array.isArray(data) ? (data as Row[]) : []);
     setLoading(false);
   }, [organizationId, activeProperty?.id, search, tab]);
 

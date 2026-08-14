@@ -64,6 +64,13 @@ export function useSalesLogic(initialTab = "overview") {
     setLoading(true);
     setError("");
 
+    if (tab === "tickets" || tab === "calendar") {
+      setRows([]);
+      setDashboard(null);
+      setLoading(false);
+      return;
+    }
+
     const isAnalytics = tab === "performance" || tab === "reports";
     const isHandover = tab === "handover";
     const isBankRecon = tab === "bank-reconciliation";
