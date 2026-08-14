@@ -17,6 +17,7 @@ class QMAgentOrchestrator:
         base_url = (os.environ.get('NVIDIA_API_URL') or 'https://integrate.api.nvidia.com/v1').rstrip('/')
         self.api_url = f'{base_url}/chat/completions' if base_url.endswith('/v1') else base_url
         self.model = os.environ.get('NVIDIA_MODEL') or 'meta/llama-3.3-70b-instruct'
+        self.timeout_seconds = min(max(int(os.environ.get('NVIDIA_TIMEOUT_SECONDS', '30')), 5), 45)
 
     @property
     def configured(self):
@@ -78,7 +79,7 @@ class QMAgentOrchestrator:
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.3,
-            "max_tokens": 600
+            "max_tokens": 450
         }
 
         try:
@@ -91,7 +92,7 @@ class QMAgentOrchestrator:
                 },
                 method='POST'
             )
-            with urllib.request.urlopen(req, timeout=12) as res:
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as res:
                 if res.status == 200:
                     data = json.loads(res.read().decode('utf-8'))
                     agent_text = data['choices'][0]['message']['content'].strip()

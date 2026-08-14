@@ -10,12 +10,17 @@ test("QM opens after login, briefs the user and retains a minimized conversation
   await page.goto("/login");
   await page.locator("#username").fill(process.env.E2E_ADMIN_USERNAME ?? "admin");
   await page.locator("#password").fill(password);
+  const qmResponsePromise = page.waitForResponse((response) => response.url().includes("/companion/dashboard/chat/") && response.request().method() === "POST");
   await page.locator("button[type=submit]").click();
   await expect(page).toHaveURL(/\/(workspaces)?$/, { timeout: 30_000 });
 
   const chat = page.getByRole("dialog", { name: "Quartermaster AI companion" });
   await expect(chat).toBeVisible({ timeout: 10_000 });
   await expect(chat.getByText(/Give me a concise briefing for today/)).toBeVisible();
+  const qmResponse = await qmResponsePromise;
+  expect(qmResponse.ok()).toBeTruthy();
+  const qmBody = await qmResponse.json();
+  expect(qmBody.agentStatus).toBe("success");
   await expect(chat.getByText("View My Tasks", { exact: true })).toBeVisible({ timeout: 30_000 });
 
   await chat.getByRole("button", { name: "Minimize Quartermaster" }).click();
