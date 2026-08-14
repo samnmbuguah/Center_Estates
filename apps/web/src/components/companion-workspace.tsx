@@ -238,7 +238,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [recurrenceRule, setRecurrenceRule] = useState("daily");
 
   const isManager = Boolean(
-    session?.user?.isAdmin ||
+    session?.user?.isSuperuser ||
     can("companion.assign") ||
     can("companion.performance.view") ||
     can("companion.performance") ||
