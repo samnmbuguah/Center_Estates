@@ -1,0 +1,175 @@
+"use client";
+
+import { Fragment } from "react";
+import { ModuleShell } from "@/components/module-shell";
+import { propertyNav } from "@/lib/module-nav";
+import { DetailDrawer, ErrorBanner } from "@/components/module-ui";
+import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
+import { TenantApplicationCard } from "@/components/tenant-application-card";
+import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
+import { PropertyTenancyReports } from "@/components/property-tenancy-reports";
+import { PropertyFinancialReports } from "@/components/property-financial-reports";
+
+import { PropertyTab, TenantRow, BankTransactionRow, labels } from "./types/property.types";
+import { usePropertyLogic } from "./hooks/usePropertyLogic";
+import { RowDetailPanel } from "./components/RowDetailPanel";
+import { TenantPortalDrawer } from "./components/TenantPortalDrawer";
+import { PropertyModals } from "./components/modals/PropertyModals";
+
+import { OverviewView } from "./components/tabs/OverviewView";
+import { PropertiesView } from "./components/tabs/PropertiesView";
+import { BuildingsView } from "./components/tabs/BuildingsView";
+import { UnitsView } from "./components/tabs/UnitsView";
+import { ProjectsView } from "./components/tabs/ProjectsView";
+import { TenantsView } from "./components/tabs/TenantsView";
+import { TenantDocumentsView } from "./components/tabs/TenantDocumentsView";
+import { LeasesView } from "./components/tabs/LeasesView";
+import { TenancyView } from "./components/tabs/TenancyView";
+import { RentSchedulesView } from "./components/tabs/RentSchedulesView";
+import { RentView } from "./components/tabs/RentView";
+import { ArrearsView } from "./components/tabs/ArrearsView";
+import { RemindersView } from "./components/tabs/RemindersView";
+import { ReceiptsView } from "./components/tabs/ReceiptsView";
+import { ReceiptAllocationsView } from "./components/tabs/ReceiptAllocationsView";
+import { BankReconciliationView } from "./components/tabs/BankReconciliationView";
+import { CreditNotesView } from "./components/tabs/CreditNotesView";
+import { FinancialsView } from "./components/tabs/FinancialsView";
+import { ServiceChargesView } from "./components/tabs/ServiceChargesView";
+import { ServiceChargeAllocationsView } from "./components/tabs/ServiceChargeAllocationsView";
+import { ServiceChargeReconciliationsView } from "./components/tabs/ServiceChargeReconciliationsView";
+import { BudgetsView } from "./components/tabs/BudgetsView";
+import { ExpensesView } from "./components/tabs/ExpensesView";
+import { FeesView } from "./components/tabs/FeesView";
+import { ReportsView } from "./components/tabs/ReportsView";
+import { OwnerPortalView } from "./components/tabs/OwnerPortalView";
+import { ForecastView } from "./components/tabs/ForecastView";
+import { CriticalDatesView } from "./components/tabs/CriticalDatesView";
+
+export function PropertyFeaturePage({
+  initialTab = "properties",
+  standaloneOnboarding = false,
+}: {
+  initialTab?: string;
+  standaloneOnboarding?: boolean;
+}) {
+  const logic = usePropertyLogic({ initialTab, standaloneOnboarding });
+
+  const renderActiveTab = () => {
+    switch (logic.tab) {
+      case "overview":
+        return <OverviewView dashboard={logic.dashboard} loading={logic.loading} setTab={logic.setTab} canOperate={logic.canOperate} canLease={logic.canLease} canFinance={logic.canFinance} />;
+      case "properties":
+        return <PropertiesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddProperty(true)} setTab={logic.setTab} />;
+      case "buildings":
+        return <BuildingsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
+      case "units":
+        return <UnitsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
+      case "projects":
+        return <ProjectsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
+      case "tenancy":
+        return <TenancyView activeSection={logic.tenancySection as any} onSectionChange={logic.setTenancySection} onAddTenant={() => logic.setShowAddTenant(true)} onAddLease={() => logic.setShowAddLease(true)} onUploadDoc={() => logic.setShowUploadDoc(true)} unitsRows={logic.tenancyUnitsRows} tenantsRows={logic.tenantsRows} leasesRows={logic.leasesRows} tenantDocsRows={logic.tenantDocsRows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onOpenPortal={(r) => logic.setPortalTenant(r as TenantRow)} onUploadTenantDoc={(t) => { logic.setSelectedRow(t ?? null); logic.setShowUploadDoc(true); }} onDownloadDoc={logic.handleDownloadDoc} onVerifyDoc={logic.handleVerifyDoc} onRejectDoc={logic.handleRejectDocPrompt} setTab={logic.setTab} canLease={logic.canLease} onRenewLease={logic.setRenewalTarget} onTerminateLease={logic.setTerminationTarget} onRefresh={logic.fetchData} />;
+      case "tenants":
+        return <TenantsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddTenant(true)} onOpenPortal={(r) => logic.setPortalTenant(r as TenantRow)} setTab={logic.setTab} onUploadDoc={(t) => { logic.setSelectedRow(t ?? null); logic.setShowUploadDoc(true); }} canLease={logic.canLease} onRefresh={logic.fetchData} />;
+      case "tenant-documents":
+        return <TenantDocumentsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onUpload={() => logic.setShowUploadDoc(true)} onDownload={logic.handleDownloadDoc} onVerify={logic.handleVerifyDoc} onReject={logic.handleRejectDocPrompt} />;
+      case "leases":
+        return <LeasesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddLease(true)} setTab={logic.setTab} canLease={logic.canLease} onRenew={logic.setRenewalTarget} onTerminate={logic.setTerminationTarget} onRefresh={logic.fetchData} />;
+      case "financials":
+        return <FinancialsView activeSection={logic.financialsSection as any} onSectionChange={logic.setFinancialsSection} schedulesRows={logic.rows} invoicesRows={logic.rentInvoices} receiptsRows={logic.rows} allocationsRows={logic.rows} bankTransactionsRows={logic.rows} creditNotesRows={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} onGenerateInvoice={logic.handleGenerateScheduleInvoice} onComposeInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onQuickReceipt={logic.handleQuickReceipt} onVoidInvoice={logic.handleVoidInvoicePrompt} onMatchBankTx={logic.setMatchTarget} onAddCreditNote={() => logic.handleCreateCreditNote(null)} onRefresh={logic.fetchData} />;
+      case "billing":
+        return <PropertyBillingDashboard onNavigate={(t) => logic.setTab(t as PropertyTab)} onSingleInvoice={() => logic.setShowInvoiceComposer(true)} />;
+      case "rent-schedules":
+        return <RentSchedulesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onGenerateInvoice={logic.handleGenerateScheduleInvoice} onRefresh={logic.fetchData} canFinance={logic.canFinance} />;
+      case "rent":
+        return <RentView activeSection={logic.rentSection as any} onSectionChange={logic.setRentSection} invoices={logic.rentInvoices} receipts={logic.rows} arrears={logic.rows} reminders={logic.rows} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} onComposeInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onQuickReceipt={logic.handleQuickReceipt} onSendReminder={logic.handleSendReminder} onVoidInvoice={logic.handleVoidInvoicePrompt} onRefresh={logic.fetchData} />;
+      case "arrears":
+        return <ArrearsView rows={logic.rows} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSendReminder={logic.handleSendReminder} />;
+      case "reminders":
+        return <RemindersView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSendReminder={logic.handleSendReminder} setTab={logic.setTab} />;
+      case "receipts":
+        return <ReceiptsView receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
+      case "receipt-allocations":
+        return <ReceiptAllocationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
+      case "bank-reconciliation":
+        return <BankReconciliationView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onMatch={(r) => logic.setMatchTarget(r as BankTransactionRow)} />;
+      case "credit-notes":
+        return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} />;
+      case "service-charges":
+        return <ServiceChargesView activeSection={logic.scSection as any} onSectionChange={logic.setScSection} setupRows={logic.rows} allocationsRows={logic.rows} reconciliationsRows={logic.rows} budgetRows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} onAddSetup={() => logic.setShowAddServiceCharge(true)} onReconcile={logic.setReconciliationTarget} onSelectRow={logic.setSelectedRow} onAddBudget={() => logic.handleCreateBudget(null)} onBudgetAction={(b, a) => { if (a === "approve") logic.handleApproveBudget(b); else if (a === "reject") logic.handleRejectBudgetPrompt(b); }} onRefresh={logic.fetchData} />;
+      case "service-charge-allocations":
+        return <ServiceChargeAllocationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
+      case "service-charge-reconciliations":
+        return <ServiceChargeReconciliationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
+      case "budgets":
+        return <BudgetsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSelectRow={logic.setSelectedRow} onAdd={() => logic.handleCreateBudget(null)} onAction={(b, a) => { if (a === "approve") logic.handleApproveBudget(b); else if (a === "reject") logic.handleRejectBudgetPrompt(b); }} />;
+      case "expenses":
+        return <ExpensesView rows={logic.rows} financial={logic.financial} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateExpense(null)} onAction={(e) => logic.setSelectedRow(e)} />;
+      case "fees":
+        return <FeesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
+      case "reports":
+        return <ReportsView rows={logic.rows} loading={logic.loading} onExport={logic.handleExportReport} />;
+      case "tenancy-reports":
+        return <PropertyTenancyReports />;
+      case "financial-reports":
+        return <PropertyFinancialReports />;
+      case "owner-portal":
+        return <OwnerPortalView />;
+      case "forecast":
+        return <ForecastView />;
+      case "critical-dates":
+        return <CriticalDatesView leases={logic.leasesRows} contractors={logic.contractors} inspections={logic.inspections} serviceCharges={logic.criticalServiceCharges} loading={logic.loading} setTab={logic.setTab} />;
+      case "tickets":
+        return <ModuleTicketsView moduleName="Property" />;
+      case "calendar":
+        return <ModuleCalendarView moduleName="Property" />;
+      default:
+        return <PropertiesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddProperty(true)} setTab={logic.setTab} />;
+    }
+  };
+
+  if (standaloneOnboarding) {
+    return (
+      <div className="property-workspace" style={{ padding: "16px 24px", width: "100%", boxSizing: "border-box" }}>
+        {logic.error && <ErrorBanner message={logic.error} onRetry={logic.fetchData} />}
+        {renderActiveTab()}
+        <PropertyModals {...logic} />
+      </div>
+    );
+  }
+
+  return (
+    <ModuleShell
+      moduleKey="property"
+      moduleName="Property"
+      title="Property Management"
+      subtitle="Commercial, residential & mixed-use portfolio operations"
+      groups={propertyNav}
+      activeId={logic.tab}
+      onSelect={(id) => logic.handleSelectTab(id as PropertyTab)}
+    >
+      <div className="property-workspace" style={{ padding: "16px 24px", width: "100%", boxSizing: "border-box" }}>
+        {logic.error && <ErrorBanner message={logic.error} onRetry={logic.fetchData} />}
+        {renderActiveTab()}
+
+        {logic.selectedRow && (
+          <DetailDrawer
+            title={`${String(logic.selectedRow.name ?? logic.selectedRow.reference ?? logic.selectedRow.code ?? logic.selectedRow.number ?? labels[logic.tab])} (${labels[logic.tab]})`}
+            onClose={() => logic.setSelectedRow(null)}
+          >
+            <RowDetailPanel tab={logic.tab} row={logic.selectedRow} />
+          </DetailDrawer>
+        )}
+
+        {logic.portalTenant && (
+          <TenantPortalDrawer
+            tenant={logic.portalTenant}
+            organizationId={logic.organizationId}
+            onClose={() => logic.setPortalTenant(null)}
+          />
+        )}
+
+        <PropertyModals {...logic} />
+      </div>
+    </ModuleShell>
+  );
+}

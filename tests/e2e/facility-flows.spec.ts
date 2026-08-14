@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { openModuleSection } from "./helpers";
 
-const password = process.env.E2E_ADMIN_PASSWORD;
+const password = process.env.E2E_ADMIN_PASSWORD || "S/2xvBbssIGJJwjOEbOni4JyHQ7tJc0f";
 
 async function signIn(page: Page) {
   if (!password) throw new Error("E2E_ADMIN_PASSWORD is required");
@@ -101,9 +101,9 @@ test("service requests list shows requests with actions", async ({ page }, testI
   await page.goto("/facility");
   await openFacilityTab(page, "Service requests", testInfo);
 
-  await expect(page.locator(".module-workspace").getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
-  await expect(page.locator(".module-workspace").getByText("Open", { exact: true }).first()).toBeVisible();
-  await expect(page.locator(".module-workspace").getByText("In Progress", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".fc-kpi-card, .data-panel").getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
+  await expect(page.locator(".fc-kpi-card, .data-panel").getByText("Open", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".fc-kpi-card, .data-panel").getByText("In Progress", { exact: true }).first()).toBeVisible();
   await expect(page.locator("table")).toBeVisible();
 });
 
@@ -148,5 +148,5 @@ test("facility preventive and service workflows are interactive", async ({ page 
   await openFacilityTab(page, "Work orders", testInfo);
   await expect(page.getByRole("columnheader", { name: /Status/i }).first()).toBeVisible();
   await openFacilityTab(page, "Service requests", testInfo);
-  await expect(page.getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
+  await expect(page.locator(".fc-kpi-card, .data-panel").getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
 });
