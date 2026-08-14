@@ -22,6 +22,7 @@ import {
   SearchInput,
   StatusPill,
 } from "@/components/module-ui";
+import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 
 export type CompanionTab =
   | "overview"
@@ -33,7 +34,9 @@ export type CompanionTab =
   | "meter-readings"
   | "performance"
   | "staff"
-  | "audit-events";
+  | "audit-events"
+  | "tickets"
+  | "calendar";
 
 const labels: Record<CompanionTab, string> = {
   overview: "My Companion",
@@ -46,6 +49,8 @@ const labels: Record<CompanionTab, string> = {
   performance: "Performance Dashboard",
   staff: "Staff History",
   "audit-events": "Audit Trail",
+  tickets: "Tickets & Issues",
+  calendar: "Calendar & Schedule",
 };
 
 type Row = Record<string, unknown>;
@@ -237,12 +242,8 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("daily");
 
-  const isManager = Boolean(
+  const isSuperAdmin = Boolean(
     session?.user?.isSuperuser ||
-    can("companion.assign") ||
-    can("companion.performance.view") ||
-    can("companion.performance") ||
-    can("companion.manage") ||
     can("*")
   );
   const canRecordMeters = can("facility.work") || can("facility.manage") || can("*");
@@ -260,8 +261,11 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
         else setDash(null);
       } else if (tab === "qm") {
         setRows([]);
+      } else if (tab === "tickets" || tab === "calendar") {
+        setRows([]);
+        setLoading(false);
       } else if (tab === "performance" || tab === "staff") {
-        if (!isManager) {
+        if (!isSuperAdmin) {
           setDash(null);
           setStaff([]);
           setLoading(false);
@@ -305,7 +309,7 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
     } finally {
       setLoading(false);
     }
-  }, [tab, search, org, activeProperty?.id, dateFilter]);
+  }, [tab, search, org, activeProperty?.id, dateFilter, isSuperAdmin]);
 
   async function submitMeterReading(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -478,6 +482,15 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
       /* ignore */
     }
   }
+
+  const filteredNavGroups = useMemo(() => {
+    return companionNav.map(group => {
+      if (group.label.toLowerCase() === "performance" && !isSuperAdmin) {
+        return null;
+      }
+      return group;
+    }).filter(Boolean) as typeof companionNav;
+  }, [isSuperAdmin]);
 
   const kpis = (dash?.kpis ?? {}) as Record<string, unknown>;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -882,6 +895,16 @@ export function CompanionWorkspace({ initialTab = "overview" }: { initialTab?: s
               </div>
             )}
           </div>
+        )}
+
+        {/* TICKETS & ISSUES */}
+        {tab === "tickets" && (
+          <ModuleTicketsView moduleName="Companion" />
+        )}
+
+        {/* CALENDAR */}
+        {tab === "calendar" && (
+          <ModuleCalendarView moduleName="Companion" />
         )}
 
         {/* TASK DETAIL DRAWER */}

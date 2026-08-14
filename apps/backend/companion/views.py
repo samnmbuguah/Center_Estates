@@ -418,15 +418,7 @@ class PerformanceViewSet(ViewSet):
     def _require_manager(self, request):
         if getattr(request.user, 'is_superuser', False):
             return
-        organization = get_active_organization(request)
-        membership = get_active_membership(request, organization)
-        if not (membership and (
-            membership.is_organization_admin or
-            membership.has_permission('companion.performance.view') or
-            membership.has_permission('companion.performance') or
-            membership.has_permission('companion.manage')
-        )):
-            raise PermissionDenied('Performance analytics are available to administrators and managers only.')
+        raise PermissionDenied('Performance analytics are available to super administrators only.')
 
     @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     @extend_schema(request=None, responses={200: {"type": "object"}})
