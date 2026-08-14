@@ -95,6 +95,8 @@ def _styles():
     styles.add(ParagraphStyle(name="DocTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=16, leading=20, textColor=NAVY, spaceAfter=4))
     styles.add(ParagraphStyle(name="Section", parent=styles["Heading3"], fontName="Helvetica-Bold", fontSize=9.5, leading=13, textColor=RED, spaceBefore=7, spaceAfter=5, uppercase=True))
     styles.add(ParagraphStyle(name="Small", parent=styles["BodyText"], fontSize=8.5, leading=11, textColor=NAVY))
+    styles.add(ParagraphStyle(name="HeaderSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.white, fontName="Helvetica-Bold"))
+    styles.add(ParagraphStyle(name="HeaderRight", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_RIGHT))
     styles.add(ParagraphStyle(name="Tiny", parent=styles["BodyText"], fontSize=8, leading=10.5, textColor=NAVY))
     styles.add(ParagraphStyle(name="Right", parent=styles["Small"], alignment=TA_RIGHT))
     styles.add(ParagraphStyle(name="CenterSmall", parent=styles["Small"], alignment=TA_CENTER))
@@ -606,10 +608,13 @@ def tabular_report_pdf(
         index for index, header in enumerate(headers)
         if body and sum(1 for row in body if _looks_numeric(row[index])) >= max(1, len(body) // 2)
     }
-    data = [[Paragraph(f"<b>{headers[index]}</b>", s["Small"]) for index in range(column_count)]]
+    data = [[
+        Paragraph(f"<b>{headers[index]}</b>", s["HeaderRight"] if index in numeric_cols else s["HeaderSmall"])
+        for index in range(column_count)
+    ]]
     for row in body:
         data.append([
-            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Small"])
+            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Right"] if index in numeric_cols else s["Small"])
             for index in range(column_count)
         ])
     table = Table(data, colWidths=widths, repeatRows=1)

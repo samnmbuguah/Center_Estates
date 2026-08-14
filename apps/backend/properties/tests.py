@@ -1245,7 +1245,7 @@ class PropertyApiTests(TestCase):
                 ('tenancy-schedule', b'TENANCY SCHEDULE', b'Floor'),
                 ('aging', b'ARREARS AGEING', b'BUCKET'),
                 ('vat-schedule', b'VAT', b'Output VAT'),
-                ('billing-schedule', b'BILLING', b'Invoice'),
+                ('billing-schedule', b'BILLING', b'Tenant'),
                 ('income-expense', b'RECEIPTS', b'DISBURSEMENTS'),
                 ('tenant-payment-status', b'TENANTS PAYMENTS STATUS', b'OUTSTANDING'),
             )

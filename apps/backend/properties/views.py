@@ -2387,13 +2387,13 @@ class PropertyAnalyticsViewSet(ViewSet):
             for expense in scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end)).select_related('property'):
                 writer.writerow(('Expense', expense.incurred_on, expense.property.name, expense.category, expense.invoice_number, expense.amount))
         elif report_kind == 'billing-schedule':
-            writer.writerow(('Invoice', 'Tenant', 'Property', 'Unit', 'Billing period', 'Invoice date', 'Due date', 'Subtotal', 'VAT', 'Total billed', 'Collected', 'Outstanding', 'Status'))
+            writer.writerow(('Tenant', 'Unit', 'Billing period', 'Subtotal', 'VAT', 'Total billed', 'Collected', 'Outstanding', 'Status'))
             rows = scope_model_queryset(Invoice, request, organization).filter(issued_on__range=(start, end)).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property')
             for invoice in rows:
                 collected = invoice.receipts.aggregate(total=Sum('amount'))['total'] or Decimal('0')
-                writer.writerow((invoice.number, invoice.lease.tenant.name, invoice.lease.unit.property.name,
-                                 invoice.lease.unit.code, invoice.metadata.get('billing_period', ''), invoice.issued_on,
-                                 invoice.due_on, invoice.subtotal, invoice.tax_amount, invoice.amount, collected,
+                billing_period = invoice.metadata.get('billing_period', '') or (invoice.issued_on.strftime('%b %Y') if invoice.issued_on else '—')
+                writer.writerow((invoice.lease.tenant.name, invoice.lease.unit.code, billing_period,
+                                 invoice.subtotal, invoice.tax_amount, invoice.amount, collected,
                                  invoice.balance, invoice.status))
         elif report_kind == 'expenses-schedule':
             writer.writerow(('Date', 'Supplier', 'Property', 'Category', 'Description', 'Reference', 'Net', 'VAT', 'Total', 'Status', 'Budget code', 'Cost centre'))
