@@ -347,7 +347,15 @@ export const constructionNav: ModuleNavGroup[] = [  {
 ];
 
 export const companionNav: ModuleNavGroup[] = [
-  { label: "Companion", icon: "🧭", items: [{ id: "overview", label: "My Companion" }, { id: "qm", label: "Quartermaster AI", icon: "✦" }] },
+  {
+    label: "Companion",
+    icon: "🧭",
+    items: [
+      { id: "overview", label: "My Companion" },
+      { id: "qm", label: "Quartermaster AI", icon: "✦" },
+      { id: "dialogue", label: "Team Dialogue & Feedback", icon: "💬" },
+    ],
+  },
   {
     label: "Tasks",
     icon: "◈",
@@ -364,9 +372,10 @@ export const companionNav: ModuleNavGroup[] = [
     items: [{ id: "meter-readings", label: "Meter readings" }],
   },
   {
-    label: "Performance",
+    label: "Team & Performance",
     icon: "◌",
     items: [
+      { id: "team-matrix", label: "Team & Property Matrix", icon: "👥" },
       { id: "performance", label: "Performance dashboard" },
       { id: "staff", label: "Staff history" },
       { id: "audit-events", label: "Audit trail" },

@@ -105,7 +105,7 @@ class CompanionApiTests(TestCase):
     def test_performance_requires_manager(self):
         self.login(self.staff)
         res = self.client.get("/api/v1/companion/performance/")
-        self.assertEqual(res.status_code, 400, res.content)
+        self.assertEqual(res.status_code, 403, res.content)
 
     def test_admin_can_view_performance(self):
         self.login(self.admin)

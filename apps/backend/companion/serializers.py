@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from .models import Task, TaskEvent, TaskTemplate
+from .models import (
+    Task,
+    TaskEvent,
+    TaskTemplate,
+    TeamFeedbackMessage,
+    TeamFeedbackThread,
+)
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -35,3 +41,42 @@ class TaskEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskEvent
         exclude = ('organization',)
+
+
+class TeamFeedbackMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TeamFeedbackMessage
+        fields = (
+            'id', 'thread', 'sender', 'sender_name', 'message',
+            'attachment_url', 'is_developer_response', 'created_at',
+        )
+        read_only_fields = ('id', 'created_at', 'sender')
+
+    def get_sender_name(self, obj):
+        if obj.sender:
+            name = f"{obj.sender.first_name} {obj.sender.last_name}".strip()
+            return name or obj.sender.username
+        return obj.sender_name or "System / Developer"
+
+
+class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
+    messages = TeamFeedbackMessageSerializer(many=True, read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+    property_name = serializers.CharField(source='property.name', read_only=True, default='')
+
+    class Meta:
+        model = TeamFeedbackThread
+        fields = (
+            'id', 'reference', 'title', 'category', 'priority', 'status',
+            'property', 'property_name', 'module', 'created_by', 'created_by_name',
+            'assigned_to', 'metadata', 'messages', 'created_at', 'updated_at',
+        )
+        read_only_fields = ('id', 'reference', 'created_at', 'updated_at', 'created_by')
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            name = f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
+            return name or obj.created_by.username
+        return "Unknown"

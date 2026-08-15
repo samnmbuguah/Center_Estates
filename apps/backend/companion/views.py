@@ -16,8 +16,14 @@ from config.throttling import QMChatRateThrottle
 from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
-from .models import Task, TaskEvent, TaskTemplate
-from .serializers import TaskEventSerializer, TaskSerializer, TaskTemplateSerializer
+from .models import Task, TaskEvent, TaskTemplate, TeamFeedbackMessage, TeamFeedbackThread
+from .serializers import (
+    TaskEventSerializer,
+    TaskSerializer,
+    TaskTemplateSerializer,
+    TeamFeedbackMessageSerializer,
+    TeamFeedbackThreadSerializer,
+)
 
 STATUS_TRANSITIONS = {
     Task.Status.PENDING: {Task.Status.ACKNOWLEDGED, Task.Status.CANCELLED, Task.Status.IN_PROGRESS},
@@ -418,7 +424,11 @@ class PerformanceViewSet(ViewSet):
     def _require_manager(self, request):
         if getattr(request.user, 'is_superuser', False):
             return
-        raise PermissionDenied('Performance analytics are available to super administrators only.')
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        if membership and (membership.is_organization_admin or membership.roles.filter(slug__in=['portfolio-manager', 'property-manager', 'super-admin']).exists()):
+            return
+        raise PermissionDenied('Performance analytics are available to super administrators and managers only.')
 
     @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     @extend_schema(request=None, responses={200: {"type": "object"}})
@@ -614,3 +624,73 @@ class TelemetryViewSet(ViewSet):
             ))
         TaskEvent.objects.bulk_create(records)
         return Response({'status': 'ok', 'accepted': len(records)}, status=status.HTTP_201_CREATED)
+
+
+class TeamFeedbackThreadViewSet(CompanionModelViewSet):
+    queryset = TeamFeedbackThread.objects.all()
+    serializer_class = TeamFeedbackThreadSerializer
+    search_fields = ('title', 'reference', 'module')
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        queryset = self.queryset.filter(organization=organization).prefetch_related('messages__sender', 'property')
+        status_param = self.request.query_params.get('status')
+        category_param = self.request.query_params.get('category')
+        property_param = self.request.query_params.get('property')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        if category_param:
+            queryset = queryset.filter(category=category_param)
+        if property_param:
+            queryset = queryset.filter(property_id=property_param)
+        return queryset
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        thread = serializer.save(
+            organization=organization,
+            created_by=self.request.user,
+            property=get_active_property(self.request, organization),
+        )
+        initial_message = self.request.data.get('initial_message')
+        attachment_url = self.request.data.get('attachment_url', '')
+        if initial_message:
+            TeamFeedbackMessage.objects.create(
+                organization=organization,
+                thread=thread,
+                sender=self.request.user,
+                sender_name=f"{self.request.user.first_name} {self.request.user.last_name}".strip() or self.request.user.username,
+                message=initial_message,
+                attachment_url=attachment_url,
+            )
+
+    @action(detail=True, methods=['post'], url_path='messages')
+    def add_message(self, request, pk=None):
+        thread = self.get_object()
+        organization = get_active_organization(request)
+        message_text = request.data.get('message', '').strip()
+        attachment_url = request.data.get('attachment_url', '')
+        is_dev = bool(request.data.get('is_developer_response', False) or request.user.is_superuser)
+        if not message_text:
+            raise ValidationError({'message': 'Message text is required.'})
+        
+        msg = TeamFeedbackMessage.objects.create(
+            organization=organization,
+            thread=thread,
+            sender=request.user,
+            sender_name=f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+            message=message_text,
+            attachment_url=attachment_url,
+            is_developer_response=is_dev,
+        )
+        return Response(TeamFeedbackMessageSerializer(msg).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='update-status')
+    def update_status(self, request, pk=None):
+        thread = self.get_object()
+        new_status = request.data.get('status')
+        if new_status not in TeamFeedbackThread.Status.values:
+            raise ValidationError({'status': 'Invalid status choice.'})
+        thread.status = new_status
+        thread.save()
+        return Response(TeamFeedbackThreadSerializer(thread).data)
