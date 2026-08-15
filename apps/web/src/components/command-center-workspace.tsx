@@ -7,6 +7,9 @@ import { apiFetch } from "@/lib/api";
 import { modules, ACTIVE_MODULES } from "@/lib/modules";
 import { useSearchParams } from "next/navigation";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Grid, Typography, Chip, Tooltip } from "@mui/material";
+import { TrendingUp, AlertCircle, CheckCircle, Clock, Activity, Users, Building2, FileText, Settings, HelpCircle, Calendar as CalendarIcon } from "lucide-react";
 
 type Pulse = {
   property?: { properties: number; outstanding: number; occupancy: number; tenants: number };
@@ -126,11 +129,54 @@ export function CommandCenterWorkspace() {
 
   return (
     <div className="page-wrap command-center">
+      <BreadcrumbNavigation />
+      
       <div className="command-layout">
         <div className="command-main">
           {portfolioView === "tickets" ? <ModuleTicketsView moduleName="Portfolio" portfolio /> : null}
           {portfolioView === "calendar" ? <ModuleCalendarView moduleName="Portfolio" portfolio /> : null}
           {portfolioView ? <div style={{ height: 24 }} /> : null}
+          
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+              Command Center
+            </Typography>
+            <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+              Your central hub for portfolio management, team coordination, and operational oversight.
+            </Typography>
+            
+            {/* Quick Action Chips */}
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 3 }}>
+              <Chip 
+                icon={<CalendarIcon size={16} />}
+                label="Calendar View" 
+                onClick={() => window.location.href = "/calendar"}
+                clickable
+                sx={{ bgcolor: "#e0e7ff", color: "#4f46e5" }}
+              />
+              <Chip 
+                icon={<FileText size={16} />}
+                label="View Tickets" 
+                onClick={() => window.location.href = "/tickets"}
+                clickable
+                sx={{ bgcolor: "#fee2e2", color: "#b91c1c" }}
+              />
+              <Chip 
+                icon={<Settings size={16} />}
+                label="Administration" 
+                onClick={() => window.location.href = "/administration"}
+                clickable
+                sx={{ bgcolor: "#f3f4f6", color: "#374151" }}
+              />
+              <Chip 
+                icon={<HelpCircle size={16} />}
+                label="Help & Support" 
+                clickable
+                sx={{ bgcolor: "#fef3c7", color: "#92400e" }}
+              />
+            </Box>
+          </Box>
+          
           <section aria-labelledby="modules-heading">
             <div className="section-heading command-section-heading" style={{ marginBottom: 20 }}>
               <div>

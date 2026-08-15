@@ -3,35 +3,10 @@
 import { useState } from "react";
 import { Row } from "../../types/facility.types";
 import { FcStatus } from "../FacilityToolbar";
-
-function FcKpiCard({
-  icon,
-  iconBg,
-  iconColor,
-  label,
-  value,
-  sub,
-}: {
-  icon: string;
-  iconBg: string;
-  iconColor: string;
-  label: string;
-  value: string;
-  sub?: string;
-}) {
-  return (
-    <div className="fc-kpi-card" style={{ textAlign: "left" }}>
-      <div className="fc-kpi-top">
-        <span className="fc-kpi-icon" style={{ background: iconBg, color: iconColor }}>
-          {icon}
-        </span>
-        <span className="fc-kpi-label">{label}</span>
-      </div>
-      <strong className="fc-kpi-value">{value}</strong>
-      {sub && <span className="fc-kpi-sub">{sub}</span>}
-    </div>
-  );
-}
+import { EnhancedDataTable } from "@/components/enhanced-data-table";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Grid, Typography } from "@mui/material";
+import { ClipboardList, Clock, CheckCircle, AlertTriangle, Users, TrendingUp, Download, Wrench } from "lucide-react";
 
 export function ServiceRequestsView({
   rows,
@@ -47,7 +22,6 @@ export function ServiceRequestsView({
   onAdd: () => void;
 }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
-  const [subTab, setSubTab] = useState("all");
 
   const displayRows = rows;
 
@@ -63,176 +37,96 @@ export function ServiceRequestsView({
 
   return (
     <>
-      <div className="fc-kpi-strip" style={{ gridTemplateColumns: "repeat(7, minmax(0,1fr))" }}>
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Open Requests" value={String(totalReq)} sub="Awaiting resolution" />
-        <FcKpiCard icon="📂" iconBg="#fff3cd" iconColor="#92400e" label="Open" value={String(openReq)} sub={hasData ? "New & assigned" : "0"} />
-        <FcKpiCard icon="⏳" iconBg="#dbeafe" iconColor="#1d4ed8" label="In Progress" value={String(inProgressReq)} sub={hasData ? "Active" : "0"} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#166534" label="Completed" value={String(completedReq)} sub={hasData ? "Resolved & closed" : "0"} />
-        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueReq)} sub={hasData ? "Past SLA" : "0"} />
-        <FcKpiCard icon="⏱" iconBg="#f0fdf4" iconColor="#15803d" label="Avg. Response Time" value="—" sub="No data available" />
-        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction Score" value="—" sub="No data available" />
-      </div>
+      <BreadcrumbNavigation />
+      
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+          Service Requests Management
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#4f46e5", color: "white",
+              textAlign: "center"
+            }}>
+              <ClipboardList size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{totalReq}</Typography>
+              <Typography variant="caption">Open Requests</Typography>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#f59e0b", color: "white",
+              textAlign: "center"
+            }}>
+              <Clock size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{openReq}</Typography>
+              <Typography variant="caption">New & Assigned</Typography>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#3b82f6", color: "white",
+              textAlign: "center"
+            }}>
+              <TrendingUp size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{inProgressReq}</Typography>
+              <Typography variant="caption">In Progress</Typography>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: overdueReq > 0 ? "#ef4444" : "#22c55e", color: "white",
+              textAlign: "center"
+            }}>
+              <AlertTriangle size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{overdueReq}</Typography>
+              <Typography variant="caption">Overdue</Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
 
-      {(() => {
-        const filteredRows = subTab === "all" ? displayRows
-          : subTab === "mine" ? displayRows.filter((r) => String(r.tenant_name ?? "").includes("John"))
-          : subTab === "open" ? displayRows.filter((r) => String(r.status) === "open")
-          : subTab === "in_progress" ? displayRows.filter((r) => String(r.status) === "in_progress")
-          : subTab === "completed" ? displayRows.filter((r) => ["resolved", "closed"].includes(String(r.status)))
-          : subTab === "cancelled" ? displayRows.filter((r) => String(r.status) === "cancelled")
-          : displayRows;
-        return (
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 360px" : "1fr" }}>
-        <article className="data-panel">
-          <div className="fc-table-toolbar">
-            <div className="fc-table-toolbar-left">
-              <input placeholder="Search requests…" data-testid="sr-search-input" style={{ border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 180 }} />
-              <select className="fc-toolbar-select" value={subTab} onChange={(e) => setSubTab(e.target.value)}>
-                <option value="all">All Requests</option>
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="mine">My Requests</option>
-              </select>
-            </div>
-            <div className="fc-table-toolbar-right">
-              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-request-btn">New Service Request</button>
-            </div>
-          </div>
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Request ID</th>
-                  <th>Title</th>
-                  <th>Category</th>
-                  <th>Location</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th>Reported By</th>
-                  <th>Reported On</th>
-                  <th>SLA</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} style={{ textAlign: "center", padding: "32px 16px", color: "var(--text-secondary)" }}>
-                      No service requests found. Click &quot;+ New Service Request&quot; to log a maintenance issue.
-                    </td>
-                  </tr>
-                ) : filteredRows.map((row) => {
-                  const priority = String(row.priority ?? "low");
-                  const status = String(row.status ?? "open");
-                  const ref = String(row.reference ?? "");
-                  const cat = String(row.category ?? "General");
-                  return (
-                    <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
-                          <span style={{ alignItems: "center", background: "#f0f4ff", borderRadius: 8, color: "#4f46e5", display: "flex", fontSize: 14, height: 30, justifyContent: "center", width: 30 }}>
-                            {catIcons[cat] ?? "🔧"}
-                          </span>
-                          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{ref}</span>
-                        </div>
-                      </td>
-                      <td><strong style={{ fontSize: 12 }}>{String(row.subject ?? "—")}</strong></td>
-                      <td style={{ fontSize: 12 }}>{cat}</td>
-                      <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.property_name ?? "—")}</td>
-                      <td>
-                        <span className="fc-priority-chip">
-                          <i style={{ background: priorityColors[priority] ?? "#9ca3af" }} />
-                          <span style={{ color: priorityColors[priority] ?? "#9ca3af", textTransform: "capitalize" }}>{priority}</span>
-                        </span>
-                      </td>
-                      <td><FcStatus value={status.replace("_", "-")} /></td>
-                      <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.tenant_name ?? "—")}</td>
-                      <td style={{ fontSize: 11, color: "#6b7890" }}>{String(row.submitted_at ?? "—")}</td>
-                      <td><span style={{ color: "var(--text-muted)", fontSize: 11, fontWeight: 700 }}>{row.response_due_at ? String(row.response_due_at) : "Not configured"}</span></td>
-                      <td>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {permissions.canApprove && status === "new" && <>
-                            <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(row, "approve"); }}>Approve</button>
-                            <button className="btn danger sm" onClick={(e) => { e.stopPropagation(); onAction(row, "reject"); }}>Reject</button>
-                          </>}
-                          {permissions.canWork && status === "approved" && !row.work_order && (
-                            <button onClick={(e) => { e.stopPropagation(); onAction(row, "convert"); }} style={{ background: "#e23b3b", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
-                              Create WO
-                            </button>
-                          )}
-                          {permissions.canWork && ["assigned", "in_progress"].includes(status) && (
-                            <button onClick={(e) => { e.stopPropagation(); onAction(row, "resolve"); }} style={{ background: "#22c55e", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
-                              Resolve
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="fc-pagination">
-            <span className="fc-pager-info">Showing 1 to {filteredRows.length} of {totalReq || filteredRows.length} requests</span>
-          </div>
-        </article>
-
-        {/* Detail panel */}
-        {selectedRow && (
-          <div className="fc-detail-panel">
-            <div className="fc-detail-header">
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(selectedRow.reference ?? "")}</span>
-                  <FcStatus value={String(selectedRow.status ?? "").replace("_", "-")} />
-                </div>
-                <strong style={{ display: "block", fontSize: 15 }}>{String(selectedRow.subject ?? "—")}</strong>
-                <small style={{ color: "#8a96a7" }}>{String(selectedRow.property_name ?? "—")}</small>
-              </div>
-              <button onClick={() => setSelectedRow(null)} style={{ background: "none", border: 0, color: "#8a96a7", cursor: "pointer", fontSize: 20 }}>×</button>
-            </div>
-            <div className="fc-detail-tabs">
-              {["Overview", "Updates (2)", "Photos (2)", "Tasks (1)", "Related"].map((t, i) => (
-                <button key={t} className={i === 0 ? "active" : ""}>{t}</button>
-              ))}
-            </div>
-            <div style={{ padding: "14px 18px" }}>
-              {[
-                { label: "Status", value: String(selectedRow.status ?? "").replace("_", " ") },
-                { label: "Reported By", value: String(selectedRow.tenant_name ?? "—") },
-                { label: "SLA Response Time", value: "4 hours" },
-                { label: "Contact", value: "0712 345 678" },
-                { label: "SLA Resolution Time", value: "48 hours" },
-                { label: "Assigned To", value: "James Kariuki" },
-                { label: "Response Due", value: "18 May 2026, 01:15 PM" },
-                { label: "Contractor", value: "Aqua Solutions Ltd." },
-                { label: "Resolution Due", value: "20 May 2026, 09:15 AM" },
-                { label: "Created By", value: "John Mwangi" },
-              ].map((f) => (
-                <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "9px 0" }}>
-                  <span style={{ color: "#8a96a7", fontSize: 11 }}>{f.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{f.value}</span>
-                </div>
-              ))}
-              <div style={{ marginTop: 14 }}>
-                <strong style={{ display: "block", fontSize: 12, marginBottom: 6 }}>Description</strong>
-                <p style={{ color: "#4b5563", fontSize: 12, lineHeight: 1.5, margin: 0 }}>
-                  The flush is not working in the men&apos;s washroom near lift lobby. Water does not refill after flush.
-                </p>
-              </div>
-            </div>
-            <div style={{ display: "grid", gap: 8, padding: 18, gridTemplateColumns: "1fr 1fr" }}>
-              <button className="fc-detail-cta outline">✏ Edit Request</button>
-              <button className="fc-detail-cta outline" style={{ color: "#b91c1c", borderColor: "#e23b3b" }}>× Cancel Request</button>
-            </div>
-            <button className="fc-detail-cta" style={{ margin: "0 18px 18px" }}>Add Update</button>
-          </div>
-        )}
-      </div>
-      ); })()}
+      <EnhancedDataTable
+        data={displayRows}
+        columns={[
+          { id: "request_id", label: "Request ID", sortable: true, filterable: true },
+          { id: "category", label: "Category", sortable: true, filterable: true },
+          { id: "priority", label: "Priority", sortable: true, filterable: true },
+          { id: "status", label: "Status", sortable: true, filterable: true },
+          { id: "location", label: "Location", sortable: true, filterable: true },
+          { id: "created_at", label: "Created", sortable: true, filterable: true },
+          { id: "response_due_at", label: "Due Date", sortable: true, filterable: true },
+        ]}
+        loading={false}
+        emptyTitle="No service requests"
+        emptyDescription="Create a new service request to get started"
+        onRowClick={(row) => setSelectedRow(row)}
+        onEdit={(row) => {/* Handle edit */}}
+        onDelete={(row) => {/* Handle delete */}}
+        onExport={(selectedRows) => {/* Handle export */}}
+        selectable
+        bulkActions={[
+          {
+            label: "Export Selected",
+            icon: <Download size={16} />,
+            action: (rows) => {/* Handle export */},
+            color: "primary"
+          },
+          {
+            label: "Mark as Completed",
+            icon: <CheckCircle size={16} />,
+            action: (rows) => {/* Handle bulk completion */},
+            color: "success"
+          },
+          {
+            label: "Assign to Staff",
+            icon: <Users size={16} />,
+            action: (rows) => {/* Handle bulk assignment */},
+            color: "secondary"
+          }
+        ]}
+      />
     </>
   );
 }
