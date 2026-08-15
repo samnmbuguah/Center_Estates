@@ -116,7 +116,7 @@ export function EnhancedFormField({
   };
 
   const hasErrors = errors.length > 0;
-  const hasProgressiveDisclosure = progressiveDisclosure && value === progressiveDisclosure.triggerValue;
+  const hasProgressiveDisclosure = progressiveDisclosure ? value === progressiveDisclosure.triggerValue : false;
 
   const getStrengthColor = () => {
     if (strength <= 1) return "#ef4444";
@@ -261,7 +261,7 @@ export function EnhancedFormField({
           <Typography variant="caption" sx={{ fontWeight: 600, color: "#4f46e5", display: "block", mb: 1 }}>
             Additional Options
           </Typography>
-          {progressiveDisclosure.additionalFields}
+          {progressiveDisclosure?.additionalFields}
         </Box>
       </Collapse>
     </Box>
