@@ -33,6 +33,7 @@ export interface EnhancedFormFieldProps {
   fullWidth?: boolean;
   multiline?: boolean;
   rows?: number;
+  sx?: object;
 }
 
 export function EnhancedFormField({
