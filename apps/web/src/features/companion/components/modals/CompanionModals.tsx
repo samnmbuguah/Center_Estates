@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, Modal, Panel } from "@/components/module-ui";
 import { FeedbackThread, Row, TeamMember } from "../../types/companion.types";
@@ -48,6 +48,16 @@ export function AddTeamMemberModal({
       role_ids: selectedRoles,
       property_ids: selectedProps,
     });
+    // Clear form fields after successful submission
+    setUsername("");
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setPhone("");
+    setIsAdmin(false);
+    setSelectedRoles([]);
+    setSelectedProps([]);
+    onClose();
   }
 
   return (
@@ -194,6 +204,16 @@ export function EditMemberMatrixModal({
   const [selectedRoles, setSelectedRoles] = useState<string[]>(member?.roles?.map((r) => r.id) || []);
   const [selectedProps, setSelectedProps] = useState<string[]>(member?.assigned_properties?.map((p) => p.id) || []);
 
+  // Sync form with member data when member changes
+  useEffect(() => {
+    if (member) {
+      setIsAdmin(member.is_organization_admin || false);
+      setPhone(member.phone_number || "");
+      setSelectedRoles(member.roles?.map((r) => r.id) || []);
+      setSelectedProps(member.assigned_properties?.map((p) => p.id) || []);
+    }
+  }, [member]);
+
   if (!member) return null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -204,6 +224,7 @@ export function EditMemberMatrixModal({
       role_ids: selectedRoles,
       property_ids: selectedProps,
     });
+    onClose();
   }
 
   return (
@@ -224,8 +245,8 @@ export function EditMemberMatrixModal({
           />
         </Field>
 
-        <div style={{ padding: "10px 14px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+        <div style={{ padding: "10px 14px", background: isAdmin ? "#fef3c7" : "var(--surface-2)", borderRadius: 8, border: isAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, color: isAdmin ? "#92400e" : "var(--text)" }}>
             <input
               type="checkbox"
               checked={isAdmin}
@@ -236,43 +257,83 @@ export function EditMemberMatrixModal({
           </label>
         </div>
 
-        {!isAdmin && (
-          <>
-            <Field label="Assigned Functional Roles">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 8, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 140, overflowY: "auto" }}>
-                {roles.map((r) => (
-                  <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedRoles.includes(r.id)}
-                      onChange={(e) => {
-                        setSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
-                      }}
-                    />
-                    {r.name}
-                  </label>
-                ))}
-              </div>
-            </Field>
+        <Field label="Assigned Functional Roles">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>Select module roles:</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedRoles(roles.map((r) => r.id))}
+                style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRoles([])}
+                style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 8, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 150, overflowY: "auto" }}>
+            {roles.map((r) => {
+              const isSelected = selectedRoles.includes(r.id);
+              return (
+                <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer", padding: "4px 6px", borderRadius: 4, background: isSelected ? "rgba(99, 102, 241, 0.08)" : "transparent" }}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      setSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
+                    }}
+                  />
+                  <span style={{ fontWeight: isSelected ? 600 : 400, color: isSelected ? "#4338ca" : "var(--text)" }}>{r.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        </Field>
 
-            <Field label="Assigned Properties (Scoping Matrix)">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 8, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 140, overflowY: "auto" }}>
-                {properties.map((p) => (
-                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedProps.includes(p.id)}
-                      onChange={(e) => {
-                        setSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
-                      }}
-                    />
-                    🏢 {p.name} ({p.code})
-                  </label>
-                ))}
-              </div>
-            </Field>
-          </>
-        )}
+        <Field label={`Assigned Properties / Estates (${selectedProps.length} of ${properties.length} assigned)`}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>Check the properties this member manages:</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedProps(properties.map((p) => p.id))}
+                style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+              >
+                Select All ({properties.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedProps([])}
+                style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 8, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 150, overflowY: "auto" }}>
+            {properties.map((p) => {
+              const isSelected = selectedProps.includes(p.id);
+              return (
+                <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer", padding: "4px 6px", borderRadius: 4, background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent" }}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      setSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
+                    }}
+                  />
+                  <span>🏢 <strong>{p.name}</strong> <span className="mono muted" style={{ fontSize: 10 }}>({p.code})</span></span>
+                </label>
+              );
+            })}
+          </div>
+        </Field>
 
         <div className="modal-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
@@ -303,22 +364,42 @@ export function CreateFeedbackModal({
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<"bug" | "operational" | "feature" | "general">("bug");
   const [priority, setPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
-  const [module, setModule] = useState("property");
+  const [module, setModule] = useState("general");
   const [message, setMessage] = useState("");
   const [attachment, setAttachment] = useState<UploadedAttachment | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setTitle("");
+      setCategory("bug");
+      setPriority("normal");
+      setModule("general");
+      setMessage("");
+      setAttachment(null);
+    }
+  }, [open]);
 
   if (!open) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!title.trim() || !message.trim() || busy) return;
     await onSubmit({
-      title,
+      title: title.trim(),
       category,
       priority,
       module,
-      initial_message: message,
+      initial_message: message.trim(),
       attachment_url: attachment?.url || "",
     });
+    // Clear all form fields after successful submission
+    setTitle("");
+    setCategory("bug");
+    setPriority("normal");
+    setModule("general");
+    setMessage("");
+    setAttachment(null);
+    onClose();
   }
 
   return (
@@ -350,16 +431,22 @@ export function CreateFeedbackModal({
         <div className="grid-2">
           <Field label="Related Module" required>
             <select value={module} onChange={(e) => setModule(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}>
-              <option value="property">Property Management</option>
-              <option value="facility">Facility Management</option>
-              <option value="sales">Sales Management</option>
-              <option value="finance">Finance / Billing</option>
-              <option value="companion">Companion</option>
-              <option value="login_auth">Authentication / Login</option>
+              <option value="general">✨ General / Platform Wide</option>
+              <option value="property">🏢 Property Management</option>
+              <option value="facility">🛠️ Facility Management</option>
+              <option value="sales">💼 Sales Management</option>
+              <option value="finance">💰 Finance / Billing / Invoices</option>
+              <option value="companion">🧭 Companion & Field Ops</option>
+              <option value="hr">🌴 Staff Leave & HR Portal</option>
+              <option value="login_auth">🔒 Authentication / Login</option>
             </select>
           </Field>
-          <Field label="Current Property Scope">
-            <input disabled value={activePropertyName || "Portfolio-wide"} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
+          <Field label="Property Scope">
+            <input
+              disabled
+              value={activePropertyName ? `Open to All Teams (${activePropertyName})` : "Open to All Teams & Properties"}
+              style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }}
+            />
           </Field>
         </div>
 
@@ -461,6 +548,18 @@ export function AssignTaskModal({
       is_recurring: isRecurring,
       recurrence_rule: isRecurring ? recurrenceRule : "",
     });
+    // Clear all form fields after successful submission
+    setTitle("");
+    setSelectedAssignees([]);
+    setDescription("");
+    setPriority("normal");
+    setDueAt("");
+    setSlaDueAt("");
+    setSourceModule("property");
+    setSourceRef("");
+    setIsRecurring(false);
+    setRecurrenceRule("weekly");
+    onClose();
   }
 
   const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
@@ -626,6 +725,15 @@ export function CreateTemplateModal({
       sla_hours: parseInt(slaHours) || 24,
       source_module: sourceModule,
     });
+    // Clear all form fields after successful submission
+    setName("");
+    setTitleTemplate("");
+    setDescTemplate("");
+    setPriority("normal");
+    setDaysToDue("7");
+    setSlaHours("24");
+    setSourceModule("");
+    onClose();
   }
 
   const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
@@ -694,6 +802,10 @@ export function DelegateTaskModal({
     e.preventDefault();
     if (!delegateeId) return;
     await onSubmit(String(task!.id), delegateeId, note);
+    // Clear form fields after successful submission
+    setDelegateeId("");
+    setNote("");
+    onClose();
   }
 
   const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
@@ -742,6 +854,16 @@ export function CompleteTaskModal({
   const [attachment, setAttachment] = useState<UploadedAttachment | null>(null);
   const rawChecklist = Array.isArray(task?.checklist) ? (task!.checklist as any[]) : [];
   const [checklist, setChecklist] = useState<any[]>(rawChecklist);
+  const [originalChecklist, setOriginalChecklist] = useState<any[]>(rawChecklist);
+
+  // Sync checklist when task changes
+  useEffect(() => {
+    if (task) {
+      const newChecklist = Array.isArray(task.checklist) ? (task.checklist as any[]) : [];
+      setChecklist(newChecklist);
+      setOriginalChecklist(newChecklist);
+    }
+  }, [task]);
 
   if (!open || !task) return null;
 
@@ -758,8 +880,11 @@ export function CompleteTaskModal({
       attachment_url: attachment?.url || "",
       checklist,
     });
+    // Clear form fields after successful submission
     setNote("");
     setAttachment(null);
+    // Reset checklist to original task's checklist
+    setChecklist(originalChecklist);
     onClose();
   }
 
