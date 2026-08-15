@@ -266,7 +266,9 @@ export function BreadcrumbNavigation({
         anchorEl={shortcutsMenuAnchor}
         open={Boolean(shortcutsMenuAnchor)}
         onClose={() => setShortcutsMenuAnchor(null)}
-        PaperProps={{ sx: { width: 300, maxHeight: 400 } }}
+        slotProps={{
+          paper: { sx: { width: 300, maxHeight: 400 } }
+        }}
       >
         <MenuItem disabled>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
