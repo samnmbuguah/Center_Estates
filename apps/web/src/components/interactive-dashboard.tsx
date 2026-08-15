@@ -3,8 +3,9 @@
 import { useState, useCallback, useMemo } from "react";
 import {
   Box, Card, CardContent, Typography, Select, MenuItem, Chip,
-  IconButton, Tooltip, Grid, CircularProgress, Dialog, DialogTitle,
-  DialogContent, DialogActions, Button, ToggleButton, ToggleButtonGroup
+  IconButton, Tooltip, CircularProgress, Dialog, DialogTitle,
+  DialogContent, DialogActions, Button, ToggleButton, ToggleButtonGroup,
+  Stack
 } from "@mui/material";
 import { 
   TrendingUp, TrendingDown, Download, RefreshCw, Calendar,
@@ -322,13 +323,13 @@ export function InteractiveDashboard({
       ) : (
         <>
           {/* KPI Cards */}
-          <Grid container spacing={2} sx={{ mb: 4 }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)", lg: "repeat(6, 1fr)" }, gap: 2, mb: 4 }}>
             {kpiCards.map((kpi, index) => (
-              <Grid item xs={12} sm={6} md={3} key={index}>
+              <Box key={index}>
                 {renderKPICard(kpi)}
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
 
           {/* Charts */}
           {chartData && renderChart()}
