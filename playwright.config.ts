@@ -20,9 +20,27 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     ignoreHTTPSErrors: true,
+    // Use test database for all E2E tests
+    extraHTTPHeaders: {
+      'X-Test-Mode': 'true',
+    },
   },
   projects: [
-    { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
+    // Setup project for test database
+    {
+      name: 'setup-test-db',
+      testMatch: /.*\.setup\.ts/,
+    },
+    // Test projects that depend on setup
+    { 
+      name: "desktop-chromium", 
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ['setup-test-db']
+    },
+    { 
+      name: "mobile-chromium", 
+      use: { ...devices["Pixel 7"] },
+      dependencies: ['setup-test-db']
+    },
   ],
 });
