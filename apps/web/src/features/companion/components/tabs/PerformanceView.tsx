@@ -3,6 +3,8 @@
 import { Badge, EmptyState, ErrorBanner, KpiCard, KpiStrip, LoadingState } from "@/components/module-ui";
 import { CompanionDash, Row } from "../../types/companion.types";
 import { fmtDate, fmtDateTime } from "../../utils/companion.utils";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Typography } from "@mui/material";
 
 export function PerformanceView({
   tab,
@@ -47,80 +49,42 @@ export function PerformanceView({
 
   if (tab === "staff") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : staff.length === 0 ? (
-          <EmptyState icon="👥" title="No staff data available" description="Staff performance analytics require active staff members in the organization." />
-        ) : (
-          <div className="card" style={{ padding: 18 }}>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Staff Member</th>
-                    <th>Last Login</th>
-                    <th>Assigned</th>
-                    <th>Completed</th>
-                    <th>Completion %</th>
-                    <th>Overdue</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {staff.map((s) => (
-                    <tr key={String(s.user_id)} style={{ cursor: "pointer" }} onClick={() => onOpenStaffDetail(s)}>
-                      <td><strong style={{ fontSize: 13 }}>{String(s.name)}</strong></td>
-                      <td style={{ fontSize: 12 }}>{fmtDateTime(s.last_login)}</td>
-                      <td className="mono">{String(s.tasks_assigned ?? 0)}</td>
-                      <td className="mono">{String(s.tasks_completed ?? 0)}</td>
-                      <td className="mono">{String(s.completion_rate ?? 0)}%</td>
-                      <td className="mono" style={{ color: s.overdue_tasks ? "var(--danger)" : "var(--text)" }}>{String(s.overdue_tasks ?? 0)}</td>
-                      <td>{s.requires_attention ? <Badge value="attention" tone="red" /> : <Badge value="ok" tone="green" />}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : (
-        <>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ fontSize: 12, fontWeight: 600 }}>From:</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
-            <label style={{ fontSize: 12, fontWeight: 600 }}>To:</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
-            <button className="btn ghost sm" onClick={onApplyDateFilter}>Apply Filter</button>
-          </div>
-
-          <KpiStrip>
-            <KpiCard icon="👥" label="Daily Active Users" value={String(kpis.dailyActiveUsers ?? 0)} sub={`${kpis.totalStaff ?? 0} staff`} />
-            <KpiCard icon="📝" label="Tasks Assigned" value={String(kpis.tasksAssigned ?? 0)} sub="All time" />
-            <KpiCard icon="✅" label="Tasks Completed" value={String(kpis.tasksCompleted ?? 0)} sub={`${kpis.completionRate ?? 0}% completion`} />
-            <KpiCard icon="⏰" label="Overdue Tasks" value={String(kpis.overdueTasks ?? 0)} sub="Needs attention" borderColor="var(--danger)" />
-            <KpiCard icon="🚨" label="Escalated Tasks" value={String(kpis.escalatedTasks ?? 0)} sub="SLA breaches" borderColor="var(--danger)" />
-            <KpiCard icon="📈" label="Adoption Score" value={`${kpis.adoptionScore ?? 0}%`} sub="System adoption" />
-          </KpiStrip>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+      <>
+        <BreadcrumbNavigation />
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+            Staff Performance Analytics
+          </Typography>
+          <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+            Monitor team performance, task completion rates, and identify staff requiring attention.
+          </Typography>
+        </Box>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : staff.length === 0 ? (
+            <EmptyState icon="👥" title="No staff data available" description="Staff performance analytics require active staff members in the organization." />
+          ) : (
             <div className="card" style={{ padding: 18 }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>⚠️ Staff Requiring Attention</h3>
-              <div className="table-scroll" style={{ maxHeight: 320 }}>
+              <div className="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>Staff</th><th>Assigned</th><th>Completed</th><th>Overdue</th><th>Status</th></tr>
+                    <tr>
+                      <th>Staff Member</th>
+                      <th>Last Login</th>
+                      <th>Assigned</th>
+                      <th>Completed</th>
+                      <th>Completion %</th>
+                      <th>Overdue</th>
+                      <th>Status</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {staff.map((s) => (
-                      <tr key={String(s.user_id)}>
+                      <tr key={String(s.user_id)} style={{ cursor: "pointer" }} onClick={() => onOpenStaffDetail(s)}>
                         <td><strong style={{ fontSize: 13 }}>{String(s.name)}</strong></td>
+                        <td style={{ fontSize: 12 }}>{fmtDateTime(s.last_login)}</td>
                         <td className="mono">{String(s.tasks_assigned ?? 0)}</td>
                         <td className="mono">{String(s.tasks_completed ?? 0)}</td>
+                        <td className="mono">{String(s.completion_rate ?? 0)}%</td>
                         <td className="mono" style={{ color: s.overdue_tasks ? "var(--danger)" : "var(--text)" }}>{String(s.overdue_tasks ?? 0)}</td>
                         <td>{s.requires_attention ? <Badge value="attention" tone="red" /> : <Badge value="ok" tone="green" />}</td>
                       </tr>
@@ -129,25 +93,85 @@ export function PerformanceView({
                 </table>
               </div>
             </div>
+          )}
+        </div>
+      </>
+    );
+  }
 
-            <div className="card" style={{ padding: 18 }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>🚨 Escalated Tasks</h3>
-              {escalatedTasks.length === 0 ? (
-                <div className="muted" style={{ padding: "16px 0" }}>No escalated tasks.</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {escalatedTasks.map((t: Row) => (
-                    <div key={String(t.id)} style={{ borderBottom: "1px solid var(--border)", padding: "8px 0" }}>
-                      <strong style={{ fontSize: 13 }}>{String(t.title)}</strong>
-                      <div className="muted" style={{ fontSize: 11 }}>{String(t.assignee_name || t.assignee_username || "—")} · due {fmtDate(t.due_at)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+  return (
+    <>
+      <BreadcrumbNavigation />
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+          Team Performance Dashboard
+        </Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+          Comprehensive overview of team productivity, task completion, and system adoption metrics.
+        </Typography>
+      </Box>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {error ? <ErrorBanner message={error} /> : loading ? <LoadingState rows={6} /> : (
+          <>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <label style={{ fontSize: 12, fontWeight: 600 }}>From:</label>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+              <label style={{ fontSize: 12, fontWeight: 600 }}>To:</label>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+              <button className="btn ghost sm" onClick={onApplyDateFilter}>Apply Filter</button>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+
+            <KpiStrip>
+              <KpiCard icon="👥" label="Daily Active Users" value={String(kpis.dailyActiveUsers ?? 0)} sub={`${kpis.totalStaff ?? 0} staff`} />
+              <KpiCard icon="📝" label="Tasks Assigned" value={String(kpis.tasksAssigned ?? 0)} sub="All time" />
+              <KpiCard icon="✅" label="Tasks Completed" value={String(kpis.tasksCompleted ?? 0)} sub={`${kpis.completionRate ?? 0}% completion`} />
+              <KpiCard icon="⏰" label="Overdue Tasks" value={String(kpis.overdueTasks ?? 0)} sub="Needs attention" borderColor="var(--danger)" />
+              <KpiCard icon="🚨" label="Escalated Tasks" value={String(kpis.escalatedTasks ?? 0)} sub="SLA breaches" borderColor="var(--danger)" />
+              <KpiCard icon="📈" label="Adoption Score" value={`${kpis.adoptionScore ?? 0}%`} sub="System adoption" />
+            </KpiStrip>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+              <div className="card" style={{ padding: 18 }}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>⚠️ Staff Requiring Attention</h3>
+                <div className="table-scroll" style={{ maxHeight: 320 }}>
+                  <table>
+                    <thead>
+                      <tr><th>Staff</th><th>Assigned</th><th>Completed</th><th>Overdue</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {staff.map((s) => (
+                        <tr key={String(s.user_id)}>
+                          <td><strong style={{ fontSize: 13 }}>{String(s.name)}</strong></td>
+                          <td className="mono">{String(s.tasks_assigned ?? 0)}</td>
+                          <td className="mono">{String(s.tasks_completed ?? 0)}</td>
+                          <td className="mono" style={{ color: s.overdue_tasks ? "var(--danger)" : "var(--text)" }}>{String(s.overdue_tasks ?? 0)}</td>
+                          <td>{s.requires_attention ? <Badge value="attention" tone="red" /> : <Badge value="ok" tone="green" />}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: 18 }}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>🚨 Escalated Tasks</h3>
+                {escalatedTasks.length === 0 ? (
+                  <div className="muted" style={{ padding: "16px 0" }}>No escalated tasks.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {escalatedTasks.map((t: Row) => (
+                      <div key={String(t.id)} style={{ borderBottom: "1px solid var(--border)", padding: "8px 0" }}>
+                        <strong style={{ fontSize: 13 }}>{String(t.title)}</strong>
+                        <div className="muted" style={{ fontSize: 11 }}>{String(t.assignee_name || t.assignee_username || "—")} · due {fmtDate(t.due_at)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
