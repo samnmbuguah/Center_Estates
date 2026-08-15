@@ -114,13 +114,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadSession, router]);
 
   const logout = useCallback(async () => {
-    clearApiCache();
-    await apiFetch("/auth/csrf/");
-    await apiFetch("/auth/logout/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } });
-    localStorage.removeItem("ce_organization");
-    sessionStorage.removeItem(QM_LOGIN_BRIEF_STORAGE_KEY);
-    setSession(null);
-    router.replace("/login");
+    try {
+      clearApiCache();
+      await apiFetch("/auth/csrf/").catch(() => undefined);
+      await apiFetch("/auth/logout/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } }).catch(() => undefined);
+    } finally {
+      localStorage.removeItem("ce_organization");
+      sessionStorage.removeItem(QM_LOGIN_BRIEF_STORAGE_KEY);
+      sessionStorage.removeItem("ce_return_after_login");
+      setSession(null);
+      if (typeof window !== "undefined") {
+        window.location.replace("/login");
+      } else {
+        router.replace("/login");
+      }
+    }
   }, [router]);
 
   const selectOrganization = useCallback(async (id: string) => {
