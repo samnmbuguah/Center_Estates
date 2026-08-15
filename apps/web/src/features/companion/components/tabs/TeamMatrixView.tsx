@@ -77,67 +77,75 @@ export function TeamMatrixView({
           </div>
         ) : (
           <div className="table-scroll">
-            <table className="fc-data-table">
+            <table className="fc-data-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
-                  <th>Staff Member</th>
-                  <th>Username</th>
-                  <th>Contact Info</th>
-                  <th>Assigned Roles</th>
-                  <th>Assigned Properties (Matrix)</th>
-                  <th>Access Level</th>
-                  <th>Actions</th>
+                  <th style={{ width: "32%" }}>Staff Member & Contact</th>
+                  <th style={{ width: "28%" }}>Assigned Roles</th>
+                  <th style={{ width: "26%" }}>Assigned Properties (Matrix)</th>
+                  <th style={{ width: "14%", textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredMembers.map((m) => (
-                  <tr key={m.id} onClick={() => setSelectedMember(m)}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <tr key={m.id} onClick={() => setSelectedMember(m)} style={{ cursor: "pointer" }}>
+                    <td style={{ verticalAlign: "top" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                         <span
                           style={{
-                            width: 28,
-                            height: 28,
+                            width: 32,
+                            height: 32,
+                            minWidth: 32,
                             borderRadius: "50%",
-                            background: m.is_organization_admin ? "#ea580c" : "#4f46e5",
+                            background: m.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)",
                             color: "#fff",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: 700,
                           }}
                         >
                           {(m.first_name?.[0] || m.username?.[0] || "U").toUpperCase()}
                         </span>
-                        <div>
-                          <strong style={{ fontSize: 13, display: "block" }}>{m.full_name}</strong>
-                          <span style={{ fontSize: 11, color: "var(--muted)" }}>{m.username}</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <strong style={{ fontSize: 13, color: "var(--text)" }}>{m.full_name || m.username}</strong>
+                            <span className="mono" style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface-sunken)", padding: "1px 5px", borderRadius: 3, border: "1px solid var(--border)" }}>
+                              @{m.username}
+                            </span>
+                            {m.is_organization_admin && (
+                              <span style={{ fontSize: 10, fontWeight: 700, background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: 10 }}>
+                                Super Admin
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                            {m.email && <span>✉️ {m.email}</span>}
+                            {m.phone_number && <span>📞 {m.phone_number}</span>}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td className="mono" style={{ fontSize: 12 }}>{m.username}</td>
-                    <td style={{ fontSize: 12 }}>
-                      <div>{m.email || <span className="muted">No email</span>}</div>
-                      {m.phone_number && <div style={{ fontSize: 11, color: "var(--muted)" }}>{m.phone_number}</div>}
-                    </td>
-                    <td>
+                    <td style={{ verticalAlign: "top" }}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {m.roles?.length > 0 ? (
-                          m.roles.map((r) => <Badge key={r.id} tone="purple">{r.name}</Badge>)
+                          m.roles.map((r) => <Badge key={r.id} tone={m.is_organization_admin ? "purple" : "blue"}>{r.name}</Badge>)
                         ) : (
                           <span className="muted" style={{ fontSize: 12 }}>Standard Member</span>
                         )}
                       </div>
                     </td>
-                    <td>
+                    <td style={{ verticalAlign: "top" }}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {m.is_organization_admin ? (
-                          <Badge tone="blue">All Properties (Portfolio)</Badge>
+                          <span style={{ fontSize: 11, padding: "2px 8px", background: "#e0f2fe", color: "#0369a1", borderRadius: 4, fontWeight: 600, border: "1px solid #bae6fd" }}>
+                            🌐 All Properties (Portfolio)
+                          </span>
                         ) : m.assigned_properties?.length > 0 ? (
                           m.assigned_properties.map((p) => (
-                            <span key={p.id} className="fc-priority-chip" style={{ fontSize: 11 }}>
-                              🏢 {p.name}
+                            <span key={p.id} className="fc-priority-chip" style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              🏢 <strong>{p.name}</strong> <span className="mono muted">({p.code})</span>
                             </span>
                           ))
                         ) : (
@@ -145,22 +153,17 @@ export function TeamMatrixView({
                         )}
                       </div>
                     </td>
-                    <td>
-                      <StatusPill
-                        value={m.is_organization_admin ? "Super Admin" : "Staff"}
-                        tone={m.is_organization_admin ? "yellow" : "blue"}
-                      />
-                    </td>
-                    <td>
+                    <td style={{ verticalAlign: "top", textAlign: "right" }}>
                       {canManage && (
                         <button
                           className="btn ghost sm"
+                          style={{ fontSize: 12, padding: "4px 10px", fontWeight: 600 }}
                           onClick={(e) => {
                             e.stopPropagation();
                             openEditMemberModal(m);
                           }}
                         >
-                          Edit Scope
+                          Edit Matrix
                         </button>
                       )}
                     </td>

@@ -82,6 +82,7 @@ REPORT_TITLES = {
     'work-order-spend': 'Work Order Spend',
     'tenant-compliance': 'Tenant Document Compliance',
     'critical-dates': 'Critical Dates Register',
+    'stakeholder-directory': 'Master Contacts & Stakeholders Directory (Tenants, Landlords, Service Providers, PINs)',
 }
 from .lease_billing import generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
 
@@ -2339,6 +2340,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             {'key': 'work-order-spend', 'name': 'Work order spend', 'category': 'Service Providers'},
             {'key': 'tenant-compliance', 'name': 'Tenant document compliance', 'category': 'Compliance & Risk'},
             {'key': 'critical-dates', 'name': 'Critical dates register', 'category': 'Compliance & Risk'},
+            {'key': 'stakeholder-directory', 'name': 'Master Contacts & Stakeholders Directory', 'category': 'Directory & Contacts', 'section': 'Operational directory', 'critical': True, 'description': 'Complete contacts register for all Tenants, Landlords, Service Providers/Contractors, Contact Persons, Phone, Email, and KRA PIN numbers.'},
         ]})
 
     @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
@@ -2547,6 +2549,28 @@ class PropertyAnalyticsViewSet(ViewSet):
                 if contractor.license_expires_on:
                     writer.writerow(('Provider license', contractor.code, contractor.name,
                                      contractor.license_expires_on, contractor.status))
+        elif report_kind == 'stakeholder-directory':
+            from facilities.models import Contractor
+            writer.writerow(('Category', 'Property / Site', 'Entity Name', 'Contact Person / Rep', 'Phone', 'Email', 'KRA PIN / Tax ID', 'Status / Ref'))
+            # 1. Tenants
+            for t in scope_model_queryset(Tenant, request, organization).select_related('property'):
+                contact_p = ""
+                if t.directors and isinstance(t.directors, list) and len(t.directors) > 0:
+                    d0 = t.directors[0]
+                    contact_p = d0.get('name') if isinstance(d0, dict) else str(d0)
+                prop_name = t.property.name if t.property else "Portfolio-wide"
+                writer.writerow(('Tenant', prop_name, t.name, contact_p or t.name, t.phone or '', t.email or '', t.tax_id or '', f"{t.status.title()} ({t.code})"))
+            # 2. Service Providers / Contractors
+            for c in Contractor.objects.for_organization(organization):
+                writer.writerow(('Service Provider', 'Portfolio-wide', c.name, c.contact_name or c.name, c.phone or '', c.email or '', getattr(c, 'tax_pin', '') or '', f"{c.specialty} ({c.status})"))
+            # 3. Landlords / Property Owners
+            for p in scope_model_queryset(Property, request, organization):
+                meta = p.metadata or {}
+                landlord = meta.get('landlord') or {}
+                if isinstance(landlord, dict) and landlord.get('name'):
+                    writer.writerow(('Landlord / Owner', p.name, landlord.get('name', ''), landlord.get('contact_person') or landlord.get('name', ''), landlord.get('phone', ''), landlord.get('email', ''), landlord.get('pin', '') or landlord.get('tax_id', ''), f"Owner ({p.code})"))
+                else:
+                    writer.writerow(('Landlord / Owner', p.name, f"{p.name} Ownership", 'Property Owner', '', '', '', f"Owner ({p.code})"))
         else:
             raise ValidationError({'report': 'Unknown property report.'})
         if output_pdf:

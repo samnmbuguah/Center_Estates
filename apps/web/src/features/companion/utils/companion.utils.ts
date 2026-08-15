@@ -53,3 +53,11 @@ export async function readError(res: Response): Promise<string> {
     return `Request failed (${res.status}).`;
   }
 }
+
+export function toMediaUrl(url?: string | null): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.centerestates.com/api/v1").replace(/\/api\/v1\/?$/, "");
+  const cleanPath = url.startsWith("/") ? url : `/${url}`;
+  return `${base}${cleanPath}`;
+}

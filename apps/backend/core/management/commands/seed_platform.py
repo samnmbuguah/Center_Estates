@@ -109,23 +109,8 @@ class Command(BaseCommand):
         role_password = os.environ.get('SEED_ROLE_PASSWORD', password)
 
         def seed_role_user(username, first_name, last_name, role_obj, *, is_org_admin=False):
-            role_user, _ = get_user_model().objects.get_or_create(username=username)
-            role_user.first_name = first_name
-            role_user.last_name = last_name
-            role_user.email = f'{username}@centerestates.demo'
-            role_user.set_password(role_password)
-            role_user.is_active = True
-            role_user.save()
-            membership, _ = Membership.objects.update_or_create(
-                organization=organization, user=role_user,
-                defaults={
-                    'is_default': True,
-                    'is_organization_admin': is_org_admin,
-                    'status': Membership.Status.ACTIVE,
-                },
-            )
-            MembershipRole.objects.update_or_create(membership=membership, role=role_obj)
-            return role_user
+            # Roles exist with their permissions, but dummy user accounts are not created.
+            return None
 
         for module, module_label in Module.choices:
             role_definitions = (

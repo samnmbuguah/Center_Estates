@@ -14,6 +14,7 @@ import { TeamMatrixView } from "./components/tabs/TeamMatrixView";
 import { TasksView } from "./components/tabs/TasksView";
 import { TemplatesView } from "./components/tabs/TemplatesView";
 import { PerformanceView } from "./components/tabs/PerformanceView";
+import { MeterReadingsView } from "./components/tabs/MeterReadingsView";
 import {
   AddTeamMemberModal,
   AssignTaskModal,
@@ -23,8 +24,9 @@ import {
   DelegateTaskModal,
   EditMemberMatrixModal,
 } from "./components/modals/CompanionModals";
+import { HrRequestsView } from "./components/tabs/HrRequestsView";
 import { ChecklistItem, CompanionTab, Row } from "./types/companion.types";
-import { fmtDate, fmtDateTime, STATUS_TONE } from "./utils/companion.utils";
+import { fmtDate, fmtDateTime, STATUS_TONE, toMediaUrl } from "./utils/companion.utils";
 
 export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?: CompanionTab }) {
   const { session } = useAuth();
@@ -49,6 +51,13 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
     threads,
     activeThread,
     setActiveThread,
+    leaveRequests,
+    hrRequests,
+    leaveBalance,
+    handleCreateLeaveRequest,
+    handleDecideLeaveRequest,
+    handleCreateHrRequest,
+    handleDecideHrRequest,
     search,
     setSearch,
     categoryFilter,
@@ -108,18 +117,32 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
   const [completingTask, setCompletingTask] = useState<Row | null>(null);
   const [previewEvidenceUrl, setPreviewEvidenceUrl] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const isFieldStaff = Boolean(
+    isSuperAdmin ||
+      session?.roles?.includes("caretaker") ||
+      session?.roles?.includes("facility_manager") ||
+      session?.roles?.includes("property_manager") ||
+      session?.roles?.includes("technician") ||
+      session?.roles?.includes("admin") ||
+      initialTab === "meter-readings"
+  );
 
   const filteredNavGroups = useMemo(() => {
-    return companionNav.map(group => {
-      if (group.label.toLowerCase().includes("performance") && !isSuperAdmin) {
-        return {
-          ...group,
-          items: group.items.filter(item => item.id !== "performance" && item.id !== "staff"),
-        };
-      }
-      return group;
-    }).filter(Boolean) as typeof companionNav;
-  }, [isSuperAdmin]);
+    return companionNav
+      .map((group) => {
+        if (group.label.toLowerCase().includes("performance") && !isSuperAdmin) {
+          return {
+            ...group,
+            items: group.items.filter((item) => item.id !== "performance" && item.id !== "staff"),
+          };
+        }
+        if (group.label.toLowerCase().includes("field") && !isFieldStaff) {
+          return null;
+        }
+        return group;
+      })
+      .filter(Boolean) as typeof companionNav;
+  }, [isSuperAdmin, isFieldStaff]);
 
   const userName = session?.user?.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
@@ -167,7 +190,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
       activeId={tab}
       onSelect={(id) => setTab(id as CompanionTab)}
     >
-      <div className="valuation-workspace" style={{ padding: "16px 24px" }}>
+      <div className="companion-workspace" style={{ padding: "16px 24px" }}>
         {msg && <ErrorBanner message={msg} onRetry={() => setMsg("")} />}
         {error && tab !== "performance" && tab !== "staff" && <ErrorBanner message={error} onRetry={load} />}
 
@@ -230,6 +253,25 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
           />
         )}
 
+        {/* LEAVE & HR REQUESTS PORTAL */}
+        {tab === "hr-requests" && (
+          <HrRequestsView
+            leaveRequests={leaveRequests}
+            hrRequests={hrRequests}
+            leaveBalance={leaveBalance}
+            members={members}
+            currentUserId={session?.user?.id}
+            isSuperAdmin={Boolean(isSuperAdmin)}
+            loading={loading}
+            busy={busy}
+            onCreateLeaveRequest={handleCreateLeaveRequest}
+            onDecideLeaveRequest={handleDecideLeaveRequest}
+            onCreateHrRequest={handleCreateHrRequest}
+            onDecideHrRequest={handleDecideHrRequest}
+            onUploadAttachment={uploadAttachment}
+          />
+        )}
+
         {/* TASKS / MY TASKS / DELEGATIONS */}
         {(tab === "tasks" || tab === "my-tasks" || tab === "delegations") && (
           <TasksView
@@ -274,6 +316,15 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             setDateTo={setDateTo}
             onApplyDateFilter={() => setDateFilter({ from: dateFrom, to: dateTo })}
             onOpenStaffDetail={(s) => setStaffDetail(s)}
+          />
+        )}
+
+        {/* METER READINGS (FIELD WORK) */}
+        {tab === "meter-readings" && (
+          <MeterReadingsView
+            rows={rows as any}
+            loading={loading}
+            onRefresh={load}
           />
         )}
 
@@ -401,7 +452,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
                     <span>📸 Proof of Work / Completion Evidence</span>
                   </span>
                   <div
-                    onClick={() => setPreviewEvidenceUrl(String(selectedTask.attachment_url))}
+                    onClick={() => setPreviewEvidenceUrl(toMediaUrl(String(selectedTask.attachment_url)))}
                     style={{
                       cursor: "pointer",
                       display: "inline-flex",
@@ -414,7 +465,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
                     }}
                   >
                     <img
-                      src={String(selectedTask.attachment_url)}
+                      src={toMediaUrl(String(selectedTask.attachment_url))}
                       alt="Proof of Work"
                       style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }}
                       onError={(e) => {
@@ -533,13 +584,13 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
           <Modal title="🔎 Evidence & Proof-of-Work Attachment" onClose={() => setPreviewEvidenceUrl(null)} wide>
             <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
               <img
-                src={previewEvidenceUrl}
+                src={toMediaUrl(previewEvidenceUrl)}
                 alt="Proof Zoom"
                 style={{ maxWidth: "100%", maxHeight: "75vh", borderRadius: 8, border: "1px solid var(--border)", objectFit: "contain" }}
               />
               <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
                 <a
-                  href={previewEvidenceUrl}
+                  href={toMediaUrl(previewEvidenceUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn ghost sm"

@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { companionNav } from "@/lib/module-nav";
 import { usePropertyContext } from "@/lib/property-context";
-import { ChecklistItem, CompanionDash, CompanionTab, FeedbackMessage, FeedbackThread, Row, TaskItem, TeamMember } from "../types/companion.types";
+import { ChecklistItem, CompanionDash, CompanionTab, FeedbackMessage, FeedbackThread, Row, StaffHrRequest, StaffLeaveBalance, StaffLeaveRequest, TaskItem, TeamMember, companionTabLabels } from "../types/companion.types";
 
 export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const { session } = useAuth();
+  const searchParams = useSearchParams();
   const org = session?.activeOrganizationId;
   const isSuperAdmin = Boolean(
     session?.user?.isSuperuser ||
@@ -17,7 +19,29 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   );
   const { activeProperty } = usePropertyContext();
 
-  const [tab, setTab] = useState<CompanionTab>(initialTab);
+  const [tab, setTabState] = useState<CompanionTab>(() => {
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search).get("tab") as CompanionTab | null;
+      if (q && companionTabLabels[q]) return q;
+    }
+    return initialTab;
+  });
+
+  const setTab = useCallback((nextTab: CompanionTab) => {
+    setTabState(nextTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", nextTab);
+      window.history.pushState(null, "", url.toString());
+    }
+  }, []);
+
+  useEffect(() => {
+    const requested = searchParams ? searchParams.get("tab") as CompanionTab | null : null;
+    if (requested && companionTabLabels[requested]) {
+      setTabState(requested);
+    }
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
@@ -32,6 +56,15 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const [roles, setRoles] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [threads, setThreads] = useState<FeedbackThread[]>([]);
   const [activeThread, setActiveThread] = useState<FeedbackThread | null>(null);
+
+  // Leave & HR Requests
+  const [leaveRequests, setLeaveRequests] = useState<StaffLeaveRequest[]>([]);
+  const [hrRequests, setHrRequests] = useState<StaffHrRequest[]>([]);
+  const [leaveBalance, setLeaveBalance] = useState<StaffLeaveBalance | null>(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showHrModal, setShowHrModal] = useState(false);
+  const [reviewingLeave, setReviewingLeave] = useState<StaffLeaveRequest | null>(null);
+  const [reviewingHr, setReviewingHr] = useState<StaffHrRequest | null>(null);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -66,8 +99,8 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     if (!org) return;
     try {
       const [pRes, rRes] = await Promise.all([
-        apiFetch("/properties/", {}, org),
-        apiFetch("/organizations/roles/", {}, org),
+        apiFetch("/property/properties/", {}, org),
+        apiFetch("/access/roles/", {}, org),
       ]);
       if (pRes.ok) {
         const pData = await pRes.json();
@@ -87,7 +120,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const loadMembers = useCallback(async () => {
     if (!org) return;
     try {
-      const res = await apiFetch(`/organizations/members/${activeProperty?.id ? `?property=${activeProperty.id}` : ""}`, {}, org);
+      const res = await apiFetch(`/access/members/${activeProperty?.id ? `?property=${activeProperty.id}` : ""}`, {}, org);
       if (res.ok) {
         const data = await res.json();
         setMembers(Array.isArray(data) ? data : data.results || []);
@@ -100,7 +133,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const loadThreads = useCallback(async () => {
     if (!org) return;
     try {
-      const res = await apiFetch(`/companion/feedback/${activeProperty?.id ? `?property=${activeProperty.id}` : ""}`, {}, org);
+      const res = await apiFetch(`/companion/feedback/`, {}, org);
       if (res.ok) {
         const data = await res.json();
         const raw = Array.isArray(data) ? data : data.results || [];
@@ -113,7 +146,39 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     } catch {
       /* ignore */
     }
-  }, [org, activeProperty?.id, activeThread?.id]);
+  }, [org, activeThread?.id]);
+
+  const loadLeaveRequests = useCallback(async () => {
+    if (!org) return;
+    try {
+      const [lRes, bRes] = await Promise.all([
+        apiFetch(`/companion/leave/`, {}, org),
+        apiFetch(`/companion/leave/balance/`, {}, org),
+      ]);
+      if (lRes.ok) {
+        const data = await lRes.json();
+        setLeaveRequests(Array.isArray(data) ? data : data.results || []);
+      }
+      if (bRes.ok) {
+        setLeaveBalance(await bRes.json());
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [org]);
+
+  const loadHrRequests = useCallback(async () => {
+    if (!org) return;
+    try {
+      const res = await apiFetch(`/companion/hr-requests/`, {}, org);
+      if (res.ok) {
+        const data = await res.json();
+        setHrRequests(Array.isArray(data) ? data : data.results || []);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [org]);
 
   const load = useCallback(async () => {
     if (!org) return;
@@ -143,7 +208,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
           setTemplates(Array.isArray(data) ? data : data.results || []);
         }
       } else if (tab === "meter-readings") {
-        const res = await apiFetch(`/facilities/meters/${propQuery ? `?${propQuery}` : ""}`, {}, org);
+        const res = await apiFetch(`/facility/meters/${propQuery ? `?${propQuery}` : ""}`, {}, org);
         if (res.ok) {
           const data = await res.json();
           setRows(Array.isArray(data) ? data : data.results || []);
@@ -152,6 +217,8 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         }
       } else if (tab === "dialogue") {
         await loadThreads();
+      } else if (tab === "hr-requests") {
+        await Promise.all([loadLeaveRequests(), loadHrRequests(), loadMembers()]);
       } else if (tab === "team-matrix") {
         await loadMembers();
         await loadPropertiesAndRoles();
@@ -170,7 +237,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     } finally {
       setLoading(false);
     }
-  }, [org, tab, activeProperty?.id, session?.user?.id, isSuperAdmin, dateFilter, loadThreads, loadMembers, loadPropertiesAndRoles]);
+  }, [org, tab, activeProperty?.id, session?.user?.id, isSuperAdmin, dateFilter, loadThreads, loadMembers, loadPropertiesAndRoles, loadLeaveRequests, loadHrRequests]);
 
   useEffect(() => {
     load();
@@ -507,6 +574,133 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     }
   }
 
+  async function handleCreateLeaveRequest(payload: {
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    total_days: number;
+    reason: string;
+    attachment_url?: string;
+    relief_staff?: string;
+  }) {
+    if (!org) return false;
+    setBusy(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch("/companion/leave/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify(payload),
+      }, org);
+      if (res.ok) {
+        setMsg("Leave request submitted successfully.");
+        await loadLeaveRequests();
+        setShowLeaveModal(false);
+        return true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setMsg(String(body?.detail || body?.reason || body?.end_date || "Failed to submit leave request."));
+        return false;
+      }
+    } catch {
+      setMsg("Failed to submit leave request.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDecideLeaveRequest(id: string, decision: "approved" | "rejected" | "cancelled", notes?: string) {
+    if (!org) return false;
+    setBusy(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/companion/leave/${id}/decide/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ decision, notes: notes || "" }),
+      }, org);
+      if (res.ok) {
+        setMsg(`Leave request has been marked as ${decision}.`);
+        await loadLeaveRequests();
+        setReviewingLeave(null);
+        return true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setMsg(String(body?.detail || `Failed to update leave request.`));
+        return false;
+      }
+    } catch {
+      setMsg("Failed to update leave request.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCreateHrRequest(payload: {
+    request_type: string;
+    title: string;
+    description: string;
+    proposed_amount?: number;
+    currency?: string;
+    attachment_url?: string;
+  }) {
+    if (!org) return false;
+    setBusy(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch("/companion/hr-requests/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify(payload),
+      }, org);
+      if (res.ok) {
+        setMsg("HR request submitted successfully.");
+        await loadHrRequests();
+        setShowHrModal(false);
+        return true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setMsg(String(body?.detail || body?.title || "Failed to submit HR request."));
+        return false;
+      }
+    } catch {
+      setMsg("Failed to submit HR request.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDecideHrRequest(id: string, decision: "approved" | "rejected" | "under_review", notes?: string) {
+    if (!org) return false;
+    setBusy(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/companion/hr-requests/${id}/decide/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ decision, notes: notes || "" }),
+      }, org);
+      if (res.ok) {
+        setMsg(`HR request has been marked as ${decision.replace('_', ' ')}.`);
+        await loadHrRequests();
+        setReviewingHr(null);
+        return true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setMsg(String(body?.detail || `Failed to update HR request.`));
+        return false;
+      }
+    } catch {
+      setMsg("Failed to update HR request.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return {
     tab,
     setTab,
@@ -528,6 +722,17 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     threads,
     activeThread,
     setActiveThread,
+    leaveRequests,
+    hrRequests,
+    leaveBalance,
+    showLeaveModal,
+    setShowLeaveModal,
+    showHrModal,
+    setShowHrModal,
+    reviewingLeave,
+    setReviewingLeave,
+    reviewingHr,
+    setReviewingHr,
     search,
     setSearch,
     categoryFilter,
@@ -571,6 +776,8 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     load,
     loadMembers,
     loadThreads,
+    loadLeaveRequests,
+    loadHrRequests,
     uploadAttachment,
     createTask: handleAssignTask,
     createTemplate: handleCreateTemplate,
@@ -593,5 +800,9 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     handleAssignTask,
     handleCreateTemplate,
     handleDelegateTask,
+    handleCreateLeaveRequest,
+    handleDecideLeaveRequest,
+    handleCreateHrRequest,
+    handleDecideHrRequest,
   };
 }

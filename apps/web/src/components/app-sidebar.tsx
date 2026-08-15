@@ -22,6 +22,17 @@ const modules = [
   { slug: "companion", name: "Companion", icon: "🧭", accent: "#ec4899" },
 ];
 
+const COMPANION_SUBITEMS = [
+  { id: "overview", label: "My Companion & AI", icon: "🧭", href: "/companion?tab=overview" },
+  { id: "tasks", label: "Task Assignment Centre", icon: "📋", href: "/companion?tab=tasks" },
+  { id: "my-tasks", label: "My Active Tasks", icon: "✓", href: "/companion?tab=my-tasks" },
+  { id: "dialogue", label: "Team Dialogue & Feedback", icon: "💬", href: "/companion?tab=dialogue" },
+  { id: "team-matrix", label: "Team & Property Matrix", icon: "👥", href: "/companion?tab=team-matrix" },
+  { id: "performance", label: "Performance Dashboard", icon: "📊", href: "/companion?tab=performance" },
+  { id: "templates", label: "Checklist Templates", icon: "📑", href: "/companion?tab=templates" },
+  { id: "meter-readings", label: "Meter Readings", icon: "⚡", href: "/companion?tab=meter-readings" },
+];
+
 const SETTINGS_SUBITEMS = [
   { id: "profile", label: "Profile & Account", icon: "👤", href: "/settings?tab=profile" },
   { id: "mpesa-test", label: "M-Pesa STK Test", icon: "📱", href: "/settings?tab=mpesa-test" },
@@ -51,10 +62,12 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   const { session } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
 
+  const [companionExpanded, setCompanionExpanded] = useState(pathname.startsWith("/companion"));
   const [settingsExpanded, setSettingsExpanded] = useState(pathname.startsWith("/settings"));
   const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/administration"));
 
   useEffect(() => {
+    if (pathname.startsWith("/companion")) setCompanionExpanded(true);
     if (pathname.startsWith("/settings")) setSettingsExpanded(true);
     if (pathname.startsWith("/administration")) setAdminExpanded(true);
   }, [pathname]);
@@ -317,6 +330,108 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             <span style={{ fontSize: isMobile ? 18 : 15 }}>🏢</span>
             <span>Portfolio Overview</span>
           </Link>
+
+          {/* COMPANION SECTION WITH RETRACTABLE SUBOPTIONS */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderRadius: 6,
+                background: pathname === "/companion" ? "rgba(226, 59, 59, 0.15)" : "transparent",
+                color: pathname === "/companion" ? "#ffffff" : "#cbd5e1",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Link
+                className={`nav-link ${pathname === "/companion" ? "active" : ""}`}
+                href="/companion"
+                onClick={() => {
+                  setCompanionExpanded(true);
+                  onCloseMobile();
+                }}
+                title="Companion"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: isMobile ? "12px 14px" : "8px 10px",
+                  flex: 1,
+                  borderRadius: 6,
+                  color: pathname === "/companion" ? "#ffffff" : "#cbd5e1",
+                  fontWeight: pathname === "/companion" ? 700 : 500,
+                  textDecoration: "none",
+                  fontSize: isMobile ? 15 : 13,
+                }}
+              >
+                <span style={{ fontSize: isMobile ? 18 : 15 }}>🧭</span>
+                <span>Companion</span>
+              </Link>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCompanionExpanded(!companionExpanded);
+                }}
+                aria-label="Toggle companion sub-options"
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#94a3b8",
+                  padding: "8px 10px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {companionExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+            </div>
+
+            {companionExpanded && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  paddingLeft: 14,
+                  borderLeft: "2px solid rgba(255, 255, 255, 0.12)",
+                  marginLeft: 14,
+                  marginTop: 2,
+                  marginBottom: 4,
+                }}
+              >
+                {COMPANION_SUBITEMS.map((item) => {
+                  const isItemActive = pathname === "/companion" && (currentTab === item.id || (!currentTab && item.id === "overview"));
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      onClick={onCloseMobile}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 10px",
+                        borderRadius: 5,
+                        fontSize: 12,
+                        textDecoration: "none",
+                        background: isItemActive ? "#e23b3b" : "transparent",
+                        color: isItemActive ? "#ffffff" : "#94a3b8",
+                        fontWeight: isItemActive ? 700 : 500,
+                        transition: "all 0.12s ease",
+                      }}
+                    >
+                      <span style={{ fontSize: 13 }}>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>

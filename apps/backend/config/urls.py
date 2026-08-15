@@ -2444,6 +2444,7 @@ def sitemap_xml(request):
 
 
 urlpatterns = [
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
     path('_next/static/<path:path>', serve_nextjs_static, name='nextjs-static'),
     path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/v1/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
@@ -2453,7 +2454,9 @@ urlpatterns = [
     path('api/v1/documents/', include('documents.urls')),
     path('api/v1/notifications/', include('notifications.urls')),
     path('api/v1/access/', include('organizations.urls')),
+    path('api/v1/organizations/', include('organizations.urls')),
     path('api/v1/property/', include('properties.urls')),
+    path('api/v1/properties/', include('properties.urls')),
     path('api/v1/facility/', include('facilities.urls')),
     path('api/v1/sales/', include('sales.urls')),
     path('api/v1/tender/', include('tenders.urls')),

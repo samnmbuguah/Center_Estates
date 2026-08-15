@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Badge, DetailDrawer, EmptyState, Field, Modal, StatusPill } from "@/components/module-ui";
-import { FeedbackMessage, FeedbackThread } from "../../types/companion.types";
-import { fmtDate, fmtDateTime, PRIORITY_TONE, STATUS_TONE, toMediaUrl } from "../../utils/companion.utils";
+import { Badge, DetailDrawer, EmptyState, Modal } from "@/components/module-ui";
+import { FeedbackThread } from "../../types/companion.types";
+import { fmtDateTime, PRIORITY_TONE, toMediaUrl } from "../../utils/companion.utils";
 import { EvidenceAttachmentUploader, type UploadedAttachment } from "../common/EvidenceAttachmentUploader";
 import {
   ArrowUpDown,
@@ -11,15 +11,9 @@ import {
   ChevronRight,
   Download,
   ExternalLink,
-  Eye,
-  Image as ImageIcon,
-  MessageSquare,
   Plus,
-  RefreshCw,
   Search,
   Send,
-  User,
-  X,
 } from "lucide-react";
 
 export function TeamDialogueView({
@@ -29,8 +23,6 @@ export function TeamDialogueView({
   setActiveThread,
   search,
   setSearch,
-  categoryFilter,
-  setCategoryFilter,
   statusFilter,
   setStatusFilter,
   openNewThreadModal,
@@ -44,8 +36,8 @@ export function TeamDialogueView({
   setActiveThread: (t: FeedbackThread | null) => void;
   search: string;
   setSearch: (s: string) => void;
-  categoryFilter: string;
-  setCategoryFilter: (c: string) => void;
+  categoryFilter?: string;
+  setCategoryFilter?: (c: string) => void;
   statusFilter: string;
   setStatusFilter: (s: string) => void;
   openNewThreadModal: () => void;
@@ -196,7 +188,6 @@ export function TeamDialogueView({
     return /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(url) || url.includes("/media/companion/");
   }
 
-  // Status mapping to tone
   function getStatusLabel(status: string) {
     if (status === "open") return "Open";
     if (status === "in_progress") return "In-Progress";
@@ -662,28 +653,37 @@ export function TeamDialogueView({
         <DetailDrawer
           title={activeThread.title}
           onClose={() => setActiveThread(null)}
+          width={520}
         >
-          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 16 }}>
-            {activeThread.status !== "resolved" && activeThread.status !== "closed" ? (
-              <button
-                type="button"
-                className="btn sm"
-                style={{ background: "#059669", color: "#fff", borderColor: "#059669" }}
-                onClick={() => updateThreadStatus(activeThread.id, "resolved")}
-              >
-                ✓ Mark Closed
-              </button>
-            ) : (
-              <button
-                type="button"
-                  className="btn ghost sm"
-                  onClick={() => updateThreadStatus(activeThread.id, "open")}
-                >
-                  ↺ Reopen
-                </button>
-              )}
-            </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "8px 0" }}>
+            {/* Header Action & Status Switcher */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "#2563eb", fontWeight: 700 }}>
+                {activeThread.reference || `FB-${activeThread.id}`}
+              </span>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {activeThread.status !== "resolved" && activeThread.status !== "closed" ? (
+                  <button
+                    type="button"
+                    className="btn sm"
+                    style={{ background: "#059669", color: "#fff", borderColor: "#059669", fontSize: 11 }}
+                    onClick={() => updateThreadStatus(activeThread.id, "resolved")}
+                  >
+                    ✓ Mark Closed
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{ fontSize: 11 }}
+                    onClick={() => updateThreadStatus(activeThread.id, "open")}
+                  >
+                    ↺ Reopen
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Thread Details Overview Card */}
             <div
               className="card"
@@ -693,8 +693,8 @@ export function TeamDialogueView({
                 border: "1px solid var(--border)",
                 borderRadius: 8,
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                gap: 10,
                 fontSize: 12,
               }}
             >
@@ -741,9 +741,9 @@ export function TeamDialogueView({
               </div>
               <div>
                 <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>
-                  Created Date
+                  Logged By
                 </span>
-                <span>{fmtDateTime(activeThread.created_at)}</span>
+                <span>{activeThread.created_by_name || "Team Member"}</span>
               </div>
             </div>
 

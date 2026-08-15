@@ -16,8 +16,20 @@ from config.throttling import QMChatRateThrottle
 from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
-from .models import Task, TaskEvent, TaskTemplate, TeamFeedbackMessage, TeamFeedbackThread
+from .models import (
+    StaffHrRequest,
+    StaffLeaveBalance,
+    StaffLeaveRequest,
+    Task,
+    TaskEvent,
+    TaskTemplate,
+    TeamFeedbackMessage,
+    TeamFeedbackThread,
+)
 from .serializers import (
+    StaffHrRequestSerializer,
+    StaffLeaveBalanceSerializer,
+    StaffLeaveRequestSerializer,
     TaskEventSerializer,
     TaskSerializer,
     TaskTemplateSerializer,
@@ -698,8 +710,11 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
         filename = f"companion/feedback/{request.user.id}/{uuid.uuid4().hex[:12]}_{upload.name}"
         saved_path = default_storage.save(filename, upload)
         file_url = default_storage.url(saved_path)
-        if not file_url.startswith('http') and not file_url.startswith('/'):
-            file_url = f"/media/{saved_path}"
+        if not file_url.startswith('http'):
+            if not file_url.startswith('/'):
+                file_url = f"/media/{saved_path}"
+            if hasattr(request, 'build_absolute_uri'):
+                file_url = request.build_absolute_uri(file_url)
         
         return Response({
             'url': file_url,
@@ -737,3 +752,167 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
         thread.status = new_status
         thread.save()
         return Response(TeamFeedbackThreadSerializer(thread).data)
+
+
+class StaffLeaveRequestViewSet(CompanionModelViewSet):
+    queryset = StaffLeaveRequest.objects.select_related('requester', 'relief_staff', 'decided_by')
+    serializer_class = StaffLeaveRequestSerializer
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        qs = self.queryset.for_organization(organization)
+        membership = get_active_membership(self.request)
+        is_admin = bool(self.request.user.is_superuser or (membership and membership.is_organization_admin))
+
+        # Non-admins only see their own leave requests unless filtering for team calendar
+        scope = self.request.query_params.get('scope')
+        if not is_admin and scope != 'team':
+            qs = qs.filter(requester=self.request.user)
+
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        leave_type = self.request.query_params.get('leave_type')
+        if leave_type:
+            qs = qs.filter(leave_type=leave_type)
+
+        user_id = self.request.query_params.get('user')
+        if user_id:
+            qs = qs.filter(requester_id=user_id)
+
+        return qs
+
+    def perform_create(self, serializer):
+        organization = get_active_organization(self.request)
+        start_date = serializer.validated_data.get('start_date')
+        end_date = serializer.validated_data.get('end_date')
+        if start_date and end_date and end_date < start_date:
+            raise ValidationError({'end_date': 'End date cannot precede start date.'})
+        
+        # Calculate working days roughly if not explicitly provided
+        total_days = serializer.validated_data.get('total_days')
+        if not total_days and start_date and end_date:
+            import datetime
+            delta = (end_date - start_date).days + 1
+            total_days = max(1, delta)
+
+        serializer.save(
+            organization=organization,
+            requester=self.request.user,
+            total_days=total_days,
+            status=StaffLeaveRequest.Status.PENDING,
+        )
+
+    @action(detail=True, methods=['post'], url_path='decide')
+    def decide(self, request, pk=None):
+        membership = get_active_membership(request)
+        is_admin = bool(request.user.is_superuser or (membership and membership.is_organization_admin))
+        if not is_admin:
+            raise PermissionDenied('Only organization administrators can approve or reject leave requests.')
+
+        leave_req = self.get_object()
+        decision = request.data.get('decision')
+        notes = request.data.get('notes', '').strip()
+
+        if decision not in ('approved', 'rejected', 'cancelled'):
+            raise ValidationError({'decision': 'Decision must be approved, rejected, or cancelled.'})
+
+        leave_req.status = decision
+        leave_req.decided_by = request.user
+        leave_req.decision_notes = notes
+        leave_req.decided_at = timezone.now()
+        leave_req.save()
+
+        return Response(StaffLeaveRequestSerializer(leave_req).data)
+
+    @action(detail=False, methods=['get'], url_path='balance')
+    def get_balance(self, request):
+        organization = get_active_organization(request)
+        user_id = request.query_params.get('user')
+        target_user = request.user
+        if user_id:
+            membership = get_active_membership(request)
+            is_admin = bool(request.user.is_superuser or (membership and membership.is_organization_admin))
+            if is_admin:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                target_user = User.objects.filter(id=user_id).first() or request.user
+
+        current_year = timezone.now().year
+        balance, _ = StaffLeaveBalance.objects.get_or_create(
+            organization=organization,
+            user=target_user,
+            year=current_year,
+            defaults={'annual_entitlement': 21.0, 'carried_forward': 0.0}
+        )
+
+        name = f"{target_user.first_name} {target_user.last_name}".strip() or target_user.username
+        data = {
+            'user_id': target_user.id,
+            'user_name': name,
+            'user_username': target_user.username,
+            'year': current_year,
+            'annual_entitlement': float(balance.annual_entitlement),
+            'carried_forward': float(balance.carried_forward),
+            'total_entitlement': float(balance.total_entitlement),
+            'taken_days': balance.get_taken_days(),
+            'pending_days': balance.get_pending_days(),
+            'remaining_days': balance.remaining_days,
+        }
+        return Response(data)
+
+
+class StaffHrRequestViewSet(CompanionModelViewSet):
+    queryset = StaffHrRequest.objects.select_related('requester', 'decided_by')
+    serializer_class = StaffHrRequestSerializer
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        qs = self.queryset.for_organization(organization)
+        membership = get_active_membership(self.request)
+        is_admin = bool(self.request.user.is_superuser or (membership and membership.is_organization_admin))
+
+        if not is_admin:
+            qs = qs.filter(requester=self.request.user)
+
+        request_type = self.request.query_params.get('request_type')
+        if request_type:
+            qs = qs.filter(request_type=request_type)
+
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        return qs
+
+    def perform_create(self, serializer):
+        organization = get_active_organization(self.request)
+        serializer.save(
+            organization=organization,
+            requester=self.request.user,
+            status=StaffHrRequest.Status.PENDING,
+        )
+
+    @action(detail=True, methods=['post'], url_path='decide')
+    def decide(self, request, pk=None):
+        membership = get_active_membership(request)
+        is_admin = bool(request.user.is_superuser or (membership and membership.is_organization_admin))
+        if not is_admin:
+            raise PermissionDenied('Only organization administrators can review and decide HR requests.')
+
+        hr_req = self.get_object()
+        decision = request.data.get('decision')
+        notes = request.data.get('notes', '').strip()
+
+        if decision not in ('approved', 'rejected', 'under_review'):
+            raise ValidationError({'decision': 'Decision must be approved, rejected, or under_review.'})
+
+        hr_req.status = decision
+        hr_req.decided_by = request.user
+        hr_req.decision_notes = notes
+        hr_req.decided_at = timezone.now()
+        hr_req.save()
+
+        return Response(StaffHrRequestSerializer(hr_req).data)
+

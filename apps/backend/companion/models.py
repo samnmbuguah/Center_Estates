@@ -181,3 +181,142 @@ class TeamFeedbackMessage(OrganizationOwnedModel):
 
     class Meta:
         ordering = ('created_at',)
+
+
+class StaffLeaveRequest(OrganizationOwnedModel):
+    class LeaveType(models.TextChoices):
+        ANNUAL = 'annual', 'Annual / Vacation Leave'
+        SICK = 'sick', 'Sick Leave'
+        MATERNITY = 'maternity', 'Maternity Leave'
+        PATERNITY = 'paternity', 'Paternity Leave'
+        COMPASSIONATE = 'compassionate', 'Compassionate / Bereavement'
+        STUDY = 'study', 'Study / Exam Leave'
+        UNPAID = 'unpaid', 'Unpaid Leave'
+        EMERGENCY = 'emergency', 'Emergency Leave'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending Approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    reference = models.CharField(max_length=60, blank=True)
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='leave_requests'
+    )
+    leave_type = models.CharField(max_length=32, choices=LeaveType.choices, default=LeaveType.ANNUAL)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    total_days = models.DecimalField(max_digits=5, decimal_places=1, default=1.0)
+    reason = models.TextField()
+    attachment_url = models.CharField(max_length=500, blank=True, default='')
+    relief_staff = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name='relief_leave_coverages', null=True, blank=True,
+    )
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name='decided_leave_requests', null=True, blank=True,
+    )
+    decision_notes = models.TextField(blank=True, default='')
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        indexes = [
+            models.Index(fields=('organization', 'requester', 'status')),
+            models.Index(fields=('organization', 'start_date', 'end_date')),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            import random
+            self.reference = f"LV-{random.randint(1000, 9999)}"
+        super().save(*args, **kwargs)
+
+
+class StaffHrRequest(OrganizationOwnedModel):
+    class RequestType(models.TextChoices):
+        RAISE_REVIEW = 'raise_review', 'Salary / Raise Review'
+        OVERTIME_CLAIM = 'overtime_claim', 'Overtime / Shift Claim'
+        EXPENSE_REIMBURSEMENT = 'expense_reimbursement', 'Expense Reimbursement'
+        SALARY_ADVANCE = 'salary_advance', 'Salary Advance / Loan'
+        GENERAL_HR = 'general_hr', 'General HR Request / Inquiry'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending Review'
+        UNDER_REVIEW = 'under_review', 'Under Consideration'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    reference = models.CharField(max_length=60, blank=True)
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='hr_requests'
+    )
+    request_type = models.CharField(max_length=32, choices=RequestType.choices, default=RequestType.GENERAL_HR)
+    title = models.CharField(max_length=220)
+    description = models.TextField()
+    proposed_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=8, default='KES')
+    attachment_url = models.CharField(max_length=500, blank=True, default='')
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name='decided_hr_requests', null=True, blank=True,
+    )
+    decision_notes = models.TextField(blank=True, default='')
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        indexes = [
+            models.Index(fields=('organization', 'requester', 'status')),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            import random
+            self.reference = f"HR-{random.randint(1000, 9999)}"
+        super().save(*args, **kwargs)
+
+
+class StaffLeaveBalance(OrganizationOwnedModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='leave_balances'
+    )
+    year = models.PositiveIntegerField(default=2026)
+    annual_entitlement = models.DecimalField(max_digits=5, decimal_places=1, default=21.0)
+    carried_forward = models.DecimalField(max_digits=5, decimal_places=1, default=0.0)
+
+    class Meta:
+        unique_together = ('organization', 'user', 'year')
+        ordering = ('user', 'year')
+
+    @property
+    def total_entitlement(self):
+        return float(self.annual_entitlement) + float(self.carried_forward)
+
+    def get_taken_days(self):
+        approved = StaffLeaveRequest.objects.filter(
+            organization=self.organization,
+            requester=self.user,
+            leave_type=StaffLeaveRequest.LeaveType.ANNUAL,
+            status=StaffLeaveRequest.Status.APPROVED,
+            start_date__year=self.year,
+        ).aggregate(models.Sum('total_days'))['total_days__sum'] or 0.0
+        return float(approved)
+
+    def get_pending_days(self):
+        pending = StaffLeaveRequest.objects.filter(
+            organization=self.organization,
+            requester=self.user,
+            leave_type=StaffLeaveRequest.LeaveType.ANNUAL,
+            status=StaffLeaveRequest.Status.PENDING,
+            start_date__year=self.year,
+        ).aggregate(models.Sum('total_days'))['total_days__sum'] or 0.0
+        return float(pending)
+
+    @property
+    def remaining_days(self):
+        return max(0.0, self.total_entitlement - self.get_taken_days())

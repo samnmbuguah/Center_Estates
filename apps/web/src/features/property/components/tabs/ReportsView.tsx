@@ -38,7 +38,9 @@ export function ReportsView({ rows, loading, onExport }: {
     return matchesCategory && haystack.includes(query.trim().toLowerCase());
   });
   const critical = reports.filter((report) => report.critical);
-  const reportGroups = ["Financial", "Tenants & Occupancy", "Service Providers", "Compliance & Risk"]
+  const knownGroups = ["Financial", "Tenants & Occupancy", "Directory & Contacts", "Service Providers", "Compliance & Risk"];
+  const allGroups = Array.from(new Set([...knownGroups, ...visible.map((r) => String(r.category ?? "Other"))]));
+  const reportGroups = allGroups
     .map((name) => ({ name, reports: visible.filter((report) => report.category === name) }))
     .filter((group) => group.reports.length > 0);
   const invalidPeriod = Boolean(start && end && start > end);

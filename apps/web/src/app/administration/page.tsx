@@ -577,68 +577,75 @@ function AdministrationContent() {
                 }
               />
             ) : (
-              <div className="table-scroll">
-                <table>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
-                    <tr>
-                      <th>User / Staff Member</th>
-                      <th>Contact Info</th>
-                      <th>Assigned Roles (Feature Access)</th>
-                      <th>Assigned Properties / Estates</th>
-                      <th>Access Level</th>
-                      <th>Actions</th>
+                    <tr style={{ borderBottom: "2px solid var(--border)", background: "var(--surface-sunken)", textAlign: "left" }}>
+                      <th style={{ padding: "12px 14px", fontWeight: 700, color: "var(--text-secondary)", width: "32%" }}>User & Contact</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 700, color: "var(--text-secondary)", width: "26%" }}>Assigned Roles</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 700, color: "var(--text-secondary)", width: "27%" }}>Assigned Properties (Estates)</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 700, color: "var(--text-secondary)", width: "15%", textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredMembers.map((m) => (
-                      <tr key={m.id}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <tr key={m.id} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}>
+                        <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                             <span
                               style={{
-                                width: 32,
-                                height: 32,
+                                width: 36,
+                                height: 36,
+                                minWidth: 36,
                                 borderRadius: "50%",
-                                background: m.is_organization_admin ? "#d92d2d" : "#4f46e5",
+                                background: m.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)",
                                 color: "#fff",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: 700,
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                               }}
                             >
                               {(m.first_name?.[0] || m.username?.[0] || "U").toUpperCase()}
                             </span>
-                            <div>
-                              <strong style={{ fontSize: 13, color: "var(--text)", display: "block" }}>
-                                {m.full_name || m.username}
-                              </strong>
-                              <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-                                @{m.username}
-                              </span>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <strong style={{ fontSize: 14, color: "var(--text)" }}>
+                                  {m.full_name || m.username}
+                                </strong>
+                                <span className="mono" style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface-sunken)", padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)" }}>
+                                  @{m.username}
+                                </span>
+                                {m.is_organization_admin && (
+                                  <span style={{ fontSize: 10, fontWeight: 700, background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: 10 }}>
+                                    Super Admin
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 2 }}>
+                                {m.email ? (
+                                  <a href={`mailto:${m.email}`} style={{ color: "var(--primary, #d92d2d)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                    <span>✉️</span> {m.email}
+                                  </a>
+                                ) : (
+                                  <span className="muted">No email</span>
+                                )}
+                                {m.phone_number && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--text)" }}>
+                                    <span>📞</span> {m.phone_number}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td style={{ fontSize: 12 }}>
-                          {m.email ? (
-                            <a href={`mailto:${m.email}`} style={{ color: "var(--primary)", textDecoration: "none" }}>
-                              {m.email}
-                            </a>
-                          ) : (
-                            <span className="muted">No email</span>
-                          )}
-                          {m.phone_number && (
-                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                              📞 {m.phone_number}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
+                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                             {m.roles?.length > 0 ? (
                               m.roles.map((r) => (
-                                <Badge key={r.id} tone="purple">
+                                <Badge key={r.id} tone={m.is_organization_admin ? "purple" : "blue"}>
                                   {r.name}
                                 </Badge>
                               ))
@@ -649,14 +656,31 @@ function AdministrationContent() {
                             )}
                           </div>
                         </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
+                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                             {m.is_organization_admin ? (
-                              <Badge tone="blue">All Properties (Portfolio-wide)</Badge>
+                              <span style={{ fontSize: 12, padding: "3px 8px", background: "#e0f2fe", color: "#0369a1", borderRadius: 6, fontWeight: 600, border: "1px solid #bae6fd" }}>
+                                🌐 All Properties (Portfolio-wide)
+                              </span>
                             ) : m.assigned_properties?.length > 0 ? (
                               m.assigned_properties.map((p) => (
-                                <span key={p.id} style={{ fontSize: 11, padding: "2px 6px", background: "rgba(0,0,0,0.05)", borderRadius: 4, color: "var(--text)" }}>
-                                  🏢 {p.name}
+                                <span
+                                  key={p.id}
+                                  style={{
+                                    fontSize: 11,
+                                    padding: "3px 8px",
+                                    background: "var(--surface-sunken)",
+                                    borderRadius: 6,
+                                    color: "var(--text)",
+                                    border: "1px solid var(--border)",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <span>🏢</span>
+                                  <strong>{p.name}</strong>
+                                  <span className="mono muted" style={{ fontSize: 10 }}>({p.code})</span>
                                 </span>
                               ))
                             ) : (
@@ -666,30 +690,46 @@ function AdministrationContent() {
                             )}
                           </div>
                         </td>
-                        <td>
-                          <StatusPill
-                            value={m.is_organization_admin ? "Super Admin" : "Staff"}
-                            tone={m.is_organization_admin ? "yellow" : "gray"}
-                          />
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 6 }}>
+                        <td style={{ padding: "12px 14px", verticalAlign: "top", textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: 8, alignItems: "center", justifyContent: "flex-end" }}>
                             <button
                               className="btn ghost sm"
-                              style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: 12,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                fontWeight: 600,
+                                borderRadius: 6,
+                                border: "1px solid var(--border)",
+                              }}
                               onClick={() => openEditModal(m)}
                               title="Edit Role & Property Matrix"
                             >
-                              <Edit2 size={12} />
+                              <Edit2 size={13} />
                               <span>Edit Matrix</span>
                             </button>
                             <button
                               className="btn ghost sm"
-                              style={{ padding: "4px 8px", fontSize: 11, color: "#dc2626" }}
+                              style={{
+                                padding: "6px 10px",
+                                fontSize: 12,
+                                color: "#dc2626",
+                                background: "rgba(220, 38, 38, 0.06)",
+                                border: "1px solid rgba(220, 38, 38, 0.2)",
+                                borderRadius: 6,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                              }}
                               onClick={() => handleDeleteUser(m)}
                               title="Remove user from organization"
                             >
-                              <Trash2 size={12} />
+                              <Trash2 size={13} color="#dc2626" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>
@@ -1039,83 +1079,131 @@ function AdministrationContent() {
               </label>
             </div>
 
-            {!newIsAdmin && (
-              <>
-                <Field label="Assigned Functional Roles (Grants Module Permissions)">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
-                    {roles.length === 0 ? (
-                      <div className="muted" style={{ fontSize: 12 }}>No roles found.</div>
-                    ) : (
-                      roles.map((r) => (
-                        <label
-                          key={r.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: 8,
-                            padding: 8,
-                            borderRadius: 6,
-                            border: "1px solid var(--border)",
-                            background: newSelectedRoles.includes(r.id) ? "rgba(226, 59, 59, 0.05)" : "transparent",
-                            cursor: "pointer",
+            <Field label="Assigned Functional Roles (Grants Module Permissions)">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>Select one or more functional roles:</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewSelectedRoles(roles.map((r) => r.id))}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSelectedRoles([])}
+                    style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
+                {roles.length === 0 ? (
+                  <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1" }}>No roles found.</div>
+                ) : (
+                  roles.map((r) => {
+                    const isSelected = newSelectedRoles.includes(r.id);
+                    return (
+                      <label
+                        key={r.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 8,
+                          padding: 8,
+                          borderRadius: 6,
+                          border: isSelected ? "1px solid #6366f1" : "1px solid var(--border)",
+                          background: isSelected ? "rgba(99, 102, 241, 0.08)" : "transparent",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            setNewSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
                           }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={newSelectedRoles.includes(r.id)}
-                            onChange={(e) => {
-                              setNewSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
-                            }}
-                            style={{ marginTop: 2 }}
-                          />
-                          <div>
-                            <strong style={{ fontSize: 12, display: "block" }}>{r.name}</strong>
-                            {r.description && (
-                              <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
-                                {r.description}
-                              </span>
-                            )}
-                          </div>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </Field>
+                          style={{ marginTop: 2 }}
+                        />
+                        <div>
+                          <strong style={{ fontSize: 12, display: "block", color: isSelected ? "#4338ca" : "var(--text)" }}>{r.name}</strong>
+                          {r.description && (
+                            <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
+                              {r.description}
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </Field>
 
-                <Field label="Property Scoping Matrix (Assign to specific properties/estates)">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
-                    {properties.length === 0 ? (
-                      <div className="muted" style={{ fontSize: 12 }}>No properties available in this organization.</div>
-                    ) : (
-                      properties.map((p) => (
-                        <label
-                          key={p.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "6px 8px",
-                            borderRadius: 6,
-                            border: "1px solid var(--border)",
-                            cursor: "pointer",
-                            background: newSelectedProps.includes(p.id) ? "rgba(79, 70, 229, 0.05)" : "transparent",
+            <Field label={`Property Scoping Matrix (${newSelectedProps.length} of ${properties.length} assigned)`}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                  {newIsAdmin ? "Super Admin has portfolio access. You may specify properties to assign:" : "Assign member to specific properties:"}
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewSelectedProps(properties.map((p) => p.id))}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Select All ({properties.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSelectedProps([])}
+                    style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
+                {properties.length === 0 ? (
+                  <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1" }}>No properties available in this organization.</div>
+                ) : (
+                  properties.map((p) => {
+                    const isSelected = newSelectedProps.includes(p.id);
+                    return (
+                      <label
+                        key={p.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "8px 10px",
+                          borderRadius: 6,
+                          border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
+                          cursor: "pointer",
+                          background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            setNewSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
                           }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={newSelectedProps.includes(p.id)}
-                            onChange={(e) => {
-                              setNewSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
-                            }}
-                          />
-                          <span style={{ fontSize: 12 }}>🏢 {p.name} ({p.code})</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </Field>
-              </>
-            )}
+                        />
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span>🏢</span>
+                          <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
+                          <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
+                            {p.code}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </Field>
 
             <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setShowAddUserModal(false)} disabled={saving}>
@@ -1134,16 +1222,21 @@ function AdministrationContent() {
         <Modal title={`Edit Access Matrix — ${editingMember.full_name || editingMember.username}`} onClose={() => setEditingMember(null)} wide>
           <form onSubmit={handleSaveEditUser} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, background: "var(--surface-2, #f8fafc)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <span style={{ width: 36, height: 36, borderRadius: "50%", background: editingMember.is_organization_admin ? "#d92d2d" : "#4f46e5", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700 }}>
+              <span style={{ width: 40, height: 40, borderRadius: "50%", background: editingMember.is_organization_admin ? "#d92d2d" : "#4f46e5", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700 }}>
                 {(editingMember.first_name?.[0] || editingMember.username?.[0] || "U").toUpperCase()}
               </span>
-              <div>
-                <strong style={{ fontSize: 14 }}>{editingMember.full_name || editingMember.username}</strong>
-                <div className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>@{editingMember.username} · {editingMember.email || "No email"}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <strong style={{ fontSize: 15 }}>{editingMember.full_name || editingMember.username}</strong>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--muted)", background: "var(--surface)", padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)" }}>
+                    @{editingMember.username}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{editingMember.email || "No email"} {editingMember.phone_number ? `· 📞 ${editingMember.phone_number}` : ""}</div>
               </div>
             </div>
 
-            <Field label="Phone Number">
+            <Field label="Contact Phone Number">
               <input
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
@@ -1152,87 +1245,142 @@ function AdministrationContent() {
               />
             </Field>
 
-            <div style={{ padding: "10px 14px", background: "var(--surface-2, #f8fafc)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+            <div style={{ padding: "10px 14px", background: editIsAdmin ? "#fef3c7" : "var(--surface-2, #f8fafc)", borderRadius: 8, border: editIsAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, color: editIsAdmin ? "#92400e" : "var(--text)" }}>
                 <input
                   type="checkbox"
                   checked={editIsAdmin}
                   onChange={(e) => setEditIsAdmin(e.target.checked)}
                   style={{ width: 16, height: 16 }}
                 />
-                Super Administrator (Portfolio-wide unrestricted access)
+                Super Administrator (Portfolio-wide unrestricted access across all modules)
               </label>
+              {editIsAdmin && (
+                <p style={{ margin: "4px 0 0 26px", fontSize: 11, color: "#92400e" }}>
+                  User has full administrative capabilities across all estates. You can also assign explicit roles and properties below.
+                </p>
+              )}
             </div>
 
-            {!editIsAdmin && (
-              <>
-                <Field label="Assigned Functional Roles">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
-                    {roles.map((r) => (
-                      <label
-                        key={r.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 8,
-                          padding: 8,
-                          borderRadius: 6,
-                          border: "1px solid var(--border)",
-                          background: editSelectedRoles.includes(r.id) ? "rgba(226, 59, 59, 0.05)" : "transparent",
-                          cursor: "pointer",
+            <Field label="Assigned Functional Roles">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>Toggle active RBAC roles for this user:</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditSelectedRoles(roles.map((r) => r.id))}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditSelectedRoles([])}
+                    style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
+                {roles.map((r) => {
+                  const isSelected = editSelectedRoles.includes(r.id);
+                  return (
+                    <label
+                      key={r.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 8,
+                        padding: 8,
+                        borderRadius: 6,
+                        border: isSelected ? "1px solid #6366f1" : "1px solid var(--border)",
+                        background: isSelected ? "rgba(99, 102, 241, 0.08)" : "transparent",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          setEditSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
                         }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={editSelectedRoles.includes(r.id)}
-                          onChange={(e) => {
-                            setEditSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
-                          }}
-                          style={{ marginTop: 2 }}
-                        />
-                        <div>
-                          <strong style={{ fontSize: 12, display: "block" }}>{r.name}</strong>
-                          {r.description && (
-                            <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
-                              {r.description}
-                            </span>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </Field>
+                        style={{ marginTop: 2 }}
+                      />
+                      <div>
+                        <strong style={{ fontSize: 12, display: "block", color: isSelected ? "#4338ca" : "var(--text)" }}>{r.name}</strong>
+                        {r.description && (
+                          <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
+                            {r.description}
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </Field>
 
-                <Field label="Property Scoping Matrix">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
-                    {properties.map((p) => (
+            <Field label={`Property Scoping Matrix (${editSelectedProps.length} of ${properties.length} assigned)`}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>Check the properties / estates this user manages:</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditSelectedProps(properties.map((p) => p.id))}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Select All ({properties.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditSelectedProps([])}
+                    style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
+                {properties.length === 0 ? (
+                  <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1" }}>No properties available in this organization.</div>
+                ) : (
+                  properties.map((p) => {
+                    const isSelected = editSelectedProps.includes(p.id);
+                    return (
                       <label
                         key={p.id}
                         style={{
                           display: "flex",
                           alignItems: "center",
                           gap: 8,
-                          padding: "6px 8px",
+                          padding: "8px 10px",
                           borderRadius: 6,
-                          border: "1px solid var(--border)",
+                          border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
                           cursor: "pointer",
-                          background: editSelectedProps.includes(p.id) ? "rgba(79, 70, 229, 0.05)" : "transparent",
+                          background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
                         }}
                       >
                         <input
                           type="checkbox"
-                          checked={editSelectedProps.includes(p.id)}
+                          checked={isSelected}
                           onChange={(e) => {
                             setEditSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
                           }}
                         />
-                        <span style={{ fontSize: 12 }}>🏢 {p.name} ({p.code})</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span>🏢</span>
+                          <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
+                          <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
+                            {p.code}
+                          </span>
+                        </div>
                       </label>
-                    ))}
-                  </div>
-                </Field>
-              </>
-            )}
+                    );
+                  })
+                )}
+              </div>
+            </Field>
 
             <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setEditingMember(null)} disabled={saving}>
