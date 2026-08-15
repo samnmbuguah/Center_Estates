@@ -662,20 +662,20 @@ export function TeamDialogueView({
         <DetailDrawer
           title={activeThread.title}
           onClose={() => setActiveThread(null)}
-          actions={
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {activeThread.status !== "resolved" && activeThread.status !== "closed" ? (
-                <button
-                  type="button"
-                  className="btn sm"
-                  style={{ background: "#059669", color: "#fff", borderColor: "#059669" }}
-                  onClick={() => updateThreadStatus(activeThread.id, "resolved")}
-                >
-                  ✓ Mark Closed
-                </button>
-              ) : (
-                <button
-                  type="button"
+        >
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 16 }}>
+            {activeThread.status !== "resolved" && activeThread.status !== "closed" ? (
+              <button
+                type="button"
+                className="btn sm"
+                style={{ background: "#059669", color: "#fff", borderColor: "#059669" }}
+                onClick={() => updateThreadStatus(activeThread.id, "resolved")}
+              >
+                ✓ Mark Closed
+              </button>
+            ) : (
+              <button
+                type="button"
                   className="btn ghost sm"
                   onClick={() => updateThreadStatus(activeThread.id, "open")}
                 >
@@ -683,8 +683,7 @@ export function TeamDialogueView({
                 </button>
               )}
             </div>
-          }
-        >
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "8px 0" }}>
             {/* Thread Details Overview Card */}
             <div
