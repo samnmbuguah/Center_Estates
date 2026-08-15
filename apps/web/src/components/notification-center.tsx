@@ -296,6 +296,7 @@ export function NotificationCenter({
               </Box>
             </Box>
           </Box>
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setSettingsOpen(false)}>Close</Button>
           <Button variant="contained" onClick={() => setSettingsOpen(false)}>
