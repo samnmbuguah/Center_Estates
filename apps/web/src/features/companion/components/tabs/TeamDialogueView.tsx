@@ -683,7 +683,6 @@ export function TeamDialogueView({
                 </button>
               )}
             </div>
-          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "8px 0" }}>
             {/* Thread Details Overview Card */}
             <div
