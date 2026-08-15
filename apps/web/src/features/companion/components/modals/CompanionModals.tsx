@@ -686,3 +686,115 @@ export function DelegateTaskModal({
     </Modal>
   );
 }
+
+export function CompleteTaskModal({
+  task,
+  open,
+  onClose,
+  onSubmit,
+  onUploadAttachment,
+  busy,
+}: {
+  task: Row | null;
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (task: Row, payload: { note?: string; attachment_url?: string; checklist?: any[] }) => Promise<void>;
+  onUploadAttachment: (file: File) => Promise<{ url: string; name: string; size: number } | null>;
+  busy: boolean;
+}) {
+  const [note, setNote] = useState("");
+  const [attachment, setAttachment] = useState<UploadedAttachment | null>(null);
+  const rawChecklist = Array.isArray(task?.checklist) ? (task!.checklist as any[]) : [];
+  const [checklist, setChecklist] = useState<any[]>(rawChecklist);
+
+  if (!open || !task) return null;
+
+  function toggleCheckItem(id: string) {
+    setChecklist((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, completed: !it.completed } : it))
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await onSubmit(task!, {
+      note: note.trim(),
+      attachment_url: attachment?.url || "",
+      checklist,
+    });
+    setNote("");
+    setAttachment(null);
+    onClose();
+  }
+
+  const allDone = checklist.length === 0 || checklist.every((c) => c.completed);
+  const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
+
+  return (
+    <Modal title={`✓ Complete Task — ${String(task.title || "")}`} onClose={onClose} wide>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ background: "rgba(13, 148, 136, 0.08)", border: "1px solid rgba(13, 148, 136, 0.25)", padding: 12, borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#0d9488", letterSpacing: "0.5px" }}>Task Ref: {String(task.reference || "CPN")}</span>
+            <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)", marginTop: 2 }}>{String(task.title)}</div>
+          </div>
+          <span style={{ fontSize: 12, padding: "3px 8px", borderRadius: 4, background: "rgba(13, 148, 136, 0.15)", color: "#0d9488", fontWeight: 700 }}>
+            {String(task.priority || "normal").toUpperCase()}
+          </span>
+        </div>
+
+        {checklist.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
+              Sub-tasks / Action Items Checklist ({checklist.filter((c) => c.completed).length}/{checklist.length} Completed)
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--surface-sunken)", padding: 10, borderRadius: 8, border: "1px solid var(--border)" }}>
+              {checklist.map((item) => (
+                <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, textDecoration: item.completed ? "line-through" : "none", color: item.completed ? "var(--muted)" : "var(--text)" }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(item.completed)}
+                    onChange={() => toggleCheckItem(item.id)}
+                    style={{ cursor: "pointer", width: 16, height: 16 }}
+                  />
+                  <span>{item.title}</span>
+                </label>
+              ))}
+            </div>
+            {!allDone && (
+              <div style={{ fontSize: 12, color: "#d97706", display: "flex", alignItems: "center", gap: 6 }}>
+                <span>⚠️ Note: Some checklist sub-tasks are still unchecked.</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <Field label="Resolution Notes / Work Summary" required>
+          <textarea
+            rows={3}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Describe the actions taken and outcome achieved to resolve this task…"
+            required
+            style={inputStyle}
+          />
+        </Field>
+
+        <Field label="Proof of Work / Photo Evidence (Optional)">
+          <EvidenceAttachmentUploader
+            attachment={attachment}
+            onChange={setAttachment}
+            onUpload={onUploadAttachment}
+          />
+        </Field>
+
+        <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <button type="button" className="btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="submit" className="btn primary" disabled={busy || !note.trim()} style={{ background: "#16a34a", borderColor: "#16a34a" }}>
+            {busy ? "Submitting…" : "✓ Confirm & Complete Task"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

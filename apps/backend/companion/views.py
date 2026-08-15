@@ -172,7 +172,27 @@ class TaskViewSet(CompanionModelViewSet):
     @action(detail=True, methods=('post',))
     def complete(self, request, pk=None):
         task = self.get_object()
-        self._transition(task, Task.Status.COMPLETED, request.user, note='Task completed.')
+        note = str(request.data.get('note', '')).strip()
+        attachment_url = str(request.data.get('attachment_url', '')).strip()
+        checklist = request.data.get('checklist')
+        if checklist is not None and isinstance(checklist, list):
+            task.checklist = checklist
+        if attachment_url:
+            task.attachment_url = attachment_url
+        self._transition(task, Task.Status.COMPLETED, request.user, note=note or 'Task completed.')
+        return Response(TaskSerializer(task).data)
+
+    @action(detail=True, methods=('post',), url_path='update-checklist')
+    def update_checklist(self, request, pk=None):
+        task = self.get_object()
+        checklist = request.data.get('checklist', [])
+        if isinstance(checklist, list):
+            task.checklist = checklist
+            task.save(update_fields=['checklist'])
+            TaskEvent.objects.create(
+                organization=task.organization, task=task, actor=request.user,
+                action=TaskEvent.Action.UPDATED, note='Updated task checklist / sub-tasks.',
+            )
         return Response(TaskSerializer(task).data)
 
     @action(detail=True, methods=('post',))

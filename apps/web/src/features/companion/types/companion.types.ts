@@ -33,6 +33,41 @@ export const companionTabLabels: Record<CompanionTab, string> = {
 
 export type Row = Record<string, unknown>;
 
+export type ChecklistItem = {
+  id: string;
+  title: string;
+  completed: boolean;
+};
+
+export type TaskItem = {
+  id: string;
+  reference?: string;
+  title: string;
+  description?: string;
+  source_module?: string;
+  source_ref?: string;
+  property?: string;
+  property_name?: string;
+  assignee?: string;
+  assignee_name?: string;
+  assignee_username?: string;
+  assigned_by?: string;
+  assigned_by_name?: string;
+  priority: "low" | "normal" | "high" | "urgent";
+  status: "pending" | "acknowledged" | "in_progress" | "completed" | "delegated" | "cancelled";
+  due_at?: string;
+  sla_due_at?: string;
+  completed_at?: string;
+  acknowledged_at?: string;
+  delegated_to?: string;
+  delegated_to_name?: string;
+  attachment_url?: string;
+  checklist?: ChecklistItem[];
+  overdue?: boolean;
+  escalated?: boolean;
+  created_at?: string;
+};
+
 export type CompanionDash = {
   kpis?: Record<string, unknown>;
   recentTasks?: Row[];

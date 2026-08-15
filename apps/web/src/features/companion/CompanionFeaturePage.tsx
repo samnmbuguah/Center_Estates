@@ -17,12 +17,13 @@ import { PerformanceView } from "./components/tabs/PerformanceView";
 import {
   AddTeamMemberModal,
   AssignTaskModal,
+  CompleteTaskModal,
   CreateFeedbackModal,
   CreateTemplateModal,
   DelegateTaskModal,
   EditMemberMatrixModal,
 } from "./components/modals/CompanionModals";
-import { CompanionTab, Row } from "./types/companion.types";
+import { ChecklistItem, CompanionTab, Row } from "./types/companion.types";
 import { fmtDate, fmtDateTime, STATUS_TONE } from "./utils/companion.utils";
 
 export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?: CompanionTab }) {
@@ -99,8 +100,14 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
     handleAssignTask,
     handleCreateTemplate,
     handleDelegateTask,
+    handleUpdateChecklist,
+    handleCompleteTaskWithEvidence,
     runTaskAction,
   } = useCompanionLogic(initialTab);
+
+  const [completingTask, setCompletingTask] = useState<Row | null>(null);
+  const [previewEvidenceUrl, setPreviewEvidenceUrl] = useState<string | null>(null);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   const filteredNavGroups = useMemo(() => {
     return companionNav.map(group => {
@@ -117,6 +124,36 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
   const userName = session?.user?.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
     : session?.user?.username ?? "there";
+
+  // Subtask checklist helper functions on selected task
+  const taskChecklist: ChecklistItem[] = useMemo(() => {
+    if (!selectedTask || !Array.isArray(selectedTask.checklist)) return [];
+    return selectedTask.checklist as ChecklistItem[];
+  }, [selectedTask]);
+
+  function handleToggleSubtask(id: string) {
+    if (!selectedTask) return;
+    const updated = taskChecklist.map((it) => (it.id === id ? { ...it, completed: !it.completed } : it));
+    handleUpdateChecklist(String(selectedTask.id), updated);
+  }
+
+  function handleAddSubtask() {
+    if (!selectedTask || !newSubtaskTitle.trim()) return;
+    const newItem: ChecklistItem = {
+      id: `chk-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      title: newSubtaskTitle.trim(),
+      completed: false,
+    };
+    const updated = [...taskChecklist, newItem];
+    handleUpdateChecklist(String(selectedTask.id), updated);
+    setNewSubtaskTitle("");
+  }
+
+  function handleDeleteSubtask(id: string) {
+    if (!selectedTask) return;
+    const updated = taskChecklist.filter((it) => it.id !== id);
+    handleUpdateChecklist(String(selectedTask.id), updated);
+  }
 
   return (
     <ModuleShell
@@ -206,6 +243,8 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             onSelectTask={(t) => setSelectedTask(t)}
             onRunAction={runTaskAction}
             onOpenDelegate={(t) => setDelegateTarget(t)}
+            onOpenCompleteModal={(t) => setCompletingTask(t)}
+            onUpdateChecklist={handleUpdateChecklist}
           />
         )}
 
@@ -245,20 +284,183 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
         {/* TASK DETAIL DRAWER */}
         {selectedTask && (
           <DetailDrawer title={String(selectedTask.title ?? "Task")} onClose={() => setSelectedTask(null)}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div className="row" style={{ display: "flex", gap: 8 }}>
-                <StatusPill value={String(selectedTask.status)} tone={STATUS_TONE[String(selectedTask.status)]} />
-                <StatusPill value={String(selectedTask.priority ?? "normal")} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* TOP STATUS & PRIORITY */}
+              <div className="row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <StatusPill value={String(selectedTask.status)} tone={STATUS_TONE[String(selectedTask.status)]} />
+                  <StatusPill value={String(selectedTask.priority ?? "normal")} />
+                </div>
+                <div className="mono" style={{ color: "var(--primary)", fontWeight: 700, fontSize: 13 }}>
+                  {String(selectedTask.reference ?? "—")}
+                </div>
               </div>
-              <Field label="Reference"><div className="mono" style={{ color: "var(--primary)", fontWeight: 700 }}>{String(selectedTask.reference ?? "—")}</div></Field>
-              <Field label="Assignee"><div>{String(selectedTask.assignee_name || selectedTask.assignee_username || "—")}</div></Field>
-              <Field label="Assigned by"><div>{String(selectedTask.assigned_by_name || "—")}</div></Field>
-              <Field label="Source"><div className="mono">{String(selectedTask.source_module ?? "—")}{selectedTask.source_ref ? ` · ${selectedTask.source_ref}` : ""}</div></Field>
-              <Field label="Due"><div>{fmtDateTime(selectedTask.due_at)}</div></Field>
-              <Field label="SLA due"><div>{fmtDateTime(selectedTask.sla_due_at)}</div></Field>
-              <Field label="Description"><div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{String(selectedTask.description ?? "—")}</div></Field>
-              <div className="modal-actions" style={{ marginTop: 12 }}>
-                <button className="btn ghost sm" onClick={() => setSelectedTask(null)}>Close</button>
+
+              {/* TIMING & ASSIGNMENT FIELDS */}
+              <div className="grid-2" style={{ background: "var(--surface-sunken)", padding: 12, borderRadius: 8, border: "1px solid var(--border)", gap: 10 }}>
+                <Field label="Assignee">
+                  <div style={{ fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--primary)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9 }}>
+                      {String(selectedTask.assignee_name || selectedTask.assignee_username || "?").charAt(0).toUpperCase()}
+                    </span>
+                    <span>{String(selectedTask.assignee_name || selectedTask.assignee_username || "—")}</span>
+                  </div>
+                </Field>
+                <Field label="Assigned by">
+                  <div style={{ fontSize: 13 }}>{String(selectedTask.assigned_by_name || "System Admin")}</div>
+                </Field>
+                <Field label="Source Module">
+                  <div className="mono" style={{ fontSize: 12 }}>{String(selectedTask.source_module ?? "companion")}{selectedTask.source_ref ? ` · ${selectedTask.source_ref}` : ""}</div>
+                </Field>
+                <Field label="Property / Site">
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{String(selectedTask.property_name || "Portfolio-wide")}</div>
+                </Field>
+                <Field label="Due Date">
+                  <div className="mono" style={{ fontSize: 12, color: Boolean(selectedTask.overdue) ? "#ef4444" : "var(--text)", fontWeight: Boolean(selectedTask.overdue) ? 700 : 500 }}>
+                    {Boolean(selectedTask.overdue) ? "⚠️ " : ""}
+                    {fmtDateTime(selectedTask.due_at as string | undefined)}
+                  </div>
+                </Field>
+                <Field label="SLA Target">
+                  <div className="mono" style={{ fontSize: 12 }}>{fmtDateTime(selectedTask.sla_due_at as string | undefined)}</div>
+                </Field>
+              </div>
+
+              <Field label="Task Description">
+                <div style={{ whiteSpace: "pre-wrap", fontSize: 13, background: "var(--surface-sunken)", padding: 10, borderRadius: 8, border: "1px solid var(--border)", lineHeight: 1.5 }}>
+                  {String(selectedTask.description || "No description provided.")}
+                </div>
+              </Field>
+
+              {/* INTERACTIVE SUB-TASKS & CHECKLIST */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--surface-sunken)", padding: 12, borderRadius: 8, border: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)" }}>
+                    Sub-tasks & Action Checklist ({taskChecklist.filter((c) => c.completed).length}/{taskChecklist.length})
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {taskChecklist.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "var(--muted)", fontStyle: "italic", padding: "6px 0" }}>
+                      No sub-tasks added yet. Add action items below to track progress.
+                    </div>
+                  ) : (
+                    taskChecklist.map((item) => (
+                      <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 6px", borderRadius: 4, background: "var(--surface)" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1, fontSize: 13, textDecoration: item.completed ? "line-through" : "none", color: item.completed ? "var(--muted)" : "var(--text)" }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(item.completed)}
+                            onChange={() => handleToggleSubtask(item.id)}
+                            style={{ cursor: "pointer", width: 16, height: 16 }}
+                          />
+                          <span>{item.title}</span>
+                        </label>
+                        <button
+                          onClick={() => handleDeleteSubtask(item.id)}
+                          style={{ border: "none", background: "none", color: "var(--muted)", cursor: "pointer", fontSize: 12, padding: "2px 4px" }}
+                          title="Delete subtask"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Inline add sub-task */}
+                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                  <input
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddSubtask();
+                      }
+                    }}
+                    placeholder="+ Add action checklist item…"
+                    style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", fontSize: 12, color: "var(--text)" }}
+                  />
+                  <button
+                    className="btn ghost sm"
+                    onClick={handleAddSubtask}
+                    disabled={!newSubtaskTitle.trim()}
+                    style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600 }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* PROOF OF WORK / EVIDENCE ATTACHMENT */}
+              {Boolean(selectedTask.attachment_url) && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--surface-sunken)", padding: 12, borderRadius: 8, border: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>📸 Proof of Work / Completion Evidence</span>
+                  </span>
+                  <div
+                    onClick={() => setPreviewEvidenceUrl(String(selectedTask.attachment_url))}
+                    style={{
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: 8,
+                      background: "var(--surface)",
+                      borderRadius: 6,
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <img
+                      src={String(selectedTask.attachment_url)}
+                      alt="Proof of Work"
+                      style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }}
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--primary)" }}>View Full Screenshot / Photo 🔍</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>Click to zoom and verify resolution</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ACTION TOOLBAR */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {selectedTask.status === "pending" && (
+                    <button className="btn ghost sm" onClick={() => runTaskAction(selectedTask, "acknowledge")}>
+                      👁️ Acknowledge
+                    </button>
+                  )}
+                  {(selectedTask.status === "pending" || selectedTask.status === "acknowledged") && (
+                    <button className="btn ghost sm" style={{ color: "#6366f1" }} onClick={() => runTaskAction(selectedTask, "start")}>
+                      ⚡ Start Work
+                    </button>
+                  )}
+                  {selectedTask.status === "in_progress" && (
+                    <button
+                      className="btn primary sm"
+                      style={{ background: "#16a34a", borderColor: "#16a34a", fontWeight: 700 }}
+                      onClick={() => setCompletingTask(selectedTask)}
+                    >
+                      ✓ Complete with Proof
+                    </button>
+                  )}
+                  {selectedTask.status !== "completed" && selectedTask.status !== "cancelled" && (
+                    <button className="btn ghost sm" onClick={() => setDelegateTarget(selectedTask)}>
+                      🔄 Delegate
+                    </button>
+                  )}
+                </div>
+
+                <button className="btn ghost sm" onClick={() => setSelectedTask(null)}>
+                  Close
+                </button>
               </div>
             </div>
           </DetailDrawer>
@@ -272,6 +474,15 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
           staffOptions={staffOptions}
           busy={busy}
           activePropertyName={activeProperty?.name}
+        />
+
+        <CompleteTaskModal
+          task={completingTask}
+          open={Boolean(completingTask)}
+          onClose={() => setCompletingTask(null)}
+          onSubmit={handleCompleteTaskWithEvidence}
+          onUploadAttachment={uploadAttachment}
+          busy={busy}
         />
 
         <CreateTemplateModal
@@ -316,6 +527,33 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
           roles={roles}
           busy={busy}
         />
+
+        {/* EVIDENCE IMAGE ZOOM MODAL */}
+        {previewEvidenceUrl && (
+          <Modal title="🔎 Evidence & Proof-of-Work Attachment" onClose={() => setPreviewEvidenceUrl(null)} wide>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
+              <img
+                src={previewEvidenceUrl}
+                alt="Proof Zoom"
+                style={{ maxWidth: "100%", maxHeight: "75vh", borderRadius: 8, border: "1px solid var(--border)", objectFit: "contain" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                <a
+                  href={previewEvidenceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn ghost sm"
+                  style={{ textDecoration: "none" }}
+                >
+                  Open Original File ↗
+                </a>
+                <button className="btn primary sm" onClick={() => setPreviewEvidenceUrl(null)}>
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )}
       </div>
     </ModuleShell>
   );

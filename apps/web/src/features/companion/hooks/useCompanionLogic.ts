@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { companionNav } from "@/lib/module-nav";
 import { usePropertyContext } from "@/lib/property-context";
-import { CompanionDash, CompanionTab, FeedbackMessage, FeedbackThread, Row, TeamMember } from "../types/companion.types";
+import { ChecklistItem, CompanionDash, CompanionTab, FeedbackMessage, FeedbackThread, Row, TaskItem, TeamMember } from "../types/companion.types";
 
 export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const { session } = useAuth();
@@ -404,7 +404,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     }
   }
 
-  async function runTaskAction(task: Row, action: string) {
+  async function runTaskAction(task: Row, action: string, extraData?: Record<string, unknown>) {
     if (!org) return;
     setBusy(true);
     setMsg("");
@@ -413,16 +413,67 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       const res = await apiFetch(`/companion/tasks/${task.id}/${action}/`, {
         method: "POST",
         headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify({}),
+        body: JSON.stringify(extraData || {}),
       }, org);
       if (res.ok) {
-        load();
+        const updated = await res.json().catch(() => null);
+        if (updated && selectedTask && String(selectedTask.id) === String(task.id)) {
+          setSelectedTask(updated);
+        }
+        await load();
       } else {
         const body = await res.json().catch(() => ({}));
         setMsg(String(body?.detail ?? "Task action failed."));
       }
     } catch {
       setMsg("Task action failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUpdateChecklist(taskId: string, checklist: ChecklistItem[]) {
+    if (!org) return;
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/companion/tasks/${taskId}/update-checklist/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ checklist }),
+      }, org);
+      if (res.ok) {
+        const updated = await res.json().catch(() => null);
+        if (updated) {
+          if (selectedTask && String(selectedTask.id) === String(taskId)) {
+            setSelectedTask(updated);
+          }
+          setRows((prev) => prev.map((r) => (String(r.id) === String(taskId) ? updated : r)));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function handleCompleteTaskWithEvidence(task: Row, payload: { note?: string; attachment_url?: string; checklist?: ChecklistItem[] }) {
+    if (!org) return;
+    setBusy(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/companion/tasks/${task.id}/complete/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify(payload),
+      }, org);
+      if (res.ok) {
+        setMsg("Task marked as completed with proof of work.");
+        await load();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setMsg(String(body?.detail ?? "Failed to complete task."));
+      }
+    } catch {
+      setMsg("Failed to complete task.");
     } finally {
       setBusy(false);
     }
@@ -532,6 +583,10 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     runTaskAction,
     handleAddMember,
     handleEditMember,
+    updateChecklist: handleUpdateChecklist,
+    completeTaskWithEvidence: handleCompleteTaskWithEvidence,
+    handleUpdateChecklist,
+    handleCompleteTaskWithEvidence,
     handleCreateFeedback,
     handleReplyFeedback,
     handleUpdateThreadStatus,

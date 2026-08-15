@@ -54,6 +54,8 @@ class Task(OrganizationOwnedModel):
     recurrence_rule = models.CharField(max_length=120, blank=True, default='')
     escalated = models.BooleanField(default=False)
     escalated_at = models.DateTimeField(null=True, blank=True)
+    attachment_url = models.URLField(max_length=500, blank=True, default='')
+    checklist = models.JSONField(default=list, blank=True)
     template = models.ForeignKey(
         'TaskTemplate', on_delete=models.SET_NULL, related_name='tasks',
         null=True, blank=True,
