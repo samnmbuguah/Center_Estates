@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent,
   DialogTitle, Divider, FormControlLabel, MenuItem, Paper, Select, Stack,
-  TextField, Typography, ListSubheader
+  TextField, Typography, ListSubheader, Tooltip, Accordion, AccordionSummary, AccordionDetails, IconButton
 } from "@mui/material";
-import { Plus, Save, ShieldCheck, Trash2, CheckSquare, Square } from "lucide-react";
+import { Plus, Save, ShieldCheck, Trash2, CheckSquare, Square, ChevronDown, ChevronRight, Info, Eye } from "lucide-react";
 
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 
@@ -44,6 +44,8 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [notice, setNotice] = useState<{ severity: "success" | "error"; text: string } | null>(null);
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set(["property", "facility", "companion"]));
+  const [hoveredPermission, setHoveredPermission] = useState<string | null>(null);
 
   const active = roles.find((role) => role.id === activeId) ?? null;
 
@@ -113,6 +115,40 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
     });
   };
 
+  const toggleModuleExpanded = (module: string) => {
+    setExpandedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(module)) {
+        next.delete(module);
+      } else {
+        next.add(module);
+      }
+      return next;
+    });
+  };
+
+  const getPermissionDescription = (key: string): string => {
+    const descriptions: Record<string, string> = {
+      "property.operations": "Create and manage properties, building structures, and unit configurations",
+      "property.leasing": "Manage tenant relationships, lease agreements, and tenancy documents",
+      "property.finance": "Handle billing, invoicing, rent collection, and financial reporting",
+      "property.reports": "Generate and export property reports, analytics, and dashboards",
+      "facility.operations": "Create and manage maintenance work orders, service requests, and inspections",
+      "facility.work": "Record meter readings, manage maintenance schedules, and track technician assignments",
+      "facility.reports": "Generate facility performance reports and compliance analytics",
+      "companion.tasks": "Create, assign, and track tasks, checklists, and project deliverables",
+      "companion.team": "Manage team members, permissions, and collaborative workspaces",
+      "companion.reports": "Generate team productivity reports and task analytics",
+      "sales.sell": "Manage buyer relationships, sales pipeline, and unit reservations",
+      "sales.finance": "Handle sales payments, commissions, and financial reconciliation",
+      "valuation.instructions": "Create and manage RICS-compliant valuation instructions",
+      "valuation.reports": "Generate valuation reports and compliance documentation",
+      "monitoring.projects": "Access construction project monitoring and BIM integration",
+      "monitoring.reports": "Generate construction progress reports and risk analytics",
+    };
+    return descriptions[key] || "Grants access to this specific feature or action";
+  };
+
   async function saveRole() {
     if (!organizationId || !active || active.slug === "platform-admin") return;
     setSaving(true); setNotice(null);
@@ -178,7 +214,7 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<Plus size={17} />} onClick={() => setCreateOpen(true)} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
-          + Create Custom Role
+          Create Custom Role
         </Button>
       </Box>
 
@@ -280,56 +316,218 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                   <Alert icon={<ShieldCheck size={20} />} severity="info">
                     <strong>Platform Administrator</strong> retains unrestricted, immutable superuser privileges across all modules, settings, and APIs.
                   </Alert>
-                ) : grouped.map((group) => {
-                  const groupSelectedCount = group.permissions.filter((p) => selected.has(p.key)).length;
-                  return (
-                    <Box key={group.module} sx={{ p: 2, borderRadius: 1.5, background: "var(--surface-2, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}>
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Typography sx={{ fontWeight: 800, fontSize: 14 }}>{group.label}</Typography>
-                          <Chip
-                            size="small"
-                            label={`${groupSelectedCount}/${group.permissions.length}`}
-                            color={groupSelectedCount > 0 ? "primary" : "default"}
-                            sx={{ height: 20, fontSize: 10, fontWeight: 700 }}
-                          />
-                        </Box>
-                        <Stack direction="row" spacing={1}>
-                          <Button size="small" onClick={() => selectModuleAll(group.permissions)} sx={{ fontSize: 11, py: 0.2 }}>
-                            Select Module
-                          </Button>
-                          <Button size="small" color="inherit" onClick={() => clearModuleAll(group.permissions)} sx={{ fontSize: 11, py: 0.2 }}>
-                            Clear
-                          </Button>
-                        </Stack>
-                      </Box>
-                      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }, gap: 1 }}>
-                        {group.permissions.map((permission) => (
-                          <FormControlLabel
-                            key={permission.key}
-                            control={<Checkbox size="small" checked={selected.has(permission.key)} onChange={() => toggle(permission.key)} />}
-                            label={
-                              <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12 }}>{permission.label}</Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>{permission.key}</Typography>
+                ) : (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {grouped.map((group) => {
+                      const groupSelectedCount = group.permissions.filter((p) => selected.has(p.key)).length;
+                      const isExpanded = expandedModules.has(group.module);
+                      const moduleColor = group.module === "property" ? "#4f46e5" : 
+                                        group.module === "facility" ? "#22c55e" : 
+                                        group.module === "companion" ? "#f59e0b" : 
+                                        group.module === "sales" ? "#ec4899" : 
+                                        group.module === "valuation" ? "#8b5cf6" : "#64748b";
+                      
+                      return (
+                        <Accordion 
+                          key={group.module} 
+                          expanded={isExpanded}
+                          onChange={() => toggleModuleExpanded(group.module)}
+                          sx={{ 
+                            border: `1px solid ${isExpanded ? moduleColor : "var(--border)"}`,
+                            borderRadius: 2,
+                            boxShadow: isExpanded ? `0 0 0 1px ${moduleColor}20` : "none",
+                            "&:before": { display: "none" }
+                          }}
+                        >
+                          <AccordionSummary 
+                            expandIcon={<IconButton size="small">{isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</IconButton>}
+                            sx={{ 
+                              bgcolor: isExpanded ? `${moduleColor}08` : "transparent",
+                              borderRadius: 2,
+                              "&:hover": { bgcolor: `${moduleColor}12` }
+                            }}
+                          >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 2, flex: 1 }}>
+                              <Box sx={{ 
+                                width: 32, height: 32, borderRadius: 1.5, 
+                                bgcolor: `${moduleColor}15`, color: moduleColor,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 16
+                              }}>
+                                {group.module === "property" && "🏢"}
+                                {group.module === "facility" && "🔧"}
+                                {group.module === "companion" && "👥"}
+                                {group.module === "sales" && "💰"}
+                                {group.module === "valuation" && "📜"}
+                                {group.module === "monitoring" && "📊"}
                               </Box>
-                            }
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  );
-                })}
+                              <Box sx={{ flex: 1 }}>
+                                <Typography sx={{ fontWeight: 800, fontSize: 14, color: isExpanded ? moduleColor : "inherit" }}>
+                                  {group.label}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>
+                                  {group.permissions.length} permissions available
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Chip
+                                  size="small"
+                                  label={`${groupSelectedCount} selected`}
+                                  color={groupSelectedCount > 0 ? "primary" : "default"}
+                                  sx={{ 
+                                    height: 24, fontSize: 11, fontWeight: 700,
+                                    bgcolor: groupSelectedCount > 0 ? `${moduleColor}15` : "transparent",
+                                    color: groupSelectedCount > 0 ? moduleColor : "inherit"
+                                  }}
+                                />
+                                <Tooltip title={groupSelectedCount > 0 ? "Clear all permissions" : "Select all permissions"}>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      groupSelectedCount > 0 ? clearModuleAll(group.permissions) : selectModuleAll(group.permissions);
+                                    }}
+                                    sx={{ color: moduleColor }}
+                                  >
+                                    {groupSelectedCount > 0 ? <Square size={16} /> : <CheckSquare size={16} />}
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            </Box>
+                          </AccordionSummary>
+                          <AccordionDetails sx={{ pt: 2 }}>
+                            <Box sx={{ 
+                              display: "grid", 
+                              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }, 
+                              gap: 1.5 
+                            }}>
+                              {group.permissions.map((permission) => (
+                                <Box
+                                  key={permission.key}
+                                  sx={{
+                                    p: 1.5,
+                                    borderRadius: 1.5,
+                                    border: selected.has(permission.key) ? `1px solid ${moduleColor}30` : "1px solid var(--border)",
+                                    bgcolor: selected.has(permission.key) ? `${moduleColor}08` : "transparent",
+                                    transition: "all 0.2s ease",
+                                    "&:hover": { 
+                                      bgcolor: `${moduleColor}12`,
+                                      borderColor: `${moduleColor}40`
+                                    },
+                                    cursor: "pointer"
+                                  }}
+                                  onClick={() => toggle(permission.key)}
+                                  onMouseEnter={() => setHoveredPermission(permission.key)}
+                                  onMouseLeave={() => setHoveredPermission(null)}
+                                >
+                                  <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                                    <Checkbox 
+                                      size="small" 
+                                      checked={selected.has(permission.key)} 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggle(permission.key);
+                                      }}
+                                      sx={{ 
+                                        color: moduleColor,
+                                        "&.Mui-checked": { color: moduleColor }
+                                      }}
+                                    />
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography 
+                                        variant="body2" 
+                                        sx={{ 
+                                          fontWeight: 700, 
+                                          fontSize: 12,
+                                          color: selected.has(permission.key) ? moduleColor : "inherit"
+                                        }}
+                                      >
+                                        {permission.label}
+                                      </Typography>
+                                      <Typography 
+                                        variant="caption" 
+                                        color="text.secondary" 
+                                        sx={{ 
+                                          fontSize: 10, 
+                                          display: "block",
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          whiteSpace: "nowrap"
+                                        }}
+                                      >
+                                        {permission.key}
+                                      </Typography>
+                                      {hoveredPermission === permission.key && (
+                                        <Typography 
+                                          variant="caption" 
+                                          sx={{ 
+                                            fontSize: 10, 
+                                            color: moduleColor,
+                                            mt: 0.5,
+                                            display: "block",
+                                            fontStyle: "italic"
+                                          }}
+                                        >
+                                          {getPermissionDescription(permission.key)}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              </Box>
+                            ))}
+                            </Box>
+                          </AccordionDetails>
+                        </Accordion>
+                      );
+                    })}
+                  </Box>
+                )}
 
                 {active.slug !== "platform-admin" && (
-                  <Stack direction="row" sx={{ justifyContent: "space-between", gap: 2, pt: 1 }}>
-                    <Button color="error" startIcon={<Trash2 size={17} />} disabled={active.is_system || saving} onClick={deleteRole}>
-                      {active.is_system ? "Default System Role (Cannot delete)" : "Delete Custom Role"}
-                    </Button>
-                    <Button variant="contained" startIcon={<Save size={17} />} disabled={saving || !name.trim()} onClick={saveRole} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
-                      {saving ? "Saving Changes…" : `Save ${name} Permissions`}
-                    </Button>
-                  </Stack>
+                  <>
+                    <Box sx={{ 
+                      mt: 2, 
+                      p: 2, 
+                      borderRadius: 1.5, 
+                      bgcolor: "rgba(79, 70, 229, 0.05)", 
+                      border: "1px solid rgba(79, 70, 229, 0.2)" 
+                    }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                        <Eye size={16} style={{ color: "#4f46e5" }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#4f46e5" }}>
+                          Role Preview: What users with this role can do
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                        {grouped.filter(g => g.permissions.some(p => selected.has(p.key))).map(g => (
+                          <Chip 
+                            key={g.module}
+                            size="small"
+                            label={`${g.label}: ${g.permissions.filter(p => selected.has(p.key)).length} permissions`}
+                            sx={{ 
+                              bgcolor: "rgba(79, 70, 229, 0.1)", 
+                              color: "#4f46e5",
+                              border: "1px solid rgba(79, 70, 229, 0.3)"
+                            }}
+                          />
+                        ))}
+                        {grouped.filter(g => g.permissions.some(p => selected.has(p.key))).length === 0 && (
+                          <Typography variant="caption" color="text.secondary">
+                            No permissions selected yet. This role will have no access.
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                    <Stack direction="row" sx={{ justifyContent: "space-between", gap: 2, pt: 1 }}>
+                      <Button color="error" startIcon={<Trash2 size={17} />} disabled={active.is_system || saving} onClick={deleteRole}>
+                        {active.is_system ? "Default System Role (Cannot delete)" : "Delete Custom Role"}
+                      </Button>
+                      <Button variant="contained" startIcon={<Save size={17} />} disabled={saving || !name.trim()} onClick={saveRole} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+                        {saving ? "Saving Changes…" : `Save ${name} Permissions`}
+                      </Button>
+                    </Stack>
+                  </>
                 )}
               </Stack>
             </Paper>
@@ -338,7 +536,7 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
       )}
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>+ Create Custom Role</DialogTitle>
+        <DialogTitle>Create Custom Role</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
