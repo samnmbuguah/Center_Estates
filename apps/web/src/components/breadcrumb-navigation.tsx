@@ -8,14 +8,13 @@ import {
   Menu, MenuItem, TextField, InputAdornment, Collapse, Paper
 } from "@mui/material";
 import { 
-  Home, ChevronRight, Search, Keyboard, Settings, 
-  BookOpen, HelpCircle, History, Star
+  Home, ChevronRight, Search, Keyboard, 
+  BookOpen, HelpCircle
 } from "lucide-react";
 
 interface BreadcrumbItem {
   label: string;
   href?: string;
-  icon?: React.ReactNode;
   action?: () => void;
 }
 
@@ -41,8 +40,8 @@ export function BreadcrumbNavigation({
   const [searchQuery, setSearchQuery] = useState("");
   const [shortcutsMenuAnchor, setShortcutsMenuAnchor] = useState<HTMLElement | null>(null);
   const [recentItems, setRecentItems] = useState<BreadcrumbItem[]>([
-    { label: "Property Overview", href: "/overview", icon: <Home size={14} /> },
-    { label: "Facility Work Orders", href: "/facility?tab=work-orders", icon: <Settings size={14} /> },
+    { label: "Property Overview", href: "/overview" },
+    { label: "Facility Work Orders", href: "/facility?tab=work-orders" },
   ]);
 
   // Generate breadcrumbs from pathname if not provided
@@ -127,7 +126,6 @@ export function BreadcrumbNavigation({
                     fontWeight: isLast ? 600 : 400
                   }}
                 >
-                  {item.icon}
                   <Typography variant="body2" sx={{ color: isLast ? "#0f172a" : "#64748b", fontWeight: isLast ? 600 : 400 }}>
                     {item.label}
                   </Typography>
@@ -142,7 +140,6 @@ export function BreadcrumbNavigation({
                   }}
                   onClick={item.action}
                 >
-                  {item.icon}
                   <Typography variant="body2" sx={{ color: "#0f172a", fontWeight: 600 }}>
                     {item.label}
                   </Typography>
@@ -249,7 +246,6 @@ export function BreadcrumbNavigation({
               key={index}
               label={item.label}
               size="small"
-              icon={item.icon}
               component={Link}
               href={item.href || "#"}
               clickable
@@ -336,8 +332,7 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
 
     items.push({
       label,
-      href: currentPath,
-      icon: index === segments.length - 1 ? undefined : <ChevronRight size={14} />
+      href: currentPath
     });
   });
 
