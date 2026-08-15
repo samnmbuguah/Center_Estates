@@ -77,7 +77,7 @@ export function AssetsView({
           Facility Assets Management
         </Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
               p: 2, borderRadius: 2, bgcolor: "#22c55e", color: "white",
               textAlign: "center"
@@ -87,7 +87,7 @@ export function AssetsView({
               <Typography variant="caption">Total Assets</Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
               p: 2, borderRadius: 2, bgcolor: "#16a34a", color: "white",
               textAlign: "center"
@@ -97,7 +97,7 @@ export function AssetsView({
               <Typography variant="caption">Operational</Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
               p: 2, borderRadius: 2, bgcolor: "#f59e0b", color: "white",
               textAlign: "center"
@@ -107,7 +107,7 @@ export function AssetsView({
               <Typography variant="caption">Maintenance Required</Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
               p: 2, borderRadius: 2, bgcolor: avgHealthScore > 70 ? "#22c55e" : "#ef4444", color: "white",
               textAlign: "center"
@@ -156,7 +156,7 @@ export function AssetsView({
             label: "Schedule Maintenance",
             icon: <Wrench size={16} />,
             action: (rows) => {/* Handle bulk maintenance scheduling */},
-            color: "warning"
+            color: "secondary"
           }
         ]}
       />
