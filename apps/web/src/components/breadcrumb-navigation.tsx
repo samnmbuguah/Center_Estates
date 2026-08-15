@@ -164,17 +164,19 @@ export function BreadcrumbNavigation({
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 onFocus={() => setSearchOpen(true)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search size={18} style={{ color: "#64748b" }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Keyboard size={16} style={{ color: "#94a3b8" }} />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={18} style={{ color: "#64748b" }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Keyboard size={16} style={{ color: "#94a3b8" }} />
+                      </InputAdornment>
+                    ),
+                  }
                 }}
                 sx={{ 
                   width: searchOpen ? 300 : 200,
