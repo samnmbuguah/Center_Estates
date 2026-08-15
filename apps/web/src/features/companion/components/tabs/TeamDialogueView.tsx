@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, DetailDrawer, EmptyState, Field, KpiCard, KpiStrip, Modal, number, Panel, StatusPill } from "@/components/module-ui";
+import { Badge, DetailDrawer, EmptyState, Field, KpiCard, KpiStrip, Modal, Panel, StatusPill } from "@/components/module-ui";
 import { FeedbackMessage, FeedbackThread } from "../../types/companion.types";
 import { fmtDateTime, PRIORITY_TONE, STATUS_TONE } from "../../utils/companion.utils";
+import { EvidenceAttachmentUploader, type UploadedAttachment } from "../common/EvidenceAttachmentUploader";
+import { ExternalLink, Eye, Image as ImageIcon, X } from "lucide-react";
 
 export function TeamDialogueView({
   threads,
@@ -19,6 +21,7 @@ export function TeamDialogueView({
   openNewThreadModal,
   submitReply,
   updateThreadStatus,
+  onUploadAttachment,
 }: {
   threads: FeedbackThread[];
   loading: boolean;
@@ -31,11 +34,14 @@ export function TeamDialogueView({
   statusFilter: string;
   setStatusFilter: (s: string) => void;
   openNewThreadModal: () => void;
-  submitReply: (threadId: string, message: string, isDev?: boolean) => Promise<void>;
+  submitReply: (threadId: string, message: string, attachmentUrl?: string) => Promise<void>;
   updateThreadStatus: (threadId: string, status: "open" | "in_progress" | "resolved" | "closed") => Promise<void>;
+  onUploadAttachment?: (file: File) => Promise<{ url: string; name: string; size: number } | null>;
 }) {
   const [replyText, setReplyText] = useState("");
+  const [replyAttachment, setReplyAttachment] = useState<UploadedAttachment | null>(null);
   const [sending, setSending] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const openCount = threads.filter((t) => t.status === "open").length;
   const inProgressCount = threads.filter((t) => t.status === "in_progress").length;
@@ -59,79 +65,94 @@ export function TeamDialogueView({
     if (!activeThread || !replyText.trim() || sending) return;
     setSending(true);
     try {
-      await submitReply(activeThread.id, replyText);
+      await submitReply(activeThread.id, replyText, replyAttachment?.url);
       setReplyText("");
+      setReplyAttachment(null);
     } finally {
       setSending(false);
     }
   }
 
+  function isImageUrl(url?: string) {
+    if (!url) return false;
+    return /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(url) || url.includes("/media/companion/");
+  }
+
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="💬" iconBg="#e0e7ff" iconColor="#4f46e5" label="All Threads" value={number.format(threads.length)} sub="In-system team dialogue" />
-        <KpiCard icon="🐛" iconBg="#fee2e2" iconColor="#b91c1c" label="Bug Reports" value={number.format(bugsCount)} sub="Issues flagged by team" onClick={() => setCategoryFilter(categoryFilter === "bug" ? "" : "bug")} />
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="In Progress" value={number.format(inProgressCount + openCount)} sub="Open feedback items" onClick={() => setStatusFilter(statusFilter === "open" ? "" : "open")} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Resolved" value={number.format(resolvedCount)} sub="Implemented / verified" onClick={() => setStatusFilter(statusFilter === "resolved" ? "" : "resolved")} />
+        <KpiCard icon="🐛" iconBg="#fee2e2" iconColor="#b91c1c" label="Bug Reports" value={bugsCount} sub="Issues to fix" onClick={() => setCategoryFilter(categoryFilter === "bug" ? "" : "bug")} />
+        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Open Threads" value={openCount} sub="Requires attention" onClick={() => setStatusFilter(statusFilter === "open" ? "" : "open")} />
+        <KpiCard icon="🔍" iconBg="#e0f2fe" iconColor="#0284c7" label="In Progress" value={inProgressCount} sub="Being investigated" onClick={() => setStatusFilter(statusFilter === "in_progress" ? "" : "in_progress")} />
+        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Resolved" value={resolvedCount} sub="Completed" onClick={() => setStatusFilter(statusFilter === "resolved" ? "" : "resolved")} />
       </KpiStrip>
 
-      <div style={{ display: "grid", gridTemplateColumns: activeThread ? "420px 1fr" : "1fr", gap: 16, alignItems: "start" }}>
+      {/* Main Container */}
+      <div style={{ display: "grid", gridTemplateColumns: activeThread ? "380px 1fr" : "1fr", gap: 16, marginTop: 16 }}>
         {/* Left Column: Thread List */}
         <Panel
-          title="Team Dialogue & Bug Reports"
-          badge={filteredThreads.length}
+          title="Team Conversations & Feedback"
           action={
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn primary sm" onClick={openNewThreadModal}>+ New Dialogue / Report Bug</button>
-            </div>
+            <button className="btn primary sm" onClick={openNewThreadModal}>
+              + New Dialogue / Report Bug
+            </button>
           }
         >
+          {/* Filters Bar */}
           <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
             <input
-              type="search"
-              placeholder="Search feedback, bug ref, or teammate…"
+              type="text"
+              placeholder="Search conversations, topics, references…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13 }}
+              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 }}
             />
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {[
-                { id: "", label: "All Categories" },
-                { id: "bug", label: "🐛 Bugs" },
-                { id: "operational", label: "🏢 Operations" },
-                { id: "feature", label: "✨ Features" },
-                { id: "general", label: "💬 General" },
-              ].map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCategoryFilter(c.id)}
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 20,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    border: "1px solid",
-                    borderColor: categoryFilter === c.id ? "#ea580c" : "var(--border)",
-                    background: categoryFilter === c.id ? "rgba(234, 88, 12, 0.1)" : "var(--surface)",
-                    color: categoryFilter === c.id ? "#ea580c" : "var(--muted)",
-                  }}
-                >
-                  {c.label}
-                </button>
-              ))}
+              <button
+                className={`btn sm ${categoryFilter === "" ? "primary" : "ghost"}`}
+                onClick={() => setCategoryFilter("")}
+                style={{ fontSize: 11, padding: "3px 8px" }}
+              >
+                All
+              </button>
+              <button
+                className={`btn sm ${categoryFilter === "bug" ? "primary" : "ghost"}`}
+                onClick={() => setCategoryFilter("bug")}
+                style={{ fontSize: 11, padding: "3px 8px" }}
+              >
+                🐛 Bugs
+              </button>
+              <button
+                className={`btn sm ${categoryFilter === "operational" ? "primary" : "ghost"}`}
+                onClick={() => setCategoryFilter("operational")}
+                style={{ fontSize: 11, padding: "3px 8px" }}
+              >
+                🏢 Operations
+              </button>
+              <button
+                className={`btn sm ${categoryFilter === "feature" ? "primary" : "ghost"}`}
+                onClick={() => setCategoryFilter("feature")}
+                style={{ fontSize: 11, padding: "3px 8px" }}
+              >
+                ✨ Features
+              </button>
+              <button
+                className={`btn sm ${categoryFilter === "general" ? "primary" : "ghost"}`}
+                onClick={() => setCategoryFilter("general")}
+                style={{ fontSize: 11, padding: "3px 8px" }}
+              >
+                💬 General
+              </button>
             </div>
           </div>
 
-          <div style={{ maxHeight: "calc(100vh - 380px)", overflowY: "auto", display: "flex", flexDirection: "column" }}>
-            {filteredThreads.length === 0 ? (
-              <div style={{ padding: 36, textAlign: "center" }}>
-                <EmptyState
-                  icon="💬"
-                  title="No dialogue threads"
-                  description="Submit a bug report, operational inquiry, or system feedback directly to the team and developers."
-                  action={<button className="btn primary sm" onClick={openNewThreadModal}>+ Start Dialogue</button>}
-                />
+          {/* Threads List */}
+          <div style={{ maxHeight: 600, overflowY: "auto" }}>
+            {loading ? (
+              <div style={{ padding: 32, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>Loading dialogues…</div>
+            ) : filteredThreads.length === 0 ? (
+              <div style={{ padding: 32, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+                No feedback threads matching filters.
               </div>
             ) : (
               filteredThreads.map((t) => {
@@ -144,21 +165,22 @@ export function TeamDialogueView({
                       padding: "12px 16px",
                       borderBottom: "1px solid var(--border)",
                       cursor: "pointer",
-                      background: isSelected ? "rgba(234, 88, 12, 0.06)" : "transparent",
-                      borderLeft: isSelected ? "3px solid #ea580c" : "3px solid transparent",
-                      transition: "all 0.15s ease",
+                      background: isSelected ? "var(--surface-2)" : "transparent",
+                      borderLeft: isSelected ? "3px solid var(--primary)" : "3px solid transparent",
+                      transition: "background 0.15s ease",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span className="mono" style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{t.reference || "FB-THREAD"}</span>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <Badge tone={PRIORITY_TONE[t.priority] || "gray"}>{t.priority}</Badge>
-                        <StatusPill value={t.status} tone={STATUS_TONE[t.status] || "gray"} />
-                      </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text)" }}>
+                        {t.title}
+                      </span>
+                      <StatusPill value={t.status} tone={STATUS_TONE[t.status] || "gray"} />
                     </div>
-                    <strong style={{ fontSize: 13, color: "var(--text)", display: "block", marginBottom: 4 }}>{t.title}</strong>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "var(--muted)" }}>
-                      <span>By <strong>{t.created_by_name || "Team Member"}</strong></span>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11, color: "var(--muted)" }}>
+                      <span className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{t.reference}</span>
+                      <span>·</span>
+                      <span>{t.created_by_name || "Team Member"}</span>
+                      <span>·</span>
                       <span>{fmtDateTime(t.created_at)}</span>
                     </div>
                   </div>
@@ -204,6 +226,8 @@ export function TeamDialogueView({
               ) : (
                 activeThread.messages.map((m) => {
                   const isDev = Boolean(m.is_developer_response);
+                  const hasImage = isImageUrl(m.attachment_url);
+
                   return (
                     <div
                       key={m.id}
@@ -225,11 +249,45 @@ export function TeamDialogueView({
                       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "var(--text)", whiteSpace: "pre-wrap" }}>
                         {m.message}
                       </p>
+
+                      {/* Evidence Attachment rendering */}
                       {m.attachment_url && (
-                        <div style={{ marginTop: 8 }}>
-                          <a href={m.attachment_url} target="_blank" rel="noreferrer" className="btn ghost sm" style={{ fontSize: 11, padding: "2px 8px" }}>
-                            📎 View Attachment
-                          </a>
+                        <div style={{ marginTop: 10 }}>
+                          {hasImage ? (
+                            <div
+                              style={{
+                                display: "inline-block",
+                                borderRadius: 8,
+                                overflow: "hidden",
+                                border: "1px solid var(--border)",
+                                background: "#000",
+                                cursor: "pointer",
+                                maxWidth: 280,
+                              }}
+                              onClick={() => setPreviewImageUrl(m.attachment_url || null)}
+                              title="Click to zoom evidence screenshot"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={m.attachment_url}
+                                alt="Evidence Attachment"
+                                style={{ display: "block", width: "100%", maxHeight: 180, objectFit: "cover" }}
+                              />
+                              <div style={{ padding: "4px 8px", background: "var(--surface-2)", fontSize: 11, display: "flex", alignItems: "center", gap: 4, color: "var(--text)" }}>
+                                <Eye size={12} /> Click to zoom screenshot
+                              </div>
+                            </div>
+                          ) : (
+                            <a
+                              href={m.attachment_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn ghost sm"
+                              style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
+                            >
+                              📎 View Attached File <ExternalLink size={12} />
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
@@ -238,35 +296,100 @@ export function TeamDialogueView({
               )}
             </div>
 
-            {/* Reply Input Box */}
-            <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)", background: "var(--surface)", display: "flex", gap: 10, alignItems: "flex-end" }}>
-              <div style={{ flex: 1 }}>
-                <textarea
-                  rows={2}
-                  placeholder="Type a response or update (e.g. error reproduction, resolution notes, questions)…"
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, resize: "none" }}
-                />
+            {/* Reply Input Box & Attachment Controls */}
+            <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)", background: "var(--surface)", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <div style={{ flex: 1 }}>
+                  <textarea
+                    rows={2}
+                    placeholder="Type a response (press Ctrl+V anywhere to paste screenshot evidence directly)…"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", fontSize: 13, resize: "none" }}
+                  />
+                </div>
+                <button
+                  className="btn primary"
+                  onClick={handleSend}
+                  disabled={!replyText.trim() || sending}
+                  style={{ padding: "10px 18px", height: "fit-content" }}
+                >
+                  {sending ? "Sending…" : "Send Reply"}
+                </button>
               </div>
-              <button
-                className="btn primary"
-                onClick={handleSend}
-                disabled={!replyText.trim() || sending}
-                style={{ padding: "10px 18px", height: "fit-content" }}
-              >
-                {sending ? "Sending…" : "Send Reply"}
-              </button>
+
+              {/* Direct Evidence Attachment Uploader in Reply bar */}
+              {onUploadAttachment && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <EvidenceAttachmentUploader
+                    compact
+                    attachment={replyAttachment}
+                    onChange={setReplyAttachment}
+                    onUpload={onUploadAttachment}
+                    disabled={sending}
+                  />
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                    Press <strong>Enter</strong> to send · <strong>Shift+Enter</strong> for newline
+                  </span>
+                </div>
+              )}
             </div>
           </Panel>
         )}
       </div>
+
+      {/* Global Image Zoom Modal */}
+      {previewImageUrl && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              style={{
+                position: "absolute",
+                top: -12,
+                right: -12,
+                background: "#000",
+                color: "#fff",
+                border: "2px solid #fff",
+                borderRadius: "50%",
+                width: 32,
+                height: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <X size={18} />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewImageUrl}
+              alt="Evidence Screenshot Preview"
+              style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, boxShadow: "0 20px 40px rgba(0,0,0,0.6)" }}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -268,14 +268,34 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     }
   }
 
-  async function handleReplyFeedback(threadId: string, message: string) {
+  async function uploadAttachment(file: File): Promise<{ url: string; name: string; size: number } | null> {
+    if (!org) return null;
+    try {
+      await apiFetch("/auth/csrf/");
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await apiFetch("/companion/feedback/upload/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: formData,
+      }, org);
+      if (res.ok) {
+        return await res.json();
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function handleReplyFeedback(threadId: string, message: string, attachmentUrl?: string) {
     if (!org) return;
     try {
       await apiFetch("/auth/csrf/");
       const res = await apiFetch(`/companion/feedback/${threadId}/messages/`, {
         method: "POST",
         headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, attachment_url: attachmentUrl || "" }),
       }, org);
       if (res.ok) {
         await loadThreads();
@@ -499,6 +519,17 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     setDateFilter,
     load,
     loadMembers,
+    loadThreads,
+    uploadAttachment,
+    createTask: handleAssignTask,
+    createTemplate: handleCreateTemplate,
+    createThread: handleCreateFeedback,
+    replyFeedback: handleReplyFeedback,
+    updateThreadStatus: handleUpdateThreadStatus,
+    addMember: handleAddMember,
+    updateMember: handleEditMember,
+    delegateTask: handleDelegateTask,
+    runTaskAction,
     handleAddMember,
     handleEditMember,
     handleCreateFeedback,
@@ -507,6 +538,5 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     handleAssignTask,
     handleCreateTemplate,
     handleDelegateTask,
-    runTaskAction,
   };
 }

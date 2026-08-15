@@ -664,6 +664,29 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
                 attachment_url=attachment_url,
             )
 
+    @action(detail=False, methods=['post'], url_path='upload')
+    def upload_attachment(self, request):
+        upload = request.FILES.get('file')
+        if not upload:
+            raise ValidationError({'file': 'No file was provided for upload.'})
+        if upload.size > 25 * 1024 * 1024:
+            raise ValidationError({'file': 'Attachment exceeds maximum 25 MB size limit.'})
+        
+        import os, uuid
+        from django.core.files.storage import default_storage
+        ext = os.path.splitext(upload.name)[1].lower() or '.png'
+        filename = f"companion/feedback/{request.user.id}/{uuid.uuid4().hex[:12]}_{upload.name}"
+        saved_path = default_storage.save(filename, upload)
+        file_url = default_storage.url(saved_path)
+        if not file_url.startswith('http') and not file_url.startswith('/'):
+            file_url = f"/media/{saved_path}"
+        
+        return Response({
+            'url': file_url,
+            'name': upload.name,
+            'size': upload.size,
+        }, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['post'], url_path='messages')
     def add_message(self, request, pk=None):
         thread = self.get_object()

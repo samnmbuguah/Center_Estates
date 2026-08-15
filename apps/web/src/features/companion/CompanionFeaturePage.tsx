@@ -90,6 +90,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
     setDateFilter,
     load,
     loadMembers,
+    uploadAttachment,
     handleAddMember,
     handleEditMember,
     handleCreateFeedback,
@@ -177,6 +178,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             openNewThreadModal={() => setShowNewThread(true)}
             submitReply={handleReplyFeedback}
             updateThreadStatus={handleUpdateThreadStatus}
+            onUploadAttachment={uploadAttachment}
           />
         )}
 
@@ -291,6 +293,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
           open={showNewThread}
           onClose={() => setShowNewThread(false)}
           onSubmit={handleCreateFeedback}
+          onUploadAttachment={uploadAttachment}
           busy={busy}
           activePropertyName={activeProperty?.name}
         />

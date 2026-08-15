@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Field, Modal, Panel } from "@/components/module-ui";
 import { FeedbackThread, Row, TeamMember } from "../../types/companion.types";
+import { EvidenceAttachmentUploader, type UploadedAttachment } from "../common/EvidenceAttachmentUploader";
 
 export function AddTeamMemberModal({
   open,
@@ -285,12 +286,14 @@ export function CreateFeedbackModal({
   open,
   onClose,
   onSubmit,
+  onUploadAttachment,
   busy,
   activePropertyName,
 }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (payload: Record<string, unknown>) => Promise<void>;
+  onUploadAttachment?: (file: File) => Promise<{ url: string; name: string; size: number } | null>;
   busy: boolean;
   activePropertyName?: string;
 }) {
@@ -299,7 +302,7 @@ export function CreateFeedbackModal({
   const [priority, setPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
   const [module, setModule] = useState("property");
   const [message, setMessage] = useState("");
-  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachment, setAttachment] = useState<UploadedAttachment | null>(null);
 
   if (!open) return null;
 
@@ -311,7 +314,7 @@ export function CreateFeedbackModal({
       priority,
       module,
       initial_message: message,
-      attachment_url: attachmentUrl,
+      attachment_url: attachment?.url || "",
     });
   }
 
@@ -378,13 +381,22 @@ export function CreateFeedbackModal({
           />
         </Field>
 
-        <Field label="Attachment / Screenshot Link (Optional)">
-          <input
-            value={attachmentUrl}
-            onChange={(e) => setAttachmentUrl(e.target.value)}
-            placeholder="https://... or uploaded image path"
-            style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
-          />
+        <Field label="Evidence / Screenshot Upload">
+          {onUploadAttachment ? (
+            <EvidenceAttachmentUploader
+              attachment={attachment}
+              onChange={setAttachment}
+              onUpload={onUploadAttachment}
+              disabled={busy}
+            />
+          ) : (
+            <input
+              value={attachment?.url || ""}
+              onChange={(e) => setAttachment({ url: e.target.value, name: "Attachment" })}
+              placeholder="https://... or uploaded image path"
+              style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+            />
+          )}
         </Field>
 
         <div className="modal-actions">
