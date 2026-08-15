@@ -1,12 +1,46 @@
 "use client";
 
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
-import { CreditCard, Shield, Building, FileText, Activity, CheckCircle, AlertCircle, Save } from "lucide-react";
+import {
+  CreditCard,
+  Shield,
+  Building,
+  FileText,
+  Activity,
+  CheckCircle,
+  AlertCircle,
+  Save,
+  Users,
+  UserPlus,
+  Edit2,
+  Trash2,
+  Key,
+  Search,
+  ExternalLink,
+  Lock,
+} from "lucide-react";
 import { RoleAccessManager } from "@/components/role-access-manager";
+import { Field, Modal, StatusPill, Badge, EmptyState, KpiCard, KpiStrip } from "@/components/module-ui";
 
 type PropertyItem = { id: string; name: string; code: string };
+type RoleItem = { id: string; name: string; slug: string; description?: string };
+type MemberItem = {
+  id: string;
+  user_id: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string;
+  phone_number: string;
+  is_organization_admin: boolean;
+  status: string;
+  roles: { id: string; name: string; slug: string }[];
+  assigned_properties: { id: string; name: string; code: string }[];
+};
+
 type GatewayConfig = {
   id?: string;
   property: string;
@@ -30,17 +64,52 @@ type GatewayConfig = {
 
 export default function AdministrationPage() {
   const { session } = useAuth();
-  const isSuperAdministrator = Boolean(session?.user.isSuperuser);
+  const isSuperAdministrator = Boolean(
+    session?.user.isSuperuser ||
+    session?.roles?.includes("platform-admin") ||
+    session?.roles?.includes("super-admin")
+  );
   const organizationId = session?.activeOrganizationId ?? null;
-  const [tab, setTab] = useState<"mpesa" | "roles" | "orgs" | "tax" | "audit">("mpesa");
+
+  // Active subtab
+  const [tab, setTab] = useState<"users" | "roles" | "mpesa" | "orgs" | "tax" | "audit">("users");
+
+  // Shared Data
   const [properties, setProperties] = useState<PropertyItem[]>([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
-  const [gateway, setGateway] = useState<GatewayConfig | null>(null);
+  const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [members, setMembers] = useState<MemberItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // User Administration Filters & Modals
+  const [userSearch, setUserSearch] = useState("");
+  const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>("all");
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<MemberItem | null>(null);
+  const [memberError, setMemberError] = useState("");
+
+  // Add User Form Fields
+  const [newUsername, setNewUsername] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [newSelectedRoles, setNewSelectedRoles] = useState<string[]>([]);
+  const [newSelectedProps, setNewSelectedProps] = useState<string[]>([]);
+
+  // Edit User Matrix Form Fields
+  const [editIsAdmin, setEditIsAdmin] = useState(false);
+  const [editPhone, setEditPhone] = useState("");
+  const [editSelectedRoles, setEditSelectedRoles] = useState<string[]>([]);
+  const [editSelectedProps, setEditSelectedProps] = useState<string[]>([]);
+
   // M-Pesa STK Push Form fields
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const [gateway, setGateway] = useState<GatewayConfig | null>(null);
   const [environment, setEnvironment] = useState("sandbox");
   const [shortcode, setShortcode] = useState("174379");
   const [passkey, setPasskey] = useState("bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919");
@@ -50,26 +119,51 @@ export default function AdministrationPage() {
   const [bankAccount, setBankAccount] = useState("01120001234500");
   const [tillNumber, setTillNumber] = useState("");
 
-  const loadProperties = useCallback(async () => {
+  // 1. Load Properties & Roles
+  const loadPropertiesAndRoles = useCallback(async () => {
     if (!organizationId || !isSuperAdministrator) return;
     try {
-      const res = await apiFetch("/property/properties/", {}, organizationId);
-      if (res.ok) {
-        const data = await res.json();
-        const list = (data.results || data) as PropertyItem[];
+      const [propRes, rolesRes] = await Promise.all([
+        apiFetch("/property/properties/", {}, organizationId),
+        apiFetch("/access/roles/", {}, organizationId),
+      ]);
+      if (propRes.ok) {
+        const data = await propRes.json();
+        const list = (Array.isArray(data) ? data : data.results || []) as PropertyItem[];
         setProperties(list);
         if (list.length > 0 && !selectedPropertyId) {
           setSelectedPropertyId(list[0].id);
         }
       }
+      if (rolesRes.ok) {
+        const data = await rolesRes.json();
+        setRoles(Array.isArray(data) ? data : data.results || []);
+      }
     } catch (err) {
-      console.error("Failed to load properties", err);
+      console.error("Failed to load properties or roles", err);
     }
-  }, [organizationId, selectedPropertyId, isSuperAdministrator]);
+  }, [organizationId, isSuperAdministrator, selectedPropertyId]);
 
+  // 2. Load Members / Users
+  const loadMembers = useCallback(async () => {
+    if (!organizationId || !isSuperAdministrator) return;
+    setLoading(true);
+    try {
+      const res = await apiFetch("/access/members/", {}, organizationId);
+      if (res.ok) {
+        const data = await res.json();
+        setMembers(Array.isArray(data) ? data : data.results || []);
+      }
+    } catch (err) {
+      console.error("Failed to load organization members", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId, isSuperAdministrator]);
+
+  // 3. Load Gateway
   const loadGateway = useCallback(async () => {
     if (!organizationId || !selectedPropertyId || !isSuperAdministrator) return;
-    setLoading(true);
     try {
       const res = await apiFetch(`/property/payment-gateways/?property=${selectedPropertyId}`, {}, organizationId);
       if (res.ok) {
@@ -100,14 +194,13 @@ export default function AdministrationPage() {
       }
     } catch (err) {
       console.error("Failed to load gateway settings", err);
-    } finally {
-      setLoading(false);
     }
   }, [organizationId, selectedPropertyId, isSuperAdministrator]);
 
   useEffect(() => {
-    void loadProperties();
-  }, [loadProperties]);
+    void loadPropertiesAndRoles();
+    void loadMembers();
+  }, [loadPropertiesAndRoles, loadMembers]);
 
   useEffect(() => {
     if (selectedPropertyId) {
@@ -115,6 +208,139 @@ export default function AdministrationPage() {
     }
   }, [selectedPropertyId, loadGateway]);
 
+  // Handle Add Member Submit
+  async function handleCreateUser(e: FormEvent) {
+    e.preventDefault();
+    if (!organizationId) return;
+    setSaving(true);
+    setMemberError("");
+    setNotice(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        "/access/members/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            username: newUsername.trim(),
+            first_name: newFirstName.trim(),
+            last_name: newLastName.trim(),
+            email: newEmail.trim(),
+            phone_number: newPhone.trim(),
+            password: newPassword.trim() || undefined,
+            is_organization_admin: newIsAdmin,
+            role_ids: newSelectedRoles,
+            property_ids: newSelectedProps,
+          }),
+        },
+        organizationId
+      );
+
+      if (res.ok) {
+        setShowAddUserModal(false);
+        setNotice({ type: "success", text: `User account '${newUsername}' created and access matrix assigned.` });
+        setNewUsername("");
+        setNewFirstName("");
+        setNewLastName("");
+        setNewEmail("");
+        setNewPhone("");
+        setNewPassword("");
+        setNewIsAdmin(false);
+        setNewSelectedRoles([]);
+        setNewSelectedProps([]);
+        await loadMembers();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        const err = body.detail || body.username || body.email || "Failed to create user account.";
+        setMemberError(String(err));
+      }
+    } catch {
+      setMemberError("Network error occurred while creating user.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Handle Open Edit Member Modal
+  function openEditModal(m: MemberItem) {
+    setEditingMember(m);
+    setEditIsAdmin(m.is_organization_admin);
+    setEditPhone(m.phone_number || "");
+    setEditSelectedRoles(m.roles?.map((r) => r.id) || []);
+    setEditSelectedProps(m.assigned_properties?.map((p) => p.id) || []);
+  }
+
+  // Handle Save Edit Member
+  async function handleSaveEditUser(e: FormEvent) {
+    e.preventDefault();
+    if (!organizationId || !editingMember) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        `/access/members/${editingMember.id}/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            is_organization_admin: editIsAdmin,
+            phone_number: editPhone.trim(),
+            role_ids: editSelectedRoles,
+            property_ids: editSelectedProps,
+          }),
+        },
+        organizationId
+      );
+
+      if (res.ok) {
+        setEditingMember(null);
+        setNotice({ type: "success", text: `Access matrix updated for ${editingMember.full_name || editingMember.username}.` });
+        await loadMembers();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setNotice({ type: "error", text: String(body.detail || "Failed to update member access matrix.") });
+      }
+    } catch {
+      setNotice({ type: "error", text: "Network error updating member matrix." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Handle Deactivate / Delete User
+  async function handleDeleteUser(m: MemberItem) {
+    if (!organizationId) return;
+    const confirmDelete = window.confirm(`Are you sure you want to remove user '${m.full_name || m.username}' from this organization?`);
+    if (!confirmDelete) return;
+
+    setSaving(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        `/access/members/${m.id}/`,
+        {
+          method: "DELETE",
+          headers: { "X-CSRFToken": csrfFromCookie() },
+        },
+        organizationId
+      );
+      if (res.ok) {
+        setNotice({ type: "success", text: `User ${m.username} removed from organization.` });
+        await loadMembers();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setNotice({ type: "error", text: String(body.detail || "Failed to remove member.") });
+      }
+    } catch {
+      setNotice({ type: "error", text: "Network error removing member." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Save M-Pesa Gateway Settings
   async function handleSaveMpesa(e: FormEvent) {
     e.preventDefault();
     if (!organizationId || !selectedPropertyId) return;
@@ -160,12 +386,42 @@ export default function AdministrationPage() {
         const err = await res.json().catch(() => ({}));
         setNotice({ type: "error", text: err.detail || "Failed to save M-Pesa STK Push settings." });
       }
-    } catch (err) {
+    } catch {
       setNotice({ type: "error", text: "Network error occurred while saving gateway configuration." });
     } finally {
       setSaving(false);
     }
   }
+
+  // Filtered Members for Tab 1
+  const filteredMembers = useMemo(() => {
+    return members.filter((m) => {
+      if (selectedPropertyFilter !== "all") {
+        if (!m.is_organization_admin && !m.assigned_properties?.some((p) => p.id === selectedPropertyFilter)) {
+          return false;
+        }
+      }
+      if (selectedRoleFilter !== "all") {
+        if (!m.roles?.some((r) => r.id === selectedRoleFilter)) {
+          return false;
+        }
+      }
+      if (userSearch) {
+        const q = userSearch.toLowerCase();
+        const match =
+          (m.full_name || "").toLowerCase().includes(q) ||
+          (m.username || "").toLowerCase().includes(q) ||
+          (m.email || "").toLowerCase().includes(q) ||
+          (m.phone_number || "").toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [members, selectedPropertyFilter, selectedRoleFilter, userSearch]);
+
+  const totalUsers = members.length;
+  const adminCount = members.filter((m) => m.is_organization_admin).length;
+  const staffCount = totalUsers - adminCount;
 
   if (session && !isSuperAdministrator) {
     return (
@@ -174,7 +430,7 @@ export default function AdministrationPage() {
           <Shield size={38} aria-hidden="true" style={{ margin: "0 auto 12px", color: "#dc2626" }} />
           <h1 style={{ margin: "0 0 8px", fontSize: "1.5rem" }}>Super administrator access required</h1>
           <p style={{ margin: 0, color: "var(--muted)" }}>
-            Organization administration, platform integrations and access control are restricted to the Center Estates super administrator.
+            Organization administration, user accounts, and role permissions are restricted to the Center Estates super administrator.
           </p>
         </div>
       </main>
@@ -182,24 +438,35 @@ export default function AdministrationPage() {
   }
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ padding: "24px 32px", maxWidth: 1300, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text, #1e293b)" }}>
-            🛡️ Platform Administration & Settings
+          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text, #1e293b)", display: "flex", alignItems: "center", gap: 10 }}>
+            <span>🛡️ Platform Administration & Access Control</span>
           </h1>
           <p style={{ margin: "4px 0 0", color: "var(--muted, #64748b)", fontSize: "0.9rem" }}>
-            Configure organization settings, M-Pesa STK Push paybills, bank accounts, tax compliance, and role permissions.
+            Create system users, configure role permissions across all modules, and manage M-Pesa payment gateways.
           </p>
         </div>
+        {tab === "users" && (
+          <button
+            className="btn primary"
+            onClick={() => setShowAddUserModal(true)}
+            style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, background: "#d92d2d", borderColor: "#d92d2d" }}
+          >
+            <UserPlus size={16} />
+            <span>+ Add System User</span>
+          </button>
+        )}
       </div>
 
       {/* Subtab Navigation */}
-      <div style={{ display: "flex", gap: 8, borderBottom: "1px solid var(--border, #e2e8f0)", marginBottom: 24, paddingBottom: 8 }}>
+      <div style={{ display: "flex", gap: 8, borderBottom: "1px solid var(--border, #e2e8f0)", marginBottom: 24, paddingBottom: 8, overflowX: "auto" }}>
         {[
+          { id: "users", label: "👥 Users & Staff Accounts", icon: Users },
+          { id: "roles", label: "🔐 Roles & Module Permissions", icon: Shield },
           { id: "mpesa", label: "💳 M-Pesa STK Push & Bank Accounts", icon: CreditCard },
-          { id: "roles", label: "🔐 Roles & User Access", icon: Shield },
           { id: "orgs", label: "🏢 Organization & Modules", icon: Building },
           { id: "tax", label: "📜 KRA Tax & E-TIMS", icon: FileText },
           { id: "audit", label: "🛡️ Security & Audit Trail", icon: Activity },
@@ -217,11 +484,12 @@ export default function AdministrationPage() {
                 padding: "8px 16px",
                 borderRadius: 8,
                 border: 0,
-                background: isActive ? "#e23b3b" : "transparent",
+                background: isActive ? "#d92d2d" : "transparent",
                 color: isActive ? "#ffffff" : "var(--text, #475569)",
                 fontWeight: isActive ? 700 : 500,
                 cursor: "pointer",
                 fontSize: 13,
+                whiteSpace: "nowrap",
               }}
             >
               <Icon size={16} />
@@ -252,7 +520,237 @@ export default function AdministrationPage() {
         </div>
       )}
 
-      {/* TAB 1: M-PESA STK PUSH & BANK ACCOUNTS */}
+      {/* TAB 1: USERS & STAFF ACCOUNTS */}
+      {tab === "users" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* KPI Strip */}
+          <KpiStrip cols={4}>
+            <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total System Users" value={String(totalUsers)} sub="Organization members" />
+            <KpiCard icon="🛡️" iconBg="#fef3c7" iconColor="#92400e" label="Super Administrators" value={String(adminCount)} sub="Portfolio-wide access" />
+            <KpiCard icon="💼" iconBg="#e0f2fe" iconColor="#0284c7" label="Operational Staff" value={String(staffCount)} sub="Scoped to properties" />
+            <KpiCard icon="🔐" iconBg="#dcfce7" iconColor="#16a34a" label="Configured Roles" value={String(roles.length)} sub="Active RBAC roles" />
+          </KpiStrip>
+
+          {/* User Table Card */}
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 20 }}>
+            {/* Filter & Search Bar */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", flex: 1 }}>
+                <div style={{ position: "relative", minWidth: 260 }}>
+                  <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+                  <input
+                    type="search"
+                    placeholder="Search by name, username, email or phone…"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    style={{ width: "100%", paddingLeft: 32, paddingRight: 12, height: 36, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", fontSize: 13 }}
+                  />
+                </div>
+
+                {/* Property Filter */}
+                <select
+                  value={selectedPropertyFilter}
+                  onChange={(e) => setSelectedPropertyFilter(e.target.value)}
+                  style={{ height: 36, padding: "0 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", fontSize: 13 }}
+                >
+                  <option value="all">🏢 All Properties / Scopes</option>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      🏢 {p.name} ({p.code})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Role Filter */}
+                <select
+                  value={selectedRoleFilter}
+                  onChange={(e) => setSelectedRoleFilter(e.target.value)}
+                  style={{ height: 36, padding: "0 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", fontSize: 13 }}
+                >
+                  <option value="all">🔐 All Roles</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+
+                {(userSearch || selectedPropertyFilter !== "all" || selectedRoleFilter !== "all") && (
+                  <button
+                    onClick={() => {
+                      setUserSearch("");
+                      setSelectedPropertyFilter("all");
+                      setSelectedRoleFilter("all");
+                    }}
+                    style={{ border: "none", background: "none", color: "var(--muted)", textDecoration: "underline", cursor: "pointer", fontSize: 12 }}
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+
+              <div style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>
+                Showing {filteredMembers.length} of {totalUsers} users
+              </div>
+            </div>
+
+            {/* Table */}
+            {loading ? (
+              <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading user accounts…</div>
+            ) : filteredMembers.length === 0 ? (
+              <EmptyState
+                icon="👥"
+                title="No user accounts found"
+                description="Create staff member accounts (e.g. Lydia, Abel, Sharon, Marilyn) and assign them to roles and estates."
+                action={
+                  <button className="btn primary sm" onClick={() => setShowAddUserModal(true)}>
+                    + Add System User
+                  </button>
+                }
+              />
+            ) : (
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User / Staff Member</th>
+                      <th>Contact Info</th>
+                      <th>Assigned Roles (Feature Access)</th>
+                      <th>Assigned Properties / Estates</th>
+                      <th>Access Level</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMembers.map((m) => (
+                      <tr key={m.id}>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: "50%",
+                                background: m.is_organization_admin ? "#d92d2d" : "#4f46e5",
+                                color: "#fff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 12,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {(m.first_name?.[0] || m.username?.[0] || "U").toUpperCase()}
+                            </span>
+                            <div>
+                              <strong style={{ fontSize: 13, color: "var(--text)", display: "block" }}>
+                                {m.full_name || m.username}
+                              </strong>
+                              <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+                                @{m.username}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: 12 }}>
+                          {m.email ? (
+                            <a href={`mailto:${m.email}`} style={{ color: "var(--primary)", textDecoration: "none" }}>
+                              {m.email}
+                            </a>
+                          ) : (
+                            <span className="muted">No email</span>
+                          )}
+                          {m.phone_number && (
+                            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                              📞 {m.phone_number}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {m.roles?.length > 0 ? (
+                              m.roles.map((r) => (
+                                <Badge key={r.id} tone="purple">
+                                  {r.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="muted" style={{ fontSize: 12 }}>
+                                Standard Staff
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {m.is_organization_admin ? (
+                              <Badge tone="blue">All Properties (Portfolio-wide)</Badge>
+                            ) : m.assigned_properties?.length > 0 ? (
+                              m.assigned_properties.map((p) => (
+                                <span key={p.id} style={{ fontSize: 11, padding: "2px 6px", background: "rgba(0,0,0,0.05)", borderRadius: 4, color: "var(--text)" }}>
+                                  🏢 {p.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="muted" style={{ fontSize: 12 }}>
+                                General / Unrestricted
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <StatusPill
+                            value={m.is_organization_admin ? "Super Admin" : "Staff"}
+                            tone={m.is_organization_admin ? "yellow" : "gray"}
+                          />
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              className="btn ghost sm"
+                              style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
+                              onClick={() => openEditModal(m)}
+                              title="Edit Role & Property Matrix"
+                            >
+                              <Edit2 size={12} />
+                              <span>Edit Matrix</span>
+                            </button>
+                            <button
+                              className="btn ghost sm"
+                              style={{ padding: "4px 8px", fontSize: 11, color: "#dc2626" }}
+                              onClick={() => handleDeleteUser(m)}
+                              title="Remove user from organization"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: ROLES & MODULE PERMISSIONS */}
+      {tab === "roles" && (
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text, #1e293b)" }}>
+              🔐 Role-Based Access Control & Feature Permissions Matrix
+            </h2>
+            <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--muted, #64748b)" }}>
+              Create and manage roles, then select which module features (Property, Facility, Sales, Companion, Valuation, Monitoring) are active for each role.
+            </p>
+          </div>
+          <RoleAccessManager organizationId={organizationId} />
+        </div>
+      )}
+
+      {/* TAB 3: M-PESA STK PUSH & BANK ACCOUNTS */}
       {tab === "mpesa" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
           <div style={{ marginBottom: 20 }}>
@@ -400,7 +898,7 @@ export default function AdministrationPage() {
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  background: "#e23b3b",
+                  background: "#d92d2d",
                   color: "#ffffff",
                   padding: "10px 20px",
                   borderRadius: 8,
@@ -417,14 +915,7 @@ export default function AdministrationPage() {
         </div>
       )}
 
-      {/* TAB 2: ROLES & USER ACCESS */}
-      {tab === "roles" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <RoleAccessManager organizationId={organizationId} />
-        </div>
-      )}
-
-      {/* TAB 3: ORGANIZATIONS & MODULES */}
+      {/* TAB 4: ORGANIZATIONS & MODULES */}
       {tab === "orgs" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
           <h2 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>🏢 Active Organization & Module Subscriptions</h2>
@@ -456,7 +947,7 @@ export default function AdministrationPage() {
         </div>
       )}
 
-      {/* TAB 4: KRA TAX & E-TIMS */}
+      {/* TAB 5: KRA TAX & E-TIMS */}
       {tab === "tax" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
           <h2 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>📜 KRA Tax & E-TIMS Compliance Settings</h2>
@@ -484,7 +975,7 @@ export default function AdministrationPage() {
         </div>
       )}
 
-      {/* TAB 5: AUDIT TRAIL */}
+      {/* TAB 6: AUDIT TRAIL */}
       {tab === "audit" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
           <h2 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>🛡️ Security Audit Log</h2>
@@ -495,6 +986,232 @@ export default function AdministrationPage() {
             No security violations recorded. All sessions running on HTTPS with active CSRF token validation.
           </div>
         </div>
+      )}
+
+      {/* MODAL 1: ADD SYSTEM USER */}
+      {showAddUserModal && (
+        <Modal title="+ Add System User (Staff Creation)" onClose={() => setShowAddUserModal(false)} wide>
+          {memberError && (
+            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", color: "#b91c1c", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+              ⚠️ {memberError}
+            </div>
+          )}
+          <form onSubmit={handleCreateUser} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Username (Login Handle)" required>
+                <input
+                  required
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="e.g. lydia, abel, sharon, marilyn"
+                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+                />
+              </Field>
+              <Field label="Email Address">
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="staff@centerestates.co.ke"
+                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+                />
+              </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="First Name" required>
+                <input
+                  required
+                  value={newFirstName}
+                  onChange={(e) => setNewFirstName(e.target.value)}
+                  placeholder="e.g. Lydia"
+                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+                />
+              </Field>
+              <Field label="Last Name" required>
+                <input
+                  required
+                  value={newLastName}
+                  onChange={(e) => setNewLastName(e.target.value)}
+                  placeholder="e.g. Kipkorir"
+                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+                />
+              </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Phone Number (SMS & Direct Contact)">
+                <input
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="+254 700 000 000"
+                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+                />
+              </Field>
+              <Field label="Initial Password (Optional)">
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Leave blank for auto-invite"
+                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+                />
+              </Field>
+            </div>
+
+            <div style={{ padding: "10px 14px", background: "var(--surface-2, #f8fafc)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                <input
+                  type="checkbox"
+                  checked={newIsAdmin}
+                  onChange={(e) => setNewIsAdmin(e.target.checked)}
+                  style={{ width: 16, height: 16 }}
+                />
+                Super Administrator (Full organization & portfolio-wide access)
+              </label>
+            </div>
+
+            {!newIsAdmin && (
+              <>
+                <Field label="Assigned Functional Roles (Grants Module Permissions)">
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 140, overflowY: "auto", background: "var(--surface)" }}>
+                    {roles.length === 0 ? (
+                      <div className="muted" style={{ fontSize: 12 }}>No custom roles created. Go to 'Roles & Permissions' tab to create roles.</div>
+                    ) : (
+                      roles.map((r) => (
+                        <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={newSelectedRoles.includes(r.id)}
+                            onChange={(e) => {
+                              setNewSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
+                            }}
+                          />
+                          <span><strong>{r.name}</strong></span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </Field>
+
+                <Field label="Property Scoping Matrix (Assign to specific properties/estates)">
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 140, overflowY: "auto", background: "var(--surface)" }}>
+                    {properties.length === 0 ? (
+                      <div className="muted" style={{ fontSize: 12 }}>No properties available in this organization.</div>
+                    ) : (
+                      properties.map((p) => (
+                        <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={newSelectedProps.includes(p.id)}
+                            onChange={(e) => {
+                              setNewSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
+                            }}
+                          />
+                          <span>🏢 {p.name} ({p.code})</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </Field>
+              </>
+            )}
+
+            <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+              <button type="button" className="btn ghost" onClick={() => setShowAddUserModal(false)} disabled={saving}>
+                Cancel
+              </button>
+              <button type="submit" className="btn primary" disabled={saving || !newUsername.trim() || !newFirstName.trim() || !newLastName.trim()} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+                {saving ? "Creating Account…" : "Create User Account"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL 2: EDIT USER MATRIX */}
+      {editingMember && (
+        <Modal title={`Edit Access Matrix — ${editingMember.full_name || editingMember.username}`} onClose={() => setEditingMember(null)} wide>
+          <form onSubmit={handleSaveEditUser} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, background: "var(--surface-2, #f8fafc)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <span style={{ width: 36, height: 36, borderRadius: "50%", background: editingMember.is_organization_admin ? "#d92d2d" : "#4f46e5", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700 }}>
+                {(editingMember.first_name?.[0] || editingMember.username?.[0] || "U").toUpperCase()}
+              </span>
+              <div>
+                <strong style={{ fontSize: 14 }}>{editingMember.full_name || editingMember.username}</strong>
+                <div className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>@{editingMember.username} · {editingMember.email || "No email"}</div>
+              </div>
+            </div>
+
+            <Field label="Phone Number">
+              <input
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+254 700 000 000"
+                style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+              />
+            </Field>
+
+            <div style={{ padding: "10px 14px", background: "var(--surface-2, #f8fafc)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                <input
+                  type="checkbox"
+                  checked={editIsAdmin}
+                  onChange={(e) => setEditIsAdmin(e.target.checked)}
+                  style={{ width: 16, height: 16 }}
+                />
+                Super Administrator (Portfolio-wide unrestricted access)
+              </label>
+            </div>
+
+            {!editIsAdmin && (
+              <>
+                <Field label="Assigned Functional Roles">
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
+                    {roles.map((r) => (
+                      <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={editSelectedRoles.includes(r.id)}
+                          onChange={(e) => {
+                            setEditSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
+                          }}
+                        />
+                        <span><strong>{r.name}</strong></span>
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+
+                <Field label="Property Scoping Matrix">
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
+                    {properties.map((p) => (
+                      <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={editSelectedProps.includes(p.id)}
+                          onChange={(e) => {
+                            setEditSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
+                          }}
+                        />
+                        <span>🏢 {p.name} ({p.code})</span>
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+              </>
+            )}
+
+            <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+              <button type="button" className="btn ghost" onClick={() => setEditingMember(null)} disabled={saving}>
+                Cancel
+              </button>
+              <button type="submit" className="btn primary" disabled={saving} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+                {saving ? "Saving Changes…" : "Save Matrix Changes"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

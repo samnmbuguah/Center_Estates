@@ -22,9 +22,13 @@ type Role = {
 };
 
 const moduleNames: Record<string, string> = {
-  property: "Property Management",
-  facility: "Facility Management",
-  companion: "Companion",
+  property: "🏢 Property Management",
+  facility: "🔧 Facility Management",
+  sales: "💰 Sales & Leasing",
+  tender: "📋 Tender Engine",
+  valuation: "📜 Valuation Services",
+  monitoring: "📊 Construction Monitoring",
+  companion: "🧭 Companion & Staff Performance",
 };
 
 export function RoleAccessManager({ organizationId }: { organizationId: string | null }) {
