@@ -12,10 +12,10 @@ class ContentSecurityPolicyMiddleware:
                 "img-src 'self' data: https:; "
                 "font-src 'self' data: https: https://fonts.gstatic.com; "
                 "connect-src 'self' https:; "
-                "frame-ancestors 'none'"
+                "frame-ancestors 'self' https://posthog.com https://preview.posthog.com https://vercel.com https://us.posthog.com"
             )
             response['X-Content-Type-Options'] = 'nosniff'
-            response['X-Frame-Options'] = 'DENY'
+            response['X-Frame-Options'] = 'SAMEORIGIN'
             response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
             response['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
         return response

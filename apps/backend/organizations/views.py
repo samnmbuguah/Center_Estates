@@ -6,18 +6,9 @@ from rest_framework.views import APIView
 from core.models import Module
 from core.tenancy import get_active_membership, get_active_organization
 
-from .models import Permission, Role
-from .serializers import PermissionSerializer, RoleSerializer
-
-
-CORE_ROLE_SLUGS = {
-    "platform-admin",
-    "portfolio-manager",
-    "finance-officer",
-    "operations-staff",
-    "read-only",
-}
-CORE_MODULES = {Module.PROPERTY, Module.FACILITY, Module.COMPANION}
+from .models import Membership, Permission, Role
+from .serializers import CreateMemberSerializer, MemberSerializer, PermissionSerializer, RoleSerializer
+from .services import ensure_permission_catalog, ensure_standard_roles_for_organization
 
 
 class OrganizationAdminAPIView(APIView):
@@ -46,7 +37,8 @@ class PermissionListView(OrganizationAdminAPIView):
         organization, error = self.context(request)
         if error:
             return error
-        permissions = Permission.objects.filter(module__in=CORE_MODULES).order_by("module", "key")
+        ensure_permission_catalog()
+        permissions = Permission.objects.all().order_by("module", "key")
         return Response(PermissionSerializer(permissions, many=True).data)
 
 
@@ -57,8 +49,9 @@ class RoleListCreateView(OrganizationAdminAPIView):
         organization, error = self.context(request)
         if error:
             return error
-        roles = organization.roles.filter(is_system=False) | organization.roles.filter(slug__in=CORE_ROLE_SLUGS)
-        roles = roles.distinct().prefetch_related("permissions", "memberships").order_by("is_system", "name")
+        # Ensure all standard default embedded roles exist for this organization
+        ensure_standard_roles_for_organization(organization)
+        roles = organization.roles.all().prefetch_related("permissions", "memberships").order_by("is_system", "name")
         return Response(RoleSerializer(roles, many=True).data)
 
     def post(self, request):

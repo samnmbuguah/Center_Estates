@@ -70,6 +70,18 @@ export default function UsageAnalyticsPage() {
         <a className="btn ghost" href={posthogHost} target="_blank" rel="noreferrer">Open PostHog <ExternalLink size={15} /></a>
       </header>
 
+      {/* PostHog dashboard embed */}
+      {dashboardUrl ? (
+        <section className="analytics-embed-card" style={{ marginBottom: 18 }}>
+          <iframe title="Center Estates PostHog analytics dashboard" src={dashboardUrl} allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-popups" referrerPolicy="strict-origin-when-cross-origin" />
+        </section>
+      ) : (
+        <section className="panel analytics-setup" style={{ marginBottom: 18 }}>
+          <ShieldCheck size={34} />
+          <div><h2>Dashboard embed is ready to configure</h2><p>Create a shared PostHog dashboard link, set <code>NEXT_PUBLIC_POSTHOG_DASHBOARD_URL</code> during the web image build, and redeploy. Event collection continues independently of the embed.</p></div>
+        </section>
+      )}
+
       {/* Per-user activity summary */}
       <section className="panel" style={{ marginBottom: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -143,17 +155,6 @@ export default function UsageAnalyticsPage() {
           </table>
         </div>
       </section>
-
-      {dashboardUrl ? (
-        <section className="analytics-embed-card">
-          <iframe title="Center Estates PostHog analytics dashboard" src={dashboardUrl} allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-popups" referrerPolicy="strict-origin-when-cross-origin" />
-        </section>
-      ) : (
-        <section className="panel analytics-setup">
-          <ShieldCheck size={34} />
-          <div><h2>Dashboard embed is ready to configure</h2><p>Create a shared PostHog dashboard link, set <code>NEXT_PUBLIC_POSTHOG_DASHBOARD_URL</code> during the web image build, and redeploy. Event collection continues independently of the embed.</p></div>
-        </section>
-      )}
     </div>
   );
 }
