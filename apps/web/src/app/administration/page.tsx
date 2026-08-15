@@ -1042,20 +1042,40 @@ function AdministrationContent() {
             {!newIsAdmin && (
               <>
                 <Field label="Assigned Functional Roles (Grants Module Permissions)">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 140, overflowY: "auto", background: "var(--surface)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
                     {roles.length === 0 ? (
-                      <div className="muted" style={{ fontSize: 12 }}>No custom roles created. Go to 'Roles & Permissions' tab to create roles.</div>
+                      <div className="muted" style={{ fontSize: 12 }}>No roles found.</div>
                     ) : (
                       roles.map((r) => (
-                        <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                        <label
+                          key={r.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 8,
+                            padding: 8,
+                            borderRadius: 6,
+                            border: "1px solid var(--border)",
+                            background: newSelectedRoles.includes(r.id) ? "rgba(226, 59, 59, 0.05)" : "transparent",
+                            cursor: "pointer",
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={newSelectedRoles.includes(r.id)}
                             onChange={(e) => {
                               setNewSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
                             }}
+                            style={{ marginTop: 2 }}
                           />
-                          <span><strong>{r.name}</strong></span>
+                          <div>
+                            <strong style={{ fontSize: 12, display: "block" }}>{r.name}</strong>
+                            {r.description && (
+                              <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
+                                {r.description}
+                              </span>
+                            )}
+                          </div>
                         </label>
                       ))
                     )}
@@ -1063,12 +1083,24 @@ function AdministrationContent() {
                 </Field>
 
                 <Field label="Property Scoping Matrix (Assign to specific properties/estates)">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 140, overflowY: "auto", background: "var(--surface)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
                     {properties.length === 0 ? (
                       <div className="muted" style={{ fontSize: 12 }}>No properties available in this organization.</div>
                     ) : (
                       properties.map((p) => (
-                        <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                        <label
+                          key={p.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "6px 8px",
+                            borderRadius: 6,
+                            border: "1px solid var(--border)",
+                            cursor: "pointer",
+                            background: newSelectedProps.includes(p.id) ? "rgba(79, 70, 229, 0.05)" : "transparent",
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={newSelectedProps.includes(p.id)}
@@ -1076,7 +1108,7 @@ function AdministrationContent() {
                               setNewSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
                             }}
                           />
-                          <span>🏢 {p.name} ({p.code})</span>
+                          <span style={{ fontSize: 12 }}>🏢 {p.name} ({p.code})</span>
                         </label>
                       ))
                     )}
@@ -1135,26 +1167,58 @@ function AdministrationContent() {
             {!editIsAdmin && (
               <>
                 <Field label="Assigned Functional Roles">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
                     {roles.map((r) => (
-                      <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                      <label
+                        key={r.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 8,
+                          padding: 8,
+                          borderRadius: 6,
+                          border: "1px solid var(--border)",
+                          background: editSelectedRoles.includes(r.id) ? "rgba(226, 59, 59, 0.05)" : "transparent",
+                          cursor: "pointer",
+                        }}
+                      >
                         <input
                           type="checkbox"
                           checked={editSelectedRoles.includes(r.id)}
                           onChange={(e) => {
                             setEditSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
                           }}
+                          style={{ marginTop: 2 }}
                         />
-                        <span><strong>{r.name}</strong></span>
+                        <div>
+                          <strong style={{ fontSize: 12, display: "block" }}>{r.name}</strong>
+                          {r.description && (
+                            <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
+                              {r.description}
+                            </span>
+                          )}
+                        </div>
                       </label>
                     ))}
                   </div>
                 </Field>
 
                 <Field label="Property Scoping Matrix">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 6, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 150, overflowY: "auto", background: "var(--surface)" }}>
                     {properties.map((p) => (
-                      <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                      <label
+                        key={p.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          border: "1px solid var(--border)",
+                          cursor: "pointer",
+                          background: editSelectedProps.includes(p.id) ? "rgba(79, 70, 229, 0.05)" : "transparent",
+                        }}
+                      >
                         <input
                           type="checkbox"
                           checked={editSelectedProps.includes(p.id)}
@@ -1162,7 +1226,7 @@ function AdministrationContent() {
                             setEditSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
                           }}
                         />
-                        <span>🏢 {p.name} ({p.code})</span>
+                        <span style={{ fontSize: 12 }}>🏢 {p.name} ({p.code})</span>
                       </label>
                     ))}
                   </div>
