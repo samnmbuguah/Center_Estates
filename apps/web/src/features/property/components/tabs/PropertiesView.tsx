@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, MenuItem, TextField, Typography, Grid } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
 } from "@/components/module-ui";
 import { ViewToolbar, ListState, SubTabs } from "../PropertyToolbar";
+import { EnhancedDataTable } from "@/components/enhanced-data-table";
+import { InteractiveDashboard } from "@/components/interactive-dashboard";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import {
   PropertyTab, Row, ID, PropertyRow, BuildingRow, UnitRow, ProjectRow,
   TenantRow, TenantDocumentRow, LeaseRow, RentScheduleRow, InvoiceRow,
@@ -21,6 +24,7 @@ import {
   occupancyTone, shortId, exportCsv, exportLeaseICS, exportICS,
   criticalFormatDate, criticalDaysUntil,
 } from "../../utils/property.utils";
+import { Building2, DollarSign, Users, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
 
 export function PropertiesView({
   rows, loading, search, setSearch, setTab, onAdd, onSelectRow,
@@ -42,23 +46,80 @@ export function PropertiesView({
 
   return (
     <>
-      <KpiStrip cols={6}>
-        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Property" value={props[0]?.name ? String(props[0].name) : "—"} sub="Currently selected" link="View details" onClick={() => setTab("properties")} />
-        <KpiCard icon="▦" iconBg="#dbeafe" iconColor="#2563eb" label="Total Units" value={kN(totalUnits)} sub="At this property" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="🏗" iconBg="#fef3c7" iconColor="#d97706" label="Buildings" value={kN(totalBuildings)} sub="Registered buildings" link="View buildings" onClick={() => setTab("buildings")} />
-        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Status" value={active ? "Active" : String(props[0]?.status ?? "—")} sub="Property status" link="View details" onClick={() => setTab("properties")} />
-        <KpiCard icon="◌" iconBg="#fee2e2" iconColor="#dc2626" label="Vacant Units" value={kN(vacant)} sub="At this property" link="View units" onClick={() => setTab("units")} />
-        <KpiCard icon="▣" iconBg="#e0f2fe" iconColor="#0284c7" label="Occupancy %" value={`${occupancyRate}%`} sub="Current property" link="View units" onClick={() => setTab("units")} />
-      </KpiStrip>
+      <BreadcrumbNavigation />
+      
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={2}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#4f46e5", color: "white",
+            textAlign: "center"
+          }}>
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{props.length}</Typography>
+            <Typography variant="caption">Properties</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#2563eb", color: "white",
+            textAlign: "center"
+          }}>
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{kN(totalUnits)}</Typography>
+            <Typography variant="caption">Total Units</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#d97706", color: "white",
+            textAlign: "center"
+          }}>
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{kN(totalBuildings)}</Typography>
+            <Typography variant="caption">Buildings</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#16a34a", color: "white",
+            textAlign: "center"
+          }}>
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{occupancyRate}%</Typography>
+            <Typography variant="caption">Occupancy</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#22c55e", color: "white",
+            textAlign: "center"
+          }}>
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>
+              KES {props.reduce((sum, p) => sum + Number(p.monthly_rent || 0), 0).toLocaleString()}
+            </Typography>
+            <Typography variant="caption">Monthly Revenue</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: active ? "#16a34a" : "#ef4444", color: "white",
+            textAlign: "center"
+          }}>
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{active ? "Active" : "Inactive"}</Typography>
+            <Typography variant="caption">Status</Typography>
+          </Box>
+        </Grid>
+      </Grid>
 
-      <ViewToolbar title="Property Details" subtitle="Identity, occupancy and operating details for the property selected above">
-        <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
-          { key: "name", label: "Property" }, { key: "code", label: "Code" }, { key: "property_type", label: "Type" },
-          { key: "city", label: "Location" }, { key: "units_count", label: "Units" }, { key: "occupied", label: "Occupied" },
-          { key: "occupancy", label: "Occupancy %" }, { key: "monthlyRent", label: "Monthly Rent" },
-          { key: "outstanding", label: "Outstanding" }, { key: "status", label: "Status" },
-        ], "property-details.csv")}>Export CSV</button>
-      </ViewToolbar>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          Property Portfolio
+        </Typography>
+        <Button 
+          variant="contained" 
+          startIcon={<Building2 size={16} />}
+          onClick={onAdd}
+          sx={{ bgcolor: "#d92d2d", "&:hover": { bgcolor: "#b91c1c" } }}
+        >
+          Add Property
+        </Button>
+      </Box>
 
       <Panel title="Selected Property">
         <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No property selected" emptyDesc="Choose a property from the selector at the top of the workspace.">
