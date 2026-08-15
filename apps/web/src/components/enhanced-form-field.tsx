@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useEffect, ReactNode } from "react";
 import {
-  TextField, TextFieldProps, Box, Typography, InputAdornment, IconButton,
-  Collapse, Alert, Chip, Tooltip, CircularProgress
+  TextField, Box, Typography, InputAdornment, IconButton,
+  Collapse, Alert, Chip, Tooltip, CircularProgress, InputLabel
 } from "@mui/material";
 import { Check, X, Eye, EyeOff, Info, AlertCircle } from "lucide-react";
 
@@ -13,7 +13,7 @@ export interface ValidationRule {
   severity?: "error" | "warning" | "info";
 }
 
-export interface EnhancedFormFieldProps extends Omit<TextFieldProps, 'error' | 'helperText'> {
+export interface EnhancedFormFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -27,6 +27,12 @@ export interface EnhancedFormFieldProps extends Omit<TextFieldProps, 'error' | '
     additionalFields: ReactNode;
   };
   autoComplete?: string;
+  disabled?: boolean;
+  required?: boolean;
+  type?: "text" | "password" | "email" | "number" | "tel";
+  fullWidth?: boolean;
+  multiline?: boolean;
+  rows?: number;
 }
 
 export function EnhancedFormField({
@@ -40,7 +46,13 @@ export function EnhancedFormField({
   tooltip,
   progressiveDisclosure,
   autoComplete = "off",
-  ...textFieldProps
+  disabled = false,
+  required = false,
+  type = "text",
+  fullWidth = true,
+  multiline = false,
+  rows,
+  sx
 }: EnhancedFormFieldProps) {
   const [touched, setTouched] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -88,7 +100,7 @@ export function EnhancedFormField({
     }
   }, [value, validate, touched]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange(e.target.value);
   };
 
@@ -124,9 +136,9 @@ export function EnhancedFormField({
   return (
     <Box sx={{ mb: 2 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
-        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
+        <InputLabel sx={{ fontWeight: 600, color: "text.secondary" }}>
           {label}
-        </Typography>
+        </InputLabel>
         {tooltip && (
           <Tooltip title={tooltip} arrow>
             <IconButton size="small" sx={{ p: 0.2 }}>
@@ -137,8 +149,7 @@ export function EnhancedFormField({
       </Box>
 
       <TextField
-        {...textFieldProps}
-        fullWidth
+        fullWidth={fullWidth}
         value={value}
         onChange={handleChange}
         onBlur={handleBlur}
@@ -146,34 +157,39 @@ export function EnhancedFormField({
         placeholder={placeholder}
         autoComplete={autoComplete}
         error={hasErrors && touched}
-        type={showPassword ? "text" : textFieldProps?.type || "text"}
-        InputProps={{
-          ...(textFieldProps?.InputProps || {}),
-          endAdornment: (
-            <>
-              {textFieldProps?.type === "password" && (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowPassword(!showPassword)}
-                    edge="end"
-                    size="small"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </IconButton>
-                </InputAdornment>
-              )}
-              {touched && !hasErrors && value && (
-                <InputAdornment position="end">
-                  <Check size={18} style={{ color: "#22c55e" }} />
-                </InputAdornment>
-              )}
-              {touched && hasErrors && (
-                <InputAdornment position="end">
-                  <X size={18} style={{ color: "#ef4444" }} />
-                </InputAdornment>
-              )}
-            </>
-          ),
+        type={showPassword ? "text" : type}
+        disabled={disabled}
+        required={required}
+        multiline={multiline}
+        rows={rows}
+        slotProps={{
+          input: {
+            endAdornment: (
+              <>
+                {type === "password" && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </IconButton>
+                  </InputAdornment>
+                )}
+                {touched && !hasErrors && value && (
+                  <InputAdornment position="end">
+                    <Check size={18} style={{ color: "#22c55e" }} />
+                  </InputAdornment>
+                )}
+                {touched && hasErrors && (
+                  <InputAdornment position="end">
+                    <X size={18} style={{ color: "#ef4444" }} />
+                  </InputAdornment>
+                )}
+              </>
+            ),
+          }
         }}
         sx={{
           "& .MuiOutlinedInput-root": {
@@ -184,7 +200,7 @@ export function EnhancedFormField({
               borderColor: hasErrors ? "#ef4444" : "#4f46e5",
             },
           },
-          ...textFieldProps?.sx,
+          ...sx,
         }}
       />
 
