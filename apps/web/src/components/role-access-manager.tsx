@@ -474,7 +474,6 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                                     </Box>
                                   </Box>
                                 </Box>
-                              </Box>
                             ))}
                             </Box>
                           </AccordionDetails>

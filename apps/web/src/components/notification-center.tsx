@@ -281,21 +281,21 @@ export function NotificationCenter({
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               Notification Preferences
             </Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="body2">Email notifications</Typography>
-              <Chip label="Enabled" size="small" color="primary" />
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="body2">Push notifications</Typography>
-              <Chip label="Enabled" size="small" color="primary" />
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="body2">Sound alerts</Typography>
-              <Chip label="Disabled" size="small" color="default" />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Typography variant="body2">Email notifications</Typography>
+                <Chip label="Enabled" size="small" color="primary" />
+              </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Typography variant="body2">Push notifications</Typography>
+                <Chip label="Enabled" size="small" color="primary" />
+              </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Typography variant="body2">Sound alerts</Typography>
+                <Chip label="Disabled" size="small" color="default" />
+              </Box>
             </Box>
           </Box>
-        </Box>
         <DialogActions>
           <Button onClick={() => setSettingsOpen(false)}>Close</Button>
           <Button variant="contained" onClick={() => setSettingsOpen(false)}>
