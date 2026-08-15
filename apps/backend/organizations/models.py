@@ -64,9 +64,11 @@ class Membership(TimeStampedModel):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='memberships')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='erp_memberships')
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
+    phone_number = models.CharField(max_length=40, blank=True)
     is_organization_admin = models.BooleanField(default=False)
     is_default = models.BooleanField(default=False)
     roles = models.ManyToManyField(Role, through='MembershipRole', related_name='memberships', blank=True)
+    assigned_properties = models.ManyToManyField('properties.Property', blank=True, related_name='assigned_memberships')
     objects = MembershipQuerySet.as_manager()
 
     class Meta:

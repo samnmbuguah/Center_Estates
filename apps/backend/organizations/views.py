@@ -115,3 +115,70 @@ class RoleDetailView(OrganizationAdminAPIView):
             )
         role.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MemberListCreateView(OrganizationAdminAPIView):
+    def get(self, request):
+        organization, error = self.context(request)
+        if error:
+            return error
+        property_id = request.query_params.get("property")
+        memberships = organization.memberships.filter(status=Membership.Status.ACTIVE).select_related("user").prefetch_related("roles", "assigned_properties")
+        if property_id:
+            from django.db.models import Q
+            memberships = memberships.filter(
+                Q(is_organization_admin=True) | Q(assigned_properties__id=property_id) | Q(assigned_properties__isnull=True)
+            ).distinct()
+        return Response(MemberSerializer(memberships, many=True).data)
+
+    def post(self, request):
+        organization, error = self.context(request)
+        if error:
+            return error
+        serializer = CreateMemberSerializer(data=request.data, context={"organization": organization})
+        serializer.is_valid(raise_exception=True)
+        membership = serializer.save()
+        return Response(MemberSerializer(membership).data, status=status.HTTP_201_CREATED)
+
+
+class MemberDetailView(OrganizationAdminAPIView):
+    def patch(self, request, member_id):
+        organization, error = self.context(request)
+        if error:
+            return error
+        membership = organization.memberships.filter(pk=member_id).first()
+        if not membership:
+            return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        data = request.data
+        if "is_organization_admin" in data:
+            membership.is_organization_admin = bool(data["is_organization_admin"])
+        if "phone_number" in data:
+            membership.phone_number = str(data["phone_number"]).strip()
+        if "status" in data and data["status"] in Membership.Status.values:
+            membership.status = data["status"]
+        membership.save()
+
+        if "role_ids" in data:
+            roles = Role.objects.filter(organization=organization, id__in=data["role_ids"])
+            membership.roles.set(roles)
+
+        if "property_ids" in data:
+            from properties.models import Property
+            properties = Property.objects.filter(organization=organization, id__in=data["property_ids"])
+            membership.assigned_properties.set(properties)
+
+        return Response(MemberSerializer(membership).data)
+
+    def delete(self, request, member_id):
+        organization, error = self.context(request)
+        if error:
+            return error
+        membership = organization.memberships.filter(pk=member_id).first()
+        if not membership:
+            return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
+        if membership.user == request.user:
+            return Response({"detail": "You cannot remove your own organization membership."}, status=status.HTTP_400_BAD_REQUEST)
+        membership.status = Membership.Status.SUSPENDED
+        membership.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)

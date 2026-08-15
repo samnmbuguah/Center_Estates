@@ -1,9 +1,17 @@
 from django.urls import path
 
-from .views import PermissionListView, RoleDetailView, RoleListCreateView
+from .views import (
+    MemberDetailView,
+    MemberListCreateView,
+    PermissionListView,
+    RoleDetailView,
+    RoleListCreateView,
+)
 
 urlpatterns = [
     path("permissions/", PermissionListView.as_view(), name="permission-list"),
     path("roles/", RoleListCreateView.as_view(), name="role-list-create"),
     path("roles/<uuid:role_id>/", RoleDetailView.as_view(), name="role-detail"),
+    path("members/", MemberListCreateView.as_view(), name="member-list-create"),
+    path("members/<uuid:member_id>/", MemberDetailView.as_view(), name="member-detail"),
 ]
