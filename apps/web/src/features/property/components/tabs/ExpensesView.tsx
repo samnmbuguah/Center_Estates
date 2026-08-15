@@ -163,8 +163,21 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
                     <td style={{ fontSize: 12 }}>{String(e.property_name ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{String(e.supplier ?? e.description ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{String(e.category ?? "—")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(e.invoice_number ?? "—")}</td>
-                    <td className="mono" style={{ color: "var(--danger)" }}>{kM(e.amount)}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>
+                      <div>{String(e.invoice_number ?? "—")}</div>
+                      {(e.attachment_url || (e as any).document_url || (e as any).receipt_url) && (
+                        <a
+                          href={String(e.attachment_url || (e as any).document_url || (e as any).receipt_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn ghost sm"
+                          style={{ fontSize: 10, padding: "1px 6px", marginTop: 2, display: "inline-block" }}
+                        >
+                          📎 Soft Copy
+                        </a>
+                      )}
+                    </td>
+                    <td className="mono" style={{ color: "var(--danger)", fontWeight: 700 }}>{kM(e.amount)}</td>
                     <td><StatusPill value={String(e.status ?? "—")} /></td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
