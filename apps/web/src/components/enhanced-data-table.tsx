@@ -236,12 +236,14 @@ export function EnhancedDataTable<T extends Record<string, any>>({
             size="small"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={18} style={{ color: "#64748b" }} />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search size={18} style={{ color: "#64748b" }} />
+                  </InputAdornment>
+                ),
+              }
             }}
             sx={{ flex: 1 }}
           />
@@ -510,7 +512,7 @@ export function EnhancedDataTable<T extends Record<string, any>>({
         anchorEl={filterMenuAnchor}
         open={Boolean(filterMenuAnchor)}
         onClose={() => setFilterMenuAnchor(null)}
-        PaperProps={{ sx: { width: 300, maxHeight: 400 } }}
+        slotProps={{ paper: { sx: { width: 300, maxHeight: 400 } } }}
       >
         <MenuItem disabled>
           <Typography variant="caption" sx={{ fontWeight: 700 }}>
@@ -535,7 +537,7 @@ export function EnhancedDataTable<T extends Record<string, any>>({
         anchorEl={columnMenuAnchor}
         open={Boolean(columnMenuAnchor)}
         onClose={() => setColumnMenuAnchor(null)}
-        PaperProps={{ sx: { width: 250 } }}
+        slotProps={{ paper: { sx: { width: 250 } } }}
       >
         <MenuItem disabled>
           <Typography variant="caption" sx={{ fontWeight: 700 }}>
