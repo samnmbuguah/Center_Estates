@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { BrandLogo } from "@/components/brand-logo";
-import { LayoutDashboard, ClipboardCheck, Menu, X, ChartNoAxesCombined, CalendarDays, CircleAlert } from "lucide-react";
+import { LayoutDashboard, ClipboardCheck, Menu, X, ChartNoAxesCombined, CalendarDays, CircleAlert, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Box,
   Typography,
@@ -22,6 +22,22 @@ const modules = [
   { slug: "companion", name: "Companion", icon: "🧭", accent: "#ec4899" },
 ];
 
+const SETTINGS_SUBITEMS = [
+  { id: "profile", label: "Profile & Account", icon: "👤", href: "/settings?tab=profile" },
+  { id: "mpesa-test", label: "M-Pesa STK Test", icon: "📱", href: "/settings?tab=mpesa-test" },
+  { id: "notifications", label: "Notifications & Alerts", icon: "🔔", href: "/settings?tab=notifications" },
+  { id: "appearance", label: "Display & Regional", icon: "🎨", href: "/settings?tab=appearance" },
+];
+
+const ADMIN_SUBITEMS = [
+  { id: "users", label: "Users & Staff Accounts", icon: "👥", href: "/administration?tab=users" },
+  { id: "roles", label: "Roles & Permissions", icon: "🔐", href: "/administration?tab=roles" },
+  { id: "mpesa", label: "M-Pesa STK Push Gateway", icon: "💳", href: "/administration?tab=mpesa" },
+  { id: "orgs", label: "Organization & Modules", icon: "🏢", href: "/administration?tab=orgs" },
+  { id: "tax", label: "KRA Tax & E-TIMS", icon: "📜", href: "/administration?tab=tax" },
+  { id: "audit", label: "Security Audit Trail", icon: "🛡️", href: "/administration?tab=audit" },
+];
+
 type AppSidebarProps = {
   menuOpen: boolean;
   onCloseMobile: () => void;
@@ -30,8 +46,18 @@ type AppSidebarProps = {
 
 export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams ? searchParams.get("tab") : null;
   const { session } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
+
+  const [settingsExpanded, setSettingsExpanded] = useState(pathname.startsWith("/settings"));
+  const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/administration"));
+
+  useEffect(() => {
+    if (pathname.startsWith("/settings")) setSettingsExpanded(true);
+    if (pathname.startsWith("/administration")) setAdminExpanded(true);
+  }, [pathname]);
 
   const activeModuleSlug = modules.find((m) => (
     pathname === `/${m.slug}` || pathname.startsWith(`/${m.slug}/`)
@@ -389,53 +415,213 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             </Link>
           ) : null}
 
-          {/* Settings & Administration Links */}
-          <div style={{ marginTop: "12px", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 4 }}>
-            <Link
-              className={`nav-link ${pathname === "/settings" ? "active" : ""}`}
-              href="/settings"
-              onClick={onCloseMobile}
-              title="Settings"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: isMobile ? "14px 16px" : "9px 12px",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                background: pathname === "/settings" ? "#e23b3b" : "transparent",
-                color: pathname === "/settings" ? "#ffffff" : "#cbd5e1",
-                fontWeight: pathname === "/settings" ? 700 : 500,
-                textDecoration: "none",
-                fontSize: isMobile ? 15 : 13,
-              }}
-            >
-              <span style={{ fontSize: isMobile ? 18 : 15 }}>⚙️</span>
-              <span>Settings</span>
-            </Link>
+          {/* Settings & Administration Links with Retractable Suboptions */}
+          <div style={{ marginTop: "12px", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 6 }}>
+            {/* SETTINGS SECTION */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderRadius: 6,
+                  background: pathname === "/settings" ? "rgba(226, 59, 59, 0.15)" : "transparent",
+                  color: pathname === "/settings" ? "#ffffff" : "#cbd5e1",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <Link
+                  className={`nav-link ${pathname === "/settings" ? "active" : ""}`}
+                  href="/settings"
+                  onClick={() => {
+                    setSettingsExpanded(true);
+                    onCloseMobile();
+                  }}
+                  title="Settings"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: isMobile ? "12px 14px" : "8px 10px",
+                    flex: 1,
+                    borderRadius: 6,
+                    color: pathname === "/settings" ? "#ffffff" : "#cbd5e1",
+                    fontWeight: pathname === "/settings" ? 700 : 500,
+                    textDecoration: "none",
+                    fontSize: isMobile ? 15 : 13,
+                  }}
+                >
+                  <span style={{ fontSize: isMobile ? 18 : 15 }}>⚙️</span>
+                  <span>Settings</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSettingsExpanded(!settingsExpanded);
+                  }}
+                  aria-label="Toggle settings sub-options"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#94a3b8",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {settingsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+              </div>
 
-            {isAdministrator && <Link
-              className={`nav-link ${pathname === "/administration" ? "active" : ""}`}
-              href="/administration"
-              onClick={onCloseMobile}
-              title="Administration"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: isMobile ? "14px 16px" : "9px 12px",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                background: pathname === "/administration" ? "#e23b3b" : "transparent",
-                color: pathname === "/administration" ? "#ffffff" : "#cbd5e1",
-                fontWeight: pathname === "/administration" ? 700 : 500,
-                textDecoration: "none",
-                fontSize: isMobile ? 15 : 13,
-              }}
-            >
-              <span style={{ fontSize: isMobile ? 18 : 15 }}>🛡️</span>
-              <span>Administration</span>
-            </Link>}
+              {settingsExpanded && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    paddingLeft: 14,
+                    borderLeft: "2px solid rgba(255, 255, 255, 0.12)",
+                    marginLeft: 14,
+                    marginTop: 2,
+                    marginBottom: 4,
+                  }}
+                >
+                  {SETTINGS_SUBITEMS.map((item) => {
+                    const isItemActive = pathname === "/settings" && (currentTab === item.id || (!currentTab && item.id === "profile"));
+                    return (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        onClick={onCloseMobile}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 10px",
+                          borderRadius: 5,
+                          fontSize: 12,
+                          textDecoration: "none",
+                          background: isItemActive ? "#e23b3b" : "transparent",
+                          color: isItemActive ? "#ffffff" : "#94a3b8",
+                          fontWeight: isItemActive ? 700 : 500,
+                          transition: "all 0.12s ease",
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ADMINISTRATION SECTION */}
+            {isAdministrator && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderRadius: 6,
+                    background: pathname === "/administration" ? "rgba(226, 59, 59, 0.15)" : "transparent",
+                    color: pathname === "/administration" ? "#ffffff" : "#cbd5e1",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <Link
+                    className={`nav-link ${pathname === "/administration" ? "active" : ""}`}
+                    href="/administration"
+                    onClick={() => {
+                      setAdminExpanded(true);
+                      onCloseMobile();
+                    }}
+                    title="Administration"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: isMobile ? "12px 14px" : "8px 10px",
+                      flex: 1,
+                      borderRadius: 6,
+                      color: pathname === "/administration" ? "#ffffff" : "#cbd5e1",
+                      fontWeight: pathname === "/administration" ? 700 : 500,
+                      textDecoration: "none",
+                      fontSize: isMobile ? 15 : 13,
+                    }}
+                  >
+                    <span style={{ fontSize: isMobile ? 18 : 15 }}>🛡️</span>
+                    <span>Administration</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setAdminExpanded(!adminExpanded);
+                    }}
+                    aria-label="Toggle administration sub-options"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#94a3b8",
+                      padding: "8px 10px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {adminExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+                </div>
+
+                {adminExpanded && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                      paddingLeft: 14,
+                      borderLeft: "2px solid rgba(255, 255, 255, 0.12)",
+                      marginLeft: 14,
+                      marginTop: 2,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {ADMIN_SUBITEMS.map((item) => {
+                      const isItemActive = pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === "users"));
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          onClick={onCloseMobile}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "6px 10px",
+                            borderRadius: 5,
+                            fontSize: 12,
+                            textDecoration: "none",
+                            background: isItemActive ? "#e23b3b" : "transparent",
+                            color: isItemActive ? "#ffffff" : "#94a3b8",
+                            fontWeight: isItemActive ? 700 : 500,
+                            transition: "all 0.12s ease",
+                          }}
+                        >
+                          <span style={{ fontSize: 13 }}>{item.icon}</span>
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
         </Box>

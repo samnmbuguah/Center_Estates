@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, FormEvent, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import {
@@ -62,8 +63,9 @@ type GatewayConfig = {
   };
 };
 
-export default function AdministrationPage() {
+function AdministrationContent() {
   const { session } = useAuth();
+  const searchParams = useSearchParams();
   const isSuperAdministrator = Boolean(
     session?.user.isSuperuser ||
     session?.roles?.includes("platform-admin") ||
@@ -71,8 +73,11 @@ export default function AdministrationPage() {
   );
   const organizationId = session?.activeOrganizationId ?? null;
 
-  // Active subtab
-  const [tab, setTab] = useState<"users" | "roles" | "mpesa" | "orgs" | "tax" | "audit">("users");
+  // Active subtab read from sidebar URL search parameter
+  const urlTab = searchParams ? searchParams.get("tab") : null;
+  const tab = (urlTab && ["users", "roles", "mpesa", "orgs", "tax", "audit"].includes(urlTab))
+    ? (urlTab as "users" | "roles" | "mpesa" | "orgs" | "tax" | "audit")
+    : "users";
 
   // Shared Data
   const [properties, setProperties] = useState<PropertyItem[]>([]);
@@ -461,43 +466,6 @@ export default function AdministrationPage() {
         )}
       </div>
 
-      {/* Subtab Navigation */}
-      <div style={{ display: "flex", gap: 8, borderBottom: "1px solid var(--border, #e2e8f0)", marginBottom: 24, paddingBottom: 8, overflowX: "auto" }}>
-        {[
-          { id: "users", label: "👥 Users & Staff Accounts", icon: Users },
-          { id: "roles", label: "🔐 Roles & Module Permissions", icon: Shield },
-          { id: "mpesa", label: "💳 M-Pesa STK Push & Bank Accounts", icon: CreditCard },
-          { id: "orgs", label: "🏢 Organization & Modules", icon: Building },
-          { id: "tax", label: "📜 KRA Tax & E-TIMS", icon: FileText },
-          { id: "audit", label: "🛡️ Security & Audit Trail", icon: Activity },
-        ].map((item) => {
-          const Icon = item.icon;
-          const isActive = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id as typeof tab)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: 0,
-                background: isActive ? "#d92d2d" : "transparent",
-                color: isActive ? "#ffffff" : "var(--text, #475569)",
-                fontWeight: isActive ? 700 : 500,
-                cursor: "pointer",
-                fontSize: 13,
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Icon size={16} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Notice Banner */}
       {notice && (
@@ -1214,5 +1182,13 @@ export default function AdministrationPage() {
         </Modal>
       )}
     </div>
+  );
+}
+
+export default function AdministrationPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading administration…</div>}>
+      <AdministrationContent />
+    </Suspense>
   );
 }

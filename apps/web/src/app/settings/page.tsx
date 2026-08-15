@@ -1,16 +1,21 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
-import { User, Smartphone, Bell, Palette, CheckCircle, AlertCircle, Send } from "lucide-react";
+import { CheckCircle, AlertCircle, Send } from "lucide-react";
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { session } = useAuth();
+  const searchParams = useSearchParams();
   const organizationId = session?.activeOrganizationId ?? null;
   const user = session?.user;
 
-  const [tab, setTab] = useState<"profile" | "mpesa-test" | "notifications" | "appearance">("profile");
+  const urlTab = searchParams ? searchParams.get("tab") : null;
+  const tab = (urlTab && ["profile", "mpesa-test", "notifications", "appearance"].includes(urlTab))
+    ? (urlTab as "profile" | "mpesa-test" | "notifications" | "appearance")
+    : "profile";
 
   // STK Push test tool state
   const [testPhone, setTestPhone] = useState("254700000000");
@@ -51,7 +56,7 @@ export default function SettingsPage() {
           text: data.detail || data.phone_number || "Failed to trigger STK Push test.",
         });
       }
-    } catch (err) {
+    } catch {
       setNotice({ type: "error", text: "Network error occurred while sending STK push test." });
     } finally {
       setBusy(false);
@@ -68,41 +73,6 @@ export default function SettingsPage() {
         <p style={{ margin: "4px 0 0", color: "var(--muted, #64748b)", fontSize: "0.9rem" }}>
           Manage your account profile, test M-Pesa STK Push prompts, and configure notification preferences.
         </p>
-      </div>
-
-      {/* Subtab Navigation */}
-      <div style={{ display: "flex", gap: 8, borderBottom: "1px solid var(--border, #e2e8f0)", marginBottom: 24, paddingBottom: 8 }}>
-        {[
-          { id: "profile", label: "👤 Profile & Account", icon: User },
-          { id: "mpesa-test", label: "📱 M-Pesa STK Push Test Tool", icon: Smartphone },
-          { id: "notifications", label: "🔔 Notifications & Alerts", icon: Bell },
-          { id: "appearance", label: "🎨 Display & Regional", icon: Palette },
-        ].map((item) => {
-          const Icon = item.icon;
-          const isActive = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id as typeof tab)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: 0,
-                background: isActive ? "#e23b3b" : "transparent",
-                color: isActive ? "#ffffff" : "var(--text, #475569)",
-                fontWeight: isActive ? 700 : 500,
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              <Icon size={16} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
       </div>
 
       {/* Notice Banner */}
@@ -129,7 +99,7 @@ export default function SettingsPage() {
       {/* TAB 1: PROFILE */}
       {tab === "profile" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <h2 style={{ margin: "0 0 16px", fontSize: "1.2rem", fontWeight: 700 }}>👤 Account Information</h2>
+          <h2 style={{ margin: "0 0 16px", fontSize: "1.2rem", fontWeight: 700 }}>👤 Account Profile & Details</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 500 }}>
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Username:</label>
@@ -267,5 +237,13 @@ export default function SettingsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading settings…</div>}>
+      <SettingsContent />
+    </Suspense>
   );
 }
