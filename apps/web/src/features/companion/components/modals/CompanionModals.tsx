@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Field, Modal, Panel } from "@/components/module-ui";
 import { FeedbackThread, Row, TeamMember } from "../../types/companion.types";
 import { EvidenceAttachmentUploader, type UploadedAttachment } from "../common/EvidenceAttachmentUploader";
+import { Button, Typography, Box, Alert } from "@mui/material";
+import { ExternalLink, UserPlus } from "lucide-react";
 
 export function AddTeamMemberModal({
   open,
@@ -48,7 +51,7 @@ export function AddTeamMemberModal({
   }
 
   return (
-    <Modal title="+ Add Team Member (Staff Creation)" onClose={onClose} wide>
+    <Modal title="Add Team Member (Staff Creation)" onClose={onClose} wide>
       {error && (
         <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", color: "#b91c1c", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
           ⚠️ {error}
@@ -425,6 +428,7 @@ export function AssignTaskModal({
   busy: boolean;
   activePropertyName?: string;
 }) {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [description, setDescription] = useState("");
@@ -435,6 +439,11 @@ export function AssignTaskModal({
   const [sourceRef, setSourceRef] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("weekly");
+
+  const handleNavigateToTeamMatrix = () => {
+    onClose();
+    router.push("/companion?tab=team-matrix");
+  };
 
   if (!open) return null;
 
@@ -472,7 +481,34 @@ export function AssignTaskModal({
         <Field label={`Assign to Team Member (${activePropertyName ? `Scoped to ${activePropertyName}` : "All Organization Staff"})`} required>
           <div style={{ maxHeight: 150, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6, padding: 8, display: "flex", flexDirection: "column", gap: 6, background: "var(--surface)" }}>
             {staffOptions.length === 0 ? (
-              <div className="muted" style={{ fontSize: 12, padding: 4 }}>No staff assigned to this property yet. Add members in Team &amp; Property Matrix.</div>
+              <Box sx={{ p: 2 }}>
+                <Alert 
+                  severity="info" 
+                  icon={<UserPlus size={18} />}
+                  action={
+                    <Button 
+                      size="small" 
+                      variant="outlined"
+                      startIcon={<ExternalLink size={14} />}
+                      onClick={handleNavigateToTeamMatrix}
+                    >
+                      Go to Team Matrix
+                    </Button>
+                  }
+                  sx={{ 
+                    bgcolor: "rgba(79, 70, 229, 0.05)",
+                    border: "1px solid rgba(79, 70, 229, 0.2)",
+                    "& .MuiAlert-icon": { color: "#4f46e5" }
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    No staff assigned to this property yet
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                    Add team members in the Team & Property Matrix to assign tasks
+                  </Typography>
+                </Alert>
+              </Box>
             ) : (
               staffOptions.map((s) => (
                 <label key={String(s.user_id)} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer", padding: "4px 6px", borderRadius: 4, background: selectedAssignees.includes(String(s.user_id)) ? "rgba(234, 88, 12, 0.08)" : "transparent" }}>
