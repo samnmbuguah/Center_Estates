@@ -94,7 +94,7 @@ export function TeamDialogueView({
           title="Team Conversations & Feedback"
           action={
             <button className="btn primary sm" onClick={openNewThreadModal}>
-              + New Dialogue / Report Bug
+              New Dialogue / Report Bug
             </button>
           }
         >

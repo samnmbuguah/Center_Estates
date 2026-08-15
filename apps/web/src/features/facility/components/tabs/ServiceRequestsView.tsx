@@ -97,7 +97,7 @@ export function ServiceRequestsView({
               </select>
             </div>
             <div className="fc-table-toolbar-right">
-              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-request-btn">+ New Service Request</button>
+              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-request-btn">New Service Request</button>
             </div>
           </div>
           <div className="table-scroll">
@@ -228,7 +228,7 @@ export function ServiceRequestsView({
               <button className="fc-detail-cta outline">✏ Edit Request</button>
               <button className="fc-detail-cta outline" style={{ color: "#b91c1c", borderColor: "#e23b3b" }}>× Cancel Request</button>
             </div>
-            <button className="fc-detail-cta" style={{ margin: "0 18px 18px" }}>+ Add Update</button>
+            <button className="fc-detail-cta" style={{ margin: "0 18px 18px" }}>Add Update</button>
           </div>
         )}
       </div>

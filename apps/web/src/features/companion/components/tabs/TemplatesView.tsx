@@ -22,7 +22,7 @@ export function TemplatesView({
         <h3 style={{ margin: 0, fontSize: 16 }}>Task Templates</h3>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <SearchInput value={search} onChange={setSearch} placeholder="Search templates…" />
-          <button className="btn primary sm" onClick={onOpenCreate}>+ Create Template</button>
+          <button className="btn primary sm" onClick={onOpenCreate}>Create Template</button>
         </div>
       </div>
 
@@ -33,7 +33,7 @@ export function TemplatesView({
           icon="📋"
           title="No templates yet"
           description="Create reusable task templates to quickly assign common work like inspections, approvals, or recurring duties."
-          action={<button className="btn primary sm" onClick={onOpenCreate}>+ Create Template</button>}
+          action={<button className="btn primary sm" onClick={onOpenCreate}>Create Template</button>}
         />
       ) : (
         <div className="card" style={{ padding: 18 }}>

@@ -6,7 +6,7 @@ export function SkeletonCard({ count = 1 }: { count?: number }) {
   return (
     <Grid container spacing={2}>
       {Array.from({ length: count }).map((_, index) => (
-        <Grid item xs={12} sm={6} md={4} key={index}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
           <Paper sx={{ p: 2, height: 200 }}>
             <Skeleton variant="rectangular" width={60} height={60} sx={{ mb: 2 }} />
             <Skeleton variant="text" width="80%" sx={{ mb: 1 }} />
@@ -71,7 +71,7 @@ export function SkeletonDashboard() {
       {/* KPI Cards */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
         {Array.from({ length: 4 }).map((_, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
             <Paper sx={{ p: 3, height: 120 }}>
               <Skeleton variant="circular" width={40} height={40} sx={{ mb: 2 }} />
               <Skeleton variant="text" width="60%" sx={{ mb: 1 }} />
@@ -83,13 +83,13 @@ export function SkeletonDashboard() {
 
       {/* Charts */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 3, height: 400 }}>
             <Skeleton variant="text" width={200} sx={{ mb: 2 }} />
             <Skeleton variant="rectangular" width="100%" height={300} />
           </Paper>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 3, height: 400 }}>
             <Skeleton variant="text" width={150} sx={{ mb: 2 }} />
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -141,7 +141,7 @@ export function SkeletonDetail() {
 
       {/* Content */}
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 3, mb: 3 }}>
             <Skeleton variant="text" width={200} sx={{ mb: 2 }} />
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -154,7 +154,7 @@ export function SkeletonDetail() {
             </Box>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 3 }}>
             <Skeleton variant="text" width={150} sx={{ mb: 2 }} />
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>

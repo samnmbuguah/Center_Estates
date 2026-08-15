@@ -142,7 +142,7 @@ export function TasksView({
 
           {canAssign && (
             <button className="btn primary sm" onClick={onOpenAssign} style={{ fontWeight: 600 }}>
-              + Assign Task
+              Assign Task
             </button>
           )}
         </div>
@@ -273,7 +273,7 @@ export function TasksView({
               ? "No tasks have been delegated to others yet. Use the delegate action on any task to reassign it."
               : "No tasks have been created or match the search. Assign a task to a staff member to get started."
           }
-          action={canAssign ? <button className="btn primary sm" onClick={onOpenAssign}>+ Assign Task</button> : undefined}
+          action={canAssign ? <button className="btn primary sm" onClick={onOpenAssign}>Assign Task</button> : undefined}
         />
       ) : viewMode === "kanban" ? (
         /* KANBAN BOARD VIEW */

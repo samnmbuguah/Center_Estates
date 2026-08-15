@@ -461,7 +461,7 @@ function AdministrationContent() {
             style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, background: "#d92d2d", borderColor: "#d92d2d" }}
           >
             <UserPlus size={16} />
-            <span>+ Add System User</span>
+            <span>Add System User</span>
           </button>
         )}
       </div>
@@ -572,7 +572,7 @@ function AdministrationContent() {
                 description="Create staff member accounts (e.g. Lydia, Abel, Sharon, Marilyn) and assign them to roles and estates."
                 action={
                   <button className="btn primary sm" onClick={() => setShowAddUserModal(true)}>
-                    + Add System User
+                    Add System User
                   </button>
                 }
               />
@@ -958,7 +958,7 @@ function AdministrationContent() {
 
       {/* MODAL 1: ADD SYSTEM USER */}
       {showAddUserModal && (
-        <Modal title="+ Add System User (Staff Creation)" onClose={() => setShowAddUserModal(false)} wide>
+        <Modal title="Add System User (Staff Creation)" onClose={() => setShowAddUserModal(false)} wide>
           {memberError && (
             <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", color: "#b91c1c", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
               ⚠️ {memberError}

@@ -51,7 +51,7 @@ export function TeamMatrixView({
         action={
           canManage ? (
             <button className="btn primary sm" onClick={openAddMemberModal}>
-              + Add Team Member (Lydia, Abel, Sharon…)
+              Add Team Member (Lydia, Abel, Sharon…)
             </button>
           ) : null
         }
@@ -72,7 +72,7 @@ export function TeamMatrixView({
               icon="👥"
               title="No team members found"
               description="Create user profiles for your team (e.g. Lydia, Abel, Sharon, Marilyn) and assign them to specific properties."
-              action={canManage ? <button className="btn primary sm" onClick={openAddMemberModal}>+ Add Team Member</button> : undefined}
+              action={canManage ? <button className="btn primary sm" onClick={openAddMemberModal}>Add Team Member</button> : undefined}
             />
           </div>
         ) : (

@@ -271,7 +271,7 @@ export function PlannedMaintenanceView({
               );
             })}
             <div style={{ padding: "12px 16px" }}>
-              <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add New Maintenance Plan</button>
+              <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Add New Maintenance Plan</button>
             </div>
           </article>
         </div>
@@ -293,7 +293,7 @@ export function PlannedMaintenanceView({
                   <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
                 ))}
               </div>
-              <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Create PPM Task</button>
+              <button className="fc-toolbar-btn primary" onClick={onAdd}>Create PPM Task</button>
             </div>
             {/* Week grid */}
             <div className="fc-ppm-week-grid kanban-scroll">
@@ -337,7 +337,7 @@ export function PlannedMaintenanceView({
                   <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
                 ))}
               </div>
-              <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Create PPM Task</button>
+              <button className="fc-toolbar-btn primary" onClick={onAdd}>Create PPM Task</button>
             </div>
             <div className="kanban-scroll" style={{ padding: "14px 18px" }}>
               {(() => {

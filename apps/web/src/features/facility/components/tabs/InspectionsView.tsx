@@ -96,7 +96,7 @@ export function InspectionsView({
             </div>
             <div className="fc-table-toolbar-right">
               <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "inspections.csv")}>↓ Export</button>
-              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-inspection-btn">+ New Inspection</button>
+              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-inspection-btn">New Inspection</button>
             </div>
           </div>
 
@@ -251,7 +251,7 @@ export function InspectionsView({
             </div>
             <div style={{ display: "grid", gap: 8, padding: 18, gridTemplateColumns: "1fr 1fr" }}>
               <button className="fc-detail-cta outline">↓ View Full Report</button>
-              <button className="fc-detail-cta">+ Create Work Order</button>
+              <button className="fc-detail-cta">Create Work Order</button>
             </div>
           </div>
         )}

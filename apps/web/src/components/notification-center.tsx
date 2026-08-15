@@ -31,7 +31,7 @@ export interface Notification {
 }
 
 export interface NotificationCenterProps {
-  notifications: Notification[];
+  notifications?: Notification[];
   onMarkAsRead?: (id: string) => void;
   onMarkAllAsRead?: () => void;
   onDelete?: (id: string) => void;
@@ -41,7 +41,7 @@ export interface NotificationCenterProps {
 }
 
 export function NotificationCenter({
-  notifications,
+  notifications = [],
   onMarkAsRead,
   onMarkAllAsRead,
   onDelete,
@@ -114,12 +114,14 @@ export function NotificationCenter({
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleClose}
-        PaperProps={{
-          sx: {
-            width: 400,
-            maxHeight: 500,
-            borderRadius: 2,
-            boxShadow: 3
+        slotProps={{
+          paper: {
+            sx: {
+              width: 400,
+              maxHeight: 500,
+              borderRadius: 2,
+              boxShadow: 3
+            }
           }
         }}
         transformOrigin={{ horizontal: "right", vertical: "top" }}

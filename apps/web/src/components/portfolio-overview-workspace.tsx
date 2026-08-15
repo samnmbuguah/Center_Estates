@@ -198,7 +198,7 @@ export function PortfolioOverviewWorkspace() {
           }}
         >
           <Plus size={16} />
-          <span>+ Onboard New Property</span>
+          <span>Onboard New Property</span>
         </Link>
       </div>
 

@@ -49,7 +49,7 @@ export function PropertiesView({
       <BreadcrumbNavigation />
       
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#4f46e5", color: "white",
             textAlign: "center"
@@ -58,7 +58,7 @@ export function PropertiesView({
             <Typography variant="caption">Properties</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#2563eb", color: "white",
             textAlign: "center"
@@ -67,7 +67,7 @@ export function PropertiesView({
             <Typography variant="caption">Total Units</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#d97706", color: "white",
             textAlign: "center"
@@ -76,7 +76,7 @@ export function PropertiesView({
             <Typography variant="caption">Buildings</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#16a34a", color: "white",
             textAlign: "center"
@@ -85,7 +85,7 @@ export function PropertiesView({
             <Typography variant="caption">Occupancy</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#22c55e", color: "white",
             textAlign: "center"
@@ -96,7 +96,7 @@ export function PropertiesView({
             <Typography variant="caption">Monthly Revenue</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: active ? "#16a34a" : "#ef4444", color: "white",
             textAlign: "center"

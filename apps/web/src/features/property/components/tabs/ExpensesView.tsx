@@ -58,7 +58,7 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
       </KpiStrip>
 
       <ViewToolbar title="Property Expenses" subtitle="Track and analyse income and expenses for the selected property" search={search} onSearch={setSearch} placeholder="Search supplier or category…">
-        <button className="btn primary sm" onClick={onAdd}>+ Record expense</button>
+        <button className="btn primary sm" onClick={onAdd}>Record expense</button>
       </ViewToolbar>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 18, width: "100%" }}>

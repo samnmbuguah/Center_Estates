@@ -90,7 +90,7 @@ export function AssetsView({
               </div>
               <div className="fc-table-toolbar-right">
                 <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "assets.csv")}>↑ Export</button>
-                <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Add New Asset</button>
+                <button className="fc-toolbar-btn primary" onClick={onAdd}>Add New Asset</button>
               </div>
             </div>
             <div className="table-scroll">

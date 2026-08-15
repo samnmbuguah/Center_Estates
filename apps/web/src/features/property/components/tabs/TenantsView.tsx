@@ -81,8 +81,8 @@ export function TenantsView({
           { key: "unit", label: "Unit" }, { key: "status", label: "Status" },
           { key: "outstanding", label: "Outstanding" }, { key: "created_at", label: "Registered" },
         ], "tenants.csv")}>Export CSV</button>
-        <button className="btn ghost sm" onClick={() => onUploadDoc()}>+ Upload Document</button>
-        <button className="btn primary sm" onClick={() => onAdd()}>+ Add Tenant</button>
+        <button className="btn ghost sm" onClick={() => onUploadDoc()}>Upload Document</button>
+        <button className="btn primary sm" onClick={() => onAdd()}>Add Tenant</button>
       </ViewToolbar>
 
       <Panel title="Tenants">
