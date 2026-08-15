@@ -41,6 +41,28 @@ class TelemetryEngine {
       this.currentPath = window.location.pathname;
       this.pageStartTime = Date.now();
       this.setupGlobalClickTracker();
+      if (user?.username && this.posthogKey?.startsWith("phc_")) {
+        try {
+          fetch(`${this.posthogHost}/e/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: this.posthogKey,
+              event: "$identify",
+              properties: {
+                distinct_id: user.username,
+                $set: {
+                  username: user.username,
+                  userId: user.id,
+                  role: user.role,
+                  organizationId: organizationId,
+                },
+              },
+              timestamp: new Date().toISOString(),
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
     }
   }
 
@@ -103,17 +125,27 @@ class TelemetryEngine {
     }
 
     // 2. PostHog Telemetry dispatch if a valid project API key (phc_) is configured.
-    //    Personal keys (phx_) and other key types are rejected by /e/ with 401.
     if (this.posthogKey?.startsWith("phc_") && typeof window !== "undefined") {
       try {
+        const phEvent = event === "page_view" ? "$pageview" : event === "page_leave" ? "$pageleave" : event;
+        const sessionId = sessionStorage.getItem("ph_session_id") || (() => {
+          const sid = `ph_s_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+          try { sessionStorage.setItem("ph_session_id", sid); } catch {}
+          return sid;
+        })();
+
         fetch(`${this.posthogHost}/e/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             api_key: this.posthogKey,
-            event,
+            event: phEvent,
             properties: {
               distinct_id: this.user?.username || "anonymous",
+              $current_url: window.location.href,
+              $pathname: window.location.pathname,
+              $host: window.location.host,
+              $session_id: sessionId,
               ...payload.properties,
             },
             timestamp: payload.timestamp,
