@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Link, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Breadcrumbs, Typography, Chip, Box, IconButton, Tooltip,
   Menu, MenuItem, TextField, InputAdornment, Collapse

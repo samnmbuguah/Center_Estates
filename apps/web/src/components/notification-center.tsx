@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { 
   Bell, Check, X, Settings, Archive, Trash2, Eye, BellRing,
-  Clock, AlertTriangle, Info, CheckCircle, XCircle, Filter, MarkEmailRead,
+  Clock, AlertTriangle, Info, CheckCircle, XCircle, Filter, CheckSquare,
   MoreVertical
 } from "lucide-react";
 
@@ -159,7 +159,7 @@ export function NotificationCenter({
               <Button
                 size="small"
                 variant="text"
-                startIcon={<MarkEmailRead size={14} />}
+                startIcon={<CheckSquare size={14} />}
                 onClick={() => {
                   onMarkAllAsRead?.();
                 }}
