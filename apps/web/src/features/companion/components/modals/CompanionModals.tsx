@@ -34,6 +34,19 @@ export function AddTeamMemberModal({
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
 
+  useEffect(() => {
+    if (open) {
+      setUsername("");
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPhone("");
+      setIsAdmin(false);
+      setSelectedRoles([]);
+      setSelectedProps([]);
+    }
+  }, [open]);
+
   if (!open) return null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -527,6 +540,21 @@ export function AssignTaskModal({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("weekly");
 
+  useEffect(() => {
+    if (open) {
+      setTitle("");
+      setSelectedAssignees([]);
+      setDescription("");
+      setPriority("normal");
+      setDueAt("");
+      setSlaDueAt("");
+      setSourceModule("property");
+      setSourceRef("");
+      setIsRecurring(false);
+      setRecurrenceRule("weekly");
+    }
+  }, [open]);
+
   const handleNavigateToTeamMatrix = () => {
     onClose();
     router.push("/companion?tab=team-matrix");
@@ -712,6 +740,18 @@ export function CreateTemplateModal({
   const [slaHours, setSlaHours] = useState("24");
   const [sourceModule, setSourceModule] = useState("");
 
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setTitleTemplate("");
+      setDescTemplate("");
+      setPriority("normal");
+      setDaysToDue("7");
+      setSlaHours("24");
+      setSourceModule("");
+    }
+  }, [open]);
+
   if (!open) return null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -795,6 +835,13 @@ export function DelegateTaskModal({
 }) {
   const [delegateeId, setDelegateeId] = useState("");
   const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (task) {
+      setDelegateeId("");
+      setNote("");
+    }
+  }, [task]);
 
   if (!task) return null;
 
