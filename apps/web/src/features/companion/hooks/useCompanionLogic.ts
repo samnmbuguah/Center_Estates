@@ -141,10 +141,13 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
           if (fresh) setActiveThread(fresh);
         }
       } else if (res.status === 403) {
-        console.debug("User lacks permission for feedback endpoint");
+        setError("You do not have permission to view team feedback in this organization.");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(String(body?.detail || "Team feedback could not be loaded. Please retry."));
       }
     } catch {
-      /* ignore */
+      setError("Team feedback could not be loaded. Check your connection and retry.");
     }
   }, [org, activeThread?.id]);
 

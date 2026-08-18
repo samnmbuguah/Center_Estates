@@ -63,7 +63,7 @@ class TeamFeedbackMessageSerializer(serializers.ModelSerializer):
             'id', 'thread', 'sender', 'sender_name', 'message',
             'attachment_url', 'is_developer_response', 'created_at',
         )
-        read_only_fields = ('id', 'created_at', 'sender')
+        read_only_fields = ('id', 'created_at', 'sender', 'thread')
 
     def get_sender_name(self, obj):
         if obj.sender:
@@ -92,7 +92,8 @@ class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
             'metadata', 'messages', 'created_at', 'updated_at',
         )
         read_only_fields = (
-            'id', 'reference', 'created_at', 'updated_at', 'created_by',
+            'id', 'reference', 'created_at', 'updated_at', 'created_by', 'status',
+            'assigned_to',
             'resolved_by', 'resolved_at', 'confirmed_by', 'confirmed_at',
         )
 

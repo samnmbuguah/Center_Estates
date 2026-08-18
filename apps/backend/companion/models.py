@@ -174,10 +174,24 @@ class TeamFeedbackThread(OrganizationOwnedModel):
     class Meta:
         ordering = ('-created_at',)
 
+    def clean(self):
+        if self.property_id and self.organization_id != self.property.organization_id:
+            raise ValidationError('Feedback thread and property must belong to the same organization.')
+        if self.created_by_id and not self.created_by.is_active:
+            raise ValidationError('The feedback creator must be active.')
+        if self.assigned_to_id and not self.organization.memberships.filter(user=self.assigned_to, status='active').exists():
+            raise ValidationError('The assignee must be an active member of the feedback organization.')
+
     def save(self, *args, **kwargs):
         if not self.reference:
             import random
-            self.reference = f"FB-{random.randint(1000, 9999)}"
+            for _ in range(20):
+                candidate = f"FB-{random.randint(1000, 9999)}"
+                if not type(self).objects.filter(reference=candidate).exists():
+                    self.reference = candidate
+                    break
+            if not self.reference:
+                self.reference = f"FB-{random.randint(100000, 999999)}"
         super().save(*args, **kwargs)
 
 
@@ -213,6 +227,10 @@ class TeamFeedbackMessage(OrganizationOwnedModel):
 
     class Meta:
         ordering = ('created_at',)
+
+    def clean(self):
+        if self.thread_id and self.organization_id != self.thread.organization_id:
+            raise ValidationError('Feedback message and thread must belong to the same organization.')
 
 
 class StaffLeaveRequest(OrganizationOwnedModel):

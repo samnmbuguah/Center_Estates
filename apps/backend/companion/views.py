@@ -684,7 +684,11 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
 
     def get_queryset(self):
         organization = get_active_organization(self.request)
-        queryset = self.queryset.filter(organization=organization).prefetch_related('messages__sender', 'property')
+        queryset = scope_queryset_to_property(
+            self.queryset.filter(organization=organization).prefetch_related('messages__sender', 'property'),
+            self.request,
+            organization,
+        )
         status_param = self.request.query_params.get('status')
         category_param = self.request.query_params.get('category')
         property_param = self.request.query_params.get('property')
@@ -707,7 +711,11 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
         if not thread.assigned_to:
             from django.contrib.auth import get_user_model
             User = get_user_model()
-            default_dev = User.objects.filter(username='samuel', is_active=True).first()
+            default_dev = User.objects.filter(
+                username='samuel', is_active=True,
+                erp_memberships__organization=organization,
+                erp_memberships__status='active',
+            ).first()
             if default_dev:
                 thread.assigned_to = default_dev
                 thread.save(update_fields=['assigned_to'])
@@ -835,7 +843,11 @@ def public_feedback(request, token):
         metadata={'public_qr': True, 'qr_label': qr.label, 'floor': qr.floor, 'unit': qr.unit},
     )
     from django.contrib.auth import get_user_model
-    developer = get_user_model().objects.filter(username='samuel', is_active=True).first()
+    developer = get_user_model().objects.filter(
+        username='samuel', is_active=True,
+        erp_memberships__organization=qr.organization,
+        erp_memberships__status='active',
+    ).first()
     if developer:
         thread.assigned_to = developer
         thread.save(update_fields=['assigned_to'])
