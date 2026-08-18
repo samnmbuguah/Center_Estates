@@ -10,7 +10,8 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
-from core.permissions import HasModuleActionPermission
+from core.permissions import HasModuleActionPermission, HasOrganizationContext
+from rest_framework.permissions import IsAuthenticated
 from core.serializers import GenericObjectSerializer
 from config.throttling import QMChatRateThrottle
 from core.tenancy import get_active_membership, get_active_organization
@@ -87,6 +88,13 @@ class TaskViewSet(CompanionModelViewSet):
     queryset = Task.objects.select_related('assignee', 'assigned_by', 'template')
     serializer_class = TaskSerializer
     search_fields = ('title', 'reference', 'source_ref', 'assignee__username')
+    permission_map = {
+        'acknowledge': 'companion.view',
+        'start': 'companion.view',
+        'complete': 'companion.view',
+        'update_checklist': 'companion.view',
+        'upload': 'companion.view',
+    }
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -659,6 +667,7 @@ class TelemetryViewSet(ViewSet):
 
 
 class TeamFeedbackThreadViewSet(CompanionModelViewSet):
+    permission_classes = (HasOrganizationContext, IsAuthenticated)
     queryset = TeamFeedbackThread.objects.all()
     serializer_class = TeamFeedbackThreadSerializer
     search_fields = ('title', 'reference', 'module')
@@ -790,6 +799,7 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
 
 
 class StaffLeaveRequestViewSet(CompanionModelViewSet):
+    permission_classes = (HasOrganizationContext, IsAuthenticated)
     queryset = StaffLeaveRequest.objects.select_related('requester', 'relief_staff', 'decided_by')
     serializer_class = StaffLeaveRequestSerializer
 
@@ -899,6 +909,7 @@ class StaffLeaveRequestViewSet(CompanionModelViewSet):
 
 
 class StaffHrRequestViewSet(CompanionModelViewSet):
+    permission_classes = (HasOrganizationContext, IsAuthenticated)
     queryset = StaffHrRequest.objects.select_related('requester', 'decided_by')
     serializer_class = StaffHrRequestSerializer
 

@@ -95,10 +95,12 @@ class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
         if obj.created_by:
             if obj.created_by.is_superuser:
                 return "Administrator"
-            from organizations.models import OrganizationMember
-            member = OrganizationMember.objects.filter(organization=obj.organization, user=obj.created_by).first()
-            if member and member.role:
-                return member.role.name
+            from organizations.models import Membership
+            member = Membership.objects.filter(organization=obj.organization, user=obj.created_by).first()
+            if member and member.roles.exists():
+                return member.roles.first().name
+            if member and member.is_organization_admin:
+                return "Administrator"
             return "Property Manager"
         return "Staff"
 
