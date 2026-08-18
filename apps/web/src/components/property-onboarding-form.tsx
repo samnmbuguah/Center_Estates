@@ -53,6 +53,23 @@ function parseCsv(text: string) {
   return rows;
 }
 
+function normalizeCsvHeader(value: string) {
+  return value
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+function headerIndex(headers: string[], aliases: string[]) {
+  return aliases.map(normalizeCsvHeader).reduce((found, alias) => found >= 0 ? found : headers.indexOf(alias), -1);
+}
+
+function cell(row: string[], index: number) {
+  return index >= 0 ? (row[index] ?? "").trim() : "";
+}
+
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -183,12 +200,27 @@ export function PropertyOnboardingForm() {
   const importUnits = async (file?: File) => {
     if (!file) return;
     const rows = parseCsv(await file.text());
-    const expected = ["unit_no", "unit_type", "floor", "use", "area", "rateable_area", "building_number", "description"];
-    const headers = (rows.shift() ?? []).map(value => value.toLowerCase().replaceAll(" ", "_"));
-    if (expected.some((header, index) => headers[index] !== header)) {
-      setError(`Unit CSV columns must be: ${expected.join(", ")}.`); jump("units"); return;
+    const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
+    const columns = {
+      unit_no: headerIndex(headers, ["unit_no", "unit_number", "unit"]),
+      unit_type: headerIndex(headers, ["unit_type", "type"]),
+      floor: headerIndex(headers, ["floor", "floor_number", "floor_name"]),
+      use: headerIndex(headers, ["use", "unit_use", "purpose"]),
+      area: headerIndex(headers, ["area", "area_sq_ft", "area_sqft", "size"]),
+      rateable_area: headerIndex(headers, ["rateable_area", "rateable_area_sq_ft", "rateable_area_sqft"]),
+      building_index: headerIndex(headers, ["building_number", "building_index", "building"]),
+      description: headerIndex(headers, ["description", "notes"]),
+    };
+    const required = ["unit_no", "unit_type", "floor", "use", "area"] as const;
+    const missing = required.filter(name => columns[name] < 0);
+    if (missing.length) {
+      setError(`Unit CSV is missing required column(s): ${missing.join(", ")}. Optional columns: rateable_area, building_number, description.`); jump("units"); return;
     }
-    const imported: UnitDraft[] = rows.map(row => ({ unit_no: row[0] ?? "", unit_type: row[1] ?? "", floor: row[2] ?? "", use: row[3] ?? "", area: row[4] ?? "", rateable_area: row[5] ?? "", building_index: row[6] ?? "", description: row[7] ?? "" }));
+    const imported: UnitDraft[] = rows.map(row => ({
+      unit_no: cell(row, columns.unit_no), unit_type: cell(row, columns.unit_type), floor: cell(row, columns.floor),
+      use: cell(row, columns.use), area: cell(row, columns.area), rateable_area: cell(row, columns.rateable_area),
+      building_index: cell(row, columns.building_index), description: cell(row, columns.description),
+    }));
     const allCodes = [...units.map(unit => unit.unit_no.toLowerCase()), ...imported.map(unit => unit.unit_no.toLowerCase())];
     if (!imported.length || imported.length + units.length > 500 || imported.some(unit => !unit.unit_no || !unit.unit_type || !unit.floor || !unit.use || Number(unit.area) <= 0) || new Set(allCodes).size !== allCodes.length) {
       setError("Unit import contains missing required values, invalid areas, duplicate unit numbers, or exceeds 500 units."); jump("units"); return;
@@ -200,7 +232,7 @@ export function PropertyOnboardingForm() {
     if (!file) return;
     const rows = parseCsv(await file.text());
     const expected = ["asset_name", "category", "location", "quantity", "status"];
-    const headers = (rows.shift() ?? []).map(value => value.toLowerCase().replaceAll(" ", "_"));
+    const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) {
       setError(`Asset CSV columns must be: ${expected.join(", ")}.`); jump("assets"); return;
     }
@@ -215,7 +247,7 @@ export function PropertyOnboardingForm() {
     if (!file) return;
     const rows = parseCsv(await file.text());
     const expected = ["name", "role", "email", "phone"];
-    const headers = (rows.shift() ?? []).map(value => value.replace(/^\uFEFF/, "").toLowerCase().replaceAll(" ", "_"));
+    const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) { setError(`Contact CSV columns must be: ${expected.join(", ")}.`); jump("contacts"); return; }
     const imported = rows.map(row => ({ name: row[0] ?? "", role: row[1] ?? "", email: row[2] ?? "", phone: row[3] ?? "" }));
     if (!imported.length || imported.length + contacts.length > 500 || imported.some(contact => !contact.name || (!contact.email && !contact.phone))) { setError("Each imported contact needs a name and either an email address or phone number. Maximum 500 contacts."); jump("contacts"); return; }
@@ -226,7 +258,7 @@ export function PropertyOnboardingForm() {
     if (!file) return;
     const rows = parseCsv(await file.text());
     const expected = ["provider_name", "service", "contact_person", "email", "phone"];
-    const headers = (rows.shift() ?? []).map(value => value.replace(/^\uFEFF/, "").toLowerCase().replaceAll(" ", "_"));
+    const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) { setError(`Service-provider CSV columns must be: ${expected.join(", ")}.`); jump("providers"); return; }
     const imported = rows.map(row => ({ name: row[0] ?? "", service: row[1] ?? "", contact: row[2] ?? "", email: row[3] ?? "", phone: row[4] ?? "" }));
     if (!imported.length || imported.length + providers.length > 500 || imported.some(provider => !provider.name || !provider.service)) { setError("Each imported service provider needs a provider name and service. Maximum 500 providers."); jump("providers"); return; }
@@ -237,7 +269,7 @@ export function PropertyOnboardingForm() {
     if (!file) return;
     const rows = parseCsv(await file.text());
     const expected = ["utility_type", "supply_mode", "account_number", "provider", "bill_cycle", "meter_number", "opening_reading", "reading_date", "tariff", "unit", "status"];
-    const headers = (rows.shift() ?? []).map(value => value.replace(/^\uFEFF/, "").toLowerCase().replaceAll(" ", "_"));
+    const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) { setError(`Utility CSV columns must be: ${expected.join(", ")}.`); jump("utilities"); return; }
     const imported: UtilityDraft[] = rows.map(row => ({ type: (row[0] || "").toLowerCase(), supply_mode: (row[1] || "postpaid").toLowerCase(), account_no: row[2] ?? "", provider: row[3] ?? "", bill_cycle: row[4] || "monthly", meter_code: row[5] ?? "", initial_reading: row[6] ?? "", reading_date: row[7] ?? "", tariff: row[8] || "0", unit: row[9] || (row[0] === "electricity" ? "kWh" : "m³"), status: (row[10] || "active").toLowerCase() }));
     const validTypes = ["water", "electricity", "sewerage", "gas", "internet"];
