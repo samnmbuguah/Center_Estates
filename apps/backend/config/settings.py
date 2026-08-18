@@ -76,9 +76,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'config.middleware.ContentSecurityPolicyMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -214,25 +214,40 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
 }
 
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(
-    'CORS_ALLOWED_ORIGINS', 'https://centerestates.com,https://www.centerestates.com,http://localhost:3000,http://localhost:4300'
-).split(',') if origin.strip()]
-# The browser frontend is intentionally hosted on the parent domain while the
-# Django API is on api.centerestates.com. Cookie-based authentication therefore
-# requires explicit credentialed CORS responses; the allow-list above keeps this
-# limited to trusted application origins.
+CORS_ALLOWED_ORIGINS = [
+    'https://centerestates.com',
+    'https://www.centerestates.com',
+    'https://api.centerestates.com',
+    'http://centerestates.com',
+    'http://www.centerestates.com',
+    'http://localhost:3000',
+    'http://localhost:4300',
+] + [origin.strip() for origin in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if origin.strip()]
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://([a-zA-Z0-9-]+\.)*centerestates\.com$",
+    r"^http://([a-zA-Z0-9-]+\.)*centerestates\.com$",
+    r"^http://localhost(:\d+)?$",
+    r"^http://127\.0\.0\.1(:\d+)?$",
+]
+
 CORS_ALLOW_CREDENTIALS = True
-# Frontend requests carry the active tenant and property context. These are
-# intentionally explicit headers so every API query is property-scoped.
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-organization-id',
     'x-property-id',
     'x-property-scope',
+    'x-csrftoken',
 ]
 
-CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get(
-    'CSRF_TRUSTED_ORIGINS', 'https://centerestates.com,https://www.centerestates.com,http://localhost:3000,http://localhost:4300'
-).split(',') if origin.strip()]
+CSRF_TRUSTED_ORIGINS = [
+    'https://centerestates.com',
+    'https://www.centerestates.com',
+    'https://api.centerestates.com',
+    'http://centerestates.com',
+    'http://www.centerestates.com',
+    'http://localhost:3000',
+    'http://localhost:4300',
+] + [origin.strip() for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
