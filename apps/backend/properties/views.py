@@ -300,27 +300,54 @@ class PropertyViewSet(OrganizationModelViewSet):
         building_payload = request.data.get('building') or {}
         if not isinstance(building_payload, dict):
             raise ValidationError({'building': 'Building details must be an object.'})
-        try:
-            building_count = int(building_payload.get('count') or 0)
-            floors = int(building_payload.get('floors') or 1)
-        except (TypeError, ValueError):
-            raise ValidationError({'building': 'Building and floor counts must be whole numbers.'})
-        if not 0 <= building_count <= 100:
-            raise ValidationError({'building': 'Create between 0 and 100 buildings.'})
-        if not 1 <= floors <= 250:
-            raise ValidationError({'building': 'Floors must be between 1 and 250.'})
 
         buildings = []
-        building_metadata = {key: value for key, value in building_payload.items() if key not in {'count', 'floors'}}
-        for index in range(1, building_count + 1):
-            buildings.append(Building.objects.create(
-                organization=organization,
-                property=property_record,
-                code=f'BLD-{index:03d}',
-                name=f'Building {index}',
-                floors=floors,
-                metadata=building_metadata,
-            ))
+        buildings_list = building_payload.get('buildings')
+
+        if isinstance(buildings_list, list) and buildings_list:
+            # New format: array of individual buildings with per-building details
+            if len(buildings_list) > 100:
+                raise ValidationError({'building': 'Maximum 100 buildings allowed.'})
+            for index, bld in enumerate(buildings_list, 1):
+                if not isinstance(bld, dict):
+                    raise ValidationError({'building': f'Building {index} must be an object.'})
+                name = str(bld.get('name', '')).strip() or f'Building {index}'
+                try:
+                    bld_floors = int(bld.get('floors') or 1)
+                except (TypeError, ValueError):
+                    raise ValidationError({'building': f'Building "{name}" floors must be a whole number.'})
+                if not 1 <= bld_floors <= 250:
+                    raise ValidationError({'building': f'Building "{name}" floors must be between 1 and 250.'})
+                bld_metadata = {k: v for k, v in bld.items() if k not in ('name', 'floors')}
+                buildings.append(Building.objects.create(
+                    organization=organization,
+                    property=property_record,
+                    code=f'BLD-{index:03d}',
+                    name=name,
+                    floors=bld_floors,
+                    metadata=bld_metadata,
+                ))
+        else:
+            # Legacy format: count + shared floors (backward compatible)
+            try:
+                building_count = int(building_payload.get('count') or 0)
+                floors = int(building_payload.get('floors') or 1)
+            except (TypeError, ValueError):
+                raise ValidationError({'building': 'Building and floor counts must be whole numbers.'})
+            if not 0 <= building_count <= 100:
+                raise ValidationError({'building': 'Create between 0 and 100 buildings.'})
+            if not 1 <= floors <= 250:
+                raise ValidationError({'building': 'Floors must be between 1 and 250.'})
+            building_metadata = {key: value for key, value in building_payload.items() if key not in {'count', 'floors', 'buildings'}}
+            for index in range(1, building_count + 1):
+                buildings.append(Building.objects.create(
+                    organization=organization,
+                    property=property_record,
+                    code=f'BLD-{index:03d}',
+                    name=f'Building {index}',
+                    floors=floors,
+                    metadata=building_metadata,
+                ))
 
         units_payload = request.data.get('units') or []
         if not isinstance(units_payload, list) or len(units_payload) > 500:

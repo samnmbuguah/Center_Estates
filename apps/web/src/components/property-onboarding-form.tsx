@@ -22,6 +22,7 @@ type AssetDraft = { name: string; category: string; location: string; quantity: 
 type ContactDraft = { name: string; role: string; email: string; phone: string };
 type ProviderDraft = { name: string; service: string; contact: string; email: string; phone: string };
 type DocumentDraft = { name: string; type: string; reference: string; expires_on: string; file: File | null };
+type BuildingDraft = { name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
 
 const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", description: "", building_index: "" };
 const blankUtility: UtilityDraft = { type: "water", account_no: "", provider: "", bill_cycle: "monthly", status: "active", meter_code: "", supply_mode: "postpaid", initial_reading: "", reading_date: "", tariff: "0", unit: "m³" };
@@ -29,6 +30,7 @@ const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity:
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
 const blankProvider: ProviderDraft = { name: "", service: "", contact: "", email: "", phone: "" };
 const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "", file: null };
+const blankBuilding: BuildingDraft = { name: "", floors: "1", floor_numbers: "", use: "", access_points: "", parking_spaces: "0", amenities: "" };
 const initialValues: Values = { status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold" };
 
 function parseCsv(text: string) {
@@ -59,7 +61,7 @@ function downloadCsv(filename: string, rows: string[][]) {
 }
 
 const sections = [
-  ["general", "General"], ["location", "Location"], ["units", "Units"], ["assets", "Assets"],
+  ["general", "General"], ["location", "Location"], ["buildings", "Buildings"], ["units", "Units"], ["assets", "Assets"],
   ["utilities", "Utilities"], ["contacts", "Contacts"], ["providers", "Service Providers"],
   ["landlord", "Landlord Engagement & Terms"], ["documents", "Documents"], ["notes", "Notes"],
 ] as const;
@@ -101,10 +103,12 @@ export function PropertyOnboardingForm() {
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>(blankProvider);
   const [documents, setDocuments] = useState<DocumentDraft[]>([]);
   const [documentDraft, setDocumentDraft] = useState<DocumentDraft>(blankDocument);
+  const [buildings, setBuildings, clearBuildings, buildingsRestored] = useFormDraft<BuildingDraft[]>("property-onboarding:buildings", [], draftScope);
+  const [buildingDraft, setBuildingDraft] = useState<BuildingDraft>(blankBuilding);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const restoredDraft = valuesRestored || unitsRestored || utilitiesRestored || assetsRestored || contactsRestored || providersRestored;
-  const clearDraft = () => { clearValues(); clearUnits(); clearUtilities(); clearAssets(); clearContacts(); clearProviders(); };
+  const clearDraft = () => { clearValues(); clearUnits(); clearBuildings(); clearUtilities(); clearAssets(); clearContacts(); clearProviders(); };
 
   useEffect(() => {
     if (!editId) return;
@@ -161,6 +165,19 @@ export function PropertyOnboardingForm() {
       setError("Unit numbers must be unique within the property."); return;
     }
     setUnits(current => [...current, unitDraft]); setUnitDraft(blankUnit); setError("");
+  };
+
+  const addBuilding = () => {
+    if (!buildingDraft.name.trim()) {
+      setError("Building name is required."); return;
+    }
+    if (!Number(buildingDraft.floors) || Number(buildingDraft.floors) < 1) {
+      setError("Number of floors must be at least 1."); return;
+    }
+    if (buildings.some(b => b.name.trim().toLowerCase() === buildingDraft.name.trim().toLowerCase())) {
+      setError("Building names must be unique within the property."); return;
+    }
+    setBuildings(current => [...current, buildingDraft]); setBuildingDraft(blankBuilding); setError("");
   };
 
   const importUnits = async (file?: File) => {
@@ -254,7 +271,11 @@ export function PropertyOnboardingForm() {
         headers: { "X-Property-Scope": "portfolio" },
         body: JSON.stringify({
           property: { name: values.name.trim(), property_type: values.property_type, status: values.status, address: values.address, city: values.city, country: values.country, metadata },
-          building: { count: Number(values.building_count || 0), floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" },
+          building: {
+            buildings: buildings.length > 0
+              ? buildings.map(b => ({ name: b.name, floors: Number(b.floors || 1), floor_numbers: b.floor_numbers, use: b.use, access_points: b.access_points, parking_spaces: Number(b.parking_spaces || 0), amenities: b.amenities }))
+              : [{ name: "Main Building", floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" }],
+          },
           units,
         }),
       }, organizationId);
@@ -327,7 +348,38 @@ export function PropertyOnboardingForm() {
 
       <Section id="location" title="Property address"><Grid><TextField required multiline minRows={3} label="Physical address" value={values.address || ""} onChange={set("address")} /><TextField required label="City / town" value={values.city || ""} onChange={set("city")} /><TextField required label="County" value={values.county || ""} onChange={set("county")} /><TextField multiline minRows={3} label="Postal address" value={values.postal_address || ""} onChange={set("postal_address")} /><TextField label="Postal code" value={values.postal_code || ""} onChange={set("postal_code")} /><TextField label="Country code" value={values.country} onChange={set("country")} /></Grid></Section>
 
-      <Section id="building" title="Building details"><Grid><TextField type="number" label="Number of buildings" value={values.building_count} onChange={set("building_count")} /><TextField type="number" label="Number of floors" value={values.floors} onChange={set("floors")} /><TextField label="Floor numbers" placeholder="e.g. G, 1, 2, 3" value={values.floor_numbers || ""} onChange={set("floor_numbers")} /><TextField label="Building use" value={values.building_use || ""} onChange={set("building_use")} /><TextField label="Access / entry points" value={values.access_points || ""} onChange={set("access_points")} /><TextField type="number" label="Parking spaces" value={values.parking_spaces} onChange={set("parking_spaces")} /></Grid><TextField fullWidth multiline minRows={2} label="Amenities" placeholder="Lift, generator, borehole, gym, CCTV…" value={values.amenities || ""} onChange={set("amenities")} sx={{ mt: 2 }} /></Section>
+      <Section id="buildings" title="Buildings">
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Add each building or tower individually with its own floor count. If the property has a single building, add it here with its details.
+        </Typography>
+        <Grid columns={4}>
+          <TextField required label="Building name" placeholder="e.g. Tower A, Main Block" value={buildingDraft.name} onChange={e => setBuildingDraft({ ...buildingDraft, name: e.target.value })} />
+          <TextField required type="number" label="Number of floors" value={buildingDraft.floors} onChange={e => setBuildingDraft({ ...buildingDraft, floors: e.target.value })} slotProps={{ htmlInput: { min: 1 } }} />
+          <TextField label="Floor numbers" placeholder="e.g. G, 1, 2, 3" value={buildingDraft.floor_numbers} onChange={e => setBuildingDraft({ ...buildingDraft, floor_numbers: e.target.value })} />
+          <TextField label="Building use" placeholder="e.g. Residential, Commercial" value={buildingDraft.use} onChange={e => setBuildingDraft({ ...buildingDraft, use: e.target.value })} />
+        </Grid>
+        <Box sx={{ mt: 1 }}><Grid columns={4}>
+          <TextField label="Access / entry points" value={buildingDraft.access_points} onChange={e => setBuildingDraft({ ...buildingDraft, access_points: e.target.value })} />
+          <TextField type="number" label="Parking spaces" value={buildingDraft.parking_spaces} onChange={e => setBuildingDraft({ ...buildingDraft, parking_spaces: e.target.value })} slotProps={{ htmlInput: { min: 0 } }} />
+          <TextField label="Amenities" placeholder="Lift, generator, borehole…" value={buildingDraft.amenities} onChange={e => setBuildingDraft({ ...buildingDraft, amenities: e.target.value })} />
+          <Box sx={{ display: "flex", alignItems: "flex-end" }}>
+            <Button fullWidth variant="outlined" startIcon={<Plus size={16} />} onClick={addBuilding}>Add Building</Button>
+          </Box>
+        </Grid></Box>
+        <RowList
+          rows={buildings}
+          columns={["Name", "Floors", "Floor #s", "Use", "Parking", "Amenities"]}
+          render={b => [b.name, `${b.floors} floors`, b.floor_numbers || "—", b.use || "—", b.parking_spaces || "0", b.amenities || "—"]}
+          onRemove={i => setBuildings(rows => rows.filter((_, index) => index !== i))}
+          empty="No buildings added yet. Add at least one building or tower."
+        />
+        {buildings.length > 0 && (
+          <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}>
+            <Chip label={`Buildings: ${buildings.length}`} />
+            <Chip label={`Total floors: ${buildings.reduce((sum, b) => sum + Number(b.floors || 0), 0)}`} />
+          </Box>
+        )}
+      </Section>
 
       <Section id="units" title="Create units">
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
