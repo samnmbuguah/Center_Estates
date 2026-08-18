@@ -557,7 +557,7 @@ export function AssignTaskModal({
 
   const handleNavigateToTeamMatrix = () => {
     onClose();
-    router.push("/companion?tab=team-matrix");
+    router.push("/administration?tab=users");
   };
 
   if (!open) return null;

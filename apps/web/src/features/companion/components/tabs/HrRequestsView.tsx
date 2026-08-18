@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Badge, EmptyState, Field, KpiCard, KpiStrip, LoadingState, Modal, Panel, StatusPill } from "@/components/module-ui";
 import { StaffHrRequest, StaffLeaveBalance, StaffLeaveRequest, TeamMember } from "../../types/companion.types";
 import { fmtDate, fmtDateTime, toMediaUrl } from "../../utils/companion.utils";
@@ -90,6 +91,7 @@ export function HrRequestsView({
 }) {
   const [activeSubTab, setActiveSubTab] = useState<"leave" | "hr" | "approvals" | "timeline">("leave");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 

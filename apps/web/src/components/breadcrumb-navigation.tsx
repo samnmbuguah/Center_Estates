@@ -39,10 +39,6 @@ export function BreadcrumbNavigation({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [shortcutsMenuAnchor, setShortcutsMenuAnchor] = useState<HTMLElement | null>(null);
-  const [recentItems, setRecentItems] = useState<BreadcrumbItem[]>([
-    { label: "Property Overview", href: "/overview" },
-    { label: "Facility Work Orders", href: "/facility?tab=work-orders" },
-  ]);
 
   // Generate breadcrumbs from pathname if not provided
   const items = propItems || generateBreadcrumbs(pathname);
@@ -72,13 +68,6 @@ export function BreadcrumbNavigation({
     setSearchQuery(query);
     // Implement search functionality
     console.log("Searching for:", query);
-  }, []);
-
-  const addToRecent = useCallback((item: BreadcrumbItem) => {
-    setRecentItems(prev => {
-      const filtered = prev.filter(i => i.href !== item.href);
-      return [item, ...filtered].slice(0, 5);
-    });
   }, []);
 
   const shortcuts = [
@@ -116,7 +105,6 @@ export function BreadcrumbNavigation({
               {item.href ? (
                 <Link 
                   href={item.href}
-                  onClick={() => addToRecent(item)}
                   style={{ 
                     display: "flex", 
                     alignItems: "center", 
@@ -233,30 +221,6 @@ export function BreadcrumbNavigation({
                 {action.icon}
               </IconButton>
             </Tooltip>
-          ))}
-        </Box>
-
-        {/* Recent Items */}
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
-            RECENT:
-          </Typography>
-          {recentItems.map((item, index) => (
-            <Chip
-              key={index}
-              label={item.label}
-              size="small"
-              component={Link}
-              href={item.href || "#"}
-              clickable
-              sx={{ 
-                height: 28, 
-                fontSize: 11,
-                bgcolor: "rgba(79, 70, 229, 0.08)",
-                color: "#4f46e5",
-                "&:hover": { bgcolor: "rgba(79, 70, 229, 0.15)" }
-              }}
-            />
           ))}
         </Box>
       </Box>

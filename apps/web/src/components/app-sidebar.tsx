@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { usePermissions } from "@/hooks/usePermissions";
 import { BrandLogo } from "@/components/brand-logo";
 import { LayoutDashboard, ClipboardCheck, Menu, X, ChartNoAxesCombined, CalendarDays, CircleAlert, ChevronDown, ChevronRight } from "lucide-react";
 import {
@@ -22,13 +23,20 @@ const modules = [
   { slug: "companion", name: "Companion", icon: "🧭", accent: "#ec4899" },
 ];
 
-const COMPANION_SUBITEMS = [
+type CompanionSubItem = {
+  id: string;
+  label: string;
+  icon: string;
+  href: string;
+  adminOnly?: boolean;
+};
+
+const COMPANION_SUBITEMS: CompanionSubItem[] = [
   { id: "overview", label: "My Companion & AI", icon: "🧭", href: "/companion?tab=overview" },
   { id: "tasks", label: "Task Assignment Centre", icon: "📋", href: "/companion?tab=tasks" },
   { id: "my-tasks", label: "My Active Tasks", icon: "✓", href: "/companion?tab=my-tasks" },
   { id: "dialogue", label: "Team Dialogue & Feedback", icon: "💬", href: "/companion?tab=dialogue" },
-  { id: "team-matrix", label: "Team & Property Matrix", icon: "👥", href: "/companion?tab=team-matrix" },
-  { id: "performance", label: "Performance Dashboard", icon: "📊", href: "/companion?tab=performance" },
+  { id: "performance", label: "Performance Dashboard", icon: "📊", href: "/companion?tab=performance", adminOnly: true },
   { id: "templates", label: "Checklist Templates", icon: "📑", href: "/companion?tab=templates" },
   { id: "meter-readings", label: "Meter Readings", icon: "⚡", href: "/companion?tab=meter-readings" },
 ];
@@ -60,6 +68,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   const searchParams = useSearchParams();
   const currentTab = searchParams ? searchParams.get("tab") : null;
   const { session } = useAuth();
+  const permissions = usePermissions();
   const [isMobile, setIsMobile] = useState(false);
 
   const [companionExpanded, setCompanionExpanded] = useState(pathname.startsWith("/companion"));
@@ -89,7 +98,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const isAdministrator = Boolean(session?.user.isSuperuser || session?.permissions.includes("*") || session?.roles.includes("admin"));
+  const isAdministrator = permissions.isSuperAdmin;
   const activeOrganization = session?.organizations.find((organization) => organization.id === session.activeOrganizationId);
 
   return (
@@ -403,7 +412,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   marginBottom: 4,
                 }}
               >
-                {COMPANION_SUBITEMS.map((item) => {
+                {COMPANION_SUBITEMS.filter((item) => !item.adminOnly || permissions.isSuperAdmin).map((item) => {
                   const isItemActive = pathname === "/companion" && (currentTab === item.id || (!currentTab && item.id === "overview"));
                   return (
                     <Link
