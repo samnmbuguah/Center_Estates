@@ -6,7 +6,18 @@ from .models import (
     TaskTemplate,
     TeamFeedbackMessage,
     TeamFeedbackThread,
+    PublicFeedbackQrCode,
 )
+
+
+class PublicFeedbackQrCodeSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    building_name = serializers.CharField(source='building.name', read_only=True, default='')
+
+    class Meta:
+        model = PublicFeedbackQrCode
+        exclude = ('organization',)
+        read_only_fields = ('token',)
 
 
 class TaskSerializer(serializers.ModelSerializer):

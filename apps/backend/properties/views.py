@@ -36,7 +36,7 @@ from .models import (
     PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation,
     RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitStatusHistory, LeaseEscalation,
+    TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, ParkingSpace, UnitStatusHistory, LeaseEscalation,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -46,7 +46,7 @@ from .serializers import (
     PaymentIntentSerializer, ProjectSerializer, PropertySerializer,
     ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer, ReportDefinitionSerializer,
     ReportExecutionSerializer, ScheduledReportSerializer,
-    ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer,
+    ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer, ParkingSpaceSerializer,
     ServiceChargeSerializer, TaxConfigurationSerializer, TenantDocumentSerializer,
     TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
     UnitSerializer, UnitStatusHistorySerializer,
@@ -349,6 +349,35 @@ class PropertyViewSet(OrganizationModelViewSet):
                     metadata=building_metadata,
                 ))
 
+        parking_payload = request.data.get('parking_spaces') or []
+        if not isinstance(parking_payload, list) or len(parking_payload) > 2000:
+            raise ValidationError({'parking_spaces': 'Parking spaces must be a list containing at most 2,000 records.'})
+        seen_parking_codes = set()
+        for index, raw_space in enumerate(parking_payload, 1):
+            if not isinstance(raw_space, dict):
+                raise ValidationError({'parking_spaces': f'Parking space {index} must be an object.'})
+            code = str(raw_space.get('code') or '').strip().upper()
+            if not code or code in seen_parking_codes:
+                raise ValidationError({'parking_spaces': f'Parking space {index} needs a unique code.'})
+            seen_parking_codes.add(code)
+            building = None
+            building_index = raw_space.get('building_index')
+            if building_index not in (None, ''):
+                try:
+                    building = buildings[int(building_index) - 1]
+                except (TypeError, ValueError, IndexError):
+                    raise ValidationError({'parking_spaces': f'Parking space {code} references an invalid building.'})
+            ParkingSpace.objects.create(
+                organization=organization,
+                property=property_record,
+                building=building,
+                code=code,
+                floor_or_zone=str(raw_space.get('floor_or_zone') or '').strip(),
+                space_type=raw_space.get('space_type') or ParkingSpace.SpaceType.STANDARD,
+                status=raw_space.get('status') or ParkingSpace.Status.AVAILABLE,
+                metadata={'unit_code': raw_space.get('unit_code', ''), 'notes': raw_space.get('notes', '')},
+            )
+
         units_payload = request.data.get('units') or []
         if not isinstance(units_payload, list) or len(units_payload) > 500:
             raise ValidationError({'units': 'Units must be a list containing at most 500 records.'})
@@ -482,6 +511,13 @@ class BuildingViewSet(OrganizationModelViewSet):
     queryset = Building.objects.select_related('property')
     serializer_class = BuildingSerializer
     search_fields = ('name', 'code', 'property__name')
+
+
+class ParkingSpaceViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = ParkingSpace.objects.select_related('property', 'building', 'unit')
+    serializer_class = ParkingSpaceSerializer
+    search_fields = ('code', 'floor_or_zone', 'property__name', 'building__name', 'unit__code')
 
 
 class UnitViewSet(OrganizationModelViewSet):

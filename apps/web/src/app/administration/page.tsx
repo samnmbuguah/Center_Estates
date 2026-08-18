@@ -23,6 +23,7 @@ import {
   Lock,
 } from "lucide-react";
 import { RoleAccessManager } from "@/components/role-access-manager";
+import { FeedbackQrManager } from "@/components/feedback-qr-manager";
 import { Field, Modal, StatusPill, Badge, EmptyState, KpiCard, KpiStrip } from "@/components/module-ui";
 
 type PropertyItem = { id: string; name: string; code: string };
@@ -75,8 +76,8 @@ function AdministrationContent() {
 
   // Active subtab read from sidebar URL search parameter
   const urlTab = searchParams ? searchParams.get("tab") : null;
-  const tab = (urlTab && ["users", "roles", "mpesa", "orgs", "tax", "audit"].includes(urlTab))
-    ? (urlTab as "users" | "roles" | "mpesa" | "orgs" | "tax" | "audit")
+  const tab = (urlTab && ["users", "roles", "mpesa", "orgs", "tax", "audit", "feedback-qr"].includes(urlTab))
+    ? (urlTab as "users" | "roles" | "mpesa" | "orgs" | "tax" | "audit" | "feedback-qr")
     : "users";
 
   // Shared Data
@@ -995,6 +996,8 @@ function AdministrationContent() {
           </div>
         </div>
       )}
+
+      {tab === "feedback-qr" && <FeedbackQrManager organizationId={organizationId} />}
 
       {/* MODAL 1: ADD SYSTEM USER */}
       {showAddUserModal && (

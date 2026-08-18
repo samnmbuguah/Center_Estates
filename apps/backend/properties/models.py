@@ -89,6 +89,46 @@ class Unit(OrganizationOwnedModel):
         return f'{self.property.code}/{self.code}'
 
 
+class ParkingSpace(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        AVAILABLE = 'available', 'Available'
+        ASSIGNED = 'assigned', 'Assigned'
+        RESERVED = 'reserved', 'Reserved'
+        MAINTENANCE = 'maintenance', 'Maintenance'
+        BLOCKED = 'blocked', 'Blocked'
+
+    class SpaceType(models.TextChoices):
+        STANDARD = 'standard', 'Standard'
+        ACCESSIBLE = 'accessible', 'Accessible'
+        VISITOR = 'visitor', 'Visitor'
+        MOTORCYCLE = 'motorcycle', 'Motorcycle'
+        LOADING = 'loading', 'Loading bay'
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='parking_spaces')
+    building = models.ForeignKey(Building, on_delete=models.SET_NULL, related_name='parking_spaces', null=True, blank=True)
+    unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, related_name='parking_spaces', null=True, blank=True)
+    code = models.CharField(max_length=40)
+    floor_or_zone = models.CharField(max_length=80, blank=True)
+    space_type = models.CharField(max_length=20, choices=SpaceType.choices, default=SpaceType.STANDARD)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.AVAILABLE)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('property__name', 'code')
+        constraints = [models.UniqueConstraint(fields=('property', 'code'), name='unique_property_parking_code')]
+
+    def clean(self):
+        if self.property_id and self.organization_id != self.property.organization_id:
+            raise ValidationError('Parking space and property must belong to the same organization.')
+        if self.building_id and self.building.property_id != self.property_id:
+            raise ValidationError({'building': 'The building must belong to the selected property.'})
+        if self.unit_id and self.unit.property_id != self.property_id:
+            raise ValidationError({'unit': 'The unit must belong to the selected property.'})
+
+    def __str__(self):
+        return f'{self.property.code}/{self.code}'
+
+
 class Project(OrganizationOwnedModel):
     class Status(models.TextChoices):
         PLANNED = 'planned', 'Planned'

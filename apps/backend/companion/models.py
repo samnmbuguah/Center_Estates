@@ -1,8 +1,13 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+import secrets
 
 from core.models import OrganizationOwnedModel
+
+
+def generate_feedback_qr_token():
+    return secrets.token_urlsafe(32)
 
 
 class Task(OrganizationOwnedModel):
@@ -174,6 +179,23 @@ class TeamFeedbackThread(OrganizationOwnedModel):
             import random
             self.reference = f"FB-{random.randint(1000, 9999)}"
         super().save(*args, **kwargs)
+
+
+class PublicFeedbackQrCode(OrganizationOwnedModel):
+    token = models.CharField(max_length=64, unique=True, default=generate_feedback_qr_token)
+    label = models.CharField(max_length=160)
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='feedback_qr_codes')
+    building = models.ForeignKey('properties.Building', on_delete=models.SET_NULL, null=True, blank=True, related_name='feedback_qr_codes')
+    floor = models.CharField(max_length=80, blank=True)
+    unit = models.CharField(max_length=80, blank=True)
+    active = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('property__name', 'label')
+
+    def __str__(self):
+        return f'{self.property} — {self.label}'
 
 
 class TeamFeedbackMessage(OrganizationOwnedModel):

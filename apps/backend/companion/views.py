@@ -1,17 +1,18 @@
 from django.db import transaction
+from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
 from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework import status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
 from core.permissions import HasModuleActionPermission, HasOrganizationContext
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from core.serializers import GenericObjectSerializer
 from config.throttling import QMChatRateThrottle
 from core.tenancy import get_active_membership, get_active_organization
@@ -26,6 +27,7 @@ from .models import (
     TaskTemplate,
     TeamFeedbackMessage,
     TeamFeedbackThread,
+    PublicFeedbackQrCode,
 )
 from .serializers import (
     StaffHrRequestSerializer,
@@ -36,6 +38,7 @@ from .serializers import (
     TaskTemplateSerializer,
     TeamFeedbackMessageSerializer,
     TeamFeedbackThreadSerializer,
+    PublicFeedbackQrCodeSerializer,
 )
 
 STATUS_TRANSITIONS = {
@@ -798,6 +801,48 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
         return Response(TeamFeedbackThreadSerializer(thread).data)
 
 
+class PublicFeedbackQrCodeViewSet(CompanionModelViewSet):
+    queryset = PublicFeedbackQrCode.objects.select_related('property', 'building')
+    serializer_class = PublicFeedbackQrCodeSerializer
+    write_permission = 'companion.assign'
+    search_fields = ('label', 'property__name', 'building__name', 'floor', 'unit')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(organization=organization)
+
+
+@csrf_exempt
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def public_feedback(request, token):
+    qr = PublicFeedbackQrCode.objects.select_related('organization', 'property', 'building').filter(token=token, active=True).first()
+    if not qr:
+        return Response({'detail': 'This feedback link is no longer active.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'GET':
+        return Response({'label': qr.label, 'property': qr.property.name, 'building': qr.building.name if qr.building else '', 'floor': qr.floor, 'unit': qr.unit})
+    title = str(request.data.get('title') or '').strip()
+    message = str(request.data.get('message') or '').strip()
+    if not title or not message:
+        raise ValidationError({'detail': 'Title and message are required.'})
+    thread = TeamFeedbackThread.objects.create(
+        organization=qr.organization,
+        property=qr.property,
+        title=title,
+        category=request.data.get('category') or TeamFeedbackThread.FeedbackType.OPERATIONAL,
+        priority=request.data.get('priority') or TeamFeedbackThread.Priority.NORMAL,
+        module=request.data.get('module') or 'facility',
+        metadata={'public_qr': True, 'qr_label': qr.label, 'floor': qr.floor, 'unit': qr.unit},
+    )
+    from django.contrib.auth import get_user_model
+    developer = get_user_model().objects.filter(username='samuel', is_active=True).first()
+    if developer:
+        thread.assigned_to = developer
+        thread.save(update_fields=['assigned_to'])
+    TeamFeedbackMessage.objects.create(organization=qr.organization, thread=thread, message=message, sender_name=str(request.data.get('name') or 'Public reporter'), attachment_url=str(request.data.get('attachment_url') or ''))
+    return Response({'reference': thread.reference, 'detail': 'Feedback submitted.'}, status=status.HTTP_201_CREATED)
+
+
 class StaffLeaveRequestViewSet(CompanionModelViewSet):
     permission_classes = (HasOrganizationContext, IsAuthenticated)
     queryset = StaffLeaveRequest.objects.select_related('requester', 'relief_staff', 'decided_by')
@@ -961,4 +1006,3 @@ class StaffHrRequestViewSet(CompanionModelViewSet):
         hr_req.save()
 
         return Response(StaffHrRequestSerializer(hr_req).data)
-

@@ -2,7 +2,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     BankTransactionViewSet, BillingItemViewSet, BillingProfileViewSet, BillingRunViewSet,
-    BuildingViewSet, BudgetViewSet, CreditNoteViewSet,
+    BuildingViewSet, BudgetViewSet, CreditNoteViewSet, ParkingSpaceViewSet,
     ExpenseViewSet, InvoiceReminderViewSet, InvoiceViewSet, LeaseViewSet,
     InvoiceLineViewSet, LeaseEscalationViewSet,
     PaymentGatewayConfigurationViewSet, PaymentIntentViewSet, PaymentWebhookViewSet,
@@ -20,6 +20,7 @@ router = DefaultRouter()
 router.register('dashboard', PropertyDashboardViewSet, basename='property-dashboard')
 router.register('properties', PropertyViewSet)
 router.register('buildings', BuildingViewSet)
+router.register('parking-spaces', ParkingSpaceViewSet)
 router.register('units', UnitViewSet)
 router.register('projects', ProjectViewSet)
 router.register('tenants', TenantViewSet)

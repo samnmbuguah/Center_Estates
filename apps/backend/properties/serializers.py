@@ -7,8 +7,18 @@ from .models import (
     Receipt, ReceiptAllocation, RentSchedule, ReportDefinition, ReportExecution, ScheduledReport,
     ServiceCharge, TaxConfiguration, TenantMovement, UnitStatusHistory, LeaseEscalation,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
-    TenantDocument, TenantPortalAccess, Unit,
+    TenantDocument, TenantPortalAccess, Unit, ParkingSpace,
 )
+
+
+class ParkingSpaceSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    building_name = serializers.CharField(source='building.name', read_only=True, default='')
+    unit_code = serializers.CharField(source='unit.code', read_only=True, default='')
+
+    class Meta:
+        model = ParkingSpace
+        exclude = ('organization',)
 
 
 class TaxConfigurationSerializer(serializers.ModelSerializer):
