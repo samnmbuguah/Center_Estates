@@ -782,6 +782,9 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
     def update_status(self, request, pk=None):
         from django.utils import timezone as tz
         thread = self.get_object()
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        is_admin = bool(request.user.is_superuser or (membership and membership.is_organization_admin))
         new_status = request.data.get('status')
         if new_status not in TeamFeedbackThread.Status.values:
             raise ValidationError({'status': 'Invalid status choice.'})
@@ -791,6 +794,12 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
                 'status': f'Cannot transition from "{thread.status}" to "{new_status}". '
                           f'Allowed transitions: {", ".join(allowed)}.'
             })
+        if new_status == 'resolved' and not is_admin and thread.assigned_to_id != request.user.id:
+            raise PermissionDenied('Only the assigned developer or an organization administrator can mark feedback complete.')
+        if new_status == 'closed' and not is_admin and thread.created_by_id != request.user.id:
+            raise PermissionDenied('Only the person who raised the feedback or an organization administrator can confirm it done.')
+        if new_status == 'open' and not is_admin and request.user.id not in {thread.created_by_id, thread.assigned_to_id}:
+            raise PermissionDenied('Only the requester, assigned developer, or an organization administrator can reopen feedback.')
         thread.status = new_status
         now = tz.now()
         if new_status == 'resolved':
@@ -833,12 +842,21 @@ def public_feedback(request, token):
     message = str(request.data.get('message') or '').strip()
     if not title or not message:
         raise ValidationError({'detail': 'Title and message are required.'})
+    category = request.data.get('category') or TeamFeedbackThread.FeedbackType.OPERATIONAL
+    priority = request.data.get('priority') or TeamFeedbackThread.Priority.NORMAL
+    if category not in TeamFeedbackThread.FeedbackType.values:
+        raise ValidationError({'category': 'Invalid feedback category.'})
+    if priority not in TeamFeedbackThread.Priority.values:
+        raise ValidationError({'priority': 'Invalid feedback priority.'})
+    attachment_url = str(request.data.get('attachment_url') or '').strip()
+    if len(attachment_url) > 500:
+        raise ValidationError({'attachment_url': 'Attachment URL is too long.'})
     thread = TeamFeedbackThread.objects.create(
         organization=qr.organization,
         property=qr.property,
         title=title,
-        category=request.data.get('category') or TeamFeedbackThread.FeedbackType.OPERATIONAL,
-        priority=request.data.get('priority') or TeamFeedbackThread.Priority.NORMAL,
+        category=category,
+        priority=priority,
         module=request.data.get('module') or 'facility',
         metadata={'public_qr': True, 'qr_label': qr.label, 'floor': qr.floor, 'unit': qr.unit},
     )
@@ -851,7 +869,7 @@ def public_feedback(request, token):
     if developer:
         thread.assigned_to = developer
         thread.save(update_fields=['assigned_to'])
-    TeamFeedbackMessage.objects.create(organization=qr.organization, thread=thread, message=message, sender_name=str(request.data.get('name') or 'Public reporter'), attachment_url=str(request.data.get('attachment_url') or ''))
+    TeamFeedbackMessage.objects.create(organization=qr.organization, thread=thread, message=message, sender_name=str(request.data.get('name') or 'Public reporter')[:120], attachment_url=attachment_url)
     return Response({'reference': thread.reference, 'detail': 'Feedback submitted.'}, status=status.HTTP_201_CREATED)
 
 
