@@ -11,6 +11,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { PropertyWorkspaceProvider } from "@/lib/property-context";
 import { ThemeProvider } from "@/theme/theme-provider";
 import ChunkErrorRecovery from "@/components/chunk-error-recovery";
+import ErrorMonitoring from "@/components/error-monitoring";
 
 export const metadata: Metadata = {
   title: "Center Estates ERP",
@@ -39,6 +40,7 @@ export default function RootLayout({
       </head>
       <body>
         <ChunkErrorRecovery />
+        <ErrorMonitoring />
         <AppRouterCacheProvider>
           <AuthProvider>
             <ThemeProvider>

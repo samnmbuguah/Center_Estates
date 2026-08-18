@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
+import { reportClientError } from "@/components/monitoring/lib/reportError";
 
 interface Props {
   children: ReactNode;
@@ -31,6 +32,15 @@ export class ErrorBoundary extends Component<Props, State> {
       }
     }
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    reportClientError({
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack ?? undefined,
+      extra: { source: "ErrorBoundary", moduleName: this.props.moduleName },
+    });
   }
 
   render() {

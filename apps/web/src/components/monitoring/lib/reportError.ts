@@ -1,6 +1,6 @@
 /** First-party error reporter — works with or without Sentry. */
 
-import { API_BASE, getToken } from "../api";
+import { API_BASE_URL } from "@/lib/api";
 
 let lastSent = 0;
 const MIN_INTERVAL_MS = 2000;
@@ -15,35 +15,17 @@ export async function reportClientError(input: {
   if (now - lastSent < MIN_INTERVAL_MS) return;
   lastSent = now;
 
-  // Prefer Sentry when loaded
+  // Always attempt first-party collector
   try {
-    const w = window as unknown as { Sentry?: { captureException: (e: Error, ctx?: object) => void } };
-    if (w.Sentry?.captureException) {
-      const err = new Error(input.message);
-      if (input.stack) err.stack = input.stack;
-      w.Sentry.captureException(err, {
-        extra: { componentStack: input.componentStack, ...input.extra },
-      });
-    }
-  } catch {
-    /* ignore */
-  }
-
-  // Always attempt first-party collector (survives missing Sentry DSN)
-  try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-    await fetch(`${API_BASE}/client-errors`, {
+    await fetch(`${API_BASE_URL}/client-errors/`, {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: input.message,
         stack: input.stack,
         componentStack: input.componentStack,
         url: typeof window !== "undefined" ? window.location.href : "",
         release: typeof process !== "undefined" ? process.env.NODE_ENV || "production" : "production",
-
         extra: input.extra || {},
       }),
       keepalive: true,
