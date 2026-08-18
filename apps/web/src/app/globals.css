@@ -2051,7 +2051,7 @@ a.profile-dropdown-item { text-decoration: none; }
   gap: 20px;
   grid-template-columns: minmax(0, 1fr) 300px;
 }
-.command-section-heading { align-items: center; }
+.command-section-heading { text-align: center; }
 .command-section-heading > div > span { color: #8a94a5; display: block; font-size: 11px; margin-top: 4px; }
 .module-card > header { align-items: center; display: flex; justify-content: space-between; }
 .module-live { align-items: center; color: #8a96a7; display: flex; font-size: 8px; gap: 5px; text-transform: uppercase; }
@@ -4478,9 +4478,9 @@ td .mono, td.num { font-family: "IBM Plex Mono"; }
 .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
 .btn:active { transform: translateY(0); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-.command-center { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+.command-center { max-width: 1280px; margin: 0 auto; padding: 28px 24px; text-align: center; }
 .command-center .page-head h1 { margin: 0; font-size: 32px; color: var(--text); }
-.command-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.command-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; justify-content: center; }
 .command-card { min-height: 190px; padding: 22px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); text-decoration: none; display: flex; flex-direction: column; gap: 14px; transition: transform .15s, box-shadow .15s, border-color .15s; }
 .command-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: 0 12px 28px rgba(15,23,42,.10); }
 .command-icon { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; color: var(--danger); background: rgba(217,45,45,.09); }
@@ -5117,8 +5117,8 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 
 .command-section-heading {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  justify-content: center;
+  align-items: center;
   margin-bottom: 16px;
 }
 

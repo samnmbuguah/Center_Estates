@@ -222,11 +222,50 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
   );
 }
 
-export function DetailDrawer({ title, onClose, children, width = 380 }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number }) {
+export function DetailDrawer({ title, onClose, children, width = 380, centered = false }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number; centered?: boolean }) {
   return (
     <>
       <div className="modal-overlay" style={{ background: "rgba(7, 16, 29, 0.4)", zIndex: 90 }} onClick={onClose} />
-      <aside className="fc-detail-panel" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: `min(${width}px, 92vw)`, zIndex: 91, background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "-12px 0 40px rgba(0,0,0,0.25)", overflowY: "auto", padding: 18, animation: "slideUp 0.2s ease" }}>
+      <aside
+        className="fc-detail-panel"
+        style={
+          centered
+            ? {
+                // Centered modal dialogue: content-fit height (maxHeight caps
+                // tall content so the panel scrolls internally instead of over
+                // the page), centered in the viewport on both axes.
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: `min(${width}px, 94vw)`,
+                maxWidth: "94vw",
+                maxHeight: "88vh",
+                overflowY: "auto",
+                zIndex: 91,
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 14,
+                boxShadow: "0 24px 64px rgba(7, 16, 29, 0.4)",
+                padding: 18,
+                animation: "slideUp 0.2s ease",
+              }
+            : {
+                position: "fixed",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: `min(${width}px, 92vw)`,
+                zIndex: 91,
+                background: "var(--surface)",
+                borderLeft: "1px solid var(--border)",
+                boxShadow: "-12px 0 40px rgba(0,0,0,0.25)",
+                overflowY: "auto",
+                padding: 18,
+                animation: "slideUp 0.2s ease",
+              }
+        }
+      >
         <div className="fc-detail-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
           <strong style={{ fontSize: 15 }}>{title}</strong>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">×</button>

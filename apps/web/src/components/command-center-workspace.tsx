@@ -7,9 +7,8 @@ import { apiFetch } from "@/lib/api";
 import { modules, ACTIVE_MODULES } from "@/lib/modules";
 import { useSearchParams } from "next/navigation";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
-import { Box, Grid, Typography, Chip, Tooltip } from "@mui/material";
-import { TrendingUp, AlertCircle, CheckCircle, Clock, Activity, Users, Building2, FileText, Settings, HelpCircle, Calendar as CalendarIcon } from "lucide-react";
+import { Box, Grid, Typography } from "@mui/material";
+import { TrendingUp, AlertCircle, CheckCircle, Clock, Activity, Users, Building2 } from "lucide-react";
 
 type Pulse = {
   property?: { properties: number; outstanding: number; occupancy: number; tenants: number };
@@ -48,9 +47,14 @@ const quickActions: Record<string, Array<{ label: string; href: string; permissi
 
 export function CommandCenterWorkspace() {
   const { session } = useAuth();
+  // Ensure companion module is always included as it's a universal module
   const allowed = new Set(
     (session?.modules?.map((module) => module.slug) ?? modules.map((m) => m.slug)).filter((slug) => ACTIVE_MODULES.includes(slug)),
   );
+  
+  // Always add companion as a universal module
+  allowed.add("companion");
+  
   const subscribedModules = modules.filter((module) => allowed.has(module.slug));
   const organizationId = session?.activeOrganizationId ?? null;
   const [pulse, setPulse] = useState<Pulse>({});
@@ -129,68 +133,18 @@ export function CommandCenterWorkspace() {
 
   return (
     <div className="page-wrap command-center">
-      <BreadcrumbNavigation />
-      
+
       <div className="command-layout">
         <div className="command-main">
           {portfolioView === "tickets" ? <ModuleTicketsView moduleName="Portfolio" portfolio /> : null}
           {portfolioView === "calendar" ? <ModuleCalendarView moduleName="Portfolio" portfolio /> : null}
           {portfolioView ? <div style={{ height: 24 }} /> : null}
           
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
-              Command Center
-            </Typography>
-            <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
-              Your central hub for portfolio management, team coordination, and operational oversight.
-            </Typography>
-            
-            {/* Quick Action Chips */}
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 3 }}>
-              <Chip 
-                icon={<CalendarIcon size={16} />}
-                label="Calendar View" 
-                onClick={() => window.location.href = "/calendar"}
-                clickable
-                sx={{ bgcolor: "#e0e7ff", color: "#4f46e5" }}
-              />
-              <Chip 
-                icon={<FileText size={16} />}
-                label="View Tickets" 
-                onClick={() => window.location.href = "/tickets"}
-                clickable
-                sx={{ bgcolor: "#fee2e2", color: "#b91c1c" }}
-              />
-              <Chip 
-                icon={<Settings size={16} />}
-                label="Administration" 
-                onClick={() => window.location.href = "/administration"}
-                clickable
-                sx={{ bgcolor: "#f3f4f6", color: "#374151" }}
-              />
-              <Chip 
-                icon={<HelpCircle size={16} />}
-                label="Help & Support" 
-                clickable
-                sx={{ bgcolor: "#fef3c7", color: "#92400e" }}
-              />
-            </Box>
-          </Box>
-          
-          <section aria-labelledby="modules-heading">
-            <div className="section-heading command-section-heading" style={{ marginBottom: 20 }}>
-              <div>
-                <p className="eyebrow" style={{ fontSize: 12, fontWeight: 800, color: "var(--brand-primary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Access your modules</p>
-                <h2 id="modules-heading" style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", margin: "0 0 6px" }}>ERP modules</h2>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Open a module to continue where your team left off.</span>
-              </div>
-              <span className="status-pill" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#059669", fontWeight: 800, fontSize: 12, padding: "4px 12px" }}>{subscribedModules.length} active</span>
-            </div>
-
-            <div className="module-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
+          <section aria-labelledby="modules-heading" style={{ textAlign: "center" }}>
+            <div className="module-grid command-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24, justifyContent: "center" }}>
               {subscribedModules.map((module) => {
                 const live = moduleStats(module.slug);
-                const stats = (live ?? module.stats.map((stat) => ({ label: stat.label, value: stat.value }))).slice(0, 2);
+                const stats = (live ?? module.stats.map((stat) => ({ label: stat.label, value: stat.value }))).slice(0, 3);
                 return (
                   <Link
                     key={module.slug}
@@ -202,37 +156,38 @@ export function CommandCenterWorkspace() {
                       flexDirection: "column",
                       alignItems: "center",
                       textAlign: "center",
-                      padding: "24px 18px 18px",
-                      borderRadius: 16,
+                      padding: "32px 24px 24px",
+                      borderRadius: 18,
                       background: "var(--surface)",
                       border: "1px solid var(--border)",
                       textDecoration: "none",
                       color: "inherit",
                       position: "relative",
                       transition: "all 0.2s ease-in-out",
+                      minHeight: 220,
                     } as CSSProperties}
                   >
                     <div
                       className="module-icon-circle"
                       style={{
-                        width: 56,
-                        height: 56,
+                        width: 90,
+                        height: 90,
                         borderRadius: "50%",
                         background: `${module.accent}18`,
                         color: module.accent,
                         display: "grid",
                         placeItems: "center",
-                        fontSize: 26,
-                        marginBottom: 16,
+                        fontSize: 40,
+                        marginBottom: 20,
                       }}
                     >
                       {module.icon}
                     </div>
 
-                    <h3 style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.25 }}>
+                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.25 }}>
                       {module.name}
                     </h3>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 20px", minHeight: 38, lineHeight: 1.45 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 24px", minHeight: 40, lineHeight: 1.5, maxWidth: 260 }}>
                       {module.description}
                     </p>
 
@@ -243,16 +198,16 @@ export function CommandCenterWorkspace() {
                           width: "100%",
                           display: "grid",
                           gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
-                          gap: 8,
-                          paddingTop: 14,
+                          gap: 10,
+                          paddingTop: 16,
                           borderTop: "1px solid var(--border-subtle)",
                           marginTop: "auto",
-                          textAlign: "left",
+                          textAlign: "center",
                         }}
                       >
                         {stats.map((stat) => (
-                          <div key={stat.label} style={{ display: "flex", flexDirection: "column" }}>
-                            <span style={{ fontSize: 15, fontWeight: 900, color: "var(--text-primary)" }}>{stat.value}</span>
+                          <div key={stat.label} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <span style={{ fontSize: 17, fontWeight: 900, color: "var(--text-primary)" }}>{stat.value}</span>
                             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginTop: 2 }}>{stat.label}</span>
                           </div>
                         ))}
@@ -264,12 +219,12 @@ export function CommandCenterWorkspace() {
                       aria-hidden="true"
                       style={{
                         position: "absolute",
-                        bottom: 14,
-                        right: 14,
-                        fontSize: 14,
+                        bottom: 16,
+                        right: 18,
+                        fontSize: 18,
                         fontWeight: 800,
                         color: "var(--text-primary)",
-                        opacity: 0.6,
+                        opacity: 0.5,
                         transition: "opacity 0.15s ease, transform 0.15s ease",
                       }}
                     >
