@@ -74,13 +74,18 @@ ssh "$REMOTE_HOST" "
   (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; printf '%s\n' '17 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications') | crontab -
   mkdir -p tmp
   touch tmp/restart.txt
-  # CloudLinux LiteSpeed keeps a preloaded lswsgi master alive across the
-  # conventional restart-file touch. Terminate only this application's exact
-  # worker command so the next request starts a clean Python process.
+  # Kill stale Python workers matching this application's exact command.
   app_pids=\$(pgrep -u \$(id -u) -f '^/opt/alt/python39/bin/lswsgi -m ${API_PATH}/passenger_wsgi.py\$' || true)
   for app_pid in \${app_pids}; do
     kill -TERM "\${app_pid}" 2>/dev/null || true
   done
+  # Wait for graceful shutdown, then force-kill stragglers
+  sleep 3
+  app_pids=\$(pgrep -u \$(id -u) -f '^/opt/alt/python39/bin/lswsgi -m ${API_PATH}/passenger_wsgi.py\$' || true)
+  for app_pid in \${app_pids}; do
+    kill -9 "\${app_pid}" 2>/dev/null || true
+  done
+  sleep 2
 "
 
   # Do not move on to the frontend release while the restarted API is still
@@ -120,16 +125,27 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     cp -a apps/web/public/* "\${standalone}/public/" 2>/dev/null || true
     mkdir -p tmp
     touch tmp/restart.txt
-    # Restart only this application's Next worker. A broad process kill also
-    # matches this remote shell because its command text contains
-    # the Next process name, which used to terminate SSH with exit 255 after an
-    # otherwise successful upload.
+    # Kill stale Next.js workers matching this application's path.
+    # First try SIGTERM for graceful shutdown, then SIGKILL if needed.
     web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == \"next-server\" {print \$1}')
     for web_pid in \${web_pids}; do
       if [ \"\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)\" = \"${FRONTEND_PATH}/apps/web/.next/standalone/apps/web\" ]; then
         kill -TERM \"\${web_pid}\" 2>/dev/null || true
       fi
     done
+    # Wait up to 10s for graceful shutdown, then force-kill stragglers
+    sleep 3
+    web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == \"next-server\" {print \$1}')
+    for web_pid in \${web_pids}; do
+      if [ \"\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)\" = \"${FRONTEND_PATH}/apps/web/.next/standalone/apps/web\" ]; then
+        kill -9 \"\${web_pid}\" 2>/dev/null || true
+      fi
+    done
+    sleep 2
+    # Verify a fresh worker spawned (Passenger auto-restarts on next request)
+    curl -sf https://${DOMAIN}/ > /dev/null 2>&1 || true
+    new_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == \"next-server\" {print \$1}' | wc -l)
+    echo \"Active next-server workers after restart: \${new_pids}\"
   "
 fi
 
