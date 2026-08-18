@@ -8,7 +8,6 @@ export type CompanionTab =
   | "delegations"
   | "meter-readings"
   | "hr-requests"
-  | "team-matrix"
   | "performance"
   | "staff"
   | "audit-events"
@@ -25,7 +24,6 @@ export const companionTabLabels: Record<CompanionTab, string> = {
   delegations: "Delegations",
   "meter-readings": "Meter Readings",
   "hr-requests": "Leave & HR Portal",
-  "team-matrix": "Team & Property Matrix",
   performance: "Performance Dashboard",
   staff: "Staff History",
   "audit-events": "Audit Trail",
@@ -95,6 +93,13 @@ export type FeedbackThread = {
   created_by_name?: string;
   created_by_role?: string;
   assigned_to?: string;
+  assigned_to_name?: string;
+  resolved_by?: string;
+  resolved_by_name?: string;
+  resolved_at?: string;
+  confirmed_by?: string;
+  confirmed_by_name?: string;
+  confirmed_at?: string;
   messages?: FeedbackMessage[];
   created_at: string;
   updated_at: string;

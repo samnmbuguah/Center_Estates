@@ -154,6 +154,16 @@ class TeamFeedbackThread(OrganizationOwnedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         related_name='assigned_feedback_threads', null=True, blank=True,
     )
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name='resolved_feedback_threads', null=True, blank=True,
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name='confirmed_feedback_threads', null=True, blank=True,
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:

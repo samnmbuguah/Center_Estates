@@ -7,22 +7,21 @@ import { companionNav } from "@/lib/module-nav";
 import { DetailDrawer, ErrorBanner, Field, Modal, StatusPill } from "@/components/module-ui";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import { useCompanionLogic } from "./hooks/useCompanionLogic";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OverviewView } from "./components/tabs/OverviewView";
 import { QuartermasterView } from "./components/tabs/QuartermasterView";
 import { TeamDialogueView } from "./components/tabs/TeamDialogueView";
-import { TeamMatrixView } from "./components/tabs/TeamMatrixView";
 import { TasksView } from "./components/tabs/TasksView";
 import { TemplatesView } from "./components/tabs/TemplatesView";
 import { PerformanceView } from "./components/tabs/PerformanceView";
 import { MeterReadingsView } from "./components/tabs/MeterReadingsView";
 import {
-  AddTeamMemberModal,
   AssignTaskModal,
   CompleteTaskModal,
   CreateFeedbackModal,
   CreateTemplateModal,
   DelegateTaskModal,
-  EditMemberMatrixModal,
 } from "./components/modals/CompanionModals";
 import { HrRequestsView } from "./components/tabs/HrRequestsView";
 import { ChecklistItem, CompanionTab, Row } from "./types/companion.types";
@@ -30,6 +29,7 @@ import { fmtDate, fmtDateTime, STATUS_TONE, toMediaUrl } from "./utils/companion
 
 export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?: CompanionTab }) {
   const { session } = useAuth();
+  const permissions = usePermissions();
   const {
     tab,
     setTab,
@@ -78,11 +78,6 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
     setShowTemplate,
     showNewThread,
     setShowNewThread,
-    showAddMember,
-    setShowAddMember,
-    editingMember,
-    setEditingMember,
-    memberError,
     aiPrompt,
     setAiPrompt,
     aiLoading,
@@ -101,8 +96,6 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
     load,
     loadMembers,
     uploadAttachment,
-    handleAddMember,
-    handleEditMember,
     handleCreateFeedback,
     handleReplyFeedback,
     handleUpdateThreadStatus,
@@ -117,23 +110,15 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
   const [completingTask, setCompletingTask] = useState<Row | null>(null);
   const [previewEvidenceUrl, setPreviewEvidenceUrl] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
-  const isFieldStaff = Boolean(
-    isSuperAdmin ||
-      session?.roles?.includes("caretaker") ||
-      session?.roles?.includes("facility_manager") ||
-      session?.roles?.includes("property_manager") ||
-      session?.roles?.includes("technician") ||
-      session?.roles?.includes("admin") ||
-      initialTab === "meter-readings"
-  );
+  const isFieldStaff = permissions.isFieldStaff || initialTab === "meter-readings";
 
   const filteredNavGroups = useMemo(() => {
     return companionNav
       .map((group) => {
-        if (group.label.toLowerCase().includes("performance") && !isSuperAdmin) {
+        if (group.label.toLowerCase().includes("performance") && !permissions.isSuperAdmin) {
           return {
             ...group,
-            items: group.items.filter((item) => item.id !== "performance" && item.id !== "staff"),
+            items: group.items.filter((item) => item.id !== "performance" && item.id !== "staff" && item.id !== "audit-events"),
           };
         }
         if (group.label.toLowerCase().includes("field") && !isFieldStaff) {
@@ -142,7 +127,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
         return group;
       })
       .filter(Boolean) as typeof companionNav;
-  }, [isSuperAdmin, isFieldStaff]);
+  }, [permissions.isSuperAdmin, isFieldStaff]);
 
   const userName = session?.user?.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
@@ -179,7 +164,8 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
   }
 
   return (
-    <ModuleShell
+    <ErrorBoundary>
+      <ModuleShell
       moduleKey="companion"
       moduleName="Companion"
       eyebrow="Personal command center"
@@ -239,17 +225,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             submitReply={handleReplyFeedback}
             updateThreadStatus={handleUpdateThreadStatus}
             onUploadAttachment={uploadAttachment}
-          />
-        )}
-
-        {/* TEAM & PROPERTY MATRIX */}
-        {tab === "team-matrix" && (
-          <TeamMatrixView
-            members={members}
-            loading={loading}
-            canManage={Boolean(isSuperAdmin)}
-            openAddMemberModal={() => setShowAddMember(true)}
-            openEditMemberModal={(m) => setEditingMember(m)}
+            currentUserId={session?.user?.id}
           />
         )}
 
@@ -261,7 +237,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             leaveBalance={leaveBalance}
             members={members}
             currentUserId={session?.user?.id}
-            isSuperAdmin={Boolean(isSuperAdmin)}
+            isSuperAdmin={permissions.isSuperAdmin}
             loading={loading}
             busy={busy}
             onCreateLeaveRequest={handleCreateLeaveRequest}
@@ -280,7 +256,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             loading={loading}
             search={search}
             setSearch={setSearch}
-            canAssign={Boolean(isSuperAdmin)}
+            canAssign={permissions.canAssignTasks}
             onOpenAssign={() => setShowAssign(true)}
             onSelectTask={(t) => setSelectedTask(t)}
             onRunAction={runTaskAction}
@@ -305,7 +281,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
         {(tab === "performance" || tab === "staff") && (
           <PerformanceView
             tab={tab}
-            isSuperAdmin={Boolean(isSuperAdmin)}
+            isSuperAdmin={permissions.isSuperAdmin}
             dash={dash}
             staff={staff}
             loading={loading}
@@ -560,25 +536,6 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
           activePropertyName={activeProperty?.name}
         />
 
-        <AddTeamMemberModal
-          open={showAddMember}
-          onClose={() => setShowAddMember(false)}
-          onSubmit={handleAddMember}
-          properties={properties}
-          roles={roles}
-          busy={busy}
-          error={memberError}
-        />
-
-        <EditMemberMatrixModal
-          member={editingMember}
-          onClose={() => setEditingMember(null)}
-          onSubmit={handleEditMember}
-          properties={properties}
-          roles={roles}
-          busy={busy}
-        />
-
         {/* EVIDENCE IMAGE ZOOM MODAL */}
         {previewEvidenceUrl && (
           <Modal title="🔎 Evidence & Proof-of-Work Attachment" onClose={() => setPreviewEvidenceUrl(null)} wide>
@@ -607,5 +564,6 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
         )}
       </div>
     </ModuleShell>
+    </ErrorBoundary>
   );
 }

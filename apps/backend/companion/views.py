@@ -663,6 +663,13 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
     serializer_class = TeamFeedbackThreadSerializer
     search_fields = ('title', 'reference', 'module')
 
+    STATUS_TRANSITIONS = {
+        'open': ('in_progress', 'resolved'),
+        'in_progress': ('open', 'resolved'),
+        'resolved': ('closed', 'open'),
+        'closed': ('open',),
+    }
+
     def get_queryset(self):
         organization = get_active_organization(self.request)
         queryset = self.queryset.filter(organization=organization).prefetch_related('messages__sender', 'property')
@@ -684,6 +691,14 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
             created_by=self.request.user,
             property=get_active_property(self.request, organization),
         )
+        # Auto-assign to the default developer if no assignee was provided
+        if not thread.assigned_to:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            default_dev = User.objects.filter(username='samuel', is_active=True).first()
+            if default_dev:
+                thread.assigned_to = default_dev
+                thread.save(update_fields=['assigned_to'])
         initial_message = self.request.data.get('initial_message')
         attachment_url = self.request.data.get('attachment_url', '')
         if initial_message:
@@ -745,11 +760,31 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='update-status')
     def update_status(self, request, pk=None):
+        from django.utils import timezone as tz
         thread = self.get_object()
         new_status = request.data.get('status')
         if new_status not in TeamFeedbackThread.Status.values:
             raise ValidationError({'status': 'Invalid status choice.'})
+        allowed = self.STATUS_TRANSITIONS.get(thread.status, ())
+        if new_status not in allowed:
+            raise ValidationError({
+                'status': f'Cannot transition from "{thread.status}" to "{new_status}". '
+                          f'Allowed transitions: {", ".join(allowed)}.'
+            })
         thread.status = new_status
+        now = tz.now()
+        if new_status == 'resolved':
+            thread.resolved_by = request.user
+            thread.resolved_at = now
+        elif new_status == 'closed':
+            thread.confirmed_by = request.user
+            thread.confirmed_at = now
+        elif new_status == 'open':
+            # Reopening — clear resolution timestamps
+            thread.resolved_by = None
+            thread.resolved_at = None
+            thread.confirmed_by = None
+            thread.confirmed_at = None
         thread.save()
         return Response(TeamFeedbackThreadSerializer(thread).data)
 

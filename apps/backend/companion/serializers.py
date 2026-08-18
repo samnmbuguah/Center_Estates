@@ -66,15 +66,24 @@ class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     created_by_role = serializers.SerializerMethodField()
     property_name = serializers.CharField(source='property.name', read_only=True, default='')
+    assigned_to_name = serializers.SerializerMethodField()
+    resolved_by_name = serializers.SerializerMethodField()
+    confirmed_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TeamFeedbackThread
         fields = (
             'id', 'reference', 'title', 'category', 'priority', 'status',
             'property', 'property_name', 'module', 'created_by', 'created_by_name',
-            'created_by_role', 'assigned_to', 'metadata', 'messages', 'created_at', 'updated_at',
+            'created_by_role', 'assigned_to', 'assigned_to_name',
+            'resolved_by', 'resolved_by_name', 'resolved_at',
+            'confirmed_by', 'confirmed_by_name', 'confirmed_at',
+            'metadata', 'messages', 'created_at', 'updated_at',
         )
-        read_only_fields = ('id', 'reference', 'created_at', 'updated_at', 'created_by')
+        read_only_fields = (
+            'id', 'reference', 'created_at', 'updated_at', 'created_by',
+            'resolved_by', 'resolved_at', 'confirmed_by', 'confirmed_at',
+        )
 
     def get_created_by_name(self, obj):
         if obj.created_by:
@@ -92,6 +101,21 @@ class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
                 return member.role.name
             return "Property Manager"
         return "Staff"
+
+    def _user_display_name(self, user):
+        if not user:
+            return None
+        name = f"{user.first_name} {user.last_name}".strip()
+        return name or user.username
+
+    def get_assigned_to_name(self, obj):
+        return self._user_display_name(obj.assigned_to)
+
+    def get_resolved_by_name(self, obj):
+        return self._user_display_name(obj.resolved_by)
+
+    def get_confirmed_by_name(self, obj):
+        return self._user_display_name(obj.confirmed_by)
 
 
 class StaffLeaveRequestSerializer(serializers.ModelSerializer):

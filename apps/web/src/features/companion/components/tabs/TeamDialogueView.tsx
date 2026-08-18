@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Badge, DetailDrawer, EmptyState, Modal } from "@/components/module-ui";
+import { Badge, DetailDrawer, EmptyState } from "@/components/module-ui";
 import { FeedbackThread } from "../../types/companion.types";
 import { fmtDateTime, PRIORITY_TONE, toMediaUrl } from "../../utils/companion.utils";
 import { EvidenceAttachmentUploader, type UploadedAttachment } from "../common/EvidenceAttachmentUploader";
@@ -11,6 +11,10 @@ import {
   ChevronRight,
   Download,
   ExternalLink,
+  File,
+  FileArchive,
+  FileImage,
+  FileText,
   Plus,
   Search,
   Send,
@@ -29,6 +33,7 @@ export function TeamDialogueView({
   submitReply,
   updateThreadStatus,
   onUploadAttachment,
+  currentUserId,
 }: {
   threads: FeedbackThread[];
   loading: boolean;
@@ -44,6 +49,7 @@ export function TeamDialogueView({
   submitReply: (threadId: string, message: string, attachmentUrl?: string) => Promise<void>;
   updateThreadStatus: (threadId: string, status: "open" | "in_progress" | "resolved" | "closed") => Promise<void>;
   onUploadAttachment?: (file: File) => Promise<{ url: string; name: string; size: number } | null>;
+  currentUserId?: string | number;
 }) {
   const [createdDateFilter, setCreatedDateFilter] = useState("all");
   const [sortField, setSortField] = useState<"created_at" | "created_by_name" | "title" | "status">("created_at");
@@ -57,7 +63,6 @@ export function TeamDialogueView({
   const [replyText, setReplyText] = useState("");
   const [replyAttachment, setReplyAttachment] = useState<UploadedAttachment | null>(null);
   const [sending, setSending] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Date filtering helper
   function matchDateFilter(dateStr: string, filter: string) {
@@ -188,10 +193,45 @@ export function TeamDialogueView({
     return /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(url) || url.includes("/media/companion/");
   }
 
+  function attachmentName(url: string) {
+    try {
+      return decodeURIComponent(new URL(url, window.location.origin).pathname.split("/").pop() || "Attachment");
+    } catch {
+      return url.split("/").pop()?.split("?")[0] || "Attachment";
+    }
+  }
+
+  function attachmentKind(url: string): "image" | "pdf" | "file" {
+    if (isImageUrl(url)) return "image";
+    if (/\.pdf(\?.*)?$/i.test(url)) return "pdf";
+    return "file";
+  }
+
+  function attachmentIcon(url: string, size = 22) {
+    const kind = attachmentKind(url);
+    if (kind === "image") return <FileImage size={size} />;
+    if (kind === "pdf") return <FileText size={size} />;
+    if (/\.(zip|rar|7z)(\?.*)?$/i.test(url)) return <FileArchive size={size} />;
+    return <File size={size} />;
+  }
+
+  function formatFileSize(bytes?: number) {
+    if (!bytes || bytes <= 0) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function fileExtLabel(name: string) {
+    const ext = name.split(".").pop()?.toUpperCase();
+    return ext && ext !== name.toUpperCase() ? ext : "";
+  }
+
   function getStatusLabel(status: string) {
     if (status === "open") return "Open";
-    if (status === "in_progress") return "In-Progress";
-    if (status === "resolved" || status === "closed") return "Closed";
+    if (status === "in_progress") return "In Progress";
+    if (status === "resolved") return "Resolved";
+    if (status === "closed") return "Closed";
     return status;
   }
 
@@ -540,11 +580,15 @@ export function TeamDialogueView({
                                 ? "#dbeafe"
                                 : t.status === "in_progress"
                                 ? "#fef3c7"
+                                : t.status === "resolved"
+                                ? "#fef3c7"
                                 : "#d1fae5",
                             color:
                               t.status === "open"
                                 ? "#1e40af"
                                 : t.status === "in_progress"
+                                ? "#92400e"
+                                : t.status === "resolved"
                                 ? "#92400e"
                                 : "#065f46",
                           }}
@@ -648,43 +692,68 @@ export function TeamDialogueView({
         </div>
       </div>
 
-      {/* ═══ SLIDE-OVER CONVERSATION DIALOGUE DRAWER ═════════════════════ */}
+      {/* ═══ CENTERED CONVERSATION DIALOGUE DRAWER ═════════════════════ */}
       {activeThread && (
         <DetailDrawer
           title={activeThread.title}
           onClose={() => setActiveThread(null)}
-          width={520}
+          width={640}
+          centered
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "8px 0" }}>
-            {/* Header Action & Status Switcher */}
+            {/* Header: reference + assigned to */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <span style={{ fontSize: 12, color: "#2563eb", fontWeight: 700 }}>
                 {activeThread.reference || `FB-${activeThread.id}`}
               </span>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {activeThread.status !== "resolved" && activeThread.status !== "closed" ? (
-                  <button
-                    type="button"
-                    className="btn sm"
-                    style={{ background: "#059669", color: "#fff", borderColor: "#059669", fontSize: 11 }}
-                    onClick={() => updateThreadStatus(activeThread.id, "resolved")}
-                  >
-                    ✓ Mark Closed
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn ghost sm"
-                    style={{ fontSize: 11 }}
-                    onClick={() => updateThreadStatus(activeThread.id, "open")}
-                  >
-                    ↺ Reopen
-                  </button>
-                )}
-              </div>
+              {activeThread.assigned_to_name && (
+                <span style={{ fontSize: 11, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+                  Assigned to <strong style={{ color: "var(--text)" }}>{activeThread.assigned_to_name}</strong>
+                </span>
+              )}
             </div>
 
-            {/* Thread Details Overview Card */}
+            {/* Progress Stepper */}
+            <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "12px 16px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+              {([
+                { key: "open", label: "Open", color: "#3b82f6" },
+                { key: "in_progress", label: "In Progress", color: "#f59e0b" },
+                { key: "resolved", label: "Resolved", color: "#22c55e" },
+                { key: "closed", label: "Closed", color: "#6366f1" },
+              ] as const).map((step, i) => {
+                const statusOrder = ["open", "in_progress", "resolved", "closed"];
+                const currentIdx = statusOrder.indexOf(activeThread.status);
+                const isComplete = i < currentIdx;
+                const isCurrent = i === currentIdx;
+                return (
+                  <div key={step.key} style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 0 }}>
+                      <div
+                        style={{
+                          width: 28, height: 28, borderRadius: "50%", display: "grid", placeItems: "center",
+                          fontSize: 12, fontWeight: 800,
+                          background: isComplete ? step.color : isCurrent ? `${step.color}18` : "var(--surface)",
+                          color: isComplete ? "#fff" : isCurrent ? step.color : "var(--muted)",
+                          border: isCurrent ? `2px solid ${step.color}` : isComplete ? "none" : "1px solid var(--border)",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        {isComplete ? "✓" : i + 1}
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: isCurrent ? 700 : 500, color: isCurrent ? "var(--text)" : "var(--muted)", textAlign: "center", whiteSpace: "nowrap" }}>
+                        {step.label}
+                      </span>
+                    </div>
+                    {i < 3 && (
+                      <div style={{ flex: 1, height: 2, margin: "0 4px", marginBottom: 16, background: isComplete ? step.color : "var(--border)", borderRadius: 1, transition: "background 0.2s" }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Thread Details Card */}
             <div
               className="card"
               style={{
@@ -699,81 +768,91 @@ export function TeamDialogueView({
               }}
             >
               <div>
-                <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>
-                  Status
-                </span>
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "2px 8px",
-                    borderRadius: 10,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    marginTop: 2,
-                    background:
-                      activeThread.status === "open"
-                        ? "#dbeafe"
-                        : activeThread.status === "in_progress"
-                        ? "#fef3c7"
-                        : "#d1fae5",
-                    color:
-                      activeThread.status === "open"
-                        ? "#1e40af"
-                        : activeThread.status === "in_progress"
-                        ? "#92400e"
-                        : "#065f46",
-                  }}
-                >
-                  {getStatusLabel(activeThread.status)}
-                </span>
-              </div>
-              <div>
-                <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>
-                  Priority
-                </span>
+                <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>Priority</span>
                 <Badge tone={PRIORITY_TONE[activeThread.priority] || "gray"}>{activeThread.priority}</Badge>
               </div>
               <div>
-                <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>
-                  Module
-                </span>
+                <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>Module</span>
                 <strong>{activeThread.module || "General"}</strong>
               </div>
               <div>
-                <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>
-                  Logged By
-                </span>
+                <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>Logged By</span>
                 <span>{activeThread.created_by_name || "Team Member"}</span>
               </div>
+              {activeThread.resolved_by_name && (
+                <div>
+                  <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>Resolved By</span>
+                  <span>{activeThread.resolved_by_name}</span>
+                  {activeThread.resolved_at && <span style={{ display: "block", fontSize: 10, color: "var(--muted)" }}>{fmtDateTime(activeThread.resolved_at)}</span>}
+                </div>
+              )}
+              {activeThread.confirmed_by_name && (
+                <div>
+                  <span className="muted" style={{ display: "block", fontSize: 10, textTransform: "uppercase" }}>Confirmed By</span>
+                  <span>{activeThread.confirmed_by_name}</span>
+                  {activeThread.confirmed_at && <span style={{ display: "block", fontSize: 10, color: "var(--muted)" }}>{fmtDateTime(activeThread.confirmed_at)}</span>}
+                </div>
+              )}
             </div>
 
-            {/* Status Quick Switcher Buttons */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Update Status:</span>
-              <button
-                type="button"
-                className={`btn sm ${activeThread.status === "open" ? "primary" : "ghost"}`}
-                style={{ fontSize: 11, padding: "3px 8px" }}
-                onClick={() => updateThreadStatus(activeThread.id, "open")}
-              >
-                Open
-              </button>
-              <button
-                type="button"
-                className={`btn sm ${activeThread.status === "in_progress" ? "primary" : "ghost"}`}
-                style={{ fontSize: 11, padding: "3px 8px" }}
-                onClick={() => updateThreadStatus(activeThread.id, "in_progress")}
-              >
-                In-Progress
-              </button>
-              <button
-                type="button"
-                className={`btn sm ${activeThread.status === "resolved" || activeThread.status === "closed" ? "primary" : "ghost"}`}
-                style={{ fontSize: 11, padding: "3px 8px" }}
-                onClick={() => updateThreadStatus(activeThread.id, "resolved")}
-              >
-                Closed
-              </button>
+            {/* Contextual Action Buttons */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {activeThread.status === "open" && (
+                <button
+                  type="button"
+                  className="btn sm"
+                  style={{ background: "#f59e0b", color: "#fff", borderColor: "#f59e0b", fontSize: 11 }}
+                  onClick={() => updateThreadStatus(activeThread.id, "in_progress")}
+                >
+                  ◐ Start Progress
+                </button>
+              )}
+              {activeThread.status === "in_progress" && (
+                <button
+                  type="button"
+                  className="btn sm"
+                  style={{ background: "#22c55e", color: "#fff", borderColor: "#22c55e", fontSize: 11 }}
+                  onClick={() => updateThreadStatus(activeThread.id, "resolved")}
+                >
+                  ✓ Mark Complete
+                </button>
+              )}
+              {activeThread.status === "resolved" && (
+                <>
+                  <button
+                    type="button"
+                    className="btn sm"
+                    style={{ background: "#6366f1", color: "#fff", borderColor: "#6366f1", fontSize: 11 }}
+                    onClick={() => updateThreadStatus(activeThread.id, "closed")}
+                  >
+                    ✓ Confirm Done
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{ fontSize: 11 }}
+                    onClick={() => updateThreadStatus(activeThread.id, "open")}
+                  >
+                    ↺ Reopen
+                  </button>
+                </>
+              )}
+              {activeThread.status === "closed" && (
+                <button
+                  type="button"
+                  className="btn ghost sm"
+                  style={{ fontSize: 11 }}
+                  onClick={() => updateThreadStatus(activeThread.id, "open")}
+                >
+                  ↺ Reopen
+                </button>
+              )}
+              <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>
+                {activeThread.status === "open" && "Waiting for developer to start"}
+                {activeThread.status === "in_progress" && "Developer working on this"}
+                {activeThread.status === "resolved" && "Awaiting requester confirmation"}
+                {activeThread.status === "closed" && "Completed"}
+              </span>
             </div>
 
             {/* Conversation Messages Stream */}
@@ -789,7 +868,6 @@ export function TeamDialogueView({
               ) : (
                 activeThread.messages.map((m) => {
                   const isDev = Boolean(m.is_developer_response);
-                  const hasImage = isImageUrl(m.attachment_url);
 
                   return (
                     <div
@@ -823,61 +901,62 @@ export function TeamDialogueView({
                         {m.message}
                       </p>
 
-                      {m.attachment_url && (
-                        <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed var(--border)" }}>
-                          {hasImage ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <img
-                                src={toMediaUrl(m.attachment_url)}
-                                alt="Attachment"
-                                style={{
-                                  width: 90,
-                                  height: 60,
-                                  objectFit: "cover",
-                                  borderRadius: 4,
-                                  border: "1px solid var(--border)",
-                                  cursor: "pointer",
-                                }}
-                                onClick={() => setPreviewImageUrl(toMediaUrl(m.attachment_url))}
-                              />
-                              <div>
+                      {m.attachment_url && (() => {
+                        const url = toMediaUrl(m.attachment_url);
+                        const name = attachmentName(m.attachment_url);
+                        const kind = attachmentKind(m.attachment_url);
+                        const ext = fileExtLabel(name);
+                        return (
+                          <div style={{ marginTop: 10 }}>
+                            {kind === "image" ? (
+                              /* ── Image: hero thumbnail + metadata row ── */
+                              <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--surface-2)" }}>
                                 <a
-                                  href={toMediaUrl(m.attachment_url)}
+                                  href={url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  style={{
-                                    fontSize: 11,
-                                    color: "#2563eb",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 3,
-                                    textDecoration: "none",
-                                    fontWeight: 600,
-                                  }}
+                                  aria-label={`Open ${name}`}
+                                  style={{ display: "block", padding: 0, lineHeight: 0 }}
                                 >
-                                  Open full image <ExternalLink size={11} />
+                                  <img src={url} alt={name} style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block" }} />
                                 </a>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+                                  <FileImage size={14} style={{ color: "#2563eb", flexShrink: 0 }} />
+                                  <span title={name} style={{ flex: 1, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                                  <a className="btn ghost sm" href={url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px" }}>
+                                    <ExternalLink size={12} /> Open
+                                  </a>
+                                  <a className="btn ghost sm" href={url} download={name} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px" }}>
+                                    <Download size={12} /> Download
+                                  </a>
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <a
-                              href={toMediaUrl(m.attachment_url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{
-                                fontSize: 12,
-                                color: "#2563eb",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                textDecoration: "none",
-                              }}
-                            >
-                              📎 View / Download Document <ExternalLink size={12} />
-                            </a>
-                          )}
-                        </div>
-                      )}
+                            ) : (
+                              /* ── File / PDF: icon card + metadata row ── */
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+                                <div style={{ width: 52, height: 52, display: "grid", placeItems: "center", borderRadius: 8, background: kind === "pdf" ? "#fef2f2" : "#eff6ff", border: `1px solid ${kind === "pdf" ? "#fecaca" : "#dbeafe"}`, color: kind === "pdf" ? "#dc2626" : "#2563eb", flexShrink: 0 }}>
+                                  {attachmentIcon(m.attachment_url, 24)}
+                                </div>
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <strong title={name} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{name}</strong>
+                                  <span style={{ display: "block", marginTop: 2, fontSize: 11, color: "var(--muted)" }}>
+                                    {ext && <span style={{ fontWeight: 700, marginRight: 4 }}>{ext}</span>}
+                                    {kind === "pdf" ? "PDF document" : "File attachment"}
+                                  </span>
+                                </div>
+                                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                                  <a className="btn ghost sm" href={url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px" }}>
+                                    <ExternalLink size={12} /> Open
+                                  </a>
+                                  <a className="btn ghost sm" href={url} download={name} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px" }}>
+                                    <Download size={12} /> Download
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })
@@ -937,35 +1016,6 @@ export function TeamDialogueView({
             </div>
           </div>
         </DetailDrawer>
-      )}
-
-      {/* ═══ IMAGE PREVIEW MODAL ═════════════════════════════════════════ */}
-      {previewImageUrl && (
-        <Modal title="Image / Screenshot Preview" onClose={() => setPreviewImageUrl(null)} wide>
-          <div style={{ textAlign: "center", padding: 10 }}>
-            <img
-              src={previewImageUrl}
-              alt="Screenshot Preview"
-              style={{
-                maxWidth: "100%",
-                maxHeight: "75vh",
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-              }}
-            />
-            <div style={{ marginTop: 12 }}>
-              <a
-                href={previewImageUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn ghost sm"
-                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-              >
-                <ExternalLink size={14} /> Open in New Tab
-              </a>
-            </div>
-          </div>
-        </Modal>
       )}
     </div>
   );

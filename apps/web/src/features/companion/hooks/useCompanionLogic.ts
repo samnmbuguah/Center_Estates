@@ -6,17 +6,15 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { companionNav } from "@/lib/module-nav";
 import { usePropertyContext } from "@/lib/property-context";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useDebounce } from "@/hooks/useDebounce";
 import { ChecklistItem, CompanionDash, CompanionTab, FeedbackMessage, FeedbackThread, Row, StaffHrRequest, StaffLeaveBalance, StaffLeaveRequest, TaskItem, TeamMember, companionTabLabels } from "../types/companion.types";
 
 export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const { session } = useAuth();
   const searchParams = useSearchParams();
   const org = session?.activeOrganizationId;
-  const isSuperAdmin = Boolean(
-    session?.user?.isSuperuser ||
-    session?.roles?.includes("platform-admin") ||
-    session?.roles?.includes("super-admin")
-  );
+  const permissions = usePermissions();
   const { activeProperty } = usePropertyContext();
 
   const [tab, setTabState] = useState<CompanionTab>(() => {
@@ -69,6 +67,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
   const [selectedTask, setSelectedTask] = useState<Row | null>(null);
   const [delegateTarget, setDelegateTarget] = useState<Row | null>(null);
@@ -79,9 +78,6 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const [showAssign, setShowAssign] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
   const [showNewThread, setShowNewThread] = useState(false);
-  const [showAddMember, setShowAddMember] = useState(false);
-  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
-  const [memberError, setMemberError] = useState("");
 
   // AI Prompt / Quartermaster
   const [aiPrompt, setAiPrompt] = useState("");
@@ -96,7 +92,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const [dateFilter, setDateFilter] = useState({ from: "", to: "" });
 
   const loadPropertiesAndRoles = useCallback(async () => {
-    if (!org) return;
+    if (!org || !permissions.isSuperAdmin) return; // Only load for super admins
     try {
       const [pRes, rRes] = await Promise.all([
         apiFetch("/property/properties/", {}, org),
@@ -115,20 +111,22 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     } catch {
       /* ignore */
     }
-  }, [org]);
+  }, [org, permissions.isSuperAdmin]);
 
   const loadMembers = useCallback(async () => {
-    if (!org) return;
+    if (!org || !permissions.isSuperAdmin) return; // Only load for super admins
     try {
       const res = await apiFetch(`/access/members/${activeProperty?.id ? `?property=${activeProperty.id}` : ""}`, {}, org);
       if (res.ok) {
         const data = await res.json();
         setMembers(Array.isArray(data) ? data : data.results || []);
+      } else if (res.status === 403) {
+        console.debug("User lacks permission for members endpoint");
       }
     } catch {
       /* ignore */
     }
-  }, [org, activeProperty?.id]);
+  }, [org, activeProperty?.id, permissions.isSuperAdmin]);
 
   const loadThreads = useCallback(async () => {
     if (!org) return;
@@ -142,6 +140,8 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
           const fresh = raw.find((t: FeedbackThread) => t.id === activeThread.id);
           if (fresh) setActiveThread(fresh);
         }
+      } else if (res.status === 403) {
+        console.debug("User lacks permission for feedback endpoint");
       }
     } catch {
       /* ignore */
@@ -158,9 +158,13 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       if (lRes.ok) {
         const data = await lRes.json();
         setLeaveRequests(Array.isArray(data) ? data : data.results || []);
+      } else if (lRes.status === 403) {
+        console.debug("User lacks permission for leave requests endpoint");
       }
       if (bRes.ok) {
         setLeaveBalance(await bRes.json());
+      } else if (bRes.status === 403) {
+        console.debug("User lacks permission for leave balance endpoint");
       }
     } catch {
       /* ignore */
@@ -174,6 +178,8 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       if (res.ok) {
         const data = await res.json();
         setHrRequests(Array.isArray(data) ? data : data.results || []);
+      } else if (res.status === 403) {
+        console.debug("User lacks permission for HR requests endpoint");
       }
     } catch {
       /* ignore */
@@ -189,7 +195,9 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       if (tab === "overview") {
         const res = await apiFetch(`/companion/dashboard/${propQuery ? `?${propQuery}` : ""}`, {}, org);
         if (res.ok) setDash(await res.json());
-        else setError("Failed to load companion dashboard.");
+        else if (res.status === 403) {
+          console.debug("User lacks permission for dashboard endpoint");
+        } else setError("Failed to load companion dashboard.");
       } else if (tab === "tasks" || tab === "my-tasks" || tab === "delegations") {
         let q = propQuery ? `?${propQuery}` : "";
         if (tab === "my-tasks") q += `${q ? "&" : "?"}assignee=${session?.user?.id ?? ""}`;
@@ -198,6 +206,8 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         if (res.ok) {
           const data = await res.json();
           setRows(Array.isArray(data) ? data : data.results || []);
+        } else if (res.status === 403) {
+          console.debug("User lacks permission for tasks endpoint");
         } else {
           setError("Failed to load tasks.");
         }
@@ -206,24 +216,28 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         if (res.ok) {
           const data = await res.json();
           setTemplates(Array.isArray(data) ? data : data.results || []);
+        } else if (res.status === 403) {
+          console.debug("User lacks permission for templates endpoint");
         }
       } else if (tab === "meter-readings") {
         const res = await apiFetch(`/facility/meters/${propQuery ? `?${propQuery}` : ""}`, {}, org);
         if (res.ok) {
           const data = await res.json();
           setRows(Array.isArray(data) ? data : data.results || []);
+        } else if (res.status === 403) {
+          console.debug("User lacks permission for meters endpoint");
         } else {
           setError("Failed to load meters.");
         }
       } else if (tab === "dialogue") {
         await loadThreads();
       } else if (tab === "hr-requests") {
-        await Promise.all([loadLeaveRequests(), loadHrRequests(), loadMembers()]);
-      } else if (tab === "team-matrix") {
-        await loadMembers();
-        await loadPropertiesAndRoles();
+        await Promise.all([loadLeaveRequests(), loadHrRequests()]);
+        if (permissions.isSuperAdmin) {
+          await loadMembers();
+        }
       } else if (tab === "performance" || tab === "staff") {
-        if (isSuperAdmin) {
+        if (permissions.isSuperAdmin) {
           const res = await apiFetch(`/companion/performance/?from=${dateFilter.from}&to=${dateFilter.to}`, {}, org);
           if (res.ok) {
             const data = await res.json();
@@ -237,19 +251,22 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     } finally {
       setLoading(false);
     }
-  }, [org, tab, activeProperty?.id, session?.user?.id, isSuperAdmin, dateFilter, loadThreads, loadMembers, loadPropertiesAndRoles, loadLeaveRequests, loadHrRequests]);
+  }, [org, tab, activeProperty?.id, session?.user?.id, permissions.isSuperAdmin, dateFilter, loadThreads, loadLeaveRequests, loadHrRequests]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  // Load admin data only when needed
   useEffect(() => {
-    loadMembers();
-    loadPropertiesAndRoles();
-  }, [loadMembers, loadPropertiesAndRoles]);
+    if (permissions.isSuperAdmin && (tab === "hr-requests" || tab === "performance" || tab === "staff")) {
+      loadMembers();
+      loadPropertiesAndRoles();
+    }
+  }, [permissions.isSuperAdmin, tab, loadMembers, loadPropertiesAndRoles]);
 
   const staffOptions = useMemo(() => {
-    if (members.length > 0) {
+    if (members.length > 0 && permissions.isSuperAdmin) {
       return members.map((m) => ({
         user_id: String(m.user_id),
         name: m.full_name,
@@ -263,55 +280,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       username: String(s.username || ""),
       role_name: "Staff",
     }));
-  }, [members, staff]);
-
-  async function handleAddMember(payload: Record<string, unknown>) {
-    if (!org) return;
-    setBusy(true);
-    setMemberError("");
-    try {
-      await apiFetch("/auth/csrf/");
-      const res = await apiFetch("/organizations/members/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify(payload),
-      }, org);
-      if (res.ok) {
-        setShowAddMember(false);
-        setMsg("Team member added successfully.");
-        await loadMembers();
-      } else {
-        const body = await res.json().catch(() => ({}));
-        setMemberError(String(body.detail || body.username || "Failed to create team member."));
-      }
-    } catch {
-      setMemberError("Network error while creating team member.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleEditMember(memberId: string, payload: Record<string, unknown>) {
-    if (!org) return;
-    setBusy(true);
-    try {
-      await apiFetch("/auth/csrf/");
-      const res = await apiFetch(`/organizations/members/${memberId}/`, {
-        method: "PATCH",
-        headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify(payload),
-      }, org);
-      if (res.ok) {
-        setEditingMember(null);
-        setMsg("Team member matrix updated successfully.");
-        await loadMembers();
-      }
-    } catch {
-      setMsg("Failed to update team member matrix.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [members, staff, permissions.isSuperAdmin]);
 
   async function handleCreateFeedback(payload: Record<string, unknown>) {
     if (!org) return;
@@ -357,6 +326,25 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
 
   async function handleReplyFeedback(threadId: string, message: string, attachmentUrl?: string) {
     if (!org) return;
+    
+    // Optimistic update
+    const previousThreads = [...threads];
+    const tempMessage = {
+      id: `temp-${Date.now()}`,
+      thread: threadId,
+      message,
+      attachment_url: attachmentUrl,
+      created_at: new Date().toISOString(),
+      sender_name: session?.user?.firstName || "You",
+    };
+    
+    // Update local state immediately
+    setThreads((prev) => prev.map((t) => 
+      t.id === threadId 
+        ? { ...t, messages: [...(t.messages || []), tempMessage] }
+        : t
+    ));
+    
     try {
       await apiFetch("/auth/csrf/");
       const res = await apiFetch(`/companion/feedback/${threadId}/messages/`, {
@@ -366,9 +354,13 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       }, org);
       if (res.ok) {
         await loadThreads();
+      } else {
+        // Revert on error
+        setThreads(previousThreads);
       }
     } catch {
-      /* ignore */
+      // Revert on error
+      setThreads(previousThreads);
     }
   }
 
@@ -383,6 +375,12 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       }, org);
       if (res.ok) {
         await loadThreads();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        const msg = body?.status || body?.detail || "Status update failed.";
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("ce:api-error", { detail: { message: String(msg) } }));
+        }
       }
     } catch {
       /* ignore */
@@ -501,6 +499,22 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
 
   async function handleUpdateChecklist(taskId: string, checklist: ChecklistItem[]) {
     if (!org) return;
+    
+    // Optimistic update
+    const previousRows = [...rows];
+    const previousSelectedTask = selectedTask ? {...selectedTask} : null;
+    
+    // Update local state immediately
+    const updatedTask = {
+      ...(selectedTask || previousRows.find(r => String(r.id) === String(taskId))),
+      checklist
+    };
+    
+    if (selectedTask && String(selectedTask.id) === String(taskId)) {
+      setSelectedTask(updatedTask);
+    }
+    setRows((prev) => prev.map((r) => (String(r.id) === String(taskId) ? updatedTask : r)));
+    
     try {
       await apiFetch("/auth/csrf/");
       const res = await apiFetch(`/companion/tasks/${taskId}/update-checklist/`, {
@@ -516,9 +530,15 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
           }
           setRows((prev) => prev.map((r) => (String(r.id) === String(taskId) ? updated : r)));
         }
+      } else {
+        // Revert on error
+        setRows(previousRows);
+        if (previousSelectedTask) setSelectedTask(previousSelectedTask);
       }
     } catch {
-      /* ignore */
+      // Revert on error
+      setRows(previousRows);
+      if (previousSelectedTask) setSelectedTask(previousSelectedTask);
     }
   }
 
@@ -709,7 +729,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     msg,
     setMsg,
     busy,
-    isSuperAdmin,
+    isSuperAdmin: permissions.isSuperAdmin,
     activeProperty,
     dash,
     rows,
@@ -753,11 +773,6 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     setShowTemplate,
     showNewThread,
     setShowNewThread,
-    showAddMember,
-    setShowAddMember,
-    editingMember,
-    setEditingMember,
-    memberError,
     aiPrompt,
     setAiPrompt,
     aiLoading,
@@ -784,12 +799,10 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     createThread: handleCreateFeedback,
     replyFeedback: handleReplyFeedback,
     updateThreadStatus: handleUpdateThreadStatus,
-    addMember: handleAddMember,
-    updateMember: handleEditMember,
+
     delegateTask: handleDelegateTask,
     runTaskAction,
-    handleAddMember,
-    handleEditMember,
+
     updateChecklist: handleUpdateChecklist,
     completeTaskWithEvidence: handleCompleteTaskWithEvidence,
     handleUpdateChecklist,
