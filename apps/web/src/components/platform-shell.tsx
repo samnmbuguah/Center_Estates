@@ -143,8 +143,10 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const { mode, toggleTheme } = useTheme();
 
   const allowedSlugs = useMemo(
-    () => (session?.modules.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug)),
-    [session?.modules],
+    () => session?.user?.isSuperuser
+      ? modules.map((module) => module.slug)
+      : (session?.modules.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug)),
+    [session?.modules, session?.user?.isSuperuser],
   );
 
   const filteredModules = useMemo(() => {

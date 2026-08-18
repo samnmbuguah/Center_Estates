@@ -44,6 +44,17 @@ class MembershipSerializer(serializers.ModelSerializer):
 
 def serialize_modules(organization, membership=None):
     subscriptions = Subscription.objects.available().filter(organization=organization)
+    is_superuser = bool(membership and getattr(membership.user, 'is_superuser', False))
+    if is_superuser:
+        subscription_limits = {
+            item.module: item.limits
+            for item in subscriptions
+        }
+        by_key = dict(Module.choices)
+        return [
+            {'slug': module, 'name': by_key[module], 'limits': subscription_limits.get(module, {})}
+            for module, _label in Module.choices
+        ]
     if membership and not membership.is_organization_admin:
         allowed_modules = membership.roles.filter(
             permissions__key__endswith='.view'

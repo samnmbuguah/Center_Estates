@@ -155,6 +155,30 @@ class AuthenticationApiTests(TestCase):
         self.assertTrue(all(response.status_code != 429 for response in responses[:10]))
         self.assertEqual(responses[-1].status_code, 429)
 
+    def test_superuser_receives_all_module_entitlements(self):
+        superuser = get_user_model().objects.create_superuser(
+            username='super-module-user',
+            email='super-module-user@example.com',
+            password='Correct-Horse-2026!',
+        )
+        organization = Organization.objects.create(name='Superuser Modules Org', slug='superuser-modules-org')
+        Membership.objects.create(user=superuser, organization=organization, is_default=True)
+        Subscription.objects.create(
+            organization=organization,
+            module=Module.PROPERTY,
+            status=Subscription.Status.ACTIVE,
+        )
+        self.client.force_authenticate(superuser)
+        response = self.client.get(
+            '/api/v1/auth/me/',
+            HTTP_X_ORGANIZATION_ID=str(organization.id),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(
+            {item['slug'] for item in response.data['modules']},
+            {module for module, _label in Module.choices},
+        )
+
     def test_workspace_pulse_returns_one_entitlement_scoped_payload(self):
         self.client.force_authenticate(self.user)
         response = self.client.get(

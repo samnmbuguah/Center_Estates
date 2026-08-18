@@ -49,7 +49,9 @@ export function CommandCenterWorkspace() {
   const { session } = useAuth();
   // Ensure companion module is always included as it's a universal module
   const allowed = new Set(
-    (session?.modules?.map((module) => module.slug) ?? modules.map((m) => m.slug)).filter((slug) => ACTIVE_MODULES.includes(slug)),
+    session?.user?.isSuperuser
+      ? modules.map((module) => module.slug)
+      : (session?.modules?.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug)),
   );
   
   // Always add companion as a universal module
