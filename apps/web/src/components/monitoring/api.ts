@@ -97,8 +97,13 @@ export type {
   Subcontractor, WorkOrder, WorkOrderSummary,
 } from "./api-types";
 
-export const CONSTRUCTION_BASE = "/api/v1/construction";
-export const CORE_BASE = "/api/v1";
+// The legacy construction client previously used relative /api/v1/... URLs,
+// which resolve against the web origin (centerestates.com). The platform API
+// lives on api.centerestates.com, so anchor these bases to the shared API base.
+import { API_BASE_URL } from "@/lib/api";
+
+export const CONSTRUCTION_BASE = `${API_BASE_URL}/construction`;
+export const CORE_BASE = API_BASE_URL;
 export const API_BASE = CONSTRUCTION_BASE;
 
 const TOKEN_KEY = "erp_access_token";

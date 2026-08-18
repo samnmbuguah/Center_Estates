@@ -78,11 +78,11 @@ class OrganizationAccessApiTests(TestCase):
         self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
         self.client = APIClient()
         self.client.force_authenticate(self.user)
-        self.view_permission = Permission.objects.create(
-            key='property.view', label='View Property Management', module=Module.PROPERTY,
+        self.view_permission, _ = Permission.objects.get_or_create(
+            key='property.view', defaults={'label': 'View Property Management', 'module': Module.PROPERTY},
         )
-        self.manage_permission = Permission.objects.create(
-            key='property.manage', label='Manage Property Management', module=Module.PROPERTY,
+        self.manage_permission, _ = Permission.objects.get_or_create(
+            key='property.manage', defaults={'label': 'Manage Property Management', 'module': Module.PROPERTY},
         )
 
     def test_administrator_can_create_update_and_delete_custom_role(self):
@@ -115,9 +115,9 @@ class OrganizationAccessApiTests(TestCase):
         response = self.client.get('/api/v1/access/roles/', **self.headers)
         self.assertEqual(response.status_code, 403)
 
-    def test_role_catalog_hides_legacy_system_presets(self):
+    def test_role_catalog_returns_standard_and_custom_roles(self):
         Role.objects.create(
-            organization=self.organization, name='Legacy Inspector', slug='facility-inspector', is_system=True,
+            organization=self.organization, name='Legacy Inspector', slug='legacy-inspector', is_system=True,
         )
         Role.objects.create(
             organization=self.organization, name='Portfolio Manager', slug='portfolio-manager', is_system=True,
@@ -130,4 +130,5 @@ class OrganizationAccessApiTests(TestCase):
         slugs = {item['slug'] for item in response.data}
         self.assertIn('portfolio-manager', slugs)
         self.assertIn(custom.slug, slugs)
-        self.assertNotIn('facility-inspector', slugs)
+        self.assertIn('legacy-inspector', slugs)
+        self.assertIn('property-manager', slugs)

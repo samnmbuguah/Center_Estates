@@ -50,7 +50,21 @@ def serialize_modules(organization, membership=None):
         ).values_list('permissions__module', flat=True).distinct()
         subscriptions = subscriptions.filter(module__in=allowed_modules)
     by_key = dict(Module.choices)
-    return [
+    
+    # Start with subscribed modules
+    modules = [
         {'slug': subscription.module, 'name': by_key[subscription.module], 'limits': subscription.limits}
         for subscription in subscriptions.order_by('module')
     ]
+    
+    # Add universal modules (companion) that should be accessible to all users
+    # Companion is a cross-cutting feature available to all organization members
+    existing_slugs = {m['slug'] for m in modules}
+    if Module.COMPANION not in existing_slugs:
+        modules.append({
+            'slug': Module.COMPANION,
+            'name': by_key[Module.COMPANION],
+            'limits': {}
+        })
+    
+    return modules

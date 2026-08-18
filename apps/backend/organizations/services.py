@@ -1,6 +1,72 @@
 from core.models import Module
 from .models import Permission, Role
 
+
+# Single Responsibility: Module Access Policies
+class ModuleAccessPolicy:
+    """Defines universal module access rules across the system."""
+    
+    # Universal access policies - modules that should be accessible to all roles
+    UNIVERSAL_MODULES = {
+        Module.COMPANION: "Staff collaboration and task management available to all users"
+    }
+    
+    # Cross-module access policies - roles that need access to multiple modules
+    CROSS_MODULE_ACCESS = {
+        "property-manager": {
+            Module.FACILITY: ["view", "work", "inspect", "administer", "approve", "report"],
+            Module.COMPANION: ["view", "assign", "performance"],
+        },
+        "portfolio-manager": {
+            Module.FACILITY: ["view", "work", "inspect", "administer", "approve", "report"],
+            Module.COMPANION: ["view", "assign", "performance"],
+        },
+        "operations-staff": {
+            Module.PROPERTY: ["view"],
+            Module.FACILITY: ["view", "manage", "work", "inspect", "report"],
+            Module.COMPANION: ["view", "manage", "assign"],
+        },
+        "caretaker": {
+            Module.PROPERTY: ["view"],
+            Module.COMPANION: ["view", "manage"],
+        },
+        "facility-technician": {
+            Module.PROPERTY: ["view"],
+            Module.COMPANION: ["view"],
+        },
+        "valuer-inspector": {
+            Module.PROPERTY: ["view"],
+            Module.COMPANION: ["view"],
+        },
+        "sales-agent": {
+            Module.PROPERTY: ["view"],
+            Module.COMPANION: ["view"],
+        },
+        "leasing-officer": {
+            Module.COMPANION: ["view"],
+        },
+        "property-accountant": {
+            Module.COMPANION: ["view"],
+        },
+        "finance-officer": {
+            Module.COMPANION: ["view"],
+        },
+        "read-only": {
+            Module.COMPANION: ["view"],
+        },
+    }
+    
+    @classmethod
+    def get_additional_modules_for_role(cls, role_slug):
+        """Returns additional modules a role should have access to."""
+        return cls.CROSS_MODULE_ACCESS.get(role_slug, {})
+    
+    @classmethod
+    def get_universal_modules(cls):
+        """Returns modules that should be accessible to all roles."""
+        return cls.UNIVERSAL_MODULES.keys()
+
+
 # Standard Domain Permissions definition across all 7 core modules
 DOMAIN_PERMISSIONS = {
     Module.PROPERTY: ("operations", "leasing", "finance"),
@@ -241,7 +307,7 @@ def ensure_standard_roles_for_organization(organization):
     admin_role.permissions.set(permission_catalog.values())
 
     # 2. Standard Business Roles
-    for role_slug, (role_name, module, granted, desc) in STANDARD_BUSINESS_ROLES.items():
+    for role_slug, (role_name, modules, granted, desc) in STANDARD_BUSINESS_ROLES.items():
         role_obj, _ = Role.objects.get_or_create(
             organization=organization,
             slug=role_slug,
@@ -252,28 +318,49 @@ def ensure_standard_roles_for_organization(organization):
             },
         )
         
-        # Build set of permission keys
-        perm_keys = [f"{module}.{suffix}" for suffix in granted if f"{module}.{suffix}" in permission_catalog]
-        
-        # Extra cross-module permissions for specific workflows
-        if role_slug == "portfolio-manager":
-            perm_keys = [k for k in permission_catalog.keys() if k.startswith(("property.", "facility.", "companion."))]
-        elif role_slug == "operations-staff":
-            perm_keys = [
-                "property.view", "facility.view", "facility.manage", "facility.work",
-                "facility.inspect", "facility.report", "companion.view", "companion.manage", "companion.assign"
-            ]
-        elif role_slug == "caretaker":
-            perm_keys.extend(["property.view", "companion.view", "companion.manage"])
-        elif role_slug == "facility-technician":
-            perm_keys.extend(["property.view", "companion.view"])
-        elif role_slug == "valuer-inspector":
-            perm_keys.extend(["property.view"])
-        elif role_slug == "sales-agent":
-            perm_keys.extend(["property.view"])
+        # Build permission set using policy-driven approach
+        perm_keys = _build_permission_keys_for_role(
+            role_slug, modules, granted, permission_catalog
+        )
 
         target_perms = [permission_catalog[k] for k in perm_keys if k in permission_catalog]
         if target_perms:
             role_obj.permissions.set(target_perms)
 
     return True
+
+
+def _build_permission_keys_for_role(role_slug, modules, granted, permission_catalog):
+    """
+    Build permission keys for a role using the module access policy.
+    Single Responsibility: Handles permission key construction logic.
+    """
+    perm_keys = []
+    
+    # Handle single or multiple modules
+    module_list = modules if isinstance(modules, (list, tuple)) else [modules]
+    
+    # Add base permissions for assigned modules
+    for module in module_list:
+        perm_keys.extend([
+            f"{module}.{suffix}" 
+            for suffix in granted 
+            if f"{module}.{suffix}" in permission_catalog
+        ])
+    
+    # Apply universal module access policy
+    for universal_module in ModuleAccessPolicy.get_universal_modules():
+        if f"{universal_module}.view" in permission_catalog:
+            perm_keys.append(f"{universal_module}.view")
+    
+    # Apply cross-module access policy with specific permissions
+    additional_modules = ModuleAccessPolicy.get_additional_modules_for_role(role_slug)
+    for additional_module, specific_permissions in additional_modules.items():
+        # Add specific permissions for additional modules
+        for perm_suffix in specific_permissions:
+            key = f"{additional_module}.{perm_suffix}"
+            if key in permission_catalog:
+                perm_keys.append(key)
+    
+    # Remove duplicates while preserving order
+    return list(dict.fromkeys(perm_keys))

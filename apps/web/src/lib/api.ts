@@ -45,7 +45,7 @@ export type Session = {
 
 const GET_CACHE_MS = 30_000;
 const MAX_GET_CACHE_ENTRIES = 120;
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
 const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
 const inFlightGets = new Map<string, Promise<Response>>();
 let csrfTokenCache = "";
@@ -103,6 +103,8 @@ async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {
+      // No known session on this browser — skip the refresh round-trip entirely.
+      if (typeof window !== "undefined" && sessionStorage.getItem("ce_authenticated") !== "1") return false;
       const csrfResponse = await fetch(`${API_BASE_URL}/auth/csrf/`, { credentials: "include" });
       await rememberCsrfToken(csrfResponse);
       if (!csrfResponse.ok || !csrfTokenCache) return false;
@@ -132,7 +134,10 @@ async function fetchWithSession(fullPath: string, init: RequestInit, headers: He
   const isAuthenticationRequest = ["/auth/login/", "/auth/refresh/", "/auth/logout/", "/auth/csrf/"].includes(fullPath);
   if (response.status === 401 && !isAuthenticationRequest) {
     if (await refreshAccessToken()) response = await execute();
-    if (response.status === 401 && fullPath !== "/auth/me/") announceExpiredSession();
+    // Only announce expiry for users who were previously authenticated;
+    // first-visit 401s on protected pages are normal and not session loss.
+    const hadSession = typeof window !== "undefined" && sessionStorage.getItem("ce_authenticated") === "1";
+    if (response.status === 401 && fullPath !== "/auth/me/" && hadSession) announceExpiredSession();
   }
   return response;
 }

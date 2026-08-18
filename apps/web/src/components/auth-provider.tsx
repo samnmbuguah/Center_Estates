@@ -14,6 +14,13 @@ import { isPublicRoute } from "@/lib/public-routes";
 import { OrganizationBrandingSync } from "@/lib/organization-branding";
 
 const QM_LOGIN_BRIEF_STORAGE_KEY = "ce_qm_brief_after_login";
+const AUTH_FLAG_STORAGE_KEY = "ce_authenticated";
+
+/** True when this browser has (or recently had) an authenticated platform session. */
+function hasKnownSession() {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(AUTH_FLAG_STORAGE_KEY) === "1";
+}
 
 type AuthContextValue = {
   session: Session | null;
@@ -39,9 +46,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadSession = useCallback(async (organizationId?: string | null): Promise<SessionLoadResult> => {
     try {
+      // Public pages are visited by anonymous traffic far more often than by
+      // signed-in users. Without a known session flag, skip the network
+      // round-trips entirely instead of emitting /auth/me/ 401 +
+      // /auth/refresh/ 400 noise for every anonymous page view. Auth cookies
+      // live on the API subdomain, so document.cookie cannot be used as a
+      // signal from the web origin.
+      const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
+      if (isPublicRoute(pathname) && !hasKnownSession()) {
+        setSession(null);
+        return "unauthenticated";
+      }
       const selected = organizationId ?? localStorage.getItem("ce_organization");
       const response = await apiFetch("/auth/me/", {}, selected);
       if (response.status === 401 || response.status === 403) {
+        if (typeof window !== "undefined") sessionStorage.removeItem(AUTH_FLAG_STORAGE_KEY);
         setSession(null);
         return "unauthenticated";
       }
@@ -51,12 +70,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response.ok) return "unavailable";
       const data = await response.json() as Session;
       setSession(data);
+      if (typeof window !== "undefined") sessionStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
       if (data.activeOrganizationId) localStorage.setItem("ce_organization", data.activeOrganizationId);
       // Warm the CSRF token for the next mutation without making a temporary
       // CSRF endpoint failure invalidate an otherwise healthy session.
       void apiFetch("/auth/csrf/").catch(() => undefined);
       return "authenticated";
-    } catch {
+    } catch (error) {
+      // Log the error but don't expose to user - treat as temporary network issue
+      console.debug("Session load error (will retry):", error);
       return "unavailable";
     }
   }, []);
@@ -64,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleExpiredSession = () => {
       setSession(null);
+      sessionStorage.removeItem(AUTH_FLAG_STORAGE_KEY);
       if (isPublicRoute(pathname)) return;
       router.replace("/login?reason=session-expired");
     };
@@ -105,6 +128,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch { /* non-JSON error body */ }
       throw new Error(message);
     }
+    // Credentials verified: mark the browser as authenticated before the
+    // post-login session load so the public-route bootstrap skip doesn't
+    // short-circuit it while we are still on /login.
+    sessionStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
     const sessionResult = await loadSession(null);
     if (sessionResult !== "authenticated") throw new Error("Signed in, but the workspace could not be loaded. Please retry.");
     sessionStorage.setItem(QM_LOGIN_BRIEF_STORAGE_KEY, "1");
@@ -120,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiFetch("/auth/logout/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } }).catch(() => undefined);
     } finally {
       localStorage.removeItem("ce_organization");
+      sessionStorage.removeItem(AUTH_FLAG_STORAGE_KEY);
       sessionStorage.removeItem(QM_LOGIN_BRIEF_STORAGE_KEY);
       sessionStorage.removeItem("ce_return_after_login");
       setSession(null);

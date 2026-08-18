@@ -161,9 +161,55 @@ class AuthenticationApiTests(TestCase):
             '/api/v1/workspace/pulse/', HTTP_X_ORGANIZATION_ID=str(self.organization.id),
         )
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(set(response.data['pulse']), {Module.PROPERTY})
+        # Companion is a universal module: every member is entitled regardless
+        # of organisation subscriptions.
+        self.assertEqual(set(response.data['pulse']), {Module.PROPERTY, Module.COMPANION})
         self.assertEqual(response.data['pulse'][Module.PROPERTY]['properties'], 0)
         self.assertEqual(response.data['pulse'][Module.PROPERTY]['occupancy'], 0)
+
+    def test_register_attaches_new_user_to_center_estates_with_property_manager_role(self):
+        from organizations.models import Membership, Role
+
+        center_org = Organization.objects.create(name='Center Estates Demo', slug='center-estates-demo')
+        pm_role = Role.objects.create(organization=center_org, name='Property Manager', slug='property-manager')
+
+        response = self.client.post(
+            '/api/v1/auth/register/',
+            {'email': 'new.signup@example.com', 'password': 'Correct-Horse-2026!'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        user = get_user_model().objects.get(email='new.signup@example.com')
+        self.assertEqual(user.username, 'new.signup')
+        membership = Membership.objects.get(user=user, organization=center_org)
+        self.assertTrue(membership.is_default)
+        self.assertFalse(membership.is_organization_admin)
+        self.assertIn(pm_role, membership.roles.all())
+
+    def test_register_derives_unique_username_when_email_prefix_is_taken(self):
+        get_user_model().objects.create_user(username='taken.user', email='other.person@example.com', password='x')
+        response = self.client.post(
+            '/api/v1/auth/register/',
+            {'email': 'taken.user@example.com', 'password': 'Correct-Horse-2026!'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['username'], 'taken.user-1')
+
+    def test_register_rejects_duplicate_email(self):
+        response = self.client.post(
+            '/api/v1/auth/register/',
+            {'email': 'dup.email@example.com', 'password': 'Correct-Horse-2026!'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        response = self.client.post(
+            '/api/v1/auth/register/',
+            {'email': 'dup.email@example.com', 'password': 'Correct-Horse-2026!'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn('email', response.data)
 
 # Create your tests here.
 
@@ -189,7 +235,9 @@ class ModuleRolePermissionApiTests(TestCase):
         for module, label in Module.choices:
             Subscription.objects.create(organization=self.organization, module=module, status=Subscription.Status.ACTIVE)
             role = Role.objects.create(organization=self.organization, name=f'{label} role', slug=f'{module}-role')
-            view = Permission.objects.create(key=f'{module}.view', label=f'View {label}', module=module)
+            view, _ = Permission.objects.get_or_create(
+                key=f'{module}.view', defaults={'label': f'View {label}', 'module': module},
+            )
             role.permissions.add(view); MembershipRole.objects.create(membership=self.membership, role=role)
             self.roles[module] = role
         self.client = APIClient(); self.client.force_authenticate(self.user)
@@ -203,13 +251,17 @@ class ModuleRolePermissionApiTests(TestCase):
 
     def test_resource_permission_allows_request_to_reach_domain_validation(self):
         for module, (_dashboard, collection, domain) in self.routes.items():
-            permission = Permission.objects.create(key=f'{module}.{domain}', label=f'{domain} {module}', module=module)
+            permission, _ = Permission.objects.get_or_create(
+                key=f'{module}.{domain}', defaults={'label': f'{domain} {module}', 'module': module},
+            )
             self.roles[module].permissions.add(permission)
             with self.subTest(module=module):
                 self.assertEqual(self.client.post(collection, {}, format='json', **self.headers).status_code, 400)
 
     def test_unrelated_domain_permission_does_not_authorize_mutation(self):
-        leasing = Permission.objects.create(key='property.leasing', label='Leasing', module=Module.PROPERTY)
+        leasing, _ = Permission.objects.get_or_create(
+            key='property.leasing', defaults={'label': 'Leasing', 'module': Module.PROPERTY},
+        )
         self.roles[Module.PROPERTY].permissions.add(leasing)
         self.assertEqual(
             self.client.post('/api/v1/property/properties/', {}, format='json', **self.headers).status_code,
@@ -223,10 +275,14 @@ class ModuleRolePermissionApiTests(TestCase):
         self.assertEqual(response.data['pulse'][Module.FACILITY]['compliance'], 100)
 
     def test_approval_action_requires_separate_approval_permission(self):
-        manage = Permission.objects.create(key='sales.manage', label='Manage sales', module=Module.SALES)
+        manage, _ = Permission.objects.get_or_create(
+            key='sales.manage', defaults={'label': 'Manage sales', 'module': Module.SALES},
+        )
         self.roles[Module.SALES].permissions.add(manage)
         url = '/api/v1/sales/payments/00000000-0000-0000-0000-000000000001/verify/'
         self.assertEqual(self.client.post(url, {}, format='json', **self.headers).status_code, 403)
-        approve = Permission.objects.create(key='sales.approve', label='Approve sales', module=Module.SALES)
+        approve, _ = Permission.objects.get_or_create(
+            key='sales.approve', defaults={'label': 'Approve sales', 'module': Module.SALES},
+        )
         self.roles[Module.SALES].permissions.add(approve)
         self.assertEqual(self.client.post(url, {}, format='json', **self.headers).status_code, 404)

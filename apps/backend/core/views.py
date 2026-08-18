@@ -11,6 +11,7 @@ from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt, csrf_protect
+import re
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -160,7 +161,11 @@ class CalendarFeedView(APIView):
 
 
 class TicketsFeedView(APIView):
-    """Role-aware, cross-cutting tickets and operational issues feed assembled from active modules."""
+    """Role-aware, cross-cutting tickets and operational issues feed assembled from active modules.
+    
+    Tickets are a cross-cutting feature available to all authenticated organization members,
+    not a module-specific feature. Users will see tickets from modules they have access to.
+    """
 
     permission_classes = (IsAuthenticated,)
 
@@ -208,6 +213,33 @@ class TicketsFeedView(APIView):
                 'updated_at': updated_at.isoformat() if updated_at else None,
             })
 
+        # Include companion tasks for all organization members (core feature, not module-gated)
+        if organization:
+            try:
+                from companion.models import Task
+                companion_tasks = scope_model_queryset(Task, request, organization).select_related('property', 'assignee', 'assigned_by').order_by('-updated_at')[:50]
+                if not is_admin:
+                    companion_tasks = companion_tasks.filter(Q(assignee=request.user) | Q(assigned_by=request.user))
+                for task in companion_tasks:
+                    add(
+                        id=f'task:{task.pk}',
+                        reference=task.reference,
+                        title=task.title,
+                        description=task.description,
+                        priority=task.priority,
+                        status=task.status,
+                        module='companion',
+                        source_url='/companion',
+                        property_record=task.property,
+                        assigned_to=task.assignee.get_username() if task.assignee else None,
+                        raised_by=task.assigned_by.get_username() if task.assigned_by else None,
+                        created_at=task.created_at,
+                        updated_at=task.updated_at,
+                    )
+            except Exception:
+                pass
+
+        # Include module-specific tickets only if user has module access
         if can(Module.FACILITY) or can(Module.PROPERTY):
             from facilities.models import WorkOrder, ServiceRequest
             for order in scope_model_queryset(WorkOrder, request, organization).select_related('property', 'assigned_to', 'reported_by').order_by('-reported_at')[:50]:
@@ -241,28 +273,6 @@ class TicketsFeedView(APIView):
                     raised_by=req.tenant.name if req.tenant else None,
                     created_at=req.submitted_at,
                     updated_at=getattr(req, 'updated_at', req.submitted_at),
-                )
-
-        if can(Module.COMPANION):
-            from companion.models import Task
-            companion_tasks = scope_model_queryset(Task, request, organization).select_related('property', 'assignee', 'assigned_by').order_by('-updated_at')[:50]
-            if not is_admin:
-                companion_tasks = companion_tasks.filter(Q(assignee=request.user) | Q(assigned_by=request.user))
-            for task in companion_tasks:
-                add(
-                    id=f'task:{task.pk}',
-                    reference=task.reference,
-                    title=task.title,
-                    description=task.description,
-                    priority=task.priority,
-                    status=task.status,
-                    module='companion',
-                    source_url='/companion',
-                    property_record=task.property,
-                    assigned_to=task.assignee.get_username() if task.assignee else None,
-                    raised_by=task.assigned_by.get_username() if task.assigned_by else None,
-                    created_at=task.created_at,
-                    updated_at=task.updated_at,
                 )
 
         if can(Module.MONITORING):
@@ -914,10 +924,6 @@ class RegisterView(APIView):
         organization_name = str(data.get('organization_name', '')).strip()
 
         errors = {}
-        if not username:
-            errors['username'] = ['This field is required.']
-        elif User.objects.filter(username=username).exists():
-            errors['username'] = ['A user with that username already exists.']
         if not email:
             errors['email'] = ['This field is required.']
         elif User.objects.filter(email=email).exists():
@@ -925,6 +931,20 @@ class RegisterView(APIView):
         if not password:
             errors['password'] = ['This field is required.']
         if errors:
+            return Response(errors, status=400)
+
+        # The public sign-up form only collects an email address; derive a
+        # unique username from it when the client doesn't send one explicitly.
+        if not username:
+            base = re.sub(r'[^a-zA-Z0-9._-]+', '', email.split('@')[0]).lower()[:60] or 'user'
+            candidate = base
+            counter = 1
+            while User.objects.filter(username=candidate).exists():
+                candidate = f'{base}-{counter}'
+                counter += 1
+            username = candidate
+        elif User.objects.filter(username=username).exists():
+            errors['username'] = ['A user with that username already exists.']
             return Response(errors, status=400)
 
         # Validate password strength
@@ -942,13 +962,13 @@ class RegisterView(APIView):
             is_active=True,
         )
 
-        # Optionally create an organisation and link as admin
+        from organizations.models import Membership, Organization, Role
+
         if organization_name:
+            # Registrant explicitly asked for their own organisation: create it
+            # and link them as admin.
             try:
-                from organizations.models import Organization
-                import re
                 slug = re.sub(r'[^a-z0-9]+', '-', organization_name.lower()).strip('-')[:50]
-                # Make slug unique
                 base_slug = slug
                 counter = 1
                 while Organization.objects.filter(slug=slug).exists():
@@ -958,6 +978,30 @@ class RegisterView(APIView):
                 Membership.objects.create(user=user, organization=org, is_organization_admin=True, is_default=True)
             except Exception:
                 pass  # Organisation creation is optional, don't fail registration
+        else:
+            # Default onboarding: join the Center Estates organisation as a
+            # property manager so new users land in a usable workspace.
+            try:
+                org = Organization.objects.filter(slug='center-estates-demo').first()
+                if org is None:
+                    org = Organization.objects.filter(name='Center Estates Demo', is_active=True).first()
+                if org is None:
+                    org = Organization.objects.filter(is_active=True).order_by('created_at').first()
+                if org is None:
+                    org = Organization.objects.create(name='Center Estates Demo', slug='center-estates-demo', is_active=True)
+                membership, membership_created = Membership.objects.get_or_create(
+                    user=user,
+                    organization=org,
+                    defaults={'is_default': True},
+                )
+                if membership_created and not Membership.objects.filter(user=user, is_default=True).exists():
+                    membership.is_default = True
+                    membership.save()
+                role = Role.objects.filter(organization=org, slug='property-manager').first()
+                if role is not None:
+                    membership.roles.add(role)
+            except Exception:
+                pass  # Default organisation assignment is best-effort
 
         return Response({
             'detail': 'Account created successfully. You can now sign in.',
@@ -984,3 +1028,26 @@ class PasswordResetRequestView(APIView):
                 import logging
                 logging.getLogger(__name__).info('Password reset requested for %s', email)
         return Response({'detail': 'If an account with that email exists, you will receive a reset link shortly.'})
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ClientErrorView(APIView):
+    """Receive client-side error reports from the frontend.
+    CSRF-exempt: called from global error handlers before any session exists."""
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    @extend_schema(request=None, responses={202: {'type': 'object'}})
+    def post(self, request):
+        import logging
+        logger = logging.getLogger('client-errors')
+        data = request.data
+        message = str(data.get('message', ''))[:500]
+        stack = str(data.get('stack', ''))[:2000]
+        url = str(data.get('url', ''))[:500]
+        release = str(data.get('release', ''))[:50]
+        extra = data.get('extra', {})
+        logger.warning('CLIENT ERROR [%s] %s | url=%s | extra=%s', release, message, url, extra)
+        if stack:
+            logger.debug('Stack: %s', stack[:500])
+        return Response({'detail': 'Error logged.'}, status=202)

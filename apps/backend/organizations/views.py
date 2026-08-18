@@ -37,9 +37,26 @@ class PermissionListView(OrganizationAdminAPIView):
         organization, error = self.context(request)
         if error:
             return error
-        ensure_permission_catalog()
-        permissions = Permission.objects.all().order_by("module", "key")
-        return Response(PermissionSerializer(permissions, many=True).data)
+        import time
+        from django.db import OperationalError
+        for attempt in range(3):
+            try:
+                ensure_permission_catalog()
+                permissions = Permission.objects.all().order_by("module", "key")
+                return Response(PermissionSerializer(permissions, many=True).data)
+            except OperationalError:
+                if attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                return Response(
+                    {"detail": "Database is busy. Please retry."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+            except Exception as e:
+                return Response(
+                    {"detail": f"Error loading permissions: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
 
 class RoleListCreateView(OrganizationAdminAPIView):
@@ -49,10 +66,26 @@ class RoleListCreateView(OrganizationAdminAPIView):
         organization, error = self.context(request)
         if error:
             return error
-        # Ensure all standard default embedded roles exist for this organization
-        ensure_standard_roles_for_organization(organization)
-        roles = organization.roles.all().prefetch_related("permissions", "memberships").order_by("is_system", "name")
-        return Response(RoleSerializer(roles, many=True).data)
+        import time
+        from django.db import OperationalError
+        for attempt in range(3):
+            try:
+                ensure_standard_roles_for_organization(organization)
+                roles = organization.roles.all().prefetch_related("permissions", "memberships").order_by("is_system", "name")
+                return Response(RoleSerializer(roles, many=True).data)
+            except OperationalError:
+                if attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                return Response(
+                    {"detail": "Database is busy. Please retry."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+            except Exception as e:
+                return Response(
+                    {"detail": f"Error loading roles: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
     def post(self, request):
         organization, error = self.context(request)

@@ -553,7 +553,7 @@ class PropertyApiTests(TestCase):
         self.assertEqual(catalogue.status_code, 200)
         categories = {row['category'] for row in catalogue.data['reports']}
         self.assertEqual(categories, {
-            'Financial', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk',
+            'Financial', 'Tenants & Occupancy', 'Service Providers', 'Compliance & Risk', 'Directory & Contacts',
         })
         financial_sections = {
             row.get('section') for row in catalogue.data['reports'] if row['category'] == 'Financial'

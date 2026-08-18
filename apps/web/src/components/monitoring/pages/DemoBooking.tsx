@@ -1,5 +1,7 @@
 import { CalendarCheck, Clock, Monitor, Shield, Users } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth-provider";
 import { Link } from "@/components/monitoring/react-router-shim";
 
 const BENEFITS = [
@@ -10,8 +12,17 @@ const BENEFITS = [
 ];
 
 export function DemoBooking() {
+  const { session } = useAuth();
+  const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", company: "", phone: "", message: "" });
+
+  // Redirect logged-out users to sign-up page
+  useEffect(() => {
+    if (!session) {
+      router.replace("/sign-up");
+    }
+  }, [session, router]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
