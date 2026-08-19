@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Box, Button, Chip, MenuItem, TextField, Typography, Grid } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
@@ -32,6 +33,7 @@ export function PropertiesView({
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAdd: () => void; onSelectRow: (r: Row) => void;
 }) {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
   const props = rows as PropertyRow[];
@@ -155,7 +157,8 @@ export function PropertiesView({
                     <td className="mono" style={{ color: Number(p.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{p.outstanding === undefined ? "—" : kM(p.outstanding)}</td>
                     <td><StatusPill value={String(p.status ?? "—")} /></td>
                     <td>
-                      <div className="row" style={{ gap: 6 }}>
+                      <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); router.push(`/property-onboarding?edit=${p.id}`); }}>Edit</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("units"); }}>Units</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("tenants"); }}>Tenants</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("rent"); }}>Rent</button>

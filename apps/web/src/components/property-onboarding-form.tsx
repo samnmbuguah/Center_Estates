@@ -214,17 +214,23 @@ export function PropertyOnboardingForm() {
     const required = ["unit_no", "unit_type", "floor", "use", "area"] as const;
     const missing = required.filter(name => columns[name] < 0);
     if (missing.length) {
-      setError(`Unit CSV is missing required column(s): ${missing.join(", ")}. Optional columns: rateable_area, building_number, description.`); jump("units"); return;
+      setError(`Unit CSV is missing required column(s): ${missing.join(", ")}. Download the template for the exact column headers. Optional columns: rateable_area, building_number, description.`); jump("units"); return;
     }
     const imported: UnitDraft[] = rows.map(row => ({
       unit_no: cell(row, columns.unit_no), unit_type: cell(row, columns.unit_type), floor: cell(row, columns.floor),
       use: cell(row, columns.use), area: cell(row, columns.area), rateable_area: cell(row, columns.rateable_area),
       building_index: cell(row, columns.building_index), description: cell(row, columns.description),
     }));
+    const emptyRows = imported.filter(unit => !unit.unit_no || !unit.unit_type || !unit.floor || !unit.use);
+    const badArea = imported.filter(unit => !Number(unit.area) || Number(unit.area) <= 0);
+    const dupeCodes = imported.filter((unit, i) => imported.findIndex(u => u.unit_no.toLowerCase() === unit.unit_no.toLowerCase()) !== i);
     const allCodes = [...units.map(unit => unit.unit_no.toLowerCase()), ...imported.map(unit => unit.unit_no.toLowerCase())];
-    if (!imported.length || imported.length + units.length > 500 || imported.some(unit => !unit.unit_no || !unit.unit_type || !unit.floor || !unit.use || Number(unit.area) <= 0) || new Set(allCodes).size !== allCodes.length) {
-      setError("Unit import contains missing required values, invalid areas, duplicate unit numbers, or exceeds 500 units."); jump("units"); return;
-    }
+    const globalDupes = new Set(allCodes).size !== allCodes.length;
+    if (!imported.length) { setError("The CSV file contains no data rows. Ensure at least one unit row is present."); jump("units"); return; }
+    if (emptyRows.length) { setError(`Row(s) with unit_no "${emptyRows.slice(0, 3).map(r => r.unit_no).join('", "')}" are missing required fields (unit_no, type, floor, use). Every row must have all 5 required columns filled.`); jump("units"); return; }
+    if (badArea.length) { setError(`Row(s) with unit_no "${badArea.slice(0, 3).map(r => r.unit_no).join('", "')}" have an invalid area. Area must be a positive number.`); jump("units"); return; }
+    if (dupeCodes.length || globalDupes) { setError("Duplicate unit numbers found within the CSV or between the CSV and manually added units. Each unit number must be unique."); jump("units"); return; }
+    if (imported.length + units.length > 500) { setError(`Importing ${imported.length} units would exceed the 500-unit limit (currently ${units.length} units). Reduce the batch size.`); jump("units"); return; }
     setUnits(current => [...current, ...imported]); setError("");
   };
 
@@ -237,9 +243,14 @@ export function PropertyOnboardingForm() {
       setError(`Asset CSV columns must be: ${expected.join(", ")}.`); jump("assets"); return;
     }
     const imported: AssetDraft[] = rows.map(row => ({ name: row[0] ?? "", category: row[1] ?? "", location: row[2] ?? "", quantity: row[3] ?? "1", status: (row[4] || "active").toLowerCase() }));
-    if (!imported.length || imported.length + assets.length > 500 || imported.some(asset => !asset.name || Number(asset.quantity) <= 0 || !["active", "inactive", "maintenance"].includes(asset.status))) {
-      setError("Asset import contains missing names, invalid quantities/statuses, or exceeds 500 assets."); jump("assets"); return;
-    }
+    const nameless = imported.filter(asset => !asset.name);
+    const badQty = imported.filter(asset => !Number(asset.quantity) || Number(asset.quantity) <= 0);
+    const badStatus = imported.filter(asset => !["active", "inactive", "maintenance"].includes(asset.status));
+    if (!imported.length) { setError("The asset CSV file contains no data rows. Ensure at least one asset row is present."); jump("assets"); return; }
+    if (nameless.length) { setError(`${nameless.length} asset row(s) are missing a name. Every asset must have a name.`); jump("assets"); return; }
+    if (badQty.length) { setError(`Asset "${badQty[0].name}" has an invalid quantity. Quantity must be a positive number.`); jump("assets"); return; }
+    if (badStatus.length) { setError(`Asset "${badStatus[0].name}" has an invalid status. Allowed: active, inactive, maintenance.`); jump("assets"); return; }
+    if (imported.length + assets.length > 500) { setError(`Importing ${imported.length} assets would exceed the 500-asset limit (currently ${assets.length}).`); jump("assets"); return; }
     setAssets(current => [...current, ...imported]); setError("");
   };
 
@@ -250,7 +261,12 @@ export function PropertyOnboardingForm() {
     const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) { setError(`Contact CSV columns must be: ${expected.join(", ")}.`); jump("contacts"); return; }
     const imported = rows.map(row => ({ name: row[0] ?? "", role: row[1] ?? "", email: row[2] ?? "", phone: row[3] ?? "" }));
-    if (!imported.length || imported.length + contacts.length > 500 || imported.some(contact => !contact.name || (!contact.email && !contact.phone))) { setError("Each imported contact needs a name and either an email address or phone number. Maximum 500 contacts."); jump("contacts"); return; }
+    const noName = imported.filter(c => !c.name);
+    const noContact = imported.filter(c => !c.email && !c.phone);
+    if (!imported.length) { setError("The contacts CSV file contains no data rows."); jump("contacts"); return; }
+    if (noName.length) { setError(`${noName.length} contact(s) are missing a name. Every contact must have a name.`); jump("contacts"); return; }
+    if (noContact.length) { setError(`Contact "${noContact[0].name}" is missing both email and phone. At least one is required.`); jump("contacts"); return; }
+    if (imported.length + contacts.length > 500) { setError(`Importing ${imported.length} contacts would exceed the 500-contact limit (currently ${contacts.length}).`); jump("contacts"); return; }
     setContacts(current => [...current, ...imported]); setError("");
   };
 
@@ -261,7 +277,12 @@ export function PropertyOnboardingForm() {
     const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) { setError(`Service-provider CSV columns must be: ${expected.join(", ")}.`); jump("providers"); return; }
     const imported = rows.map(row => ({ name: row[0] ?? "", service: row[1] ?? "", contact: row[2] ?? "", email: row[3] ?? "", phone: row[4] ?? "" }));
-    if (!imported.length || imported.length + providers.length > 500 || imported.some(provider => !provider.name || !provider.service)) { setError("Each imported service provider needs a provider name and service. Maximum 500 providers."); jump("providers"); return; }
+    const noName = imported.filter(p => !p.name);
+    const noService = imported.filter(p => !p.service);
+    if (!imported.length) { setError("The service provider CSV file contains no data rows."); jump("providers"); return; }
+    if (noName.length) { setError(`${noName.length} provider(s) are missing a provider name.`); jump("providers"); return; }
+    if (noService.length) { setError(`Provider "${noService[0].name}" is missing a service description.`); jump("providers"); return; }
+    if (imported.length + providers.length > 500) { setError(`Importing ${imported.length} providers would exceed the 500-provider limit (currently ${providers.length}).`); jump("providers"); return; }
     setProviders(current => [...current, ...imported]); setError("");
   };
 
@@ -273,7 +294,14 @@ export function PropertyOnboardingForm() {
     if (expected.some((header, index) => headers[index] !== header)) { setError(`Utility CSV columns must be: ${expected.join(", ")}.`); jump("utilities"); return; }
     const imported: UtilityDraft[] = rows.map(row => ({ type: (row[0] || "").toLowerCase(), supply_mode: (row[1] || "postpaid").toLowerCase(), account_no: row[2] ?? "", provider: row[3] ?? "", bill_cycle: row[4] || "monthly", meter_code: row[5] ?? "", initial_reading: row[6] ?? "", reading_date: row[7] ?? "", tariff: row[8] || "0", unit: row[9] || (row[0] === "electricity" ? "kWh" : "m³"), status: (row[10] || "active").toLowerCase() }));
     const validTypes = ["water", "electricity", "sewerage", "gas", "internet"];
-    if (!imported.length || imported.length + utilities.length > 100 || imported.some(utility => !validTypes.includes(utility.type) || (!utility.account_no && !utility.meter_code) || Number(utility.tariff) < 0 || Number(utility.initial_reading || 0) < 0 || (utility.type === "electricity" && !["prepaid", "postpaid"].includes(utility.supply_mode)))) { setError("Utility import has an invalid type, billing mode, account/meter number, tariff or opening reading. Maximum 100 accounts."); jump("utilities"); return; }
+    const invalidType = imported.find(utility => !validTypes.includes(utility.type));
+    const missingAccount = imported.find(utility => !utility.account_no && !utility.meter_code);
+    const badTariff = imported.find(utility => Number(utility.tariff) < 0);
+    if (!imported.length) { setError("The utility CSV file contains no data rows. Ensure at least one utility row is present."); jump("utilities"); return; }
+    if (invalidType) { setError(`Utility type "${invalidType.type}" is not valid. Allowed types: ${validTypes.join(", ")}.`); jump("utilities"); return; }
+    if (missingAccount) { setError(`Utility "${missingAccount.type}" is missing both account number and meter number. At least one is required.`); jump("utilities"); return; }
+    if (badTariff) { setError(`Utility "${badTariff.type}" has a negative tariff value. Tariff must be zero or positive.`); jump("utilities"); return; }
+    if (imported.length + utilities.length > 100) { setError(`Importing ${imported.length} utilities would exceed the 100-account limit (currently ${utilities.length}). Reduce the batch size.`); jump("utilities"); return; }
     setUtilities(current => [...current, ...imported]); setError("");
   };
 
@@ -283,6 +311,18 @@ export function PropertyOnboardingForm() {
       setError("Complete all required property, landlord and address fields before saving."); jump("general"); return;
     }
     setSaving(true); setError("");
+    const buildingList = buildings.length > 0
+      ? buildings.map(b => ({ name: b.name, floors: Number(b.floors || 1), floor_numbers: b.floor_numbers, use: b.use, access_points: b.access_points, parking_spaces: Number(b.parking_spaces || 0), amenities: b.amenities }))
+      : [{ name: "Main Building", floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" }];
+    const badBuilding = units.find(u => {
+      const idx = Number(u.building_index);
+      if (!idx) return false;
+      return idx < 1 || idx > buildingList.length;
+    });
+    if (badBuilding) {
+      setError(`Unit "${badBuilding.unit_no}" references building #${badBuilding.building_index}, but only ${buildingList.length} building(s) exist. Use building number 1–${buildingList.length} or leave blank.`);
+      jump("units"); setSaving(false); return;
+    }
     const metadata = {
       category: values.category || "", lr_number: values.lr_number, pin_number: values.pin_number || "",
       year_built: values.year_built || null, title_type: values.title_type, land_size_sqft: values.land_size || null,
@@ -304,9 +344,7 @@ export function PropertyOnboardingForm() {
         body: JSON.stringify({
           property: { name: values.name.trim(), property_type: values.property_type, status: values.status, address: values.address, city: values.city, country: values.country, metadata },
           building: {
-            buildings: buildings.length > 0
-              ? buildings.map(b => ({ name: b.name, floors: Number(b.floors || 1), floor_numbers: b.floor_numbers, use: b.use, access_points: b.access_points, parking_spaces: Number(b.parking_spaces || 0), amenities: b.amenities }))
-              : [{ name: "Main Building", floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" }],
+            buildings: buildingList,
           },
           units,
         }),
@@ -346,14 +384,14 @@ export function PropertyOnboardingForm() {
   };
 
   return <Box className="property-onboarding-card" sx={{ width: "100%", maxWidth: 1320, mx: "auto", px: { xs: 1.5, md: 3 }, py: 2.5 }}>
-    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/overview")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800 }}>{editId ? `Edit Property: ${values.name || "Loading..."}` : "Property Onboarding Card"}</Typography><Typography color="text.secondary" variant="body2">{editId ? "Update property attributes, structure, and associated details." : "Codes and internal IDs are generated automatically."}</Typography></Box></Box>
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
-        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-template.csv", [["utility_type","supply_mode","account_number","provider","bill_cycle","meter_number","opening_reading","reading_date","tariff","unit","status"],["water","postpaid","WTR-100","County Water","monthly","MTR-WTR-100","250","2026-08-01","120","m³","active"],["electricity","prepaid","KPLC-200","KPLC","prepaid","MTR-KPLC-200","","","0","kWh","active"]])}>Utility template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload utilities<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
-        <Button variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save & Close"}</Button>
+    <Box sx={{ display: "flex", alignItems: { xs: "flex-start", sm: "center" }, justifyContent: "space-between", gap: 2, mb: 2, flexDirection: { xs: "column", sm: "row" } }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/overview")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800, fontSize: { xs: "1.25rem", md: "1.5rem" } }}>{editId ? `Edit Property: ${values.name || "Loading..."}` : "Property Onboarding"}</Typography><Typography color="text.secondary" variant="body2">{editId ? "Update property details." : "Fill in property details, then add buildings and units."}</Typography></Box></Box>
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: { xs: "stretch", sm: "flex-end" }, width: { xs: "100%", sm: "auto" } }}>
+        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-template.csv", [["utility_type","supply_mode","account_number","provider","bill_cycle","meter_number","opening_reading","reading_date","tariff","unit","status"],["water","postpaid","WTR-100","County Water","monthly","MTR-WTR-100","250","2026-08-01","120","m³","active"],["electricity","prepaid","KPLC-200","KPLC","prepaid","MTR-KPLC-200","","","0","kWh","active"]])}>Template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
+        <Button fullWidth={false} variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()} sx={{ minWidth: { xs: "100%", sm: 120 } }}>{saving ? "Saving…" : "Save & Close"}</Button>
       </Box>
     </Box>
-    <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto">{sections.map(([id, label]) => <Tab key={id} value={id} label={label} />)}</Tabs></Paper>
+    <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 40, "& .MuiTab-root": { minHeight: 40, fontSize: { xs: 12, md: 14 } } }}>{sections.map(([id, label]) => <Tab key={id} value={id} label={label} />)}</Tabs></Paper>
     <DraftBanner
       restored={restoredDraft}
       savedAt={valuesSavedAt}
@@ -415,13 +453,13 @@ export function PropertyOnboardingForm() {
 
       <Section id="units" title="Create units">
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">Add units manually or import up to 500 rows from the Excel-compatible CSV template.</Typography>
+          <Typography variant="body2" color="text.secondary">Add units manually or import from CSV (max 500 rows). Required columns: unit_no, unit_type, floor, use, area.</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [["unit_no","unit_type","floor","use","area","rateable_area","building_number","description"],["G-01","Shop","Ground","Commercial","850","820","1","Ground floor retail unit"]])}>Download template</Button>
-            <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload unit CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
+            <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
           </Box>
         </Box>
-        <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area (sq ft)" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Building number" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
+        <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
         <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button><Divider sx={{ my: 2 }} /><RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—"]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
         <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}><Chip label={`Total units: ${units.length}`} /><Chip label={`Lettable area: ${totalArea.toLocaleString()} sq ft`} /><Chip label={`Vacant units: ${units.length}`} color="success" variant="outlined" /></Box>
       </Section>
@@ -440,6 +478,6 @@ export function PropertyOnboardingForm() {
 
       <Section id="notes" title="Notes"><TextField fullWidth multiline minRows={5} label="Onboarding notes" value={values.notes || ""} onChange={set("notes")} /><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(5, 1fr)" }, gap: 2, mt: 3, color: "text.secondary" }}><Box><Typography variant="caption">Created by</Typography><Typography variant="body2" color="text.primary">{session?.user.firstName || session?.user.username || "—"}</Typography></Box><Box><Typography variant="caption">Created date</Typography><Typography variant="body2" color="text.primary">On save</Typography></Box><Box><Typography variant="caption">Last modified by</Typography><Typography variant="body2" color="text.primary">—</Typography></Box><Box><Typography variant="caption">Last modified date</Typography><Typography variant="body2" color="text.primary">—</Typography></Box><Box><Typography variant="caption">Status</Typography><Box><Chip size="small" label="Draft" /></Box></Box></Box></Section>
     </Box>
-    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, py: 3 }}><Button variant="outlined" onClick={() => router.push("/workspaces")}>Cancel</Button><Button variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save & Close"}</Button></Box>
+    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, py: 3, flexDirection: { xs: "column-reverse", sm: "row" } }}><Button variant="outlined" fullWidth={false} onClick={() => router.push("/workspaces")} sx={{ order: { xs: 2, sm: 1 } }}>Cancel</Button><Button variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()} sx={{ order: { xs: 1, sm: 2 }, minWidth: { xs: "100%", sm: 140 } }}>{saving ? "Saving…" : "Save & Close"}</Button></Box>
   </Box>;
 }

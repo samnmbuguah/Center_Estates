@@ -16,12 +16,57 @@ import {
 } from "@/components/module-ui";
 import { kM, kN, fmtDate } from "../../utils/property.utils";
 import { TenantApplicationCard } from "@/components/tenant-application-card";
+import { useState } from "react";
+
+function EditTenantForm({ tenant, onSave, onCancel }: { tenant: TenantRow; onSave: (data: Record<string, unknown>) => void; onCancel: () => void }) {
+  const [form, setForm] = useState({
+    name: String(tenant.name ?? ""),
+    email: String(tenant.email ?? ""),
+    phone: String(tenant.phone ?? ""),
+    tenant_type: String(tenant.tenant_type ?? "company"),
+    tax_id: String(tenant.tax_id ?? ""),
+    registration_number: String(tenant.registration_number ?? ""),
+    billing_address: String(tenant.billing_address ?? ""),
+  });
+  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(f => ({ ...f, [key]: e.target.value }));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="grid-2">
+        <Field label="Tenant Name" required><input value={form.name} onChange={set("name")} required data-testid="edit-tenant-name" /></Field>
+        <Field label="Tenant Type">
+          <select value={form.tenant_type} onChange={set("tenant_type")}>
+            <option value="company">Company</option>
+            <option value="individual">Individual</option>
+          </select>
+        </Field>
+      </div>
+      <div className="grid-2">
+        <Field label="Email"><input type="email" value={form.email} onChange={set("email")} data-testid="edit-tenant-email" /></Field>
+        <Field label="Phone"><input value={form.phone} onChange={set("phone")} data-testid="edit-tenant-phone" /></Field>
+      </div>
+      <div className="grid-2">
+        <Field label="KRA PIN / Tax ID"><input value={form.tax_id} onChange={set("tax_id")} placeholder="e.g. P051234567X" /></Field>
+        <Field label="Registration No."><input value={form.registration_number} onChange={set("registration_number")} /></Field>
+      </div>
+      <Field label="Billing Address"><textarea rows={2} value={form.billing_address} onChange={set("billing_address")} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} /></Field>
+      <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+        <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="btn primary" data-testid="edit-tenant-save">Save Changes</button>
+      </div>
+    </form>
+  );
+}
 
 export interface PropertyModalsProps {
   showAddProperty: boolean;
   setShowAddProperty: (v: boolean) => void;
   showAddTenant: boolean;
   setShowAddTenant: (v: boolean) => void;
+  showEditTenant: boolean;
+  setShowEditTenant: (v: boolean) => void;
+  editTenant: TenantRow | null;
+  setEditTenant: (v: TenantRow | null) => void;
+  submitEditTenant: (data: Record<string, unknown>) => void;
   showAddLease: boolean;
   setShowAddLease: (v: boolean) => void;
   showRecordReceipt: boolean;
@@ -97,6 +142,7 @@ export function PropertyModals(props: PropertyModalsProps) {
   const {
     showAddProperty, setShowAddProperty,
     showAddTenant, setShowAddTenant,
+    showEditTenant, setShowEditTenant, editTenant, setEditTenant, submitEditTenant,
     showAddLease, setShowAddLease,
     showRecordReceipt, setShowRecordReceipt,
     showInvoiceComposer, setShowInvoiceComposer,
@@ -304,6 +350,12 @@ export function PropertyModals(props: PropertyModalsProps) {
           onClose={() => setShowAddTenant(false)}
           onSaved={() => { setShowAddTenant(false); setTab("tenants"); loadData(); }}
         />
+
+        {showEditTenant && editTenant && (
+          <Modal title={`Edit Tenant: ${editTenant.name ?? ""}`} onClose={() => { setShowEditTenant(false); setEditTenant(null); }}>
+            <EditTenantForm tenant={editTenant} onSave={(data) => { void submitEditTenant(data); }} onCancel={() => { setShowEditTenant(false); setEditTenant(null); }} />
+          </Modal>
+        )}
 
         {showAddLease && (
           <Modal title="Add Single Lease" onClose={() => setShowAddLease(false)} wide>

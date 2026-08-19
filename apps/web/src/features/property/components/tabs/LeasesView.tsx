@@ -98,18 +98,13 @@ export function LeasesView({
         <button className="btn ghost sm" onClick={() => exportLeaseICS(filtered)} title="Export leases to Outlook/Google Calendar">📅 Export Calendar</button>
       </ViewToolbar>
 
-      <div className="card" style={{ padding: 18, border: "1px dashed var(--primary)", background: "var(--surface-2)" }}>
-        <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <h4 style={{ margin: "0 0 4px 0", fontSize: 14 }}>Tenancy Schedule (Bulk Import)</h4>
-            <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-              Download the tenancy schedule template to onboard multiple leases and tenants at once.
-            </p>
-          </div>
-          <div className="row" style={{ gap: 10 }}>
-            <button className="btn ghost sm" onClick={onDownloadTemplate}>📥 Download Template</button>
-            <button className="btn primary sm" data-testid="property-add-lease-btn" onClick={handleAdd}>+ Add Single Lease</button>
-          </div>
+      <div className="card" style={{ padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, border: "1px dashed var(--primary)", background: "var(--surface-2)" }}>
+        <div>
+          <h4 style={{ margin: "0 0 2px 0", fontSize: 14 }}>Quick Actions</h4>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>Add a lease to start billing and tracking occupancy.</p>
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn primary sm" data-testid="property-add-lease-btn" onClick={handleAdd}>+ Add Lease</button>
         </div>
       </div>
 

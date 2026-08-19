@@ -33,6 +33,7 @@ export function TenantsView({
   onSelectRow = () => {},
   onOpenPortal = () => {},
   onDownloadStatement = () => {},
+  onEdit = () => {},
   canLease = true,
   onRefresh = () => {},
 }: {
@@ -46,6 +47,7 @@ export function TenantsView({
   onSelectRow?: (r: Row) => void;
   onOpenPortal?: (r: Row) => void;
   onDownloadStatement?: (r: TenantRow) => void;
+  onEdit?: (r: Row) => void;
   canLease?: boolean;
   onRefresh?: () => void;
 }) {
@@ -91,10 +93,9 @@ export function TenantsView({
             <table className="fc-data-table">
               <thead>
                 <tr>
-                  <th>Tenant / Business</th>
+                  <th>Tenant</th>
                   <th>Unit</th>
-                  <th>Contact Person &amp; PIN</th>
-                  <th>Email &amp; Phone</th>
+                  <th>Contact</th>
                   <th>Lease Period</th>
                   <th>Status</th>
                   <th>Outstanding</th>
@@ -107,37 +108,41 @@ export function TenantsView({
                     <td>
                       <strong style={{ fontSize: 13 }}>{String(t.name ?? "—")}</strong>
                       <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "—")}</div>
-                      {t.tenant_type && <span className="muted" style={{ fontSize: 11, textTransform: "capitalize" }}>({t.tenant_type})</span>}
                     </td>
                     <td>
                       <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{String(t.unit ?? "—")}</span>
                     </td>
                     <td style={{ fontSize: 12 }}>
-                      <div><strong>{String(t.contact_person || t.name || "—")}</strong></div>
-                      {t.pin_number || t.tax_pin || (t as any).pin ? (
-                        <span className="mono" style={{ fontSize: 11, background: "var(--surface-2)", padding: "2px 6px", borderRadius: 4, display: "inline-block", marginTop: 2 }}>
-                          PIN: {String(t.pin_number || t.tax_pin || (t as any).pin)}
-                        </span>
-                      ) : (
-                        <span className="muted" style={{ fontSize: 11 }}>No PIN registered</span>
-                      )}
-                    </td>
-                    <td style={{ fontSize: 12 }}>
-                      <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--primary)" }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
+                      <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--primary)", fontSize: 12 }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
                       <div className="muted" style={{ fontSize: 11 }}>{t.phone ? String(t.phone) : "—"}</div>
                     </td>
                     <td style={{ fontSize: 12 }}>
-                      <div>Start: {t.lease_start ? fmtDate(t.lease_start) : "—"}</div>
-                      <div className="muted">End: {t.lease_end ? fmtDate(t.lease_end) : "—"}</div>
+                      {t.lease_start ? (
+                        <>
+                          <div>{fmtDate(t.lease_start)}</div>
+                          <div className="muted">→ {t.lease_end ? fmtDate(t.lease_end) : "—"}</div>
+                        </>
+                      ) : (
+                        <span className="muted" style={{ fontSize: 11 }}>No lease</span>
+                      )}
                     </td>
-                    <td><StatusPill value={String(t.status ?? "—")} /></td>
+                    <td>
+                      {t.status === "prospect" ? (
+                        <Badge tone="yellow">Pending Activation</Badge>
+                      ) : (
+                        <StatusPill value={String(t.status ?? "—")} />
+                      )}
+                    </td>
                     <td className="mono" style={{ color: Number(t.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)", fontWeight: 700 }}>
                       {t.outstanding === undefined ? "—" : kM(t.outstanding)}
                     </td>
                     <td>
-                      <div className="row" style={{ gap: 6 }}>
+                      <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                        {t.status === "prospect" && (
+                          <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); setTab("leases"); }}>Activate Lease</button>
+                        )}
+                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onEdit(t); }}>Edit</button>
                         <button className="btn ghost sm" data-testid="tenant-portal-btn" onClick={(e) => { e.stopPropagation(); onOpenPortal(t); }}>Portal</button>
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onDownloadStatement(t); }}>Statement</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}>Docs</button>
                       </div>
                     </td>

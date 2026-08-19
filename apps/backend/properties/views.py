@@ -396,9 +396,13 @@ class PropertyViewSet(OrganizationModelViewSet):
             building = None
             if building_index not in (None, ''):
                 try:
-                    building = buildings[int(building_index) - 1]
-                except (TypeError, ValueError, IndexError):
-                    raise ValidationError({'units': f'Unit {code} references an invalid building.'})
+                    idx = int(building_index) - 1
+                    if idx < 0 or idx >= len(buildings):
+                        available = ', '.join(f'{i+1}: {b.name}' for i, b in enumerate(buildings)) or 'none'
+                        raise ValidationError({'units': f'Unit {code} references building #{building_index}, but only {len(buildings)} building(s) exist ({available}). Use a building number between 1 and {len(buildings)}, or leave blank.'})
+                    building = buildings[idx]
+                except (TypeError, ValueError):
+                    raise ValidationError({'units': f'Unit {code} has an invalid building number "{building_index}". Use a whole number (1, 2, 3…) or leave blank.'})
             units.append(Unit.objects.create(
                 organization=organization,
                 property=property_record,

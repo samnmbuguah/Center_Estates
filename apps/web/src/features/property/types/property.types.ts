@@ -18,6 +18,7 @@ export type PropertyTab =
   | "receipt-allocations"
   | "bank-reconciliation"
   | "credit-notes"
+  | "payments"
   | "service-charges"
   | "service-charge-allocations"
   | "service-charge-reconciliations"
@@ -47,15 +48,16 @@ export const labels: Record<PropertyTab, string> = {
   "tenant-documents": "Tenant Documents",
   leases: "Leases",
   financials: "Financials",
-  billing: "Billing & Invoicing",
+  billing: "Billing Pipeline",
   "rent-schedules": "Rent Schedules",
-  rent: "Rent & Invoices",
-  arrears: "Arrears",
+  rent: "Invoice Register",
+  arrears: "Arrears & Recovery",
   reminders: "Reminders",
   receipts: "Receipts & Credit Notes",
   "receipt-allocations": "Receipt Allocations",
   "bank-reconciliation": "Bank Reconciliation",
   "credit-notes": "Credit Notes",
+  payments: "Payments & Credits",
   "service-charges": "Service Charge Setup",
   "service-charge-allocations": "Charge Allocations",
   "service-charge-reconciliations": "Reconciliations",

@@ -31,7 +31,7 @@ export function usePropertyLogic({
   const canApprove = can("property.approve");
   const searchParams = useSearchParams();
   const normalizeLegacyTab = (value: string): PropertyTab => {
-    if (value === "financials") return "receipts";
+    if (value === "financials") return "payments";
     if (value === "tenancy") return "tenants";
     return value as PropertyTab;
   };
@@ -85,6 +85,8 @@ export function usePropertyLogic({
 
   const [showAddProperty, setShowAddProperty] = useState(standaloneOnboarding);
   const [showAddTenant, setShowAddTenant] = useState(false);
+  const [showEditTenant, setShowEditTenant] = useState(false);
+  const [editTenant, setEditTenant] = useState<TenantRow | null>(null);
   const [showAddLease, setShowAddLease] = useState(false);
   const [showRecordReceipt, setShowRecordReceipt] = useState(false);
   const [showInvoiceComposer, setShowInvoiceComposer] = useState(false);
@@ -157,6 +159,7 @@ export function usePropertyLogic({
       "rent-schedules": "rent-schedules",
       reminders: "invoice-reminders",
       receipts: "receipts",
+      payments: "receipts",
       "receipt-allocations": "receipt-allocations",
       "bank-reconciliation": "bank-transactions",
       "credit-notes": "credit-notes",
@@ -253,7 +256,7 @@ export function usePropertyLogic({
           const finData = await finRes.json().catch(() => null);
           if (finData) setFinancial(finData as FinancialAnalytics);
         }
-      } else if (tab === "receipts") {
+      } else if (tab === "receipts" || tab === "payments") {
         const [listRes, cnRes] = await Promise.all([
           apiFetch(`/property/receipts/?search=${q}`, {}, organizationId),
           apiFetch("/property/credit-notes/?search=", {}, organizationId),
@@ -535,6 +538,27 @@ export function usePropertyLogic({
       loadData();
     } else {
       setError("Property save failed. Check required fields.");
+    }
+  }
+
+  async function submitEditTenant(data: Record<string, unknown>) {
+    if (!editTenant?.id || !organizationId) return;
+    try {
+      const response = await apiFetch(`/property/tenants/${editTenant.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }, organizationId);
+      if (response.ok) {
+        setShowEditTenant(false);
+        setEditTenant(null);
+        loadData();
+      } else {
+        const body = await response.json().catch(() => ({}));
+        setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Tenant update failed.");
+      }
+    } catch {
+      setError("Tenant update failed. Check your connection and retry.");
     }
   }
 
@@ -1047,6 +1071,11 @@ export function usePropertyLogic({
     setShowAddProperty,
     showAddTenant,
     setShowAddTenant,
+    showEditTenant,
+    setShowEditTenant,
+    editTenant,
+    setEditTenant,
+    submitEditTenant,
     showAddLease,
     setShowAddLease,
     showRecordReceipt,
