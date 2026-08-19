@@ -32,6 +32,9 @@ import {
   money,
   number,
 } from "@/components/module-ui";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Grid, Typography } from "@mui/material";
+import { FileText, Settings, CheckCircle, AlertTriangle, Calendar, DollarSign, Activity } from "lucide-react";
 
 export type ValuationTab =
   | "overview"
@@ -402,13 +405,63 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <KpiStrip cols={8}>
-        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Instructions" value={number.format(totalInstructions || Number(kpis.activeInstructions ?? 0))} sub="Across the pipeline" link="View instructions" onClick={() => setTab("instructions")} />
-        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub={`${Number(kpis.dueThisWeek ?? 0)} due this week`} link="View queue" onClick={() => setTab("instructions")} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Delivered or finalised" onClick={() => setTab("instructions")} />
+      <BreadcrumbNavigation />
+      
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+          Valuation Management Dashboard
+        </Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+          Manage valuation instructions, inspections, reports, and client invoicing.
+        </Typography>
+      </Box>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#e0e7ff", color: "#4f46e5",
+            textAlign: "center"
+          }}>
+            <FileText size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(totalInstructions || Number(kpis.activeInstructions ?? 0))}</Typography>
+            <Typography variant="caption">Total Instructions</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
+            textAlign: "center"
+          }}>
+            <Settings size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(inProgress)}</Typography>
+            <Typography variant="caption">In Progress</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
+            textAlign: "center"
+          }}>
+            <CheckCircle size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(completed)}</Typography>
+            <Typography variant="caption">Completed</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#fee2e2", color: "#b91c1c",
+            textAlign: "center"
+          }}>
+            <AlertTriangle size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(overdueCount)}</Typography>
+            <Typography variant="caption">Overdue</Typography>
+          </Box>
+        </Grid>
+      </Grid>
+
+      <KpiStrip cols={4}>
         <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft Reports" value={number.format(draftReports)} sub="Awaiting review" link="Review drafts" onClick={() => setTab("draft-reports")} />
         <KpiCard icon="📄" iconBg="#cffafe" iconColor="#0e7490" label="Final Reports" value={number.format(finalReports)} sub="Signed & issued" link="View reports" onClick={() => setTab("final-reports")} />
-        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdueCount)} sub="Past target date" onClick={() => setTab("instructions")} />
         <KpiCard icon="📈" iconBg="#e0e7ff" iconColor="#6d28d9" label="Turnaround" value={`${turnaround}%`} sub="Completed on time" onClick={() => setTab("analytics")} />
         <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Fees" value={fmtMoney(outstanding)} sub={`${fmtMoney(revenue)} collected YTD`} link="View invoicing" onClick={() => setTab("invoices")} />
       </KpiStrip>
