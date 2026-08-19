@@ -57,6 +57,26 @@ function EditTenantForm({ tenant, onSave, onCancel }: { tenant: TenantRow; onSav
   );
 }
 
+function VoidCreditNoteForm({ creditNote, onConfirm, onCancel }: { creditNote: CreditNoteRow; onConfirm: (reason: string) => void; onCancel: () => void }) {
+  const [reason, setReason] = useState("");
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (reason.trim()) onConfirm(reason); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ padding: 12, borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{creditNote.number ?? "—"}</div>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Tenant: {creditNote.tenant_name ?? "—"} · Amount: {creditNote.amount}</div>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Invoice: {creditNote.invoice_number ?? "—"}</div>
+      </div>
+      <Field label="Reason for voiding (required)">
+        <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} required placeholder="Explain why this credit note is being voided…" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)", fontFamily: "inherit" }} data-testid="void-cn-reason" />
+      </Field>
+      <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+        <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="btn primary" disabled={!reason.trim()} style={{ background: "var(--danger)" }} data-testid="void-cn-confirm">Void Credit Note</button>
+      </div>
+    </form>
+  );
+}
+
 export interface PropertyModalsProps {
   showAddProperty: boolean;
   setShowAddProperty: (v: boolean) => void;
@@ -67,6 +87,9 @@ export interface PropertyModalsProps {
   editTenant: TenantRow | null;
   setEditTenant: (v: TenantRow | null) => void;
   submitEditTenant: (data: Record<string, unknown>) => void;
+  voidCreditNoteTarget: CreditNoteRow | null;
+  setVoidCreditNoteTarget: (v: CreditNoteRow | null) => void;
+  submitVoidCreditNote: (reason: string) => void;
   showAddLease: boolean;
   setShowAddLease: (v: boolean) => void;
   showRecordReceipt: boolean;
@@ -143,6 +166,7 @@ export function PropertyModals(props: PropertyModalsProps) {
     showAddProperty, setShowAddProperty,
     showAddTenant, setShowAddTenant,
     showEditTenant, setShowEditTenant, editTenant, setEditTenant, submitEditTenant,
+    voidCreditNoteTarget, setVoidCreditNoteTarget, submitVoidCreditNote,
     showAddLease, setShowAddLease,
     showRecordReceipt, setShowRecordReceipt,
     showInvoiceComposer, setShowInvoiceComposer,
@@ -354,6 +378,12 @@ export function PropertyModals(props: PropertyModalsProps) {
         {showEditTenant && editTenant && (
           <Modal title={`Edit Tenant: ${editTenant.name ?? ""}`} onClose={() => { setShowEditTenant(false); setEditTenant(null); }}>
             <EditTenantForm tenant={editTenant} onSave={(data) => { void submitEditTenant(data); }} onCancel={() => { setShowEditTenant(false); setEditTenant(null); }} />
+          </Modal>
+        )}
+
+        {voidCreditNoteTarget && (
+          <Modal title="Void Credit Note" onClose={() => setVoidCreditNoteTarget(null)}>
+            <VoidCreditNoteForm creditNote={voidCreditNoteTarget} onConfirm={(reason) => { void submitVoidCreditNote(reason); }} onCancel={() => setVoidCreditNoteTarget(null)} />
           </Modal>
         )}
 

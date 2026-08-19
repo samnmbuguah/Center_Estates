@@ -54,6 +54,7 @@ export function usePropertyLogic({
   const [contractors, setContractors] = useState<Row[]>([]);
   const [inspections, setInspections] = useState<Row[]>([]);
   const [criticalServiceCharges, setCriticalServiceCharges] = useState<Row[]>([]);
+  const [reminders, setReminders] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -202,12 +203,19 @@ export function usePropertyLogic({
         if (version !== loadVersion.current) return;
         setDashboard(data as DashboardData);
       } else if (tab === "arrears") {
-        const res = await apiFetch(`/property/analytics/aging/?search=${q}`, {}, organizationId);
-        if (!res.ok) { fail(); return; }
-        const data = await res.json();
+        const [agingRes, reminderRes] = await Promise.all([
+          apiFetch(`/property/analytics/aging/?search=${q}`, {}, organizationId),
+          apiFetch("/property/invoice-reminders/?search=", {}, organizationId),
+        ]);
+        if (!agingRes.ok) { fail(); return; }
+        const agingData = await agingRes.json();
         if (version !== loadVersion.current) return;
-        setAnalytics(data as AgingAnalytics);
-        setRows(((data as AgingAnalytics).tenants ?? []) as Row[]);
+        setAnalytics(agingData as AgingAnalytics);
+        setRows(((agingData as AgingAnalytics).tenants ?? []) as Row[]);
+        if (reminderRes.ok) {
+          const reminderData = await reminderRes.json().catch(() => []);
+          setReminders(Array.isArray(reminderData) ? reminderData as Row[] : []);
+        }
       } else if (tab === "reports") {
         const res = await apiFetch(`/property/analytics/?search=${q}`, {}, organizationId);
         if (!res.ok) { fail(); return; }
@@ -1022,6 +1030,29 @@ export function usePropertyLogic({
   const handleCreateCreditNote = (invoiceId?: string | null) => {
     setFinancialIntake("credit-note");
   };
+  const [voidCreditNoteTarget, setVoidCreditNoteTarget] = useState<CreditNoteRow | null>(null);
+  const handleVoidCreditNote = (cn: CreditNoteRow) => {
+    setVoidCreditNoteTarget(cn);
+  };
+  const submitVoidCreditNote = async (reason: string) => {
+    if (!voidCreditNoteTarget?.id || !organizationId) return;
+    try {
+      const res = await apiFetch(`/property/credit-notes/${voidCreditNoteTarget.id}/void/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      }, organizationId);
+      if (res.ok) {
+        setVoidCreditNoteTarget(null);
+        loadData();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Credit note void failed.");
+      }
+    } catch {
+      setError("Credit note void failed. Check your connection and retry.");
+    }
+  };
   const handleQuickReceipt = (invoice: InvoiceRow) => {
     openRecordReceipt(invoice.id);
   };
@@ -1046,6 +1077,7 @@ export function usePropertyLogic({
     analytics,
     financial,
     creditNotes,
+    reminders,
     contractors,
     inspections,
     criticalServiceCharges,
@@ -1157,6 +1189,10 @@ export function usePropertyLogic({
     handleCreateBudget,
     handleCreateExpense,
     handleCreateCreditNote,
+    voidCreditNoteTarget,
+    setVoidCreditNoteTarget,
+    handleVoidCreditNote,
+    submitVoidCreditNote,
     handleQuickReceipt,
     handleInvoiceAction,
     downloadInvoicePdf,

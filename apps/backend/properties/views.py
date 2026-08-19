@@ -1930,6 +1930,28 @@ class CreditNoteViewSet(OrganizationModelViewSet):
     def perform_destroy(self, instance):
         raise ValidationError({'credit_note': 'Credit notes cannot be deleted.'})
 
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='void')
+    def void(self, request, pk=None):
+        credit_note = self.get_object()
+        if credit_note.status == CreditNote.Status.VOID:
+            raise ValidationError({'credit_note': 'This credit note is already void.'})
+        reason = str(request.data.get('reason', '')).strip()
+        if not reason:
+            raise ValidationError({'reason': 'A reason is required to void a credit note.'})
+        credit_note.status = CreditNote.Status.VOID
+        credit_note.void_reason = reason
+        credit_note.save(update_fields=('status', 'void_reason', 'updated_at'))
+        invoice = Invoice.objects.select_for_update().filter(pk=credit_note.invoice_id, organization=credit_note.organization).first()
+        if invoice:
+            invoice.balance += credit_note.amount
+            if invoice.balance == invoice.amount:
+                invoice.status = Invoice.Status.ISSUED
+            elif invoice.balance > 0:
+                invoice.status = Invoice.Status.PARTIAL
+            invoice.save(update_fields=('balance', 'status', 'updated_at'))
+        return Response({'detail': 'Credit note voided successfully.'}, status=status.HTTP_200_OK)
+
 
 class PropertyDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)

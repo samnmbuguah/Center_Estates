@@ -117,6 +117,7 @@ export function ReceiptsView({
           { key: "docRef", label: "Reference" }, { key: "amount", label: "Amount" },
           { key: "docStatus", label: "Status" },
         ], "receipts-credit-notes.csv")}>Export CSV</button>
+        {canFinance && <button className="btn ghost sm" onClick={() => onAddCreditNote()}>+ Issue Credit Note</button>}
         <button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Receipt</button>
       </ViewToolbar>
 

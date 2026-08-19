@@ -34,7 +34,6 @@ export const propertyNav: ModuleNavGroup[] = [
       { id: "payments", label: "Payments & Credits", icon: "💰" },
       { id: "receipt-allocations", label: "Allocation Ledger", icon: "🔗" },
       { id: "bank-reconciliation", label: "Bank Reconciliation", icon: "🏦" },
-      { id: "reminders", label: "Payment Reminders", icon: "🔔" },
       { id: "arrears", label: "Arrears & Recovery", icon: "⚠️" },
     ],
   },

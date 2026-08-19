@@ -22,8 +22,8 @@ import {
   criticalFormatDate, criticalDaysUntil,
 } from "../../utils/property.utils";
 
-export function CreditNotesView({ rows, loading, search, setSearch, setTab, onAdd }: {
-  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onAdd: () => void;
+export function CreditNotesView({ rows, loading, search, setSearch, setTab, onAdd, onVoid }: {
+  rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onAdd: () => void; onVoid: (cn: CreditNoteRow) => void;
 }) {
   const notes = rows as CreditNoteRow[];
 
@@ -60,7 +60,14 @@ export function CreditNotesView({ rows, loading, search, setSearch, setTab, onAd
                     <td className="mono" style={{ color: "var(--danger)" }}>{kM(c.amount)}</td>
                     <td><StatusPill value={String(c.status ?? "—")} /></td>
                     <td>
-                      <button className="btn ghost sm" onClick={() => setTab("rent")}>View Invoice</button>
+                      {c.status === "void" ? (
+                        <span className="muted" style={{ fontSize: 12 }}>Voided</span>
+                      ) : (
+                        <div className="row" style={{ gap: 4 }}>
+                          <button className="btn ghost sm" onClick={() => setTab("rent")}>View Invoice</button>
+                          <button className="btn ghost sm" style={{ color: "var(--danger)" }} onClick={() => onVoid(c)}>Void</button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

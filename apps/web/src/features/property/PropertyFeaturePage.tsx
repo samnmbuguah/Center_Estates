@@ -22,7 +22,7 @@ import { LeasesView } from "./components/tabs/LeasesView";
 import { TenancyView } from "./components/tabs/TenancyView";
 import { RentSchedulesView } from "./components/tabs/RentSchedulesView";
 import { RentView } from "./components/tabs/RentView";
-import { ArrearsView } from "./components/tabs/ArrearsView";
+import { ArrearsRecoveryView } from "./components/tabs/ArrearsRecoveryView";
 import { RemindersView } from "./components/tabs/RemindersView";
 import { ReceiptsView } from "./components/tabs/ReceiptsView";
 import { ReceiptAllocationsView } from "./components/tabs/ReceiptAllocationsView";
@@ -82,7 +82,7 @@ export function PropertyFeaturePage({
       case "rent":
         return <RentView invoices={logic.rentInvoices} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} canApprove={logic.canApprove} onAddInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={(invoiceId) => { logic.setReceiptInvoice(invoiceId ?? ""); logic.setShowRecordReceipt(true); }} onSendReminder={logic.handleSendReminder} onInvoiceAction={logic.handleInvoiceAction} onSelectRow={logic.setSelectedRow} onDownloadPdf={logic.downloadInvoicePdf} onRefresh={logic.fetchData} />;
       case "arrears":
-        return <ArrearsView rows={logic.rows} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSendReminder={logic.handleSendReminder} />;
+        return <ArrearsRecoveryView rows={logic.rows} reminders={logic.reminders} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSendReminder={logic.handleSendReminder} />;
       case "reminders":
         return <RemindersView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSendReminder={logic.handleSendReminder} setTab={logic.setTab} />;
       case "receipts":
@@ -94,7 +94,7 @@ export function PropertyFeaturePage({
       case "bank-reconciliation":
         return <BankReconciliationView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onMatch={(r) => logic.setMatchTarget(r as BankTransactionRow)} />;
       case "credit-notes":
-        return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} />;
+        return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} onVoid={logic.handleVoidCreditNote} />;
       case "service-charges":
         return <ServiceChargesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.setShowAddServiceCharge(true)} onAllocate={logic.generateServiceChargeAllocations} onReconcile={logic.setReconciliationTarget} />;
       case "service-charge-allocations":
