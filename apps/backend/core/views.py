@@ -304,7 +304,7 @@ class TicketsFeedView(APIView):
 def _set_token_cookie(response, name, value, max_age, path):
     response.set_cookie(
         name, value, max_age=max_age, httponly=True, secure=not settings.DEBUG,
-        samesite='Lax', path=path,
+        samesite='Lax', path=path, domain='.centerestates.com',
     )
 
 
@@ -435,9 +435,9 @@ class LogoutView(APIView):
     @extend_schema(request=None, responses={204: None})
     def post(self, request):
         response = Response(status=204)
-        response.delete_cookie(settings.JWT_ACCESS_COOKIE, path='/api/v1/')
-        response.delete_cookie(settings.JWT_REFRESH_COOKIE, path='/api/v1/auth/')
-        response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/')
+        response.delete_cookie(settings.JWT_ACCESS_COOKIE, path='/api/v1/', domain='.centerestates.com')
+        response.delete_cookie(settings.JWT_REFRESH_COOKIE, path='/api/v1/auth/', domain='.centerestates.com')
+        response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/', domain='.centerestates.com')
         return response
 
 
@@ -586,7 +586,7 @@ class ImpersonateView(APIView):
         # Preserve the original admin so demos can return without re-entering the password.
         original_id = impersonator_id or str(actor.pk)
         if str(target.pk) == str(original_id):
-            response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/')
+            response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/', domain='.centerestates.com')
         else:
             _set_token_cookie(response, IMPERSONATOR_COOKIE, str(original_id), 7 * 24 * 60 * 60, '/api/v1/')
         return response
@@ -606,11 +606,11 @@ class StopImpersonateView(APIView):
         actor = get_user_model().objects.filter(pk=impersonator_id).first()
         if not actor or not actor.is_active:
             response = Response({'detail': 'Original administrator session expired. Sign in again.'}, status=400)
-            response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/')
+            response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/', domain='.centerestates.com')
             return response
         response = Response({'detail': f'Returned to {actor.username}.', 'username': actor.username})
         _issue_session_cookies(response, actor)
-        response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/')
+        response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/', domain='.centerestates.com')
         return response
 
 
