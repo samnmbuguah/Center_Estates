@@ -6,6 +6,9 @@ import { apiFetch } from "@/lib/api";
 import { Row, Tone } from "../../types/sales.types";
 import { countBy, fmtDate, fmtDateTime, fmtMoney, toneForAudit } from "../../utils/sales.utils";
 import { DataTable, DField, FilterChips, RefText, TableChrome } from "../SalesUiComponents";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Grid, Typography } from "@mui/material";
+import { Users, CheckCircle, Magnet, GraduationCap, DollarSign } from "lucide-react";
 
 function toneForBuyer(s: string): Tone {
   if (s === "active" || s === "completed") return "green";
@@ -229,13 +232,59 @@ export function BuyersView({
 
   return (
     <>
-      <KpiStrip cols={5}>
-        <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buyers" value={number.format(rows.length)} sub="Registry count" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Active Buyers" value={number.format(active)} sub="Qualified or active" onClick={() => setStatus(status === "active" ? "" : "active")} />
-        <KpiCard icon="🧲" iconBg="#fef3c7" iconColor="#92400e" label="Leads" value={number.format(countBy(rows, ["lead"]))} sub="Awaiting qualification" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
-        <KpiCard icon="🎓" iconBg="#e0f2fe" iconColor="#0284c7" label="Completed" value={number.format(countBy(rows, ["completed"]))} sub="Closed purchases" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Bank-Financed" value={number.format(rows.filter((r) => String(r.financing_type) === "bank").length)} sub="Purchasing via financier" />
-      </KpiStrip>
+      <BreadcrumbNavigation />
+      
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+          Buyers Registry
+        </Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+          Manage buyer registration, qualifications, and sales pipeline.
+        </Typography>
+      </Box>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#e0e7ff", color: "#4f46e5",
+            textAlign: "center"
+          }}>
+            <Users size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(rows.length)}</Typography>
+            <Typography variant="caption">Total Buyers</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
+            textAlign: "center"
+          }}>
+            <CheckCircle size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(active)}</Typography>
+            <Typography variant="caption">Active Buyers</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#fef3c7", color: "#92400e",
+            textAlign: "center"
+          }}>
+            <Magnet size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(countBy(rows, ["lead"]))}</Typography>
+            <Typography variant="caption">Leads</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#e0f2fe", color: "#0284c7",
+            textAlign: "center"
+          }}>
+            <GraduationCap size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(countBy(rows, ["completed"]))}</Typography>
+            <Typography variant="caption">Completed</Typography>
+          </Box>
+        </Grid>
+      </Grid>
 
       <Panel title="Buyers Registry" badge={rows.length}>
         <TableChrome

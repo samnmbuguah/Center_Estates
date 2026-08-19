@@ -4,6 +4,9 @@ import { money, number, EmptyState, KpiCard, KpiStrip, Panel, StatusPill } from 
 import { Dashboard, Row, SalesTab } from "../../types/sales.types";
 import { fmtDate, fmtMoney } from "../../utils/sales.utils";
 import { DataTable, RefText } from "../SalesUiComponents";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Grid, Typography } from "@mui/material";
+import { Building2, TrendingUp, CheckCircle, AlertTriangle, DollarSign, Calendar, Activity } from "lucide-react";
 
 export function OverviewView({
   dashboard,
@@ -60,14 +63,65 @@ export function OverviewView({
 
   return (
     <>
-      <KpiStrip cols={7}>
-        <KpiCard icon="🏠" iconBg="#dcfce7" iconColor="#16a34a" label="Available Units" value={number.format(available)} sub={`${number.format(reserved)} reserved · ${number.format(sold)} sold`} link="View inventory" onClick={() => setTab("inventory")} />
-        <KpiCard icon="💼" iconBg="#dbeafe" iconColor="#2563eb" label="Pipeline Value" value={fmtMoney(kpis.salesValue)} sub={`${number.format(Number(kpis.pipelineDeals ?? 0))} active deals`} link="View sales" onClick={() => setTab("sales")} />
-        <KpiCard icon="🏗️" iconBg="#e0f2fe" iconColor="#0284c7" label="Units Sold" value={number.format(sold)} sub={`${number.format(reserved)} reserved in progress`} link="View inventory" onClick={() => setTab("inventory")} />
-        <KpiCard icon="💸" iconBg="#ffedd5" iconColor="#ea580c" label="Commissions Payable" value={fmtMoney(kpis.pendingCommissions)} sub="Unsettled agent commissions" link="View commissions" onClick={() => setTab("commissions")} />
+      <BreadcrumbNavigation />
+      
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+          Sales Management Dashboard
+        </Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+          Multi-project unit sales, buyer onboarding, payments, site visits & commissions.
+        </Typography>
+      </Box>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
+            textAlign: "center"
+          }}>
+            <Building2 size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(available)}</Typography>
+            <Typography variant="caption">Available Units</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
+            textAlign: "center"
+          }}>
+            <TrendingUp size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{fmtMoney(kpis.salesValue)}</Typography>
+            <Typography variant="caption">Pipeline Value</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#e0f2fe", color: "#0284c7",
+            textAlign: "center"
+          }}>
+            <CheckCircle size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(sold)}</Typography>
+            <Typography variant="caption">Units Sold</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "#ffedd5", color: "#ea580c",
+            textAlign: "center"
+          }}>
+            <DollarSign size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{fmtMoney(kpis.pendingCommissions)}</Typography>
+            <Typography variant="caption">Commissions Payable</Typography>
+          </Box>
+        </Grid>
+      </Grid>
+
+      <KpiStrip cols={4}>
         <KpiCard icon="💳" iconBg="#f0fdf4" iconColor="#15803d" label="Total Revenue" value={fmtMoney(kpis.verifiedPayments)} sub={`${number.format(Number(kpis.pendingPayments ?? 0))} awaiting verification`} link="View payments" onClick={() => setTab("payments")} />
         <KpiCard icon="📉" iconBg="#fee2e2" iconColor="#b91c1c" label="Total Outstanding" value={fmtMoney(outstanding)} sub="Uncollected balance" onClick={() => setTab("payments")} />
         <KpiCard icon="📊" iconBg="#ede9fe" iconColor="#7c3aed" label="Collection Rate" value={`${collectionRate}%`} sub={`${fmtMoney(verifiedPayments)} of ${fmtMoney(salesValue)}`} onClick={() => setTab("payments")} />
+        <KpiCard icon="🏗️" iconBg="#fef3c7" iconColor="#92400e" label="Units in Progress" value={number.format(reserved)} sub="Reserved units" link="View inventory" onClick={() => setTab("inventory")} />
       </KpiStrip>
 
       <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.9fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
@@ -95,31 +149,130 @@ export function OverviewView({
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <Panel title="Sales Actions">
-            <div className="fc-quick-actions">
-              <button className="fc-quick-action" onClick={openRegisterBuyer}>
-                <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#ffedd5", color: "#ea580c" }}>👥</span>Register Buyer</span>
-                <span className="fc-qa-chevron">›</span>
+          <Panel title="Quick Actions">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <button 
+                className="btn ghost" 
+                onClick={openRegisterBuyer}
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 12, 
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-2)",
+                  textAlign: "left"
+                }}
+              >
+                <span style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  width: 36, 
+                  height: 36, 
+                  borderRadius: "50%", 
+                  background: "#ffedd5", 
+                  color: "#ea580c",
+                  fontSize: 18
+                }}>👥</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Register Buyer</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>Add new buyer to registry</div>
+                </div>
               </button>
-              <button className="fc-quick-action" onClick={openNewSale}>
-                <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#dbeafe", color: "#2563eb" }}>📝</span>New Sale</span>
-                <span className="fc-qa-chevron">›</span>
+              
+              <button 
+                className="btn ghost" 
+                onClick={openNewSale}
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 12, 
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-2)",
+                  textAlign: "left"
+                }}
+              >
+                <span style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  width: 36, 
+                  height: 36, 
+                  borderRadius: "50%", 
+                  background: "#dbeafe", 
+                  color: "#2563eb",
+                  fontSize: 18
+                }}>📝</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>New Sale</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>Create new sale agreement</div>
+                </div>
               </button>
-              <button className="fc-quick-action" onClick={openRecordVisit}>
-                <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#dcfce7", color: "#16a34a" }}>📍</span>Record Site Visit (Clerk)</span>
-                <span className="fc-qa-chevron">›</span>
+              
+              <button 
+                className="btn ghost" 
+                onClick={openRecordVisit}
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 12, 
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-2)",
+                  textAlign: "left"
+                }}
+              >
+                <span style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  width: 36, 
+                  height: 36, 
+                  borderRadius: "50%", 
+                  background: "#dcfce7", 
+                  color: "#16a34a",
+                  fontSize: 18
+                }}>📍</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Record Site Visit</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>Log site visit (Clerk)</div>
+                </div>
               </button>
-              <button className="fc-quick-action" onClick={() => setTab("payments")}>
-                <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#fef3c7", color: "#92400e" }}>💳</span>Verify Pending Payments</span>
-                <span className="fc-qa-chevron">›</span>
-              </button>
-              <button className="fc-quick-action" onClick={() => setTab("reports")}>
-                <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#ede9fe", color: "#6d28d9" }}>📊</span>Generate Report</span>
-                <span className="fc-qa-chevron">›</span>
-              </button>
-              <button className="fc-quick-action" onClick={() => setTab("leads")}>
-                <span style={{ alignItems: "center", display: "flex", gap: 10 }}><span className="fc-qa-icon" style={{ background: "#fef3c7", color: "#92400e" }}>🧲</span>Leads & Prospects</span>
-                <span className="fc-qa-chevron">›</span>
+              
+              <button 
+                className="btn ghost" 
+                onClick={() => setTab("payments")}
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 12, 
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-2)",
+                  textAlign: "left"
+                }}
+              >
+                <span style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  width: 36, 
+                  height: 36, 
+                  borderRadius: "50%", 
+                  background: "#fef3c7", 
+                  color: "#92400e",
+                  fontSize: 18
+                }}>💳</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Verify Payments</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>Process pending payments</div>
+                </div>
               </button>
             </div>
           </Panel>
