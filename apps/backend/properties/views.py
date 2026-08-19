@@ -175,23 +175,141 @@ class PaymentWebhookViewSet(ViewSet):
         ).first()
         if configuration is None:
             return Response({'detail': 'Payment gateway is not available.'}, status=404)
-        secret = os.environ.get(configuration.webhook_secret_env, '')
-        if not secret:
-            return Response({'detail': 'Payment callback is not configured.'}, status=503)
+
         raw_body = request.body
-        signature = request.headers.get('X-Ceest-Signature', '').removeprefix('sha256=')
-        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        if not signature or not hmac.compare_digest(signature, expected):
-            return Response({'detail': 'Invalid callback signature.'}, status=401)
         try:
             payload = json.loads(raw_body.decode('utf-8'))
         except (UnicodeDecodeError, json.JSONDecodeError):
             return Response({'detail': 'Callback body must be valid JSON.'}, status=400)
+
+        # Detect Safaricom STK Push callback format
+        stk_callback = payload.get("Body", {}).get("stkCallback", {})
+        is_safaricom = bool(stk_callback)
+
+        if is_safaricom:
+            return self._handle_safaricom_callback(configuration, payload, stk_callback, raw_body)
+        else:
+            return self._handle_generic_callback(configuration, payload, raw_body, request)
+
+    def _handle_safaricom_callback(self, configuration, payload, stk_callback, raw_body):
+        """Process Safaricom STK Push callback."""
+        from .mpesa_client import parse_stk_callback
+        parsed = parse_stk_callback(payload)
+        event_id = parsed.get('checkout_request_id') or parsed.get('merchant_request_id', '')
+        if not event_id:
+            return Response({'detail': 'Missing Safaricom event identifiers.'}, status=400)
+
+        payload_hash = hashlib.sha256(raw_body).hexdigest()
+        with transaction.atomic():
+            event, created = PaymentWebhookEvent.objects.get_or_create(
+                organization=configuration.organization, configuration=configuration, event_id=event_id,
+                defaults={'payload_hash': payload_hash, 'payload': payload},
+            )
+            if not created:
+                return Response({'status': event.status, 'duplicate': True})
+
+            # Find intent by checkout_request_id stored in external_reference
+            intent = PaymentIntent.objects.select_for_update().select_related('invoice', 'tenant').filter(
+                organization=configuration.organization, configuration=configuration,
+                external_reference=parsed.get('checkout_request_id', ''),
+            ).first()
+            if not intent:
+                # Fallback: try matching by merchant_request_id in metadata
+                intent = PaymentIntent.objects.select_for_update().select_related('invoice', 'tenant').filter(
+                    organization=configuration.organization, configuration=configuration,
+                    metadata__merchant_request_id=parsed.get('merchant_request_id', ''),
+                ).first()
+
+            if not parsed.get('is_success'):
+                event.status = PaymentWebhookEvent.Status.REJECTED
+                event.error_message = parsed.get('result_desc', 'STK Push failed or was cancelled.')
+                event.processed_at = timezone.now()
+                event.save(update_fields=('status', 'error_message', 'processed_at', 'updated_at'))
+                if intent and intent.status == PaymentIntent.Status.PENDING:
+                    intent.status = PaymentIntent.Status.FAILED
+                    intent.error_message = parsed.get('result_desc', 'STK Push failed')
+                    intent.save(update_fields=('status', 'error_message', 'updated_at'))
+                return Response({'status': 'rejected', 'detail': parsed.get('result_desc', 'Payment failed.')}, status=400)
+
+            if intent is None:
+                event.status = PaymentWebhookEvent.Status.REJECTED
+                event.error_message = 'No matching payment intent found.'
+                event.processed_at = timezone.now()
+                event.save(update_fields=('status', 'error_message', 'processed_at', 'updated_at'))
+                return Response({'status': 'rejected', 'detail': 'No matching payment intent.'}, status=400)
+
+            if intent.status == PaymentIntent.Status.PAID:
+                event.status = PaymentWebhookEvent.Status.PROCESSED
+                event.processed_at = timezone.now()
+                event.save(update_fields=('status', 'processed_at', 'updated_at'))
+                return Response({'status': event.status, 'duplicate': True})
+
+            receiver = TenantPortalAccess.objects.filter(
+                organization=configuration.organization, tenant=intent.tenant, is_active=True,
+            ).select_related('user').first()
+            if receiver is None:
+                event.status = PaymentWebhookEvent.Status.REJECTED
+                event.error_message = 'No active tenant portal account can own the receipt.'
+                event.processed_at = timezone.now()
+                event.save(update_fields=('status', 'error_message', 'processed_at', 'updated_at'))
+                return Response({'status': 'rejected', 'detail': event.error_message}, status=400)
+
+            receipt = Receipt.objects.create(
+                organization=configuration.organization,
+                number=f'RCT-MP-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}',
+                tenant=intent.tenant, invoice=intent.invoice, received_on=timezone.localdate(),
+                amount=intent.amount, payment_method='M-Pesa',
+                external_reference=parsed.get('mpesa_receipt_number', event_id), received_by=receiver.user,
+            )
+            ReceiptAllocation.objects.create(
+                organization=configuration.organization, receipt=receipt,
+                invoice=intent.invoice, amount=intent.amount, allocated_by=receiver.user,
+            )
+            invoice = intent.invoice
+            invoice.balance = max(Decimal('0'), invoice.balance - intent.amount)
+            invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
+            invoice.save(update_fields=('balance', 'status', 'updated_at'))
+            BankTransaction.objects.create(
+                organization=configuration.organization,
+                reference=parsed.get('mpesa_receipt_number', event_id), transacted_on=timezone.localdate(),
+                description=f'M-Pesa payment {intent.reference}',
+                amount=intent.amount, status=BankTransaction.Status.MATCHED, receipt=receipt,
+                matched_by=receiver.user, matched_at=timezone.now(),
+            )
+            intent.status = PaymentIntent.Status.PAID
+            intent.external_reference = parsed.get('mpesa_receipt_number', event_id)
+            intent.paid_at = timezone.now()
+            intent.metadata = {**intent.metadata, 'mpesa_receipt': parsed.get('mpesa_receipt_number', ''), 'result_code': parsed.get('result_code')}
+            intent.save(update_fields=('status', 'external_reference', 'paid_at', 'metadata', 'updated_at'))
+            from notifications.models import Notification
+            Notification.objects.create(
+                organization=configuration.organization, recipient=receiver.user,
+                title=f'M-Pesa payment received: {receipt.number}',
+                message=f'Your M-Pesa payment of KES {intent.amount:,.2f} for invoice {invoice.number} was received. Receipt: {parsed.get("mpesa_receipt_number", "")}',
+                level=Notification.Level.SUCCESS, action_url='/tenant-portal',
+                metadata={'payment_intent_id': str(intent.id), 'invoice_id': str(invoice.id), 'receipt_id': str(receipt.id), 'provider': 'MPESA'},
+            )
+            event.status = PaymentWebhookEvent.Status.PROCESSED
+            event.processed_at = timezone.now()
+            event.save(update_fields=('status', 'processed_at', 'updated_at'))
+        return Response({'status': 'processed', 'receipt': receipt.number})
+
+    def _handle_generic_callback(self, configuration, payload, raw_body, request):
+        """Process generic (non-Safaricom) payment callbacks with HMAC verification."""
+        secret = os.environ.get(configuration.webhook_secret_env, '')
+        if not secret:
+            return Response({'detail': 'Payment callback is not configured.'}, status=503)
+        signature = request.headers.get('X-Ceest-Signature', '').removeprefix('sha256=')
+        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        if not signature or not hmac.compare_digest(signature, expected):
+            return Response({'detail': 'Invalid callback signature.'}, status=401)
+
         event_id = str(payload.get('event_id') or payload.get('eventId') or '').strip()
         reference = str(payload.get('reference') or '').strip()
         external_reference = str(payload.get('transaction_reference') or payload.get('transactionReference') or '').strip()
         if not event_id or not reference:
             return Response({'detail': 'event_id and reference are required.'}, status=400)
+
         payload_hash = hashlib.sha256(raw_body).hexdigest()
         with transaction.atomic():
             event, created = PaymentWebhookEvent.objects.get_or_create(
@@ -260,10 +378,7 @@ class PaymentWebhookViewSet(ViewSet):
                 title=f'Payment received: {receipt.number}',
                 message=f'Your payment of KES {intent.amount:,.2f} for invoice {invoice.number} was received and reconciled.',
                 level=Notification.Level.SUCCESS, action_url='/tenant-portal',
-                metadata={
-                    'payment_intent_id': str(intent.id), 'invoice_id': str(invoice.id),
-                    'receipt_id': str(receipt.id), 'provider': configuration.provider,
-                },
+                metadata={'payment_intent_id': str(intent.id), 'invoice_id': str(invoice.id), 'receipt_id': str(receipt.id), 'provider': configuration.provider},
             )
             event.status = PaymentWebhookEvent.Status.PROCESSED
             event.processed_at = timezone.now()
@@ -2810,6 +2925,8 @@ class TenantPortalViewSet(ViewSet):
 
     @action(detail=False, methods=('post',), url_path='payments/stk-push')
     def stk_push(self, request):
+        from .mpesa_client import initiate_stk_push
+
         access = self._access()
         invoice_id = request.data.get('invoice')
         raw_phone = str(request.data.get('phone_number') or access.tenant.phone or '').strip().replace('+', '').replace(' ', '')
@@ -2828,11 +2945,22 @@ class TenantPortalViewSet(ViewSet):
         configuration = PaymentGatewayConfiguration.objects.for_organization(access.organization).filter(
             property=invoice.lease.unit.property, provider=PaymentGatewayConfiguration.Provider.MPESA, is_enabled=True,
         ).first()
+        if not configuration:
+            raise ValidationError({'gateway': 'No M-Pesa payment gateway configured for this property. Contact your administrator.'})
 
         stk_settings = configuration.settings if configuration else {}
-        shortcode = stk_settings.get('shortcode') or '174379'
+        shortcode = stk_settings.get('shortcode', '')
+        passkey = stk_settings.get('passkey', '')
+        consumer_key = stk_settings.get('consumer_key', '')
+        consumer_secret = stk_settings.get('consumer_secret', '')
+        environment = stk_settings.get('environment', 'sandbox')
         account_ref = stk_settings.get('bank_account_number') or stk_settings.get('till_number') or invoice.lease.unit.code
-        bank_name = stk_settings.get('bank_name') or 'Cooperative Bank'
+
+        if not all([shortcode, passkey, consumer_key, consumer_secret]):
+            raise ValidationError({'gateway': 'M-Pesa gateway is missing required configuration (shortcode, passkey, or API keys). Contact your administrator.'})
+
+        # Build callback URL from the gateway's public_key
+        callback_url = f'{request.scheme}://{request.get_host()}/api/v1/property/payment-webhooks/{configuration.public_key}/'
 
         reference = f'STK-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}'
         intent = PaymentIntent.objects.create(
@@ -2843,27 +2971,51 @@ class TenantPortalViewSet(ViewSet):
             reference=reference,
             amount=invoice.balance,
             status=PaymentIntent.Status.PENDING,
-            checkout_url=f'mpesa://stkpush/{shortcode}/{phone_number}',
             expires_at=timezone.now() + timedelta(minutes=15),
             metadata={
                 'phone_number': phone_number,
                 'shortcode': shortcode,
-                'bank_name': bank_name,
                 'account_number': account_ref,
-                'stk_status': 'STK Push prompt sent to handset',
             }
         )
-        return Response({
-            'status': 'success',
-            'message': f'M-Pesa STK Push prompt sent to {phone_number}. Enter M-Pesa PIN on your phone to complete payment.',
-            'reference': reference,
-            'phone_number': phone_number,
-            'amount': str(invoice.balance),
-            'shortcode': shortcode,
-            'bank_name': bank_name,
-            'account_number': account_ref,
-            'intent_id': intent.id,
-        }, status=201)
+
+        # Call Safaricom Daraja API
+        result = initiate_stk_push(
+            consumer_key=consumer_key,
+            consumer_secret=consumer_secret,
+            shortcode=shortcode,
+            passkey=passkey,
+            phone_number=phone_number,
+            amount=invoice.balance,
+            callback_url=callback_url,
+            account_reference=account_ref,
+            transaction_desc=f'Invoice {invoice.number}',
+            environment=environment,
+        )
+
+        if result.get('success'):
+            intent.external_reference = result.get('checkout_request_id', '')
+            intent.metadata = {
+                **intent.metadata,
+                'checkout_request_id': result.get('checkout_request_id', ''),
+                'merchant_request_id': result.get('merchant_request_id', ''),
+                'daraja_response': result.get('response_description', ''),
+            }
+            intent.save(update_fields=('external_reference', 'metadata', 'updated_at'))
+            return Response({
+                'status': 'success',
+                'message': result.get('customer_message', f'M-Pesa STK Push prompt sent to {phone_number}. Enter M-Pesa PIN on your phone to complete payment.'),
+                'reference': reference,
+                'phone_number': phone_number,
+                'amount': str(invoice.balance),
+                'intent_id': str(intent.id),
+            }, status=201)
+        else:
+            intent.status = PaymentIntent.Status.FAILED
+            intent.error_message = result.get('error', 'STK Push failed')
+            intent.metadata = {**intent.metadata, 'daraja_error': result.get('error', ''), 'daraja_response': result.get('response_description', '')}
+            intent.save(update_fields=('status', 'error_message', 'metadata', 'updated_at'))
+            raise ValidationError({'detail': result.get('error', 'M-Pesa STK Push failed. Please try again.')})
 
     @action(detail=False, methods=('post',), url_path='service-requests')
     def service_request(self, request):

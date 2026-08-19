@@ -724,6 +724,7 @@ class PaymentIntent(OrganizationOwnedModel):
     error_message = models.TextField(blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ('-created_at',)
