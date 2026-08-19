@@ -75,7 +75,7 @@ export function OverviewView({
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
             textAlign: "center"
@@ -85,7 +85,7 @@ export function OverviewView({
             <Typography variant="caption">Available Units</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
             textAlign: "center"
@@ -95,7 +95,7 @@ export function OverviewView({
             <Typography variant="caption">Pipeline Value</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#e0f2fe", color: "#0284c7",
             textAlign: "center"
@@ -105,7 +105,7 @@ export function OverviewView({
             <Typography variant="caption">Units Sold</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#ffedd5", color: "#ea580c",
             textAlign: "center"

@@ -142,8 +142,10 @@ class TeamFeedbackThread(OrganizationOwnedModel):
         CLOSED = 'closed', 'Closed'
 
     reference = models.CharField(max_length=60, blank=True)
+    ticket_no = models.CharField(max_length=60, blank=True, help_text='CeEst Ticket Reference e.g. TT-02541')
     title = models.CharField(max_length=220)
     category = models.CharField(max_length=32, choices=FeedbackType.choices, default=FeedbackType.OPERATIONAL)
+    issue_category = models.CharField(max_length=60, blank=True, default='', help_text='Plumbing, Electrical, Cleaning, Security, Lift, Access, Water, Common Area, Other')
     priority = models.CharField(max_length=16, choices=Priority.choices, default=Priority.NORMAL)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
     property = models.ForeignKey(
@@ -151,14 +153,25 @@ class TeamFeedbackThread(OrganizationOwnedModel):
         null=True, blank=True,
     )
     module = models.CharField(max_length=40, blank=True, default='')
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        related_name='created_feedback_threads', null=True, blank=True,
-    )
+    
+    # Requester Information
+    requester_name = models.CharField(max_length=160, blank=True, default='')
+    contact_channel = models.CharField(max_length=32, blank=True, default='email', choices=[('email', 'Email'), ('whatsapp_number', 'WhatsApp Number'), ('whatsapp_username', 'WhatsApp Username'), ('phone', 'Phone Call')])
+    contact_value = models.CharField(max_length=160, blank=True, default='')
+    location_detail = models.CharField(max_length=255, blank=True, default='')
+    photo_url = models.URLField(max_length=500, blank=True, default='')
+    
+    # Assignment & SLA
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         related_name='assigned_feedback_threads', null=True, blank=True,
     )
+    assigned_team = models.CharField(max_length=80, blank=True, default='')
+    sla_due_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    
+    # Resolution & Closure
+    resolution_notes = models.TextField(blank=True, default='')
     resolved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         related_name='resolved_feedback_threads', null=True, blank=True,
@@ -169,6 +182,12 @@ class TeamFeedbackThread(OrganizationOwnedModel):
         related_name='confirmed_feedback_threads', null=True, blank=True,
     )
     confirmed_at = models.DateTimeField(null=True, blank=True)
+    reopened_count = models.PositiveIntegerField(default=0)
+    
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name='created_feedback_threads', null=True, blank=True,
+    )
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -186,13 +205,46 @@ class TeamFeedbackThread(OrganizationOwnedModel):
         if not self.reference:
             import random
             for _ in range(20):
-                candidate = f"FB-{random.randint(1000, 9999)}"
+                candidate = f"TT-{random.randint(10000, 99999)}"
                 if not type(self).objects.filter(reference=candidate).exists():
                     self.reference = candidate
                     break
             if not self.reference:
-                self.reference = f"FB-{random.randint(100000, 999999)}"
+                self.reference = f"TT-{random.randint(100000, 999999)}"
+        if not self.ticket_no:
+            self.ticket_no = self.reference
         super().save(*args, **kwargs)
+
+
+class IssueRoutingRule(OrganizationOwnedModel):
+    """
+    Automatic Issue Routing Matrix.
+    Routes tickets by Issue Category + Property to the responsible team/staff.
+    """
+    CATEGORY_CHOICES = [
+        ('Plumbing', 'Plumbing'),
+        ('Electrical', 'Electrical'),
+        ('Cleaning', 'Cleaning'),
+        ('Security', 'Security'),
+        ('Lift', 'Lift'),
+        ('Access', 'Access'),
+        ('Water', 'Water'),
+        ('Common Area', 'Common Area'),
+        ('Other', 'Other'),
+    ]
+    category = models.CharField(max_length=60, choices=CATEGORY_CHOICES)
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, null=True, blank=True, related_name='routing_rules')
+    location_keyword = models.CharField(max_length=120, blank=True, default='', help_text='Optional keyword match for building/floor/area')
+    assigned_team = models.CharField(max_length=80, default='Facility Management')
+    assigned_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='routed_issue_rules')
+    sla_hours = models.PositiveIntegerField(default=24, help_text='Target resolution time in hours')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('category', 'property__name')
+
+    def __str__(self):
+        return f'{self.category} -> {self.assigned_team} ({self.sla_hours}h SLA)'
 
 
 class PublicFeedbackQrCode(OrganizationOwnedModel):
@@ -210,6 +262,7 @@ class PublicFeedbackQrCode(OrganizationOwnedModel):
 
     def __str__(self):
         return f'{self.property} — {self.label}'
+
 
 
 class TeamFeedbackMessage(OrganizationOwnedModel):

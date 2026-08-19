@@ -31,6 +31,8 @@ import { useFormDraft } from "@/lib/form-drafts";
 import { usePropertyContext } from "@/lib/property-context";
 import { useToast } from "@/components/monitoring/hooks/useToast";
 import { DraftBanner } from "@/components/draft-banner";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & {
@@ -98,6 +100,8 @@ export function TenantApplicationCard({
   const { session } = useAuth();
   const { activeProperty } = usePropertyContext();
   const { toast } = useToast();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("md"));
   const organizationId = session?.activeOrganizationId ?? null;
   const draftScope = `${organizationId || "unknown"}:${session?.user.id || "unknown"}:${activeProperty?.id || "no-property"}`;
   const [form, setForm, clearForm, formRestored, formSavedAt] = useFormDraft("tenant-application:form", initialForm, draftScope);
@@ -312,14 +316,17 @@ export function TenantApplicationCard({
 
   return (
     <Dialog
-      fullScreen
+      fullScreen={fullScreen}
       open={open}
       onClose={onClose}
-      slots={{ transition: Transition }}
+      slots={fullScreen ? { transition: Transition } : undefined}
+      maxWidth="xl"
+      fullWidth
       sx={{
         "& .MuiDialog-paper": {
           bgcolor: "var(--bg-app)",
           color: "var(--text)",
+          ...(fullScreen ? {} : { borderRadius: 3, maxHeight: "95vh" }),
         },
       }}
     >

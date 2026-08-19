@@ -86,6 +86,7 @@ export function usePropertyLogic({
 
   const [showAddProperty, setShowAddProperty] = useState(standaloneOnboarding);
   const [showAddTenant, setShowAddTenant] = useState(false);
+  const [showBulkTenantUpload, setShowBulkTenantUpload] = useState(false);
   const [showEditTenant, setShowEditTenant] = useState(false);
   const [editTenant, setEditTenant] = useState<TenantRow | null>(null);
   const [showAddLease, setShowAddLease] = useState(false);
@@ -1103,6 +1104,8 @@ export function usePropertyLogic({
     setShowAddProperty,
     showAddTenant,
     setShowAddTenant,
+    showBulkTenantUpload,
+    setShowBulkTenantUpload,
     showEditTenant,
     setShowEditTenant,
     editTenant,

@@ -254,7 +254,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "rgba(124,58,237,0.12)", color: "#7c3aed",
             textAlign: "center"
@@ -264,7 +264,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
             <Typography variant="caption">Active Tenders</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "rgba(16,185,129,0.12)", color: "#059669",
             textAlign: "center"
@@ -274,7 +274,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
             <Typography variant="caption">Pipeline Value</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "rgba(245,158,11,0.12)", color: "#d97706",
             textAlign: "center"
@@ -284,7 +284,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
             <Typography variant="caption">Awaiting Decision</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "rgba(239,68,68,0.12)", color: "#dc2626",
             textAlign: "center"

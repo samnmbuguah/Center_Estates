@@ -829,6 +829,18 @@ class PublicFeedbackQrCodeViewSet(CompanionModelViewSet):
         serializer.save(organization=organization)
 
 
+from notifications.services import notify_user, send_email_notification
+from .models import IssueRoutingRule
+from .serializers import IssueRoutingRuleSerializer
+
+
+class IssueRoutingRuleViewSet(CompanionModelViewSet):
+    queryset = IssueRoutingRule.objects.select_related('property', 'assigned_user')
+    serializer_class = IssueRoutingRuleSerializer
+    write_permission = 'companion.assign'
+    search_fields = ('category', 'property__name', 'assigned_team', 'assigned_user__username')
+
+
 @csrf_exempt
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -836,41 +848,259 @@ def public_feedback(request, token):
     qr = PublicFeedbackQrCode.objects.select_related('organization', 'property', 'building').filter(token=token, active=True).first()
     if not qr:
         return Response({'detail': 'This feedback link is no longer active.'}, status=status.HTTP_404_NOT_FOUND)
+    
+    categories = [
+        {'id': 'Plumbing', 'label': 'Plumbing & Drainage', 'icon': '🚰'},
+        {'id': 'Electrical', 'label': 'Electrical & Lighting', 'icon': '⚡'},
+        {'id': 'Cleaning', 'label': 'Cleaning & Janitorial', 'icon': '🧹'},
+        {'id': 'Security', 'label': 'Security & Guarding', 'icon': '🛡️'},
+        {'id': 'Lift', 'label': 'Elevator / Lift', 'icon': '🛗'},
+        {'id': 'Access', 'label': 'Access Control & Doors', 'icon': '🚪'},
+        {'id': 'Water', 'label': 'Water Supply & Pumps', 'icon': '💧'},
+        {'id': 'Common Area', 'label': 'Common Area & Facilities', 'icon': '🏢'},
+        {'id': 'Other', 'label': 'General / Other Inquiry', 'icon': '📝'},
+    ]
+
     if request.method == 'GET':
-        return Response({'label': qr.label, 'property': qr.property.name, 'building': qr.building.name if qr.building else '', 'floor': qr.floor, 'unit': qr.unit})
-    title = str(request.data.get('title') or '').strip()
-    message = str(request.data.get('message') or '').strip()
-    if not title or not message:
-        raise ValidationError({'detail': 'Title and message are required.'})
-    category = request.data.get('category') or TeamFeedbackThread.FeedbackType.OPERATIONAL
-    priority = request.data.get('priority') or TeamFeedbackThread.Priority.NORMAL
-    if category not in TeamFeedbackThread.FeedbackType.values:
-        raise ValidationError({'category': 'Invalid feedback category.'})
+        return Response({
+            'label': qr.label,
+            'property': qr.property.name,
+            'property_id': str(qr.property.id),
+            'building': qr.building.name if qr.building else '',
+            'floor': qr.floor,
+            'unit': qr.unit,
+            'categories': categories,
+        })
+
+    # POST - Create Helpdesk Ticket
+    issue_category = str(request.data.get('category') or request.data.get('issue_category') or 'Other').strip()
+    title = str(request.data.get('title') or f"{issue_category} Request - {qr.label}").strip()
+    message = str(request.data.get('message') or request.data.get('description') or '').strip()
+    if not message:
+        raise ValidationError({'message': 'Issue description is required.'})
+
+    name = str(request.data.get('name') or 'Public Visitor').strip()
+    contact_channel = str(request.data.get('contact_channel') or 'email').strip()
+    contact_value = str(request.data.get('contact_value') or request.data.get('contact') or '').strip()
+    priority = str(request.data.get('priority') or TeamFeedbackThread.Priority.NORMAL).strip()
     if priority not in TeamFeedbackThread.Priority.values:
-        raise ValidationError({'priority': 'Invalid feedback priority.'})
-    attachment_url = str(request.data.get('attachment_url') or '').strip()
-    if len(attachment_url) > 500:
-        raise ValidationError({'attachment_url': 'Attachment URL is too long.'})
-    thread = TeamFeedbackThread.objects.create(
-        organization=qr.organization,
-        property=qr.property,
-        title=title,
-        category=category,
-        priority=priority,
-        module=request.data.get('module') or 'facility',
-        metadata={'public_qr': True, 'qr_label': qr.label, 'floor': qr.floor, 'unit': qr.unit},
-    )
+        priority = TeamFeedbackThread.Priority.NORMAL
+
+    attachment_url = str(request.data.get('attachment_url') or request.data.get('photo_url') or '').strip()
+
+    # 1. Match Issue Routing Rule
+    routing_rule = IssueRoutingRule.objects.filter(
+        organization=qr.organization, is_active=True,
+        category__iexact=issue_category, property=qr.property,
+    ).first()
+    if not routing_rule:
+        routing_rule = IssueRoutingRule.objects.filter(
+            organization=qr.organization, is_active=True,
+            category__iexact=issue_category, property__isnull=True,
+        ).first()
+
+    assigned_team = routing_rule.assigned_team if routing_rule else 'Facility Management'
+    assigned_user = routing_rule.assigned_user if routing_rule else None
+    sla_hours = routing_rule.sla_hours if routing_rule else (4 if priority == 'urgent' else 24)
+
     from django.contrib.auth import get_user_model
-    developer = get_user_model().objects.filter(
+    User = get_user_model()
+    developer = User.objects.filter(
         username='samuel', is_active=True,
         erp_memberships__organization=qr.organization,
         erp_memberships__status='active',
     ).first()
-    if developer:
-        thread.assigned_to = developer
-        thread.save(update_fields=['assigned_to'])
-    TeamFeedbackMessage.objects.create(organization=qr.organization, thread=thread, message=message, sender_name=str(request.data.get('name') or 'Public reporter')[:120], attachment_url=attachment_url)
-    return Response({'reference': thread.reference, 'detail': 'Feedback submitted.'}, status=status.HTTP_201_CREATED)
+
+    if not assigned_user and developer:
+        assigned_user = developer
+
+    import datetime
+    now = timezone.now()
+    sla_due_at = now + datetime.timedelta(hours=sla_hours)
+
+    location_desc = f"{qr.property.name}"
+    if qr.building:
+        location_desc += f" · {qr.building.name}"
+    if qr.floor:
+        location_desc += f" · Floor {qr.floor}"
+    if qr.unit:
+        location_desc += f" · Unit {qr.unit}"
+
+    # 2. Create the ticket thread
+    thread = TeamFeedbackThread.objects.create(
+        organization=qr.organization,
+        property=qr.property,
+        title=title,
+        category=TeamFeedbackThread.FeedbackType.OPERATIONAL,
+        issue_category=issue_category,
+        priority=priority,
+        requester_name=name,
+        contact_channel=contact_channel,
+        contact_value=contact_value,
+        location_detail=location_desc,
+        photo_url=attachment_url,
+        assigned_team=assigned_team,
+        assigned_to=assigned_user,
+        sla_due_at=sla_due_at,
+        module='facility',
+        metadata={
+            'public_qr': True,
+            'qr_label': qr.label,
+            'floor': qr.floor,
+            'unit': qr.unit,
+            'token': token,
+            'sla_hours': sla_hours,
+        },
+    )
+
+    # 3. Create initial message
+    TeamFeedbackMessage.objects.create(
+        organization=qr.organization,
+        thread=thread,
+        message=message,
+        sender_name=name,
+        attachment_url=attachment_url,
+    )
+
+    # 4. Requester Acknowledgement
+    if contact_channel == 'email' and contact_value and '@' in contact_value:
+        send_email_notification(
+            recipient_email=contact_value,
+            recipient_name=name,
+            subject=f'Ticket Acknowledged: {thread.ticket_no} - {issue_category}',
+            message=(
+                f"Thank you, {name}. Your request has been received under Ticket Reference {thread.ticket_no}.\n\n"
+                f"Issue: {issue_category}\n"
+                f"Location: {location_desc}\n"
+                f"Assigned Team: {assigned_team}\n"
+                f"Target Resolution: within {sla_hours} hours\n\n"
+                f"Description: {message}\n\n"
+                f"We will attend to this promptly."
+            ),
+            action_url=f"/feedback/{token}?ref={thread.ticket_no}",
+            organization=qr.organization,
+        )
+
+    # 5. Staff Notification (in-app + email)
+    assignee_name = assigned_user.get_full_name() or assigned_user.username if assigned_user else assigned_team
+    if assigned_user:
+        notify_user(
+            organization=qr.organization,
+            recipient=assigned_user,
+            title=f"New Helpdesk Ticket {thread.ticket_no}: {issue_category}",
+            message=f"New {priority} ticket from {name} at {location_desc}: {message[:120]} (SLA: {sla_hours}h)",
+            action_url=f"/companion?tab=feedback&thread={thread.id}",
+            category="companion",
+            level=Notification.Level.URGENT if priority == 'urgent' else Notification.Level.INFO,
+        )
+
+    if developer and (not assigned_user or developer.pk != assigned_user.pk):
+        notify_user(
+            organization=qr.organization,
+            recipient=developer,
+            title=f"Smart Helpdesk: {thread.ticket_no} at {qr.property.name}",
+            message=f"{issue_category} raised by {name} ({contact_channel}: {contact_value or 'none'}). Assigned to {assignee_name}.",
+            action_url=f"/companion?tab=feedback&thread={thread.id}",
+            category="companion",
+        )
+
+    return Response({
+        'reference': thread.ticket_no,
+        'ticket_no': thread.ticket_no,
+        'status': thread.status,
+        'assigned_team': assigned_team,
+        'assigned_to': assignee_name,
+        'sla_hours': sla_hours,
+        'sla_due_at': thread.sla_due_at.isoformat() if thread.sla_due_at else None,
+        'detail': f'Thank you. Your request has been logged under Ticket {thread.ticket_no}.',
+    }, status=status.HTTP_201_CREATED)
+
+
+@csrf_exempt
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def public_ticket_status(request, reference):
+    """
+    Public ticket status tracking, confirmation, and reopening.
+    """
+    thread = TeamFeedbackThread.objects.select_related('property', 'assigned_to').filter(
+        models.Q(reference__iexact=reference) | models.Q(ticket_no__iexact=reference)
+    ).first()
+    if not thread:
+        return Response({'detail': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        messages = thread.messages.all().order_by('created_at')
+        return Response({
+            'reference': thread.ticket_no or thread.reference,
+            'title': thread.title,
+            'category': thread.issue_category or thread.category,
+            'status': thread.status,
+            'priority': thread.priority,
+            'property_name': thread.property.name if thread.property else '',
+            'location_detail': thread.location_detail,
+            'assigned_team': thread.assigned_team or 'Facility Management',
+            'assigned_to': thread.assigned_to.get_full_name() or thread.assigned_to.username if thread.assigned_to else 'Pending allocation',
+            'created_at': thread.created_at.isoformat(),
+            'sla_due_at': thread.sla_due_at.isoformat() if thread.sla_due_at else None,
+            'resolved_at': thread.resolved_at.isoformat() if thread.resolved_at else None,
+            'confirmed_at': thread.confirmed_at.isoformat() if thread.confirmed_at else None,
+            'resolution_notes': thread.resolution_notes,
+            'reopened_count': thread.reopened_count,
+            'messages': [
+                {
+                    'sender': m.sender_name or (m.sender.username if m.sender else 'System'),
+                    'message': m.message,
+                    'is_developer_response': m.is_developer_response,
+                    'created_at': m.created_at.isoformat(),
+                }
+                for m in messages
+            ],
+        })
+
+    # POST - Confirm or Reopen
+    action_type = request.data.get('action') # 'confirm' or 'reopen'
+    note = str(request.data.get('note') or '').strip()
+
+    if action_type == 'confirm':
+        thread.status = TeamFeedbackThread.Status.CLOSED
+        thread.confirmed_at = timezone.now()
+        thread.save(update_fields=['status', 'confirmed_at'])
+        TeamFeedbackMessage.objects.create(
+            organization=thread.organization,
+            thread=thread,
+            message=f"Requester confirmed resolution: {note or 'Issue resolved to satisfaction.'}",
+            sender_name=thread.requester_name or 'Requester',
+        )
+        return Response({'detail': f'Ticket {thread.ticket_no} confirmed and closed. Thank you!'})
+
+    elif action_type == 'reopen':
+        thread.status = TeamFeedbackThread.Status.OPEN
+        thread.reopened_count += 1
+        thread.resolved_at = None
+        thread.resolved_by = None
+        thread.save(update_fields=['status', 'reopened_count', 'resolved_at', 'resolved_by'])
+        TeamFeedbackMessage.objects.create(
+            organization=thread.organization,
+            thread=thread,
+            message=f"Requester reopened ticket: {note or 'Issue still persists.'}",
+            sender_name=thread.requester_name or 'Requester',
+        )
+        # Alert assignee
+        if thread.assigned_to:
+            notify_user(
+                organization=thread.organization,
+                recipient=thread.assigned_to,
+                title=f"Ticket Reopened: {thread.ticket_no}",
+                message=f"Requester reopened {thread.ticket_no} at {thread.location_detail}: {note or 'Issue still persists.'}",
+                action_url=f"/companion?tab=feedback&thread={thread.id}",
+                category="companion",
+                level=Notification.Level.URGENT,
+            )
+        return Response({'detail': f'Ticket {thread.ticket_no} has been reopened and escalated.'})
+
+    return Response({'detail': 'Invalid action. Specify confirm or reopen.'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class StaffLeaveRequestViewSet(CompanionModelViewSet):

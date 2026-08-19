@@ -16,6 +16,7 @@ import {
 } from "@/components/module-ui";
 import { kM, kN, fmtDate } from "../../utils/property.utils";
 import { TenantApplicationCard } from "@/components/tenant-application-card";
+import { BulkTenantUploader } from "@/components/bulk-tenant-uploader";
 import { useState } from "react";
 
 function EditTenantForm({ tenant, onSave, onCancel }: { tenant: TenantRow; onSave: (data: Record<string, unknown>) => void; onCancel: () => void }) {
@@ -159,6 +160,8 @@ export interface PropertyModalsProps {
   standaloneOnboarding?: boolean;
   fetchData?: () => void;
   previewInvoice?: () => void;
+  showBulkTenantUpload?: boolean;
+  setShowBulkTenantUpload?: (v: boolean) => void;
 }
 
 export function PropertyModals(props: PropertyModalsProps) {
@@ -195,6 +198,8 @@ export function PropertyModals(props: PropertyModalsProps) {
     standaloneOnboarding = false,
     fetchData = () => {},
     previewInvoice = () => {},
+    showBulkTenantUpload = false,
+    setShowBulkTenantUpload = () => {},
   } = props;
 
   const submitAddProperty = (e?: any) => onAddPropertySubmit(e ?? { preventDefault: () => {} } as any);
@@ -374,6 +379,20 @@ export function PropertyModals(props: PropertyModalsProps) {
           onClose={() => setShowAddTenant(false)}
           onSaved={() => { setShowAddTenant(false); setTab("tenants"); loadData(); }}
         />
+
+        {/* ─── BULK TENANT UPLOAD ─── */}
+        {showBulkTenantUpload && (
+          <Modal
+            title="⬆ Upload Tenants in Bulk"
+            onClose={() => setShowBulkTenantUpload(false)}
+            wide
+          >
+            <BulkTenantUploader
+              onDone={() => { setShowBulkTenantUpload(false); setTab("tenants"); loadData(); }}
+              onCancel={() => setShowBulkTenantUpload(false)}
+            />
+          </Modal>
+        )}
 
         {showEditTenant && editTenant && (
           <Modal title={`Edit Tenant: ${editTenant.name ?? ""}`} onClose={() => { setShowEditTenant(false); setEditTenant(null); }}>

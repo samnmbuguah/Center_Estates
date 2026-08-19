@@ -244,7 +244,7 @@ export function BuyersView({
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#e0e7ff", color: "#4f46e5",
             textAlign: "center"
@@ -254,7 +254,7 @@ export function BuyersView({
             <Typography variant="caption">Total Buyers</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
             textAlign: "center"
@@ -264,7 +264,7 @@ export function BuyersView({
             <Typography variant="caption">Active Buyers</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#fef3c7", color: "#92400e",
             textAlign: "center"
@@ -274,7 +274,7 @@ export function BuyersView({
             <Typography variant="caption">Leads</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#e0f2fe", color: "#0284c7",
             textAlign: "center"

@@ -417,7 +417,7 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#e0e7ff", color: "#4f46e5",
             textAlign: "center"
@@ -427,7 +427,7 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
             <Typography variant="caption">Total Instructions</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
             textAlign: "center"
@@ -437,7 +437,7 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
             <Typography variant="caption">In Progress</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
             textAlign: "center"
@@ -447,7 +447,7 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
             <Typography variant="caption">Completed</Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
             p: 2, borderRadius: 2, bgcolor: "#fee2e2", color: "#b91c1c",
             textAlign: "center"

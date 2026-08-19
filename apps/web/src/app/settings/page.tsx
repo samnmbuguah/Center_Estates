@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, Suspense } from "react";
+import { useState, useEffect, FormEvent, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
@@ -63,6 +63,73 @@ function SettingsContent() {
     }
   }
 
+  // Notification Preferences State
+  const [prefLoading, setPrefLoading] = useState(false);
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [inAppEnabled, setInAppEnabled] = useState(true);
+  const [notifyTaskAssigned, setNotifyTaskAssigned] = useState(true);
+  const [notifyTaskDueSla, setNotifyTaskDueSla] = useState(true);
+  const [notifyCompanionFeedback, setNotifyCompanionFeedback] = useState(true);
+  const [notifyTicketUpdates, setNotifyTicketUpdates] = useState(true);
+  const [notifyFinancialAlerts, setNotifyFinancialAlerts] = useState(true);
+
+  // Load preferences
+  useEffect(() => {
+    if (!organizationId) return;
+    setPrefLoading(true);
+    apiFetch("/notifications/preferences/mine/", {}, organizationId)
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          setEmailEnabled(data.email_enabled ?? true);
+          setInAppEnabled(data.in_app_enabled ?? true);
+          setNotifyTaskAssigned(data.notify_task_assigned ?? true);
+          setNotifyTaskDueSla(data.notify_task_due_sla ?? true);
+          setNotifyCompanionFeedback(data.notify_companion_feedback ?? true);
+          setNotifyTicketUpdates(data.notify_ticket_updates ?? true);
+          setNotifyFinancialAlerts(data.notify_financial_alerts ?? true);
+        }
+      })
+      .catch((err) => console.error("Failed to load user notification preferences", err))
+      .finally(() => setPrefLoading(false));
+  }, [organizationId]);
+
+  async function handleSavePreferences(e: FormEvent) {
+    e.preventDefault();
+    if (!organizationId) return;
+    setPrefSaving(true);
+    setNotice(null);
+    try {
+      const res = await apiFetch(
+        "/notifications/preferences/mine/",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email_enabled: emailEnabled,
+            in_app_enabled: inAppEnabled,
+            notify_task_assigned: notifyTaskAssigned,
+            notify_task_due_sla: notifyTaskDueSla,
+            notify_companion_feedback: notifyCompanionFeedback,
+            notify_ticket_updates: notifyTicketUpdates,
+            notify_financial_alerts: notifyFinancialAlerts,
+          }),
+        },
+        organizationId
+      );
+      if (res.ok) {
+        setNotice({ type: "success", text: "Your notification and email preferences have been saved." });
+      } else {
+        setNotice({ type: "error", text: "Failed to save preferences. Please retry." });
+      }
+    } catch {
+      setNotice({ type: "error", text: "Network error saving notification preferences." });
+    } finally {
+      setPrefSaving(false);
+    }
+  }
+
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1000, margin: "0 auto" }}>
       {/* Header */}
@@ -99,23 +166,23 @@ function SettingsContent() {
       {/* TAB 1: PROFILE */}
       {tab === "profile" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <h2 style={{ margin: "0 0 16px", fontSize: "1.2rem", fontWeight: 700 }}>👤 Account Profile & Details</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 500 }}>
+          <h2 style={{ margin: "0 0 16px", fontSize: "1.2rem", fontWeight: 700 }}>👤 User Profile Information</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 640 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Full Name:</label>
+              <input type="text" readOnly value={`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.username || "Admin"} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
+            </div>
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Username:</label>
-              <input type="text" value={user?.username || ""} readOnly style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2, #f8fafc)" }} />
+              <input type="text" readOnly value={user?.username || ""} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
             </div>
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Email Address:</label>
-              <input type="email" value={user?.email || ""} readOnly style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2, #f8fafc)" }} />
+              <input type="email" readOnly value={user?.email || ""} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>First Name:</label>
-              <input type="text" defaultValue={user?.firstName || ""} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }} />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Last Name:</label>
-              <input type="text" defaultValue={user?.lastName || ""} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }} />
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Assigned Roles:</label>
+              <input type="text" readOnly value={session?.roles?.join(", ") || "User"} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
             </div>
           </div>
         </div>
@@ -125,20 +192,20 @@ function SettingsContent() {
       {tab === "mpesa-test" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
           <div style={{ marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>📱 M-Pesa STK Push Sandbox Test Tool</h2>
+            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>💳 M-Pesa STK Push Simulation & Test Tool</h2>
             <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
-              Test your M-Pesa Daraja STK Push prompt by sending a real-time prompt to a Safaricom phone number.
+              Test the live Safaricom Daraja STK Push prompt by sending a real authorization request to your phone.
             </p>
           </div>
 
           <form onSubmit={handleTestStkPush} style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 500 }}>
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>M-Pesa Phone Number:</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Recipient Phone Number (254...):</label>
               <input
                 type="text"
                 value={testPhone}
                 onChange={(e) => setTestPhone(e.target.value)}
-                placeholder="2547XXXXXXXX or 07XXXXXXXX"
+                placeholder="254700000000"
                 required
                 style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
               />
@@ -194,22 +261,121 @@ function SettingsContent() {
       {/* TAB 3: NOTIFICATIONS */}
       {tab === "notifications" && (
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <h2 style={{ margin: "0 0 16px", fontSize: "1.2rem", fontWeight: 700 }}>🔔 Notification Preferences</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {[
-              { title: "Invoice & Rent Payment Alerts", desc: "Receive email and SMS notifications when a tenant pays rent or when invoices are due." },
-              { title: "M-Pesa STK Push Confirmations", desc: "Get real-time notification alerts when M-Pesa STK push transactions complete." },
-              { title: "Maintenance Work Order Tickets", desc: "Receive alerts for new tickets, SLA escalations, and caretaker meter readings." },
-            ].map((n) => (
-              <label key={n.title} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 12, border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer" }}>
-                <input type="checkbox" defaultChecked style={{ marginTop: 3 }} />
-                <div>
-                  <strong style={{ fontSize: 14 }}>{n.title}</strong>
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>{n.desc}</p>
-                </div>
-              </label>
-            ))}
+          <div style={{ marginBottom: 18, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
+            <h2 style={{ margin: "0 0 4px", fontSize: "1.25rem", fontWeight: 800 }}>🔔 Notification & Email Preferences</h2>
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
+              Configure which alerts you receive in real-time in the platform and via your connected email ({user?.email || "account email"}).
+            </p>
           </div>
+
+          {prefLoading ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>Loading notification preferences…</div>
+          ) : (
+            <form onSubmit={handleSavePreferences} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Channel Controls */}
+              <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text)", marginBottom: 10 }}>Delivery Channels</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                    <input type="checkbox" checked={emailEnabled} onChange={(e) => setEmailEnabled(e.target.checked)} />
+                    <span>✉️ Email Notifications ({user?.email || "account"})</span>
+                  </label>
+                  <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                    <input type="checkbox" checked={inAppEnabled} onChange={(e) => setInAppEnabled(e.target.checked)} />
+                    <span>🔔 In-App Platform Alerts</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Event Subscriptions */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>Event Subscriptions</div>
+
+                {[
+                  {
+                    key: "task_assigned",
+                    title: "📋 Task & Work Order Assignments",
+                    desc: "Notify me whenever a new task, work order, or inspection is assigned to me.",
+                    checked: notifyTaskAssigned,
+                    setter: setNotifyTaskAssigned,
+                  },
+                  {
+                    key: "task_sla",
+                    title: "⏰ Task SLA Due Dates & Escalations",
+                    desc: "Alert me when assigned tasks approach SLA deadline or are escalated by management.",
+                    checked: notifyTaskDueSla,
+                    setter: setNotifyTaskDueSla,
+                  },
+                  {
+                    key: "companion_feedback",
+                    title: "💬 Companion & Developer Helpdesk Alerts",
+                    desc: "Alert developer 'samuel' and supervisors when public or staff submit smart helpdesk requests.",
+                    checked: notifyCompanionFeedback,
+                    setter: setNotifyCompanionFeedback,
+                  },
+                  {
+                    key: "ticket_updates",
+                    title: "🎫 Ticket Lifecycle & Status Changes",
+                    desc: "Receive updates when tickets are investigated, resolved, reopened, or confirmed by requesters.",
+                    checked: notifyTicketUpdates,
+                    setter: setNotifyTicketUpdates,
+                  },
+                  {
+                    key: "financial_alerts",
+                    title: "💰 Rent Invoicing & M-Pesa Payment Receipts",
+                    desc: "Get notified when tenant rent invoices generate, payment receipts issue, or STK pushes succeed.",
+                    checked: notifyFinancialAlerts,
+                    setter: setNotifyFinancialAlerts,
+                  },
+                ].map((item) => (
+                  <label
+                    key={item.key}
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "flex-start",
+                      padding: 12,
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: item.checked ? "var(--surface)" : "var(--surface-sunken)",
+                      transition: "background 0.15s ease",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={(e) => item.setter(e.target.checked)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div>
+                      <strong style={{ fontSize: 13, color: "var(--text)" }}>{item.title}</strong>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>{item.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <button
+                  type="submit"
+                  disabled={prefSaving}
+                  style={{
+                    background: "#dc2626",
+                    color: "#fff",
+                    border: 0,
+                    borderRadius: 8,
+                    padding: "10px 20px",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  {prefSaving ? "Saving Preferences…" : "Save Notification Preferences"}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
 

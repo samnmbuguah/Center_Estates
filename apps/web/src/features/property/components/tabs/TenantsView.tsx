@@ -29,6 +29,7 @@ export function TenantsView({
   setSearch,
   setTab,
   onAdd = () => {},
+  onBulkUpload = () => {},
   onUploadDoc = () => {},
   onSelectRow = () => {},
   onOpenPortal = () => {},
@@ -43,6 +44,7 @@ export function TenantsView({
   setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void;
   onAdd?: () => void;
+  onBulkUpload?: () => void;
   onUploadDoc?: (t?: Row) => void;
   onSelectRow?: (r: Row) => void;
   onOpenPortal?: (r: Row) => void;
@@ -84,6 +86,16 @@ export function TenantsView({
           { key: "outstanding", label: "Outstanding" }, { key: "created_at", label: "Registered" },
         ], "tenants.csv")}>Export CSV</button>
         <button className="btn ghost sm" onClick={() => onUploadDoc()}>Upload Document</button>
+        {canLease && (
+          <button
+            className="btn ghost sm"
+            onClick={() => onBulkUpload()}
+            title="Upload multiple tenants at once using a CSV file"
+            style={{ display: "flex", alignItems: "center", gap: 5 }}
+          >
+            ⬆ Upload Tenants (CSV)
+          </button>
+        )}
         <button className="btn primary sm" onClick={() => onAdd()} style={{ fontWeight: 800 }}>+ Onboard Tenant</button>
       </ViewToolbar>
 

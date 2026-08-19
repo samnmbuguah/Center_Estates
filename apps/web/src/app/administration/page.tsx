@@ -72,13 +72,20 @@ function AdministrationContent() {
     session?.roles?.includes("platform-admin") ||
     session?.roles?.includes("super-admin")
   );
+  const isFinanceAdmin = Boolean(
+    isSuperAdministrator ||
+    session?.permissions?.includes("property.finance") ||
+    session?.roles?.some((r) => r.includes("finance") || r.includes("admin") || r.includes("manager"))
+  );
   const organizationId = session?.activeOrganizationId ?? null;
 
   // Active subtab read from sidebar URL search parameter
   const urlTab = searchParams ? searchParams.get("tab") : null;
-  const tab = (urlTab && ["users", "roles", "mpesa", "orgs", "tax", "audit", "feedback-qr"].includes(urlTab))
-    ? (urlTab as "users" | "roles" | "mpesa" | "orgs" | "tax" | "audit" | "feedback-qr")
-    : "users";
+  const tab = (urlTab && ["users", "roles", "mpesa", "smtp", "orgs", "tax", "audit", "feedback-qr"].includes(urlTab))
+    ? (urlTab as "users" | "roles" | "mpesa" | "smtp" | "orgs" | "tax" | "audit" | "feedback-qr")
+    : (isSuperAdministrator ? "users" : "mpesa");
+
+  const canAccessAdministration = isSuperAdministrator || ((tab === "mpesa" || tab === "smtp") && isFinanceAdmin);
 
   // Shared Data
   const [properties, setProperties] = useState<PropertyItem[]>([]);
@@ -125,13 +132,29 @@ function AdministrationContent() {
   const [bankAccount, setBankAccount] = useState("01120001234500");
   const [tillNumber, setTillNumber] = useState("");
 
+  // Email SMTP Form fields
+  const [smtpConfigId, setSmtpConfigId] = useState<string>("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUsername, setSmtpUsername] = useState("");
+  const [smtpPassword, setSmtpPassword] = useState("");
+  const [smtpUseTls, setSmtpUseTls] = useState(true);
+  const [smtpUseSsl, setSmtpUseSsl] = useState(false);
+  const [smtpFromEmail, setSmtpFromEmail] = useState("notifications@centerestates.com");
+  const [smtpFromName, setSmtpFromName] = useState("Center Estates");
+  const [smtpIsActive, setSmtpIsActive] = useState(true);
+  const [testEmailAddress, setTestEmailAddress] = useState("");
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+
   // 1. Load Properties & Roles
   const loadPropertiesAndRoles = useCallback(async () => {
-    if (!organizationId || !isSuperAdministrator) return;
+    if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin)) return;
     try {
       const [propRes, rolesRes] = await Promise.all([
         apiFetch("/property/properties/", {}, organizationId),
-        apiFetch("/access/roles/", {}, organizationId),
+        isSuperAdministrator ? apiFetch("/access/roles/", {}, organizationId) : Promise.resolve(new Response(JSON.stringify([]))),
       ]);
       if (propRes.ok) {
         const data = await propRes.json();
@@ -148,7 +171,7 @@ function AdministrationContent() {
     } catch (err) {
       console.error("Failed to load properties or roles", err);
     }
-  }, [organizationId, isSuperAdministrator, selectedPropertyId]);
+  }, [organizationId, isSuperAdministrator, isFinanceAdmin, selectedPropertyId]);
 
   // 2. Load Members / Users
   const loadMembers = useCallback(async () => {
@@ -169,7 +192,7 @@ function AdministrationContent() {
 
   // 3. Load Gateway
   const loadGateway = useCallback(async () => {
-    if (!organizationId || !selectedPropertyId || !isSuperAdministrator) return;
+    if (!organizationId || !selectedPropertyId || (!isSuperAdministrator && !isFinanceAdmin)) return;
     try {
       const res = await apiFetch(`/property/payment-gateways/?property=${selectedPropertyId}`, {}, organizationId);
       if (res.ok) {
@@ -201,12 +224,39 @@ function AdministrationContent() {
     } catch (err) {
       console.error("Failed to load gateway settings", err);
     }
-  }, [organizationId, selectedPropertyId, isSuperAdministrator]);
+  }, [organizationId, selectedPropertyId, isSuperAdministrator, isFinanceAdmin]);
+
+  // 4. Load SMTP Configuration
+  const loadSmtpConfig = useCallback(async () => {
+    if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin)) return;
+    try {
+      const res = await apiFetch("/notifications/email-settings/", {}, organizationId);
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.results || [];
+        const activeConfig = list.find((c: any) => c.is_active) || list[0];
+        if (activeConfig) {
+          setSmtpConfigId(activeConfig.id);
+          setSmtpHost(activeConfig.host || "");
+          setSmtpPort(String(activeConfig.port || 587));
+          setSmtpUsername(activeConfig.username || "");
+          setSmtpUseTls(activeConfig.use_tls ?? true);
+          setSmtpUseSsl(activeConfig.use_ssl ?? false);
+          setSmtpFromEmail(activeConfig.from_email || "notifications@centerestates.com");
+          setSmtpFromName(activeConfig.from_name || "Center Estates");
+          setSmtpIsActive(activeConfig.is_active ?? true);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load SMTP settings", err);
+    }
+  }, [organizationId, isSuperAdministrator, isFinanceAdmin]);
 
   useEffect(() => {
     void loadPropertiesAndRoles();
     void loadMembers();
-  }, [loadPropertiesAndRoles, loadMembers]);
+    void loadSmtpConfig();
+  }, [loadPropertiesAndRoles, loadMembers, loadSmtpConfig]);
 
   useEffect(() => {
     if (selectedPropertyId) {
@@ -214,7 +264,93 @@ function AdministrationContent() {
     }
   }, [selectedPropertyId, loadGateway]);
 
-  // Handle Add Member Submit
+  async function handleSaveSmtp(e: FormEvent) {
+    e.preventDefault();
+    if (!organizationId) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const payload: any = {
+        host: smtpHost.trim(),
+        port: parseInt(smtpPort, 10) || 587,
+        username: smtpUsername.trim(),
+        use_tls: smtpUseTls,
+        use_ssl: smtpUseSsl,
+        from_email: smtpFromEmail.trim(),
+        from_name: smtpFromName.trim(),
+        is_active: smtpIsActive,
+      };
+      if (smtpPassword) {
+        payload.password = smtpPassword;
+      }
+      const url = smtpConfigId
+        ? `/notifications/email-settings/${smtpConfigId}/`
+        : `/notifications/email-settings/`;
+      const method = smtpConfigId ? "PATCH" : "POST";
+
+      const res = await apiFetch(
+        url,
+        {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        organizationId
+      );
+
+      if (res.ok) {
+        const body = await res.json();
+        setSmtpConfigId(body.id);
+        setSmtpPassword("");
+        setNotice({ type: "success", text: "Organization SMTP settings saved successfully." });
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setNotice({ type: "error", text: body.detail || "Failed to save SMTP settings." });
+      }
+    } catch {
+      setNotice({ type: "error", text: "Failed to save SMTP configuration. Check connection." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTestSmtp() {
+    if (!organizationId) return;
+    setTestingSmtp(true);
+    setSmtpTestResult(null);
+    try {
+      const res = await apiFetch(
+        "/notifications/email-settings/test/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            test_email: testEmailAddress || undefined,
+            host: smtpHost || undefined,
+            port: parseInt(smtpPort, 10) || undefined,
+            username: smtpUsername || undefined,
+            password: smtpPassword || undefined,
+            use_tls: smtpUseTls,
+            use_ssl: smtpUseSsl,
+            from_email: smtpFromEmail || undefined,
+            from_name: smtpFromName || undefined,
+          }),
+        },
+        organizationId
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSmtpTestResult({ type: "success", text: data.detail || "Diagnostic test email dispatched successfully!" });
+      } else {
+        setSmtpTestResult({ type: "error", text: data.detail || "Failed to dispatch test email." });
+      }
+    } catch {
+      setSmtpTestResult({ type: "error", text: "Test email dispatch failed due to network error." });
+    } finally {
+      setTestingSmtp(false);
+    }
+  }
+
   async function handleCreateUser(e: FormEvent) {
     e.preventDefault();
     if (!organizationId) return;
@@ -429,7 +565,7 @@ function AdministrationContent() {
   const adminCount = members.filter((m) => m.is_organization_admin).length;
   const staffCount = totalUsers - adminCount;
 
-  if (session && !isSuperAdministrator) {
+  if (session && !canAccessAdministration) {
     return (
       <main style={{ padding: "48px 32px", maxWidth: 760, margin: "0 auto" }}>
         <div className="card" style={{ padding: 32, textAlign: "center" }}>
@@ -923,6 +1059,212 @@ function AdministrationContent() {
           </form>
         </div>
       )}
+
+      {/* TAB: EMAIL SMTP GATEWAY */}
+      {tab === "smtp" && (
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+          <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+            <h2 style={{ margin: "0 0 4px", fontSize: "1.25rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 10, color: "var(--text)" }}>
+              <span>✉️ Organizational Email SMTP Gateway</span>
+            </h2>
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.875rem" }}>
+              Configure outbound SMTP credentials to send instant transactional emails, tenant invoices, M-Pesa receipts, task assignments, and smart helpdesk notifications.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveSmtp} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Server Settings */}
+            <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                1. Outbound Mail Server Details
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    SMTP Host / Server Address <span style={{ color: "#dc2626" }}>*</span>:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                    placeholder="e.g. mail.centerestates.com or smtp.gmail.com"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    SMTP Port <span style={{ color: "#dc2626" }}>*</span>:
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(e.target.value)}
+                    placeholder="587 (TLS) or 465 (SSL)"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                  />
+                </div>
+              </div>
+
+              {/* Security & Protocol */}
+              <div style={{ display: "flex", gap: 24, marginTop: 14 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={smtpUseTls}
+                    onChange={(e) => { setSmtpUseTls(e.target.checked); if (e.target.checked) setSmtpUseSsl(false); }}
+                  />
+                  <span>Use STARTTLS (Port 587 - Recommended)</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={smtpUseSsl}
+                    onChange={(e) => { setSmtpUseSsl(e.target.checked); if (e.target.checked) setSmtpUseTls(false); }}
+                  />
+                  <span>Use Direct SSL/TLS (Port 465)</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Authentication Credentials */}
+            <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                2. Authentication &amp; Sender Profile
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    SMTP Username / Login:
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpUsername}
+                    onChange={(e) => setSmtpUsername(e.target.value)}
+                    placeholder="e.g. notifications@centerestates.com"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    SMTP Password:
+                  </label>
+                  <input
+                    type="password"
+                    value={smtpPassword}
+                    onChange={(e) => setSmtpPassword(e.target.value)}
+                    placeholder={smtpConfigId ? "(Unchanged — enter new to overwrite)" : "Enter SMTP account password"}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    From Email Address <span style={{ color: "#dc2626" }}>*</span>:
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={smtpFromEmail}
+                    onChange={(e) => setSmtpFromEmail(e.target.value)}
+                    placeholder="noreply@centerestates.com"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    Sender Display Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpFromName}
+                    onChange={(e) => setSmtpFromName(e.target.value)}
+                    placeholder="Center Estates"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Diagnostic Email Test Box */}
+            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#166534", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>🧪 Test SMTP Outbound Connection</span>
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#166534" }}>
+                Send a real-time diagnostic test email to verify DNS, authentication, and port delivery without waiting for system events.
+              </p>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  type="email"
+                  value={testEmailAddress}
+                  onChange={(e) => setTestEmailAddress(e.target.value)}
+                  placeholder={`Recipient email (defaults to ${session?.user.email || "your account email"})`}
+                  style={{ flex: 1, minWidth: 260, padding: "8px 12px", borderRadius: 6, border: "1px solid #86efac", background: "#fff", fontSize: 13 }}
+                />
+                <button
+                  type="button"
+                  disabled={testingSmtp}
+                  onClick={() => void handleTestSmtp()}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: 6,
+                    border: 0,
+                    background: "#16a34a",
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  {testingSmtp ? "Dispatching Test Email…" : "🚀 Send Test Email"}
+                </button>
+              </div>
+
+              {smtpTestResult && (
+                <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: smtpTestResult.type === "success" ? "#dcfce7" : "#fee2e2", color: smtpTestResult.type === "success" ? "#166534" : "#991b1b", fontSize: 13, fontWeight: 600 }}>
+                  {smtpTestResult.type === "success" ? "✓ " : "⚠️ "}{smtpTestResult.text}
+                </div>
+              )}
+            </div>
+
+            {/* Save Buttons */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+              <button
+                type="submit"
+                disabled={saving}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  padding: "10px 22px",
+                  borderRadius: 8,
+                  border: 0,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(220,38,38,0.25)",
+                }}
+              >
+                <Save size={16} />
+                <span>{saving ? "Saving SMTP Gateway..." : "Save SMTP Gateway Settings"}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
 
       {/* TAB 4: ORGANIZATIONS & MODULES */}
       {tab === "orgs" && (

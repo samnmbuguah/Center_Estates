@@ -791,12 +791,165 @@ class TenantViewSet(OrganizationModelViewSet):
             escalation_percent=escalation_percent,
             escalation_interval_months=escalation_interval,
             status=Lease.Status.DRAFT,
-            metadata={'application_number': application_number, 'term_months': term_months, **calculations},
+        metadata={'application_number': application_number, 'term_months': term_months, **calculations},
         )
         return Response({
             'tenant': TenantSerializer(tenant).data, 'lease': LeaseSerializer(lease).data,
             'application_number': application_number, 'calculations': calculations,
         }, status=201)
+
+    @action(detail=False, methods=('post',), url_path='bulk-onboard')
+    def bulk_onboard(self, request):
+        """
+        Bulk-create tenants from a JSON list.
+
+        Request body:
+            { "rows": [ { "tenant": {...}, "lease": {...}, "utilities": [...] }, ... ] }
+
+        Each row is validated independently; failures are reported per-row
+        without rolling back the successful rows.
+
+        Returns:
+            { "total": N, "succeeded_count": N, "failed_count": N,
+              "succeeded": [...], "failed": [{"row": <N>, "errors": {...}}] }
+        """
+        organization = get_active_organization(request)
+        rows = request.data.get('rows') if isinstance(request.data.get('rows'), list) else []
+        if not rows:
+            raise ValidationError({'rows': 'Provide at least one tenant row.'})
+        if len(rows) > 500:
+            raise ValidationError({'rows': 'Maximum 500 tenants per bulk upload.'})
+
+        succeeded = []
+        failed = []
+
+        for index, row in enumerate(rows):
+            tenant_data = row.get('tenant') or {}
+            lease_data = row.get('lease') or {}
+            utilities = row.get('utilities') if isinstance(row.get('utilities'), list) else []
+
+            try:
+                with transaction.atomic():
+                    if not str(tenant_data.get('name', '')).strip():
+                        raise ValidationError({'tenant.name': 'Tenant name is required.'})
+
+                    # Accept unit by PK or by unit_code
+                    unit_qs = Unit.objects.select_for_update().for_organization(organization).select_related('property')
+                    unit = None
+                    if lease_data.get('unit'):
+                        try:
+                            unit = unit_qs.get(pk=lease_data['unit'])
+                        except (Unit.DoesNotExist, ValueError, TypeError):
+                            pass
+                    if unit is None:
+                        unit_code = str(lease_data.get('unit_code', '')).strip()
+                        if unit_code:
+                            unit = unit_qs.filter(code__iexact=unit_code).first()
+                    if unit is None:
+                        raise ValidationError({'lease.unit': 'Provide a valid unit ID or unit_code.'})
+
+                    active_property = get_active_property(request, organization)
+                    if active_property and unit.property_id != active_property.id:
+                        raise ValidationError({'lease.unit': 'Unit must belong to the active property.'})
+                    if Lease.objects.for_organization(organization).filter(
+                        unit=unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+                    ).exists():
+                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" already has an active lease.'})
+
+                    try:
+                        starts_on = date.fromisoformat(str(lease_data.get('starts_on', '')))
+                        term_months = int(lease_data.get('term_months', 12))
+                        if term_months < 1 or term_months > 240:
+                            raise ValueError
+                        end_month = starts_on.month - 1 + term_months
+                        end_year = starts_on.year + end_month // 12
+                        end_month = end_month % 12 + 1
+                        ends_on = starts_on.replace(
+                            year=end_year, month=end_month,
+                            day=min(starts_on.day, calendar.monthrange(end_year, end_month)[1]),
+                        )
+                    except (ValueError, TypeError):
+                        raise ValidationError({'lease': 'Valid commencement date and lease term are required.'})
+
+                    def _amount(name, default='0'):
+                        try:
+                            val = Decimal(str(lease_data.get(name, default))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                        except Exception:
+                            raise ValidationError({f'lease.{name}': 'Enter a valid amount.'})
+                        if val < 0:
+                            raise ValidationError({f'lease.{name}': 'Amount cannot be negative.'})
+                        return val
+
+                    area = Decimal(str(unit.area)).quantize(Decimal('0.01')) if unit.area else _amount('area')
+                    rent_rate = _amount('rent_rate_per_sqft')
+                    service_rate = _amount('service_charge_rate_per_sqft')
+                    security_deposit = _amount('security_deposit')
+                    escalation_percent = _amount('escalation_percent')
+                    vat_rate = _amount('vat_rate', '16')
+                    monthly_rent = (area * rent_rate).quantize(Decimal('0.01'))
+                    if monthly_rent <= 0:
+                        raise ValidationError({'lease.rent_rate_per_sqft': 'Monthly rent must be positive.'})
+                    monthly_service = (area * service_rate).quantize(Decimal('0.01'))
+                    utility_deposit = sum(
+                        (Decimal(str(item.get('rate_per_unit', 0))) * area for item in utilities if item.get('applicable')),
+                        Decimal('0'),
+                    ).quantize(Decimal('0.01'))
+
+                    def _next_ref(model, field, prefix):
+                        vals = model.objects.filter(
+                            organization=organization, **{f'{field}__startswith': f'{prefix}-'}
+                        ).values_list(field, flat=True)
+                        nums = [int(v.rsplit('-', 1)[-1]) for v in vals if v.rsplit('-', 1)[-1].isdigit()]
+                        return f'{prefix}-{(max(nums) + 1) if nums else 1:04d}'
+
+                    tenant_code = _next_ref(Tenant, 'code', 'TNT')
+                    lease_reference = _next_ref(Lease, 'reference', 'LEASE')
+                    application_number = f"APP-{timezone.localdate().year}-{tenant_code.rsplit('-', 1)[-1]}"
+
+                    tenant_serializer = TenantSerializer(data={
+                        'name': str(tenant_data['name']).strip(),
+                        'tenant_type': tenant_data.get('tenant_type', 'company'),
+                        'email': tenant_data.get('email', ''),
+                        'phone': tenant_data.get('phone', ''),
+                        'tax_id': tenant_data.get('tax_id', ''),
+                        'registration_number': tenant_data.get('registration_number', ''),
+                        'billing_address': tenant_data.get('billing_address', ''),
+                        'status': Tenant.Status.PROSPECT,
+                        'metadata': {'tenant_application': {'application_number': application_number, 'source': 'bulk_import'}},
+                    })
+                    tenant_serializer.is_valid(raise_exception=True)
+                    tenant = tenant_serializer.save(organization=organization, property=unit.property, code=tenant_code)
+
+                    subtotal = monthly_rent + monthly_service
+                    vat_amount = (subtotal * vat_rate / 100).quantize(Decimal('0.01'))
+                    lease = Lease.objects.create(
+                        organization=organization, reference=lease_reference, unit=unit, tenant=tenant,
+                        starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
+                        deposit=security_deposit, billing_day=int(lease_data.get('billing_day', 1)),
+                        escalation_percent=escalation_percent,
+                        escalation_interval_months=int(lease_data.get('escalation_interval_months', 12)),
+                        status=Lease.Status.DRAFT,
+                        metadata={'application_number': application_number, 'term_months': term_months, 'source': 'bulk_import'},
+                    )
+                    succeeded.append({
+                        'row': index + 1,
+                        'tenant_code': tenant_code,
+                        'tenant_name': tenant.name,
+                        'lease_reference': lease_reference,
+                        'unit_code': unit.code,
+                    })
+            except Exception as exc:
+                errors = exc.detail if hasattr(exc, 'detail') else {'detail': str(exc)}
+                failed.append({'row': index + 1, 'name': str(tenant_data.get('name', '')), 'errors': errors})
+
+        status_code = 201 if succeeded else 400
+        return Response({
+            'total': len(rows),
+            'succeeded_count': len(succeeded),
+            'failed_count': len(failed),
+            'succeeded': succeeded,
+            'failed': failed,
+        }, status=status_code)
 
     @action(detail=True, methods=('get',), url_path='statement.pdf')
     def statement_pdf(self, request, pk=None):

@@ -7,6 +7,7 @@ from .models import (
     TeamFeedbackMessage,
     TeamFeedbackThread,
     PublicFeedbackQrCode,
+    IssueRoutingRule,
 )
 
 
@@ -18,6 +19,15 @@ class PublicFeedbackQrCodeSerializer(serializers.ModelSerializer):
         model = PublicFeedbackQrCode
         exclude = ('organization',)
         read_only_fields = ('token',)
+
+
+class IssueRoutingRuleSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True, default='All Properties')
+    assigned_user_name = serializers.CharField(source='assigned_user.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = IssueRoutingRule
+        exclude = ('organization',)
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -84,20 +94,24 @@ class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeamFeedbackThread
         fields = (
-            'id', 'reference', 'title', 'category', 'priority', 'status',
+            'id', 'reference', 'ticket_no', 'title', 'category', 'issue_category',
+            'priority', 'status', 'requester_name', 'contact_channel', 'contact_value',
+            'location_detail', 'photo_url', 'assigned_team',
             'property', 'property_name', 'module', 'created_by', 'created_by_name',
             'created_by_role', 'assigned_to', 'assigned_to_name',
+            'sla_due_at', 'acknowledged_at', 'resolution_notes',
             'resolved_by', 'resolved_by_name', 'resolved_at',
-            'confirmed_by', 'confirmed_by_name', 'confirmed_at',
+            'confirmed_by', 'confirmed_by_name', 'confirmed_at', 'reopened_count',
             'metadata', 'messages', 'created_at', 'updated_at',
         )
         read_only_fields = (
-            'id', 'reference', 'created_at', 'updated_at', 'created_by', 'status',
+            'id', 'reference', 'ticket_no', 'created_at', 'updated_at', 'created_by', 'status',
             'assigned_to',
             'resolved_by', 'resolved_at', 'confirmed_by', 'confirmed_at',
         )
 
     def get_created_by_name(self, obj):
+
         if obj.created_by:
             name = f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
             return name or obj.created_by.username

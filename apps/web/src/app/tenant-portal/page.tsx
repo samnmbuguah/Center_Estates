@@ -123,9 +123,28 @@ export default function TenantPortalPage() {
     URL.revokeObjectURL(url);
   }
   const [stkNotice, setStkNotice] = useState<string | null>(null);
+  const [stkPhone, setStkPhone] = useState("");
+  const [pendingPayInvoice, setPendingPayInvoice] = useState<Row | null>(null);
 
   async function payInvoice(invoice: Row) {
     const gateway = data?.paymentGateways?.[0];
+    const tenantPhone = data?.tenant?.phone || "";
+
+    // If M-Pesa and no phone stored, prompt for it first
+    if ((gateway?.provider === "mpesa" || !gateway) && !tenantPhone) {
+      setStkPhone("");
+      setPendingPayInvoice(invoice);
+      return;
+    }
+
+    await _executePayment(invoice, tenantPhone, gateway);
+  }
+
+  async function _executePayment(
+    invoice: Row,
+    phone: string,
+    gateway: typeof data extends null ? never : NonNullable<typeof data>["paymentGateways"][0] | undefined
+  ) {
     setPaymentBusy(String(invoice.id));
     setError("");
     setStkNotice(null);
@@ -139,7 +158,7 @@ export default function TenantPortalPage() {
           headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
           body: JSON.stringify({
             invoice: invoice.id,
-            phone_number: data?.tenant?.phone || "",
+            phone_number: phone,
           }),
         },
         organizationId
@@ -225,9 +244,36 @@ export default function TenantPortalPage() {
         ))}
       </nav>
       {error && <div className="form-error">{error}</div>}
+      {pendingPayInvoice && (
+        <div style={{ background: "#eff6ff", color: "#1e40af", padding: "16px", borderRadius: 8, marginBottom: 16, border: "1px solid #bfdbfe" }}>
+          <strong style={{ display: "block", marginBottom: 8 }}>📲 Enter your M-Pesa phone number to pay</strong>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              type="tel"
+              placeholder="e.g. 0712 345 678"
+              value={stkPhone}
+              onChange={(e) => setStkPhone(e.target.value)}
+              style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #93c5fd", fontSize: 14, flex: 1, minWidth: 180 }}
+            />
+            <button
+              className="primary-action"
+              disabled={!stkPhone.trim() || paymentBusy === String(pendingPayInvoice.id)}
+              onClick={async () => {
+                const inv = pendingPayInvoice;
+                const gw = data?.paymentGateways?.[0];
+                setPendingPayInvoice(null);
+                await _executePayment(inv, stkPhone.trim(), gw);
+              }}
+            >
+              {paymentBusy === String(pendingPayInvoice.id) ? "Starting…" : "Send STK Push"}
+            </button>
+            <button onClick={() => setPendingPayInvoice(null)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Cancel</button>
+          </div>
+        </div>
+      )}
       {stkNotice && (
-        <div style={{ background: "#dcfce7", color: "#15803d", padding: "12px 16px", borderRadius: 8, fontWeight: 600, marginBottom: 16, border: "1px solid #bbf7d0" }}>
-          [OK] {stkNotice}
+        <div style={{ background: "#dcfce7", color: "#15803d", padding: "12px 16px", borderRadius: 8, fontWeight: 600, marginBottom: 16, border: "1px solid #bbf7d0", display: "flex", alignItems: "center", gap: 8 }}>
+          <span>✅</span> {stkNotice}
         </div>
       )}
       {tab === "overview" && (
@@ -361,15 +407,15 @@ export default function TenantPortalPage() {
               "Action",
             ]}
             rows={data.receipts.map((row) => [
-              String(row.receipt_number),
-              String(row.payment_date),
-              String(row.payment_method),
-              cash.format(Number(row.amount_paid)),
-              String(row.external_reference || "-"),
+              String(row.number ?? row.receipt_number ?? "—"),
+              String(row.received_on ?? row.payment_date ?? "—"),
+              String(row.payment_method ?? "—").replace(/_/g, " "),
+              cash.format(Number(row.amount ?? row.amount_paid ?? 0)),
+              String(row.external_reference || "—"),
               <button
                 key={String(row.id)}
                 type="button"
-                onClick={() => void downloadDocument(`/property/portal/receipts/${row.id}.pdf/`, `${row.receipt_number}.pdf`)}
+                onClick={() => void downloadDocument(`/property/portal/receipts/${row.id}.pdf/`, `${String(row.number ?? row.receipt_number ?? row.id)}.pdf`)}
               >
                 PDF
               </button>,

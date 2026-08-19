@@ -54,3 +54,111 @@ class NotificationViewSet(ReadOnlyModelViewSet):
             'urgent': queryset.filter(level=Notification.Level.URGENT).count(),
             'warning': queryset.filter(level=Notification.Level.WARNING).count(),
         })
+
+
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from core.permissions import HasOrganizationContext
+from rest_framework import status
+from .models import EmailConfiguration, UserNotificationPreference
+from .serializers import EmailConfigurationSerializer, UserNotificationPreferenceSerializer
+from .services import get_email_connection_and_sender, send_email_notification
+
+
+class EmailConfigurationViewSet(ModelViewSet):
+    """Admin endpoint for configuring organizational SMTP settings."""
+    permission_classes = (HasOrganizationContext, IsAuthenticated)
+    serializer_class = EmailConfigurationSerializer
+    queryset = EmailConfiguration.objects.all()
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        return EmailConfiguration.objects.for_organization(organization)
+
+    def perform_create(self, serializer):
+        organization = get_active_organization(self.request)
+        # Deactivate previous configs if this one is active
+        if serializer.validated_data.get('is_active', True):
+            EmailConfiguration.objects.filter(organization=organization).update(is_active=False)
+        serializer.save(organization=organization)
+
+    def perform_update(self, serializer):
+        organization = get_active_organization(self.request)
+        if serializer.validated_data.get('is_active', False):
+            EmailConfiguration.objects.filter(organization=organization).exclude(pk=self.get_object().pk).update(is_active=False)
+        serializer.save()
+
+    @action(detail=False, methods=('post',), url_path='test')
+    def test_connection(self, request):
+        """Send a test email to the requesting user using the current or saved SMTP settings."""
+        organization = get_active_organization(request)
+        recipient_email = request.data.get('test_email') or request.user.email
+        if not recipient_email:
+            return Response({'detail': 'Please provide a valid recipient test_email address.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Allow testing unsaved form data directly
+        host = request.data.get('host')
+        port = int(request.data.get('port') or 587)
+        username = request.data.get('username', '')
+        password = request.data.get('password', '')
+        use_tls = bool(request.data.get('use_tls', True))
+        use_ssl = bool(request.data.get('use_ssl', False))
+        from_email = request.data.get('from_email') or 'noreply@centerestates.com'
+        from_name = request.data.get('from_name') or 'Center Estates Test'
+
+        if host:
+            from django.core.mail import get_connection, EmailMultiAlternatives
+            try:
+                connection = get_connection(
+                    backend='django.core.mail.backends.smtp.EmailBackend',
+                    host=host, port=port, username=username, password=password,
+                    use_tls=use_tls, use_ssl=use_ssl, timeout=10,
+                )
+                email = EmailMultiAlternatives(
+                    subject='[Center Estates] SMTP Configuration Test',
+                    body=f'This is a diagnostic test email from Center Estates sent by {request.user.username}.\n\nSMTP settings: {host}:{port} (TLS: {use_tls}, SSL: {use_ssl})',
+                    from_email=f'{from_name} <{from_email}>',
+                    to=[recipient_email],
+                    connection=connection,
+                )
+                email.send(fail_silently=False)
+                return Response({'detail': f'Test email successfully dispatched to {recipient_email}!'})
+            except Exception as exc:
+                return Response({'detail': f'SMTP Connection Failed: {str(exc)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fallback to saved configuration
+        sent = send_email_notification(
+            recipient_email=recipient_email,
+            recipient_name=request.user.get_full_name() or request.user.username,
+            subject='[Center Estates] SMTP Configuration Test',
+            message=f'This is a test notification confirming your email gateway is active and operational.\n\nTriggered by: {request.user.username}',
+            action_url='/settings?tab=notifications',
+            organization=organization,
+        )
+        if sent:
+            return Response({'detail': f'Test email successfully dispatched to {recipient_email}!'})
+        return Response({'detail': 'Failed to send email. Check SMTP credentials.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserNotificationPreferenceViewSet(ModelViewSet):
+    """User-specific notification subscriptions and channel settings."""
+    permission_classes = (HasOrganizationContext, IsAuthenticated)
+    serializer_class = UserNotificationPreferenceSerializer
+    queryset = UserNotificationPreference.objects.all()
+
+    def get_queryset(self):
+        organization = get_active_organization(self.request)
+        return UserNotificationPreference.objects.filter(organization=organization, user=self.request.user)
+
+    @action(detail=False, methods=('get', 'put', 'patch'), url_path='mine')
+    def mine(self, request):
+        organization = get_active_organization(request)
+        pref, _ = UserNotificationPreference.objects.get_or_create(
+            organization=organization, user=request.user,
+        )
+        if request.method in ('PUT', 'PATCH'):
+            serializer = UserNotificationPreferenceSerializer(pref, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        return Response(UserNotificationPreferenceSerializer(pref).data)
+

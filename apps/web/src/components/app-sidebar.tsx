@@ -52,6 +52,7 @@ const ADMIN_SUBITEMS = [
   { id: "users", label: "Users & Staff Accounts", icon: "👥", href: "/administration?tab=users" },
   { id: "roles", label: "Roles & Permissions", icon: "🔐", href: "/administration?tab=roles" },
   { id: "mpesa", label: "M-Pesa STK Push Gateway", icon: "💳", href: "/administration?tab=mpesa" },
+  { id: "smtp", label: "Email SMTP Gateway", icon: "✉️", href: "/administration?tab=smtp" },
   { id: "orgs", label: "Organization & Modules", icon: "🏢", href: "/administration?tab=orgs" },
   { id: "tax", label: "KRA Tax & E-TIMS", icon: "📜", href: "/administration?tab=tax" },
   { id: "audit", label: "Security Audit Trail", icon: "🛡️", href: "/administration?tab=audit" },
@@ -100,6 +101,11 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   }, []);
 
   const isAdministrator = permissions.isSuperAdmin;
+  const canFinance = Boolean(
+    isAdministrator ||
+    session?.roles?.some((r) => r.includes("finance") || r.includes("admin") || r.includes("manager"))
+  );
+  const showAdministration = isAdministrator || canFinance;
   const activeOrganization = session?.organizations.find((organization) => organization.id === session.activeOrganizationId);
 
   return (
@@ -645,7 +651,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             </div>
 
             {/* ADMINISTRATION SECTION */}
-            {isAdministrator && (
+            {showAdministration && (
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <div
                   style={{
@@ -660,7 +666,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 >
                   <Link
                     className={`nav-link ${pathname === "/administration" ? "active" : ""}`}
-                    href="/administration"
+                    href={isAdministrator ? "/administration" : "/administration?tab=mpesa"}
                     onClick={() => {
                       setAdminExpanded(true);
                       onCloseMobile();
@@ -717,7 +723,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                       marginBottom: 4,
                     }}
                   >
-                    {ADMIN_SUBITEMS.map((item) => {
+                    {ADMIN_SUBITEMS.filter((item) => isAdministrator || item.id === "mpesa").map((item) => {
                       const isItemActive = pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === "users"));
                       return (
                         <Link
