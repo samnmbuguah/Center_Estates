@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@/components/monitoring/react-router-shim";
 import {
   Building2, AlertTriangle, FileText, Plus, Camera, CalendarDays,
   CheckCircle2, ArrowRight, FolderOpen, CircleDollarSign, ClipboardList,
-  MapPin, Wallet,
+  MapPin, Wallet, TrendingUp, Users, Activity,
 } from "lucide-react";
 import { useAuth } from "../auth";
 import {
@@ -14,6 +14,8 @@ import type { Project } from "../api-types";
 import { money, formatDate, formatDateTime, stageLabel, riskLevel } from "../lib/format";
 import { KpiCard } from "../components/KpiCard";
 import { PageLoading, PageError, StatusPill } from "../components/PageState";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Grid, Typography } from "@mui/material";
 
 type DashData = {
   projects: { total: number; by_stage: Record<string, number> };
@@ -203,6 +205,17 @@ export function Dashboard() {
   return (
     <div style={{ display: "flex", gap: 0, minHeight: "100%" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
+        <BreadcrumbNavigation />
+        
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+            Construction Monitoring Dashboard
+          </Typography>
+          <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+            Live portfolio overview — project progress, risks, and site operations.
+          </Typography>
+        </Box>
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>
@@ -222,17 +235,68 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div
-          data-tour-target="dashboard-stats"
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}
-        >
-          <KpiCard icon="🏗️" label="Active Projects" value={activeCount} sub={`${totalProjects} total`} color="#e53e3e" to="/app/projects" />
-          <KpiCard icon="📋" label="Site Visits Due" value={visitsDue} sub="Upcoming scheduled" color="#f59e0b" to="/app/site-visits" />
-          <KpiCard icon="💰" label="Drawdowns Pending" value={ddPending} sub={money(ddAmount)} color="#10b981" to="/app/drawdown-requests" />
-          <KpiCard icon="⚠️" label="Risks Open" value={risksOpen} sub={`${risksHigh} high`} color="#ef4444" to="/app/issues" />
-          <KpiCard icon="🎫" label="Open Tickets" value={dash?.tickets_open ?? 0} sub="Site issues" color="#8b5cf6" to="/app/tickets" />
-          <KpiCard icon="💹" label="Budget Utilization" value={`${utilPct}%`} sub={`${money(budgetSpent)} / ${money(budgetTotal)}`} color="#3b82f6" to="/app/finance" />
-        </div>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6} md={2}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#fee2e2", color: "#dc2626",
+              textAlign: "center"
+            }}>
+              <Building2 size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{activeCount}</Typography>
+              <Typography variant="caption">Active Projects</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#fef3c7", color: "#d97706",
+              textAlign: "center"
+            }}>
+              <Camera size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{visitsDue}</Typography>
+              <Typography variant="caption">Site Visits Due</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#059669",
+              textAlign: "center"
+            }}>
+              <Wallet size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{ddPending}</Typography>
+              <Typography variant="caption">Drawdowns Pending</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#fee2e2", color: "#dc2626",
+              textAlign: "center"
+            }}>
+              <AlertTriangle size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{risksOpen}</Typography>
+              <Typography variant="caption">Risks Open</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#ede9fe", color: "#7c3aed",
+              textAlign: "center"
+            }}>
+              <ClipboardList size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{dash?.tickets_open ?? 0}</Typography>
+              <Typography variant="caption">Open Tickets</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
+              textAlign: "center"
+            }}>
+              <TrendingUp size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{utilPct}%</Typography>
+              <Typography variant="caption">Budget Utilization</Typography>
+            </Box>
+          </Grid>
+        </Grid>
 
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 20px" }}>
