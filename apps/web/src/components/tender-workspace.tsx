@@ -20,6 +20,9 @@ import {
   StatusPill,
   money,
 } from "@/components/module-ui";
+import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
+import { Box, Grid, Typography } from "@mui/material";
+import { FileText, DollarSign, Scale, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 
 export type TenderTab =
   | "overview"
@@ -239,12 +242,59 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
 
   return (
     <>
-      <KpiStrip cols={4}>
-        <KpiCard icon="📋" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Active Tenders" value={active.length} sub={`${rows.length} registered total`} link="View register" onClick={() => setStageFilter("all")} />
-        <KpiCard icon="💼" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Pipeline Value" value={money.format(pipelineValue)} sub="Open invitations" link="Review pipeline" onClick={() => setStageFilter("all")} />
-        <KpiCard icon="⚖️" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Awaiting Decision" value={rows.filter((r) => String(r.stage) === "decision").length} sub="Bid / no-bid gate" link="Open decisions" onClick={() => setStageFilter("decision")} />
-        <KpiCard icon="⏳" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Due Within 7 Days" value={dueSoon} sub="Submission deadlines" link="Check deadlines" onClick={() => setStageFilter("all")} />
-      </KpiStrip>
+      <BreadcrumbNavigation />
+      
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
+          Tender Management
+        </Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
+          Manage tender invitations, submissions, and decision gates.
+        </Typography>
+      </Box>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "rgba(124,58,237,0.12)", color: "#7c3aed",
+            textAlign: "center"
+          }}>
+            <FileText size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{active.length}</Typography>
+            <Typography variant="caption">Active Tenders</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "rgba(16,185,129,0.12)", color: "#059669",
+            textAlign: "center"
+          }}>
+            <DollarSign size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{money.format(pipelineValue)}</Typography>
+            <Typography variant="caption">Pipeline Value</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "rgba(245,158,11,0.12)", color: "#d97706",
+            textAlign: "center"
+          }}>
+            <Scale size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{rows.filter((r) => String(r.stage) === "decision").length}</Typography>
+            <Typography variant="caption">Awaiting Decision</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ 
+            p: 2, borderRadius: 2, bgcolor: "rgba(239,68,68,0.12)", color: "#dc2626",
+            textAlign: "center"
+          }}>
+            <Clock size={24} style={{ marginBottom: 8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>{dueSoon}</Typography>
+            <Typography variant="caption">Due Within 7 Days</Typography>
+          </Box>
+        </Grid>
+      </Grid>
 
       <div className="data-panel">
         <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
