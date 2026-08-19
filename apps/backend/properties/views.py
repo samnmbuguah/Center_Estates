@@ -16,7 +16,7 @@ from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum,
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, HttpResponse, QueryDict
 from django.utils import timezone
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny
@@ -670,6 +670,37 @@ class TenantViewSet(OrganizationModelViewSet):
         )
 
     @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        tenant = self.get_object()
+        organization = get_active_organization(request)
+        
+        # Check for financial records or active leases that must be protected
+        has_invoices = Invoice.objects.filter(organization=organization, lease__tenant=tenant).exists()
+        has_receipts = Receipt.objects.filter(organization=organization, tenant=tenant).exists()
+        has_payments = PaymentIntent.objects.filter(organization=organization, tenant=tenant, status=PaymentIntent.Status.PAID).exists()
+        active_leases = Lease.objects.filter(organization=organization, tenant=tenant).exclude(status=Lease.Status.DRAFT)
+        
+        if has_invoices or has_receipts or has_payments or active_leases.exists():
+            return Response({
+                'detail': f"Cannot delete tenant '{tenant.name}' ({tenant.code}) because active leases or financial transactions (invoices/receipts) exist. Mark status as 'Former' or 'Suspended' instead."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Clean up draft leases, documents, movements, portal accesses
+        Lease.objects.filter(organization=organization, tenant=tenant, status=Lease.Status.DRAFT).delete()
+        TenantMovement.objects.filter(organization=organization, tenant=tenant).delete()
+        TenantDocument.objects.filter(organization=organization, tenant=tenant).delete()
+        TenantPortalAccess.objects.filter(organization=organization, tenant=tenant).delete()
+        
+        tenant_name = tenant.name
+        tenant_code = tenant.code
+        tenant.delete()
+        
+        return Response({
+            'status': 'deleted',
+            'detail': f"Tenant '{tenant_name}' ({tenant_code}) was deleted successfully."
+        }, status=status.HTTP_200_OK)
+
+    @transaction.atomic
     @action(detail=False, methods=('post',), url_path='onboard')
     def onboard(self, request):
         """Create a tenant application and its initial draft lease atomically."""
@@ -715,10 +746,12 @@ class TenantViewSet(OrganizationModelViewSet):
             return value
 
         area = Decimal(str(unit.area)).quantize(Decimal('0.01')) if unit.area is not None else amount('area')
-        rent_rate = amount('rent_rate_per_sqft')
-        service_rate = amount('service_charge_rate_per_sqft')
-        security_deposit = amount('security_deposit')
-        escalation_percent = amount('escalation_percent')
+        rent_rate = amount('rent_rate_per_sqft', '0')
+        direct_rent = amount('monthly_rent', '0') or amount('fixed_monthly_rent', '0')
+        rent_type = str(lease_data.get('rent_type', 'rate_per_sqft' if rent_rate > 0 else 'fixed')).lower()
+        service_rate = amount('service_charge_rate_per_sqft', '0')
+        security_deposit = amount('security_deposit', '0')
+        escalation_percent = amount('escalation_percent', '0')
         try:
             escalation_interval = int(lease_data.get('escalation_interval_months', 12))
         except (ValueError, TypeError):
@@ -728,9 +761,19 @@ class TenantViewSet(OrganizationModelViewSet):
         vat_rate = amount('vat_rate', 16)
         if vat_rate not in (Decimal('0.00'), Decimal('16.00')):
             raise ValidationError({'lease.vat_rate': 'Supported VAT rates are 0% and 16%.'})
-        monthly_rent = (area * rent_rate).quantize(Decimal('0.01'))
-        if monthly_rent <= 0:
-            raise ValidationError({'lease.rent_rate_per_sqft': 'Monthly rent must be greater than zero.'})
+        
+        if rent_type in ('fixed', 'flat', 'fixed_monthly') or (direct_rent > 0 and rent_rate == 0):
+            monthly_rent = direct_rent
+            if area > 0:
+                rent_rate = (monthly_rent / area).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        elif rent_rate > 0:
+            monthly_rent = (area * rent_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else rent_rate
+        else:
+            monthly_rent = direct_rent
+
+        tenant_status = str(tenant_data.get('status', 'prospect')).lower()
+        if monthly_rent <= 0 and tenant_status not in ('prospect', 'pending', 'applicant') and rent_type != 'prospect':
+            raise ValidationError({'lease.monthly_rent': 'Monthly rent must be greater than zero.'})
         monthly_service = (area * service_rate).quantize(Decimal('0.01'))
         utilities = request.data.get('utilities') if isinstance(request.data.get('utilities'), list) else []
         try:
@@ -881,14 +924,19 @@ class TenantViewSet(OrganizationModelViewSet):
                         return val
 
                     area = Decimal(str(unit.area)).quantize(Decimal('0.01')) if unit.area else _amount('area')
-                    rent_rate = _amount('rent_rate_per_sqft')
-                    service_rate = _amount('service_charge_rate_per_sqft')
-                    security_deposit = _amount('security_deposit')
-                    escalation_percent = _amount('escalation_percent')
+                    rent_rate = _amount('rent_rate_per_sqft', '0')
+                    direct_rent = _amount('monthly_rent', '0') or _amount('rent', '0')
+                    service_rate = _amount('service_charge_rate_per_sqft', '0')
+                    security_deposit = _amount('security_deposit', '0')
+                    escalation_percent = _amount('escalation_percent', '0')
                     vat_rate = _amount('vat_rate', '16')
-                    monthly_rent = (area * rent_rate).quantize(Decimal('0.01'))
-                    if monthly_rent <= 0:
-                        raise ValidationError({'lease.rent_rate_per_sqft': 'Monthly rent must be positive.'})
+                    if direct_rent > 0 and rent_rate == 0:
+                        monthly_rent = direct_rent
+                        rent_rate = (monthly_rent / area).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else Decimal('0.00')
+                    elif rent_rate > 0:
+                        monthly_rent = (area * rent_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else rent_rate
+                    else:
+                        monthly_rent = direct_rent
                     monthly_service = (area * service_rate).quantize(Decimal('0.01'))
                     utility_deposit = sum(
                         (Decimal(str(item.get('rate_per_unit', 0))) * area for item in utilities if item.get('applicable')),

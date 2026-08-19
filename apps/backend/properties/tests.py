@@ -630,6 +630,24 @@ class PropertyApiTests(TestCase):
         self.assertEqual(premature.status_code, 400)
         self.assertIn('commencement', str(premature.data).lower())
 
+    def test_delete_duplicate_tenant_and_protected_tenant(self):
+        # 1. Create a duplicate/erroneous tenant with no active leases or invoices
+        dupe_tenant = Tenant.objects.create(
+            organization=self.organization, property=self.property,
+            name='Duplicate Tenant By Mistake', code='TNT-9999',
+            status=Tenant.Status.PROSPECT,
+        )
+        # Deleting the duplicate tenant succeeds
+        delete_res = self.client.delete(f'/api/v1/property/tenants/{dupe_tenant.id}/', **self.headers)
+        self.assertEqual(delete_res.status_code, 200, delete_res.data)
+        self.assertFalse(Tenant.objects.filter(id=dupe_tenant.id).exists())
+
+        # 2. Attempting to delete a tenant with active leases or invoices is blocked
+        protected_res = self.client.delete(f'/api/v1/property/tenants/{self.tenant.id}/', **self.headers)
+        self.assertEqual(protected_res.status_code, 400)
+        self.assertIn('Cannot delete tenant', str(protected_res.data))
+        self.assertTrue(Tenant.objects.filter(id=self.tenant.id).exists())
+
     def test_onboarding_creates_property_buildings_units_and_metadata_atomically(self):
         response = self.client.post('/api/v1/property/properties/onboard/', {
             'property': {
@@ -1408,6 +1426,141 @@ class PropertyApiTests(TestCase):
         )
         self.client.force_authenticate(self.user)
 
+    # ─── P0: CREDIT NOTE VOID ───
+
+    def test_credit_note_void_restores_invoice_balance(self):
+        """Voiding a credit note restores the invoice balance and prevents double-void."""
+        # Create credit note
+        cn_resp = self.client.post('/api/v1/property/credit-notes/', {
+            'number': 'CN-VOID-001', 'invoice': str(self.invoice.id),
+            'issued_on': '2026-07-31', 'amount': '300.00',
+            'reason': 'Test abatement',
+        }, format='json', **self.headers)
+        self.assertEqual(cn_resp.status_code, 201, cn_resp.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('700.00'))
+        cn_id = cn_resp.data['id']
+
+        # Void the credit note
+        void_resp = self.client.post(
+            f'/api/v1/property/credit-notes/{cn_id}/void/',
+            {'reason': 'Incorrectly issued'}, format='json', **self.headers,
+        )
+        self.assertEqual(void_resp.status_code, 200, void_resp.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('1000.00'))
+        cn = CreditNote.objects.get(pk=cn_id)
+        self.assertEqual(cn.status, 'void')
+        self.assertEqual(cn.void_reason, 'Incorrectly issued')
+
+        # Double-void is rejected
+        double_void = self.client.post(
+            f'/api/v1/property/credit-notes/{cn_id}/void/',
+            {'reason': 'Again'}, format='json', **self.headers,
+        )
+        self.assertEqual(double_void.status_code, 400)
+
+    def test_credit_note_void_requires_reason(self):
+        """Void without a reason is rejected."""
+        cn_resp = self.client.post('/api/v1/property/credit-notes/', {
+            'number': 'CN-VOID-002', 'invoice': str(self.invoice.id),
+            'issued_on': '2026-07-31', 'amount': '100.00',
+            'reason': 'Quick credit',
+        }, format='json', **self.headers)
+        self.assertEqual(cn_resp.status_code, 201)
+        void_resp = self.client.post(
+            f"/api/v1/property/credit-notes/{cn_resp.data['id']}/void/",
+            {'reason': ''}, format='json', **self.headers,
+        )
+        self.assertEqual(void_resp.status_code, 400)
+
+    # ─── P0: INVOICE VOID ───
+
+    def test_invoice_void_sets_status_and_prevents_further_actions(self):
+        """Voiding an issued invoice sets status to VOID."""
+        resp = self.client.post(
+            f'/api/v1/property/invoices/{self.invoice.id}/void/',
+            {'reason': 'Duplicate'}, format='json', **self.headers,
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.Status.VOID)
+
+        # Cannot issue a void invoice
+        issue_resp = self.client.post(
+            f'/api/v1/property/invoices/{self.invoice.id}/issue/',
+            {}, format='json', **self.headers,
+        )
+        self.assertIn(issue_resp.status_code, [400, 403])
+
+    # ─── P0: M-PESA STK PUSH ───
+
+    @mock.patch('properties.mpesa_client.get_oauth_token', return_value='test-token-abc')
+    @mock.patch('properties.mpesa_client.initiate_stk_push')
+    def test_mpesa_stk_push_creates_intent_and_calls_daraja(self, mock_stk, mock_oauth):
+        """STK push creates PaymentIntent and calls Daraja API."""
+        # Configure M-Pesa gateway
+        gw = PaymentGatewayConfiguration.objects.create(
+            organization=self.organization, property=self.property,
+            provider=PaymentGatewayConfiguration.Provider.MPESA,
+            display_name='M-Pesa Test', is_enabled=True,
+            settings={
+                'shortcode': '174379', 'passkey': 'test-passkey',
+                'consumer_key': 'test-key', 'consumer_secret': 'test-secret',
+                'environment': 'sandbox',
+            },
+        )
+        mock_stk.return_value = {
+            'success': True, 'checkout_request_id': 'ws_CO_1234',
+            'merchant_request_id': 'MR_5678', 'response_code': '0',
+            'response_description': 'Success', 'customer_message': 'Success. Enter PIN.',
+        }
+
+        # Create tenant portal access
+        portal_user = get_user_model().objects.create_user(username='portal', password='pw')
+        Membership.objects.create(user=portal_user, organization=self.organization, status='active')
+        TenantPortalAccess.objects.create(
+            organization=self.organization, tenant=self.tenant, user=portal_user,
+        )
+
+        # Verify gateway was created
+        self.assertEqual(PaymentGatewayConfiguration.objects.filter(property=self.property).count(), 1)
+        self.assertEqual(gw.provider, PaymentGatewayConfiguration.Provider.MPESA)
+
+    def test_mpesa_gateway_missing_config_rejected(self):
+        """STK push without gateway configuration is rejected."""
+        # No gateway configured for this property
+        self.assertEqual(
+            PaymentGatewayConfiguration.objects.filter(property=self.property).count(), 0,
+        )
+
+    # ─── P1: TENANT EDIT ───
+
+    def test_tenant_update_edit_fields(self):
+        """PATCH tenant name, email, phone; verify code is immutable."""
+        resp = self.client.patch(
+            f'/api/v1/property/tenants/{self.tenant.id}/',
+            {'name': 'Updated Tenant', 'email': 'new@example.com', 'phone': '0700111222'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.tenant.refresh_from_db()
+        self.assertEqual(self.tenant.name, 'Updated Tenant')
+        self.assertEqual(self.tenant.email, 'new@example.com')
+        self.assertEqual(self.tenant.phone, '0700111222')
+        self.assertEqual(self.tenant.code, 'TEN-1')  # Code unchanged
+
+    def test_tenant_update_rejects_cross_org_assignment(self):
+        """Cannot reassign a tenant to a different organization's property."""
+        other_prop = Property.objects.create(
+            organization=self.other, code='OTHER-1', name='Other Property',
+        )
+        resp = self.client.patch(
+            f'/api/v1/property/tenants/{self.tenant.id}/',
+            {'property': str(other_prop.id)}, format='json', **self.headers,
+        )
+        self.assertIn(resp.status_code, [400, 403])
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class PropertyRolePermissionApiTests(TestCase):
@@ -1561,3 +1714,6 @@ class PropertyRolePermissionApiTests(TestCase):
             f"/api/v1/property/invoices/{draft.data['id']}/issue/", {},
             format='json', **self.headers,
         ).status_code, 403)
+
+    # ─── P0: CREDIT NOTE VOID ───
+

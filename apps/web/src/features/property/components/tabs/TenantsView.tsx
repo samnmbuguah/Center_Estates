@@ -35,6 +35,7 @@ export function TenantsView({
   onOpenPortal = () => {},
   onDownloadStatement = () => {},
   onEdit = () => {},
+  onDelete = () => {},
   canLease = true,
   onRefresh = () => {},
 }: {
@@ -50,6 +51,7 @@ export function TenantsView({
   onOpenPortal?: (r: Row) => void;
   onDownloadStatement?: (r: TenantRow) => void;
   onEdit?: (r: Row) => void;
+  onDelete?: (r: TenantRow) => void;
   canLease?: boolean;
   onRefresh?: () => void;
 }) {
@@ -156,6 +158,16 @@ export function TenantsView({
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onEdit(t); }}>Edit</button>
                         <button className="btn ghost sm" data-testid="tenant-portal-btn" onClick={(e) => { e.stopPropagation(); onOpenPortal(t); }}>Portal</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}>Docs</button>
+                        {canLease && (
+                          <button
+                            className="btn ghost sm"
+                            onClick={(e) => { e.stopPropagation(); onDelete(t); }}
+                            style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.25)" }}
+                            title="Delete duplicate or erroneous tenant"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -63,6 +63,8 @@ const initialForm = {
   unit: "",
   term_months: "12",
   starts_on: "",
+  rent_type: "fixed",
+  fixed_monthly_rent: "",
   rent_rate_per_sqft: "",
   service_charge_rate_per_sqft: "0",
   vat_rate: "16",
@@ -176,13 +178,28 @@ export function TenantApplicationCard({
 
   const selectedUnit = units.find((unit) => unit.id === form.unit);
   const area = Number(selectedUnit?.area ?? 0);
-  const rent = area * Number(form.rent_rate_per_sqft || 0);
+  const rentType = form.rent_type || (form.rent_rate_per_sqft ? "rate_per_sqft" : "fixed");
+
+  let rent = 0;
+  let computedRentRate = 0;
+  if (rentType === "fixed") {
+    rent = Number(form.fixed_monthly_rent || 0);
+    computedRentRate = area > 0 ? rent / area : 0;
+  } else if (rentType === "rate_per_sqft") {
+    computedRentRate = Number(form.rent_rate_per_sqft || 0);
+    rent = area * computedRentRate;
+  } else {
+    // prospect / flexible
+    rent = Number(form.fixed_monthly_rent || 0) || (area * Number(form.rent_rate_per_sqft || 0));
+    computedRentRate = area > 0 ? rent / area : Number(form.rent_rate_per_sqft || 0);
+  }
+
   const serviceCharge = area * Number(form.service_charge_rate_per_sqft || 0);
   const subtotal = rent + serviceCharge;
   const vat = (subtotal * Number(form.vat_rate || 0)) / 100;
   const utilityDeposit = utilities.reduce((sum, item) => sum + (item.applicable ? item.rate_per_unit * area : 0), 0);
   const total = subtotal + vat + Number(form.security_deposit || 0) + utilityDeposit;
-  const expiryDate = addMonths(form.starts_on, Number(form.term_months));
+  const expiryDate = addMonths(form.starts_on, Number(form.term_months || 12));
   const charges = useMemo(
     () => [
       {
@@ -193,7 +210,7 @@ export function TenantApplicationCard({
         account_type: "G/L Account",
         account_name: "Landlord Dues",
         area,
-        rate: Number(form.rent_rate_per_sqft || 0),
+        rate: computedRentRate,
         amount: rent,
       },
       {
@@ -219,7 +236,7 @@ export function TenantApplicationCard({
         amount: utilityDeposit,
       },
     ],
-    [area, form.rent_rate_per_sqft, form.service_charge_rate_per_sqft, lettingFee, renewalFee, rent, serviceCharge, utilityDeposit]
+    [area, computedRentRate, form.service_charge_rate_per_sqft, lettingFee, renewalFee, rent, serviceCharge, utilityDeposit]
   );
 
   function update(name: keyof typeof initialForm, value: string) {
@@ -235,8 +252,16 @@ export function TenantApplicationCard({
 
   async function submit() {
     setError("");
-    if (!form.name.trim() || !form.unit || !form.starts_on || !Number(form.rent_rate_per_sqft)) {
-      setError("Complete the tenant name, unit, commencement date and rent rate before saving.");
+    if (!form.name.trim()) {
+      setError("Enter the tenant or applicant name before saving.");
+      return;
+    }
+    if (!form.unit) {
+      setError("Select the assigned or prospective unit.");
+      return;
+    }
+    if (rentType !== "prospect" && rent <= 0) {
+      setError("Specify either a fixed monthly rent or rate per sq.ft before creating an active lease.");
       return;
     }
     setSaving(true);
@@ -251,6 +276,7 @@ export function TenantApplicationCard({
             tenant: {
               name: form.name,
               tenant_type: form.tenant_type,
+              status: rentType === "prospect" ? "prospect" : "prospect",
               address_1: form.address_1,
               address_2: form.address_2,
               city: form.city,
@@ -264,16 +290,18 @@ export function TenantApplicationCard({
             },
             lease: {
               unit: form.unit,
-              term_months: Number(form.term_months),
-              starts_on: form.starts_on,
+              term_months: Number(form.term_months || 12),
+              starts_on: form.starts_on || new Date().toISOString().slice(0, 10),
               area,
-              rent_rate_per_sqft: Number(form.rent_rate_per_sqft),
-              service_charge_rate_per_sqft: Number(form.service_charge_rate_per_sqft),
-              vat_rate: Number(form.vat_rate),
-              security_deposit: Number(form.security_deposit),
-              billing_day: Number(form.billing_day),
-              escalation_percent: Number(form.escalation_percent),
-              escalation_interval_months: Number(form.escalation_interval_months),
+              rent_type: rentType,
+              monthly_rent: rent,
+              rent_rate_per_sqft: computedRentRate,
+              service_charge_rate_per_sqft: Number(form.service_charge_rate_per_sqft || 0),
+              vat_rate: Number(form.vat_rate || 0),
+              security_deposit: Number(form.security_deposit || 0),
+              billing_day: Number(form.billing_day || 1),
+              escalation_percent: Number(form.escalation_percent || 0),
+              escalation_interval_months: Number(form.escalation_interval_months || 12),
             },
             utilities: utilities.map((item) => ({ ...item, deposit_amount: item.applicable ? item.rate_per_unit * area : 0 })),
             charges,
@@ -335,23 +363,23 @@ export function TenantApplicationCard({
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: "#0f172a",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-          color: "#ffffff",
+          bgcolor: "var(--surface)",
+          borderBottom: "1px solid var(--border)",
+          color: "var(--text)",
         }}
       >
         <Toolbar sx={{ gap: 2, minHeight: { xs: 64, sm: 72 }, px: { xs: 2, sm: 3 } }}>
-          <IconButton onClick={onClose} aria-label="Close tenant application" sx={{ color: "#ffffff" }}>
+          <IconButton onClick={onClose} aria-label="Close tenant application" sx={{ color: "var(--text)" }}>
             <CloseRounded />
           </IconButton>
           <Box sx={{ flex: 1 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <span style={{ fontSize: 18 }}>🏢</span>
-              <Typography variant="h6" sx={{ fontWeight: 900, color: "#ffffff", fontSize: { xs: "1rem", sm: "1.25rem" } }}>
+              <Typography variant="h6" sx={{ fontWeight: 900, color: "var(--text)", fontSize: { xs: "1rem", sm: "1.25rem" } }}>
                 Tenant Application & Onboarding Card
               </Typography>
             </Box>
-            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)", display: "block" }}>
+            <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block" }}>
               {activeProperty?.name ?? "Select Property"} · Legal tenant profile, lease contract terms, utility deposits & auto-drafting
             </Typography>
           </Box>
@@ -359,7 +387,7 @@ export function TenantApplicationCard({
             <Button
               variant="outlined"
               onClick={onClose}
-              sx={{ color: "#cbd5e1", borderColor: "rgba(255,255,255,0.2)", "&:hover": { borderColor: "#ffffff" } }}
+              sx={{ color: "var(--text-secondary)", borderColor: "var(--border)", "&:hover": { borderColor: "var(--text)" } }}
             >
               Discard / Close
             </Button>
@@ -387,10 +415,11 @@ export function TenantApplicationCard({
           aria-label="Tenant application sections"
           sx={{
             px: { xs: 2, sm: 3 },
-            bgcolor: "rgba(255,255,255,0.03)",
-            "& .MuiTab-root": { color: "rgba(255,255,255,0.7)", fontWeight: 700, fontSize: 13 },
-            "& .Mui-selected": { color: "#38bdf8 !important" },
-            "& .MuiTabs-indicator": { bgcolor: "#38bdf8" },
+            bgcolor: "var(--surface-sunken)",
+            borderTop: "1px solid var(--border)",
+            "& .MuiTab-root": { color: "var(--text-secondary)", fontWeight: 700, fontSize: 13 },
+            "& .Mui-selected": { color: "var(--primary) !important" },
+            "& .MuiTabs-indicator": { bgcolor: "var(--primary)" },
           }}
         >
           <Tab label="1. General Details" />
@@ -429,66 +458,45 @@ export function TenantApplicationCard({
               <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 2.5 }}>
                 Capture legal entity identity, tax compliance credentials, and principal contacts.
               </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
-                <TextField label="Application Ref No." value="Auto-generated on save" disabled />
-                {input("Tenant / Company Legal Name", "name", { required: true, placeholder: "e.g. Acme East Africa Ltd" })}
-                {input("Entity Type", "tenant_type", {
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 2 }}>
+                {input("Tenant / Company Legal Name", "name", { required: true })}
+                {input("Tenant Classification", "tenant_type", {
                   select: true,
                   children: [
-                    <MenuItem key="company" value="company">
-                      🏢 Registered Company
-                    </MenuItem>,
                     <MenuItem key="individual" value="individual">
-                      👤 Individual Tenant
+                      Individual
+                    </MenuItem>,
+                    <MenuItem key="company" value="company">
+                      Registered Company
+                    </MenuItem>,
+                    <MenuItem key="government" value="government">
+                      Government Agency
                     </MenuItem>,
                   ],
                 })}
-                {input("KRA PIN Number", "tax_id", { placeholder: "e.g. P051234567X" })}
-                {input("Registration / ID Number", "registration_number", { placeholder: "e.g. CPR/2024/12345" })}
-                {input("Primary Phone Number", "phone", { type: "tel", placeholder: "e.g. +254 700 000 000" })}
-                {input("Official Email Address", "email", { type: "email", placeholder: "e.g. accounts@acme.co.ke" })}
-                {input("Postal / Physical Address", "address_1", { placeholder: "P.O. Box 12345" })}
-                {input("City / Town", "city", { placeholder: "Nairobi" })}
-              </Box>
-            </Paper>
-
-            {/* PRIMARY CONTACT */}
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, background: "var(--surface)" }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                Primary Contact Person / Representative
-              </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
-                {input("Contact Name", "contact_name", { placeholder: "e.g. John Doe" })}
-                {input("Contact Phone", "contact_phone", { type: "tel", placeholder: "+254 712 345 678" })}
-                {input("Contact Email", "contact_email", { type: "email", placeholder: "johndoe@acme.co.ke" })}
-              </Box>
-            </Paper>
-
-            {/* PROPERTY & UNIT SELECTION */}
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, background: "var(--surface)" }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                Property & Unit Allocation
-              </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
-                <TextField label="Property" value={activeProperty?.name ?? ""} disabled />
-                <TextField select required label="Select Unit" value={form.unit} onChange={(e) => update("unit", e.target.value)}>
-                  <MenuItem value="" disabled>
-                    -- Choose available unit --
-                  </MenuItem>
-                  {units.map((unit) => (
-                    <MenuItem key={unit.id} value={unit.id}>
-                      Unit {unit.code} ({unit.unit_type || "Commercial"} · {Number(unit.area || 0).toLocaleString()} sqft)
+                {input("Postal / Street Address Line 1", "address_1")}
+                {input("Suite / Floor / Address Line 2", "address_2")}
+                {input("City / Town", "city")}
+                {input("Primary Phone Number", "phone", { placeholder: "+254700000000" })}
+                {input("Billing Email Address", "email", { type: "email", placeholder: "billing@company.com" })}
+                {input("KRA PIN / Tax Identifier", "tax_id", { placeholder: "P051234567X" })}
+                {input("Registration / Certificate Number", "registration_number", { placeholder: "CPR/2024/001" })}
+                {input("Assigned Unit", "unit", {
+                  select: true,
+                  required: true,
+                  children: units.map((u) => (
+                    <MenuItem key={u.id} value={u.id}>
+                      Unit {u.code} ({u.unit_type ?? "Commercial"} · {u.area ?? "0"} sqft · Floor {u.floor ?? "1"})
                     </MenuItem>
-                  ))}
-                </TextField>
-                <TextField label="Floor Level" value={selectedUnit?.floor ? `Floor ${selectedUnit.floor}` : "Ground Floor"} disabled />
-                <TextField label="Unit Area (sq ft)" value={area ? `${area.toLocaleString()} sqft` : "0 sqft"} disabled />
-                <TextField
-                  label="Physical Location"
-                  value={[propertyDetails?.address, propertyDetails?.city, propertyDetails?.country].filter(Boolean).join(", ")}
-                  disabled
-                  sx={{ gridColumn: { md: "span 2" } }}
-                />
+                  )),
+                })}
+                {input("Authorized Contact Person", "contact_name")}
+                {input("Contact Person Phone", "contact_phone", { placeholder: "+254700000001" })}
+                {input("Contact Person Email", "contact_email", {
+                  type: "email",
+                  placeholder: "contact@company.com",
+                  sx: { gridColumn: { md: "span 2" } },
+                })}
               </Box>
             </Paper>
 
@@ -498,9 +506,34 @@ export function TenantApplicationCard({
                 SECTION 2 · LEASE TERMS & FINANCIAL RATES
               </Typography>
               <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 2.5 }}>
-                Rates are computed against unit sqft area. Future escalations compound automatically on the specified interval.
+                Configure rent structure (Fixed Monthly, Rate by Area, or Prospective Negotiation), service charges, and deposit requirements.
               </Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
+                {input("Rent Pricing Structure", "rent_type", {
+                  select: true,
+                  children: [
+                    <MenuItem key="fixed" value="fixed">Fixed Monthly Rent (Flat KES / mo)</MenuItem>,
+                    <MenuItem key="rate_per_sqft" value="rate_per_sqft">Rate by Area (KES / Sq.Ft / mo)</MenuItem>,
+                    <MenuItem key="prospect" value="prospect">Prospective Tenant (TBD / Negotiating)</MenuItem>,
+                  ],
+                })}
+                {form.rent_type === "rate_per_sqft" ? (
+                  input("Rent Rate / Sq.Ft (KES)", "rent_rate_per_sqft", {
+                    type: "number",
+                    required: true,
+                    inputProps: { min: 0, step: 0.01 },
+                    placeholder: "e.g. 120.00",
+                    helperText: area > 0 && Number(form.rent_rate_per_sqft) > 0 ? `Total: ${money(area * Number(form.rent_rate_per_sqft))}/mo` : "Enter rate per sq.ft",
+                  })
+                ) : (
+                  input("Fixed Monthly Rent (KES)", "fixed_monthly_rent", {
+                    type: "number",
+                    required: form.rent_type === "fixed",
+                    inputProps: { min: 0, step: 0.01 },
+                    placeholder: "e.g. 65000.00",
+                    helperText: area > 0 && Number(form.fixed_monthly_rent) > 0 ? `Equivalent to ${money(Number(form.fixed_monthly_rent) / area)}/sq.ft` : form.rent_type === "prospect" ? "Optional for prospects" : "Direct monthly amount",
+                  })
+                )}
                 {input("Lease Term", "term_months", {
                   select: true,
                   required: true,
@@ -512,20 +545,16 @@ export function TenantApplicationCard({
                 })}
                 {input("Commencement Date", "starts_on", {
                   type: "date",
-                  required: true,
+                  required: form.rent_type !== "prospect",
                   slotProps: { inputLabel: { shrink: true } },
+                  helperText: form.rent_type === "prospect" ? "Optional for prospective applicants" : "Lease start date",
                 })}
                 <TextField label="Calculated Expiry Date" value={expiryDate || "Select start date"} disabled />
-                {input("Rent Rate / Sq.Ft (KES)", "rent_rate_per_sqft", {
-                  type: "number",
-                  required: true,
-                  inputProps: { min: 0, step: 0.01 },
-                  placeholder: "e.g. 120.00",
-                })}
                 {input("Service Charge Rate / Sq.Ft (KES)", "service_charge_rate_per_sqft", {
                   type: "number",
                   inputProps: { min: 0, step: 0.01 },
                   placeholder: "e.g. 35.00",
+                  helperText: area > 0 && Number(form.service_charge_rate_per_sqft) > 0 ? `Total: ${money(area * Number(form.service_charge_rate_per_sqft))}/mo` : "Optional service rate",
                 })}
                 {input("VAT Rate", "vat_rate", {
                   select: true,
@@ -540,7 +569,6 @@ export function TenantApplicationCard({
                 })}
                 {input("Security Deposit (KES)", "security_deposit", {
                   type: "number",
-                  required: true,
                   inputProps: { min: 0, step: 0.01 },
                   helperText: "Refundable deposit upon vacating",
                 })}

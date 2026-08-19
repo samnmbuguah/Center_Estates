@@ -52,6 +52,8 @@ export function TenancyView({
   onRejectDoc = () => {},
   onOpenPortal = () => {},
   onDownloadStatement = () => {},
+  onDeleteTenant = () => {},
+  onEditTenant = () => {},
   onRenewLease = () => {},
   onTerminateLease = () => {},
   onRefresh = () => {},
@@ -70,28 +72,29 @@ export function TenancyView({
   setTab?: (t: PropertyTab) => void;
   onAddTenant?: () => void;
   onBulkUploadTenant?: () => void;
-  onUploadDoc?: () => void;
+  onUploadDoc?: (t?: Row) => void;
   onAddLease?: () => void;
   onDownloadTemplate?: () => void;
-  onLeaseAction?: (r: LeaseRow, action: "activate" | "renew" | "terminate") => void;
+  onLeaseAction?: (row: LeaseRow, action: "activate" | "renew" | "terminate") => void;
   onSelectTenantRow?: (r: Row) => void;
   onSelectLeaseRow?: (r: Row) => void;
   onSelectRow?: (r: Row) => void;
   onDownloadDocument?: (r: Row) => void;
   onDownloadDoc?: (r: Row) => void;
-  onVerifyDocument?: (r: TenantDocumentRow) => void;
-  onVerifyDoc?: (r: TenantDocumentRow) => void;
-  onRejectDocument?: (r: TenantDocumentRow) => void;
-  onRejectDoc?: (r: TenantDocumentRow) => void;
+  onVerifyDocument?: (r: Row) => void;
+  onVerifyDoc?: (r: Row) => void;
+  onRejectDocument?: (r: Row) => void;
+  onRejectDoc?: (r: Row) => void;
   onOpenPortal?: (r: Row) => void;
   onDownloadStatement?: (r: TenantRow) => void;
+  onDeleteTenant?: (r: TenantRow) => void;
+  onEditTenant?: (r: Row) => void;
   onRenewLease?: (r: LeaseRow) => void;
   onTerminateLease?: (r: LeaseRow) => void;
   onRefresh?: () => void;
   canLease?: boolean;
   activeSection?: TenancySection;
   onSectionChange?: (s: TenancySection) => void;
-  onUploadTenantDoc?: (t: Row) => void;
 }) {
   const [localSection, setLocalSection] = useState<TenancySection>(activeSection || "tenants");
   const section = activeSection || localSection;
@@ -103,7 +106,7 @@ export function TenancyView({
         <UnitsView rows={unitsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} />
       )}
       {section === "tenants" && (
-        <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onBulkUpload={onBulkUploadTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} onDownloadStatement={onDownloadStatement} />
+        <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onBulkUpload={onBulkUploadTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} onDownloadStatement={onDownloadStatement} onDelete={onDeleteTenant} onEdit={onEditTenant} canLease={canLease} onRefresh={onRefresh} />
       )}
       {section === "leases" && (
         <LeasesView rows={leasesRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAddLease={onAddLease} onDownloadTemplate={onDownloadTemplate} onLeaseAction={onLeaseAction} onSelectRow={onSelectLeaseRow} />

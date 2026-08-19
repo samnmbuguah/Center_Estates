@@ -7,7 +7,8 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 type ParsedRow = {
   name: string; tenant_type: string; email: string; phone: string;
   tax_id: string; registration_number: string; unit_code: string;
-  lease_start: string; lease_term_months: string; rent_rate_per_sqft: string;
+  lease_start: string; lease_term_months: string;
+  monthly_rent: string; rent_rate_per_sqft: string;
   service_charge_rate_per_sqft: string; vat_rate: string;
   security_deposit: string; billing_day: string;
 };
@@ -20,7 +21,7 @@ type BulkResult = {
 
 const TEMPLATE_HEADERS = [
   "name","tenant_type","email","phone","tax_id","registration_number",
-  "unit_code","lease_start","lease_term_months","rent_rate_per_sqft",
+  "unit_code","lease_start","lease_term_months","monthly_rent","rent_rate_per_sqft",
   "service_charge_rate_per_sqft","vat_rate","security_deposit","billing_day",
 ];
 
@@ -68,6 +69,7 @@ function csvToRows(text: string): ParsedRow[] {
   const cUnit = col(h,['unit_code','unit','unit_no']);
   const cStart = col(h,['lease_start','start_date','starts_on']);
   const cTerm = col(h,['lease_term_months','term_months','term']);
+  const cMonthlyRent = col(h,['monthly_rent','rent','fixed_rent','rent_amount']);
   const cRent = col(h,['rent_rate_per_sqft','rent_rate','rent_per_sqft']);
   const cSC = col(h,['service_charge_rate_per_sqft','sc_rate','service_charge_rate']);
   const cVat = col(h,['vat_rate','vat']);
@@ -79,6 +81,7 @@ function csvToRows(text: string): ParsedRow[] {
     tax_id: get(row,cTax), registration_number: get(row,cReg),
     unit_code: get(row,cUnit), lease_start: get(row,cStart),
     lease_term_months: get(row,cTerm)||'12',
+    monthly_rent: get(row,cMonthlyRent),
     rent_rate_per_sqft: get(row,cRent),
     service_charge_rate_per_sqft: get(row,cSC)||'0',
     vat_rate: get(row,cVat)||'16',
@@ -140,7 +143,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
       const payload = { rows: rows.map(r => ({
         tenant: { name:r.name, tenant_type:r.tenant_type, email:r.email, phone:r.phone, tax_id:r.tax_id, registration_number:r.registration_number },
         lease: { unit_code:r.unit_code, starts_on:r.lease_start, term_months:Number(r.lease_term_months)||12,
-          rent_rate_per_sqft:r.rent_rate_per_sqft, service_charge_rate_per_sqft:r.service_charge_rate_per_sqft,
+          monthly_rent:r.monthly_rent || '', rent_rate_per_sqft:r.rent_rate_per_sqft, service_charge_rate_per_sqft:r.service_charge_rate_per_sqft,
           vat_rate:r.vat_rate, security_deposit:r.security_deposit, billing_day:Number(r.billing_day)||1 },
       })) };
       const res = await apiFetch('/property/tenants/bulk-onboard/', {
@@ -227,7 +230,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
         </button>
       </div>
       <div style={{background:'var(--surface-2,#f8fafc)',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12}}>
-        <strong>Required:</strong> <span style={{color:'var(--muted)'}}>name, unit_code, lease_start, rent_rate_per_sqft</span>
+        <strong>Required:</strong> <span style={{color:'var(--muted)'}}>name, unit_code, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
         <span style={{margin:'0 8px',color:'var(--border)'}}>|</span>
         <strong>Optional:</strong> <span style={{color:'var(--muted)'}}>tenant_type, email, phone, tax_id, registration_number, lease_term_months, service_charge_rate_per_sqft, vat_rate, security_deposit, billing_day</span>
       </div>
@@ -266,7 +269,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead style={{position:'sticky',top:0}}>
                 <tr style={{background:'var(--surface,#fff)',borderBottom:'2px solid var(--border)'}}>
-                  {['#','Name','Type','Email','Phone','Unit Code','Lease Start','Term (mo)','Rent/sqft'].map(h=>(
+                  {['#','Name','Type','Email','Phone','Unit Code','Lease Start','Term (mo)','Rent (KES/mo or /sqft)'].map(h=>(
                     <th key={h} style={{padding:'8px 10px',textAlign:'left',color:'var(--text-secondary)',fontWeight:700,whiteSpace:'nowrap'}}>{h}</th>
                   ))}
                 </tr>
@@ -282,7 +285,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                     <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{r.unit_code||<span style={{color:'#dc2626'}}>MISSING</span>}</td>
                     <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{r.lease_start||<span style={{color:'#dc2626'}}>MISSING</span>}</td>
                     <td style={{padding:'6px 10px'}}>{r.lease_term_months}</td>
-                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{r.rent_rate_per_sqft||<span style={{color:'#dc2626'}}>MISSING</span>}</td>
+                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{r.monthly_rent ? `KES ${r.monthly_rent}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{color:'#dc2626'}}>MISSING</span>}</td>
                   </tr>
                 ))}
               </tbody>

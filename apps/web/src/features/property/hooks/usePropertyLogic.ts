@@ -851,6 +851,30 @@ export function usePropertyLogic({
   const downloadReceiptPdf = (row: ReceiptRow) => void downloadApiFile(`/property/receipts/${row.id}/pdf/`, `receipt-${row.number ?? row.id}.pdf`);
   const downloadTenantStatement = (row: TenantRow) => void downloadApiFile(`/property/tenants/${row.id}/statement.pdf/`, `tenant-statement-${row.code ?? row.id}.pdf`);
 
+  const handleDeleteTenant = useCallback(async (tenant: TenantRow) => {
+    if (!organizationId) return;
+    if (!window.confirm(`Are you sure you want to delete tenant "${tenant.name}" (${tenant.code})? This will permanently delete duplicate or erroneous records that have no active leases or invoices.`)) {
+      return;
+    }
+    try {
+      const res = await apiFetch(`/property/tenants/${tenant.id}/`, {
+        method: "DELETE",
+      }, organizationId);
+      if (res.ok) {
+        setError("");
+        if (selectedRow && String(selectedRow.id) === String(tenant.id)) {
+          setSelectedRow(null);
+        }
+        await loadData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail || "Cannot delete tenant. Active leases, invoices or posted transactions exist.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete tenant");
+    }
+  }, [organizationId, selectedRow, loadData, setError]);
+
   const downloadTenancyTemplate = () => {
     void downloadReportCSV("lease-expiry");
   };
@@ -1201,6 +1225,7 @@ export function usePropertyLogic({
     downloadInvoicePdf,
     downloadReceiptPdf,
     downloadTenantStatement,
+    handleDeleteTenant,
     generateServiceChargeAllocations,
     fetchData: loadData,
   };

@@ -70,22 +70,22 @@ export function GuidedTenantWizardModal({
         }}
       >
         {/* Header */}
-        <div style={{ padding: "20px 28px", background: "#0f172a", color: "#ffffff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: "20px 28px", background: "var(--surface)", borderBottom: "1px solid var(--border)", color: "var(--text)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <span style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#dc2626" }}>
+            <span style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--primary)" }}>
               Guided Wizard
             </span>
-            <h2 style={{ fontSize: 20, fontWeight: 900, margin: "2px 0 0", color: "#ffffff" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 900, margin: "2px 0 0", color: "var(--text)" }}>
               New Tenant Onboarding
             </h2>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: 0, color: "#ffffff", fontSize: 24, fontWeight: 900, cursor: "pointer" }}>
+          <button onClick={onClose} style={{ background: "none", border: 0, color: "var(--text)", fontSize: 24, fontWeight: 900, cursor: "pointer" }}>
             ×
           </button>
         </div>
 
         {/* Stepper Progress Bar */}
-        <div style={{ background: "#f8fafc", padding: "14px 28px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "var(--surface-sunken)", padding: "14px 28px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           {[
             { num: 1, label: "Unit & Lease Terms", icon: Building2 },
             { num: 2, label: "Tenant Profile", icon: User },
