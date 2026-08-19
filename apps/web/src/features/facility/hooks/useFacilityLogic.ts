@@ -43,16 +43,25 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
       setLoading(false);
       return;
     }
-    const apiTab = tab === "buildings" ? "assets" : tab;
     let path: string;
     if (tab === "overview" || tab === "reports") {
       path = "/facility/dashboard/";
+    } else if (tab === "buildings") {
+      path = `/property/buildings/?search=${encodeURIComponent(search)}`;
+    } else if (tab === "strategic-plans") {
+      path = `/facility/strategic-plans/?search=${encodeURIComponent(search)}`;
+    } else if (tab === "budgets") {
+      path = `/facility/budgets/?search=${encodeURIComponent(search)}`;
+    } else if (tab === "compliance") {
+      path = `/facility/compliance/?search=${encodeURIComponent(search)}`;
+    } else if (tab === "risks") {
+      path = `/facility/risks/?search=${encodeURIComponent(search)}`;
     } else if (tab === "spare-parts" || tab === "consumables") {
       path = `/facility/assets/?search=${encodeURIComponent(search)}`;
     } else if (tab === "expenditure") {
       path = `/facility/work-order-cost-items/?search=${encodeURIComponent(search)}`;
     } else {
-      path = `/facility/${apiTab}/?search=${encodeURIComponent(search)}`;
+      path = `/facility/${tab}/?search=${encodeURIComponent(search)}`;
     }
     const response = await apiFetch(path, {}, organizationId);
     if (!response.ok) {

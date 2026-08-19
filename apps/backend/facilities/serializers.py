@@ -4,24 +4,39 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 
 from .models import (
-    Contractor, FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule,
-    ServiceRequest, UtilityMeter, WorkOrder, WorkOrderAttachment,
-    WorkOrderCostItem, WorkOrderEvent,
+    AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
+    FacilityFlag, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
+    MeterResetEvent, PreventiveSchedule, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
+    WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 
 
 class FacilityAssetSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
     building_name = serializers.CharField(source='building.name', read_only=True, default='')
+    unit_code = serializers.CharField(source='unit.code', read_only=True, default='')
+    latest_condition = serializers.SerializerMethodField()
+
     class Meta:
         model = FacilityAsset
         exclude = ('organization',)
 
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_latest_condition(self, obj):
+        latest = obj.condition_assessments.first()
+        return AssetConditionAssessmentSerializer(latest).data if latest else None
+
 
 class ContractorSerializer(serializers.ModelSerializer):
+    active_contracts_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Contractor
         exclude = ('organization',)
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_active_contracts_count(self, obj):
+        return obj.contracts.filter(status='active').count()
 
 
 class WorkOrderSerializer(serializers.ModelSerializer):
@@ -199,3 +214,93 @@ class WorkOrderAttachmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkOrderAttachment
         exclude = ('organization', 'uploaded_by')
+
+
+class FloorPlanSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source='building.name', read_only=True)
+    property_name = serializers.CharField(source='building.property.name', read_only=True)
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = FloorPlan
+        exclude = ('organization',)
+
+
+class AssetConditionAssessmentSerializer(serializers.ModelSerializer):
+    asset_name = serializers.CharField(source='asset.name', read_only=True)
+    asset_code = serializers.CharField(source='asset.code', read_only=True)
+    assessor_name = serializers.CharField(source='assessor.get_full_name', read_only=True)
+
+    class Meta:
+        model = AssetConditionAssessment
+        exclude = ('organization', 'assessor')
+
+
+class StrategicFMPlanSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = StrategicFMPlan
+        exclude = ('organization',)
+
+
+class ContractorContractSerializer(serializers.ModelSerializer):
+    contractor_name = serializers.CharField(source='contractor.name', read_only=True)
+    property_name = serializers.CharField(source='property.name', read_only=True, default='')
+
+    class Meta:
+        model = ContractorContract
+        exclude = ('organization',)
+
+
+class FMBudgetSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    variance_amount = serializers.SerializerMethodField()
+    variance_percent = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FMBudget
+        exclude = ('organization',)
+
+    @extend_schema_field(serializers.DecimalField(max_digits=14, decimal_places=2))
+    def get_variance_amount(self, obj):
+        return obj.allocated_amount - (obj.actual_amount + obj.committed_amount)
+
+    @extend_schema_field(serializers.DecimalField(max_digits=8, decimal_places=2))
+    def get_variance_percent(self, obj):
+        if not obj.allocated_amount:
+            return Decimal('0.00')
+        spent = obj.actual_amount + obj.committed_amount
+        return ((spent / obj.allocated_amount) * Decimal('100.0')).quantize(Decimal('0.01'))
+
+
+class ComplianceObligationSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    building_name = serializers.CharField(source='building.name', read_only=True, default='')
+    responsible_person_name = serializers.CharField(source='responsible_person.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = ComplianceObligation
+        exclude = ('organization',)
+
+
+class FacilityRiskSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    building_name = serializers.CharField(source='building.name', read_only=True, default='')
+    asset_name = serializers.CharField(source='asset.name', read_only=True, default='')
+    action_owner_name = serializers.CharField(source='action_owner.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = FacilityRisk
+        exclude = ('organization',)
+
+
+class FacilityFlagSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    resolved_by_name = serializers.CharField(source='resolved_by.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = FacilityFlag
+        exclude = ('organization',)
+

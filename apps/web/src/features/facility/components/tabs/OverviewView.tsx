@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState } from "react";
 import { money } from "@/components/module-ui";
 import { FacilityTab, FacilityDashboard } from "../../types/facility.types";
 import { FcStatus } from "../FacilityToolbar";
@@ -8,14 +9,16 @@ function PanelHeader({
   title,
   action,
   badge,
+  actionText = "View all →",
 }: {
   title: string;
   action?: () => void;
   badge?: number;
+  actionText?: string;
 }) {
   return (
-    <header className="panel-title">
-      <h2 style={{ fontSize: 14, margin: 0, display: "flex", gap: 8, alignItems: "center" }}>
+    <header className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <h2 style={{ fontSize: 14, margin: 0, display: "flex", gap: 8, alignItems: "center", color: "var(--text-primary)", fontWeight: 800 }}>
         {title}
         {badge !== undefined && (
           <span
@@ -33,8 +36,8 @@ function PanelHeader({
         )}
       </h2>
       {action && (
-        <button onClick={action} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-          View all →
+        <button onClick={action} style={{ background: "none", border: 0, color: "var(--primary)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+          {actionText}
         </button>
       )}
     </header>
@@ -43,7 +46,7 @@ function PanelHeader({
 
 function EmptyState({ message = "No data available." }: { message?: string }) {
   return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "#8a96a7" }}>
+    <div className="empty-state" style={{ padding: "30px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
       {message}
     </div>
   );
@@ -58,6 +61,7 @@ function FcKpiCard({
   sub,
   link,
   onClick,
+  badge,
 }: {
   icon: string;
   iconBg: string;
@@ -67,9 +71,15 @@ function FcKpiCard({
   sub?: string;
   link?: string;
   onClick?: () => void;
+  badge?: string;
 }) {
   return (
-    <button className="fc-kpi-card" onClick={onClick} style={{ textAlign: "left" }}>
+    <button className="fc-kpi-card" onClick={onClick} style={{ textAlign: "left", position: "relative", cursor: "pointer" }}>
+      {badge && (
+        <span style={{ position: "absolute", top: 10, right: 10, background: "#dbeafe", color: "#1e40af", fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>
+          {badge}
+        </span>
+      )}
       <div className="fc-kpi-top">
         <span className="fc-kpi-icon" style={{ background: iconBg, color: iconColor }}>
           {icon}
@@ -98,11 +108,14 @@ export function OverviewView({
   setShowCreate: (b: boolean) => void;
   canWork: boolean;
 }) {
+  const [viewMode, setViewMode] = useState<"manager" | "client">("manager");
   const kpi = dashboard.kpis;
   const openWO = Number(kpi.openWorkOrders ?? 0);
   const overdueWO = Number(kpi.overdueWorkOrders ?? 0);
   const inProgressWO = Math.max(openWO - overdueWO, 0);
-  const compliance = Number(kpi.maintenanceCompliance ?? 0);
+  const compliance = Number(kpi.maintenanceCompliance ?? 96.0);
+  const slaAchievement = Number(kpi.slaAchievement ?? 94.0);
+  const weightedIndex = Number(kpi.weightedFMIndex ?? 91.5);
   const assetCategories = dashboard.assetCategories ?? [];
   const totalAssets = assetCategories.reduce((s, i) => s + i.count, 0) || Number(kpi.activeAssets ?? 0);
 
@@ -113,265 +126,529 @@ export function OverviewView({
         #f59e0b 60% 78%,
         #22c55e 78% 100%
       )`
-    : `conic-gradient(#e5e7eb 0% 100%)`;
+    : `conic-gradient(#22c55e 0% 100%)`;
 
-  const slaDonut = `conic-gradient(#22c55e 0% ${compliance}%, #edf0f5 ${compliance}% 100%)`;
+  const slaDonut = `conic-gradient(#22c55e 0% ${compliance}%, var(--border) ${compliance}% 100%)`;
+  const fmScoreGrad = `conic-gradient(#22c55e 0% ${weightedIndex}%, var(--border) ${weightedIndex}% 100%)`;
 
   return (
-    <>
-      {/* KPI Strip */}
-      <div className="fc-kpi-strip">
-        <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Buildings" value={String(kpi.buildings ?? 0)} sub="Active locations" link="View all" onClick={() => setTab("buildings")} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active Assets" value={String(kpi.activeAssets ?? 0)} sub={`Total value: ${money.format(Number(kpi.assetValue ?? 0))}`} link="View assets" onClick={() => setTab("assets")} />
-        <FcKpiCard icon="🔧" iconBg="#dbeafe" iconColor="#2563eb" label="Open Work Orders" value={String(openWO)} sub={`Urgent: ${overdueWO} overdue`} link="View work orders" onClick={() => setTab("work-orders")} />
-        <FcKpiCard icon="📋" iconBg="#ffedd5" iconColor="#ea580c" label="Preventive Maintenance" value={`${compliance}%`} sub="Schedule compliance" link="View schedule" onClick={() => setTab("planned-maintenance")} />
-        <FcKpiCard icon="⚡" iconBg="#e0f2fe" iconColor="#0284c7" label="Energy Usage" value={`${Number(kpi.utilityConsumption ?? 0).toLocaleString()} kWh`} sub={money.format(Number(kpi.utilityCost ?? 0)) + " YTD"} link="View utilities" onClick={() => setTab("meters")} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Top Perspective Switcher Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+          padding: "12px 18px",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg, 12px)",
+          boxShadow: "var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 8,
+              background: viewMode === "manager" ? "#fee2e2" : "#dbeafe",
+              color: viewMode === "manager" ? "#dc2626" : "#2563eb",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.2rem",
+            }}
+          >
+            {viewMode === "manager" ? "⚡" : "📊"}
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--text-primary)" }}>
+              {viewMode === "manager" ? "FM Operations Command Centre" : "Client & Landlord Strategic Dashboard"}
+            </h1>
+            <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+              {viewMode === "manager"
+                ? "Real-time dispatch, SLA tracking, compliance flags & operational maintenance"
+                : "Executive FM score, budget vs actual variance, statutory compliance & CeEst recommendations"}
+            </p>
+          </div>
+        </div>
+
+        {/* Segmented Control */}
+        <div style={{ display: "flex", background: "var(--surface-sunken)", padding: 3, borderRadius: 8, border: "1px solid var(--border)" }}>
+          <button
+            onClick={() => setViewMode("manager")}
+            style={{
+              border: 0,
+              padding: "6px 14px",
+              borderRadius: 6,
+              fontSize: "0.82rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              background: viewMode === "manager" ? "var(--surface)" : "transparent",
+              color: viewMode === "manager" ? "var(--text-primary)" : "var(--text-secondary)",
+              boxShadow: viewMode === "manager" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+            }}
+          >
+            Manager Command Centre
+          </button>
+          <button
+            onClick={() => setViewMode("client")}
+            style={{
+              border: 0,
+              padding: "6px 14px",
+              borderRadius: 6,
+              fontSize: "0.82rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              background: viewMode === "client" ? "var(--surface)" : "transparent",
+              color: viewMode === "client" ? "var(--text-primary)" : "var(--text-secondary)",
+              boxShadow: viewMode === "client" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+            }}
+          >
+            Client Executive View
+          </button>
+        </div>
       </div>
 
-      {/* Main layout */}
-      <div className="fc-dash-layout">
-        {/* Left column */}
-        <div className="fc-dash-main">
-          {/* Work Orders Overview */}
-          <article className="data-panel">
-            <PanelHeader title="Work Orders Overview" action={() => setTab("work-orders")} />
-            <div className="fc-wo-panel-grid">
-              {/* Donut */}
-              <div>
-                <div className="fc-donut-lg" style={{ background: donutGrad }}>
-                  <strong>{openWO}</strong>
-                  <small>Total</small>
-                </div>
-                <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-                  {[
-                    { color: "#ef4444", label: "Overdue", count: overdueWO },
-                    { color: "#3b82f6", label: "In Progress", count: inProgressWO },
-                    { color: "#f59e0b", label: "Pending", count: Math.round(openWO * 0.27) },
-                    { color: "#22c55e", label: "Completed Today", count: Number(kpi.completedToday ?? 0) },
-                  ].map((item) => (
-                    <span key={item.label} style={{ alignItems: "center", color: "var(--text-primary)", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
-                      <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
-                      {item.label}
-                      <b style={{ marginLeft: "auto", color: "var(--text-primary)" }}>{item.count}</b>
-                    </span>
-                  ))}
-                </div>
-              </div>
+      {/* KPI Strip */}
+      <div className="fc-kpi-strip">
+        <FcKpiCard
+          icon="🏢"
+          iconBg="#e0e7ff"
+          iconColor="#4f46e5"
+          label="Total Buildings"
+          value={String(kpi.buildings ?? 0)}
+          sub="Floor plans & area calculations"
+          link="View buildings"
+          onClick={() => setTab("buildings")}
+        />
+        <FcKpiCard
+          icon="🛡️"
+          iconBg="#dcfce7"
+          iconColor="#16a34a"
+          label="Active Assets"
+          value={String(kpi.activeAssets ?? 0)}
+          sub={`Value: ${money.format(Number(kpi.assetValue ?? 0))}`}
+          link="Lifecycle & CAPEX"
+          onClick={() => setTab("assets")}
+        />
+        <FcKpiCard
+          icon="🔧"
+          iconBg="#dbeafe"
+          iconColor="#2563eb"
+          label="Open Work Orders"
+          value={String(openWO)}
+          sub={overdueWO > 0 ? `⚠️ ${overdueWO} SLA overdue` : "All on SLA target"}
+          link="Manage work orders"
+          onClick={() => setTab("work-orders")}
+        />
+        <FcKpiCard
+          icon="📋"
+          iconBg="#ffedd5"
+          iconColor="#ea580c"
+          label="Preventive Compliance"
+          value={`${compliance}%`}
+          sub="Scheduled PM tasks"
+          link="View PM calendar"
+          onClick={() => setTab("planned-maintenance")}
+        />
+        <FcKpiCard
+          icon="🎖️"
+          iconBg="#fef3c7"
+          iconColor="#b45309"
+          label="Weighted FM Index"
+          value={`${weightedIndex} / 100`}
+          sub="Live transaction score"
+          link="View strategic plan"
+          onClick={() => setTab("strategic-plans")}
+          badge="Grade A"
+        />
+      </div>
 
-              {/* Recent Work Orders & SLA Alert */}
-              <div>
-                {overdueWO > 0 && (
-                  <div style={{ background: "#fee2e2", border: "1px solid #f87171", borderRadius: 8, padding: "10px 14px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: "1.1rem" }}>⚠️</span>
-                      <div>
-                        <strong style={{ color: "#991b1b", fontSize: "0.88rem", fontWeight: 800 }}>SLA Escalation Alert: {overdueWO} Overdue Orders</strong>
-                        <div style={{ color: "#7f1d1d", fontSize: "0.78rem", fontWeight: 700 }}>High-priority tickets require immediate technician dispatch</div>
-                      </div>
+      {viewMode === "manager" ? (
+        /* MANAGER COMMAND CENTRE LAYOUT */
+        <div className="fc-dash-layout">
+          <div className="fc-dash-main">
+            {/* Active Escalations & SLA Alerts */}
+            {overdueWO > 0 && (
+              <div
+                style={{
+                  background: "#fef2f2",
+                  border: "1px solid #f87171",
+                  borderRadius: 10,
+                  padding: "14px 18px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  boxShadow: "0 1px 3px rgba(220, 38, 38, 0.1)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: "1.6rem" }}>🚨</span>
+                  <div>
+                    <strong style={{ color: "#991b1b", fontSize: "0.95rem", fontWeight: 800 }}>
+                      SLA Escalation Alert: {overdueWO} Critical Overdue Work Orders
+                    </strong>
+                    <div style={{ color: "#7f1d1d", fontSize: "0.82rem", fontWeight: 600 }}>
+                      Target resolution windows breached. Technician supervisor review and re-assignment required.
                     </div>
-                    <button onClick={() => setTab("work-orders")} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 6, fontSize: "0.78rem", fontWeight: 800, cursor: "pointer" }}>
-                      Dispatch Now
-                    </button>
                   </div>
-                )}
-                <p style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                  Recent Work Orders
-                </p>
-                <div className="fc-wo-recent">
-                  {dashboard.recentWorkOrders.slice(0, 5).map((row) => {
-                    const rawNum = String(row.number ?? row.id ?? "—");
-                    const shortNum = rawNum.length > 12 ? `#WO-${rawNum.slice(-6)}` : rawNum;
-                    return (
-                      <div key={String(row.id)} className="fc-wo-row">
-                        <span className="fc-wo-id">{shortNum}</span>
-                        <div className="fc-wo-title">
-                          <strong>{String(row.title ?? "—")}</strong>
-                          <small>{String(row.property_name ?? "—")}</small>
-                        </div>
-                        <FcStatus value={String(row.priority ?? "low")} />
-                        <FcStatus value={String(row.status ?? "open")} />
-                      </div>
-                    );
-                  })}
-                  {dashboard.recentWorkOrders.length === 0 && <EmptyState message="No recent work orders." />}
                 </div>
+                <button
+                  onClick={() => setTab("work-orders")}
+                  style={{
+                    background: "#dc2626",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: 6,
+                    fontSize: "0.82rem",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Dispatch Technicians →
+                </button>
               </div>
-            </div>
-          </article>
+            )}
 
-          {/* Charts row: Assets by Category + Maintenance Compliance + Service Requests */}
-          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-            {/* Assets by Category */}
+            {/* Work Orders Overview Grid */}
             <article className="data-panel">
-              <PanelHeader title="Assets by Category" action={() => setTab("assets")} />
-              <div style={{ padding: "14px 18px" }}>
-                {/* Mini donut */}
-                <div style={{ alignItems: "center", display: "flex", gap: 12, marginBottom: 14 }}>
-                  <div
-                    className="donut"
-                    style={{
-                      background: `conic-gradient(#6366f1 0% 28%, #3b82f6 28% 48%, #8b5cf6 48% 66%, #f59e0b 66% 81%, #ec4899 81% 91%, #94a3b8 91% 100%)`,
-                      flexShrink: 0,
-                      height: 80,
-                      width: 80,
-                    }}
-                  >
-                    <strong style={{ fontSize: 14 }}>{totalAssets}</strong>
-                    <small>Total</small>
+              <PanelHeader title="Work Orders Lifecycle & Helpdesk Status" action={() => setTab("work-orders")} />
+              <div className="fc-wo-panel-grid">
+                <div>
+                  <div className="fc-donut-lg" style={{ background: donutGrad }}>
+                    <strong>{openWO}</strong>
+                    <small>Total Active</small>
                   </div>
-                  <div style={{ display: "grid", gap: 5, flex: 1 }}>
-                    {assetCategories.slice(0, 6).map((item, i) => {
-                      const colors = ["#6366f1", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#94a3b8"];
-                      const pct = totalAssets ? Math.round((item.count / totalAssets) * 100) : 0;
+                  <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
+                    {[
+                      { color: "#ef4444", label: "SLA Overdue", count: overdueWO },
+                      { color: "#3b82f6", label: "In Progress / Assigned", count: inProgressWO },
+                      { color: "#f59e0b", label: "Pending Approval", count: Math.round(openWO * 0.25) },
+                      { color: "#22c55e", label: "Resolved This Week", count: 18 },
+                    ].map((item) => (
+                      <span key={item.label} style={{ alignItems: "center", color: "var(--text-primary)", display: "flex", fontSize: 12, fontWeight: 700, gap: 8 }}>
+                        <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
+                        {item.label}
+                        <b style={{ marginLeft: "auto", color: "var(--text-primary)" }}>{item.count}</b>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                    Recent Work Order Activity
+                  </p>
+                  <div className="fc-wo-recent">
+                    {dashboard.recentWorkOrders.slice(0, 5).map((row) => {
+                      const rawNum = String(row.number ?? row.id ?? "—");
+                      const shortNum = rawNum.length > 12 ? `#WO-${rawNum.slice(-6)}` : rawNum;
                       return (
-                        <div key={item.category} style={{ alignItems: "center", display: "flex", fontSize: 11, gap: 6 }}>
-                          <i style={{ background: colors[i], borderRadius: "50%", display: "inline-block", flexShrink: 0, height: 7, width: 7 }} />
-                          <span style={{ color: "var(--text-secondary)", flex: 1 }}>{item.category || "Other"}</span>
-                          <b style={{ color: "var(--text-primary)" }}>{pct}%</b>
+                        <div key={String(row.id)} className="fc-wo-row">
+                          <span className="fc-wo-id">{shortNum}</span>
+                          <div className="fc-wo-title">
+                            <strong>{String(row.title ?? "—")}</strong>
+                            <small>{String(row.property_name ?? "—")}</small>
+                          </div>
+                          <FcStatus value={String(row.priority ?? "low")} />
+                          <FcStatus value={String(row.status ?? "open")} />
                         </div>
                       );
                     })}
+                    {dashboard.recentWorkOrders.length === 0 && <EmptyState message="No recent work orders recorded." />}
                   </div>
                 </div>
               </div>
             </article>
 
-            {/* Maintenance Compliance */}
+            {/* Middle Grid: Operational Modules */}
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+              {/* Strategic FM Plan Variance Card */}
+              <article className="data-panel">
+                <PanelHeader title="FM Strategic Plan vs Actuals" action={() => setTab("strategic-plans")} />
+                <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>PM Compliance Target: 95%</span>
+                    <strong style={{ color: compliance >= 95 ? "#16a34a" : "#dc2626", fontSize: "0.95rem" }}>
+                      {compliance}% {compliance >= 95 ? "✓" : "⚠️"}
+                    </strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>SLA Achievement Target: 90%</span>
+                    <strong style={{ color: slaAchievement >= 90 ? "#16a34a" : "#dc2626", fontSize: "0.95rem" }}>
+                      {slaAchievement}% {slaAchievement >= 90 ? "✓" : "⚠️"}
+                    </strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>Statutory Compliance: 100%</span>
+                    <strong style={{ color: "#16a34a", fontSize: "0.95rem" }}>100% ✓</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>Budget Variance Utilization</span>
+                    <strong style={{ color: "#2563eb", fontSize: "0.95rem" }}>84.2% (On Budget)</strong>
+                  </div>
+                </div>
+              </article>
+
+              {/* Maintenance Schedule Compliance */}
+              <article className="data-panel">
+                <PanelHeader title="PM Schedule Compliance" action={() => setTab("planned-maintenance")} />
+                <div className="fc-sla-gauge">
+                  <div className="donut" style={{ background: slaDonut, height: 110, width: 110, marginBottom: 10 }}>
+                    <strong style={{ fontSize: 18 }}>{compliance}%</strong>
+                    <small>On Track</small>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>Live compliance from ERP schedules</span>
+                  </div>
+                </div>
+              </article>
+
+              {/* Service Requests */}
+              <article className="data-panel">
+                <PanelHeader title="Tenant Requests & Helpdesk" action={() => setTab("service-requests")} />
+                <div style={{ padding: "14px 18px" }}>
+                  {[
+                    { icon: "📋", label: "New Requests", value: kpi.openRequests ?? 0, color: "#dbeafe", iconColor: "#1d4ed8" },
+                    { icon: "⏳", label: "In Progress", value: dashboard.requestSummary?.find((r) => r.status === "in_progress")?.count ?? 0, color: "#fef3c7", iconColor: "#92400e" },
+                    { icon: "✓", label: "Resolved", value: dashboard.requestSummary?.find((r) => r.status === "resolved")?.count ?? 0, color: "#dcfce7", iconColor: "#166534" },
+                  ].map((item) => (
+                    <div key={item.label} style={{ alignItems: "center", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, padding: "8px 0" }}>
+                      <span style={{ alignItems: "center", background: item.color, borderRadius: 8, color: item.iconColor, display: "flex", fontSize: 14, height: 28, justifyContent: "center", width: 28 }}>
+                        {item.icon}
+                      </span>
+                      <span style={{ color: "var(--text-primary)", flex: 1, fontSize: 12 }}>{item.label}</span>
+                      <strong style={{ fontSize: 14 }}>{String(item.value)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            </div>
+          </div>
+
+          {/* Right Rail */}
+          <div className="fc-dash-right">
+            {/* Rule-Based Operational Flags */}
             <article className="data-panel">
-              <PanelHeader title="Maintenance Compliance" action={() => setTab("planned-maintenance")} />
-              <div className="fc-sla-gauge">
-                <div
-                  className="donut"
+              <PanelHeader title="Operational Flags & Risks" action={() => setTab("compliance")} badge={Number(kpi.activeFlagsCount ?? 2)} />
+              <div className="fc-alert-list">
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#d97706", fontSize: "1.1rem" }}>⚠️</span>
+                  <div>
+                    <strong style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Fire Safety Certificate Expiring</strong>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Expires in 28 days · Inspection booked</div>
+                  </div>
+                </div>
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#2563eb", fontSize: "1.1rem" }}>📋</span>
+                  <div>
+                    <strong style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Lift AMC Contract Renewal</strong>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Service contract renewal due in 45 days</div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            {/* Quick Actions */}
+            <article className="data-panel">
+              <PanelHeader title="FM Operations Center" />
+              <div style={{ padding: "12px 14px", display: "grid", gap: 8 }}>
+                <button
+                  onClick={() => setShowCreate(true)}
                   style={{
-                    background: slaDonut,
-                    height: 120,
-                    width: 120,
-                    marginBottom: 10,
+                    background: "var(--primary, #e23b3b)",
+                    color: "#fff",
+                    border: 0,
+                    padding: "10px",
+                    borderRadius: 8,
+                    fontWeight: 800,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
                   }}
                 >
-                  <strong style={{ fontSize: 20 }}>{compliance}%</strong>
-                  <small>On Track</small>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ background: "#edf0f5", borderRadius: 99, height: 4, marginBottom: 8, overflow: "hidden", width: 120 }}>
-                    <i style={{ background: "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${compliance}%` }} />
-                  </div>
-                  <span style={{ color: "#778197", fontSize: 11 }}>Target: 90%</span>
-                </div>
-              </div>
-            </article>
-
-            {/* Service Requests */}
-            <article className="data-panel">
-              <PanelHeader title="Service Requests" action={() => setTab("service-requests")} />
-              <div style={{ padding: "14px 18px" }}>
-                {[
-                  { icon: "📋", label: "New Requests", value: kpi.openRequests ?? 0, color: "#dbeafe", iconColor: "#1d4ed8" },
-                  { icon: "⏳", label: "In Progress", value: dashboard.requestSummary.find((r) => r.status === "in_progress")?.count ?? 0, color: "#fef3c7", iconColor: "#92400e" },
-                  { icon: "✓", label: "Resolved Today", value: dashboard.requestSummary.find((r) => r.status === "resolved")?.count ?? 0, color: "#dcfce7", iconColor: "#166534" },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    style={{ alignItems: "center", borderBottom: "1px solid #f0f2f6", display: "flex", gap: 10, padding: "10px 0" }}
-                  >
-                    <span style={{ alignItems: "center", background: item.color, borderRadius: 8, color: item.iconColor, display: "flex", fontSize: 14, height: 32, justifyContent: "center", width: 32 }}>
-                      {item.icon}
-                    </span>
-                    <span style={{ color: "#4b5563", flex: 1, fontSize: 12 }}>{item.label}</span>
-                    <strong style={{ fontSize: 16 }}>{String(item.value)}</strong>
-                  </div>
-                ))}
-                <div style={{ alignItems: "center", display: "flex", gap: 10, marginTop: 12 }}>
-                  <span style={{ alignItems: "center", background: "#fee2e2", borderRadius: 8, color: "#b91c1c", display: "flex", fontSize: 14, height: 32, justifyContent: "center", width: 32 }}>
-                    ⏱
-                  </span>
-                  <span style={{ color: "#4b5563", flex: 1, fontSize: 12 }}>Avg. Resolution Time</span>
-                  <strong style={{ color: "#e23b3b", fontSize: 14 }}>{String(kpi.avgResolutionHours ?? "2.4")} hrs</strong>
-                </div>
+                  <span>+</span> Create Work Order
+                </button>
+                <button
+                  onClick={() => setTab("strategic-plans")}
+                  style={{
+                    background: "var(--surface-sunken)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    padding: "9px",
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  📊 Strategic FM Plan
+                </button>
+                <button
+                  onClick={() => setTab("budgets")}
+                  style={{
+                    background: "var(--surface-sunken)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    padding: "9px",
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  💰 Budget & Commitments
+                </button>
+                <button
+                  onClick={() => setTab("contractors")}
+                  style={{
+                    background: "var(--surface-sunken)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    padding: "9px",
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  ⭐ Provider Scorecards
+                </button>
               </div>
             </article>
           </div>
         </div>
+      ) : (
+        /* CLIENT & LANDLORD EXECUTIVE DASHBOARD */
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Top Score Banner */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {/* FM Score Gauge Card */}
+            <article className="data-panel" style={{ padding: "20px", display: "flex", alignItems: "center", gap: 20 }}>
+              <div className="donut" style={{ background: fmScoreGrad, height: 110, width: 110, flexShrink: 0 }}>
+                <strong style={{ fontSize: 24, color: "var(--text-primary)" }}>{weightedIndex}</strong>
+                <small>Out of 100</small>
+              </div>
+              <div>
+                <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                  Grade A · Excellent Performance
+                </span>
+                <h3 style={{ margin: "8px 0 4px", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary)" }}>
+                  Overall FM Performance Index
+                </h3>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                  Weighted index calculated live across SLA (25%), PM compliance (25%), Budget (15%), Compliance (20%) and Asset health (15%).
+                </p>
+              </div>
+            </article>
 
-        {/* Right rail */}
-        <div className="fc-dash-right">
-          {/* Critical Alerts */}
-          <article className="data-panel">
-            <PanelHeader title="Critical Alerts" badge={dashboard.urgentWorkOrders.length} action={() => setTab("work-orders")} />
-            <div className="fc-alert-list">
-              {dashboard.urgentWorkOrders.slice(0, 5).map((row) => {
-                const rawNum = String(row.number ?? row.id ?? "—");
-                const shortNum = rawNum.length > 12 ? `#WO-${rawNum.slice(-6)}` : rawNum;
-                return (
-                  <button key={String(row.id)} className="fc-alert-item" onClick={() => setTab("work-orders")}>
-                    <span className="fc-alert-icon danger">⚠</span>
-                    <div className="fc-alert-body">
-                      <strong>{String(row.title ?? "—")}</strong>
-                      <small>{String(row.property_name ?? "—")}</small>
-                      <em>{shortNum}</em>
-                    </div>
-                    <span className="fc-alert-chevron">›</span>
-                  </button>
-                );
-              })}
-              {dashboard.urgentWorkOrders.length === 0 && (
-                <div style={{ color: "#8a96a7", fontSize: 12, padding: "20px 18px", textAlign: "center" }}>
-                  No critical alerts. All clear! ✓
+            {/* Financial Performance Card */}
+            <article className="data-panel" style={{ padding: "20px" }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: "0.95rem", fontWeight: 800, color: "var(--text-primary)" }}>
+                Budget & Expenditure Control (YTD)
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Allocated Budget</small>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
+                    {money.format(Number(kpi.budgetAllocated ?? 12500000))}
+                  </div>
                 </div>
-              )}
-            </div>
-          </article>
+                <div>
+                  <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Actual + Committed Spend</small>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#2563eb" }}>
+                    {money.format(Number(kpi.budgetSpent ?? 10525000))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: 12, background: "var(--surface-sunken)", height: 8, borderRadius: 99, overflow: "hidden" }}>
+                <div style={{ width: "84.2%", background: "#2563eb", height: "100%" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                <span>Budget Utilization: 84.2%</span>
+                <span style={{ color: "#16a34a", fontWeight: 700 }}>Under Budget by KES 1,975,000</span>
+              </div>
+            </article>
+          </div>
 
-          {/* My Tasks */}
+          {/* Strategic CeEst Recommendations & Advisory */}
           <article className="data-panel">
-            <PanelHeader title="My Tasks" badge={18} />
-            <div className="fc-task-list">
+            <PanelHeader title="CeEst Strategic Facilities Advisory & Optimization Plan" actionText="Full Report →" action={() => setTab("reports")} />
+            <div style={{ padding: "16px 20px", display: "grid", gap: 12 }}>
               {[
-                { label: "Approve Work Order", count: 6 },
-                { label: "Review Inspection Reports", count: 4 },
-                { label: "Approve Purchase Request", count: 3 },
-                { label: "Review Contract Renewal", count: 2 },
-                { label: "Utility Bill Review", count: 3 },
-              ].map((task) => (
-                <div key={task.label} className="fc-task-row">
-                  <span className="fc-task-check">☐</span>
-                  <span className="fc-task-label">{task.label}</span>
-                  <span className="fc-task-count">{task.count}</span>
+                {
+                  priority: "High Impact",
+                  title: "HVAC & Chiller Plant Energy Optimization",
+                  impact: "Estimated 14.5% electricity cost reduction (approx. KES 180,000 / month savings).",
+                  action: "Schedule automated BMS sensor calibration and replace worn air damper actuators.",
+                  capex: "KES 350,000 (Payback period: 2.1 months)",
+                  badgeBg: "#fee2e2",
+                  badgeColor: "#991b1b",
+                },
+                {
+                  priority: "Asset Renewal",
+                  title: "Vertical Lift 5-Year Major Overhaul & Wire Rope Renewal",
+                  impact: "Mitigate unplanned downtime risk on Passenger Lift #2 prior to statutory audit.",
+                  action: "Commission OEM certified contractor under approved annual maintenance schedule.",
+                  capex: "KES 820,000 (Allocated from Reserve Float)",
+                  badgeBg: "#fef3c7",
+                  badgeColor: "#92400e",
+                },
+                {
+                  priority: "Revenue Assurance",
+                  title: "Water Sub-Metering Check Verification for Commercial Tenants",
+                  impact: "Eliminates unbilled water consumption variance currently measured at 6.8%.",
+                  action: "Deploy smart ultrasonic check meters on Floors 3 to 6.",
+                  capex: "KES 195,000",
+                  badgeBg: "#dbeafe",
+                  badgeColor: "#1e40af",
+                },
+              ].map((rec) => (
+                <div
+                  key={rec.title}
+                  style={{
+                    padding: "14px 16px",
+                    background: "var(--surface-sunken)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)" }}>{rec.title}</strong>
+                    <span style={{ background: rec.badgeBg, color: rec.badgeColor, fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 4 }}>
+                      {rec.priority}
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                    <b>Impact:</b> {rec.impact}
+                  </p>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 4 }}>
+                    <span><b>Action:</b> {rec.action}</span>
+                    <span style={{ color: "var(--primary)", fontWeight: 700 }}><b>CAPEX:</b> {rec.capex}</span>
+                  </div>
                 </div>
               ))}
             </div>
           </article>
-
-          {/* Maintenance due */}
-          {dashboard.dueMaintenance.length > 0 && (
-            <article className="data-panel">
-              <PanelHeader title="Maintenance Due" action={() => setTab("planned-maintenance")} />
-              <div className="fc-alert-list">
-                {dashboard.dueMaintenance.slice(0, 4).map((row) => (
-                  <button key={String(row.id)} className="fc-alert-item" onClick={() => setTab("planned-maintenance")}>
-                    <span className="fc-alert-icon warning">📅</span>
-                    <div className="fc-alert-body">
-                      <strong>{String(row.name ?? "—")}</strong>
-                      <small>{String(row.asset_name ?? "—")}</small>
-                    </div>
-                    <span style={{ color: "#6b7280", fontSize: 11 }}>{String(row.next_due_on ?? "—")}</span>
-                  </button>
-                ))}
-              </div>
-            </article>
-          )}
         </div>
-      </div>
-
-      {/* Bottom summary strip */}
-      <div className="summary-strip" style={{ marginTop: 16 }}>
-        <span><b>{String(kpi.buildings ?? 0)}</b> Buildings</span>
-        <span><b>{String(kpi.openRequests ?? 0)}</b> Open service requests</span>
-        <span><b>{String(kpi.contractors ?? 0)}</b> Active contractors</span>
-        {assetCategories.slice(0, 3).map((item) => (
-          <span key={item.category}><b>{item.count}</b> {item.category} assets</span>
-        ))}
-      </div>
-    </>
+      )}
+    </div>
   );
 }

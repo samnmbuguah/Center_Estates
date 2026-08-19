@@ -18,6 +18,9 @@ import { GenericListView } from "./components/tabs/GenericListView";
 import { FacilityModals } from "./components/modals/FacilityModals";
 import { ErrorBanner, LoadingState } from "@/components/module-ui";
 
+const StrategicFMPlanView = dynamic(() => import("./components/tabs/StrategicFMPlanView").then((m) => m.StrategicFMPlanView), { loading: () => <LoadingState rows={6} /> });
+const FMBudgetView = dynamic(() => import("./components/tabs/FMBudgetView").then((m) => m.FMBudgetView), { loading: () => <LoadingState rows={6} /> });
+const ComplianceRiskView = dynamic(() => import("./components/tabs/ComplianceRiskView").then((m) => m.ComplianceRiskView), { loading: () => <LoadingState rows={6} /> });
 const ReportsView = dynamic(() => import("./components/tabs/ReportsView").then((module) => module.ReportsView), { loading: () => <LoadingState rows={6} /> });
 const ExpenditureView = dynamic(() => import("./components/tabs/ExpenditureView").then((module) => module.ExpenditureView), { loading: () => <LoadingState rows={6} /> });
 const ModuleTicketsView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleTicketsView), { loading: () => <LoadingState rows={6} /> });
@@ -46,10 +49,16 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
           <LoadingState rows={6} />
         ) : logic.tab === "overview" && logic.dashboard ? (
           <OverviewView dashboard={logic.dashboard} setTab={logic.setTab} setShowCreate={logic.setShowCreate} canWork={logic.canWork} />
+        ) : logic.tab === "strategic-plans" ? (
+          <StrategicFMPlanView rows={logic.rows} organizationId={logic.organizationId} />
         ) : logic.tab === "buildings" ? (
           <BuildingsView rows={logic.rows} kpis={logic.dashboard?.kpis ?? {}} />
         ) : logic.tab === "assets" ? (
-          <AssetsView rows={logic.rows} kpis={logic.dashboard?.kpis ?? {}} onAdd={() => logic.setCreateModal("asset")} />
+          <AssetsView rows={logic.rows} kpis={logic.dashboard?.kpis ?? {}} onAdd={() => logic.setCreateModal("asset")} organizationId={logic.organizationId} reload={logic.load} />
+        ) : logic.tab === "budgets" ? (
+          <FMBudgetView rows={logic.rows} organizationId={logic.organizationId} />
+        ) : logic.tab === "compliance" || logic.tab === "risks" ? (
+          <ComplianceRiskView complianceRows={logic.tab === "compliance" ? logic.rows : []} riskRows={logic.tab === "risks" ? logic.rows : []} organizationId={logic.organizationId} />
         ) : logic.tab === "work-orders" ? (
           <WorkOrdersView
             rows={logic.rows}

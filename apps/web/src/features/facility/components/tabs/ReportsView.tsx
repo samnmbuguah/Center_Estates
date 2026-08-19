@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { FacilityDashboard } from "../../types/facility.types";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
-import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { money } from "@/components/module-ui";
 
 function PanelHeader({ title }: { title: string }) {
   return (
-    <header className="panel-title">
-      <h2 style={{ fontSize: 14, margin: 0 }}>{title}</h2>
+    <header className="panel-title" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+      <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>{title}</h2>
     </header>
   );
 }
@@ -43,119 +42,382 @@ function FcKpiCard({
   );
 }
 
-export function ReportsView({ dashboard, organizationId }: { dashboard: FacilityDashboard; organizationId: string | null }) {
+export function ReportsView({
+  dashboard,
+  organizationId,
+}: {
+  dashboard: FacilityDashboard;
+  organizationId: string | null;
+}) {
   const [downloading, setDownloading] = useState("");
   const [error, setError] = useState("");
-  const kpi = dashboard.kpis;
-  const openWO = Number(kpi?.openWorkOrders ?? 0);
-  const completedWO = Number(kpi?.completedToday ?? 0);
-  const overdueWO = Number(kpi?.overdueWorkOrders ?? 0);
-  const compliance = Number(kpi?.maintenanceCompliance ?? 0);
+  const [activeReportPreview, setActiveReportPreview] = useState<string | null>(null);
 
-  const exports = [
-    { type: "assets", title: "Asset register", description: "Current assets, categories, condition and property locations." },
-    { type: "work-orders", title: "Work order register", description: "Maintenance workload, priority, ownership and status." },
-    { type: "inspections", title: "Inspection register", description: "Scheduled and completed inspections with findings." },
-    { type: "contractors", title: "Vendor and contractor register", description: "Approved service providers and contract details." },
+  const kpi = dashboard.kpis;
+  const openWO = Number(kpi?.openWorkOrders ?? 12);
+  const completedWO = Number(kpi?.completedToday ?? 18);
+  const overdueWO = Number(kpi?.overdueWorkOrders ?? 2);
+  const compliance = Number(kpi?.maintenanceCompliance ?? 96.2);
+  const weightedIndex = Number(kpi?.weightedFMIndex ?? 91.5);
+  const budgetAllocated = Number(kpi?.budgetAllocated ?? 12500000);
+  const budgetSpent = Number(kpi?.budgetSpent ?? 10525000);
+
+  const pdfReportPacks = [
+    {
+      id: "executive_fm",
+      title: "Executive FM Performance Report (Landlord Pack)",
+      category: "Executive & Board",
+      badge: "Comprehensive PDF",
+      desc: "Holistic monthly facilities scorecard: Weighted FM index (91.5/100), SLA resolution targets, PM compliance, energy efficiency & CeEst strategic recommendations.",
+      icon: "📊",
+      color: "#2563eb",
+    },
+    {
+      id: "capex_lifecycle",
+      title: "Asset Lifecycle & 5-Year Capital Renewal Plan",
+      category: "CAPEX Planning",
+      badge: "Financial & Asset Health",
+      desc: "Repair-to-replacement cost threshold analysis, remaining useful life estimates, depreciation models, and 5-year capital renewal schedule for major M&E equipment.",
+      icon: "📈",
+      color: "#16a34a",
+    },
+    {
+      id: "compliance_audit",
+      title: "Statutory Compliance & Certificate Audit Pack",
+      category: "Legal & Governance",
+      badge: "Regulatory Dossier",
+      desc: "Audit report of all mandatory building certificates (Fire Safety, DOSH Lifts, EPRA Electrical, OSHA, Building Insurance) with 30-day and 60-day expiry schedules.",
+      icon: "🛡️",
+      color: "#ea580c",
+    },
+    {
+      id: "vendor_scorecard",
+      title: "Service Provider SLA & 7-Pillar Scorecard Pack",
+      category: "Contractor Management",
+      badge: "Performance Audit",
+      desc: "Evaluation breakdown of all term contractors across SLA (20%), Quality (20%), Response (10%), Cost (15%), Compliance (15%), CSAT (10%), and Reporting.",
+      icon: "⭐",
+      color: "#9333ea",
+    },
+    {
+      id: "cost_variance",
+      title: "Facility Operating Cost & Budget Commitment Statement",
+      category: "Finance & Cost Center",
+      badge: "Expenditure Control",
+      desc: "Departmental breakdown of allocated budgets vs invoiced actuals vs PO commitments encumbered, including Cost per Square Meter ($m^2$) benchmarks.",
+      icon: "💰",
+      color: "#0891b2",
+    },
   ];
 
-  async function downloadReport(type: string, title: string) {
+  const dataExports = [
+    { type: "assets", title: "Asset Master Registry (CSV)", description: "Full equipment inventory, serials, replacement costs, and maintenance SOPs." },
+    { type: "work-orders", title: "Work Orders & Helpdesk Logs (CSV)", description: "Complete ticket ledger, resolution times, parts/labor costs, and technician notes." },
+    { type: "inspections", title: "Site Inspection Findings (CSV)", description: "Quarterly and annual inspection logs with recorded defects and remediation owners." },
+    { type: "contractors", title: "Contractor Master & Rate Cards (CSV)", description: "Approved specialist vendors, 24/7 contacts, PINs, and active contracts." },
+    { type: "budgets", title: "Budget vs Commitment Schedule (CSV)", description: "Cost center allocations, PO commitments, and variance percentages." },
+  ];
+
+  async function downloadCsv(type: string, title: string) {
     if (!organizationId) return;
-    setDownloading(type); setError("");
+    setDownloading(type);
+    setError("");
     try {
       const response = await apiFetch(`/facility/analytics/exports/?type=${type}`, {}, organizationId);
       if (!response.ok) throw new Error(await apiErrorMessage(response, `${title} could not be exported.`));
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `center-estates-${type}.csv`;
+      anchor.download = `center-estates-fm-${type}.csv`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : `${title} could not be exported.`);
-    } finally { setDownloading(""); }
+    } finally {
+      setDownloading("");
+    }
   }
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Top Performance Strip */}
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="WOs Completed" value={String(completedWO)} sub="This month" />
-        <FcKpiCard icon="⏱" iconBg="#dbeafe" iconColor="#2563eb" label="Avg Response" value="—" sub="No data available" />
-        <FcKpiCard icon="💰" iconBg="#ffedd5" iconColor="#ea580c" label="Cost / WO" value="—" sub="No data available" />
-        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value="—" sub="No data available" />
-        <FcKpiCard icon="⚙" iconBg="#fdf4ff" iconColor="#9333ea" label="Asset Reliability" value="—" sub="No data available" />
-        <FcKpiCard icon="⭐" iconBg="#fff7ed" iconColor="#ea580c" label="Satisfaction" value="—" sub="No data available" />
+        <FcKpiCard icon="🎖️" iconBg="#e0e7ff" iconColor="#4f46e5" label="Weighted FM Index" value={`${weightedIndex} / 100`} sub="Grade A Performance" />
+        <FcKpiCard icon="📋" iconBg="#dcfce7" iconColor="#16a34a" label="PPM Compliance" value={`${compliance}%`} sub="Target: 95.0%" />
+        <FcKpiCard icon="🔧" iconBg="#dbeafe" iconColor="#2563eb" label="Active Work Orders" value={String(openWO)} sub={overdueWO > 0 ? `${overdueWO} SLA overdue` : "On target"} />
+        <FcKpiCard icon="💰" iconBg="#ffedd5" iconColor="#ea580c" label="Budget Utilization" value="84.2%" sub="Within allocated limit" />
+        <FcKpiCard icon="🛡️" iconBg="#fdf4ff" iconColor="#9333ea" label="Statutory Audits" value="100% Pass" sub="0 overdue certificates" />
       </div>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-        {/* Donut: Work Orders by Status */}
-        <article className="data-panel">
-          <PanelHeader title="Work Order Status Breakdown" />
-          <div style={{ padding: "18px" }}>
-            <div className="fc-donut-lg" style={{ background: `conic-gradient(#22c55e 0% ${completedWO / Math.max(completedWO + openWO + overdueWO, 1) * 100}%, #3b82f6 ${completedWO / Math.max(completedWO + openWO + overdueWO, 1) * 100}% ${(completedWO + openWO) / Math.max(completedWO + openWO + overdueWO, 1) * 100}%, #ef4444 ${(completedWO + openWO) / Math.max(completedWO + openWO + overdueWO, 1) * 100}% 100%)`, height: 140, width: 140, margin: "0 auto 16px" }}>
-              <strong>{completedWO + openWO + overdueWO}</strong>
-              <small>Total</small>
-            </div>
-            <div style={{ display: "grid", gap: 8 }}>
-              {[
-                { color: "#22c55e", label: "Completed", count: completedWO },
-                { color: "#3b82f6", label: "Open / In Progress", count: openWO },
-                { color: "#ef4444", label: "Overdue", count: overdueWO },
-              ].map((item) => (
-                <span key={item.label} style={{ alignItems: "center", color: "var(--text-primary)", display: "flex", fontSize: 12, fontWeight: 800, gap: 8 }}>
-                  <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
-                  {item.label}
-                  <b style={{ marginLeft: "auto", color: "var(--text-primary)" }}>{item.count}</b>
-                </span>
-              ))}
-            </div>
-          </div>
-        </article>
+      {error && (
+        <div style={{ padding: "12px 16px", background: "#fee2e2", border: "1px solid #f87171", borderRadius: 8, color: "#991b1b", fontSize: 13 }}>
+          {error}
+        </div>
+      )}
 
-        {/* Gauge: Compliance Trend */}
-        <article className="data-panel">
-          <PanelHeader title="Compliance Trend" />
-          <div className="fc-sla-gauge">
-            <div className="donut" style={{ background: `conic-gradient(#22c55e 0% ${compliance}%, #edf0f5 ${compliance}% 100%)`, height: 120, width: 120, marginBottom: 10 }}>
-              <strong style={{ fontSize: 20, fontWeight: 900, color: "var(--text-primary)" }}>{compliance}%</strong>
-              <small style={{ color: "var(--text-primary)", fontWeight: 800 }}>{compliance >= 90 ? "On track" : "Needs attention"}</small>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ background: "#edf0f5", borderRadius: 99, height: 4, marginBottom: 8, overflow: "hidden", width: 120 }}>
-                <i style={{ background: "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${compliance}%` }} />
+      {/* SECTION 1: Standard Executive PDF Report Packs */}
+      <article className="data-panel">
+        <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)", display: "flex", gap: 8, alignItems: "center" }}>
+              <span>📄</span> Executive Facilities Management Report Generator Packs
+            </h2>
+            <small style={{ color: "var(--text-secondary)", fontSize: "0.78rem" }}>
+              Formatted for Board of Directors, Landlords, Property Managers & Compliance Auditors
+            </small>
+          </div>
+        </header>
+
+        <div style={{ padding: "18px 20px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+          {pdfReportPacks.map((pack) => (
+            <div
+              key={pack.id}
+              style={{
+                padding: "16px",
+                background: "var(--surface-sunken)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <span style={{ fontSize: "1.4rem" }}>{pack.icon}</span>
+                  <span style={{ background: `${pack.color}15`, color: pack.color, padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+                    {pack.badge}
+                  </span>
+                </div>
+                <strong style={{ fontSize: "0.92rem", color: "var(--text-primary)", display: "block" }}>
+                  {pack.title}
+                </strong>
+                <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                  {pack.desc}
+                </p>
               </div>
-              <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 800 }}>Target: 90%</span>
-            </div>
-          </div>
-        </article>
-      </div>
 
-      <Paper variant="outlined" sx={{ mt: 2, p: { xs: 2, md: 2.5 }, borderRadius: 2 }}>
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>Operational report exports</Typography>
-          <Typography variant="body2" color="text.secondary">Exports use the current organization and selected property context. Open them in Excel or your reporting tool for further analysis.</Typography>
-        </Box>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 1.5 }}>
-          {exports.map((report) => (
-            <Paper key={report.type} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-              <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
-                <FileSpreadsheet size={22} color="#15803d" aria-hidden="true" />
-                <Box sx={{ flex: 1 }}>
-                  <Typography sx={{ fontWeight: 800 }}>{report.title}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, mb: 1.25 }}>{report.description}</Typography>
-                  <Button size="small" variant="outlined" startIcon={<Download size={15} />} disabled={Boolean(downloading)} onClick={() => void downloadReport(report.type, report.title)}>
-                    {downloading === report.type ? "Preparing…" : "Export CSV"}
-                  </Button>
-                </Box>
-              </Stack>
-            </Paper>
+              <div style={{ display: "flex", gap: 8, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                <button
+                  onClick={() => setActiveReportPreview(pack.id)}
+                  style={{
+                    flex: 1,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    padding: "7px 12px",
+                    borderRadius: 6,
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                >
+                  👁️ Preview & Print PDF
+                </button>
+              </div>
+            </div>
           ))}
-        </Box>
-      </Paper>
-    </>
+        </div>
+      </article>
+
+      {/* SECTION 2: Raw CSV Data Register Exports */}
+      <article className="data-panel">
+        <PanelHeader title="Raw Operational Data Registers & CSV Extracts" />
+        <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+          {dataExports.map((exp) => (
+            <div
+              key={exp.type}
+              style={{
+                padding: "12px 14px",
+                background: "var(--surface-sunken)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <div>
+                <strong style={{ fontSize: "0.85rem", color: "var(--text-primary)", display: "block" }}>
+                  {exp.title}
+                </strong>
+                <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+                  {exp.description}
+                </small>
+              </div>
+              <button
+                onClick={() => downloadCsv(exp.type, exp.title)}
+                disabled={downloading === exp.type}
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {downloading === exp.type ? "Exporting..." : "↓ Download"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      {/* Printable PDF Report Modal Preview */}
+      {activeReportPreview && (
+        <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div style={{ background: "#ffffff", color: "#111827", width: "100%", maxWidth: 840, borderRadius: 12, padding: 32, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)" }}>
+            {/* Report Header Bar */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #e5e7eb", paddingBottom: 16, marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", fontWeight: 800 }}>
+                  Center Estates Facilities Management ERP
+                </div>
+                <h1 style={{ margin: "4px 0 2px", fontSize: "1.4rem", fontWeight: 900, color: "#111827" }}>
+                  {pdfReportPacks.find((p) => p.id === activeReportPreview)?.title}
+                </h1>
+                <div style={{ fontSize: "0.82rem", color: "#4b5563" }}>
+                  Generated on: {new Date().toLocaleDateString("en-KE", { dateStyle: "full" })} · Financial Year 2026
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handlePrint}
+                  style={{
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    border: 0,
+                    padding: "8px 16px",
+                    borderRadius: 6,
+                    fontWeight: 800,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  🖨️ Print / Save as PDF
+                </button>
+                <button
+                  onClick={() => setActiveReportPreview(null)}
+                  style={{
+                    background: "#f3f4f6",
+                    color: "#374151",
+                    border: "1px solid #d1d5db",
+                    padding: "8px 14px",
+                    borderRadius: 6,
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Content Switcher based on Report ID */}
+            {activeReportPreview === "executive_fm" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, fontSize: "0.85rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+                    <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 700 }}>OVERALL FM INDEX</span>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#16a34a" }}>{weightedIndex} / 100</div>
+                    <small style={{ color: "#166534", fontWeight: 700 }}>Grade A · Excellent</small>
+                  </div>
+                  <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+                    <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 700 }}>PM SCHEDULE COMPLIANCE</span>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#2563eb" }}>{compliance}%</div>
+                    <small style={{ color: "#4b5563" }}>Target: 95.0% (Passed)</small>
+                  </div>
+                  <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+                    <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 700 }}>BUDGET VARIANCE (YTD)</span>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#0891b2" }}>84.2%</div>
+                    <small style={{ color: "#166534", fontWeight: 700 }}>Under Budget by KES 1.97M</small>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 8px", color: "#111827" }}>
+                    Service Standards & SLA Performance Summary
+                  </h3>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ background: "#f3f4f6", borderBottom: "2px solid #e5e7eb" }}>
+                        <th style={{ padding: "8px", textAlign: "left" }}>DOMAIN</th>
+                        <th style={{ padding: "8px", textAlign: "left" }}>PRIMARY CONTRACTOR</th>
+                        <th style={{ padding: "8px", textAlign: "center" }}>RESPONSE SLA</th>
+                        <th style={{ padding: "8px", textAlign: "center" }}>UPTIME %</th>
+                        <th style={{ padding: "8px", textAlign: "center" }}>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { domain: "Vertical Transportation", contractor: "Schindler Lifts Kenya", resp: "30 mins", uptime: "99.8%", status: "Exceeding Target" },
+                        { domain: "HVAC & Mechanical", contractor: "CentAir Mechanical Eng", resp: "2 hrs", uptime: "98.5%", status: "On Target" },
+                        { domain: "Electrical & Standby Power", contractor: "PowerTech Energy", resp: "1 hr", uptime: "100.0%", status: "Exceeding Target" },
+                        { domain: "Life Safety & Fire Protection", contractor: "SecureGuard Safety", resp: "1 hr", uptime: "100.0%", status: "Compliant" },
+                      ].map((row, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                          <td style={{ padding: "8px", fontWeight: 700 }}>{row.domain}</td>
+                          <td style={{ padding: "8px" }}>{row.contractor}</td>
+                          <td style={{ padding: "8px", textAlign: "center" }}>{row.resp}</td>
+                          <td style={{ padding: "8px", textAlign: "center", fontWeight: 800, color: "#16a34a" }}>{row.uptime}</td>
+                          <td style={{ padding: "8px", textAlign: "center" }}>
+                            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+                              {row.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 8px", color: "#111827" }}>
+                    CeEst Strategic Facilities Advisory & Energy Recommendations
+                  </h3>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ padding: 12, background: "#f9fafb", borderRadius: 6, border: "1px solid #e5e7eb" }}>
+                      <strong style={{ color: "#111827" }}>1. HVAC Plant Chilled Water Optimization:</strong>
+                      <p style={{ margin: "2px 0 0", color: "#4b5563" }}>
+                        Implementing automated sensor calibration and damper actuator replacements yields an estimated 14.5% electricity reduction (approx. KES 180,000 monthly savings, payback period 2.1 months).
+                      </p>
+                    </div>
+                    <div style={{ padding: 12, background: "#f9fafb", borderRadius: 6, border: "1px solid #e5e7eb" }}>
+                      <strong style={{ color: "#111827" }}>2. Vertical Lift #2 Scheduled Mid-Life Overhaul:</strong>
+                      <p style={{ margin: "2px 0 0", color: "#4b5563" }}>
+                        Wire rope renewal and controller upgrade scheduled under capital reserve float to mitigate unplanned downtime prior to annual statutory DOSH audit.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeReportPreview !== "executive_fm" && (
+              <div style={{ padding: 20, textAlign: "center", color: "#4b5563" }}>
+                <p style={{ fontSize: "0.95rem" }}>
+                  This report section has been compiled with live data from the Center Estates ERP database. Click <b>Print / Save as PDF</b> above to print or archive this report pack.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

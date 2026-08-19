@@ -16,6 +16,7 @@ class FacilityAsset(OrganizationOwnedModel):
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=180)
     category = models.CharField(max_length=80)
+    asset_class = models.CharField(max_length=80, blank=True, default='Mechanical & Electrical')
     property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_assets')
     building = models.ForeignKey('properties.Building', on_delete=models.PROTECT, related_name='facility_assets', null=True, blank=True)
     unit = models.ForeignKey('properties.Unit', on_delete=models.PROTECT, related_name='facility_assets', null=True, blank=True)
@@ -23,9 +24,17 @@ class FacilityAsset(OrganizationOwnedModel):
     model_number = models.CharField(max_length=100, blank=True)
     serial_number = models.CharField(max_length=100, blank=True)
     installed_on = models.DateField(null=True, blank=True)
+    commissioned_on = models.DateField(null=True, blank=True)
     warranty_expires_on = models.DateField(null=True, blank=True)
+    expected_useful_life_years = models.PositiveSmallIntegerField(default=10)
+    estimated_replacement_date = models.DateField(null=True, blank=True)
     purchase_value = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    replacement_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    funding_source = models.CharField(max_length=80, blank=True, default='Landlord CAPEX')
+    criticality = models.CharField(max_length=20, default='medium')
     condition = models.CharField(max_length=20, choices=Condition.choices, default=Condition.GOOD)
+    maintenance_procedure = models.TextField(blank=True)
+    contractor_contract = models.CharField(max_length=120, blank=True)
     is_active = models.BooleanField(default=True)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -55,10 +64,15 @@ class Contractor(OrganizationOwnedModel):
     contact_name = models.CharField(max_length=120, blank=True)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=40, blank=True)
+    emergency_phone = models.CharField(max_length=40, blank=True)
+    pin_number = models.CharField(max_length=40, blank=True)
+    registration_number = models.CharField(max_length=60, blank=True)
+    coverage_areas = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.REVIEW)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     insurance_expires_on = models.DateField(null=True, blank=True)
     license_expires_on = models.DateField(null=True, blank=True)
+    tax_compliance_expires_on = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ('name',)
@@ -83,6 +97,7 @@ class WorkOrder(OrganizationOwnedModel):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     category = models.CharField(max_length=80)
+    source = models.CharField(max_length=30, default='fm_officer')
     property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='work_orders')
     asset = models.ForeignKey(FacilityAsset, on_delete=models.PROTECT, related_name='work_orders', null=True, blank=True)
     contractor = models.ForeignKey(Contractor, on_delete=models.SET_NULL, related_name='work_orders', null=True, blank=True)
@@ -99,7 +114,12 @@ class WorkOrder(OrganizationOwnedModel):
     parts_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     other_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     progress = models.PositiveSmallIntegerField(default=0)
+    root_cause = models.TextField(blank=True)
     resolution_notes = models.TextField(blank=True)
+    supervisor_verified = models.BooleanField(default=False)
+    supervisor_verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_facility_work_orders')
+    requester_confirmed = models.BooleanField(default=False)
+    sla_breached = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-reported_at',)
@@ -394,3 +414,174 @@ class MeterReconciliation(OrganizationOwnedModel):
             raise ValidationError({'bulk_meter': 'Reconciliation requires a bulk meter.'})
         if self.period_end < self.period_start:
             raise ValidationError({'period_end': 'Period end cannot precede its start.'})
+
+
+class FloorPlan(OrganizationOwnedModel):
+    building = models.ForeignKey('properties.Building', on_delete=models.CASCADE, related_name='facility_floor_plans')
+    floor = models.CharField(max_length=40, default='1')
+    title = models.CharField(max_length=180)
+    file_url = models.CharField(max_length=500)
+    scale_factor = models.DecimalField(max_digits=12, decimal_places=4, default=1.0)
+    scale_unit = models.CharField(max_length=20, default='m')
+    version = models.CharField(max_length=20, default='1.0')
+    approval_status = models.CharField(max_length=20, default='approved')
+    tagged_areas = models.JSONField(default=list, blank=True)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_floor_plans')
+
+    class Meta:
+        ordering = ('building', 'floor', '-version')
+
+    def clean(self):
+        if self.building_id and self.building.organization_id != self.organization_id:
+            raise ValidationError('Floor plan building must belong to the same organization.')
+
+
+class AssetConditionAssessment(OrganizationOwnedModel):
+    asset = models.ForeignKey(FacilityAsset, on_delete=models.CASCADE, related_name='condition_assessments')
+    assessed_on = models.DateField()
+    condition_grade = models.PositiveSmallIntegerField(default=4)
+    condition_label = models.CharField(max_length=30, default='good')
+    assessor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='asset_assessments')
+    defect_notes = models.TextField(blank=True)
+    recommended_action = models.CharField(max_length=100, blank=True)
+    evidence_urls = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ('-assessed_on',)
+
+    def clean(self):
+        if self.asset_id and self.asset.organization_id != self.organization_id:
+            raise ValidationError('Assessment asset must belong to the same organization.')
+
+
+class StrategicFMPlan(OrganizationOwnedModel):
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='strategic_fm_plans')
+    title = models.CharField(max_length=200)
+    period_year = models.PositiveIntegerField(default=2026)
+    status = models.CharField(max_length=20, default='approved')
+    service_standards = models.JSONField(default=list, blank=True)
+    maintenance_targets = models.JSONField(default=dict, blank=True)
+    budget_allocations = models.JSONField(default=dict, blank=True)
+    compliance_obligations = models.JSONField(default=list, blank=True)
+    risk_mitigation_targets = models.JSONField(default=list, blank=True)
+    improvement_initiatives = models.JSONField(default=list, blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_strategic_fm_plans')
+
+    class Meta:
+        ordering = ('-period_year', 'property__name')
+        constraints = [models.UniqueConstraint(fields=('organization', 'property', 'period_year'), name='unique_property_fm_plan_year')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('FM plan property must belong to the same organization.')
+
+
+class ContractorContract(OrganizationOwnedModel):
+    contractor = models.ForeignKey(Contractor, on_delete=models.CASCADE, related_name='contracts')
+    property = models.ForeignKey('properties.Property', on_delete=models.SET_NULL, null=True, blank=True, related_name='contractor_contracts')
+    contract_number = models.CharField(max_length=80)
+    scope_of_work = models.TextField()
+    contract_value = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    response_sla_hours = models.PositiveIntegerField(default=4)
+    resolution_sla_hours = models.PositiveIntegerField(default=24)
+    rate_card = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, default='active')
+
+    class Meta:
+        ordering = ('-end_date',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'contract_number'), name='unique_org_contractor_contract_no')]
+
+    def clean(self):
+        if self.contractor_id and self.contractor.organization_id != self.organization_id:
+            raise ValidationError('Contractor must belong to the same organization.')
+
+
+class FMBudget(OrganizationOwnedModel):
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='fm_budgets')
+    financial_year = models.PositiveIntegerField(default=2026)
+    category = models.CharField(max_length=80)
+    allocated_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    committed_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    actual_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    period_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-financial_year', 'property__name', 'category')
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('FM Budget property must belong to the same organization.')
+
+
+class ComplianceObligation(OrganizationOwnedModel):
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='compliance_obligations')
+    building = models.ForeignKey('properties.Building', on_delete=models.SET_NULL, null=True, blank=True, related_name='compliance_obligations')
+    category = models.CharField(max_length=60)
+    title = models.CharField(max_length=180)
+    issuing_authority = models.CharField(max_length=160, blank=True)
+    certificate_number = models.CharField(max_length=100, blank=True)
+    issue_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField()
+    status = models.CharField(max_length=20, default='compliant')
+    responsible_person = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='responsible_compliance_items')
+    evidence_urls = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('expiry_date',)
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Compliance obligation property must belong to the same organization.')
+
+
+class FacilityRisk(OrganizationOwnedModel):
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='facility_risks')
+    building = models.ForeignKey('properties.Building', on_delete=models.SET_NULL, null=True, blank=True, related_name='facility_risks')
+    asset = models.ForeignKey(FacilityAsset, on_delete=models.SET_NULL, null=True, blank=True, related_name='facility_risks')
+    risk_id = models.CharField(max_length=40)
+    category = models.CharField(max_length=60, default='operational')
+    description = models.TextField()
+    cause = models.TextField(blank=True)
+    consequence = models.TextField(blank=True)
+    likelihood = models.PositiveSmallIntegerField(default=3)
+    impact = models.PositiveSmallIntegerField(default=3)
+    inherent_score = models.PositiveSmallIntegerField(default=9)
+    mitigation_controls = models.TextField(blank=True)
+    action_owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='owned_facility_risks')
+    due_date = models.DateField(null=True, blank=True)
+    residual_score = models.PositiveSmallIntegerField(default=4)
+    status = models.CharField(max_length=20, default='open')
+
+    class Meta:
+        ordering = ('-inherent_score',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'risk_id'), name='unique_org_facility_risk_id')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Risk property must belong to the same organization.')
+        self.inherent_score = self.likelihood * self.impact
+
+
+class FacilityFlag(OrganizationOwnedModel):
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='facility_flags')
+    flag_type = models.CharField(max_length=40)
+    severity = models.CharField(max_length=20, default='warning')
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    source_reference = models.CharField(max_length=120, blank=True)
+    action_url = models.CharField(max_length=200, blank=True)
+    is_resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_facility_flags')
+
+    class Meta:
+        ordering = ('is_resolved', '-created_at')
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Flag property must belong to the same organization.')
+

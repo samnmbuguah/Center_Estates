@@ -1,11 +1,25 @@
 #!/usr/bin/env bash
 # Center Estates ERP split cPanel deployment.
 # Frontend: centerestates.com (Node/Next); API: api.centerestates.com (Python/Django).
+#
+# Usage:
+#   ./deploy_cpanel.sh [REMOTE_HOST] [DOMAIN] [--run-tests]
+#
+# Options:
+#   --run-tests    Run backend tests before deploying (optional, skipped by default)
 
 set -euo pipefail
 
 REMOTE_HOST="${1:-host}"
 DOMAIN="${2:-centerestates.com}"
+RUN_TESTS=0
+
+# Parse optional flags
+for arg in "$@"; do
+  case "$arg" in
+    --run-tests) RUN_TESTS=1 ;;
+  esac
+done
 API_DOMAIN="${API_DOMAIN:-api.centerestates.com}"
 FRONTEND_PATH="/home2/monitori/${DOMAIN}"
 API_PATH="/home2/monitori/${API_DOMAIN}"
@@ -22,6 +36,19 @@ if [[ "$DEPLOY_SCOPE" != "full" && "$DEPLOY_SCOPE" != "backend" && "$DEPLOY_SCOP
 fi
 
 echo "Deploying API to ${REMOTE_HOST}:${API_PATH} and frontend to ${REMOTE_HOST}:${FRONTEND_PATH}"
+
+# Optional: run backend tests before deploying
+if [[ "$RUN_TESTS" == "1" ]]; then
+  echo "Running backend tests before deploy..."
+  cd apps/backend
+  if .venv/bin/python -m pytest companion.tests properties.tests -x -q --tb=short 2>&1; then
+    echo "All tests passed."
+  else
+    echo "Some tests failed. Aborting deploy." >&2
+    exit 1
+  fi
+  cd ../..
+fi
 
 # Always take a snapshot of live database and media before release
 if [[ "${SKIP_BACKUP:-0}" != "1" ]]; then
