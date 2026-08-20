@@ -2441,6 +2441,46 @@ class PropertyAnalyticsViewSet(ViewSet):
     def _organization(self):
         return get_active_organization(self.request)
 
+    @staticmethod
+    def _service_charge_for_lease(lease):
+        """Return the monthly service charge for a lease.
+        Priority: 1) active billing profile lines tagged 'service'
+                  2) explicit metadata['monthly_service_charge_excl_vat']
+                  3) area × metadata['service_charge_rate_per_sqft']
+        """
+        # 1. Billing profiles
+        from_profiles = Decimal('0')
+        for profile in lease.billing_profiles.all():
+            try:
+                if profile.is_active and 'service' in profile.billing_item.income_category.lower():
+                    from_profiles += profile.amount
+            except Exception:
+                pass
+        if from_profiles > 0:
+            return from_profiles
+
+        # 2. Explicit metadata value
+        meta = lease.metadata or {}
+        explicit = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
+        if explicit:
+            try:
+                val = Decimal(str(explicit))
+                if val > 0:
+                    return val
+            except Exception:
+                pass
+
+        # 3. Area × rate
+        try:
+            rate = Decimal(str(meta.get('service_charge_rate_per_sqft', '0') or '0'))
+            area = Decimal(str(lease.unit.area or '0'))
+            if rate > 0 and area > 0:
+                return (area * rate).quantize(Decimal('0.01'))
+        except Exception:
+            pass
+
+        return Decimal('0')
+
     def _complete_export(self, request, report_kind, response, start, end, output_format, row_count=0):
         from openpyxl import Workbook
         from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -2483,31 +2523,117 @@ class PropertyAnalyticsViewSet(ViewSet):
                     'total', 'cost', 'fee', 'income', 'expense', 'subtotal', 'variance', 'budget', 'paid', 'net', 'charge',
                 )) and 'rate' not in str(header).lower()
             }
+            # Per-column type classification for smart formatting
+            PERCENT_TOKENS = ('escalation %', 'escalation_percent', 'occupancy', 'rate', 'ratio', 'vat %', 'tax %', '% ')
+            DATE_TOKENS = ('date', 'start', 'end', '_on', 'since', 'expiry', 'generated')
+            percent_headers = {
+                index for index, h in enumerate(headers)
+                if any(t in str(h).lower() for t in PERCENT_TOKENS)
+            }
+            date_headers = {
+                index for index, h in enumerate(headers)
+                if any(t in str(h).lower() for t in DATE_TOKENS) and index not in money_headers
+            }
+            narrow_headers = {
+                index for index, h in enumerate(headers)
+                if any(t in str(h).lower() for t in ('floor', 'use', 'status', 'unit', 'type', 'interval'))
+            }
+
+            # Column width hints per report type (header label -> width)
+            REPORT_WIDTHS = {
+                'tenancy-schedule': {
+                    'Floor': 7, 'Unit': 12, 'Tenant': 32, 'Property': 22,
+                    'Area': 10, 'Use': 12, 'Lease start': 13, 'Lease end': 13,
+                    'Rent': 16, 'Service charge': 16, 'Escalation %': 13,
+                    'Escalation interval months': 14, 'Next effective rent': 16,
+                    'Status': 10, 'Comments': 20,
+                },
+                'income-analysis': {
+                    'Property': 24, 'Unit': 12, 'Tenant': 32, 'Use': 12,
+                    'Current rent': 16, 'Service charge': 16, 'Annualized income': 18,
+                    'Escalation %': 13, 'Projected rent': 16, 'Lease status': 12,
+                },
+            }
+            col_widths = REPORT_WIDTHS.get(report_kind, {})
+
             for row_index, csv_row in enumerate(parsed_rows, start=start_row):
+                is_header = row_index == start_row
+                sheet.row_dimensions[row_index].height = 20 if is_header else 16
                 for col_index, value in enumerate(csv_row, start=1):
+                    zero_idx = col_index - 1
                     cell = sheet.cell(row=row_index, column=col_index, value=value)
-                    cell.font = header_font if row_index == start_row else body_font
+                    cell.font = header_font if is_header else body_font
                     cell.border = thin
-                    if row_index == start_row:
+                    if is_header:
                         cell.fill = header_fill
                         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
                     else:
                         if (row_index - start_row) % 2 == 0:
                             cell.fill = zebra
-                        if (col_index - 1) in money_headers and value not in (None, '', '—'):
+                        cell.alignment = Alignment(vertical='center')
+                        if zero_idx in money_headers and value not in (None, '', '—'):
                             try:
                                 cell.value = Decimal(str(value).replace(',', '').replace('KES', '').strip())
                                 cell.number_format = '#,##0.00'
-                                cell.alignment = Alignment(horizontal='right')
+                                cell.alignment = Alignment(horizontal='right', vertical='center')
                             except Exception:
                                 pass
+                        elif zero_idx in percent_headers and value not in (None, '', '—'):
+                            try:
+                                cell.value = float(str(value).replace('%', '').strip())
+                                cell.number_format = '0.00"%"'
+                                cell.alignment = Alignment(horizontal='right', vertical='center')
+                            except Exception:
+                                pass
+                        elif zero_idx in date_headers and value not in (None, '', '—'):
+                            try:
+                                from datetime import date as dt_date
+                                if not isinstance(cell.value, dt_date):
+                                    import datetime
+                                    cell.value = datetime.date.fromisoformat(str(value))
+                                cell.number_format = 'DD-MMM-YYYY'
+                                cell.alignment = Alignment(horizontal='center', vertical='center')
+                            except Exception:
+                                pass
+                        elif zero_idx in narrow_headers:
+                            cell.alignment = Alignment(horizontal='center', vertical='center')
+
             if parsed_rows:
                 for col_index in range(1, len(parsed_rows[0]) + 1):
                     letter = get_column_letter(col_index)
-                    samples = [str(parsed_rows[0][col_index - 1] if col_index - 1 < len(parsed_rows[0]) else '')]
-                    samples.extend(str(row[col_index - 1]) for row in parsed_rows[1:40] if col_index - 1 < len(row))
-                    width = min(max(max(len(sample) for sample in samples), 10) + 2, 42)
+                    header_label = str(parsed_rows[0][col_index - 1]) if col_index - 1 < len(parsed_rows[0]) else ''
+                    # Use explicit hint if available, else auto-size from content
+                    if header_label in col_widths:
+                        width = col_widths[header_label]
+                    else:
+                        samples = [header_label]
+                        samples.extend(str(row[col_index - 1]) for row in parsed_rows[1:40] if col_index - 1 < len(row))
+                        width = min(max(max(len(s) for s in samples if s), 8) + 3, 45)
                     sheet.column_dimensions[letter].width = width
+
+                # Add totals row for money columns if tenancy-schedule
+                if report_kind in ('tenancy-schedule', 'income-analysis') and len(parsed_rows) > 1:
+                    total_row = start_row + len(parsed_rows)
+                    sheet.row_dimensions[total_row].height = 18
+                    totals_fill = PatternFill('solid', fgColor='17243B')
+                    totals_font = Font(color='FFFFFF', bold=True, name='Calibri', size=10)
+                    for col_index in range(1, len(parsed_rows[0]) + 1):
+                        zero_idx = col_index - 1
+                        cell = sheet.cell(row=total_row, column=col_index)
+                        cell.fill = totals_fill
+                        cell.border = thin
+                        cell.font = totals_font
+                        if zero_idx in money_headers and len(parsed_rows) > 1:
+                            data_start = start_row + 1
+                            data_end = start_row + len(parsed_rows) - 1
+                            col_letter = get_column_letter(col_index)
+                            cell.value = f'=SUM({col_letter}{data_start}:{col_letter}{data_end})'
+                            cell.number_format = '#,##0.00'
+                            cell.alignment = Alignment(horizontal='right', vertical='center')
+                        elif zero_idx == 0:
+                            cell.value = 'TOTALS'
+                            cell.alignment = Alignment(horizontal='left', vertical='center')
+
                 sheet.auto_filter.ref = f"A{start_row}:{get_column_letter(len(parsed_rows[0]))}{start_row + len(parsed_rows) - 1}"
                 sheet.freeze_panes = f'A{start_row + 1}'
             row_count = max(len(parsed_rows) - 1, 0)
@@ -2570,13 +2696,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             'floor': lease.unit.floor, 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
             'use': lease.unit.metadata.get('use', lease.unit.unit_type),
             'area': lease.unit.area, 'monthly_rent': lease.effective_rent(today),
-            'service_charge': (
-                sum((profile.amount for profile in lease.billing_profiles.filter(
-                    is_active=True, billing_item__income_category__icontains='service',
-                )), Decimal('0'))
-                or Decimal(str((lease.metadata or {}).get('monthly_service_charge_excl_vat', '0')))
-                or (Decimal(str(lease.unit.area or '0')) * Decimal(str((lease.metadata or {}).get('service_charge_rate_per_sqft', '0'))))
-            ),
+            'service_charge': self._service_charge_for_lease(lease),
             'escalation_percent': lease.escalation_percent,
             'escalation_interval_months': lease.escalation_interval_months,
             'next_effective_rent': lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=365))),
@@ -2919,8 +3039,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Use', 'Lease start', 'Lease end', 'Rent', 'Service charge', 'Escalation %', 'Escalation interval months', 'Next effective rent', 'Status', 'Comments'))
             rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             for lease in rows:
-                service_charge = sum((profile.amount for profile in lease.billing_profiles.all()
-                                      if profile.is_active and 'service' in profile.billing_item.income_category.lower()), Decimal('0'))
+                service_charge = self._service_charge_for_lease(lease)
                 writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name, lease.unit.property.name,
                                  lease.unit.area or '', lease.unit.metadata.get('use', lease.unit.unit_type), lease.starts_on,
                                  lease.ends_on, lease.effective_rent(end), service_charge, lease.escalation_percent,
@@ -2947,8 +3066,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             rows = scope_model_queryset(Lease, request, organization).filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING), starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             for lease in rows:
                 current_rent = lease.effective_rent(end)
-                service_charge = sum((profile.amount for profile in lease.billing_profiles.all()
-                                      if profile.is_active and 'service' in profile.billing_item.income_category.lower()), Decimal('0'))
+                service_charge = self._service_charge_for_lease(lease)
                 writer.writerow((lease.unit.property.name, lease.unit.code, lease.tenant.name,
                                  lease.unit.metadata.get('use', lease.unit.unit_type), current_rent, service_charge,
                                  (current_rent + service_charge) * 12, lease.escalation_percent,
