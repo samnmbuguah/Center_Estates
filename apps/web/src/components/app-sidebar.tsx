@@ -41,6 +41,12 @@ const COMPANION_SUBITEMS: CompanionSubItem[] = [
   { id: "meter-readings", label: "Meter Readings", icon: "⚡", href: "/companion?tab=meter-readings" },
 ];
 
+const VALUATION_SUBITEMS = [
+  { id: "overview", label: "Valuation Overview", icon: "▦", href: "/valuation" },
+  { id: "instructions", label: "Valuation Instructions", icon: "📋", href: "/valuation/instructions" },
+  { id: "reports", label: "Valuation Reports", icon: "📈", href: "/valuation?tab=reports" },
+];
+
 const SETTINGS_SUBITEMS = [
   { id: "profile", label: "Profile & Account", icon: "👤", href: "/settings?tab=profile" },
   { id: "mpesa-test", label: "M-Pesa STK Test", icon: "📱", href: "/settings?tab=mpesa-test" },
@@ -69,16 +75,18 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams ? searchParams.get("tab") : null;
-  const { session } = useAuth();
+  const { session, can } = useAuth();
   const permissions = usePermissions();
   const [isMobile, setIsMobile] = useState(false);
 
   const [companionExpanded, setCompanionExpanded] = useState(pathname.startsWith("/companion"));
+  const [valuationExpanded, setValuationExpanded] = useState(pathname.startsWith("/valuation"));
   const [settingsExpanded, setSettingsExpanded] = useState(pathname.startsWith("/settings"));
   const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/administration"));
 
   useEffect(() => {
     if (pathname.startsWith("/companion")) setCompanionExpanded(true);
+    if (pathname.startsWith("/valuation")) setValuationExpanded(true);
     if (pathname.startsWith("/settings")) setSettingsExpanded(true);
     if (pathname.startsWith("/administration")) setAdminExpanded(true);
   }, [pathname]);
@@ -448,6 +456,110 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
               </div>
             )}
           </div>
+
+          {/* VALUATION SECTION WITH RETRACTABLE SUBOPTIONS */}
+          {!activeModuleSlug && (isAdministrator || session?.modules?.some((m) => m.slug === "valuation") || can("valuation.view") || session?.roles?.some((r) => r.includes("valuation") || r.includes("valuer"))) && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderRadius: 6,
+                  background: pathname.startsWith("/valuation") ? "rgba(139, 92, 246, 0.15)" : "transparent",
+                  color: pathname.startsWith("/valuation") ? "#ffffff" : "#cbd5e1",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <Link
+                  className={`nav-link ${pathname.startsWith("/valuation") ? "active" : ""}`}
+                  href="/valuation"
+                  onClick={() => {
+                    setValuationExpanded(true);
+                    onCloseMobile();
+                  }}
+                  title="Valuation Services"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: isMobile ? "12px 14px" : "8px 10px",
+                    flex: 1,
+                    borderRadius: 6,
+                    color: pathname.startsWith("/valuation") ? "#ffffff" : "#cbd5e1",
+                    fontWeight: pathname.startsWith("/valuation") ? 700 : 500,
+                    textDecoration: "none",
+                    fontSize: isMobile ? 15 : 13,
+                  }}
+                >
+                  <span style={{ fontSize: isMobile ? 18 : 15 }}>📐</span>
+                  <span>Valuation</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setValuationExpanded(!valuationExpanded);
+                  }}
+                  aria-label="Toggle valuation sub-options"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#94a3b8",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {valuationExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+              </div>
+
+              {valuationExpanded && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    paddingLeft: 14,
+                    borderLeft: "2px solid rgba(139, 92, 246, 0.3)",
+                    marginLeft: 14,
+                    marginTop: 2,
+                    marginBottom: 4,
+                  }}
+                >
+                  {VALUATION_SUBITEMS.map((item) => {
+                    const isItemActive = pathname === item.href || (item.id === "overview" && pathname === "/valuation");
+                    return (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        onClick={onCloseMobile}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 10px",
+                          borderRadius: 5,
+                          fontSize: 12,
+                          textDecoration: "none",
+                          background: isItemActive ? "#8b5cf6" : "transparent",
+                          color: isItemActive ? "#ffffff" : "#94a3b8",
+                          fontWeight: isItemActive ? 700 : 500,
+                          transition: "all 0.12s ease",
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>

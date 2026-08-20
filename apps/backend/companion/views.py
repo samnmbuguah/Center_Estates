@@ -398,13 +398,19 @@ class CompanionDashboardViewSet(ViewSet):
         import json
         context_str = json.dumps(context, indent=2)
 
-        qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
-        qm_result = qm_orchestrator.execute_agent(
-            prompt=raw_prompt,
-            user_name=request.user.first_name or request.user.username,
-            context_str=context_str,
-        )
-        llm_response = qm_result.get('response', '')
+        llm_response = ''
+        try:
+            from .qm_agent import QMAgentOrchestrator
+            qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
+            qm_result = qm_orchestrator.execute_agent(
+                prompt=raw_prompt,
+                user_name=request.user.first_name or request.user.username,
+                context_str=context_str,
+            )
+            llm_response = qm_result.get('response', '')
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"QM Agent execution fallback: {e}")
 
         if any(term in prompt for term in ('brief', 'priorit', 'start of day', 'today')):
             parts = [
