@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Row } from "../../types/facility.types";
 import { FcStatus } from "../FacilityToolbar";
 import { EnhancedDataTable } from "@/components/enhanced-data-table";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import { Box, Grid, Typography } from "@mui/material";
 import { ClipboardList, Clock, CheckCircle, AlertTriangle, Users, TrendingUp, Download, Wrench } from "lucide-react";
 
@@ -37,8 +36,6 @@ export function ServiceRequestsView({
 
   return (
     <>
-      <BreadcrumbNavigation />
-      
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
           Service Requests Management

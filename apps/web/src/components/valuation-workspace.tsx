@@ -32,7 +32,6 @@ import {
   money,
   number,
 } from "@/components/module-ui";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import { Box, Grid, Typography } from "@mui/material";
 import { FileText, Settings, CheckCircle, AlertTriangle, Calendar, DollarSign, Activity } from "lucide-react";
 
@@ -405,8 +404,6 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <BreadcrumbNavigation />
-      
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
           Valuation Management Dashboard
@@ -1965,7 +1962,13 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
   const { activeProperty } = usePropertyContext();
   const org = session?.activeOrganizationId ?? null;
 
-  const [tab, setTab] = useState<ValuationTab>(() => (initialTab in labels ? (initialTab as ValuationTab) : "overview"));
+  const [tab, setTab] = useState<ValuationTab>(() => {
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (q && q in labels) return q as ValuationTab;
+    }
+    return initialTab in labels ? (initialTab as ValuationTab) : "overview";
+  });
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -2071,10 +2074,33 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       .then((d) => setCreateInvoiceOptions(Array.isArray(d) ? (d as Row[]) : []));
   }, [org, showCreateInvoice]);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (q && q in labels) {
+        setTab(q as ValuationTab);
+      } else {
+        setTab("overview");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const selectTab = (id: string) => {
     setSearch("");
     setStatus("");
-    setTab(id as ValuationTab);
+    const nextTab = id in labels ? (id as ValuationTab) : "overview";
+    setTab(nextTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (nextTab === "overview") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", nextTab);
+      }
+      window.history.pushState({}, "", url.toString());
+    }
   };
 
   const openNewInstruction = () => { setFormError(""); setShowNewInstruction(true); };

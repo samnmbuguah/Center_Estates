@@ -4,7 +4,6 @@ import { money, number, EmptyState, KpiCard, KpiStrip, Panel, StatusPill } from 
 import { Dashboard, Row, SalesTab } from "../../types/sales.types";
 import { fmtDate, fmtMoney } from "../../utils/sales.utils";
 import { DataTable, RefText } from "../SalesUiComponents";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import { Box, Grid, Typography } from "@mui/material";
 import { Building2, TrendingUp, CheckCircle, AlertTriangle, DollarSign, Calendar, Activity } from "lucide-react";
 
@@ -63,8 +62,6 @@ export function OverviewView({
 
   return (
     <>
-      <BreadcrumbNavigation />
-      
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
           Sales Management Dashboard

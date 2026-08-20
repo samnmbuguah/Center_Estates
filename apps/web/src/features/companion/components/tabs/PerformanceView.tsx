@@ -3,7 +3,6 @@
 import { Badge, EmptyState, ErrorBanner, KpiCard, KpiStrip, LoadingState } from "@/components/module-ui";
 import { CompanionDash, Row } from "../../types/companion.types";
 import { fmtDate, fmtDateTime } from "../../utils/companion.utils";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import { Box, Typography } from "@mui/material";
 
 export function PerformanceView({
@@ -50,7 +49,6 @@ export function PerformanceView({
   if (tab === "staff") {
     return (
       <>
-        <BreadcrumbNavigation />
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
             Staff Performance Analytics
@@ -101,7 +99,6 @@ export function PerformanceView({
 
   return (
     <>
-      <BreadcrumbNavigation />
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
           Team Performance Dashboard

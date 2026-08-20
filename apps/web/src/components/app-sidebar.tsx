@@ -43,8 +43,12 @@ const COMPANION_SUBITEMS: CompanionSubItem[] = [
 
 const VALUATION_SUBITEMS = [
   { id: "overview", label: "Valuation Overview", icon: "▦", href: "/valuation" },
-  { id: "instructions", label: "Valuation Instructions", icon: "📋", href: "/valuation/instructions" },
-  { id: "reports", label: "Valuation Reports", icon: "📈", href: "/valuation?tab=reports" },
+  { id: "instructions", label: "Valuation Instructions", icon: "📋", href: "/valuation?tab=instructions" },
+  { id: "inspections", label: "Site Inspections", icon: "🔍", href: "/valuation?tab=inspections" },
+  { id: "draft-reports", label: "Draft Reports", icon: "📝", href: "/valuation?tab=draft-reports" },
+  { id: "final-reports", label: "Final Reports & Sign-off", icon: "📜", href: "/valuation?tab=final-reports" },
+  { id: "invoices", label: "Client Invoicing", icon: "🧾", href: "/valuation?tab=invoices" },
+  { id: "reports", label: "Reports Catalogue", icon: "📈", href: "/valuation?tab=reports" },
 ];
 
 const SETTINGS_SUBITEMS = [
@@ -531,7 +535,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   }}
                 >
                   {VALUATION_SUBITEMS.map((item) => {
-                    const isItemActive = pathname === item.href || (item.id === "overview" && pathname === "/valuation");
+                    const isItemActive = pathname === "/valuation" && (currentTab === item.id || (!currentTab && item.id === "overview"));
                     return (
                       <Link
                         key={item.id}

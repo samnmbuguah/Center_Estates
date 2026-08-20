@@ -20,7 +20,6 @@ import {
   StatusPill,
   money,
 } from "@/components/module-ui";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import { Box, Grid, Typography } from "@mui/material";
 import { FileText, DollarSign, Scale, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 
@@ -242,8 +241,6 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
 
   return (
     <>
-      <BreadcrumbNavigation />
-      
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
           Tender Management
@@ -1930,7 +1927,13 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
   const { activeProperty } = usePropertyContext();
   const org = session?.activeOrganizationId ?? null;
 
-  const [tab, setTab] = useState<TenderTab>(() => (initialTab in labels ? (initialTab as TenderTab) : "overview"));
+  const [tab, setTab] = useState<TenderTab>(() => {
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (q && q in labels) return q as TenderTab;
+    }
+    return initialTab in labels ? (initialTab as TenderTab) : "overview";
+  });
   const [dash, setDash] = useState<Dashboard | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [tenderIndex, setTenderIndex] = useState<Row[]>([]);
@@ -2025,11 +2028,34 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
     return () => clearTimeout(timer);
   }, [loadData, search]);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (q && q in labels) {
+        setTab(q as TenderTab);
+      } else {
+        setTab("overview");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const selectTab = (id: string) => {
     setSearch("");
     setFormError("");
     setRows([]);
-    setTab((id in labels ? id : "overview") as TenderTab);
+    const nextTab = (id in labels ? id : "overview") as TenderTab;
+    setTab(nextTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (nextTab === "overview") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", nextTab);
+      }
+      window.history.pushState({}, "", url.toString());
+    }
   };
 
   const openRegister = () => { setFormError(""); setShowRegister(true); };

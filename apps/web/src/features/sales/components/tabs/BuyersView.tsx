@@ -6,7 +6,6 @@ import { apiFetch } from "@/lib/api";
 import { Row, Tone } from "../../types/sales.types";
 import { countBy, fmtDate, fmtDateTime, fmtMoney, toneForAudit } from "../../utils/sales.utils";
 import { DataTable, DField, FilterChips, RefText, TableChrome } from "../SalesUiComponents";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import { Box, Grid, Typography } from "@mui/material";
 import { Users, CheckCircle, Magnet, GraduationCap, DollarSign } from "lucide-react";
 
@@ -232,8 +231,6 @@ export function BuyersView({
 
   return (
     <>
-      <BreadcrumbNavigation />
-      
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
           Buyers Registry

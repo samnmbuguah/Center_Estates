@@ -10,7 +10,6 @@ import {
 import { ViewToolbar, ListState, SubTabs } from "../PropertyToolbar";
 import { EnhancedDataTable } from "@/components/enhanced-data-table";
 import { InteractiveDashboard } from "@/components/interactive-dashboard";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import {
   PropertyTab, Row, ID, PropertyRow, BuildingRow, UnitRow, ProjectRow,
   TenantRow, TenantDocumentRow, LeaseRow, RentScheduleRow, InvoiceRow,
@@ -48,8 +47,6 @@ export function PropertiesView({
 
   return (
     <>
-      <BreadcrumbNavigation />
-      
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 2 }}>
           <Box sx={{ 

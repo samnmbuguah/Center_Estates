@@ -14,7 +14,6 @@ import type { Project } from "../api-types";
 import { money, formatDate, formatDateTime, stageLabel, riskLevel } from "../lib/format";
 import { KpiCard } from "../components/KpiCard";
 import { PageLoading, PageError, StatusPill } from "../components/PageState";
-import { BreadcrumbNavigation } from "@/components/breadcrumb-navigation";
 import { Box, Grid, Typography } from "@mui/material";
 
 type DashData = {
@@ -205,8 +204,6 @@ export function Dashboard() {
   return (
     <div style={{ display: "flex", gap: 0, minHeight: "100%" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <BreadcrumbNavigation />
-        
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
             Construction Monitoring Dashboard
