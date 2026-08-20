@@ -1,260 +1,341 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Badge, Box, IconButton, Menu, MenuItem, Typography, Chip,
+  Badge, Box, IconButton, Typography, Chip,
   Divider, Paper, List, ListItem, ListItemText, ListItemIcon,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  Alert, Tooltip, TextField, Select, MenuItem as SelectMenuItem
+  Button, Tooltip, Popover
 } from "@mui/material";
 import { 
-  Bell, Check, X, Settings, Archive, Trash2, Eye, BellRing,
-  Clock, AlertTriangle, Info, CheckCircle, XCircle, Filter, CheckSquare,
-  MoreVertical
+  Bell, Check, Settings, Trash2,
+  Clock, AlertTriangle, Info, CheckCircle, XCircle, Volume2
 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/components/auth-provider";
 
-export interface Notification {
+export interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error";
-  timestamp: Date;
-  read: boolean;
-  actionUrl?: string;
-  actionable?: boolean;
-  actions?: Array<{
-    label: string;
-    icon: React.ReactNode;
-    action: () => void;
-    color?: "primary" | "secondary" | "error" | "success";
-  }>;
+  level: "info" | "success" | "warning" | "urgent";
+  action_url?: string;
+  read_at?: string | null;
+  created_at: string;
+  metadata?: Record<string, unknown>;
 }
 
-export interface NotificationCenterProps {
-  notifications?: Notification[];
-  onMarkAsRead?: (id: string) => void;
-  onMarkAllAsRead?: () => void;
-  onDelete?: (id: string) => void;
-  onArchive?: (id: string) => void;
-  onAction?: (id: string, actionIndex: number) => void;
-  onNotificationClick?: (notification: Notification) => void;
-}
+export function NotificationCenter() {
+  const { session } = useAuth();
+  const organizationId = session?.activeOrganizationId ?? null;
+  const router = useRouter();
 
-export function NotificationCenter({
-  notifications = [],
-  onMarkAsRead,
-  onMarkAllAsRead,
-  onDelete,
-  onArchive,
-  onAction,
-  onNotificationClick
-}: NotificationCenterProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [filter, setFilter] = useState<"all" | "unread" | "info" | "success" | "warning" | "error">("all");
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [filter, setFilter] = useState<"all" | "unread" | "urgent">("all");
+  const [loading, setLoading] = useState(false);
+  const [toastAlert, setToastAlert] = useState<NotificationItem | null>(null);
+  const [permissionAsked, setPermissionAsked] = useState(false);
+  const [showPermissionBanner, setShowPermissionBanner] = useState(false);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const seenIdsRef = useRef<Set<string>>(new Set());
+
+  // Check browser notification permission
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (window.Notification.permission === "default") {
+        const dismissed = localStorage.getItem("ce_notif_prompt_dismissed");
+        if (!dismissed) {
+          setShowPermissionBanner(true);
+        }
+      }
+    }
+  }, []);
+
+  const requestBrowserPermission = async () => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      const result = await window.Notification.requestPermission();
+      setShowPermissionBanner(false);
+      if (result === "granted") {
+        new window.Notification("Center Estates Notifications Enabled", {
+          body: "You will now receive real-time alerts for M-Pesa payments, task escalations, and critical facility events.",
+          icon: "/favicon.ico",
+        });
+      }
+    }
+  };
+
+  const dismissPermissionBanner = () => {
+    setShowPermissionBanner(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ce_notif_prompt_dismissed", "true");
+    }
+  };
+
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const res = await apiFetch("/notifications/", {}, organizationId);
+      if (res.ok) {
+        const data = await res.json();
+        const items: NotificationItem[] = data.results || (Array.isArray(data) ? data : []);
+        
+        // Detect new unread urgent or success items for in-app toast
+        if (seenIdsRef.current.size > 0) {
+          const newItems = items.filter(i => !seenIdsRef.current.has(i.id) && !i.read_at);
+          if (newItems.length > 0) {
+            const urgentItem = newItems.find(i => i.level === "urgent" || i.level === "warning") || newItems[0];
+            setToastAlert(urgentItem);
+            // Trigger browser notification if permitted
+            if (typeof window !== "undefined" && "Notification" in window && window.Notification.permission === "granted") {
+              new window.Notification(urgentItem.title, {
+                body: urgentItem.message,
+                icon: "/favicon.ico",
+              });
+            }
+          }
+        }
+
+        items.forEach(i => seenIdsRef.current.add(i.id));
+        setNotifications(items);
+      }
+    } catch {
+      // Graceful fallback
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const unreadCount = notifications.filter(n => !n.read_at).length;
   const filteredNotifications = notifications.filter(n => {
     if (filter === "all") return true;
-    if (filter === "unread") return !n.read;
-    return n.type === filter;
+    if (filter === "unread") return !n.read_at;
+    if (filter === "urgent") return n.level === "urgent" || n.level === "warning";
+    return true;
   });
 
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleNotificationClick = (notification: Notification) => {
-    onNotificationClick?.(notification);
-    if (!notification.read) {
-      onMarkAsRead?.(notification.id);
+  const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!organizationId) return;
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+    try {
+      await apiFetch(`/notifications/${id}/mark-read/`, { method: "POST" }, organizationId);
+    } catch {
+      // Revert if error
     }
-    handleClose();
   };
 
-  const getNotificationIcon = (type: Notification["type"]) => {
-    switch (type) {
+  const handleMarkAllAsRead = async () => {
+    if (!organizationId) return;
+    setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+    try {
+      await apiFetch("/notifications/mark-all-read/", { method: "POST" }, organizationId);
+    } catch {
+      // Revert if error
+    }
+  };
+
+  const handleNotificationClick = (item: NotificationItem) => {
+    if (!item.read_at) {
+      handleMarkAsRead(item.id);
+    }
+    setAnchorEl(null);
+    if (item.action_url) {
+      router.push(item.action_url);
+    }
+  };
+
+  const getLevelIcon = (level: string) => {
+    switch (level) {
       case "success": return <CheckCircle size={18} style={{ color: "#22c55e" }} />;
-      case "warning": return <AlertTriangle size={18} style={{ color: "#f59e0b" }} />;
-      case "error": return <XCircle size={18} style={{ color: "#ef4444" }} />;
+      case "urgent":
+      case "warning": return <AlertTriangle size={18} style={{ color: "#ef4444" }} />;
       case "info": default: return <Info size={18} style={{ color: "#3b82f6" }} />;
     }
   };
 
-  const formatTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
+  const formatTime = (iso: string) => {
+    try {
+      const date = new Date(iso);
+      const now = new Date();
+      const diff = now.getTime() - date.getTime();
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      if (minutes < 1) return "Just now";
+      if (minutes < 60) return `${minutes}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      return date.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+    } catch {
+      return "Recently";
+    }
   };
 
   return (
     <>
-      <Tooltip title="Notifications">
-        <IconButton onClick={handleClick} color="inherit">
-          <Badge badgeContent={unreadCount} color="error">
-            {unreadCount > 0 ? <BellRing size={20} /> : <Bell size={20} />}
+      {/* Bell Trigger Button */}
+      <Tooltip title="Notifications & Operational Alerts">
+        <IconButton
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          aria-haspopup="true"
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: "10px",
+            border: "1px solid var(--border, rgba(255,255,255,0.1))",
+            color: unreadCount > 0 ? "var(--primary, #3b82f6)" : "var(--muted, #94a3b8)",
+            background: unreadCount > 0 ? "rgba(59, 130, 246, 0.08)" : "transparent",
+            "&:hover": {
+              background: "rgba(59, 130, 246, 0.15)",
+            },
+          }}
+        >
+          <Badge
+            badgeContent={unreadCount}
+            color="error"
+            max={99}
+            sx={{
+              "& .MuiBadge-badge": {
+                fontWeight: 800,
+                fontSize: 10,
+                height: 18,
+                minWidth: 18,
+                boxShadow: "0 0 8px rgba(239, 68, 68, 0.6)",
+              },
+            }}
+          >
+            <Bell size={19} />
           </Badge>
         </IconButton>
       </Tooltip>
 
-      <Menu
-        anchorEl={anchorEl}
+      {/* Popover Menu */}
+      <Popover
         open={Boolean(anchorEl)}
-        onClose={handleClose}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
         slotProps={{
           paper: {
             sx: {
-              width: 400,
-              maxHeight: 500,
-              borderRadius: 2,
-              boxShadow: 3
-            }
-          }
+              width: 390,
+              maxHeight: 520,
+              borderRadius: "14px",
+              boxShadow: "0 18px 48px rgba(15, 23, 42, 0.25)",
+              border: "1px solid var(--border, #e2e8f0)",
+              background: "var(--surface, #ffffff)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            },
+          },
         }}
-        transformOrigin={{ horizontal: "right", vertical: "top" }}
-        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
         {/* Header */}
-        <Box sx={{ p: 2, borderBottom: "1px solid #f1f5f9" }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Notifications
+        <Box sx={{ p: 2, pb: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border, #e2e8f0)" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: 15, color: "var(--text, #0f172a)" }}>
+              🔔 Notifications
             </Typography>
-            <Box sx={{ display: "flex", gap: 0.5 }}>
-              <Tooltip title="Notification settings">
-                <IconButton size="small" onClick={() => setSettingsOpen(true)}>
-                  <Settings size={16} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-
-          {/* Filter */}
-          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-            <Select
-              size="small"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
-              sx={{ flex: 1 }}
-            >
-              <SelectMenuItem value="all">All</SelectMenuItem>
-              <SelectMenuItem value="unread">Unread ({unreadCount})</SelectMenuItem>
-              <SelectMenuItem value="info">Info</SelectMenuItem>
-              <SelectMenuItem value="success">Success</SelectMenuItem>
-              <SelectMenuItem value="warning">Warning</SelectMenuItem>
-              <SelectMenuItem value="error">Error</SelectMenuItem>
-            </Select>
             {unreadCount > 0 && (
-              <Button
-                size="small"
-                variant="text"
-                startIcon={<CheckSquare size={14} />}
-                onClick={() => {
-                  onMarkAllAsRead?.();
-                }}
-              >
+              <Chip label={`${unreadCount} new`} size="small" color="primary" sx={{ height: 20, fontSize: 10, fontWeight: 700 }} />
+            )}
+          </Box>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            {unreadCount > 0 && (
+              <Button size="small" onClick={handleMarkAllAsRead} sx={{ fontSize: 11, fontWeight: 700, textTransform: "none", py: 0.2 }}>
                 Mark all read
               </Button>
             )}
+            <IconButton size="small" onClick={() => { setAnchorEl(null); router.push("/settings?tab=notifications"); }} title="Notification Settings">
+              <Settings size={15} />
+            </IconButton>
           </Box>
         </Box>
 
+        {/* Filter Pills */}
+        <Box sx={{ px: 2, py: 1, display: "flex", gap: 1, borderBottom: "1px solid var(--border, #e2e8f0)", background: "var(--surface-sunken, #f8fafc)" }}>
+          {(["all", "unread", "urgent"] as const).map((f) => (
+            <Chip
+              key={f}
+              label={f === "all" ? "All Alerts" : f === "unread" ? "Unread" : "🚨 Urgent"}
+              size="small"
+              onClick={() => setFilter(f)}
+              sx={{
+                fontWeight: 700,
+                fontSize: 11,
+                cursor: "pointer",
+                background: filter === f ? "#0f172a" : "transparent",
+                color: filter === f ? "#ffffff" : "var(--text-secondary, #64748b)",
+                border: "1px solid",
+                borderColor: filter === f ? "#0f172a" : "var(--border, #e2e8f0)",
+              }}
+            />
+          ))}
+        </Box>
+
         {/* Notifications List */}
-        <Box sx={{ maxHeight: 350, overflow: "auto" }}>
+        <Box sx={{ flex: 1, overflowY: "auto", maxHeight: 380 }}>
           {filteredNotifications.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: "center" }}>
-              <Bell size={32} style={{ color: "#cbd5e1", marginBottom: 8 }} />
-              <Typography variant="body2" color="text.secondary">
-                No notifications
+            <Box sx={{ p: 4, textAlign: "center", color: "var(--muted, #94a3b8)" }}>
+              <CheckCircle size={32} style={{ margin: "0 auto 8px", opacity: 0.4, color: "#22c55e" }} />
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "var(--text, #1e293b)" }}>
+                You&apos;re all caught up!
+              </Typography>
+              <Typography variant="caption" sx={{ color: "var(--muted, #64748b)" }}>
+                No active notifications in this view.
               </Typography>
             </Box>
           ) : (
-            <List>
-              {filteredNotifications.map((notification) => (
+            <List disablePadding>
+              {filteredNotifications.map((n) => (
                 <ListItem
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
                   sx={{
-                    bgcolor: notification.read ? "transparent" : "rgba(79, 70, 229, 0.05)",
-                    borderBottom: "1px solid #f1f5f9",
+                    p: 1.8,
+                    borderBottom: "1px solid var(--border, #f1f5f9)",
                     cursor: "pointer",
-                    "&:hover": { bgcolor: "rgba(79, 70, 229, 0.08)" },
-                    py: 1.5
+                    background: n.read_at ? "transparent" : "rgba(59, 130, 246, 0.04)",
+                    borderLeft: n.read_at ? "3px solid transparent" : n.level === "urgent" ? "3px solid #ef4444" : "3px solid #3b82f6",
+                    transition: "background 0.15s ease",
+                    "&:hover": {
+                      background: "rgba(59, 130, 246, 0.08)",
+                    },
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    {getNotificationIcon(notification.type)}
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    {getLevelIcon(n.level)}
                   </ListItemIcon>
                   <ListItemText
                     primary={
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          fontWeight: notification.read ? 400 : 600,
-                          color: notification.read ? "inherit" : "#0f172a"
-                        }}
-                      >
-                        {notification.title}
-                      </Typography>
-                    }
-                    secondary={
-                      <Box>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            display: "block", 
-                            mb: 0.5,
-                            color: notification.read ? "#64748b" : "#475569"
-                          }}
-                        >
-                          {notification.message}
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 0.4 }}>
+                        <Typography variant="body2" sx={{ fontWeight: n.read_at ? 600 : 800, fontSize: 13, color: "var(--text, #0f172a)" }}>
+                          {n.title}
                         </Typography>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Clock size={12} style={{ color: "#94a3b8" }} />
-                          <Typography variant="caption" sx={{ color: "#94a3b8" }}>
-                            {formatTime(notification.timestamp)}
-                          </Typography>
-                        </Box>
+                        <Typography variant="caption" sx={{ fontSize: 10, color: "var(--muted, #94a3b8)", ml: 1, whiteSpace: "nowrap" }}>
+                          {formatTime(n.created_at)}
+                        </Typography>
                       </Box>
                     }
+                    secondary={
+                      <Typography variant="caption" sx={{ color: "var(--text-secondary, #475569)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.35 }}>
+                        {n.message}
+                      </Typography>
+                    }
                   />
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, alignItems: "flex-end" }}>
-                    {!notification.read && (
-                      <Tooltip title="Mark as read">
-                        <IconButton 
-                          size="small" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onMarkAsRead?.(notification.id);
-                          }}
-                        >
-                          <Eye size={14} />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedNotification(notification);
-                      }}
-                    >
-                      <MoreVertical size={14} />
-                    </IconButton>
-                  </Box>
+                  {!n.read_at && (
+                    <Tooltip title="Mark as read">
+                      <IconButton size="small" onClick={(e) => handleMarkAsRead(n.id, e)} sx={{ ml: 0.5, p: 0.5 }}>
+                        <Check size={14} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </ListItem>
               ))}
             </List>
@@ -262,88 +343,104 @@ export function NotificationCenter({
         </Box>
 
         {/* Footer */}
-        {filteredNotifications.length > 0 && (
-          <Box sx={{ p: 2, borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "center" }}>
+        <Box sx={{ p: 1.2, borderTop: "1px solid var(--border, #e2e8f0)", background: "var(--surface-sunken, #f8fafc)", textAlign: "center" }}>
           <Button
             size="small"
-            variant="text"
-            onClick={handleClose}
+            onClick={() => { setAnchorEl(null); router.push("/settings?tab=notifications"); }}
+            sx={{ fontSize: 12, fontWeight: 700, textTransform: "none", color: "var(--primary, #0284c7)" }}
           >
-            View all notifications
+            Manage Channels &amp; Preferences →
           </Button>
         </Box>
-        )}
-      </Menu>
+      </Popover>
 
-      {/* Notification Settings Dialog */}
-      <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm">
-        <DialogTitle>Notification Settings</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, py: 2 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Notification Preferences
-            </Typography>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Typography variant="body2">Email notifications</Typography>
-                <Chip label="Enabled" size="small" color="primary" />
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Typography variant="body2">Push notifications</Typography>
-                <Chip label="Enabled" size="small" color="primary" />
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Typography variant="body2">Sound alerts</Typography>
-                <Chip label="Disabled" size="small" color="default" />
-              </Box>
+      {/* Browser Notification Opt-in Prompt Banner */}
+      {showPermissionBanner && (
+        <Box
+          sx={{
+            position: "fixed",
+            bottom: 24,
+            left: 24,
+            zIndex: 9999,
+            maxWidth: 380,
+            background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+            color: "#ffffff",
+            p: 2.2,
+            borderRadius: "14px",
+            boxShadow: "0 16px 40px rgba(15, 23, 42, 0.4)",
+            border: "1px solid rgba(59, 130, 246, 0.3)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+            <Box sx={{ fontSize: 24 }}>🔔</Box>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#ffffff", mb: 0.3 }}>
+                Enable Desktop Notifications
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#94a3b8", lineHeight: 1.4, display: "block" }}>
+                Get immediate alerts for incoming M-Pesa payments, task SLA escalations, and urgent facility tickets.
+              </Typography>
             </Box>
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSettingsOpen(false)}>Close</Button>
-          <Button variant="contained" onClick={() => setSettingsOpen(false)}>
-            Save Changes
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+            <Button size="small" onClick={dismissPermissionBanner} sx={{ color: "#94a3b8", fontSize: 11, textTransform: "none" }}>
+              Maybe Later
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={requestBrowserPermission}
+              sx={{ background: "#2563eb", fontWeight: 700, fontSize: 11, textTransform: "none", "&:hover": { background: "#1d4ed8" } }}
+            >
+              Allow Notifications
+            </Button>
+          </Box>
+        </Box>
+      )}
 
-      {/* Notification Action Menu */}
-      <Menu
-        anchorEl={selectedNotification ? { current: selectedNotification } as any : null}
-        open={Boolean(selectedNotification)}
-        onClose={() => setSelectedNotification(null)}
-      >
-        {selectedNotification?.actionUrl && (
-          <MenuItem onClick={() => {
-            window.open(selectedNotification.actionUrl, "_blank");
-            setSelectedNotification(null);
-          }}>
-            <Eye size={16} style={{ marginRight: 8 }} />
-            View Details
-          </MenuItem>
-        )}
-        <MenuItem onClick={() => {
-          onMarkAsRead?.(selectedNotification!.id);
-          setSelectedNotification(null);
-        }}>
-          <Check size={16} style={{ marginRight: 8 }} />
-          Mark as Read
-        </MenuItem>
-        <MenuItem onClick={() => {
-          onArchive?.(selectedNotification!.id);
-          setSelectedNotification(null);
-        }}>
-          <Archive size={16} style={{ marginRight: 8 }} />
-          Archive
-        </MenuItem>
-        <MenuItem onClick={() => {
-          onDelete?.(selectedNotification!.id);
-          setSelectedNotification(null);
-        }} sx={{ color: "#ef4444" }}>
-          <Trash2 size={16} style={{ marginRight: 8 }} />
-          Delete
-        </MenuItem>
-      </Menu>
+      {/* Live In-App Toast Alert Popup */}
+      {toastAlert && (
+        <Box
+          sx={{
+            position: "fixed",
+            top: 24,
+            right: 24,
+            zIndex: 9999,
+            maxWidth: 360,
+            background: toastAlert.level === "urgent" ? "#ef4444" : "#0f172a",
+            color: "#ffffff",
+            p: 2,
+            borderRadius: "12px",
+            boxShadow: "0 14px 36px rgba(0, 0, 0, 0.3)",
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            cursor: "pointer",
+            animation: "slideIn 0.3s ease",
+          }}
+          onClick={() => {
+            const url = toastAlert.action_url;
+            setToastAlert(null);
+            if (url) router.push(url);
+          }}
+        >
+          <Box sx={{ fontSize: 20 }}>{toastAlert.level === "urgent" ? "🚨" : "⚡"}</Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: 13, color: "#ffffff" }}>
+              {toastAlert.title}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)", display: "block", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {toastAlert.message}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setToastAlert(null); }} sx={{ color: "#ffffff" }}>
+            <XCircle size={16} />
+          </IconButton>
+        </Box>
+      )}
     </>
   );
 }
