@@ -1559,19 +1559,19 @@ function AdministrationContent() {
             </div>
 
             {/* ADD USER: Module Entitlement & Roles */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 10, padding: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
                 <div>
-                  <strong style={{ fontSize: 13, display: "block" }}>📦 Module Access &amp; Functional Roles</strong>
-                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Toggle modules ON/OFF and assign specific functional roles</span>
+                  <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>📦 Module Access &amp; Functional Roles</h4>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Toggle modules ON/OFF and assign specific functional roles for this user.</p>
                 </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="text"
                     value={matrixRoleSearch}
                     onChange={(e) => setMatrixRoleSearch(e.target.value)}
-                    placeholder="Filter roles…"
-                    style={{ padding: "4px 8px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", width: 130 }}
+                    placeholder="Filter roles e.g. Manager…"
+                    style={{ padding: "6px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 160 }}
                   />
                   <button
                     type="button"
@@ -1590,7 +1590,7 @@ function AdministrationContent() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 240, overflowY: "auto" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {MODULE_DEFINITIONS.map((mod) => {
                   const modRoles = roles.filter((r) => getRoleModule(r) === mod.slug);
                   const filteredModRoles = matrixRoleSearch.trim()
@@ -1607,10 +1607,11 @@ function AdministrationContent() {
                     <div
                       key={mod.slug}
                       style={{
-                        border: isModActive ? `1px solid ${mod.accent}` : "1px solid var(--border)",
-                        borderRadius: 8,
+                        border: isModActive ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
+                        borderRadius: 10,
                         background: isModActive ? "var(--surface)" : "var(--surface-sunken, #f8fafc)",
                         overflow: "hidden",
+                        transition: "all 0.15s ease",
                       }}
                     >
                       <div
@@ -1618,24 +1619,38 @@ function AdministrationContent() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          padding: "8px 12px",
-                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}0f, transparent)` : "transparent",
+                          padding: "12px 16px",
+                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}12, transparent)` : "transparent",
                           cursor: "pointer",
+                          gap: 12,
                         }}
                         onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 16 }}>{mod.icon}</span>
-                          <div>
-                            <strong style={{ fontSize: 12, color: isModActive ? mod.accent : "var(--text)" }}>{mod.label}</strong>
-                            <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: 8 }}>
-                              {isModActive ? `${activeModRoles.length} roles active` : "Disabled"}
-                            </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+                          <span style={{ fontSize: 22, flexShrink: 0 }}>{mod.icon}</span>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <strong style={{ fontSize: 14, color: isModActive ? mod.accent : "var(--text)" }}>{mod.label}</strong>
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: "2px 8px",
+                                  borderRadius: 12,
+                                  background: isModActive ? `${mod.accent}22` : "var(--border)",
+                                  color: isModActive ? mod.accent : "var(--muted)",
+                                }}
+                              >
+                                {isModActive ? `${activeModRoles.length} of ${modRoles.length} roles active` : "Disabled"}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>{mod.desc}</span>
                           </div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }} onClick={(e) => e.stopPropagation()}>
-                          <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, fontWeight: 700, color: isModActive ? mod.accent : "var(--muted)" }}>
-                            <span>{isModActive ? "ON" : "OFF"}</span>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 800, color: isModActive ? mod.accent : "var(--muted)" }}>
+                            <span>{isModActive ? "Enabled" : "Disabled"}</span>
                             <input
                               type="checkbox"
                               checked={isModActive}
@@ -1649,16 +1664,18 @@ function AdministrationContent() {
                                   setNewSelectedRoles((prev) => prev.filter((id) => !idsToRemove.has(id)));
                                 }
                               }}
-                              style={{ width: 14, height: 14, cursor: "pointer" }}
+                              style={{ width: 16, height: 16, cursor: "pointer" }}
                             />
                           </label>
-                          <span style={{ fontSize: 10, color: "var(--muted)" }}>{isExpanded ? "▲" : "▼"}</span>
+                          <span style={{ fontSize: 12, color: "var(--muted)", cursor: "pointer" }} onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}>
+                            {isExpanded ? "▲" : "▼"}
+                          </span>
                         </div>
                       </div>
 
                       {isExpanded && (
-                        <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8 }}>
                             {filteredModRoles.map((r) => {
                               const isSelected = newSelectedRoles.includes(r.id);
                               return (
@@ -1667,12 +1684,13 @@ function AdministrationContent() {
                                   style={{
                                     display: "flex",
                                     alignItems: "flex-start",
-                                    gap: 6,
-                                    padding: "5px 8px",
-                                    borderRadius: 5,
-                                    border: isSelected ? `1px solid ${mod.accent}` : "1px solid var(--border)",
+                                    gap: 8,
+                                    padding: "8px 12px",
+                                    borderRadius: 8,
+                                    border: isSelected ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
                                     background: isSelected ? `${mod.accent}0d` : "transparent",
                                     cursor: "pointer",
+                                    transition: "all 0.12s ease",
                                   }}
                                 >
                                   <input
@@ -1681,11 +1699,11 @@ function AdministrationContent() {
                                     onChange={(e) => {
                                       setNewSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
                                     }}
-                                    style={{ marginTop: 2, cursor: "pointer" }}
+                                    style={{ marginTop: 3, cursor: "pointer" }}
                                   />
-                                  <div style={{ minWidth: 0 }}>
-                                    <strong style={{ fontSize: 11, display: "block", color: isSelected ? mod.accent : "var(--text)" }}>{r.name}</strong>
-                                    {r.description && <span style={{ fontSize: 9, color: "var(--muted)", display: "block", lineHeight: 1.2 }}>{r.description}</span>}
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <strong style={{ fontSize: 12, display: "block", color: isSelected ? mod.accent : "var(--text)" }}>{r.name}</strong>
+                                    {r.description && <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3, marginTop: 1 }}>{r.description}</span>}
                                   </div>
                                 </label>
                               );
@@ -1700,19 +1718,21 @@ function AdministrationContent() {
             </div>
 
             {/* ADD USER: Property Scoping */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 10, padding: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <div>
-                  <strong style={{ fontSize: 13, display: "block" }}>🏢 Property Scoping ({newSelectedProps.length} of {properties.length} assigned)</strong>
-                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Restrict data visibility and actions to designated properties</span>
+                  <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>
+                    🏢 Property Scoping Matrix ({newSelectedProps.length} of {properties.length} assigned)
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Restrict data visibility and management actions to designated properties</p>
                 </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="text"
                     value={matrixPropSearch}
                     onChange={(e) => setMatrixPropSearch(e.target.value)}
                     placeholder="Filter estates…"
-                    style={{ padding: "4px 8px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", width: 130 }}
+                    style={{ padding: "6px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 160 }}
                   />
                   <button
                     type="button"
@@ -1730,9 +1750,9 @@ function AdministrationContent() {
                   </button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: 150, overflowY: "auto" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, maxHeight: 200, overflowY: "auto", padding: 2 }}>
                 {properties.length === 0 ? (
-                  <div className="muted" style={{ fontSize: 11, gridColumn: "1 / -1", textAlign: "center", padding: 8 }}>No properties available.</div>
+                  <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1", textAlign: "center", padding: 12 }}>No properties available.</div>
                 ) : (
                   properties
                     .filter((p) => !matrixPropSearch.trim() || p.name.toLowerCase().includes(matrixPropSearch.toLowerCase()) || p.code.toLowerCase().includes(matrixPropSearch.toLowerCase()))
@@ -1744,12 +1764,13 @@ function AdministrationContent() {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
-                            padding: "6px 8px",
-                            borderRadius: 5,
-                            border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
+                            gap: 8,
+                            padding: "8px 12px",
+                            borderRadius: 8,
+                            border: isSelected ? "1.5px solid #0284c7" : "1px solid var(--border)",
                             cursor: "pointer",
                             background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
+                            transition: "all 0.12s ease",
                           }}
                         >
                           <input
@@ -1758,10 +1779,12 @@ function AdministrationContent() {
                             onChange={(e) => {
                               setNewSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
                             }}
+                            style={{ cursor: "pointer" }}
                           />
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-                            <strong style={{ fontSize: 11, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
-                            <span className="mono muted" style={{ fontSize: 9, background: "var(--surface-sunken)", padding: "1px 3px", borderRadius: 3, border: "1px solid var(--border)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0, flex: 1 }}>
+                            <span>🏢</span>
+                            <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
+                            <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
                               {p.code}
                             </span>
                           </div>
@@ -1772,11 +1795,12 @@ function AdministrationContent() {
               </div>
             </div>
 
-            <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+            {/* Sticky Actions Footer */}
+            <div style={{ position: "sticky", bottom: -16, background: "var(--surface)", borderTop: "1px solid var(--border)", paddingTop: 14, paddingBottom: 6, display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14, zIndex: 10 }}>
               <button type="button" className="btn ghost" onClick={() => setShowAddUserModal(false)} disabled={saving}>
                 Cancel
               </button>
-              <button type="submit" className="btn primary" disabled={saving || !newUsername.trim() || !newFirstName.trim() || !newLastName.trim()} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+              <button type="submit" className="btn primary" disabled={saving || !newUsername.trim() || !newFirstName.trim() || !newLastName.trim()} style={{ background: "#d92d2d", borderColor: "#d92d2d", padding: "10px 22px", fontWeight: 800 }}>
                 {saving ? "Creating Account…" : "Create User Account"}
               </button>
             </div>
@@ -1787,20 +1811,25 @@ function AdministrationContent() {
       {/* MODAL 2: EDIT USER MATRIX */}
       {editingMember && (
         <Modal title={`Edit Access Matrix — ${editingMember.full_name || editingMember.username}`} onClose={() => setEditingMember(null)} wide>
-          <form onSubmit={handleSaveEditUser} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <form onSubmit={handleSaveEditUser} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* User Identity Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, background: "var(--surface-2, #f8fafc)", borderRadius: 10, border: "1px solid var(--border)" }}>
-              <span style={{ width: 44, height: 44, borderRadius: "50%", background: editingMember.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, background: "var(--surface-2, #f8fafc)", borderRadius: 12, border: "1px solid var(--border)" }}>
+              <span style={{ width: 48, height: 48, borderRadius: "50%", background: editingMember.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800 }}>
                 {(editingMember.first_name?.[0] || editingMember.username?.[0] || "U").toUpperCase()}
               </span>
               <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <strong style={{ fontSize: 16, fontWeight: 800 }}>{editingMember.full_name || editingMember.username}</strong>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <strong style={{ fontSize: 17, fontWeight: 800 }}>{editingMember.full_name || editingMember.username}</strong>
                   <span className="mono" style={{ fontSize: 12, color: "var(--muted)", background: "var(--surface)", padding: "2px 8px", borderRadius: 6, border: "1px solid var(--border)" }}>
                     @{editingMember.username}
                   </span>
+                  {editingMember.is_organization_admin && (
+                    <span style={{ fontSize: 10, fontWeight: 800, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", padding: "2px 8px", borderRadius: 12 }}>
+                      👑 Super Admin
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
                   ✉️ {editingMember.email || "No email"} {editingMember.phone_number ? `· 📞 ${editingMember.phone_number}` : ""}
                 </div>
               </div>
@@ -1811,13 +1840,13 @@ function AdministrationContent() {
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
                 placeholder="+254 700 000 000"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 13 }}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
               />
             </Field>
 
             {/* Super Admin Switch */}
-            <div style={{ padding: "12px 16px", background: editIsAdmin ? "#fef3c7" : "var(--surface-2, #f8fafc)", borderRadius: 10, border: editIsAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 800, color: editIsAdmin ? "#92400e" : "var(--text)" }}>
+            <div style={{ padding: "14px 18px", background: editIsAdmin ? "#fef3c7" : "var(--surface-2, #f8fafc)", borderRadius: 12, border: editIsAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontSize: 14, fontWeight: 800, color: editIsAdmin ? "#92400e" : "var(--text)" }}>
                 <input
                   type="checkbox"
                   checked={editIsAdmin}
@@ -1827,15 +1856,15 @@ function AdministrationContent() {
                 👑 Super Administrator (Portfolio-wide unrestricted access across all modules)
               </label>
               {editIsAdmin && (
-                <p style={{ margin: "4px 0 0 28px", fontSize: 11, color: "#92400e" }}>
+                <p style={{ margin: "6px 0 0 30px", fontSize: 12, color: "#92400e", lineHeight: 1.4 }}>
                   User has full administrative capabilities across all estates and modules. You can still assign specific functional roles below for fine-grained scoping.
                 </p>
               )}
             </div>
 
             {/* Module Access Entitlement & Functional Roles */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>📦 Module Access &amp; Functional Roles</h4>
                   <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
@@ -1848,7 +1877,7 @@ function AdministrationContent() {
                     value={matrixRoleSearch}
                     onChange={(e) => setMatrixRoleSearch(e.target.value)}
                     placeholder="Filter roles e.g. Accountant…"
-                    style={{ padding: "5px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 170 }}
+                    style={{ padding: "6px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 170 }}
                   />
                   <button
                     type="button"
@@ -1867,8 +1896,8 @@ function AdministrationContent() {
                 </div>
               </div>
 
-              {/* Module Cards Grid / List */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
+              {/* Module Cards List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {MODULE_DEFINITIONS.map((mod) => {
                   const modRoles = roles.filter((r) => getRoleModule(r) === mod.slug);
                   const filteredModRoles = matrixRoleSearch.trim()
@@ -1885,7 +1914,7 @@ function AdministrationContent() {
                     <div
                       key={mod.slug}
                       style={{
-                        border: isModActive ? `1px solid ${mod.accent}` : "1px solid var(--border)",
+                        border: isModActive ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
                         borderRadius: 10,
                         background: isModActive ? "var(--surface)" : "var(--surface-sunken, #f8fafc)",
                         overflow: "hidden",
@@ -1898,38 +1927,38 @@ function AdministrationContent() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          padding: "10px 14px",
-                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}0f, transparent)` : "transparent",
-                          borderBottom: isExpanded ? "1px solid var(--border)" : "none",
+                          padding: "12px 16px",
+                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}12, transparent)` : "transparent",
                           cursor: "pointer",
+                          gap: 12,
                         }}
                         onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ fontSize: 20 }}>{mod.icon}</span>
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <strong style={{ fontSize: 13, color: isModActive ? mod.accent : "var(--text)" }}>{mod.label}</strong>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+                          <span style={{ fontSize: 22, flexShrink: 0 }}>{mod.icon}</span>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <strong style={{ fontSize: 14, color: isModActive ? mod.accent : "var(--text)" }}>{mod.label}</strong>
                               <span
                                 style={{
                                   fontSize: 10,
                                   fontWeight: 700,
-                                  padding: "1px 6px",
-                                  borderRadius: 10,
-                                  background: isModActive ? `${mod.accent}20` : "var(--border)",
+                                  padding: "2px 8px",
+                                  borderRadius: 12,
+                                  background: isModActive ? `${mod.accent}22` : "var(--border)",
                                   color: isModActive ? mod.accent : "var(--muted)",
                                 }}
                               >
                                 {isModActive ? `${activeModRoles.length} of ${modRoles.length} roles active` : "Module Inactive"}
                               </span>
                             </div>
-                            <span style={{ fontSize: 11, color: "var(--muted)", display: "block" }}>{mod.desc}</span>
+                            <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>{mod.desc}</span>
                           </div>
                         </div>
 
                         {/* Module Toggle & Expand */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }} onClick={(e) => e.stopPropagation()}>
-                          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, color: isModActive ? mod.accent : "var(--muted)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 800, color: isModActive ? mod.accent : "var(--muted)" }}>
                             <span>{isModActive ? "Enabled" : "Disabled"}</span>
                             <input
                               type="checkbox"
@@ -1947,23 +1976,19 @@ function AdministrationContent() {
                               style={{ width: 16, height: 16, cursor: "pointer" }}
                             />
                           </label>
-                          <button
-                            type="button"
-                            onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}
-                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}
-                          >
+                          <span style={{ fontSize: 12, color: "var(--muted)", cursor: "pointer" }} onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}>
                             {isExpanded ? "▲" : "▼"}
-                          </button>
+                          </span>
                         </div>
                       </div>
 
                       {/* Collapsible Roles Grid */}
                       {isExpanded && (
-                        <div style={{ padding: "10px 14px", background: "var(--surface)" }}>
+                        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
                           {filteredModRoles.length === 0 ? (
                             <div style={{ fontSize: 11, color: "var(--muted)" }}>No roles configured for this module.</div>
                           ) : (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8 }}>
                               {filteredModRoles.map((r) => {
                                 const isSelected = editSelectedRoles.includes(r.id);
                                 return (
@@ -1973,9 +1998,9 @@ function AdministrationContent() {
                                       display: "flex",
                                       alignItems: "flex-start",
                                       gap: 8,
-                                      padding: "6px 10px",
-                                      borderRadius: 6,
-                                      border: isSelected ? `1px solid ${mod.accent}` : "1px solid var(--border)",
+                                      padding: "8px 12px",
+                                      borderRadius: 8,
+                                      border: isSelected ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
                                       background: isSelected ? `${mod.accent}0d` : "transparent",
                                       cursor: "pointer",
                                       transition: "all 0.12s ease",
@@ -1989,14 +2014,14 @@ function AdministrationContent() {
                                           e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id)
                                         );
                                       }}
-                                      style={{ marginTop: 2, cursor: "pointer" }}
+                                      style={{ marginTop: 3, cursor: "pointer" }}
                                     />
                                     <div style={{ minWidth: 0, flex: 1 }}>
-                                      <strong style={{ fontSize: 11, display: "block", color: isSelected ? mod.accent : "var(--text)" }}>
+                                      <strong style={{ fontSize: 12, display: "block", color: isSelected ? mod.accent : "var(--text)" }}>
                                         {r.name}
                                       </strong>
                                       {r.description && (
-                                        <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.25 }}>
+                                        <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3, marginTop: 1 }}>
                                           {r.description}
                                         </span>
                                       )}
@@ -2015,8 +2040,8 @@ function AdministrationContent() {
             </div>
 
             {/* Property Scoping Matrix */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>
                     🏢 Property Scoping Matrix ({editSelectedProps.length} of {properties.length} assigned)
@@ -2031,7 +2056,7 @@ function AdministrationContent() {
                     value={matrixPropSearch}
                     onChange={(e) => setMatrixPropSearch(e.target.value)}
                     placeholder="Filter properties…"
-                    style={{ padding: "5px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 150 }}
+                    style={{ padding: "6px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 160 }}
                   />
                   <button
                     type="button"
@@ -2051,7 +2076,7 @@ function AdministrationContent() {
               </div>
 
               {/* Properties Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxHeight: 180, overflowY: "auto", padding: 4 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, maxHeight: 200, overflowY: "auto", padding: 2 }}>
                 {properties.length === 0 ? (
                   <div style={{ fontSize: 12, color: "var(--muted)", gridColumn: "1 / -1", textAlign: "center", padding: 12 }}>
                     No properties available in this organization.
@@ -2068,9 +2093,9 @@ function AdministrationContent() {
                             display: "flex",
                             alignItems: "center",
                             gap: 8,
-                            padding: "8px 10px",
-                            borderRadius: 6,
-                            border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
+                            padding: "8px 12px",
+                            borderRadius: 8,
+                            border: isSelected ? "1.5px solid #0284c7" : "1px solid var(--border)",
                             cursor: "pointer",
                             background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
                             transition: "all 0.12s ease",
@@ -2100,11 +2125,12 @@ function AdministrationContent() {
               </div>
             </div>
 
-            <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+            {/* Sticky Actions Footer */}
+            <div style={{ position: "sticky", bottom: -16, background: "var(--surface)", borderTop: "1px solid var(--border)", paddingTop: 14, paddingBottom: 6, display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14, zIndex: 10 }}>
               <button type="button" className="btn ghost" onClick={() => setEditingMember(null)} disabled={saving}>
                 Cancel
               </button>
-              <button type="submit" className="btn primary" disabled={saving} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+              <button type="submit" className="btn primary" disabled={saving} style={{ background: "#d92d2d", borderColor: "#d92d2d", padding: "10px 22px", fontWeight: 800 }}>
                 {saving ? "Saving Changes…" : "Save Matrix Changes"}
               </button>
             </div>

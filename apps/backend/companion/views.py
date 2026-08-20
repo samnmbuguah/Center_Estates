@@ -36,10 +36,11 @@ from .serializers import (
     TaskEventSerializer,
     TaskSerializer,
     TaskTemplateSerializer,
-    TeamFeedbackMessageSerializer,
     TeamFeedbackThreadSerializer,
     PublicFeedbackQrCodeSerializer,
 )
+from notifications.models import Notification
+from notifications.services import notify_user, send_email_notification
 
 STATUS_TRANSITIONS = {
     Task.Status.PENDING: {Task.Status.ACKNOWLEDGED, Task.Status.CANCELLED, Task.Status.IN_PROGRESS},
@@ -143,6 +144,17 @@ class TaskViewSet(CompanionModelViewSet):
                 organization=organization, task=task, actor=self.request.user,
                 action=TaskEvent.Action.ASSIGNED, note=f'Assigned to {assignee.username}.',
             )
+            due_str = f"Due: {task.due_at.strftime('%d %b %Y, %H:%M')}" if task.due_at else "No deadline"
+            notify_user(
+                organization=organization,
+                recipient=assignee,
+                title=f"📋 New Task Assigned: {task.title}",
+                message=f"You have been assigned task {task.reference} ({task.priority.upper()}). {due_str}.\n\n{task.description or 'View task details in Companion.'}",
+                action_url=f"/companion?tab=tasks&task={task.id}",
+                category="task",
+                level=Notification.Level.URGENT if task.priority == Task.Priority.URGENT else Notification.Level.INFO,
+                send_email=True,
+            )
 
     def perform_update(self, serializer):
         organization = self._validate_organization(serializer)
@@ -158,6 +170,24 @@ class TaskViewSet(CompanionModelViewSet):
                 organization=organization, task=task, actor=self.request.user,
                 action=TaskEvent.Action.UPDATED, note=f'Updated: {", ".join(changed)}.',
             )
+        if 'assignee' in serializer.validated_data:
+            new_assignee = serializer.validated_data.get('assignee')
+            if new_assignee and new_assignee != previous.assignee and new_assignee != self.request.user:
+                TaskEvent.objects.create(
+                    organization=organization, task=task, actor=self.request.user,
+                    action=TaskEvent.Action.ASSIGNED, note=f'Reassigned to {new_assignee.username}.',
+                )
+                due_str = f"Due: {task.due_at.strftime('%d %b %Y, %H:%M')}" if task.due_at else "No deadline"
+                notify_user(
+                    organization=organization,
+                    recipient=new_assignee,
+                    title=f"📋 Task Reassigned: {task.title}",
+                    message=f"Task {task.reference} has been reassigned to you ({task.priority.upper()}). {due_str}.\n\n{task.description or 'View task details in Companion.'}",
+                    action_url=f"/companion?tab=tasks&task={task.id}",
+                    category="task",
+                    level=Notification.Level.URGENT if task.priority == Task.Priority.URGENT else Notification.Level.INFO,
+                    send_email=True,
+                )
 
     def _transition(self, task, target, actor, note=''):
         current = task.status

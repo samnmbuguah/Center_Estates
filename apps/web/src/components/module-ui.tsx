@@ -299,15 +299,26 @@ export function Modal({ title, onClose, children, wide }: { title: ReactNode; on
       open
       onClose={onClose}
       fullWidth
-      maxWidth={wide ? "md" : "sm"}
+      maxWidth={wide ? "lg" : "sm"}
       aria-labelledby={titleId}
-      slotProps={{ paper: { sx: { borderRadius: 2.5, backgroundImage: "none" } } }}
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 3,
+            maxWidth: wide ? 960 : 540,
+            width: "100%",
+            maxHeight: "92vh",
+            backgroundImage: "none",
+            boxShadow: "0 24px 64px rgba(15, 23, 42, 0.28)",
+          },
+        },
+      }}
     >
-      <DialogTitle id={titleId} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, py: 1.75, fontSize: 16, fontWeight: 800 }}>
+      <DialogTitle id={titleId} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, px: 3, py: 2, fontSize: 17, fontWeight: 800, borderBottom: "1px solid var(--border, #e2e8f0)" }}>
         {title}
-        <IconButton size="small" onClick={onClose} aria-label="Close dialog">×</IconButton>
+        <IconButton size="small" onClick={onClose} aria-label="Close dialog" sx={{ fontWeight: 800 }}>×</IconButton>
       </DialogTitle>
-      <DialogContent dividers sx={{ p: { xs: 2, sm: 2.5 } }}>
+      <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
         {children}
       </DialogContent>
     </Dialog>
