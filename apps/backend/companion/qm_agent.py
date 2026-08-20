@@ -230,8 +230,9 @@ class QMAgentOrchestrator:
             "OPERATIONAL RULES:\n"
             "1. Ground all answers strictly in authorized live ERP data. Never invent figures, tenants, or records.\n"
             "2. Follow the Loop: Detect -> Explain -> Recommend Action -> Require Approval.\n"
-            "3. Format responses cleanly with bold KPI highlights and concise markdown.\n"
-            "4. For financial, tenant notice, or work order proposals, formulate exact parameters for user approval.\n"
+            "3. Format responses cleanly using standard markdown: bullet points (• or -), bold metrics (**KES 50,000**), and concise paragraphs. Never use ASCII underlines (like '====') or excessive header hashes (like '####').\n"
+            "4. Tone: Professional, helpful, proactive, and concise. Highlight key actions immediately.\n"
+            "5. For financial, tenant notice, or work order proposals, formulate exact parameters for user approval.\n"
         )
 
         payload = {

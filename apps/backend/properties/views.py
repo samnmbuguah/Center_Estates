@@ -968,8 +968,13 @@ class TenantViewSet(OrganizationModelViewSet):
                     tenant_serializer.is_valid(raise_exception=True)
                     tenant = tenant_serializer.save(organization=organization, property=unit.property, code=tenant_code)
 
-                    subtotal = monthly_rent + monthly_service
-                    vat_amount = (subtotal * vat_rate / 100).quantize(Decimal('0.01'))
+                    calculations = {
+                        'area': str(area), 'rent_rate_per_sqft': str(rent_rate),
+                        'service_charge_rate_per_sqft': str(service_rate), 'monthly_rent_excl_vat': str(monthly_rent),
+                        'monthly_service_charge_excl_vat': str(monthly_service), 'total_excl_vat': str(subtotal),
+                        'vat_rate': str(vat_rate), 'vat_amount': str(vat_amount), 'total_inc_vat': str(subtotal + vat_amount),
+                        'security_deposit': str(security_deposit), 'utilities_security_deposit': str(utility_deposit),
+                    }
                     lease = Lease.objects.create(
                         organization=organization, reference=lease_reference, unit=unit, tenant=tenant,
                         starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
@@ -977,7 +982,7 @@ class TenantViewSet(OrganizationModelViewSet):
                         escalation_percent=escalation_percent,
                         escalation_interval_months=int(lease_data.get('escalation_interval_months', 12)),
                         status=Lease.Status.DRAFT,
-                        metadata={'application_number': application_number, 'term_months': term_months, 'source': 'bulk_import'},
+                        metadata={'application_number': application_number, 'term_months': term_months, 'source': 'bulk_import', **calculations},
                     )
                     succeeded.append({
                         'row': index + 1,
@@ -2473,7 +2478,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         if lease_status:
             leases = leases.filter(status=lease_status)
 
-        active_statuses = (Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+        active_statuses = (lease_status,) if lease_status else (Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT)
         active_leases = leases.filter(
             status__in=active_statuses, starts_on__lte=end, ends_on__gte=start,
         ).prefetch_related('billing_profiles__billing_item', 'escalations')
@@ -2490,9 +2495,13 @@ class PropertyAnalyticsViewSet(ViewSet):
             'floor': lease.unit.floor, 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
             'use': lease.unit.metadata.get('use', lease.unit.unit_type),
             'area': lease.unit.area, 'monthly_rent': lease.effective_rent(today),
-            'service_charge': sum((profile.amount for profile in lease.billing_profiles.filter(
-                is_active=True, billing_item__income_category__icontains='service',
-            )), Decimal('0')),
+            'service_charge': (
+                sum((profile.amount for profile in lease.billing_profiles.filter(
+                    is_active=True, billing_item__income_category__icontains='service',
+                )), Decimal('0'))
+                or Decimal(str((lease.metadata or {}).get('monthly_service_charge_excl_vat', '0')))
+                or (Decimal(str(lease.unit.area or '0')) * Decimal(str((lease.metadata or {}).get('service_charge_rate_per_sqft', '0'))))
+            ),
             'escalation_percent': lease.escalation_percent,
             'escalation_interval_months': lease.escalation_interval_months,
             'next_effective_rent': lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=365))),

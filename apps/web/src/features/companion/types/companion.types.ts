@@ -70,6 +70,16 @@ export type TaskItem = {
 
 export type CompanionDash = {
   kpis?: Record<string, unknown>;
+  activeNudge?: {
+    id: string;
+    category: "wellness" | "workload" | "productivity" | "planning";
+    icon: string;
+    title: string;
+    message: string;
+    action_label?: string;
+    action_href?: string;
+    urgency?: "low" | "medium" | "high";
+  };
   recentTasks?: Row[];
   overdueTasks?: Row[];
   escalatedTasks?: Row[];

@@ -5,6 +5,7 @@ import { EmptyState, KpiCard, KpiStrip, LoadingState, StatusPill } from "@/compo
 import { CompanionDash, Row } from "../../types/companion.types";
 import { fmtDate, fmtDateTime, greeting, STATUS_TONE } from "../../utils/companion.utils";
 import { DailyBriefingCard } from "../DailyBriefingCard";
+import { CompanionNudgeCard } from "@/components/companion-nudge-card";
 
 export function OverviewView({
   dash,
@@ -26,6 +27,10 @@ export function OverviewView({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {dash?.activeNudge && (
+        <CompanionNudgeCard nudge={dash.activeNudge} />
+      )}
+
       <DailyBriefingCard userName={userName} />
 
       <KpiStrip>

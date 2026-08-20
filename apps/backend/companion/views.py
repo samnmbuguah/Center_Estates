@@ -329,12 +329,22 @@ class CompanionDashboardViewSet(ViewSet):
             inProgress=Count('id', filter=Q(status=Task.Status.IN_PROGRESS)),
             completed=Count('id', filter=Q(status=Task.Status.COMPLETED)),
         )
+        from .nudges import evaluate_employee_nudge
+        active_nudge = evaluate_employee_nudge(request.user, organization)
         return Response({
             'kpis': kpis,
+            'activeNudge': active_nudge,
             'recentTasks': TaskSerializer(active.order_by('-updated_at')[:10], many=True).data,
             'overdueTasks': TaskSerializer(active.filter(due_at__lt=now).order_by('due_at')[:10], many=True).data,
             'escalatedTasks': TaskSerializer(active.filter(escalated=True).order_by('-escalated_at')[:10], many=True).data,
         })
+
+    @action(detail=False, methods=('get',))
+    def nudge(self, request):
+        organization = get_active_organization(request)
+        from .nudges import evaluate_employee_nudge
+        active_nudge = evaluate_employee_nudge(request.user, organization)
+        return Response(active_nudge or {})
 
     @action(detail=False, methods=('post',), throttle_classes=(QMChatRateThrottle,))
     def chat(self, request):
