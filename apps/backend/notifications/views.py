@@ -55,6 +55,52 @@ class NotificationViewSet(ReadOnlyModelViewSet):
             'warning': queryset.filter(level=Notification.Level.WARNING).count(),
         })
 
+    @action(detail=False, methods=('post',), url_path='broadcast')
+    def broadcast(self, request):
+        """
+        Admin endpoint to dispatch a broadcast notice to all active organization members.
+        Delivers via In-App Notification (bell + toast) and optional Outbound Email.
+        """
+        from organizations.models import Membership
+        from .services import notify_user
+        from core.tenancy import get_active_membership
+
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        if not (request.user.is_superuser or (membership and membership.is_organization_admin)):
+            return Response({'detail': 'Only administrators can broadcast system notices.'}, status=403)
+
+        title = str(request.data.get('title', '')).strip()
+        message = str(request.data.get('message', '')).strip()
+        level = request.data.get('level', Notification.Level.INFO)
+        send_email = bool(request.data.get('send_email', True))
+        action_url = request.data.get('action_url', '/companion')
+
+        if not title or not message:
+            return Response({'detail': 'Title and message are required.'}, status=400)
+
+        members = Membership.objects.filter(organization=organization, status=Membership.Status.ACTIVE).select_related('user')
+        dispatched_count = 0
+
+        for member in members:
+            notify_user(
+                organization=organization,
+                recipient=member.user,
+                title=f"📢 {title}",
+                message=message,
+                action_url=action_url,
+                category="announcement",
+                level=level,
+                send_email=send_email,
+            )
+            dispatched_count += 1
+
+        return Response({
+            'status': 'success',
+            'recipients_count': dispatched_count,
+            'detail': f'Broadcast notice dispatched to {dispatched_count} team members.'
+        })
+
 
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from core.permissions import HasOrganizationContext

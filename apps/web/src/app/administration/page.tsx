@@ -155,9 +155,21 @@ function AdministrationContent() {
 
   // Edit User Matrix Form Fields
   const [editIsAdmin, setEditIsAdmin] = useState(false);
+  const [editEmail, setEditEmail] = useState("");
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editSelectedRoles, setEditSelectedRoles] = useState<string[]>([]);
   const [editSelectedProps, setEditSelectedProps] = useState<string[]>([]);
+
+  // Broadcast Notice Modal State
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastLevel, setBroadcastLevel] = useState<string>("info");
+  const [broadcastSendEmail, setBroadcastSendEmail] = useState(true);
+  const [broadcastActionUrl, setBroadcastActionUrl] = useState("/companion");
+  const [broadcasting, setBroadcasting] = useState(false);
 
   // M-Pesa STK Push Form fields
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
@@ -470,6 +482,9 @@ function AdministrationContent() {
   function openEditModal(m: MemberItem) {
     setEditingMember(m);
     setEditIsAdmin(m.is_organization_admin);
+    setEditEmail(m.email || "");
+    setEditFirstName(m.first_name || "");
+    setEditLastName(m.last_name || "");
     setEditPhone(m.phone_number || "");
     setEditSelectedRoles(m.roles?.map((r) => r.id) || []);
     setEditSelectedProps(m.assigned_properties?.map((p) => p.id) || []);
@@ -490,6 +505,9 @@ function AdministrationContent() {
           headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
           body: JSON.stringify({
             is_organization_admin: editIsAdmin,
+            email: editEmail.trim(),
+            first_name: editFirstName.trim(),
+            last_name: editLastName.trim(),
             phone_number: editPhone.trim(),
             role_ids: editSelectedRoles,
             property_ids: editSelectedProps,
@@ -500,7 +518,7 @@ function AdministrationContent() {
 
       if (res.ok) {
         setEditingMember(null);
-        setNotice({ type: "success", text: `Access matrix updated for ${editingMember.full_name || editingMember.username}.` });
+        setNotice({ type: "success", text: `Profile & access matrix updated for ${editFirstName || editingMember.username}.` });
         await loadMembers();
       } else {
         const body = await res.json().catch(() => ({}));
@@ -510,6 +528,49 @@ function AdministrationContent() {
       setNotice({ type: "error", text: "Network error updating member matrix." });
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Handle Broadcast Notice to All Users
+  async function handleSendBroadcast(e: FormEvent) {
+    e.preventDefault();
+    if (!organizationId || !broadcastTitle.trim() || !broadcastMessage.trim()) return;
+    setBroadcasting(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        "/notifications/broadcast/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            title: broadcastTitle.trim(),
+            message: broadcastMessage.trim(),
+            level: broadcastLevel,
+            send_email: broadcastSendEmail,
+            action_url: broadcastActionUrl.trim() || "/companion",
+          }),
+        },
+        organizationId
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setShowBroadcastModal(false);
+        setBroadcastTitle("");
+        setBroadcastMessage("");
+        setNotice({
+          type: "success",
+          text: `📢 System notice broadcast successfully dispatched to ${data.recipients_count || members.length} team members!`,
+        });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setNotice({ type: "error", text: data.detail || "Failed to dispatch broadcast notice." });
+      }
+    } catch {
+      setNotice({ type: "error", text: "Network error occurred while dispatching broadcast." });
+    } finally {
+      setBroadcasting(false);
     }
   }
 
@@ -654,14 +715,26 @@ function AdministrationContent() {
           </p>
         </div>
         {tab === "users" && (
-          <button
-            className="btn primary"
-            onClick={() => setShowAddUserModal(true)}
-            style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, background: "#d92d2d", borderColor: "#d92d2d" }}
-          >
-            <UserPlus size={16} />
-            <span>Add System User</span>
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button
+              className="btn secondary"
+              type="button"
+              onClick={() => setShowBroadcastModal(true)}
+              style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, background: "var(--surface)", border: "1.5px solid var(--border)" }}
+            >
+              <span>📢</span>
+              <span>Broadcast Notice</span>
+            </button>
+            <button
+              className="btn primary"
+              type="button"
+              onClick={() => setShowAddUserModal(true)}
+              style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, background: "#d92d2d", borderColor: "#d92d2d" }}
+            >
+              <UserPlus size={16} />
+              <span>Add System User</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -1835,14 +1908,44 @@ function AdministrationContent() {
               </div>
             </div>
 
-            <Field label="Contact Phone Number">
-              <input
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-                placeholder="+254 700 000 000"
-                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
-              />
-            </Field>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="First Name">
+                <input
+                  value={editFirstName}
+                  onChange={(e) => setEditFirstName(e.target.value)}
+                  placeholder="First name"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
+                />
+              </Field>
+              <Field label="Last Name">
+                <input
+                  value={editLastName}
+                  onChange={(e) => setEditLastName(e.target.value)}
+                  placeholder="Last name"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
+                />
+              </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Verified Work Email Address">
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="user@centerestates.com"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
+                />
+              </Field>
+              <Field label="Contact Phone Number">
+                <input
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="+254 700 000 000"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}
+                />
+              </Field>
+            </div>
 
             {/* Super Admin Switch */}
             <div style={{ padding: "14px 18px", background: editIsAdmin ? "#fef3c7" : "var(--surface-2, #f8fafc)", borderRadius: 12, border: editIsAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
@@ -2132,6 +2235,109 @@ function AdministrationContent() {
               </button>
               <button type="submit" className="btn primary" disabled={saving} style={{ background: "#d92d2d", borderColor: "#d92d2d", padding: "10px 22px", fontWeight: 800 }}>
                 {saving ? "Saving Changes…" : "Save Matrix Changes"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL 3: BROADCAST SYSTEM NOTICE */}
+      {showBroadcastModal && (
+        <Modal title="📢 Broadcast System Notice to Organization" onClose={() => setShowBroadcastModal(false)} wide>
+          <form onSubmit={handleSendBroadcast} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ padding: 14, background: "rgba(2, 132, 199, 0.08)", border: "1px solid #bae6fd", borderRadius: 10 }}>
+              <strong style={{ fontSize: 13, color: "#0369a1", display: "block" }}>
+                Multi-Channel Announcement Dispatch
+              </strong>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: "#0284c7", lineHeight: 1.4 }}>
+                This notice will be delivered instantly to all active team members across the organization via their In-App Notification Bell, live pop-up toast alerts, and optional verified Outbound Email.
+              </p>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+                Announcement Headline / Title <span style={{ color: "#d92d2d" }}>*</span>
+              </label>
+              <input
+                required
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                placeholder="e.g. Scheduled System Upgrade or Important Estate Valuation Workflow"
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid var(--border)", fontSize: 13, fontWeight: 600 }}
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+                  Alert Priority Level
+                </label>
+                <select
+                  value={broadcastLevel}
+                  onChange={(e) => setBroadcastLevel(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid var(--border)", fontSize: 13 }}
+                >
+                  <option value="info">ℹ️ Info / General Announcement</option>
+                  <option value="warning">⚠️ Warning / Operational Alert</option>
+                  <option value="urgent">🚨 Urgent / Action Required</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+                  Direct Deep-Link Action URL
+                </label>
+                <input
+                  value={broadcastActionUrl}
+                  onChange={(e) => setBroadcastActionUrl(e.target.value)}
+                  placeholder="/companion or /valuation"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid var(--border)", fontSize: 13 }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+                Notice Message Content <span style={{ color: "#d92d2d" }}>*</span>
+              </label>
+              <textarea
+                required
+                rows={4}
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="Write your announcement details here. It will be formatted into an executive email and in-app alert..."
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid var(--border)", fontSize: 13, lineHeight: 1.4, resize: "vertical" }}
+              />
+            </div>
+
+            <div style={{ padding: "12px 16px", background: "var(--surface-2, #f8fafc)", borderRadius: 10, border: "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                <input
+                  type="checkbox"
+                  checked={broadcastSendEmail}
+                  onChange={(e) => setBroadcastSendEmail(e.target.checked)}
+                  style={{ width: 18, height: 18, cursor: "pointer" }}
+                />
+                <span>✉️ Also dispatch email notification via verified Outbound SMTP Gateway</span>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => setShowBroadcastModal(false)}
+                disabled={broadcasting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={broadcasting || !broadcastTitle.trim() || !broadcastMessage.trim()}
+                style={{ background: "#d92d2d", borderColor: "#d92d2d", padding: "10px 22px", fontWeight: 800 }}
+              >
+                {broadcasting ? "Dispatching Broadcast…" : "📢 Send Broadcast Notice"}
               </button>
             </div>
           </form>

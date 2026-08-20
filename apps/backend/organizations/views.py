@@ -185,6 +185,20 @@ class MemberDetailView(OrganizationAdminAPIView):
             membership.status = data["status"]
         membership.save()
 
+        # Update underlying User record fields
+        user_updated_fields = []
+        if "email" in data:
+            membership.user.email = str(data["email"]).strip()
+            user_updated_fields.append("email")
+        if "first_name" in data:
+            membership.user.first_name = str(data["first_name"]).strip()
+            user_updated_fields.append("first_name")
+        if "last_name" in data:
+            membership.user.last_name = str(data["last_name"]).strip()
+            user_updated_fields.append("last_name")
+        if user_updated_fields:
+            membership.user.save(update_fields=user_updated_fields)
+
         if "role_ids" in data:
             roles = Role.objects.filter(organization=organization, id__in=data["role_ids"])
             membership.roles.set(roles)
@@ -208,3 +222,87 @@ class MemberDetailView(OrganizationAdminAPIView):
         membership.status = Membership.Status.SUSPENDED
         membership.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CurrentUserProfileView(APIView):
+    """
+    Endpoint for any authenticated user to inspect and update their own email, name, and phone.
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = request.user
+        email = user.email or ""
+        is_placeholder = bool(
+            not email
+            or "@centerestates.test" in email
+            or "@example.com" in email
+            or "@ceest.internal" in email
+            or "@local" in email
+        )
+        organization = get_active_organization(request, required=False)
+        membership = get_active_membership(request, organization) if organization else None
+
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "email": email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "full_name": user.get_full_name() or user.username,
+            "phone_number": membership.phone_number if membership else "",
+            "is_placeholder_email": is_placeholder,
+            "is_organization_admin": bool(user.is_superuser or (membership and membership.is_organization_admin)),
+            "organization_name": organization.name if organization else "",
+        })
+
+    def patch(self, request):
+        user = request.user
+        data = request.data
+        updated_fields = []
+
+        if "email" in data:
+            email = str(data["email"]).strip()
+            if email and "@" not in email:
+                return Response({"detail": "Please provide a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
+            user.email = email
+            updated_fields.append("email")
+
+        if "first_name" in data:
+            user.first_name = str(data["first_name"]).strip()
+            updated_fields.append("first_name")
+
+        if "last_name" in data:
+            user.last_name = str(data["last_name"]).strip()
+            updated_fields.append("last_name")
+
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+        organization = get_active_organization(request, required=False)
+        membership = get_active_membership(request, organization) if organization else None
+        if membership and "phone_number" in data:
+            membership.phone_number = str(data["phone_number"]).strip()
+            membership.save(update_fields=["phone_number"])
+
+        email = user.email or ""
+        is_placeholder = bool(
+            not email
+            or "@centerestates.test" in email
+            or "@example.com" in email
+            or "@ceest.internal" in email
+            or "@local" in email
+        )
+
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "email": email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "full_name": user.get_full_name() or user.username,
+            "phone_number": membership.phone_number if membership else "",
+            "is_placeholder_email": is_placeholder,
+            "detail": "Profile updated successfully.",
+        })
+

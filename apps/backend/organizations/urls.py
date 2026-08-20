@@ -6,6 +6,7 @@ from .views import (
     PermissionListView,
     RoleDetailView,
     RoleListCreateView,
+    CurrentUserProfileView,
 )
 
 urlpatterns = [
@@ -13,5 +14,6 @@ urlpatterns = [
     path("roles/", RoleListCreateView.as_view(), name="role-list-create"),
     path("roles/<uuid:role_id>/", RoleDetailView.as_view(), name="role-detail"),
     path("members/", MemberListCreateView.as_view(), name="member-list-create"),
+    path("members/me/", CurrentUserProfileView.as_view(), name="current-user-profile"),
     path("members/<uuid:member_id>/", MemberDetailView.as_view(), name="member-detail"),
 ]

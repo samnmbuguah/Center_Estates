@@ -17,6 +17,7 @@ import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
 import { BrandedLoader } from "@/components/branded-loader";
 import { NotificationCenter } from "@/components/notification-center";
+import { EmailUpdateBanner } from "@/components/email-update-banner";
 import { QmChatLauncher } from "@/components/qm-chat-launcher";
 import { useTheme } from "@/theme/theme-provider";
 import {
@@ -535,6 +536,8 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
             </Box>
           </Toolbar>
         </AppBar>
+
+        <EmailUpdateBanner />
 
         {/* PropertyContextBar removed — property context is managed via the top navbar dropdown */}
         <div className="property-scoped-route">
