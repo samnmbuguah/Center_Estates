@@ -2543,10 +2543,9 @@ class PropertyAnalyticsViewSet(ViewSet):
             REPORT_WIDTHS = {
                 'tenancy-schedule': {
                     'Floor': 7, 'Unit': 12, 'Tenant': 32, 'Property': 22,
-                    'Area': 10, 'Use': 12, 'Lease start': 13, 'Lease end': 13,
-                    'Rent': 16, 'Service charge': 16, 'Escalation %': 13,
-                    'Escalation interval months': 14, 'Next effective rent': 16,
-                    'Status': 10, 'Comments': 20,
+                    'Area': 10, 'Use': 12, 'Lease Start': 13, 'Lease End': 13,
+                    'Rent': 16, 'Service Charge': 16, 'Escalation %': 13,
+                    'Escalation Interval (Months)': 14, 'Next Effective Rent': 18,
                 },
                 'income-analysis': {
                     'Property': 24, 'Unit': 12, 'Tenant': 32, 'Use': 12,
@@ -2700,8 +2699,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             'escalation_percent': lease.escalation_percent,
             'escalation_interval_months': lease.escalation_interval_months,
             'next_effective_rent': lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=365))),
-            'lease_start': lease.starts_on, 'lease_end': lease.ends_on, 'status': lease.status,
-            'comments': lease.metadata.get('comments', ''),
+            'lease_start': lease.starts_on, 'lease_end': lease.ends_on,
         } for lease in active_leases.order_by('unit__code')]
 
         vacant_rows = []
@@ -3036,15 +3034,14 @@ class PropertyAnalyticsViewSet(ViewSet):
             for unit in scope_model_queryset(Unit, request, organization).select_related('property'):
                 writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Use', 'Lease start', 'Lease end', 'Rent', 'Service charge', 'Escalation %', 'Escalation interval months', 'Next effective rent', 'Status', 'Comments'))
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Use', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Next Effective Rent'))
             rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             for lease in rows:
                 service_charge = self._service_charge_for_lease(lease)
                 writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name, lease.unit.property.name,
                                  lease.unit.area or '', lease.unit.metadata.get('use', lease.unit.unit_type), lease.starts_on,
                                  lease.ends_on, lease.effective_rent(end), service_charge, lease.escalation_percent,
-                                 lease.escalation_interval_months, lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365))),
-                                 lease.status, lease.metadata.get('comments', '')))
+                                 lease.escalation_interval_months, lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365)))))
         elif report_kind == 'vacancy':
             writer.writerow(('Property', 'Unit', 'Type', 'Use', 'Area', 'Available since', 'Days vacant', 'Expected rent', 'Vacancy reason', 'Marketing status'))
             units = scope_model_queryset(Unit, request, organization).filter(status=Unit.Status.AVAILABLE).select_related('property')
