@@ -11,3 +11,7 @@ drf-spectacular>=0.28.0
 drf-spectacular-sidecar
 reportlab>=4.4,<5
 openpyxl>=3.1,<4
+pydantic>=2.0
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0

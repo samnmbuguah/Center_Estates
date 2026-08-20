@@ -292,14 +292,18 @@ class TaskTemplateViewSet(CompanionModelViewSet):
     search_fields = ('name', 'title_template')
 
 
-from .qm_agent import QMAgentOrchestrator
+from .agent import agent_orchestrator, LLMGateway
 
 
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.COMPANION
-    permission_map = {'chat': 'companion.view'}
+    permission_map = {
+        'chat': 'companion.view',
+        'daily_briefing': 'companion.view',
+        'execute_actions': 'companion.view',
+    }
 
     serializer_class = GenericObjectSerializer
 
@@ -486,64 +490,46 @@ class CompanionDashboardViewSet(ViewSet):
             'timestamp': now.isoformat(),
         })
 
-    @action(detail=False, methods=('get',), url_path='daily-briefing')
+    @action(detail=False, methods=('get', 'post'), url_path='daily-briefing')
     def daily_briefing(self, request):
         organization = get_active_organization(request)
-        now = timezone.now()
-        orchestrator = QMAgentOrchestrator(organization_name=organization.name)
-
-        erp_context = {
-            "timestamp": now.strftime("%A, %B %d, %Y"),
-            "property_name": getattr(get_active_property(request, organization), 'name', 'Portfolio Wide'),
-            "active_tenants": 0,
-            "collection_rate": 0,
-            "overdue_invoices": [],
-            "expiring_leases": [],
-            "open_work_orders": [],
-            "pending_leave": [],
-            "billing_candidates": 0,
+        user_name = request.user.get_full_name() or request.user.username or "Operator"
+        initial_state = {
+            'organization_id': str(organization.id),
+            'user_name': user_name,
+            'user_role': 'Super Administrator' if request.user.is_superuser else 'Estate Manager',
+            'mode': 'briefing',
+            'input_query': 'Generate Executive Daily Briefing',
+            'conversation_history': [],
         }
-
-        try:
-            from properties.models import Invoice, Lease, Property, Receipt, Unit
-            active_leases = scope_model_queryset(Lease, request, organization).filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING))
-            erp_context["active_tenants"] = active_leases.count()
-
-            expiring = active_leases.filter(end_date__gte=now.date(), end_date__lte=now.date() + timezone.timedelta(days=60))
-            erp_context["expiring_leases"] = [{"id": str(l.id), "reference": l.reference, "end_date": str(l.end_date)} for l in expiring[:5]]
-
-            invoices = scope_model_queryset(Invoice, request, organization).exclude(status=Invoice.Status.VOID)
-            overdue_invs = invoices.filter(due_on__lt=now.date(), status__in=(Invoice.Status.ISSUED, Invoice.Status.PARTIALLY_PAID))
-            erp_context["overdue_invoices"] = [{"id": str(i.id), "number": i.number, "balance": float(i.balance or 0)} for i in overdue_invs[:5]]
-
-            month_start = now.date().replace(day=1)
-            total_billed = float(invoices.filter(issued_on__gte=month_start).aggregate(Sum('total_amount'))['total_amount__sum'] or 0)
-            total_collected = float(scope_model_queryset(Receipt, request, organization).filter(received_on__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0)
-            if total_billed > 0:
-                erp_context["collection_rate"] = min(int((total_collected / total_billed) * 100), 100)
-            else:
-                erp_context["collection_rate"] = 92
-        except Exception:
-            pass
-
-        try:
-            from facilities.models import WorkOrder
-            open_wos = scope_model_queryset(WorkOrder, request, organization).exclude(status__in=('completed', 'cancelled'))
-            erp_context["open_work_orders"] = [{"id": str(w.id), "title": w.title, "priority": getattr(w, 'priority', 'medium')} for w in open_wos[:6]]
-        except Exception:
-            pass
-
-        try:
-            pending_l = StaffLeaveRequest.objects.filter(organization=organization, status='pending')
-            erp_context["pending_leave"] = [{"id": str(l.id), "staff": str(getattr(l, 'staff_name', '') or getattr(l, 'user', ''))} for l in pending_l[:5]]
-        except Exception:
-            pass
-
-        briefing = orchestrator.generate_daily_briefing(
-            user_name=request.user.first_name or request.user.username or "Operator",
-            erp_context=erp_context
-        )
+        result = agent_orchestrator.invoke(initial_state)
+        briefing = result.get('daily_briefing', {})
+        briefing['health_score'] = result.get('health_score', 100)
+        briefing['proposed_actions'] = result.get('proposed_actions', [])
         return Response(briefing)
+
+    @action(detail=False, methods=('post',), url_path='execute-actions')
+    def execute_actions(self, request):
+        organization = get_active_organization(request)
+        action_ids = request.data.get('action_ids', [])
+        if not action_ids:
+            raise ValidationError({'action_ids': 'Specify one or more action IDs to execute.'})
+        
+        user_name = request.user.get_full_name() or request.user.username or "Operator"
+        state = {
+            'organization_id': str(organization.id),
+            'user_name': user_name,
+            'mode': 'action_execution',
+            'approved_action_ids': action_ids,
+            'proposed_actions': request.data.get('proposed_actions', []),
+            'conversation_history': [],
+        }
+        result = agent_orchestrator.invoke(state)
+        return Response({
+            'status': 'success',
+            'executed_count': len(result.get('execution_results', [])),
+            'results': result.get('execution_results', []),
+        })
 
 
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
