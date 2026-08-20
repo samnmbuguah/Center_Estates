@@ -45,6 +45,7 @@ export function ComplianceRiskView({
   organizationId: string | null;
 }) {
   const [activeSubTab, setActiveSubTab] = useState<"compliance" | "risks" | "flags">("compliance");
+  const [selectedCell, setSelectedCell] = useState<{ l: number; i: number } | null>(null);
 
   const obligations = complianceRows.length > 0 ? complianceRows : [
     { id: "c1", category: "Fire Safety", title: "Nairobi County Fire Safety Compliance Certificate", authority: "Nairobi City County Fire Dept", cert_no: "NCC/FIRE/2026/0991", expiry_date: "2027-02-28", status: "compliant", responsible: "Facilities Manager" },
@@ -206,66 +207,165 @@ export function ComplianceRiskView({
       )}
 
       {activeSubTab === "risks" && (
-        <article className="data-panel">
-          <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-            <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
-              Facilities Risk Register & Mitigation Controls (Inherent vs Residual)
-            </h2>
-          </header>
-          <div style={{ overflowX: "auto" }}>
-            <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>RISK ID & DESCRIPTION</th>
-                  <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>INHERENT SCORE (L×I)</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>MITIGATION CONTROLS</th>
-                  <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>RESIDUAL SCORE</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>OWNER & DUE DATE</th>
-                  <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>STATUS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {risks.map((r) => {
-                  const inherentVal = Number(r.inherent ?? 9);
-                  return (
-                    <tr key={String(r.id)} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "12px 14px" }}>
-                        <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
-                          {String(r.risk_id)}
-                        </span>
-                        <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)", marginTop: 2 }}>
-                          {String(r.description)}
-                        </strong>
-                      </td>
-                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                        <span style={{ background: inherentVal >= 12 ? "#fee2e2" : "#fef3c7", color: inherentVal >= 12 ? "#991b1b" : "#92400e", padding: "3px 8px", borderRadius: 4, fontWeight: 900 }}>
-                          {inherentVal} / 25
-                        </span>
-                      </td>
-                      <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>
-                        {String(r.controls ?? "—")}
-                      </td>
-                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                        <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 4, fontWeight: 800 }}>
-                          {String(r.residual ?? "—")}
-                        </span>
-                      </td>
-                      <td style={{ padding: "12px 14px", fontSize: 12 }}>
-                        <div style={{ fontWeight: 700 }}>{String(r.owner ?? "—")}</div>
-                        <small style={{ color: "var(--text-muted)" }}>Due: {String(r.due_date ?? "—")}</small>
-                      </td>
-                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                        <span style={{ background: r.status === "mitigating" ? "#dbeafe" : "#fef3c7", color: r.status === "mitigating" ? "#1e40af" : "#92400e", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
-                          {String(r.status ?? "open")}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </article>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Interactive 5x5 Heat Matrix */}
+          <article className="data-panel">
+            <header className="panel-title" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
+                  Interactive 5×5 Facilities Risk Matrix (Click any cell to filter risks)
+                </h2>
+                <small style={{ color: "var(--text-secondary)", fontSize: "0.78rem" }}>
+                  Inherent Risk Score = Likelihood (1–5) × Impact (1–5). Color coded by ISO 31000 threshold.
+                </small>
+              </div>
+              {selectedCell && (
+                <button
+                  onClick={() => setSelectedCell(null)}
+                  className="fc-toolbar-btn"
+                  style={{ background: "#fee2e2", color: "#991b1b", fontWeight: 800 }}
+                >
+                  ✕ Clear Filter (L{selectedCell.l} × I{selectedCell.i})
+                </button>
+              )}
+            </header>
+
+            <div style={{ padding: 18, display: "flex", justifyContent: "center", overflowX: "auto" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: 640 }}>
+                {/* Header Row (Impact 1 to 5) */}
+                <div style={{ display: "grid", gridTemplateColumns: "100px repeat(5, 1fr)", gap: 4, textAlign: "center", fontSize: 11, fontWeight: 800, color: "var(--text-secondary)" }}>
+                  <div style={{ textAlign: "left", alignSelf: "center" }}>Likelihood ↓ \ Impact →</div>
+                  <div>1 · Negl</div>
+                  <div>2 · Minor</div>
+                  <div>3 · Mod</div>
+                  <div>4 · Major</div>
+                  <div>5 · Crit</div>
+                </div>
+
+                {/* 5 Rows (Likelihood 5 down to 1) */}
+                {[5, 4, 3, 2, 1].map((l) => (
+                  <div key={l} style={{ display: "grid", gridTemplateColumns: "100px repeat(5, 1fr)", gap: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, alignSelf: "center", color: "var(--text-secondary)" }}>
+                      {l === 5 ? "5 · Almost Certain" : l === 4 ? "4 · Likely" : l === 3 ? "3 · Possible" : l === 2 ? "2 · Unlikely" : "1 · Rare"}
+                    </div>
+                    {[1, 2, 3, 4, 5].map((i) => {
+                      const score = l * i;
+                      const isSelected = selectedCell?.l === l && selectedCell?.i === i;
+                      const cellRisks = risks.filter((r) => {
+                        const rL = Number(r.likelihood ?? Math.ceil(Number(r.inherent || 9) / 5));
+                        const rI = Number(r.impact ?? 3);
+                        return rL === l && rI === i;
+                      });
+                      const count = cellRisks.length;
+
+                      const bg = score >= 15 ? "#fee2e2" : score >= 8 ? "#fef3c7" : score >= 4 ? "#fef9c3" : "#dcfce7";
+                      const textCol = score >= 15 ? "#991b1b" : score >= 8 ? "#92400e" : score >= 4 ? "#854d0e" : "#166534";
+
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedCell(isSelected ? null : { l, i })}
+                          style={{
+                            background: bg,
+                            color: textCol,
+                            border: isSelected ? "2.5px solid #2563eb" : "1px solid rgba(0,0,0,0.06)",
+                            borderRadius: 6,
+                            padding: "10px 4px",
+                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 2,
+                            transform: isSelected ? "scale(1.05)" : "none",
+                            transition: "all 0.15s ease",
+                            boxShadow: isSelected ? "0 4px 10px rgba(37,99,235,0.25)" : "none",
+                          }}
+                        >
+                          <strong style={{ fontSize: 12 }}>{score}</strong>
+                          {count > 0 && (
+                            <span style={{ background: textCol, color: "#fff", padding: "1px 5px", borderRadius: 8, fontSize: 9, fontWeight: 900 }}>
+                              {count} {count === 1 ? "risk" : "risks"}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </article>
+
+          {/* Risk Table */}
+          <article className="data-panel">
+            <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+              <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
+                Facilities Risk Register & Mitigation Controls {selectedCell ? `(Filtered: L${selectedCell.l} × I${selectedCell.i})` : "(All Risks)"}
+              </h2>
+            </header>
+            <div style={{ overflowX: "auto" }}>
+              <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
+                    <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>RISK ID & DESCRIPTION</th>
+                    <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>INHERENT SCORE (L×I)</th>
+                    <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>MITIGATION CONTROLS</th>
+                    <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>RESIDUAL SCORE</th>
+                    <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>OWNER & DUE DATE</th>
+                    <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedCell
+                    ? risks.filter((r) => {
+                        const rL = Number(r.likelihood ?? Math.ceil(Number(r.inherent || 9) / 5));
+                        const rI = Number(r.impact ?? 3);
+                        return rL === selectedCell.l && rI === selectedCell.i;
+                      })
+                    : risks
+                  ).map((r) => {
+                    const inherentVal = Number(r.inherent ?? 9);
+                    return (
+                      <tr key={String(r.id)} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={{ padding: "12px 14px" }}>
+                          <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
+                            {String(r.risk_id)}
+                          </span>
+                          <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)", marginTop: 2 }}>
+                            {String(r.description)}
+                          </strong>
+                        </td>
+                        <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                          <span style={{ background: inherentVal >= 12 ? "#fee2e2" : "#fef3c7", color: inherentVal >= 12 ? "#991b1b" : "#92400e", padding: "3px 8px", borderRadius: 4, fontWeight: 900 }}>
+                            {inherentVal} / 25
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>
+                          {String(r.controls ?? "—")}
+                        </td>
+                        <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                          <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 4, fontWeight: 800 }}>
+                            {String(r.residual ?? "—")}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 14px", fontSize: 12 }}>
+                          <div style={{ fontWeight: 700 }}>{String(r.owner ?? "—")}</div>
+                          <small style={{ color: "var(--text-muted)" }}>Due: {String(r.due_date ?? "—")}</small>
+                        </td>
+                        <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                          <span style={{ background: r.status === "mitigating" ? "#dbeafe" : "#fef3c7", color: r.status === "mitigating" ? "#1e40af" : "#92400e", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
+                            {String(r.status ?? "open")}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
       )}
 
       {activeSubTab === "flags" && (

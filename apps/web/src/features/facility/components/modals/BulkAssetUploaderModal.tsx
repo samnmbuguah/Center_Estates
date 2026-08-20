@@ -260,38 +260,103 @@ export function BulkAssetUploaderModal({
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <strong style={{ fontSize: "0.85rem", color: "var(--text-primary)" }}>
-                Ready to Import: {rows.length} Assets
+                Ready to Import: {rows.length} Assets (Editable Spreadsheet)
               </strong>
+              <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                Click any cell to correct data prior to import
+              </span>
             </div>
-            <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
+            <div style={{ maxHeight: 240, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
                 <thead>
                   <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                    <th style={{ padding: "6px 10px", textAlign: "left" }}>CODE</th>
-                    <th style={{ padding: "6px 10px", textAlign: "left" }}>ASSET NAME</th>
-                    <th style={{ padding: "6px 10px", textAlign: "left" }}>CATEGORY</th>
-                    <th style={{ padding: "6px 10px", textAlign: "center" }}>CRITICALITY</th>
-                    <th style={{ padding: "6px 10px", textAlign: "right" }}>VALUE</th>
+                    <th style={{ padding: "6px 8px", textAlign: "left", width: 90 }}>CODE</th>
+                    <th style={{ padding: "6px 8px", textAlign: "left" }}>ASSET NAME</th>
+                    <th style={{ padding: "6px 8px", textAlign: "left", width: 140 }}>CATEGORY</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", width: 100 }}>CRITICALITY</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right", width: 110 }}>VALUE (KES)</th>
+                    <th style={{ padding: "6px 8px", textAlign: "center", width: 40 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.slice(0, 10).map((r, i) => (
+                  {rows.map((r, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "6px 10px", fontWeight: 700 }}>{r.code || "Auto"}</td>
-                      <td style={{ padding: "6px 10px" }}>{r.name}</td>
-                      <td style={{ padding: "6px 10px", color: "var(--text-secondary)" }}>{r.category}</td>
-                      <td style={{ padding: "6px 10px", textAlign: "center", textTransform: "uppercase" }}>{r.criticality}</td>
-                      <td style={{ padding: "6px 10px", textAlign: "right" }}>{r.purchase_value}</td>
+                      <td style={{ padding: "4px 8px" }}>
+                        <input
+                          type="text"
+                          value={r.code || ""}
+                          placeholder="Auto"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => prev.map((item, idx) => idx === i ? { ...item, code: val } : item));
+                          }}
+                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)" }}
+                        />
+                      </td>
+                      <td style={{ padding: "4px 8px" }}>
+                        <input
+                          type="text"
+                          value={r.name || ""}
+                          required
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => prev.map((item, idx) => idx === i ? { ...item, name: val } : item));
+                          }}
+                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, borderRadius: 4, border: !r.name ? "1px solid #dc2626" : "1px solid var(--border)", background: "var(--surface)" }}
+                        />
+                      </td>
+                      <td style={{ padding: "4px 8px" }}>
+                        <input
+                          type="text"
+                          value={r.category || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => prev.map((item, idx) => idx === i ? { ...item, category: val } : item));
+                          }}
+                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)" }}
+                        />
+                      </td>
+                      <td style={{ padding: "4px 8px" }}>
+                        <select
+                          value={r.criticality || "medium"}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => prev.map((item, idx) => idx === i ? { ...item, criticality: val } : item));
+                          }}
+                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)" }}
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                          <option value="critical">Critical</option>
+                        </select>
+                      </td>
+                      <td style={{ padding: "4px 8px" }}>
+                        <input
+                          type="number"
+                          value={r.purchase_value || "0"}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => prev.map((item, idx) => idx === i ? { ...item, purchase_value: val, replacement_cost: val } : item));
+                          }}
+                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, textAlign: "right", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)" }}
+                        />
+                      </td>
+                      <td style={{ padding: "4px 8px", textAlign: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: "none", border: 0, color: "#dc2626", cursor: "pointer", fontSize: 13, padding: 0 }}
+                          title="Remove row"
+                        >
+                          ✕
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            {rows.length > 10 && (
-              <small style={{ color: "var(--text-muted)", display: "block", marginTop: 4 }}>
-                ...and {rows.length - 10} more assets.
-              </small>
-            )}
           </div>
         )}
 

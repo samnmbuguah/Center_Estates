@@ -311,28 +311,71 @@ export function BudgetsView({
                 </table>
               </div>
 
-              {/* Sample Unit Apportionment Calculation */}
-              <div style={{ padding: 14, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
-                  Sample Unit Apportionment: Unit 201 (1,500 sq.ft)
-                </strong>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, fontSize: 12 }}>
+              {/* Interactive Tenant Service Charge Simulator */}
+              <div style={{ padding: 18, background: "var(--surface-2)", borderRadius: 8, border: "2px solid var(--border)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div>
-                    <span className="muted">Unit Share of Building:</span>
-                    <strong style={{ display: "block" }}>{((1500 / totalLettableSqft) * 100).toFixed(2)}%</strong>
+                    <strong style={{ fontSize: 14, color: "var(--text-primary)", display: "block" }}>
+                      🧾 Tenant Service Charge Bill Preview Simulator
+                    </strong>
+                    <small className="muted" style={{ fontSize: 11 }}>
+                      Simulate actual tenant monthly billing statement based on unit area & approved scheme
+                    </small>
                   </div>
+                  <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
+                    100% Cost Recoverable
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr 1fr", gap: 14, alignItems: "center" }}>
                   <div>
-                    <span className="muted">Monthly Service Charge:</span>
-                    <strong style={{ display: "block", color: "var(--primary)", fontSize: 14 }}>
-                      KES {(1500 * Number(ratePerSqftMonth)).toLocaleString()} / month
+                    <label style={{ fontSize: 11, fontWeight: 700, display: "block", marginBottom: 4 }}>Select Unit / Area</label>
+                    <select
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", fontSize: 12, fontWeight: 700 }}
+                      defaultValue="1500"
+                    >
+                      <option value="1500">Unit 201 · 1,500 sq.ft (Safaricom)</option>
+                      <option value="2200">Unit 202 · 2,200 sq.ft (PwC)</option>
+                      <option value="3500">Unit 203 · 3,500 sq.ft (KCB Bank)</option>
+                      <option value="1200">Unit 204 · 1,200 sq.ft (Standard Chart)</option>
+                    </select>
+                  </div>
+
+                  <div style={{ background: "var(--surface)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
+                    <span className="muted" style={{ fontSize: 11, display: "block" }}>Unit Share of Building:</span>
+                    <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>
+                      {((1500 / totalLettableSqft) * 100).toFixed(2)}%
                     </strong>
                   </div>
-                  <div>
-                    <span className="muted">Annual Sinking Fund Contribution:</span>
-                    <strong style={{ display: "block", color: "#16a34a" }}>
-                      KES {((1500 / totalLettableSqft) * totalSinkingFund).toLocaleString()} / year
+
+                  <div style={{ background: "var(--surface)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
+                    <span className="muted" style={{ fontSize: 11, display: "block" }}>Monthly OPEX Charge:</span>
+                    <strong style={{ fontSize: 14, color: "#2563eb" }}>
+                      KES {((1500 / totalLettableSqft) * (totalOpexBudget / 12)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </strong>
                   </div>
+
+                  <div style={{ background: "var(--surface)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
+                    <span className="muted" style={{ fontSize: 11, display: "block" }}>Monthly Sinking Fund:</span>
+                    <strong style={{ fontSize: 14, color: "#16a34a" }}>
+                      KES {((1500 / totalLettableSqft) * (totalSinkingFund / 12)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Total Monthly SC Invoice:</span>
+                    <strong style={{ fontSize: 18, color: "var(--primary)", fontWeight: 900 }}>
+                      KES {((1500 / totalLettableSqft) * (grandTotalSC / 12)).toLocaleString(undefined, { maximumFractionDigits: 0 })} / month
+                    </strong>
+                  </div>
+                  <button
+                    onClick={() => alert("Generating official service charge apportionment statement for tenant...")}
+                    style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer", color: "var(--text-primary)" }}
+                  >
+                    🖨️ Generate Tenant SC Statement
+                  </button>
                 </div>
               </div>
             </div>

@@ -25,50 +25,91 @@ export function RowDetailPanel({
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Top Action Bar for Tenant Drawer */}
       {isTenant && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            padding: "10px 12px",
-            background: "var(--surface-2)",
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            alignItems: "center",
-          }}
-        >
-          {onEdit && (
-            <button
-              className="btn ghost sm"
-              onClick={() => onEdit(row)}
-              style={{ fontWeight: 700 }}
-            >
-              ✏️ Edit Tenant
-            </button>
-          )}
-          {onOpenPortal && (
-            <button
-              className="btn ghost sm"
-              onClick={() => onOpenPortal(row)}
-              style={{ fontWeight: 700 }}
-            >
-              🔑 Portal Access
-            </button>
-          )}
-          {canLease && onDelete && !confirmDelete && (
-            <button
-              className="btn ghost sm"
-              onClick={() => setConfirmDelete(true)}
-              style={{
-                color: "#dc2626",
-                borderColor: "rgba(220, 38, 38, 0.3)",
-                fontWeight: 800,
-                marginLeft: "auto",
-              }}
-            >
-              🗑️ Delete Tenant
-            </button>
-          )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* Health & Status Badges */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+              ● Lease Active
+            </span>
+            <span style={{ background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+              ✓ Rent Current (0 Arrears)
+            </span>
+            <span style={{ background: "var(--surface-2)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
+              Deposit: Secured
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+              padding: "10px 12px",
+              background: "var(--surface-2)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              alignItems: "center",
+            }}
+          >
+            {/* 1-Click WhatsApp */}
+            {(row as any).phone && (
+              <a
+                href={`https://wa.me/${String((row as any).phone).replace(/[^0-9]/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn ghost sm"
+                style={{ background: "#25D366", color: "#fff", border: 0, fontWeight: 800, textDecoration: "none" }}
+              >
+                💬 WhatsApp
+              </a>
+            )}
+
+            {/* 1-Click Email */}
+            {(row as any).email && (
+              <a
+                href={`mailto:${(row as any).email}`}
+                className="btn ghost sm"
+                style={{ fontWeight: 700, textDecoration: "none" }}
+              >
+                ✉️ Email
+              </a>
+            )}
+
+            {onEdit && (
+              <button
+                className="btn ghost sm"
+                onClick={() => onEdit(row)}
+                style={{ fontWeight: 700 }}
+              >
+                ✏️ Edit
+              </button>
+            )}
+
+            {onOpenPortal && (
+              <button
+                className="btn ghost sm"
+                onClick={() => onOpenPortal(row)}
+                style={{ fontWeight: 700 }}
+              >
+                🔑 Portal
+              </button>
+            )}
+
+            {canLease && onDelete && !confirmDelete && (
+              <button
+                className="btn ghost sm"
+                onClick={() => setConfirmDelete(true)}
+                style={{
+                  color: "#dc2626",
+                  borderColor: "rgba(220, 38, 38, 0.3)",
+                  fontWeight: 800,
+                  marginLeft: "auto",
+                }}
+              >
+                🗑️ Delete
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -78,6 +78,8 @@ export function AssetsView({
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [showLifecycleModal, setShowLifecycleModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
 
   const displayRows = rows.length > 0 ? rows : [
@@ -276,6 +278,20 @@ export function AssetsView({
           <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
+                <th style={{ padding: "10px 14px", width: 36, textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === displayRows.length && displayRows.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(new Set(displayRows.map((r) => String(r.id))));
+                      } else {
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                  />
+                </th>
                 <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>ASSET ID & NAME</th>
                 <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>LOCATION</th>
                 <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>MANUFACTURER / MODEL</th>
@@ -287,6 +303,7 @@ export function AssetsView({
             </thead>
             <tbody>
               {displayRows.map((asset) => {
+                const isChecked = selectedIds.has(String(asset.id));
                 const critColor: Record<string, string> = {
                   critical: "#dc2626",
                   high: "#ea580c",
@@ -294,7 +311,20 @@ export function AssetsView({
                   low: "#16a34a",
                 };
                 return (
-                  <tr key={String(asset.id)} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <tr key={String(asset.id)} style={{ borderBottom: "1px solid var(--border)", background: isChecked ? "rgba(37,99,235,0.06)" : "transparent" }}>
+                    <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          if (e.target.checked) next.add(String(asset.id));
+                          else next.delete(String(asset.id));
+                          setSelectedIds(next);
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                    </td>
                     <td style={{ padding: "12px 14px" }}>
                       <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)" }}>
                         {String(asset.name)}
@@ -436,8 +466,86 @@ export function AssetsView({
                 {/* 5-Year Capital Renewal Projections */}
                 <div>
                   <h3 style={{ fontSize: "0.95rem", fontWeight: 800, margin: "0 0 8px", color: "var(--text-primary)" }}>
-                    5-Year Capital Renewal & Depreciation Schedule
+                    5-Year Capital Renewal & Degradation Forecast Chart
                   </h3>
+
+                  {/* SVG Bar & Line Chart */}
+                  <div style={{ padding: "14px 16px", background: "var(--surface-sunken)", borderRadius: 8, border: "1px solid var(--border)", marginBottom: 12 }}>
+                    <svg width="100%" height={140} viewBox="0 0 540 140" style={{ overflow: "visible" }}>
+                      {/* Grid Lines */}
+                      <line x1={40} y1={20} x2={500} y2={20} stroke="var(--border)" strokeDasharray="3,3" />
+                      <line x1={40} y1={65} x2={500} y2={65} stroke="var(--border)" strokeDasharray="3,3" />
+                      <line x1={40} y1={110} x2={500} y2={110} stroke="var(--border)" />
+
+                      {/* Y-Axis Labels */}
+                      <text x={32} y={24} textAnchor="end" fontSize={9} fill="var(--text-muted)">Grade 5</text>
+                      <text x={32} y={69} textAnchor="end" fontSize={9} fill="var(--text-muted)">Grade 3</text>
+                      <text x={32} y={114} textAnchor="end" fontSize={9} fill="var(--text-muted)">Grade 1</text>
+
+                      {/* Bars & Condition Trend Line */}
+                      {(() => {
+                        const projs = lifecycleData.capex_5_year_projections || [];
+                        const maxCapex = Math.max(...projs.map((p: any) => p.planned_capex || 0), 1);
+                        const points = projs.map((p: any, idx: number) => {
+                          const x = 70 + idx * 95;
+                          const cond = Math.max(1, Math.min(5, p.projected_condition_score || 3));
+                          const y = 110 - ((cond - 1) / 4) * 90;
+                          return { x, y, capex: p.planned_capex, year: p.year, cond };
+                        });
+
+                        const linePath = points.map((pt: any, i: number) => `${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`).join(" ");
+
+                        return (
+                          <>
+                            {/* Bars */}
+                            {points.map((pt: any, idx: number) => {
+                              const barHeight = pt.capex > 0 ? ((pt.capex / maxCapex) * 75) : 4;
+                              const barY = 110 - barHeight;
+                              return (
+                                <g key={idx}>
+                                  <rect
+                                    x={pt.x - 22}
+                                    y={barY}
+                                    width={44}
+                                    height={barHeight}
+                                    rx={3}
+                                    fill={pt.capex > 0 ? "rgba(226, 59, 59, 0.4)" : "rgba(100, 116, 139, 0.15)"}
+                                    stroke={pt.capex > 0 ? "var(--primary)" : "none"}
+                                    strokeWidth={1}
+                                  />
+                                  <text x={pt.x} y={124} textAnchor="middle" fontSize={10} fontWeight={700} fill="var(--text-primary)">
+                                    {pt.year}
+                                  </text>
+                                  {pt.capex > 0 && (
+                                    <text x={pt.x} y={barY - 5} textAnchor="middle" fontSize={9} fontWeight={800} fill="var(--primary)">
+                                      {money.format(pt.capex)}
+                                    </text>
+                                  )}
+                                </g>
+                              );
+                            })}
+
+                            {/* Condition Trend Line */}
+                            <path d={linePath} fill="none" stroke="#2563eb" strokeWidth={2.5} strokeLinecap="round" />
+                            {points.map((pt: any, idx: number) => (
+                              <circle key={idx} cx={pt.x} cy={pt.y} r={4} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
+                            ))}
+                          </>
+                        );
+                      })()}
+                    </svg>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-secondary)", marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border)" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ width: 10, height: 10, background: "rgba(226, 59, 59, 0.4)", border: "1px solid var(--primary)", borderRadius: 2 }} />
+                        Planned Capital Renewal Outlay
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ width: 12, height: 2.5, background: "#2563eb" }} />
+                        Projected Asset Health Score (1–5)
+                      </span>
+                    </div>
+                  </div>
+
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                     <thead>
                       <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
@@ -534,15 +642,163 @@ export function AssetsView({
         </div>
       )}
 
-      {/* Bulk Asset CSV Upload Modal */}
-      {showBulkModal && (
-        <BulkAssetUploaderModal
-          organizationId={organizationId}
-          onClose={() => setShowBulkModal(false)}
-          onSuccess={() => {
-            if (reload) reload();
+      {/* Floating Batch Action Bar */}
+      {selectedIds.size > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#0f172a",
+            color: "#fff",
+            padding: "10px 20px",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.3)",
+            zIndex: 900,
           }}
-        />
+        >
+          <span style={{ fontSize: 13, fontWeight: 700 }}>
+            🏷️ <strong>{selectedIds.size}</strong> assets selected
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setShowQrModal(true)}
+              style={{
+                background: "#2563eb",
+                color: "#fff",
+                border: 0,
+                padding: "6px 14px",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              🖨️ Print Batch QR Labels ({selectedIds.size})
+            </button>
+            <button
+              onClick={() => {
+                const sel = displayRows.filter((r) => selectedIds.has(String(r.id)));
+                exportCsv(sel, "selected-assets.csv");
+              }}
+              style={{
+                background: "rgba(255,255,255,0.15)",
+                color: "#fff",
+                border: 0,
+                padding: "6px 12px",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              ↓ Export Selected CSV
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              style={{
+                background: "none",
+                color: "#94a3b8",
+                border: 0,
+                padding: "6px 8px",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Batch QR Code Printable Sheet Modal */}
+      {showQrModal && (
+        <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div style={{ background: "#ffffff", color: "#111827", width: "100%", maxWidth: 840, borderRadius: 12, padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "#0f172a" }}>
+                  🖨️ Batch Asset QR Code Tag Sheet (Avery / Label Print Ready)
+                </h2>
+                <small style={{ color: "#64748b", fontSize: "0.8rem" }}>
+                  Generating {selectedIds.size} tags · Formatted with high-contrast QR scan targets for mobile maintenance
+                </small>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => window.print()}
+                  style={{ background: "#2563eb", color: "#fff", border: 0, padding: "8px 16px", borderRadius: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                >
+                  🖨️ Print Labels Now
+                </button>
+                <button
+                  onClick={() => setShowQrModal(false)}
+                  style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Sticker Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
+              {displayRows
+                .filter((r) => selectedIds.has(String(r.id)))
+                .map((asset) => (
+                  <div
+                    key={String(asset.id)}
+                    style={{
+                      border: "2px dashed #94a3b8",
+                      borderRadius: 8,
+                      padding: 12,
+                      background: "#f8fafc",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "#64748b" }}>
+                        CENTER ESTATES FM
+                      </span>
+                      <span style={{ background: "#0f172a", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
+                        {String(asset.code)}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      {/* Stylized QR Matrix simulation */}
+                      <div style={{ width: 68, height: 68, background: "#000", padding: 4, borderRadius: 4, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 2, flexShrink: 0 }}>
+                        {Array.from({ length: 25 }).map((_, i) => (
+                          <div key={i} style={{ background: i % 2 === 0 || i % 3 === 0 ? "#fff" : "#000", borderRadius: 1 }} />
+                        ))}
+                      </div>
+
+                      <div style={{ fontSize: 11 }}>
+                        <strong style={{ display: "block", color: "#0f172a", fontSize: 12, lineHeight: 1.2 }}>
+                          {String(asset.name)}
+                        </strong>
+                        <div style={{ color: "#64748b", marginTop: 2 }}>{String(asset.building_name ?? "Tower A")}</div>
+                        <small style={{ color: "#2563eb", fontWeight: 700 }}>Scan for Ticket / SOP</small>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: 9, color: "#94a3b8", textAlign: "center", borderTop: "1px solid #e2e8f0", paddingTop: 4 }}>
+                      Serial: {String(asset.serial_number ?? "AST-KE-2026")}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

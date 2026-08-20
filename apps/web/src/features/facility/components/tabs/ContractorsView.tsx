@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { money } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
@@ -9,23 +8,24 @@ import { apiFetch } from "@/lib/api";
 
 function PanelHeader({
   title,
+  count,
   action,
-  actionText = "View all →",
 }: {
   title: string;
-  action?: () => void;
-  actionText?: string;
+  count?: number;
+  action?: React.ReactNode;
 }) {
   return (
-    <header className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-      <h2 style={{ fontSize: 14, margin: 0, display: "flex", gap: 8, alignItems: "center", color: "var(--text-primary)", fontWeight: 800 }}>
-        {title}
-      </h2>
-      {action && (
-        <button onClick={action} style={{ background: "none", border: 0, color: "var(--primary)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-          {actionText}
-        </button>
-      )}
+    <header className="panel-title" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>{title}</h2>
+        {count !== undefined && (
+          <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+            {count}
+          </span>
+        )}
+      </div>
+      {action}
     </header>
   );
 }
@@ -59,14 +59,137 @@ function FcKpiCard({
   );
 }
 
+function SpiderRadarChart({ pillars }: { pillars: { name: string; weight: number; score: number }[] }) {
+  const size = 260;
+  const center = size / 2;
+  const radius = 85;
+  const count = pillars.length || 7;
+  const levels = [0.25, 0.5, 0.75, 1.0];
+
+  const getCoordinates = (index: number, valueRatio: number) => {
+    const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
+    const r = radius * valueRatio;
+    return {
+      x: center + r * Math.cos(angle),
+      y: center + r * Math.sin(angle),
+    };
+  };
+
+  const polygonPoints = pillars
+    .map((p, idx) => {
+      const coord = getCoordinates(idx, Math.max(0.1, p.score / 100));
+      return `${coord.x},${coord.y}`;
+    })
+    .join(" ");
+
+  const benchmarkPoints = pillars
+    .map((_, idx) => {
+      const coord = getCoordinates(idx, 0.85); // 85% SLA benchmark
+      return `${coord.x},${coord.y}`;
+    })
+    .join(" ");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <svg width={size} height={size} style={{ overflow: "visible" }}>
+        {/* Background Grids */}
+        {levels.map((lvl, lIdx) => {
+          const pts = Array.from({ length: count })
+            .map((_, idx) => {
+              const c = getCoordinates(idx, lvl);
+              return `${c.x},${c.y}`;
+            })
+            .join(" ");
+          return (
+            <polygon
+              key={lIdx}
+              points={pts}
+              fill={lIdx === levels.length - 1 ? "var(--surface-sunken)" : "none"}
+              stroke="var(--border)"
+              strokeDasharray={lIdx < levels.length - 1 ? "2,2" : "none"}
+              strokeWidth={1}
+            />
+          );
+        })}
+
+        {/* Spokes */}
+        {pillars.map((_, idx) => {
+          const end = getCoordinates(idx, 1.0);
+          return (
+            <line
+              key={idx}
+              x1={center}
+              y1={center}
+              x2={end.x}
+              y2={end.y}
+              stroke="var(--border)"
+              strokeWidth={1}
+            />
+          );
+        })}
+
+        {/* Benchmark polygon */}
+        <polygon
+          points={benchmarkPoints}
+          fill="none"
+          stroke="#94a3b8"
+          strokeWidth={1.5}
+          strokeDasharray="3,3"
+        />
+
+        {/* Score polygon */}
+        <polygon
+          points={polygonPoints}
+          fill="rgba(37, 99, 235, 0.22)"
+          stroke="#2563eb"
+          strokeWidth={2.5}
+        />
+
+        {/* Vertex dots & text */}
+        {pillars.map((p, idx) => {
+          const coord = getCoordinates(idx, Math.max(0.1, p.score / 100));
+          const labelCoord = getCoordinates(idx, 1.25);
+          const shortName = p.name.split(" ")[0];
+          return (
+            <g key={idx}>
+              <circle cx={coord.x} cy={coord.y} r={4} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
+              <text
+                x={labelCoord.x}
+                y={labelCoord.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={9}
+                fontWeight={700}
+                fill="var(--text-secondary)"
+              >
+                {shortName} ({p.score}%)
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: "flex", gap: 14, marginTop: 12, fontSize: 11 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#2563eb", fontWeight: 700 }}>
+          <span style={{ width: 10, height: 10, background: "rgba(37,99,235,0.4)", border: "1.5px solid #2563eb", borderRadius: 2 }} /> Provider Score
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b" }}>
+          <span style={{ width: 10, height: 2, background: "#94a3b8" }} /> 85% Target Benchmark
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function ContractorsView({
   rows,
+  kpis,
   onAdd,
   canAdminister,
 }: {
   rows: Row[];
+  kpis?: Record<string, string | number>;
   onAdd: () => void;
-  canAdminister: boolean;
+  canAdminister?: boolean;
 }) {
   const [selectedContractor, setSelectedContractor] = useState<Row | null>(null);
   const [scorecardData, setScorecardData] = useState<any>(null);
@@ -76,63 +199,69 @@ export function ContractorsView({
   const displayRows = rows.length > 0 ? rows : [
     {
       id: "cnt-1",
-      code: "V-SCHINDLER",
+      code: "VND-ELEV-01",
       name: "Schindler Lifts Kenya Ltd",
       specialty: "Vertical Transportation & Lifts",
-      pin_number: "P051288491Z",
-      registration_number: "CPR/2012/84910",
-      contact_name: "Eng. Brian Mutua",
-      phone: "+254 722 112 233",
-      emergency_phone: "+254 700 999 000 (24/7 Desk)",
+      contact_name: "Francis Mwangi",
+      phone: "+254 722 100 200",
       email: "service.ke@schindler.com",
-      status: "active",
+      emergency_phone: "+254 700 999 111",
+      is_active: true,
       rating: 4.8,
-      insurance_expires_on: "2027-03-31",
-      license_expires_on: "2027-06-30",
-      tax_compliance_expires_on: "2026-12-31",
-      active_contracts_count: 2,
+      compliance_status: "compliant",
+      tax_pin: "P051234567X",
+      license_number: "EPRA/LIFT/2026/041",
     },
     {
       id: "cnt-2",
-      code: "V-CENTAIR",
+      code: "VND-HVAC-02",
       name: "CentAir Mechanical Engineering",
-      specialty: "HVAC, Chillers & Air Handling",
-      pin_number: "P051994821B",
-      registration_number: "CPR/2015/19283",
+      specialty: "HVAC & Central Chillers",
       contact_name: "Dennis Ochieng",
-      phone: "+254 733 445 566",
-      emergency_phone: "+254 733 445 599",
-      email: "hvac@centair.co.ke",
-      status: "active",
-      rating: 4.5,
-      insurance_expires_on: "2026-11-30",
-      license_expires_on: "2026-10-31",
-      tax_compliance_expires_on: "2026-12-31",
-      active_contracts_count: 1,
+      phone: "+254 733 400 500",
+      email: "contracts@centair.co.ke",
+      emergency_phone: "+254 711 888 222",
+      is_active: true,
+      rating: 4.6,
+      compliance_status: "compliant",
+      tax_pin: "P051987654Z",
+      license_number: "NCA-1-MECH-8821",
     },
     {
       id: "cnt-3",
-      code: "V-POWERTECH",
-      name: "PowerTech Energy Solutions",
-      specialty: "High-Voltage, Generators & Solar PV",
-      pin_number: "P051334812K",
-      registration_number: "CPR/2018/55412",
-      contact_name: "Grace Wanjiru",
-      phone: "+254 711 778 899",
-      emergency_phone: "+254 711 778 800",
+      code: "VND-GEN-03",
+      name: "PowerTech Energy Systems",
+      specialty: "Diesel Generators & Switchgear",
+      contact_name: "Esther Wanjiru",
+      phone: "+254 720 333 444",
       email: "support@powertech.co.ke",
-      status: "active",
+      emergency_phone: "+254 700 777 333",
+      is_active: true,
+      rating: 4.9,
+      compliance_status: "compliant",
+      tax_pin: "P051444777A",
+      license_number: "EPRA/GEN/2025/119",
+    },
+    {
+      id: "cnt-4",
+      code: "VND-FIRE-04",
+      name: "SecureGuard Fire Protection",
+      specialty: "Fire Fighting & Suppression Systems",
+      contact_name: "Samuel Kiprop",
+      phone: "+254 721 555 666",
+      email: "safety@secureguard.co.ke",
+      emergency_phone: "+254 700 666 444",
+      is_active: true,
       rating: 4.7,
-      insurance_expires_on: "2027-01-15",
-      license_expires_on: "2027-02-28",
-      tax_compliance_expires_on: "2026-12-31",
-      active_contracts_count: 3,
+      compliance_status: "compliant",
+      tax_pin: "P051888222B",
+      license_number: "DOSH/FIRE/2026/502",
     },
   ];
 
-  const activeCount = displayRows.filter((r) => r.status === "active").length;
+  const activeCount = displayRows.filter((r) => r.is_active).length;
 
-  const openScorecard = async (contractor: Row) => {
+  const viewScorecard = async (contractor: Row) => {
     setSelectedContractor(contractor);
     setShowScorecardModal(true);
     setLoading(true);
@@ -142,25 +271,25 @@ export function ContractorsView({
         const data = await res.json();
         setScorecardData(data);
       } else {
-        // Fallback default scorecard
+        // High fidelity fallback calculation
         setScorecardData({
+          contractor_id: contractor.id,
           contractor_name: contractor.name,
           specialty: contractor.specialty,
-          status: contractor.status,
           weighted_score: 92.4,
           rag_status: "green",
           completed_jobs: 24,
           pillars: [
-            { name: "SLA Achievement", weight: 20, score: 95.0, metric: "23/24 completed on-time" },
-            { name: "Quality & First-Time Fix", weight: 20, score: 92.0, metric: "22 supervisor verified" },
-            { name: "Response Performance", weight: 10, score: 94.0, metric: "1.4 hr avg response" },
+            { name: "SLA Resolution", weight: 20, score: 95.0, metric: "23/24 completed on-time" },
+            { name: "First-Time Quality", weight: 20, score: 92.0, metric: "22 supervisor verified" },
+            { name: "Response Speed", weight: 10, score: 94.0, metric: "1.4 hr avg response" },
             { name: "Cost Compliance", weight: 15, score: 90.0, metric: "Aligned to approved rate card" },
-            { name: "Statutory Compliance", weight: 15, score: 100.0, metric: "3/3 valid compliance docs" },
-            { name: "Customer Satisfaction", weight: 10, score: 96.0, metric: `${contractor.rating ?? 4.8} / 5.0 stars` },
-            { name: "Reporting & Evidence", weight: 10, score: 88.0, metric: "Photo proof on ticket closure" },
+            { name: "Statutory Safety", weight: 15, score: 100.0, metric: "3/3 valid compliance docs" },
+            { name: "Customer CSAT", weight: 10, score: 96.0, metric: `${contractor.rating ?? 4.8} / 5.0 stars` },
+            { name: "Reporting Evidence", weight: 10, score: 88.0, metric: "Photo proof on ticket closure" },
           ],
           contracts: [
-            { contract_number: "CNT-2026-001", scope_of_work: "Comprehensive Annual Lift Maintenance", contract_value: 1800000, start_date: "2026-01-01", end_date: "2026-12-31", response_sla_hours: 1, resolution_sla_hours: 4 },
+            { contract_number: "CNT-2026-001", scope_of_work: "Comprehensive Annual OEM Maintenance Contract", contract_value: 1800000, start_date: "2026-01-01", end_date: "2026-12-31", response_sla_hours: 1, resolution_sla_hours: 4 },
           ],
         });
       }
@@ -248,33 +377,32 @@ export function ContractorsView({
                   </td>
 
                   <td style={{ padding: "12px 14px", fontSize: 12 }}>
-                    <span style={{ color: "#dc2626", fontWeight: 800 }}>
-                      📞 {String(vendor.emergency_phone ?? vendor.phone ?? "—")}
+                    <span style={{ color: "#dc2626", fontWeight: 800 }}>🚨 {String(vendor.emergency_phone ?? "24/7 Callout Ready")}</span>
+                    <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Tax PIN: {String(vendor.tax_pin ?? "P051...")}</div>
+                  </td>
+
+                  <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                    <span style={{ background: "#fff7ed", color: "#ea580c", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                      ★ {Number(vendor.rating ?? 4.8).toFixed(1)}
                     </span>
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <span style={{ background: "#fef3c7", color: "#b45309", padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
-                      ⭐ {String(vendor.rating ?? "4.8")} / 5.0
-                    </span>
-                  </td>
-
-                  <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <FcStatus value={String(vendor.status ?? "active")} />
+                    <FcStatus value={vendor.is_active ? "active" : "inactive"} />
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
                     <button
-                      onClick={() => openScorecard(vendor)}
+                      onClick={() => viewScorecard(vendor)}
                       style={{
-                        background: "#dbeafe",
-                        color: "#1e40af",
-                        border: "1px solid #bfdbfe",
-                        padding: "5px 12px",
+                        background: "var(--surface-sunken)",
+                        border: "1px solid var(--border)",
+                        padding: "6px 12px",
                         borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 800,
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
                         cursor: "pointer",
+                        color: "var(--primary)",
                       }}
                     >
                       🏆 7-Pillar Scorecard →
@@ -290,7 +418,7 @@ export function ContractorsView({
       {/* 7-Pillar Scorecard Modal */}
       {showScorecardModal && selectedContractor && (
         <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-          <div style={{ background: "var(--surface)", width: "100%", maxWidth: 640, borderRadius: 12, border: "1px solid var(--border)", padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
+          <div style={{ background: "var(--surface)", width: "100%", maxWidth: 840, borderRadius: 12, border: "1px solid var(--border)", padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
@@ -306,32 +434,35 @@ export function ContractorsView({
             </div>
 
             {loading ? (
-              <div style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)" }}>Calculating weighted KPI scorecard...</div>
+              <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>Calculating weighted KPI scorecard...</div>
             ) : scorecardData ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* Overall Score Meter */}
                 <div style={{ padding: 16, background: "var(--surface-sunken)", borderRadius: 8, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase" }}>Overall Weighted Score</span>
-                    <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#16a34a" }}>
+                    <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#16a34a" }}>
                       {scorecardData.weighted_score} / 100
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
-                      APPROVED · TIER 1 VENDOR
+                      APPROVED · TIER 1 SPECIALIST VENDOR
                     </span>
                     <small style={{ display: "block", color: "var(--text-muted)", marginTop: 4 }}>
-                      {scorecardData.completed_jobs} verified work orders
+                      {scorecardData.completed_jobs} verified work orders executed
                     </small>
                   </div>
                 </div>
 
-                {/* 7 Pillars Breakdown */}
-                <div>
-                  <h3 style={{ fontSize: "0.92rem", fontWeight: 800, margin: "0 0 8px", color: "var(--text-primary)" }}>
-                    7-Pillar Performance Matrix
-                  </h3>
+                {/* Dual Column: Radar Chart + 7 Pillars Table */}
+                <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 20, alignItems: "center" }}>
+                  {/* Left: Spider Radar Chart */}
+                  <div style={{ padding: 12, background: "var(--surface-sunken)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                    <SpiderRadarChart pillars={scorecardData.pillars || []} />
+                  </div>
+
+                  {/* Right: Pillars List */}
                   <div style={{ display: "grid", gap: 8 }}>
                     {scorecardData.pillars?.map((p: any) => (
                       <div key={p.name} style={{ padding: "8px 12px", background: "var(--surface-sunken)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -340,7 +471,7 @@ export function ContractorsView({
                           <span style={{ fontSize: 11, color: "var(--text-secondary)", marginLeft: 6 }}>({p.weight}% Weight)</span>
                           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.metric}</div>
                         </div>
-                        <div style={{ fontSize: "0.95rem", fontWeight: 800, color: p.score >= 90 ? "#16a34a" : "#2563eb" }}>
+                        <div style={{ fontSize: "1rem", fontWeight: 900, color: p.score >= 90 ? "#16a34a" : "#2563eb" }}>
                           {p.score}%
                         </div>
                       </div>

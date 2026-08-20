@@ -405,6 +405,46 @@ export function ReportsView({
                     </div>
                   </div>
                 </div>
+
+                {/* Dual Executive Signature Sign-Off Block */}
+                <div style={{ marginTop: 24, paddingTop: 18, borderTop: "2px solid #e5e7eb" }}>
+                  <h4 style={{ fontSize: "0.88rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#374151", margin: "0 0 16px" }}>
+                    Executive Sign-Off & Statutory Acceptance
+                  </h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+                    {/* FM Lead Signature */}
+                    <div style={{ border: "1px dashed #cbd5e1", borderRadius: 8, padding: 16, background: "#f8fafc" }}>
+                      <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+                        Prepared By (Facilities Manager)
+                      </div>
+                      <div style={{ margin: "20px 0 8px", borderBottom: "1px solid #0f172a", height: 28, display: "flex", alignItems: "flex-end" }}>
+                        <span style={{ fontFamily: "cursive", fontSize: 18, color: "#1e3a8a" }}>Eng. Samuel Mbuguah, Reg. Eng</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#64748b" }}>
+                        <span>Head of Facilities & Engineering</span>
+                        <span>Date: {new Date().toLocaleDateString("en-GB")}</span>
+                      </div>
+                    </div>
+
+                    {/* Landlord / Asset Owner Sign-Off */}
+                    <div style={{ border: "1px dashed #cbd5e1", borderRadius: 8, padding: 16, background: "#f8fafc" }}>
+                      <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+                        Approved & Certified By (Property Owner / Client)
+                      </div>
+                      <div style={{ margin: "20px 0 8px", borderBottom: "1px solid #0f172a", height: 28, display: "flex", alignItems: "flex-end" }}>
+                        <span style={{ fontFamily: "cursive", fontSize: 18, color: "#047857" }}>Authorized Signatory</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#64748b" }}>
+                        <span>Board of Trustees / Managing Agent</span>
+                        <span>Official Stamp / Seal</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 16, padding: "8px 12px", background: "#f1f5f9", borderRadius: 6, fontSize: 10, color: "#64748b", textAlign: "center" }}>
+                    CONFIDENTIAL · Issued under Center Estates Facilities Management System · In compliance with Kenyan Building Codes (KPMR 2020) & DOSH Workplace Safety Regulations
+                  </div>
+                </div>
               </div>
             )}
 

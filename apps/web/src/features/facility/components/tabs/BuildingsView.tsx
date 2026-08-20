@@ -1,30 +1,29 @@
 "use client";
 
 import React, { useState } from "react";
-import { money } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
-import { FcStatus, HealthBar } from "../FacilityToolbar";
 
 function PanelHeader({
   title,
+  count,
   action,
-  actionText = "View all →",
 }: {
   title: string;
-  action?: () => void;
-  actionText?: string;
+  count?: number;
+  action?: React.ReactNode;
 }) {
   return (
-    <header className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-      <h2 style={{ fontSize: 14, margin: 0, display: "flex", gap: 8, alignItems: "center", color: "var(--text-primary)", fontWeight: 800 }}>
-        {title}
-      </h2>
-      {action && (
-        <button onClick={action} style={{ background: "none", border: 0, color: "var(--primary)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-          {actionText}
-        </button>
-      )}
+    <header className="panel-title" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>{title}</h2>
+        {count !== undefined && (
+          <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+            {count}
+          </span>
+        )}
+      </div>
+      {action}
     </header>
   );
 }
@@ -62,6 +61,8 @@ export function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Record<string
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | number>((rows[0]?.id as string | number) ?? "bld-1");
   const [selectedFloor, setSelectedFloor] = useState("Floor 2");
   const [selectedAreaType, setSelectedAreaType] = useState<"all" | "lettable" | "common" | "core">("all");
+  const [zoom, setZoom] = useState(1.0);
+  const [hoveredTag, setHoveredTag] = useState<any | null>(null);
 
   const buildings = rows.length > 0 ? rows : [
     { id: "bld-1", name: "Finance House", code: "BLD-001", lr_number: "LR 209/10842", year_built: 2018, floors: 12, gfa: 25000, common_area: 5000, lettable: 20000, occupied: 19600, location: "Nairobi CBD", operating_hours: "06:00 - 20:00 Mon-Sat", emergency_contact: "+254 700 123 456" },
@@ -113,24 +114,30 @@ export function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Record<string
       <div className="fc-kpi-strip">
         <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Gross Floor Area (GFA)" value={`${gfa.toLocaleString()} m²`} sub="Total measured envelope" />
         <FcKpiCard icon="🚪" iconBg="#dcfce7" iconColor="#16a34a" label="Lettable / Net Area" value={`${lettableArea.toLocaleString()} m²`} sub={`${lettableAreaPct}% of Gross Area`} />
-        <FcKpiCard icon="🌿" iconBg="#ffedd5" iconColor="#ea580c" label="Common & Service Area" value={`${commonArea.toLocaleString()} m²`} sub={`${commonAreaPct}% Common factor`} />
-        <FcKpiCard icon="▦" iconBg="#fdf4ff" iconColor="#9333ea" label="Occupancy Rate" value={`${occupancyPct}%`} sub={`${occupiedArea.toLocaleString()} m² occupied`} />
-        <FcKpiCard icon="📍" iconBg="#e0f2fe" iconColor="#0284c7" label="Floors & Levels" value={String(currentBuilding.floors ?? 12)} sub={String(currentBuilding.lr_number ?? "LR 209/10842")} />
+        <FcKpiCard icon="👥" iconBg="#fef3c7" iconColor="#d97706" label="Common Area %" value={`${commonAreaPct}%`} sub={`${commonArea.toLocaleString()} m² Circulation`} />
+        <FcKpiCard icon="📊" iconBg="#dbeafe" iconColor="#2563eb" label="Occupancy Rate" value={`${occupancyPct}%`} sub={`${occupiedArea.toLocaleString()} m² Leased`} />
+        <FcKpiCard icon="⚡" iconBg="#fdf4ff" iconColor="#9333ea" label="Building Efficiency" value="80.0%" sub="Lettable / GFA ratio" />
       </div>
 
-      {/* Building Identity Card + Area Computation Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
-        {/* Building Identity & Physical Specs */}
+      {/* Building Header Card & Specifications */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <article className="data-panel" style={{ padding: "18px 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--text-primary)" }}>
-              Building Identity & Operational Parameters
-            </h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <div>
+              <span style={{ fontSize: "0.75rem", background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>
+                {String(currentBuilding.code ?? "BLD-001")}
+              </span>
+              <h2 style={{ margin: "6px 0 2px", fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
+                {String(currentBuilding.name)}
+              </h2>
+              <small style={{ color: "var(--text-secondary)" }}>{String(currentBuilding.location ?? "Nairobi CBD")} · {String(currentBuilding.floors ?? 12)} Floors</small>
+            </div>
+
             <select
               value={String(selectedBuildingId)}
               onChange={(e) => setSelectedBuildingId(e.target.value)}
               style={{
-                padding: "4px 10px",
+                padding: "6px 12px",
                 borderRadius: 6,
                 border: "1px solid var(--border)",
                 background: "var(--surface)",
@@ -294,115 +301,215 @@ export function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Record<string
             }}
           />
 
-          {/* Scale Legend */}
+          {/* Scale Legend & Zoom Controls */}
           <div
             style={{
               position: "absolute",
               bottom: 12,
               left: 12,
-              background: "rgba(0,0,0,0.75)",
+              background: "rgba(15,23,42,0.85)",
+              backdropFilter: "blur(4px)",
               color: "#fff",
-              padding: "4px 10px",
-              borderRadius: 4,
-              fontSize: "0.72rem",
+              padding: "6px 12px",
+              borderRadius: 6,
+              fontSize: "0.75rem",
               fontWeight: 700,
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              zIndex: 10,
+              gap: 12,
+              zIndex: 20,
+              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
             }}
           >
             <div style={{ width: 50, height: 2, background: "#fff", position: "relative" }}>
               <span style={{ position: "absolute", top: -14, left: 16, fontSize: 10 }}>10m</span>
             </div>
-            <span>Scale Calibrated (1:200)</span>
+            <span>Calibrated Scale (1:200)</span>
           </div>
 
-          {/* Tagged Polygon Rooms */}
-          <div style={{ position: "relative", width: 720, height: 420 }}>
-            {filteredTags.map((tag) => (
-              <div
-                key={tag.id}
-                style={{
-                  position: "absolute",
-                  left: tag.x,
-                  top: tag.y,
-                  width: tag.w,
-                  height: tag.h,
-                  background: `${tag.color}22`,
-                  border: `2px solid ${tag.color}`,
-                  borderRadius: 6,
-                  padding: "8px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                }}
-                title={`${tag.room} · ${tag.area} m² · ${tag.tenant}`}
-              >
-                <div>
-                  <strong style={{ fontSize: "0.75rem", color: "var(--text-primary)", display: "block" }}>
-                    {tag.room}
-                  </strong>
-                  <small style={{ fontSize: "0.7rem", color: tag.color, fontWeight: 700 }}>
-                    {tag.tenant}
-                  </small>
+          {/* Zoom Buttons Overlay */}
+          <div
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              display: "flex",
+              gap: 4,
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              padding: 4,
+              borderRadius: 6,
+              zIndex: 20,
+              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+            }}
+          >
+            <button
+              onClick={() => setZoom((z) => Math.min(1.8, z + 0.15))}
+              style={{ background: "none", border: 0, padding: "4px 8px", cursor: "pointer", fontWeight: 900, fontSize: 13 }}
+              title="Zoom In"
+            >
+              ＋
+            </button>
+            <span style={{ fontSize: 11, fontWeight: 700, alignSelf: "center", minWidth: 36, textAlign: "center" }}>
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={() => setZoom((z) => Math.max(0.6, z - 0.15))}
+              style={{ background: "none", border: 0, padding: "4px 8px", cursor: "pointer", fontWeight: 900, fontSize: 13 }}
+              title="Zoom Out"
+            >
+              －
+            </button>
+            <button
+              onClick={() => setZoom(1.0)}
+              style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}
+              title="Reset View"
+            >
+              Reset
+            </button>
+          </div>
+
+          {/* Tagged Polygon Rooms with Scaled Transform */}
+          <div
+            style={{
+              position: "relative",
+              width: 720,
+              height: 420,
+              transform: `scale(${zoom})`,
+              transformOrigin: "center center",
+              transition: "transform 0.2s ease-out",
+            }}
+          >
+            {filteredTags.map((tag) => {
+              const isHovered = hoveredTag?.id === tag.id;
+              return (
+                <div
+                  key={tag.id}
+                  onMouseEnter={() => setHoveredTag(tag)}
+                  onMouseLeave={() => setHoveredTag(null)}
+                  style={{
+                    position: "absolute",
+                    left: tag.x,
+                    top: tag.y,
+                    width: tag.w,
+                    height: tag.h,
+                    background: isHovered ? `${tag.color}35` : `${tag.color}18`,
+                    border: `2px solid ${tag.color}`,
+                    borderRadius: 6,
+                    padding: "8px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    transform: isHovered ? "scale(1.02)" : "none",
+                    boxShadow: isHovered ? `0 8px 16px ${tag.color}40` : "0 2px 4px rgba(0,0,0,0.05)",
+                    zIndex: isHovered ? 15 : 1,
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: "0.78rem", color: "var(--text-primary)", display: "block" }}>
+                      {tag.room}
+                    </strong>
+                    <small style={{ fontSize: "0.72rem", color: tag.color, fontWeight: 700 }}>
+                      {tag.tenant}
+                    </small>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                    <span style={{ fontSize: "0.68rem", background: "var(--surface)", border: "1px solid var(--border)", padding: "1px 4px", borderRadius: 3, fontWeight: 700 }}>
+                      {tag.area} m²
+                    </span>
+                    <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
+                      {tag.type}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.7rem", fontWeight: 800 }}>
-                  <span style={{ background: tag.color, color: "#fff", padding: "1px 5px", borderRadius: 3 }}>
-                    {tag.area} m²
+              );
+            })}
+          </div>
+
+          {/* Floating Hover Details Card */}
+          {hoveredTag && (
+            <div
+              style={{
+                position: "absolute",
+                top: 16,
+                left: 16,
+                background: "var(--surface)",
+                border: `2px solid ${hoveredTag.color}`,
+                borderRadius: 8,
+                padding: "12px 14px",
+                width: 260,
+                boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2)",
+                zIndex: 30,
+                fontSize: 12,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <div>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)", display: "block" }}>
+                    {hoveredTag.room}
+                  </strong>
+                  <span style={{ color: hoveredTag.color, fontWeight: 800, fontSize: 11 }}>
+                    {hoveredTag.tenant}
                   </span>
-                  <span style={{ color: "var(--text-muted)", fontSize: 10 }}>{tag.status}</span>
+                </div>
+                <span style={{ background: `${hoveredTag.color}20`, color: hoveredTag.color, padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
+                  {hoveredTag.type}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, margin: "8px 0", padding: "6px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", fontSize: 11 }}>
+                <div>
+                  <span style={{ color: "var(--text-secondary)" }}>Area:</span>
+                  <strong style={{ display: "block" }}>{hoveredTag.area} m² ({(hoveredTag.area * 10.764).toFixed(0)} sq.ft)</strong>
+                </div>
+                <div>
+                  <span style={{ color: "var(--text-secondary)" }}>Open Tickets:</span>
+                  <strong style={{ display: "#16a34a", fontWeight: 700 }}>0 active</strong>
                 </div>
               </div>
-            ))}
-          </div>
+
+              <small style={{ color: "var(--text-muted)", display: "block" }}>
+                Click polygon to view tenancy agreement & lease history
+              </small>
+            </div>
+          )}
         </div>
       </article>
 
       {/* Floor-by-Floor Area Breakdown Table */}
       <article className="data-panel">
-        <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
-            Floor-by-Floor Area Schedule & Occupancy Breakdown
-          </h2>
-          <button className="fc-toolbar-btn" onClick={() => exportCsv(floorBreakdown, "floor-area-schedule.csv")}>
-            ↓ Export Area Schedule
-          </button>
-        </header>
+        <PanelHeader title={`Floor-by-Floor Area Schedule (${String(currentBuilding.name)})`} />
         <div style={{ overflowX: "auto" }}>
           <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
                 <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>FLOOR LEVEL</th>
                 <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>PRIMARY USE</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>GROSS (GFA)</th>
+                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>GROSS AREA (GFA)</th>
                 <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>COMMON AREA</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>NET LETTABLE</th>
+                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>LETTABLE AREA</th>
                 <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>OCCUPIED</th>
                 <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>OCCUPANCY %</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>UNITS</th>
               </tr>
             </thead>
             <tbody>
               {floorBreakdown.map((fl) => {
-                const occ = fl.lettable > 0 ? Math.round((fl.occupied / fl.lettable) * 100) : 100;
+                const flOcc = fl.lettable > 0 ? ((fl.occupied / fl.lettable) * 100).toFixed(0) : "—";
                 return (
                   <tr key={fl.floor} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: 800, fontSize: 13, color: "var(--text-primary)" }}>{fl.floor}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{fl.use}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 700 }}>{fl.gfa.toLocaleString()} m²</td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "var(--text-secondary)" }}>{fl.common.toLocaleString()} m²</td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#16a34a", fontWeight: 800 }}>{fl.lettable.toLocaleString()} m²</td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12 }}>{fl.occupied.toLocaleString()} m²</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                      <span style={{ background: occ >= 90 ? "#dcfce7" : "#fef3c7", color: occ >= 90 ? "#166534" : "#92400e", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
-                        {occ}%
+                    <td style={{ padding: "10px 14px", fontWeight: 700 }}>{fl.floor}</td>
+                    <td style={{ padding: "10px 14px", color: "var(--text-secondary)", fontSize: 12 }}>{fl.use}</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right" }}>{fl.gfa} m²</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>{fl.common} m²</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", fontWeight: 700 }}>{fl.lettable} m²</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: "#16a34a" }}>{fl.occupied} m²</td>
+                    <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                      <span style={{ background: flOcc === "100" ? "#dcfce7" : flOcc === "—" ? "var(--surface-sunken)" : "#dbeafe", color: flOcc === "100" ? "#166534" : flOcc === "—" ? "var(--text-muted)" : "#1e40af", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
+                        {flOcc === "—" ? "N/A" : `${flOcc}%`}
                       </span>
                     </td>
-                    <td style={{ padding: "12px 14px", textAlign: "center", fontWeight: 700, fontSize: 12 }}>{fl.units}</td>
                   </tr>
                 );
               })}
