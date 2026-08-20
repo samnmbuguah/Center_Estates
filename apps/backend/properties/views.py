@@ -1031,6 +1031,81 @@ class LeaseViewSet(OrganizationModelViewSet):
     search_fields = ('reference', 'tenant__name', 'unit__code')
 
     @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk-update')
+    def bulk_update(self, request):
+        organization = get_active_organization(request)
+        lease_ids = request.data.get('lease_ids') or []
+        property_id = request.data.get('property_id')
+
+        leases = Lease.objects.filter(organization=organization)
+        if lease_ids:
+            leases = leases.filter(id__in=lease_ids)
+        elif property_id:
+            leases = leases.filter(unit__property_id=property_id)
+        else:
+            raise ValidationError({'lease_ids': 'Select at least one lease or specify a property.'})
+
+        updated_count = 0
+        escalation_percent = request.data.get('escalation_percent')
+        escalation_interval_months = request.data.get('escalation_interval_months')
+        service_charge_rate_per_sqft = request.data.get('service_charge_rate_per_sqft')
+        billing_day = request.data.get('billing_day')
+        target_status = request.data.get('status')
+
+        for lease in leases:
+            dirty = False
+            metadata = dict(lease.metadata or {})
+
+            if escalation_percent is not None and str(escalation_percent).strip() != '':
+                try:
+                    lease.escalation_percent = Decimal(str(escalation_percent))
+                    dirty = True
+                except Exception:
+                    pass
+
+            if escalation_interval_months is not None and str(escalation_interval_months).strip() != '':
+                try:
+                    lease.escalation_interval_months = int(escalation_interval_months)
+                    dirty = True
+                except Exception:
+                    pass
+
+            if billing_day is not None and str(billing_day).strip() != '':
+                try:
+                    lease.billing_day = int(billing_day)
+                    dirty = True
+                except Exception:
+                    pass
+
+            if service_charge_rate_per_sqft is not None and str(service_charge_rate_per_sqft).strip() != '':
+                try:
+                    sc_rate = Decimal(str(service_charge_rate_per_sqft))
+                    unit_area = Decimal(str(lease.unit.area or 0))
+                    monthly_sc = (unit_area * sc_rate).quantize(Decimal('0.01'))
+                    metadata['service_charge_rate_per_sqft'] = str(sc_rate)
+                    metadata['monthly_service_charge_excl_vat'] = str(monthly_sc)
+                    lease.metadata = metadata
+                    dirty = True
+                except Exception:
+                    pass
+
+            if target_status == 'active' and lease.status == Lease.Status.DRAFT:
+                lease.status = Lease.Status.ACTIVE
+                lease.unit.status = Unit.Status.OCCUPIED
+                lease.unit.save(update_fields=('status', 'updated_at'))
+                if lease.tenant.status == Tenant.Status.PROSPECT:
+                    lease.tenant.status = Tenant.Status.ACTIVE
+                    lease.tenant.save(update_fields=('status', 'updated_at'))
+                dirty = True
+
+            if dirty:
+                lease.save()
+                generate_rent_schedule(lease)
+                updated_count += 1
+
+        return Response({'updated_count': updated_count, 'message': f'Successfully updated {updated_count} leases.'})
+
+    @transaction.atomic
     @action(detail=True, methods=('post',))
     def activate(self, request, pk=None):
         lease = Lease.objects.select_for_update().get(pk=self.get_object().pk)
