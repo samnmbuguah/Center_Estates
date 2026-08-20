@@ -151,11 +151,22 @@ class PaymentGatewayConfigurationSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        provider = attrs.get('provider', getattr(self.instance, 'provider', ''))
         enabled = attrs.get('is_enabled', getattr(self.instance, 'is_enabled', False))
         checkout = attrs.get('checkout_url_template', getattr(self.instance, 'checkout_url_template', ''))
         secret_env = attrs.get('webhook_secret_env', getattr(self.instance, 'webhook_secret_env', ''))
-        if enabled and (not checkout or not secret_env):
-            raise serializers.ValidationError('Enabled gateways require a checkout URL template and webhook secret environment key.')
+        # STK Push (M-Pesa) uses a callback URL derived from public_key — no checkout URL or webhook secret needed.
+        # Redirect-based gateways (eCitizen, bank redirect, etc.) do require both.
+        is_stk_provider = provider == 'mpesa'
+        if enabled and not is_stk_provider and (not checkout or not secret_env):
+            raise serializers.ValidationError('Enabled redirect gateways require a checkout URL template and webhook secret environment key.')
+        if enabled and is_stk_provider:
+            stk_settings = attrs.get('settings', getattr(self.instance, 'settings', {})) or {}
+            missing = [k for k in ('consumer_key', 'consumer_secret', 'shortcode', 'passkey') if not stk_settings.get(k)]
+            if missing:
+                raise serializers.ValidationError(
+                    f'M-Pesa STK Push gateway requires: {", ".join(missing)}.'
+                )
         return attrs
 
 

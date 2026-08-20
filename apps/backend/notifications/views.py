@@ -24,7 +24,9 @@ class NotificationViewSet(ReadOnlyModelViewSet):
 
 
     def get_queryset(self):
-        organization = get_active_organization(self.request)
+        organization = get_active_organization(self.request, required=False)
+        if not organization:
+            return Notification.objects.none()
         queryset = Notification.objects.for_organization(organization).filter(recipient=self.request.user)
         if self.request.query_params.get('unread') in ('1', 'true'):
             queryset = queryset.filter(read_at__isnull=True)

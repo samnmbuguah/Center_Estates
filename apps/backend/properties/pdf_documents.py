@@ -82,9 +82,10 @@ def amount_in_words(value) -> str:
 def _branding(organization):
     settings = organization.settings or {}
     branding = settings.get("branding") if isinstance(settings.get("branding"), dict) else {}
+    org_name = branding.get("company_name") or settings.get("company_name") or getattr(organization, "company_name", None) or organization.name
     return {
-        "name": branding.get("company_name") or settings.get("company_name") or organization.name,
-        "address": branding.get("address") or settings.get("address") or "Center Estates Property Management",
+        "name": org_name,
+        "address": branding.get("address") or settings.get("address") or f"{org_name} Property Management",
         "phone": branding.get("phone") or settings.get("phone") or "",
         "email": branding.get("email") or settings.get("email") or "",
         "pin": branding.get("tax_pin") or settings.get("tax_pin") or settings.get("pin") or "",
@@ -158,7 +159,7 @@ def _doc_response(
         canvas.setFillColor(RED); canvas.rect(14 * mm, header_bottom + 3 * mm, width - 28 * mm, 1.2 * mm, fill=1, stroke=0)
         canvas.setStrokeColor(LINE); canvas.line(14 * mm, 12 * mm, width - 14 * mm, 12 * mm)
         canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 7.5)
-        footer_text = f"Generated securely by Center Estates ERP  ·  Prepared by: {generated_by}  ·  Generated: {generated_at:%d %b %Y, %H:%M %Z}"
+        footer_text = f"Generated securely by {brand['name']} ERP  ·  Prepared by: {generated_by}  ·  Generated: {generated_at:%d %b %Y, %H:%M %Z}"
         canvas.drawString(14 * mm, 7.5 * mm, footer_text)
         canvas.drawRightString(width - 14 * mm, 7.5 * mm, f"Page {doc.page}")
         canvas.restoreState()
@@ -250,7 +251,8 @@ def receipt_pdf(receipt: Receipt, generated_by="System"):
     story.extend([Spacer(1, 6 * mm), Paragraph("Amount received", s["Section"]), Table([[Paragraph(amount_in_words(receipt.amount), s["Small"]), Paragraph(f"<b>{_money(receipt.amount)}</b>", s["Right"])]], colWidths=[115 * mm, 57 * mm], style=[("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), .6, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 10), ("BOTTOMPADDING", (0, 0), (-1, -1), 10)]), Spacer(1, 6 * mm)])
     description = invoice.invoice_type.replace("_", " ").title() if invoice else "Unapplied payment"
     story.append(Table([["ACCOUNT", "DESCRIPTION", "INVOICE", "AMOUNT"], [tenant.code, description, invoice.number if invoice else "—", _money(receipt.amount)]], colWidths=[38 * mm, 70 * mm, 35 * mm, 35 * mm], style=[("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), .4, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
-    story.extend([Spacer(1, 10 * mm), Paragraph(f"Served by: {receipt.received_by.get_full_name() or receipt.received_by.get_username()}", s["Small"]), Paragraph("This computer-generated receipt is valid without a physical stamp. Verify it from the Center Estates tenant ledger.", s["Tiny"])])
+    brand = _branding(receipt.organization)
+    story.extend([Spacer(1, 10 * mm), Paragraph(f"Served by: {receipt.received_by.get_full_name() or receipt.received_by.get_username()}", s["Small"]), Paragraph(f"This computer-generated receipt is valid without a physical stamp. Verify it from the {brand['name']} tenant ledger.", s["Tiny"])])
     return _doc_response(receipt.organization, f"receipt-{receipt.number}.pdf", story, title="Official Receipt", property_name=prop.name if prop else "Portfolio", period=f"Receipt date: {receipt.received_on:%d %b %Y}", generated_by=generated_by)
 
 

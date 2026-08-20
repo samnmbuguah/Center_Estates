@@ -5,10 +5,13 @@ import { Copy, Download, Plus, Printer, QrCode, X, Sparkles, Building2, MapPin }
 import { QRCodeSVG } from "qrcode.react";
 import { apiFetch } from "@/lib/api";
 
+import { useOrganizationBrand } from "@/lib/organization-branding";
+
 type Property = { id: string; name: string };
 type Code = { id: string; token: string; label: string; property_name: string; building_name?: string; floor: string; unit: string; active: boolean };
 
 export function FeedbackQrManager({ organizationId }: { organizationId: string | null }) {
+  const brand = useOrganizationBrand();
   const [properties, setProperties] = useState<Property[]>([]);
   const [codes, setCodes] = useState<Code[]>([]);
   const [property, setProperty] = useState("");
@@ -65,8 +68,8 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
       <div style={{ padding: 20, border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", display: "grid", gap: 14 }}>
         <div>
           <h3 style={{ margin: "0 0 4px", fontSize: "1.1rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-            <QrCode size={18} color="#dc2626" />
-            <span>Smart Helpdesk QR Code Generator</span>
+            <QrCode size={18} color={brand.primaryColor || "#dc2626"} />
+            <span>Smart Helpdesk QR Code Generator & Placard Printer</span>
           </h3>
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>
             Generate location-specific QR codes for lobbies, towers, floors, and tenant units. Cleaners, guards, tenants, and visitors can scan to instantly log requests without logging in.
@@ -84,7 +87,7 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <button className="btn primary" onClick={() => void createCode()} disabled={!property || !label.trim()} style={{ background: "#dc2626", borderColor: "#dc2626", fontWeight: 700 }}>
+          <button className="btn primary" onClick={() => void createCode()} disabled={!property || !label.trim()} style={{ background: brand.primaryColor || "#dc2626", borderColor: brand.primaryColor || "#dc2626", fontWeight: 700 }}>
             <Plus size={15} /> Generate Smart QR Code
           </button>
           {notice && <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>✓ {notice}</span>}
@@ -93,7 +96,13 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
 
       {/* Grid of Generated QR Codes */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-        {codes.map((code) => (
+        {codes.length === 0 ? (
+          <div style={{ gridColumn: "1 / -1", padding: "32px 20px", textAlign: "center", background: "var(--surface-sunken)", border: "1px dashed var(--border)", borderRadius: 12 }}>
+            <QrCode size={36} color="var(--muted)" style={{ margin: "0 auto 10px" }} />
+            <div style={{ fontWeight: 700, fontSize: 14 }}>No QR codes generated yet</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Select a property and location label above to generate your first printable QR helpdesk placard.</div>
+          </div>
+        ) : codes.map((code) => (
           <article
             key={code.id}
             style={{
@@ -119,12 +128,12 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
               </span>
             </div>
 
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
-              <button className="btn ghost sm" onClick={() => void navigator.clipboard.writeText(urlFor(code))} title="Copy public link">
-                <Copy size={12} /> Link
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+              <button className="btn ghost sm" onClick={() => void navigator.clipboard.writeText(urlFor(code))} title="Copy public link" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <Copy size={13} /> Copy Link
               </button>
-              <button className="btn ghost sm" onClick={() => setPrintTarget(code)} title="Print physical placard">
-                <Printer size={12} /> Placard
+              <button className="btn primary sm" onClick={() => setPrintTarget(code)} title="Print physical placard" style={{ display: "flex", alignItems: "center", gap: 4, background: "#0f172a", color: "#fff" }}>
+                <Printer size={13} /> Print Placard
               </button>
             </div>
           </article>
@@ -134,37 +143,37 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
       {/* PRINT PLACARD MODAL */}
       {printTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
-          <div style={{ background: "#ffffff", borderRadius: 16, maxWidth: 440, width: "100%", padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+          <div style={{ background: "#ffffff", borderRadius: 16, maxWidth: 460, width: "100%", padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <strong style={{ fontSize: 16 }}>Printable QR Placard</strong>
+              <strong style={{ fontSize: 16 }}>🖨️ Printable QR Helpdesk Placard</strong>
               <button style={{ background: "none", border: 0, cursor: "pointer" }} onClick={() => setPrintTarget(null)}>
                 <X size={18} />
               </button>
             </div>
 
             {/* Placard Preview */}
-            <div id="print-placard-area" style={{ border: "2px solid #0f172a", borderRadius: 12, padding: 24, textAlign: "center", background: "#fff", color: "#0f172a" }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "#dc2626", marginBottom: 4 }}>
-                Center Estates · Smart Helpdesk
+            <div id="print-placard-area" style={{ border: "3px solid #0f172a", borderRadius: 14, padding: "28px 24px", textAlign: "center", background: "#fff", color: "#0f172a" }}>
+              <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: brand.primaryColor || "#dc2626", marginBottom: 6 }}>
+                {brand.name} · Smart Helpdesk
               </div>
-              <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 2 }}>{printTarget.property_name}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginBottom: 14 }}>
+              <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>{printTarget.property_name}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#475569", marginBottom: 16 }}>
                 {printTarget.label}{printTarget.floor ? ` · Floor ${printTarget.floor}` : ""}{printTarget.unit ? ` · Unit ${printTarget.unit}` : ""}
               </div>
 
-              <div style={{ display: "inline-block", padding: 12, background: "#fff", border: "1.5px solid #cbd5e1", borderRadius: 12, marginBottom: 14 }}>
-                <QRCodeSVG value={urlFor(printTarget)} size={180} includeMargin level="H" />
+              <div style={{ display: "inline-block", padding: 14, background: "#fff", border: "2px solid #cbd5e1", borderRadius: 14, marginBottom: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                <QRCodeSVG value={urlFor(printTarget)} size={200} includeMargin level="H" />
               </div>
 
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", marginBottom: 6 }}>
                 📷 Scan with your camera to report an issue
               </div>
-              <div style={{ fontSize: 11, color: "#64748b" }}>
-                Plumbing · Electrical · Cleaning · Security · Facilities
+              <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+                Plumbing · Electrical · Cleaning · Security · Maintenance
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18 }}>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
               <button className="btn ghost" onClick={() => setPrintTarget(null)}>Close</button>
               <button
                 className="btn primary"
@@ -177,12 +186,13 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
                         <head>
                           <title>${printTarget.label} - QR Placard</title>
                           <style>
-                            body { font-family: system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+                            @page { size: auto; margin: 15mm; }
+                            body { font-family: system-ui, -apple-system, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; background: #fff; }
                             @media print { body { padding: 0; } }
                           </style>
                         </head>
                         <body>
-                          <div style="max-width: 400px; width: 100%; border: 3px solid #000; border-radius: 16px; padding: 32px; text-align: center;">
+                          <div style="max-width: 420px; width: 100%; border: 3px solid #000; border-radius: 16px; padding: 36px 28px; text-align: center;">
                             ${printContents}
                           </div>
                           <script>window.print(); setTimeout(() => window.close(), 1000);<\/script>
@@ -192,9 +202,9 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
                     printWindow.document.close();
                   }
                 }}
-                style={{ background: "#0f172a", color: "#fff", fontWeight: 700 }}
+                style={{ background: "#0f172a", color: "#fff", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
               >
-                <Printer size={15} /> Print Placard
+                <Printer size={16} /> Print Placard Now
               </button>
             </div>
           </div>

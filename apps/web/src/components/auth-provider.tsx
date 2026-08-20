@@ -147,12 +147,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiFetch("/auth/logout/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } }).catch(() => undefined);
     } finally {
       localStorage.removeItem("ce_organization");
+      localStorage.removeItem("ce_organization_brand");
       sessionStorage.removeItem(AUTH_FLAG_STORAGE_KEY);
       sessionStorage.removeItem(QM_LOGIN_BRIEF_STORAGE_KEY);
       sessionStorage.removeItem("ce_return_after_login");
       setSession(null);
       if (typeof window !== "undefined") {
-        window.location.replace("/login");
+        window.location.href = "/login";
       } else {
         router.replace("/login");
       }

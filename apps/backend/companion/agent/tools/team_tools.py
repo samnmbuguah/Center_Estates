@@ -32,13 +32,13 @@ def inspect_team_and_hr(organization_id: str) -> Dict[str, Any]:
         for leave in pending_leaves[:5]:
             staff_name = leave.requester.get_full_name() or leave.requester.username if leave.requester else 'Staff Member'
             relief_name = leave.relief_staff.get_full_name() if leave.relief_staff else 'None assigned'
-            days = leave.days_requested or 1
+            days = getattr(leave, 'total_days', getattr(leave, 'days_requested', 1)) or 1
 
             leave_items.append({
                 'leave_id': str(leave.id),
                 'staff_name': staff_name,
                 'leave_type': leave.leave_type,
-                'days_requested': days,
+                'days_requested': float(days) if hasattr(days, '__float__') else days,
                 'start_date': leave.start_date.isoformat() if leave.start_date else None,
                 'relief_staff': relief_name,
             })

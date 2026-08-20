@@ -428,16 +428,26 @@ class RefreshView(APIView):
         return response
 
 
-@method_decorator(csrf_protect, name='dispatch')
 class LogoutView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     @extend_schema(request=None, responses={204: None})
     def post(self, request):
         response = Response(status=204)
-        response.delete_cookie(settings.JWT_ACCESS_COOKIE, path='/api/v1/', domain='.centerestates.com')
-        response.delete_cookie(settings.JWT_REFRESH_COOKIE, path='/api/v1/auth/', domain='.centerestates.com')
-        response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/', domain='.centerestates.com')
+        cookie_domain = getattr(settings, 'SESSION_COOKIE_DOMAIN', None)
+        cookie_names = (
+            getattr(settings, 'JWT_ACCESS_COOKIE', 'ce_access'),
+            getattr(settings, 'JWT_REFRESH_COOKIE', 'ce_refresh'),
+            IMPERSONATOR_COOKIE,
+            'sessionid',
+            'csrftoken',
+        )
+        for path in ('/api/v1/', '/api/v1/auth/', '/'):
+            for name in cookie_names:
+                response.delete_cookie(name, path=path)
+                if cookie_domain:
+                    response.delete_cookie(name, path=path, domain=cookie_domain)
+                response.delete_cookie(name, path=path, domain='.centerestates.com')
         return response
 
 

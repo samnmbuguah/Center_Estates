@@ -91,7 +91,7 @@ export function OrganizationBrandingSync({ session, loading }: { session: Sessio
 }
 
 export function useOrganizationBrand(): OrganizationBrand {
-  const [brand, setBrand] = useState(DEFAULT_ORGANIZATION_BRAND);
+  const [brand, setBrand] = useState<OrganizationBrand>(() => readStoredOrganizationBrand());
   useEffect(() => {
     setBrand(readStoredOrganizationBrand());
     const update = (event: Event) => setBrand((event as CustomEvent<OrganizationBrand>).detail || readStoredOrganizationBrand());

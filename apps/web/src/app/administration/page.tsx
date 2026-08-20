@@ -25,6 +25,7 @@ import {
 import { RoleAccessManager } from "@/components/role-access-manager";
 import { FeedbackQrManager } from "@/components/feedback-qr-manager";
 import { Field, Modal, StatusPill, Badge, EmptyState, KpiCard, KpiStrip } from "@/components/module-ui";
+import { readStoredOrganizationBrand, DEFAULT_ORGANIZATION_BRAND, type OrganizationBrand } from "@/lib/organization-branding";
 
 type PropertyItem = { id: string; name: string; code: string };
 type RoleItem = { id: string; name: string; slug: string; description?: string };
@@ -45,7 +46,9 @@ type MemberItem = {
 
 type GatewayConfig = {
   id?: string;
+  public_key?: string;
   property: string;
+  property_name?: string;
   provider: string;
   display_name: string;
   is_enabled: boolean;
@@ -63,6 +66,8 @@ type GatewayConfig = {
     bank_account_number?: string;
   };
 };
+
+const SANDBOX_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
 
 const MODULE_DEFINITIONS = [
   { slug: "property", label: "Property Management", icon: "🏢", accent: "#0284c7", desc: "Properties, units, leases, rent collection & tenancy ledger" },
@@ -173,10 +178,12 @@ function AdministrationContent() {
 
   // M-Pesa STK Push Form fields
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
-  const [gateway, setGateway] = useState<GatewayConfig | null>(null);
+  const [gateways, setGateways] = useState<GatewayConfig[]>([]);
+  const [editingGateway, setEditingGateway] = useState<GatewayConfig | null>(null);
+  const [showGatewayForm, setShowGatewayForm] = useState(false);
   const [environment, setEnvironment] = useState("sandbox");
   const [shortcode, setShortcode] = useState("174379");
-  const [passkey, setPasskey] = useState("bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919");
+  const [passkey, setPasskey] = useState(SANDBOX_PASSKEY);
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
   const [bankName, setBankName] = useState("Cooperative Bank");
@@ -198,6 +205,12 @@ function AdministrationContent() {
   const [testEmailAddress, setTestEmailAddress] = useState("samnmbuguah@gmail.com");
   const [testingSmtp, setTestingSmtp] = useState(false);
   const [smtpTestResult, setSmtpTestResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Organization White-Label Branding
+  const [brandOrgName, setBrandOrgName] = useState(() => readStoredOrganizationBrand().name);
+  const [brandLogoUrl, setBrandLogoUrl] = useState(() => readStoredOrganizationBrand().logoUrl);
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState(() => readStoredOrganizationBrand().primaryColor);
+  const [savingBrand, setSavingBrand] = useState(false);
 
   function applySmtpPreset(provider: "cpanel" | "gmail" | "m365") {
     if (provider === "cpanel") {
@@ -264,41 +277,64 @@ function AdministrationContent() {
     }
   }, [organizationId, isSuperAdministrator]);
 
-  // 3. Load Gateway
+  // 3. Load Gateways
   const loadGateway = useCallback(async () => {
     if (!organizationId || !selectedPropertyId || (!isSuperAdministrator && !isFinanceAdmin)) return;
     try {
       const res = await apiFetch(`/property/payment-gateways/?property=${selectedPropertyId}`, {}, organizationId);
       if (res.ok) {
         const data = await res.json();
-        const list = (data.results || data) as GatewayConfig[];
-        const mpesa = list.find((g) => g.provider === "mpesa");
-        if (mpesa) {
-          setGateway(mpesa);
-          setEnvironment(mpesa.settings?.environment || "sandbox");
-          setShortcode(mpesa.settings?.shortcode || "174379");
-          setPasskey(mpesa.settings?.passkey || "");
-          setConsumerKey(mpesa.settings?.consumer_key || "");
-          setConsumerSecret(mpesa.settings?.consumer_secret || "");
-          setBankName(mpesa.settings?.bank_name || "Cooperative Bank");
-          setBankAccount(mpesa.settings?.bank_account_number || "");
-          setTillNumber(mpesa.settings?.till_number || "");
-        } else {
-          setGateway(null);
-          setEnvironment("sandbox");
-          setShortcode("174379");
-          setPasskey("bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919");
-          setConsumerKey("");
-          setConsumerSecret("");
-          setBankName("Cooperative Bank");
-          setBankAccount("01120001234500");
-          setTillNumber("");
-        }
+        const list = (Array.isArray(data) ? data : data.results || []) as GatewayConfig[];
+        setGateways(list);
       }
     } catch (err) {
       console.error("Failed to load gateway settings", err);
     }
   }, [organizationId, selectedPropertyId, isSuperAdministrator, isFinanceAdmin]);
+
+  function openAddGateway() {
+    setEditingGateway(null);
+    setEnvironment("sandbox");
+    setShortcode("174379");
+    setPasskey(SANDBOX_PASSKEY);
+    setConsumerKey("");
+    setConsumerSecret("");
+    setBankName("");
+    setBankAccount("");
+    setTillNumber("");
+    setShowGatewayForm(true);
+  }
+
+  function openEditGateway(g: GatewayConfig) {
+    setEditingGateway(g);
+    setEnvironment(g.settings?.environment || "sandbox");
+    setShortcode(g.settings?.shortcode || "174379");
+    setPasskey(g.settings?.passkey || "");
+    setConsumerKey(g.settings?.consumer_key || "");
+    setConsumerSecret(g.settings?.consumer_secret || "");
+    setBankName(g.settings?.bank_name || "");
+    setBankAccount(g.settings?.bank_account_number || "");
+    setTillNumber(g.settings?.till_number || "");
+    setShowGatewayForm(true);
+  }
+
+  async function handleDeleteGateway(g: GatewayConfig) {
+    if (!organizationId || !g.id) return;
+    if (!window.confirm(`Remove "${g.display_name}" from payment methods? This cannot be undone.`)) return;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(
+      `/property/payment-gateways/${g.id}/`,
+      { method: "DELETE", headers: { "X-CSRFToken": csrfFromCookie() } },
+      organizationId,
+    );
+    if (res.ok || res.status === 204) {
+      setNotice({ type: "success", text: `Payment gateway "${g.display_name}" removed.` });
+      await loadGateway();
+    } else {
+      const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+      setNotice({ type: "error", text: String(err.detail || "Failed to remove gateway.") });
+    }
+  }
 
   // 4. Load SMTP Configuration
   const loadSmtpConfig = useCallback(async () => {
@@ -385,6 +421,30 @@ function AdministrationContent() {
       setNotice({ type: "error", text: "Failed to save SMTP configuration. Check connection." });
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Save Organization Branding
+  async function handleSaveBranding(e: FormEvent) {
+    e.preventDefault();
+    setSavingBrand(true);
+    setNotice(null);
+    try {
+      const brand: OrganizationBrand = {
+        organizationId: organizationId || undefined,
+        name: brandOrgName.trim() || DEFAULT_ORGANIZATION_BRAND.name,
+        logoUrl: brandLogoUrl.trim() || DEFAULT_ORGANIZATION_BRAND.logoUrl,
+        primaryColor: brandPrimaryColor.trim() || DEFAULT_ORGANIZATION_BRAND.primaryColor,
+      };
+      localStorage.setItem("ce_organization_brand", JSON.stringify(brand));
+      document.documentElement.style.setProperty("--organization-primary", brand.primaryColor);
+      document.title = `${brand.name} ERP`;
+      window.dispatchEvent(new CustomEvent("ce:organization-brand-changed", { detail: brand }));
+      setNotice({ type: "success", text: `Organization branding for "${brand.name}" updated and applied live!` });
+    } catch {
+      setNotice({ type: "error", text: "Failed to update branding settings." });
+    } finally {
+      setSavingBrand(false);
     }
   }
 
@@ -605,34 +665,36 @@ function AdministrationContent() {
     }
   }
 
-  // Save M-Pesa Gateway Settings
+  // Save M-Pesa Gateway Settings (create or update)
   async function handleSaveMpesa(e: FormEvent) {
     e.preventDefault();
     if (!organizationId || !selectedPropertyId) return;
     setSaving(true);
     setNotice(null);
 
-    const payload = {
+    const label = bankName.trim() || shortcode;
+    const payload: GatewayConfig = {
       property: selectedPropertyId,
       provider: "mpesa",
-      display_name: `M-Pesa STK Push (${bankName})`,
+      display_name: `M-Pesa${label ? ` — ${label}` : ""}`,
       is_enabled: true,
       settings: {
         environment,
-        shortcode,
-        passkey,
-        consumer_key: consumerKey,
-        consumer_secret: consumerSecret,
-        bank_name: bankName,
-        bank_account_number: bankAccount,
-        till_number: tillNumber,
+        shortcode: shortcode.trim(),
+        passkey: passkey.trim(),
+        consumer_key: consumerKey.trim(),
+        consumer_secret: consumerSecret.trim(),
+        bank_name: bankName.trim(),
+        bank_account_number: bankAccount.trim(),
+        till_number: tillNumber.trim(),
       },
     };
 
     try {
       await apiFetch("/auth/csrf/");
-      const method = gateway?.id ? "PATCH" : "POST";
-      const url = gateway?.id ? `/property/payment-gateways/${gateway.id}/` : "/property/payment-gateways/";
+      const isEdit = Boolean(editingGateway?.id);
+      const method = isEdit ? "PATCH" : "POST";
+      const url = isEdit ? `/property/payment-gateways/${editingGateway!.id}/` : "/property/payment-gateways/";
 
       const res = await apiFetch(
         url,
@@ -645,11 +707,14 @@ function AdministrationContent() {
       );
 
       if (res.ok) {
-        setNotice({ type: "success", text: "M-Pesa STK Push administration settings saved successfully!" });
+        setNotice({ type: "success", text: isEdit ? `Payment gateway "${payload.display_name}" updated.` : `Payment gateway "${payload.display_name}" added!` });
+        setShowGatewayForm(false);
+        setEditingGateway(null);
         await loadGateway();
       } else {
-        const err = await res.json().catch(() => ({}));
-        setNotice({ type: "error", text: err.detail || "Failed to save M-Pesa STK Push settings." });
+        const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+        const msg = err.detail ?? err.non_field_errors ?? err.settings;
+        setNotice({ type: "error", text: String(Array.isArray(msg) ? msg.join(" ") : (msg || "Failed to save gateway.")) });
       }
     } catch {
       setNotice({ type: "error", text: "Network error occurred while saving gateway configuration." });
@@ -738,8 +803,46 @@ function AdministrationContent() {
         )}
       </div>
 
-
-      {/* Notice Banner */}
+      {/* Administration Sub-Navigation Tabs */}
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, marginBottom: 24, borderBottom: "1px solid var(--border)" }}>
+        {[
+          { id: "users", label: "👥 Users & Staff" },
+          { id: "roles", label: "🔐 Roles & Matrix" },
+          { id: "mpesa", label: "📲 Payment Gateways" },
+          { id: "smtp", label: "📧 Email (SMTP)" },
+          { id: "orgs", label: "🏢 Org & Branding" },
+          { id: "tax", label: "📜 KRA Tax & E-TIMS" },
+          { id: "feedback-qr", label: "📱 Smart QR Codes" },
+          { id: "audit", label: "📋 Audit Trail" },
+        ].map((t) => {
+          const active = tab === t.id;
+          return (
+            <a
+              key={t.id}
+              href={`/administration?tab=${t.id}`}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: active ? 700 : 500,
+                color: active ? "#ffffff" : "var(--text)",
+                background: active ? "var(--organization-primary, #0284c7)" : "var(--surface)",
+                border: "1px solid",
+                borderColor: active ? "transparent" : "var(--border)",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                boxShadow: active ? "0 2px 6px rgba(0,0,0,0.12)" : "none",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <span>{t.label}</span>
+            </a>
+          );
+        })}
+      </div>
       {notice && (
         <div
           style={{
@@ -1032,166 +1135,263 @@ function AdministrationContent() {
 
       {/* TAB 3: M-PESA STK PUSH & BANK ACCOUNTS */}
       {tab === "mpesa" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <div style={{ marginBottom: 20 }}>
-            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text, #1e293b)" }}>
-              📲 M-Pesa STK Push Gateway & Bank Account Configuration
-            </h2>
-            <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--muted, #64748b)" }}>
-              Configure Daraja API keys, Paybill numbers, Till numbers, and Bank Accounts for instant STK Push tenant rent collection.
-            </p>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Header */}
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 24 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>📲 Payment Gateways</h2>
+                <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>
+                  Add one or more M-Pesa Paybill / Till numbers per property. Tenants can choose when paying.
+                </p>
+              </div>
+              <button
+                id="add-payment-gateway-btn"
+                onClick={openAddGateway}
+                style={{
+                  padding: "9px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+                  background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                  color: "#fff", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                + Add Payment Method
+              </button>
+            </div>
 
-          <form onSubmit={handleSaveMpesa} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Property Selector */}
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6, color: "var(--text)" }}>
-                Target Property:
-              </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>Property:</label>
               <select
                 value={selectedPropertyId}
                 onChange={(e) => setSelectedPropertyId(e.target.value)}
-                style={{ width: "100%", maxWidth: 400, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 14 }}
+                style={{ flex: 1, maxWidth: 360, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 14 }}
               >
                 {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.code})
-                  </option>
+                  <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
                 ))}
               </select>
             </div>
+          </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                  Environment Mode:
-                </label>
-                <select
-                  value={environment}
-                  onChange={(e) => setEnvironment(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-                >
-                  <option value="sandbox">Sandbox (Testing / Demo Keys)</option>
-                  <option value="production">Production (Live M-Pesa Daraja API)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                  Business Shortcode / Paybill Number:
-                </label>
-                <input
-                  type="text"
-                  value={shortcode}
-                  onChange={(e) => setShortcode(e.target.value)}
-                  placeholder="e.g. 174379 or 4085000"
-                  required
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                  Consumer Key (Daraja API):
-                </label>
-                <input
-                  type="text"
-                  value={consumerKey}
-                  onChange={(e) => setConsumerKey(e.target.value)}
-                  placeholder="Provide M-Pesa Consumer Key"
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                  Consumer Secret (Daraja API):
-                </label>
-                <input
-                  type="password"
-                  value={consumerSecret}
-                  onChange={(e) => setConsumerSecret(e.target.value)}
-                  placeholder="Provide M-Pesa Consumer Secret"
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                STK Push Passkey:
-              </label>
-              <input
-                type="text"
-                value={passkey}
-                onChange={(e) => setPasskey(e.target.value)}
-                placeholder="bfb279f9aa9bdbcf158e97..."
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-              />
-            </div>
-
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: "1rem", fontWeight: 700 }}>🏦 Linked Bank Account & Till Details</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Bank Name:</label>
-                  <input
-                    type="text"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    placeholder="e.g. Cooperative Bank"
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Bank Account Number:</label>
-                  <input
-                    type="text"
-                    value={bankAccount}
-                    onChange={(e) => setBankAccount(e.target.value)}
-                    placeholder="e.g. 01120001234500"
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Till / Store Number (Optional):</label>
-                  <input
-                    type="text"
-                    value={tillNumber}
-                    onChange={(e) => setTillNumber(e.target.value)}
-                    placeholder="e.g. 883921"
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+          {/* Gateway cards */}
+          {gateways.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 24px", background: "var(--surface)", border: "1.5px dashed var(--border)", borderRadius: 12 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📵</div>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: 15 }}>No payment gateways configured</p>
+              <p style={{ margin: "6px 0 16px", color: "var(--muted)", fontSize: 13 }}>
+                Add an M-Pesa Paybill to enable the <strong>Pay Now</strong> button in tenant invoices.
+              </p>
               <button
-                type="submit"
-                disabled={saving}
+                onClick={openAddGateway}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "#d92d2d",
-                  color: "#ffffff",
-                  padding: "10px 20px",
-                  borderRadius: 8,
-                  border: 0,
-                  fontWeight: 700,
-                  cursor: "pointer",
+                  padding: "10px 22px", borderRadius: 8, border: "none", cursor: "pointer",
+                  background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                  color: "#fff", fontWeight: 700, fontSize: 14,
                 }}
               >
-                <Save size={18} />
-                <span>{saving ? "Saving M-Pesa Settings..." : "Save STK Push Configuration"}</span>
+                + Add First Payment Method
               </button>
             </div>
-          </form>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {gateways.map((g) => (
+                <div
+                  key={g.id}
+                  style={{
+                    background: "var(--surface)", border: `1.5px solid ${g.is_enabled ? "#86efac" : "var(--border)"}`,
+                    borderRadius: 12, padding: "16px 20px",
+                    display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 44, height: 44, borderRadius: 10,
+                      background: g.is_enabled ? "linear-gradient(135deg,#00a651,#007a3d)" : "var(--surface-2)",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+                    }}
+                  >
+                    📱
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>{g.display_name}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      <span>Shortcode: <strong style={{ fontFamily: "monospace" }}>{g.settings?.shortcode || "—"}</strong></span>
+                      {g.settings?.bank_name && <span>Bank: <strong>{g.settings.bank_name}</strong></span>}
+                      {g.settings?.bank_account_number && <span>Account: <strong style={{ fontFamily: "monospace" }}>{g.settings.bank_account_number}</strong></span>}
+                      <span
+                        style={{
+                          padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          background: g.settings?.environment === "production" ? "#dcfce7" : "#fef9c3",
+                          color: g.settings?.environment === "production" ? "#166534" : "#92400e",
+                        }}
+                      >
+                        {g.settings?.environment === "production" ? "LIVE" : "SANDBOX"}
+                      </span>
+                      {!g.is_enabled && <span style={{ color: "#dc2626", fontWeight: 700 }}>DISABLED</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => openEditGateway(g)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 7, border: "1px solid var(--border)",
+                        background: "none", cursor: "pointer", fontWeight: 600, fontSize: 12,
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => void handleDeleteGateway(g)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 7, border: "1px solid #fecaca",
+                        background: "#fef2f2", color: "#dc2626", cursor: "pointer", fontWeight: 600, fontSize: 12,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add / Edit form */}
+          {showGatewayForm && (
+            <div style={{ background: "var(--surface)", border: "1.5px solid #86efac", borderRadius: 12, padding: 24, boxShadow: "0 4px 24px rgba(0,166,81,0.08)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+                  {editingGateway?.id ? `✏️ Edit: ${editingGateway.display_name}` : "➕ Add New Payment Method"}
+                </h3>
+                <button
+                  onClick={() => { setShowGatewayForm(false); setEditingGateway(null); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)", padding: 4 }}
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={(e) => void handleSaveMpesa(e)} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Environment:</label>
+                    <select
+                      value={environment}
+                      onChange={(e) => {
+                        setEnvironment(e.target.value);
+                        if (e.target.value === "sandbox" && !passkey) setPasskey(SANDBOX_PASSKEY);
+                        if (e.target.value === "sandbox" && shortcode === "174379") setShortcode("174379");
+                      }}
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 14 }}
+                    >
+                      <option value="sandbox">🧪 Sandbox (Test)</option>
+                      <option value="production">🔴 Production (Live)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Business Shortcode / Paybill:</label>
+                    <input
+                      type="text"
+                      value={shortcode}
+                      onChange={(e) => setShortcode(e.target.value)}
+                      placeholder="e.g. 174379 (sandbox) or 4085000"
+                      required
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Consumer Key:</label>
+                    <input
+                      type="text"
+                      value={consumerKey}
+                      onChange={(e) => setConsumerKey(e.target.value)}
+                      placeholder="Daraja app consumer key"
+                      required
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontFamily: "monospace", fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Consumer Secret:</label>
+                    <input
+                      type="password"
+                      value={consumerSecret}
+                      onChange={(e) => setConsumerSecret(e.target.value)}
+                      placeholder="Daraja app consumer secret"
+                      required
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>STK Push Passkey:</label>
+                  <input
+                    type="text"
+                    value={passkey}
+                    onChange={(e) => setPasskey(e.target.value)}
+                    placeholder={environment === "sandbox" ? SANDBOX_PASSKEY : "Production passkey from Daraja portal"}
+                    required
+                    style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontFamily: "monospace", fontSize: 12 }}
+                  />
+                  {environment === "sandbox" && !passkey && (
+                    <button
+                      type="button"
+                      onClick={() => setPasskey(SANDBOX_PASSKEY)}
+                      style={{ fontSize: 11, color: "#16a34a", background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
+                    >
+                      ↙ Auto-fill sandbox passkey
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                  <h4 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>🏦 Bank Account Details (used as account reference in STK Push)</h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Bank Name:</label>
+                      <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. Cooperative Bank"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }} />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Bank Account Number:</label>
+                      <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="e.g. 01120001234500"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontFamily: "monospace" }} />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Till / Store Number:</label>
+                      <input type="text" value={tillNumber} onChange={(e) => setTillNumber(e.target.value)} placeholder="Optional"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontFamily: "monospace" }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowGatewayForm(false); setEditingGateway(null); }}
+                    style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid var(--border)", background: "none", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    id="save-gateway-btn"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                      color: "#fff", padding: "10px 24px", borderRadius: 8, border: 0, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    <Save size={16} />
+                    <span>{saving ? "Saving…" : (editingGateway?.id ? "Update Gateway" : "Save Gateway")}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       )}
 
@@ -1475,32 +1675,150 @@ function AdministrationContent() {
 
       {/* TAB 4: ORGANIZATIONS & MODULES */}
       {tab === "orgs" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <h2 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>🏢 Active Organization & Module Subscriptions</h2>
-          <p style={{ margin: "0 0 16px", color: "var(--muted)", fontSize: "0.85rem" }}>
-            Organization ID: <strong>{organizationId}</strong>
-          </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* White-Label Organization Branding */}
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+            <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.25rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 10, color: "var(--text)" }}>
+                <span>🎨 Organization Branding & System Logo</span>
+              </h2>
+              <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.875rem" }}>
+                Customize your organization's display name, header logo, and brand accent color across the entire ERP and tenant portal.
+              </p>
+            </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            {[
-              { name: "🏢 Property Management", status: "Active", desc: "Properties, units, leases, rent roll & tenant ledger" },
-              { name: "🔧 Facility Management", status: "Active", desc: "Assets, work orders & caretaker meter readings" },
-              { name: "💰 Sales & Leasing", status: "Active", desc: "Listings, buyer CRM & sales pipelines" },
-              { name: "📋 Tender Engine", status: "Active", desc: "RFP invitations & contractor bids" },
-              { name: "📜 Valuation Services", status: "Active", desc: "Site inspections & RICS reports" },
-              { name: "📊 Monitoring & Projects", status: "Active", desc: "BIM models, IPC certificates & programme schedules" },
-              { name: "🧭 Companion Tasks", status: "Active", desc: "Universal field worker task management" },
-            ].map((m) => (
-              <div key={m.name} style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <strong style={{ fontSize: 13 }}>{m.name}</strong>
-                  <span style={{ fontSize: 10, background: "#dcfce7", color: "#15803d", padding: "2px 6px", borderRadius: 10, fontWeight: 700 }}>
-                    {m.status}
-                  </span>
+            <form onSubmit={handleSaveBranding} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    Organization Display Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={brandOrgName}
+                    onChange={(e) => setBrandOrgName(e.target.value)}
+                    placeholder="e.g. Legend Management Limited"
+                    required
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }}
+                  />
                 </div>
-                <small style={{ fontSize: 11, color: "var(--muted)" }}>{m.desc}</small>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                    Brand Accent Color:
+                  </label>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={brandPrimaryColor}
+                      onChange={(e) => setBrandPrimaryColor(e.target.value)}
+                      style={{ width: 44, height: 42, padding: 2, borderRadius: 8, border: "1px solid var(--border)", cursor: "pointer" }}
+                    />
+                    <input
+                      type="text"
+                      value={brandPrimaryColor}
+                      onChange={(e) => setBrandPrimaryColor(e.target.value)}
+                      placeholder="#0284c7"
+                      style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontFamily: "monospace", fontSize: 14 }}
+                    />
+                  </div>
+                </div>
               </div>
-            ))}
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  System Logo Image URL:
+                </label>
+                <input
+                  type="text"
+                  value={brandLogoUrl}
+                  onChange={(e) => setBrandLogoUrl(e.target.value)}
+                  placeholder="https://... or /logo.png"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }}
+                />
+                <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => setBrandLogoUrl("/logo.png")}
+                    style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", cursor: "pointer" }}
+                  >
+                    Use Center Estates Default
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Preview */}
+              <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Live Navigation & Loader Preview:
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 24, padding: "14px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }}>
+                  <div style={{ width: 140, height: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", borderRadius: 6, border: "1px solid var(--border)", overflow: "hidden", padding: 6 }}>
+                    {brandLogoUrl ? (
+                      <img src={brandLogoUrl} alt={brandOrgName} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    ) : (
+                      <span style={{ fontWeight: 800, color: brandPrimaryColor }}>{brandOrgName}</span>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>{brandOrgName}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>Connecting properties, people and operations</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="submit"
+                  disabled={savingBrand}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: brandPrimaryColor || "#0284c7",
+                    color: "#ffffff",
+                    padding: "10px 24px",
+                    borderRadius: 8,
+                    border: 0,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Save size={16} />
+                  <span>{savingBrand ? "Saving Branding..." : "Save Branding Settings"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Module Subscriptions */}
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: "1.1rem", fontWeight: 700 }}>🏢 Active Module Subscriptions</h3>
+            <p style={{ margin: "0 0 16px", color: "var(--muted)", fontSize: "0.85rem" }}>
+              Organization ID: <strong>{organizationId}</strong>
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+              {[
+                { name: "🏢 Property Management", status: "Active", desc: "Properties, units, leases, rent roll & tenant ledger" },
+                { name: "🔧 Facility Management", status: "Active", desc: "Assets, work orders & caretaker meter readings" },
+                { name: "💰 Sales & Leasing", status: "Active", desc: "Listings, buyer CRM & sales pipelines" },
+                { name: "📋 Tender Engine", status: "Active", desc: "RFP invitations & contractor bids" },
+                { name: "📜 Valuation Services", status: "Active", desc: "Site inspections & RICS reports" },
+                { name: "📊 Monitoring & Projects", status: "Active", desc: "BIM models, IPC certificates & programme schedules" },
+                { name: "🧭 Companion Tasks", status: "Active", desc: "Universal field worker task management" },
+              ].map((m) => (
+                <div key={m.name} style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <strong style={{ fontSize: 13 }}>{m.name}</strong>
+                    <span style={{ fontSize: 10, background: "#dcfce7", color: "#15803d", padding: "2px 6px", borderRadius: 10, fontWeight: 700 }}>
+                      {m.status}
+                    </span>
+                  </div>
+                  <small style={{ fontSize: 11, color: "var(--muted)" }}>{m.desc}</small>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

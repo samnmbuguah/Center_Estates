@@ -21,30 +21,42 @@ def evaluate_employee_nudge(user, organization, session_active_minutes: int = 11
     Evaluates the user's workload, task state, calendar, and time of day
     to generate an empathetic, actionable, ambient nudge.
     """
-    from companion.models import CompanionTask, StaffLeaveRequest
+    from companion.models import Task, StaffLeaveRequest
 
     now = timezone.now()
     # Assume local business timezone (EAT / Africa/Nairobi is UTC+3)
     local_hour = (now.hour + 3) % 24
     local_minute = now.minute
 
-    user_name = user.first_name or user.username or "there"
+    user_name = user.first_name or user.username or "there" if user else "there"
 
     # 1. Fetch Task Metrics for this user today
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    my_tasks = CompanionTask.objects.filter(
+    if not organization or not user or not user.is_authenticated:
+        return {
+            "id": "ambient-ready",
+            "category": "wellness",
+            "icon": "✨",
+            "title": f"Welcome, {user_name}",
+            "message": "Operations companion is active and monitoring portfolio workflows.",
+            "action_label": "View Tasks",
+            "action_href": "/companion",
+            "urgency": "low",
+        }
+
+    my_tasks = Task.objects.filter(
         organization=organization,
-        assigned_to=user
+        assignee=user
     )
 
     completed_today_count = my_tasks.filter(
-        status=CompanionTask.Status.COMPLETED,
+        status=Task.Status.COMPLETED,
         completed_at__gte=today_start
     ).count()
 
     active_tasks = my_tasks.exclude(
-        status__in=[CompanionTask.Status.COMPLETED, CompanionTask.Status.CANCELLED]
+        status__in=[Task.Status.COMPLETED, Task.Status.CANCELLED]
     )
     active_count = active_tasks.count()
 

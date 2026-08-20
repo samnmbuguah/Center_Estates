@@ -1286,6 +1286,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
     @action(detail=True, methods=('post',))
     def issue(self, request, pk=None):
         from notifications.models import Notification
+        from notifications.services import send_email_notification
 
         invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
         if invoice.status != Invoice.Status.APPROVED:
@@ -1296,15 +1297,27 @@ class InvoiceViewSet(OrganizationModelViewSet):
         invoice.issued_at = timezone.now()
         invoice.save(update_fields=('status', 'issued_by', 'issued_at', 'updated_at'))
         tenant = invoice.lease.tenant
-        preference = str(tenant.metadata.get('billing_preference', 'portal'))
-        channel = preference if preference in InvoiceReminder.Channel.values else InvoiceReminder.Channel.PORTAL
+        preference = str(tenant.metadata.get('billing_preference', 'email' if tenant.email else 'portal'))
+        channel = preference if preference in InvoiceReminder.Channel.values else (InvoiceReminder.Channel.EMAIL if tenant.email else InvoiceReminder.Channel.PORTAL)
         recipient = tenant.email if channel == InvoiceReminder.Channel.EMAIL else tenant.phone if channel == InvoiceReminder.Channel.SMS else tenant.name
         if recipient:
-            message = f'Invoice {invoice.number} for {invoice.amount} is due {invoice.due_on}.'
+            message = f'Invoice {invoice.number} for KES {invoice.amount:,.2f} is due on {invoice.due_on}.'
             InvoiceReminder.objects.create(organization=invoice.organization, invoice=invoice, channel=channel, recipient=recipient, message=message, sent_at=timezone.now(), sent_by=request.user)
             access = TenantPortalAccess.objects.for_organization(invoice.organization).filter(tenant=tenant, is_active=True).select_related('user').first()
             if access:
                 Notification.objects.create(organization=invoice.organization, recipient=access.user, title=f'New invoice: {invoice.number}', message=message, level=Notification.Level.INFO, action_url='/tenant-portal', metadata={'invoice_id': str(invoice.id)})
+            if tenant.email:
+                try:
+                    send_email_notification(
+                        recipient_email=tenant.email,
+                        recipient_name=tenant.name,
+                        subject=f'Invoice {invoice.number} from Center Estates — KES {invoice.amount:,.2f}',
+                        message=f'Your invoice {invoice.number} for KES {invoice.amount:,.2f} has been issued and is due on {invoice.due_on}. You can view the breakdown, download your PDF invoice, or pay instantly via M-Pesa on the tenant portal.',
+                        action_url='/tenant-portal',
+                        organization=invoice.organization,
+                    )
+                except Exception:
+                    pass
         return Response(self.get_serializer(invoice).data)
 
     @transaction.atomic
@@ -1320,6 +1333,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
     @action(detail=True, methods=('post',), url_path='send-reminder')
     def send_reminder(self, request, pk=None):
         from notifications.models import Notification
+        from notifications.services import send_email_notification
 
         invoice = self.get_object()
         if invoice.status in (Invoice.Status.DRAFT, Invoice.Status.PAID, Invoice.Status.VOID) or invoice.balance <= 0:
@@ -1331,7 +1345,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
         recipient = tenant.email if channel == InvoiceReminder.Channel.EMAIL else tenant.phone if channel == InvoiceReminder.Channel.SMS else tenant.name
         if not recipient:
             raise ValidationError({'recipient': f'Tenant has no {channel} contact.'})
-        message = str(request.data.get('message', '')).strip() or f'Invoice {invoice.number} has an outstanding balance of {invoice.balance} due {invoice.due_on}.'
+        message = str(request.data.get('message', '')).strip() or f'Invoice {invoice.number} has an outstanding balance of KES {invoice.balance:,.2f} due on {invoice.due_on}.'
         reminder = InvoiceReminder.objects.create(
             organization=invoice.organization, invoice=invoice, channel=channel,
             recipient=recipient, message=message, sent_at=timezone.now(), sent_by=request.user,
@@ -1347,6 +1361,18 @@ class InvoiceViewSet(OrganizationModelViewSet):
                     level=Notification.Level.WARNING, action_url='/tenant-portal',
                     metadata={'invoice_id': str(invoice.id)},
                 )
+        elif channel == InvoiceReminder.Channel.EMAIL and tenant.email:
+            try:
+                send_email_notification(
+                    recipient_email=tenant.email,
+                    recipient_name=tenant.name,
+                    subject=f'Payment Reminder: Invoice {invoice.number} — KES {invoice.balance:,.2f} outstanding',
+                    message=message,
+                    action_url='/tenant-portal',
+                    organization=invoice.organization,
+                )
+            except Exception:
+                pass
         return Response(InvoiceReminderSerializer(reminder).data, status=201)
 
     def perform_destroy(self, instance):
