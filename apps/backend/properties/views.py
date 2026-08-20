@@ -169,13 +169,22 @@ class PaymentGatewayConfigurationViewSet(OrganizationModelViewSet):
         passkey = cfg_settings.get('passkey') or os.environ.get('MPESA_PASSKEY', '')
         environment = cfg_settings.get('environment', 'sandbox')
 
-        if not all([consumer_key, consumer_secret, shortcode, passkey]):
+        from .mpesa_client import DEFAULT_SANDBOX_PASSKEY, initiate_stk_push
+        if environment == 'sandbox' and not passkey:
+            passkey = DEFAULT_SANDBOX_PASSKEY
+
+        if not consumer_key or not consumer_secret:
             return Response({
                 'success': False,
-                'error': 'Gateway is missing required credentials (Consumer Key, Consumer Secret, Shortcode, or Passkey).'
+                'error': 'Daraja Consumer Key and Consumer Secret are required. Click "Edit" on the gateway to enter your Safaricom Daraja API credentials.'
             }, status=400)
 
-        from .mpesa_client import initiate_stk_push
+        if not shortcode:
+            return Response({
+                'success': False,
+                'error': 'Business Shortcode / Paybill number is missing in gateway settings.'
+            }, status=400)
+
         callback_url = f"https://api.centerestates.com/api/v1/property/payment-webhooks/{gateway.public_key}/"
         result = initiate_stk_push(
             consumer_key=consumer_key,

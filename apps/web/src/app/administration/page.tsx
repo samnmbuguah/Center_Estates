@@ -212,7 +212,10 @@ function AdministrationContent() {
   const [brandPrimaryColor, setBrandPrimaryColor] = useState(DEFAULT_ORGANIZATION_BRAND.primaryColor);
   const [savingBrand, setSavingBrand] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     const brand = readStoredOrganizationBrand();
     setBrandOrgName(brand.name);
     setBrandLogoUrl(brand.logoUrl);
@@ -815,6 +818,10 @@ function AdministrationContent() {
   const totalUsers = members.length;
   const adminCount = members.filter((m) => m.is_organization_admin).length;
   const staffCount = totalUsers - adminCount;
+
+  if (!mounted) {
+    return <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading administration…</div>;
+  }
 
   if (session && !canAccessAdministration) {
     return (

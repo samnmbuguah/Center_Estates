@@ -34,17 +34,34 @@ def get_base_url(environment: str = "sandbox") -> str:
     return DARAJA_BASE_URLS.get(environment, DARAJA_BASE_URLS["sandbox"])
 
 
-def get_oauth_token(consumer_key: str, consumer_secret: str, environment: str = "sandbox") -> Optional[str]:
+DEFAULT_SANDBOX_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
+
+
+def get_oauth_token(consumer_key: str, consumer_secret: str, environment: str = "sandbox") -> tuple:
     """Generate OAuth access token from Daraja API."""
+    ck = (consumer_key or "").strip()
+    cs = (consumer_secret or "").strip()
+    if not ck or not cs:
+        return None, "Consumer Key and Consumer Secret are required in gateway configuration."
+
     url = f"{get_base_url(environment)}/oauth/v1/generate?grant_type=client_credentials"
     try:
-        response = requests.get(url, auth=(consumer_key, consumer_secret), timeout=30)
-        response.raise_for_status()
+        response = requests.get(url, auth=(ck, cs), timeout=30)
+        if response.status_code != 200:
+            err_msg = f"Safaricom Auth Error (HTTP {response.status_code}): {response.text.strip() or 'Invalid Consumer Key or Secret'}"
+            logger.error("Daraja OAuth error: %s", err_msg)
+            return None, err_msg
         data = response.json()
-        return data.get("access_token")
+        token = data.get("access_token")
+        if not token:
+            return None, "Daraja did not return an access_token in response."
+        return token, None
+    except requests.RequestException as e:
+        logger.error("Daraja OAuth network error: %s", e)
+        return None, f"Daraja network error: {str(e)}"
     except Exception as e:
         logger.error("Daraja OAuth token generation failed: %s", e)
-        return None
+        return None, str(e)
 
 
 def generate_password(shortcode: str, passkey: str, timestamp: str) -> str:
@@ -83,9 +100,13 @@ def initiate_stk_push(
             - customer_message: str (if successful)
             - error: str (if failed)
     """
-    token = get_oauth_token(consumer_key, consumer_secret, environment)
+    effective_passkey = passkey or (DEFAULT_SANDBOX_PASSKEY if environment == "sandbox" else "")
+    token, auth_error = get_oauth_token(consumer_key, consumer_secret, environment)
     if not token:
-        return {"success": False, "error": "Failed to generate OAuth token"}
+        return {
+            "success": False,
+            "error": auth_error or "Failed to generate OAuth token. Verify Daraja Consumer Key & Secret.",
+        }
 
     timestamp = format_timestamp()
     password = generate_password(shortcode, passkey, timestamp)
