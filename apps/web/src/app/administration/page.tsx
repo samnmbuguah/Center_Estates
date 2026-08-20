@@ -234,6 +234,62 @@ function AdministrationContent() {
     }
   }
 
+  // STK Push Testing
+  const [testingGateway, setTestingGateway] = useState<GatewayConfig | null>(null);
+  const [testStkPhone, setTestStkPhone] = useState("");
+  const [testStkAmount, setTestStkAmount] = useState("10");
+  const [testingStkLoading, setTestingStkLoading] = useState(false);
+  const [stkTestResult, setStkTestResult] = useState<{ type: "success" | "error"; text: string; details?: string } | null>(null);
+
+  function openTestStk(g: GatewayConfig) {
+    setTestingGateway(g);
+    setTestStkPhone("");
+    setTestStkAmount("10");
+    setStkTestResult(null);
+  }
+
+  async function handleTestStk(e: FormEvent) {
+    e.preventDefault();
+    if (!testingGateway?.id || !organizationId) return;
+    setTestingStkLoading(true);
+    setStkTestResult(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        `/property/payment-gateways/${testingGateway.id}/test-stk/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            phone_number: testStkPhone.trim(),
+            amount: Number(testStkAmount) || 1,
+          }),
+        },
+        organizationId
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success !== false) {
+        setStkTestResult({
+          type: "success",
+          text: data.customer_message || data.response_description || `STK Push prompt sent to ${testStkPhone}! Check your phone to enter M-Pesa PIN.`,
+          details: data.checkout_request_id ? `Checkout Request ID: ${data.checkout_request_id}` : undefined,
+        });
+      } else {
+        setStkTestResult({
+          type: "error",
+          text: data.error || data.detail || data.response_description || "STK Push request failed. Verify your Daraja API credentials and phone format.",
+        });
+      }
+    } catch {
+      setStkTestResult({
+        type: "error",
+        text: "Network error sending test STK push request.",
+      });
+    } finally {
+      setTestingStkLoading(false);
+    }
+  }
+
 
   // 1. Load Properties & Roles
   const loadPropertiesAndRoles = useCallback(async () => {
@@ -803,46 +859,6 @@ function AdministrationContent() {
         )}
       </div>
 
-      {/* Administration Sub-Navigation Tabs */}
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, marginBottom: 24, borderBottom: "1px solid var(--border)" }}>
-        {[
-          { id: "users", label: "👥 Users & Staff" },
-          { id: "roles", label: "🔐 Roles & Matrix" },
-          { id: "mpesa", label: "📲 Payment Gateways" },
-          { id: "smtp", label: "📧 Email (SMTP)" },
-          { id: "orgs", label: "🏢 Org & Branding" },
-          { id: "tax", label: "📜 KRA Tax & E-TIMS" },
-          { id: "feedback-qr", label: "📱 Smart QR Codes" },
-          { id: "audit", label: "📋 Audit Trail" },
-        ].map((t) => {
-          const active = tab === t.id;
-          return (
-            <a
-              key={t.id}
-              href={`/administration?tab=${t.id}`}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: active ? 700 : 500,
-                color: active ? "#ffffff" : "var(--text)",
-                background: active ? "var(--organization-primary, #0284c7)" : "var(--surface)",
-                border: "1px solid",
-                borderColor: active ? "transparent" : "var(--border)",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                boxShadow: active ? "0 2px 6px rgba(0,0,0,0.12)" : "none",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <span>{t.label}</span>
-            </a>
-          );
-        })}
-      </div>
       {notice && (
         <div
           style={{
@@ -1230,7 +1246,18 @@ function AdministrationContent() {
                       {!g.is_enabled && <span style={{ color: "#dc2626", fontWeight: 700 }}>DISABLED</span>}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button
+                      onClick={() => openTestStk(g)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 7, border: "1.5px solid #00a651",
+                        background: "#f0fdf4", color: "#166534", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        display: "flex", alignItems: "center", gap: 5,
+                      }}
+                      title="Send a real-time STK Push prompt to your phone to test integration"
+                    >
+                      <span>⚡</span> Test STK Push
+                    </button>
                     <button
                       onClick={() => openEditGateway(g)}
                       style={{
@@ -2659,6 +2686,116 @@ function AdministrationContent() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* MODAL 7: TEST M-PESA STK PUSH */}
+      {testingGateway && (
+        <Modal title={`⚡ Test M-Pesa STK Push — ${testingGateway.display_name}`} onClose={() => setTestingGateway(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ padding: "12px 16px", background: "var(--surface-sunken, #f8fafc)", borderRadius: 10, border: "1px solid var(--border)", fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span>Shortcode / Paybill:</span>
+                <strong style={{ fontFamily: "monospace" }}>{testingGateway.settings?.shortcode || "—"}</strong>
+              </div>
+              {testingGateway.settings?.bank_name && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span>Bank &amp; Account:</span>
+                  <strong>{testingGateway.settings.bank_name} ({testingGateway.settings.bank_account_number || "—"})</strong>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Environment:</span>
+                <span style={{ fontWeight: 800, color: testingGateway.settings?.environment === "production" ? "#16a34a" : "#ca8a04" }}>
+                  {testingGateway.settings?.environment === "production" ? "LIVE (Production)" : "SANDBOX"}
+                </span>
+              </div>
+            </div>
+
+            {stkTestResult && (
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  background: stkTestResult.type === "success" ? "#dcfce7" : "#fee2e2",
+                  color: stkTestResult.type === "success" ? "#166534" : "#991b1b",
+                  border: `1px solid ${stkTestResult.type === "success" ? "#bbf7d0" : "#fecaca"}`,
+                }}
+              >
+                <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>{stkTestResult.type === "success" ? "✓" : "⚠️"}</span>
+                  <span>{stkTestResult.text}</span>
+                </div>
+                {stkTestResult.details && (
+                  <div style={{ marginTop: 4, fontSize: 11, fontFamily: "monospace", opacity: 0.9 }}>
+                    {stkTestResult.details}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={handleTestStk} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+                  Recipient Safaricom Phone Number <span style={{ color: "#dc2626" }}>*</span>
+                </label>
+                <input
+                  required
+                  type="tel"
+                  value={testStkPhone}
+                  onChange={(e) => setTestStkPhone(e.target.value)}
+                  placeholder="e.g. 0712345678 or 254712345678"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid var(--border)", fontSize: 14 }}
+                />
+                <span style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, display: "block" }}>
+                  Enter your active Safaricom number. The STK Push PIN prompt will pop up on your phone.
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+                  Test Amount (KES)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  value={testStkAmount}
+                  onChange={(e) => setTestStkAmount(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid var(--border)", fontSize: 14 }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => setTestingGateway(null)}
+                  disabled={testingStkLoading}
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  className="btn primary"
+                  disabled={testingStkLoading || !testStkPhone.trim()}
+                  style={{
+                    background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                    borderColor: "#00a651",
+                    color: "#fff",
+                    fontWeight: 800,
+                    padding: "10px 22px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <span>{testingStkLoading ? "⏳ Sending STK Push…" : "📲 Send STK Push Prompt"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </Modal>
       )}
     </div>

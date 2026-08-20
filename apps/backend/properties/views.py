@@ -146,6 +146,52 @@ class PaymentGatewayConfigurationViewSet(OrganizationModelViewSet):
         organization = self._validate_organization(serializer)
         serializer.save(organization=organization)
 
+    @action(detail=True, methods=('post',), url_path='test-stk')
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def test_stk(self, request, pk=None):
+        gateway = self.get_object()
+        phone_number = str(request.data.get('phone_number') or request.user.username or '').strip()
+        amount_val = request.data.get('amount') or 1
+        try:
+            amount = Decimal(str(amount_val))
+            if amount <= 0:
+                amount = Decimal('1')
+        except Exception:
+            amount = Decimal('1')
+
+        if not phone_number:
+            return Response({'success': False, 'error': 'Phone number is required for STK push.'}, status=400)
+
+        cfg_settings = gateway.settings or {}
+        consumer_key = cfg_settings.get('consumer_key') or os.environ.get('MPESA_CONSUMER_KEY', '')
+        consumer_secret = cfg_settings.get('consumer_secret') or os.environ.get('MPESA_CONSUMER_SECRET', '')
+        shortcode = cfg_settings.get('shortcode') or os.environ.get('MPESA_SHORTCODE', '')
+        passkey = cfg_settings.get('passkey') or os.environ.get('MPESA_PASSKEY', '')
+        environment = cfg_settings.get('environment', 'sandbox')
+
+        if not all([consumer_key, consumer_secret, shortcode, passkey]):
+            return Response({
+                'success': False,
+                'error': 'Gateway is missing required credentials (Consumer Key, Consumer Secret, Shortcode, or Passkey).'
+            }, status=400)
+
+        from .mpesa_client import initiate_stk_push
+        callback_url = f"https://api.centerestates.com/api/v1/property/payment-webhooks/{gateway.public_key}/"
+        result = initiate_stk_push(
+            consumer_key=consumer_key,
+            consumer_secret=consumer_secret,
+            shortcode=shortcode,
+            passkey=passkey,
+            phone_number=phone_number,
+            amount=amount,
+            callback_url=callback_url,
+            account_reference="TEST-STK",
+            transaction_desc=f"Test Gateway {gateway.display_name}",
+            environment=environment,
+        )
+        status_code = 200 if result.get('success') else 400
+        return Response(result, status=status_code)
+
 
 class PaymentIntentViewSet(ReadOnlyModelViewSet):
     permission_classes = (HasModuleActionPermission,)
