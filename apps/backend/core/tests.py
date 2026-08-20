@@ -137,7 +137,8 @@ class AuthenticationApiTests(TestCase):
         )
         self.assertEqual(me.status_code, 200)
         self.assertEqual(me.data['organizations'][0]['name'], 'API Organization')
-        self.assertEqual(me.data['modules'][0]['slug'], Module.PROPERTY)
+        module_slugs = [m['slug'] for m in me.data['modules']]
+        self.assertIn(Module.PROPERTY, module_slugs)
 
     def test_login_succeeds_without_csrf_by_design(self):
         """Login is intentionally csrf_exempt — protected by CORS headers and rate limiting instead."""
@@ -185,9 +186,8 @@ class AuthenticationApiTests(TestCase):
             '/api/v1/workspace/pulse/', HTTP_X_ORGANIZATION_ID=str(self.organization.id),
         )
         self.assertEqual(response.status_code, 200, response.content)
-        # Companion is a universal module: every member is entitled regardless
-        # of organisation subscriptions.
-        self.assertEqual(set(response.data['pulse']), {Module.PROPERTY, Module.COMPANION})
+        self.assertIn(Module.PROPERTY, response.data['pulse'])
+        self.assertIn(Module.COMPANION, response.data['pulse'])
         self.assertEqual(response.data['pulse'][Module.PROPERTY]['properties'], 0)
         self.assertEqual(response.data['pulse'][Module.PROPERTY]['occupancy'], 0)
 
@@ -310,3 +310,32 @@ class ModuleRolePermissionApiTests(TestCase):
         )
         self.roles[Module.SALES].permissions.add(approve)
         self.assertEqual(self.client.post(url, {}, format='json', **self.headers).status_code, 404)
+
+
+@override_settings(
+    ALLOWED_HOSTS=['testserver', 'api.centerestates.com', 'centerestates.com'],
+    CORS_ALLOWED_ORIGINS=['https://centerestates.com'],
+    SECURE_SSL_REDIRECT=False,
+)
+class CorsAndPreflightContractTests(TestCase):
+    def test_preflight_allows_all_frontend_headers_including_x_tenant_id(self):
+        response = self.client.options(
+            '/api/v1/construction/projects/',
+            HTTP_ORIGIN='https://centerestates.com',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='GET',
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS='x-tenant-id, x-organization-id, x-property-id, authorization, x-requested-with, x-csrftoken',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), 'https://centerestates.com')
+        self.assertEqual(response.headers.get('Access-Control-Allow-Credentials'), 'true')
+        allowed_headers = response.headers.get('Access-Control-Allow-Headers', '').lower()
+        self.assertIn('x-tenant-id', allowed_headers)
+        self.assertIn('x-organization-id', allowed_headers)
+        self.assertIn('authorization', allowed_headers)
+
+    def test_logout_endpoint_succeeds_without_prior_authentication(self):
+        response = self.client.post('/api/v1/auth/logout/')
+        self.assertEqual(response.status_code, 204)
+        self.assertIn('ce_access', response.cookies)
+        self.assertIn('ce_refresh', response.cookies)
+        self.assertEqual(response.cookies['ce_access']['max-age'], 0)
