@@ -207,10 +207,17 @@ function AdministrationContent() {
   const [smtpTestResult, setSmtpTestResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Organization White-Label Branding
-  const [brandOrgName, setBrandOrgName] = useState(() => readStoredOrganizationBrand().name);
-  const [brandLogoUrl, setBrandLogoUrl] = useState(() => readStoredOrganizationBrand().logoUrl);
-  const [brandPrimaryColor, setBrandPrimaryColor] = useState(() => readStoredOrganizationBrand().primaryColor);
+  const [brandOrgName, setBrandOrgName] = useState(DEFAULT_ORGANIZATION_BRAND.name);
+  const [brandLogoUrl, setBrandLogoUrl] = useState(DEFAULT_ORGANIZATION_BRAND.logoUrl);
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState(DEFAULT_ORGANIZATION_BRAND.primaryColor);
   const [savingBrand, setSavingBrand] = useState(false);
+
+  useEffect(() => {
+    const brand = readStoredOrganizationBrand();
+    setBrandOrgName(brand.name);
+    setBrandLogoUrl(brand.logoUrl);
+    setBrandPrimaryColor(brand.primaryColor);
+  }, []);
 
   function applySmtpPreset(provider: "cpanel" | "gmail" | "m365") {
     if (provider === "cpanel") {
