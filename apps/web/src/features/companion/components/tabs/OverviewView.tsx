@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { EmptyState, KpiCard, KpiStrip, LoadingState, StatusPill } from "@/components/module-ui";
 import { CompanionDash, Row } from "../../types/companion.types";
 import { fmtDate, fmtDateTime, greeting, STATUS_TONE } from "../../utils/companion.utils";
+import { DailyBriefingCard } from "../DailyBriefingCard";
 
 export function OverviewView({
   dash,
@@ -19,18 +20,13 @@ export function OverviewView({
   onRunAction: (task: Row, action: string) => void;
 }) {
   const kpis = (dash?.kpis ?? {}) as Record<string, unknown>;
-  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const recentTasks = dash?.recentTasks ?? [];
   const overdueTasks = dash?.overdueTasks ?? [];
   const escalatedTasks = dash?.escalatedTasks ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div className="card" style={{ background: "linear-gradient(120deg, rgba(13,148,136,0.12), transparent)", border: "1px solid var(--border)", padding: 20 }}>
-        <p className="eyebrow" style={{ marginBottom: 6 }}>{today}</p>
-        <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 4px" }}>{greeting()}, {userName}</h2>
-        <p className="muted" style={{ margin: 0, fontSize: 13 }}>Let&apos;s make today productive — here is what needs your attention.</p>
-      </div>
+      <DailyBriefingCard userName={userName} />
 
       <KpiStrip>
         <KpiCard icon="📅" label="Due Today" value={String(kpis.dueToday ?? 0)} sub="Tasks due today" onClick={() => onSelectTab("my-tasks")} />
