@@ -1,53 +1,312 @@
 "use client";
 
-import { Alert, Box, Stack, Typography } from "@mui/material";
+import React from "react";
+import Link from "next/link";
 import { DetailDrawer, money } from "@/components/module-ui";
-import { Candidate } from "./types";
+import { Candidate, issueResolution } from "./types";
 
-export function CandidatePreviewDrawer({ candidate, onClose }: { candidate: Candidate; onClose: () => void }) {
+export function CandidatePreviewDrawer({
+  candidate,
+  onClose,
+}: {
+  candidate: Candidate;
+  onClose: () => void;
+}) {
+  const isReady = candidate.status === "ready";
+  const hasIssues = candidate.issue_summary && candidate.issue_summary.length > 0;
+  const totalAmount = Number(candidate.total || 0);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <DetailDrawer title={`Invoice Preview: ${candidate.tenant_name}`} onClose={onClose}>
-      <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-        <Box sx={{ p: 2, borderRadius: 2, background: "var(--surface-sunken)", border: "1px solid var(--border)" }}>
-          <Typography variant="overline" sx={{ fontWeight: 800, color: "var(--primary)" }}>DRAFT INVOICE</Typography>
-          <Typography variant="h6" sx={{ fontWeight: 900 }}>{candidate.tenant_name}</Typography>
-          <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>{candidate.property_name} — Unit {candidate.unit_code}</Typography>
-          <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block", mt: 0.5 }}>Lease: {candidate.lease_reference} · Due: {candidate.due_date}</Typography>
-        </Box>
-
-        <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>Charges</Typography>
-          <Stack sx={{ gap: 1 }}>
-            {candidate.billing_items.map((item, i) => (
-              <Box key={i} sx={{ p: 1.5, borderRadius: 1.5, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div><div style={{ fontWeight: 700 }}>{item.description || item.code}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{item.code.toUpperCase()}</div></div>
-                <div style={{ fontWeight: 800 }}>{money.format(Number(item.total ?? item.amount ?? 0))}</div>
-              </Box>
-            ))}
-          </Stack>
-        </Box>
-
-        <Box sx={{ p: 2, borderRadius: 2, background: "linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(37,99,235,0.08) 100%)", border: "1.5px solid rgba(59,130,246,0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Total Due</Typography>
-          <Typography variant="h6" sx={{ fontWeight: 900 }}>{money.format(Number(candidate.total))}</Typography>
-        </Box>
-
-        {candidate.issue_summary?.length > 0 && <Alert severity="warning">{candidate.issue_summary.map(i => i.message).join("; ")}</Alert>}
-
-        {candidate.meter_readings && candidate.meter_readings.length > 0 && (
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>Meter Readings</Typography>
-            <Stack sx={{ gap: 1 }}>
-              {candidate.meter_readings.map((m, i) => (
-                <Box key={i} sx={{ p: 1.5, borderRadius: 1.5, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div><div style={{ fontWeight: 700 }}>{m.meter_type}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Previous: {m.previous} → Current: {m.current}</div></div>
-                  <div style={{ fontWeight: 800 }}>{m.units} units</div>
-                </Box>
-              ))}
-            </Stack>
-          </Box>
+    <DetailDrawer
+      title={
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingRight: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 16 }}>📄</span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}>Tax Invoice Preview</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}>
+                {candidate.tenant_name} · {candidate.unit_code}
+              </div>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: 11,
+              padding: "4px 10px",
+              borderRadius: 6,
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              background: isReady ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+              color: isReady ? "#059669" : "#dc2626",
+              border: isReady ? "1px solid rgba(16, 185, 129, 0.25)" : "1px solid rgba(239, 68, 68, 0.25)",
+            }}
+          >
+            {isReady ? "READY TO BILL" : "EXCEPTION REQUIRES ACTION"}
+          </span>
+        </div>
+      }
+      onClose={onClose}
+      centered
+      width={720}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 18, padding: "4px 2px" }}>
+        
+        {/* Exception / Issue Alert Banner if any */}
+        {hasIssues && (
+          <div
+            style={{
+              padding: "14px 16px",
+              borderRadius: 10,
+              background: "rgba(239, 68, 68, 0.08)",
+              border: "1px solid rgba(239, 68, 68, 0.25)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#dc2626", fontWeight: 800, fontSize: 13 }}>
+              <span>⚠️</span>
+              <span>Billing Exception Detected</span>
+            </div>
+            {candidate.issue_summary.map((issue, idx) => {
+              const resolution = issueResolution(issue.code);
+              return (
+                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "var(--text)" }}>
+                  <span>• {issue.message}</span>
+                  {resolution && (
+                    <Link
+                      href={resolution.href}
+                      style={{
+                        color: "var(--primary)",
+                        fontWeight: 700,
+                        textDecoration: "underline",
+                        fontSize: 11,
+                        whiteSpace: "nowrap",
+                        marginLeft: 12,
+                      }}
+                    >
+                      {resolution.label} →
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
-      </Box>
+
+        {/* Invoice Document Header Card */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #0b1f33 0%, #162c46 100%)",
+            color: "#ffffff",
+            borderRadius: 12,
+            padding: "20px 24px",
+            boxShadow: "0 8px 24px rgba(11, 31, 51, 0.18)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid rgba(255,255,255,0.12)", paddingBottom: 16, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: "0.08em", fontWeight: 700, color: "#93c5fd", textTransform: "uppercase" }}>
+                Center Estates ERP · Billing Engine
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 900, marginTop: 4, letterSpacing: "-0.01em" }}>
+                {candidate.property_name}
+              </div>
+              <div style={{ fontSize: 12, color: "#cbd5e1", marginTop: 2 }}>
+                Unit: <strong style={{ color: "#ffffff" }}>{candidate.unit_code}</strong>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, letterSpacing: "0.06em", color: "#94a3b8", textTransform: "uppercase" }}>Invoice Ref</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#ffffff", fontFamily: "monospace", marginTop: 2 }}>
+                {candidate.invoice_number || `DRAFT-${candidate.unit_code}-${candidate.due_date?.slice(0, 7) || "AUTO"}`}
+              </div>
+              <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 6, fontWeight: 600 }}>
+                Payment Due: <strong>{candidate.due_date}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16, fontSize: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 700, letterSpacing: "0.05em" }}>Billed Tenant</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#ffffff", marginTop: 3 }}>
+                {candidate.tenant_name}
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
+                Lease: <span style={{ color: "#cbd5e1", fontWeight: 600 }}>{candidate.lease_reference}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 700, letterSpacing: "0.05em" }}>Total Amount Due</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#60a5fa", marginTop: 2 }}>
+                {money.format(totalAmount)}
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>Currency: KES (Kenyan Shilling)</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Itemized Charges Table */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+          <div
+            style={{
+              padding: "12px 18px",
+              background: "var(--surface-sunken)",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <strong style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-secondary)" }}>
+              Itemized Billing Breakdown
+            </strong>
+            <span style={{ fontSize: 11, color: "var(--faint)", fontWeight: 600 }}>
+              {candidate.billing_items.length} line {candidate.billing_items.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, textAlign: "left" }}>
+            <thead>
+              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 11, textTransform: "uppercase" }}>
+                <th style={{ padding: "10px 16px", fontWeight: 700, width: "38px" }}>#</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700 }}>Description</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, width: "130px" }}>Category</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", width: "140px" }}>Amount (KES)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidate.billing_items.map((item, idx) => {
+                const amount = Number(item.total ?? item.amount ?? 0);
+                const codeUpper = (item.code || "CHARGE").toUpperCase();
+                return (
+                  <tr
+                    key={idx}
+                    style={{
+                      borderBottom: idx === candidate.billing_items.length - 1 ? "none" : "1px solid var(--border)",
+                      background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)",
+                    }}
+                  >
+                    <td style={{ padding: "12px 16px", color: "var(--faint)", fontSize: 12 }}>{idx + 1}</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                        {item.description || item.code}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--faint)" }}>
+                        Tenancy lease schedule charge
+                      </div>
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "3px 8px",
+                          borderRadius: 6,
+                          background: codeUpper.includes("RENT")
+                            ? "rgba(59, 130, 246, 0.1)"
+                            : codeUpper.includes("WATER")
+                            ? "rgba(6, 182, 212, 0.1)"
+                            : "rgba(107, 114, 128, 0.1)",
+                          color: codeUpper.includes("RENT")
+                            ? "#2563eb"
+                            : codeUpper.includes("WATER")
+                            ? "#0891b2"
+                            : "#4b5563",
+                          border: "1px solid currentColor",
+                        }}
+                      >
+                        {codeUpper}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, color: "var(--text)" }}>
+                      {money.format(amount)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: "var(--surface-sunken)", borderTop: "2px solid var(--border)" }}>
+                <td colSpan={3} style={{ padding: "14px 16px", fontWeight: 800, textAlign: "right", fontSize: 13, color: "var(--text)" }}>
+                  Grand Total Payable:
+                </td>
+                <td style={{ padding: "14px 16px", fontWeight: 900, textAlign: "right", fontSize: 16, color: "var(--primary)" }}>
+                  {money.format(totalAmount)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Meter Readings Reconciliation if any */}
+        {candidate.meter_readings && candidate.meter_readings.length > 0 && (
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "10px 18px", background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
+              <strong style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-secondary)" }}>
+                Utility Meter Consumption Readings
+              </strong>
+            </div>
+            <div style={{ padding: "12px 16px", display: "grid", gap: 10 }}>
+              {candidate.meter_readings.map((m, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    background: "var(--surface-sunken)",
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: 12,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 800, color: "var(--text)" }}>{m.meter_type} Meter</div>
+                    <div style={{ color: "var(--faint)", fontSize: 11, marginTop: 2 }}>
+                      Previous: <strong style={{ color: "var(--text)" }}>{m.previous}</strong> → Current: <strong style={{ color: "var(--text)" }}>{m.current}</strong>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: 13, fontWeight: 900, color: "#0891b2", background: "rgba(6, 182, 212, 0.1)", padding: "4px 10px", borderRadius: 6 }}>
+                      {m.units} units consumed
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Footer Actions */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)", marginTop: 4 }}>
+          <button
+            type="button"
+            className="btn ghost sm"
+            onClick={handlePrint}
+            style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}
+          >
+            <span>🖨️</span>
+            <span>Print Draft Slip</span>
+          </button>
+          
+          <button
+            type="button"
+            className="btn primary"
+            onClick={onClose}
+            style={{ minWidth: 110, fontWeight: 700 }}
+          >
+            Close Preview
+          </button>
+        </div>
+
+      </div>
     </DetailDrawer>
   );
 }

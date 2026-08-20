@@ -222,7 +222,7 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
   );
 }
 
-export function DetailDrawer({ title, onClose, children, width = 380, centered = false }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number; centered?: boolean }) {
+export function DetailDrawer({ title, onClose, children, width = 460, centered = false }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number; centered?: boolean }) {
   return (
     <>
       <div className="modal-overlay" style={{ background: "rgba(7, 16, 29, 0.4)", zIndex: 90 }} onClick={onClose} />
