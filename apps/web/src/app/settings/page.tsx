@@ -187,35 +187,7 @@ function SettingsContent() {
         </p>
       </div>
 
-      {/* Tabs Header */}
-      <div style={{ display: "flex", gap: 12, borderBottom: "1px solid var(--border, #e2e8f0)", marginBottom: 24, paddingBottom: 8 }}>
-        {[
-          { id: "profile", label: "User Profile", icon: "👤" },
-          { id: "mpesa-test", label: "M-Pesa STK Sandbox", icon: "💳" },
-          { id: "notifications", label: "Notification Channels", icon: "🔔" },
-          { id: "appearance", label: "System Preferences", icon: "🎨" },
-        ].map((t) => (
-          <a
-            key={t.id}
-            href={`/settings?tab=${t.id}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "8px 16px",
-              borderRadius: 8,
-              textDecoration: "none",
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              color: tab === t.id ? "var(--primary, #0284c7)" : "var(--text-secondary, #64748b)",
-              background: tab === t.id ? "rgba(2, 132, 199, 0.08)" : "transparent",
-            }}
-          >
-            <span>{t.icon}</span>
-            <span>{t.label}</span>
-          </a>
-        ))}
-      </div>
+
 
       {notice && (
         <div
