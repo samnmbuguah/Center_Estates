@@ -478,6 +478,31 @@ class MeView(APIView):
             'canSwitchIdentity': _can_switch_demo_identity(request.user, organization) or impersonating,
         })
 
+    @extend_schema(request=OpenApiTypes.OBJECT, responses={200: {'type': 'object'}})
+    def patch(self, request):
+        user = request.user
+        first_name = request.data.get('firstName')
+        last_name = request.data.get('lastName')
+        email = request.data.get('email')
+
+        updated_fields = []
+        if first_name is not None:
+            user.first_name = str(first_name).strip()
+            updated_fields.append('first_name')
+        if last_name is not None:
+            user.last_name = str(last_name).strip()
+            updated_fields.append('last_name')
+        if email is not None:
+            clean_email = str(email).strip().lower()
+            if clean_email and get_user_model().objects.filter(email=clean_email).exclude(pk=user.pk).exists():
+                return Response({'email': 'This email address is already in use by another user.'}, status=400)
+            user.email = clean_email
+            updated_fields.append('email')
+
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+        return self.get(request)
+
 
 @method_decorator(csrf_protect, name='dispatch')
 class DemoIdentitiesView(APIView):

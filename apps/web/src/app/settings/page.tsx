@@ -130,6 +130,51 @@ function SettingsContent() {
     }
   }
 
+  // Profile editing state
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileNotice, setProfileNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setProfileFirstName(user.firstName || "");
+      setProfileLastName(user.lastName || "");
+      setProfileEmail(user.email || "");
+    }
+  }, [user]);
+
+  async function handleSaveProfile(e: FormEvent) {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileNotice(null);
+    try {
+      const res = await apiFetch("/auth/me/", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: profileFirstName.trim(),
+          lastName: profileLastName.trim(),
+          email: profileEmail.trim().toLowerCase(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setProfileNotice({ type: "success", text: "Profile information updated successfully!" });
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+      } else {
+        setProfileNotice({ type: "error", text: data.email || data.detail || "Failed to update profile." });
+      }
+    } catch {
+      setProfileNotice({ type: "error", text: "An error occurred while saving profile changes." });
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1000, margin: "0 auto" }}>
       {/* Header */}
@@ -142,20 +187,48 @@ function SettingsContent() {
         </p>
       </div>
 
-      {/* Notice Banner */}
+      {/* Tabs Header */}
+      <div style={{ display: "flex", gap: 12, borderBottom: "1px solid var(--border, #e2e8f0)", marginBottom: 24, paddingBottom: 8 }}>
+        {[
+          { id: "profile", label: "User Profile", icon: "👤" },
+          { id: "mpesa-test", label: "M-Pesa STK Sandbox", icon: "💳" },
+          { id: "notifications", label: "Notification Channels", icon: "🔔" },
+          { id: "appearance", label: "System Preferences", icon: "🎨" },
+        ].map((t) => (
+          <a
+            key={t.id}
+            href={`/settings?tab=${t.id}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 16px",
+              borderRadius: 8,
+              textDecoration: "none",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: tab === t.id ? "var(--primary, #0284c7)" : "var(--text-secondary, #64748b)",
+              background: tab === t.id ? "rgba(2, 132, 199, 0.08)" : "transparent",
+            }}
+          >
+            <span>{t.icon}</span>
+            <span>{t.label}</span>
+          </a>
+        ))}
+      </div>
+
       {notice && (
         <div
           style={{
-            marginBottom: 20,
             padding: "12px 16px",
             borderRadius: 8,
+            marginBottom: 20,
             display: "flex",
             alignItems: "center",
             gap: 10,
-            background: notice.type === "success" ? "#dcfce7" : "#fee2e2",
-            color: notice.type === "success" ? "#166534" : "#991b1b",
-            fontSize: 14,
-            fontWeight: 500,
+            background: notice.type === "success" ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)",
+            color: notice.type === "success" ? "#16a34a" : "#dc2626",
+            border: `1px solid ${notice.type === "success" ? "#86efac" : "#fca5a5"}`,
           }}
         >
           {notice.type === "success" ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
@@ -165,26 +238,117 @@ function SettingsContent() {
 
       {/* TAB 1: PROFILE */}
       {tab === "profile" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
-          <h2 style={{ margin: "0 0 16px", fontSize: "1.2rem", fontWeight: 700 }}>👤 User Profile Information</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 640 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Full Name:</label>
-              <input type="text" readOnly value={`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.username || "Admin"} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Username:</label>
-              <input type="text" readOnly value={user?.username || ""} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Email Address:</label>
-              <input type="email" readOnly value={user?.email || ""} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Assigned Roles:</label>
-              <input type="text" readOnly value={session?.roles?.join(", ") || "User"} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)" }} />
-            </div>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+          <div style={{ marginBottom: 20, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
+            <h2 style={{ margin: "0 0 4px", fontSize: "1.2rem", fontWeight: 800 }}>👤 User Profile Information</h2>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+              Update your personal details, display name, and login email address.
+            </p>
           </div>
+
+          {profileNotice && (
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: 8,
+                marginBottom: 18,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: profileNotice.type === "success" ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)",
+                color: profileNotice.type === "success" ? "#16a34a" : "#dc2626",
+                border: `1px solid ${profileNotice.type === "success" ? "#86efac" : "#fca5a5"}`,
+              }}
+            >
+              {profileNotice.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{profileNotice.text}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 640 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>First Name:</label>
+                <input
+                  type="text"
+                  value={profileFirstName}
+                  onChange={(e) => setProfileFirstName(e.target.value)}
+                  placeholder="First Name"
+                  required
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Last Name:</label>
+                <input
+                  type="text"
+                  value={profileLastName}
+                  onChange={(e) => setProfileLastName(e.target.value)}
+                  placeholder="Last Name"
+                  required
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Email Address <span style={{ color: "#dc2626" }}>*</span>:
+                </label>
+                <input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  placeholder="user@centerestates.com"
+                  required
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                />
+                <small style={{ color: "var(--muted)", fontSize: 11, marginTop: 4, display: "block" }}>
+                  Used for account login, password resets, and notifications.
+                </small>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Username (System ID):</label>
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={user?.username || ""}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", color: "var(--muted)" }}
+                />
+                <small style={{ color: "var(--muted)", fontSize: 11, marginTop: 4, display: "block" }}>
+                  Immutable unique identifier.
+                </small>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Active Organization Roles:</label>
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={session?.roles?.join(", ") || "Member"}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", color: "var(--muted)" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+              <button
+                type="submit"
+                disabled={profileSaving}
+                className="btn primary"
+                style={{ minWidth: 140, fontWeight: 700, padding: "10px 18px" }}
+              >
+                {profileSaving ? "Saving Profile..." : "Save Profile Changes"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

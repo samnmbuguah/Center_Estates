@@ -100,6 +100,10 @@ class EmailConfigurationViewSet(ModelViewSet):
         port = int(request.data.get('port') or 587)
         username = request.data.get('username', '')
         password = request.data.get('password', '')
+        if not password:
+            saved_config = EmailConfiguration.objects.for_organization(organization).first()
+            if saved_config and saved_config.password:
+                password = saved_config.password
         use_tls = bool(request.data.get('use_tls', True))
         use_ssl = bool(request.data.get('use_ssl', False))
         from_email = request.data.get('from_email') or 'noreply@centerestates.com'

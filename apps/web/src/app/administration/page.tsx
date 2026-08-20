@@ -135,17 +135,40 @@ function AdministrationContent() {
   // Email SMTP Form fields
   const [smtpConfigId, setSmtpConfigId] = useState<string>("");
   const [smtpHost, setSmtpHost] = useState("");
-  const [smtpPort, setSmtpPort] = useState("587");
-  const [smtpUsername, setSmtpUsername] = useState("");
+  const [smtpPort, setSmtpPort] = useState("465");
+  const [smtpUsername, setSmtpUsername] = useState("companion@centerestates.com");
   const [smtpPassword, setSmtpPassword] = useState("");
-  const [smtpUseTls, setSmtpUseTls] = useState(true);
-  const [smtpUseSsl, setSmtpUseSsl] = useState(false);
-  const [smtpFromEmail, setSmtpFromEmail] = useState("notifications@centerestates.com");
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [smtpUseTls, setSmtpUseTls] = useState(false);
+  const [smtpUseSsl, setSmtpUseSsl] = useState(true);
+  const [smtpFromEmail, setSmtpFromEmail] = useState("companion@centerestates.com");
   const [smtpFromName, setSmtpFromName] = useState("Center Estates");
   const [smtpIsActive, setSmtpIsActive] = useState(true);
-  const [testEmailAddress, setTestEmailAddress] = useState("");
+  const [testEmailAddress, setTestEmailAddress] = useState("samnmbuguah@gmail.com");
   const [testingSmtp, setTestingSmtp] = useState(false);
   const [smtpTestResult, setSmtpTestResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  function applySmtpPreset(provider: "cpanel" | "gmail" | "m365") {
+    if (provider === "cpanel") {
+      setSmtpHost("mail.centerestates.com");
+      setSmtpPort("465");
+      setSmtpUseSsl(true);
+      setSmtpUseTls(false);
+      setSmtpFromEmail("companion@centerestates.com");
+      setSmtpUsername("companion@centerestates.com");
+      setSmtpFromName("Center Estates");
+    } else if (provider === "gmail") {
+      setSmtpHost("smtp.gmail.com");
+      setSmtpPort("587");
+      setSmtpUseTls(true);
+      setSmtpUseSsl(false);
+    } else if (provider === "m365") {
+      setSmtpHost("smtp.office365.com");
+      setSmtpPort("587");
+      setSmtpUseTls(true);
+      setSmtpUseSsl(false);
+    }
+  }
 
 
   // 1. Load Properties & Roles
@@ -1072,6 +1095,39 @@ function AdministrationContent() {
             </p>
           </div>
 
+          {/* Quick Setup Presets */}
+          <div style={{ marginBottom: 18, background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 10, padding: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#1e40af", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              ⚡ 1-Click Mail Server Presets:
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => applySmtpPreset("cpanel")}
+                className="btn ghost sm"
+                style={{ background: "#ffffff", border: "1px solid #bfdbfe", color: "#1e40af", fontWeight: 700, fontSize: 12, borderRadius: 6 }}
+              >
+                🚀 Center Estates Webmail (mail.centerestates.com : 465 SSL)
+              </button>
+              <button
+                type="button"
+                onClick={() => applySmtpPreset("gmail")}
+                className="btn ghost sm"
+                style={{ background: "#ffffff", border: "1px solid #e2e8f0", color: "#334155", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+              >
+                🌐 Google Workspace (smtp.gmail.com : 587 TLS)
+              </button>
+              <button
+                type="button"
+                onClick={() => applySmtpPreset("m365")}
+                className="btn ghost sm"
+                style={{ background: "#ffffff", border: "1px solid #e2e8f0", color: "#334155", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+              >
+                💼 Microsoft 365 (smtp.office365.com : 587 TLS)
+              </button>
+            </div>
+          </div>
+
           <form onSubmit={handleSaveSmtp} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Server Settings */}
             <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
@@ -1102,7 +1158,7 @@ function AdministrationContent() {
                     required
                     value={smtpPort}
                     onChange={(e) => setSmtpPort(e.target.value)}
-                    placeholder="587 (TLS) or 465 (SSL)"
+                    placeholder="465 (SSL) or 587 (TLS)"
                     style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
                   />
                 </div>
@@ -1112,19 +1168,29 @@ function AdministrationContent() {
               <div style={{ display: "flex", gap: 24, marginTop: 14 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                   <input
-                    type="checkbox"
-                    checked={smtpUseTls}
-                    onChange={(e) => { setSmtpUseTls(e.target.checked); if (e.target.checked) setSmtpUseSsl(false); }}
+                    type="radio"
+                    name="smtp_encryption"
+                    checked={smtpUseSsl}
+                    onChange={() => {
+                      setSmtpUseSsl(true);
+                      setSmtpUseTls(false);
+                      setSmtpPort("465");
+                    }}
                   />
-                  <span>Use STARTTLS (Port 587 - Recommended)</span>
+                  <span>Direct SSL/TLS (Port 465 - Recommended for cPanel)</span>
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                   <input
-                    type="checkbox"
-                    checked={smtpUseSsl}
-                    onChange={(e) => { setSmtpUseSsl(e.target.checked); if (e.target.checked) setSmtpUseTls(false); }}
+                    type="radio"
+                    name="smtp_encryption"
+                    checked={smtpUseTls}
+                    onChange={() => {
+                      setSmtpUseTls(true);
+                      setSmtpUseSsl(false);
+                      setSmtpPort("587");
+                    }}
                   />
-                  <span>Use Direct SSL/TLS (Port 465)</span>
+                  <span>STARTTLS (Port 587 - Gmail / Outlook)</span>
                 </label>
               </div>
             </div>
@@ -1136,14 +1202,23 @@ function AdministrationContent() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                    SMTP Username / Login:
-                  </label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700 }}>
+                      SMTP Username / Login <span style={{ color: "#dc2626" }}>*</span>:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setSmtpUsername("companion@centerestates.com")}
+                      style={{ background: "none", border: "none", color: "#2563eb", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                    >
+                      Use companion@centerestates.com
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={smtpUsername}
                     onChange={(e) => setSmtpUsername(e.target.value)}
-                    placeholder="e.g. notifications@centerestates.com"
+                    placeholder="e.g. companion@centerestates.com"
                     style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
                   />
                 </div>
@@ -1152,13 +1227,33 @@ function AdministrationContent() {
                   <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
                     SMTP Password:
                   </label>
-                  <input
-                    type="password"
-                    value={smtpPassword}
-                    onChange={(e) => setSmtpPassword(e.target.value)}
-                    placeholder={smtpConfigId ? "(Unchanged — enter new to overwrite)" : "Enter SMTP account password"}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showSmtpPassword ? "text" : "password"}
+                      value={smtpPassword}
+                      onChange={(e) => setSmtpPassword(e.target.value)}
+                      placeholder={smtpConfigId ? "(Saved — enter new to overwrite)" : "Enter SMTP account password"}
+                      style={{ width: "100%", padding: "9px 40px 9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+                      style={{
+                        position: "absolute",
+                        right: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        fontSize: 14,
+                        cursor: "pointer",
+                        opacity: 0.7,
+                      }}
+                      title={showSmtpPassword ? "Hide Password" : "Show Password"}
+                    >
+                      {showSmtpPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1172,7 +1267,7 @@ function AdministrationContent() {
                     required
                     value={smtpFromEmail}
                     onChange={(e) => setSmtpFromEmail(e.target.value)}
-                    placeholder="noreply@centerestates.com"
+                    placeholder="companion@centerestates.com"
                     style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
                   />
                 </div>
@@ -1205,7 +1300,7 @@ function AdministrationContent() {
                   type="email"
                   value={testEmailAddress}
                   onChange={(e) => setTestEmailAddress(e.target.value)}
-                  placeholder={`Recipient email (defaults to ${session?.user.email || "your account email"})`}
+                  placeholder={`Recipient email (defaults to ${session?.user.email || "samnmbuguah@gmail.com"})`}
                   style={{ flex: 1, minWidth: 260, padding: "8px 12px", borderRadius: 6, border: "1px solid #86efac", background: "#fff", fontSize: 13 }}
                 />
                 <button
