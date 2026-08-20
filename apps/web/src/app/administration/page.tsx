@@ -64,6 +64,28 @@ type GatewayConfig = {
   };
 };
 
+const MODULE_DEFINITIONS = [
+  { slug: "property", label: "Property Management", icon: "🏢", accent: "#0284c7", desc: "Properties, units, leases, rent collection & tenancy ledger" },
+  { slug: "facility", label: "Facility Management", icon: "🔧", accent: "#ea580c", desc: "Asset register, maintenance work orders & PPM schedules" },
+  { slug: "monitoring", label: "Construction & Monitoring", icon: "🏗️", accent: "#16a34a", desc: "Site diaries, IPC payment certificates & contractor tracking" },
+  { slug: "sales", label: "Sales & Marketing", icon: "💰", accent: "#8b5cf6", desc: "Property listings, buyer KYC, installments & reservation pipeline" },
+  { slug: "valuation", label: "Valuation & Advisory", icon: "📜", accent: "#0d9488", desc: "Valuation instructions, inspection schedules & appraisal reports" },
+  { slug: "tender", label: "Tenders & Procurement", icon: "📑", accent: "#d97706", desc: "Procurement invitations, contractor bids & tender evaluation board" },
+  { slug: "companion", label: "Operations Companion", icon: "🤖", accent: "#4f46e5", desc: "Team tasks, daily briefings, staff feedback & HR approvals" },
+];
+
+function getRoleModule(role: RoleItem): string {
+  const slug = (role.slug || "").toLowerCase();
+  if (slug.startsWith("clerk-of-works") || slug.startsWith("construction") || slug.startsWith("quantity-surveyor")) return "monitoring";
+  if (slug.startsWith("facility")) return "facility";
+  if (slug.startsWith("sales") || slug.startsWith("site-clerk")) return "sales";
+  if (slug.startsWith("valuation") || slug.startsWith("valuer")) return "valuation";
+  if (slug.startsWith("tender") || slug.startsWith("pricing")) return "tender";
+  if (slug.startsWith("property") || slug.startsWith("leasing") || slug.startsWith("finance") || slug.startsWith("read-only")) return "property";
+  if (slug.startsWith("caretaker") || slug.startsWith("operations") || slug.startsWith("companion") || slug.startsWith("portfolio") || slug.startsWith("platform-admin")) return "companion";
+  return "property";
+}
+
 function AdministrationContent() {
   const { session } = useAuth();
   const searchParams = useSearchParams();
@@ -88,20 +110,37 @@ function AdministrationContent() {
   const canAccessAdministration = isSuperAdministrator || ((tab === "mpesa" || tab === "smtp") && isFinanceAdmin);
 
   // Shared Data
-  const [properties, setProperties] = useState<PropertyItem[]>([]);
-  const [roles, setRoles] = useState<RoleItem[]>([]);
-  const [members, setMembers] = useState<MemberItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // User Administration Filters & Modals
+  // Administration Datasets
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [properties, setProperties] = useState<PropertyItem[]>([]);
+
+  // User Table Search & Filters
   const [userSearch, setUserSearch] = useState("");
   const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>("all");
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
+
+  // User Management Modals
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [editingMember, setEditingMember] = useState<MemberItem | null>(null);
-  const [memberError, setMemberError] = useState("");
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  // Matrix Filter / Search State
+  const [matrixRoleSearch, setMatrixRoleSearch] = useState("");
+  const [matrixPropSearch, setMatrixPropSearch] = useState("");
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
+    property: true,
+    facility: true,
+    monitoring: true,
+    sales: true,
+    valuation: true,
+    tender: true,
+    companion: true,
+  });
 
   // Add User Form Fields
   const [newUsername, setNewUsername] = useState("");
@@ -1519,14 +1558,25 @@ function AdministrationContent() {
               </label>
             </div>
 
-            <Field label="Assigned Functional Roles (Grants Module Permissions)">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>Select one or more functional roles:</span>
-                <div style={{ display: "flex", gap: 8 }}>
+            {/* ADD USER: Module Entitlement & Roles */}
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 10, padding: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+                <div>
+                  <strong style={{ fontSize: 13, display: "block" }}>📦 Module Access &amp; Functional Roles</strong>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Toggle modules ON/OFF and assign specific functional roles</span>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={matrixRoleSearch}
+                    onChange={(e) => setMatrixRoleSearch(e.target.value)}
+                    placeholder="Filter roles…"
+                    style={{ padding: "4px 8px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", width: 130 }}
+                  />
                   <button
                     type="button"
                     onClick={() => setNewSelectedRoles(roles.map((r) => r.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
                     Select All
                   </button>
@@ -1535,63 +1585,139 @@ function AdministrationContent() {
                     onClick={() => setNewSelectedRoles([])}
                     style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
                   >
-                    Clear All
+                    Clear
                   </button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
-                {roles.length === 0 ? (
-                  <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1" }}>No roles found.</div>
-                ) : (
-                  roles.map((r) => {
-                    const isSelected = newSelectedRoles.includes(r.id);
-                    return (
-                      <label
-                        key={r.id}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 240, overflowY: "auto" }}>
+                {MODULE_DEFINITIONS.map((mod) => {
+                  const modRoles = roles.filter((r) => getRoleModule(r) === mod.slug);
+                  const filteredModRoles = matrixRoleSearch.trim()
+                    ? modRoles.filter((r) => r.name.toLowerCase().includes(matrixRoleSearch.toLowerCase()) || (r.description && r.description.toLowerCase().includes(matrixRoleSearch.toLowerCase())))
+                    : modRoles;
+
+                  if (matrixRoleSearch.trim() && filteredModRoles.length === 0) return null;
+
+                  const activeModRoles = modRoles.filter((r) => newSelectedRoles.includes(r.id));
+                  const isModActive = activeModRoles.length > 0 || newIsAdmin;
+                  const isExpanded = expandedModules[mod.slug] ?? true;
+
+                  return (
+                    <div
+                      key={mod.slug}
+                      style={{
+                        border: isModActive ? `1px solid ${mod.accent}` : "1px solid var(--border)",
+                        borderRadius: 8,
+                        background: isModActive ? "var(--surface)" : "var(--surface-sunken, #f8fafc)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
                         style={{
                           display: "flex",
-                          alignItems: "flex-start",
-                          gap: 8,
-                          padding: 8,
-                          borderRadius: 6,
-                          border: isSelected ? "1px solid #6366f1" : "1px solid var(--border)",
-                          background: isSelected ? "rgba(99, 102, 241, 0.08)" : "transparent",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 12px",
+                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}0f, transparent)` : "transparent",
                           cursor: "pointer",
                         }}
+                        onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            setNewSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
-                          }}
-                          style={{ marginTop: 2 }}
-                        />
-                        <div>
-                          <strong style={{ fontSize: 12, display: "block", color: isSelected ? "#4338ca" : "var(--text)" }}>{r.name}</strong>
-                          {r.description && (
-                            <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
-                              {r.description}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 16 }}>{mod.icon}</span>
+                          <div>
+                            <strong style={{ fontSize: 12, color: isModActive ? mod.accent : "var(--text)" }}>{mod.label}</strong>
+                            <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: 8 }}>
+                              {isModActive ? `${activeModRoles.length} roles active` : "Disabled"}
                             </span>
-                          )}
+                          </div>
                         </div>
-                      </label>
-                    );
-                  })
-                )}
-              </div>
-            </Field>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }} onClick={(e) => e.stopPropagation()}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, fontWeight: 700, color: isModActive ? mod.accent : "var(--muted)" }}>
+                            <span>{isModActive ? "ON" : "OFF"}</span>
+                            <input
+                              type="checkbox"
+                              checked={isModActive}
+                              onChange={(e) => {
+                                const enable = e.target.checked;
+                                if (enable) {
+                                  const idsToAdd = modRoles.map((r) => r.id);
+                                  setNewSelectedRoles((prev) => Array.from(new Set([...prev, ...idsToAdd])));
+                                } else {
+                                  const idsToRemove = new Set(modRoles.map((r) => r.id));
+                                  setNewSelectedRoles((prev) => prev.filter((id) => !idsToRemove.has(id)));
+                                }
+                              }}
+                              style={{ width: 14, height: 14, cursor: "pointer" }}
+                            />
+                          </label>
+                          <span style={{ fontSize: 10, color: "var(--muted)" }}>{isExpanded ? "▲" : "▼"}</span>
+                        </div>
+                      </div>
 
-            <Field label={`Property Scoping Matrix (${newSelectedProps.length} of ${properties.length} assigned)`}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                  {newIsAdmin ? "Super Admin has portfolio access. You may specify properties to assign:" : "Assign member to specific properties:"}
-                </span>
-                <div style={{ display: "flex", gap: 8 }}>
+                      {isExpanded && (
+                        <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            {filteredModRoles.map((r) => {
+                              const isSelected = newSelectedRoles.includes(r.id);
+                              return (
+                                <label
+                                  key={r.id}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 6,
+                                    padding: "5px 8px",
+                                    borderRadius: 5,
+                                    border: isSelected ? `1px solid ${mod.accent}` : "1px solid var(--border)",
+                                    background: isSelected ? `${mod.accent}0d` : "transparent",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      setNewSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
+                                    }}
+                                    style={{ marginTop: 2, cursor: "pointer" }}
+                                  />
+                                  <div style={{ minWidth: 0 }}>
+                                    <strong style={{ fontSize: 11, display: "block", color: isSelected ? mod.accent : "var(--text)" }}>{r.name}</strong>
+                                    {r.description && <span style={{ fontSize: 9, color: "var(--muted)", display: "block", lineHeight: 1.2 }}>{r.description}</span>}
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ADD USER: Property Scoping */}
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 10, padding: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+                <div>
+                  <strong style={{ fontSize: 13, display: "block" }}>🏢 Property Scoping ({newSelectedProps.length} of {properties.length} assigned)</strong>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Restrict data visibility and actions to designated properties</span>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={matrixPropSearch}
+                    onChange={(e) => setMatrixPropSearch(e.target.value)}
+                    placeholder="Filter estates…"
+                    style={{ padding: "4px 8px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", width: 130 }}
+                  />
                   <button
                     type="button"
                     onClick={() => setNewSelectedProps(properties.map((p) => p.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
                     Select All ({properties.length})
                   </button>
@@ -1604,46 +1730,47 @@ function AdministrationContent() {
                   </button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: 150, overflowY: "auto" }}>
                 {properties.length === 0 ? (
-                  <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1" }}>No properties available in this organization.</div>
+                  <div className="muted" style={{ fontSize: 11, gridColumn: "1 / -1", textAlign: "center", padding: 8 }}>No properties available.</div>
                 ) : (
-                  properties.map((p) => {
-                    const isSelected = newSelectedProps.includes(p.id);
-                    return (
-                      <label
-                        key={p.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "8px 10px",
-                          borderRadius: 6,
-                          border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
-                          cursor: "pointer",
-                          background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            setNewSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
+                  properties
+                    .filter((p) => !matrixPropSearch.trim() || p.name.toLowerCase().includes(matrixPropSearch.toLowerCase()) || p.code.toLowerCase().includes(matrixPropSearch.toLowerCase()))
+                    .map((p) => {
+                      const isSelected = newSelectedProps.includes(p.id);
+                      return (
+                        <label
+                          key={p.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 8px",
+                            borderRadius: 5,
+                            border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
+                            cursor: "pointer",
+                            background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
                           }}
-                        />
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <span>🏢</span>
-                          <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
-                          <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
-                            {p.code}
-                          </span>
-                        </div>
-                      </label>
-                    );
-                  })
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              setNewSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
+                            }}
+                          />
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                            <strong style={{ fontSize: 11, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
+                            <span className="mono muted" style={{ fontSize: 9, background: "var(--surface-sunken)", padding: "1px 3px", borderRadius: 3, border: "1px solid var(--border)" }}>
+                              {p.code}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })
                 )}
               </div>
-            </Field>
+            </div>
 
             <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setShowAddUserModal(false)} disabled={saving}>
@@ -1661,18 +1788,21 @@ function AdministrationContent() {
       {editingMember && (
         <Modal title={`Edit Access Matrix — ${editingMember.full_name || editingMember.username}`} onClose={() => setEditingMember(null)} wide>
           <form onSubmit={handleSaveEditUser} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, background: "var(--surface-2, #f8fafc)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <span style={{ width: 40, height: 40, borderRadius: "50%", background: editingMember.is_organization_admin ? "#d92d2d" : "#4f46e5", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700 }}>
+            {/* User Identity Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, background: "var(--surface-2, #f8fafc)", borderRadius: 10, border: "1px solid var(--border)" }}>
+              <span style={{ width: 44, height: 44, borderRadius: "50%", background: editingMember.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800 }}>
                 {(editingMember.first_name?.[0] || editingMember.username?.[0] || "U").toUpperCase()}
               </span>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <strong style={{ fontSize: 15 }}>{editingMember.full_name || editingMember.username}</strong>
-                  <span className="mono" style={{ fontSize: 12, color: "var(--muted)", background: "var(--surface)", padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)" }}>
+                  <strong style={{ fontSize: 16, fontWeight: 800 }}>{editingMember.full_name || editingMember.username}</strong>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--muted)", background: "var(--surface)", padding: "2px 8px", borderRadius: 6, border: "1px solid var(--border)" }}>
                     @{editingMember.username}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{editingMember.email || "No email"} {editingMember.phone_number ? `· 📞 ${editingMember.phone_number}` : ""}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>
+                  ✉️ {editingMember.email || "No email"} {editingMember.phone_number ? `· 📞 ${editingMember.phone_number}` : ""}
+                </div>
               </div>
             </div>
 
@@ -1681,37 +1811,51 @@ function AdministrationContent() {
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
                 placeholder="+254 700 000 000"
-                style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 13 }}
               />
             </Field>
 
-            <div style={{ padding: "10px 14px", background: editIsAdmin ? "#fef3c7" : "var(--surface-2, #f8fafc)", borderRadius: 8, border: editIsAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, color: editIsAdmin ? "#92400e" : "var(--text)" }}>
+            {/* Super Admin Switch */}
+            <div style={{ padding: "12px 16px", background: editIsAdmin ? "#fef3c7" : "var(--surface-2, #f8fafc)", borderRadius: 10, border: editIsAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 800, color: editIsAdmin ? "#92400e" : "var(--text)" }}>
                 <input
                   type="checkbox"
                   checked={editIsAdmin}
                   onChange={(e) => setEditIsAdmin(e.target.checked)}
-                  style={{ width: 16, height: 16 }}
+                  style={{ width: 18, height: 18, cursor: "pointer" }}
                 />
-                Super Administrator (Portfolio-wide unrestricted access across all modules)
+                👑 Super Administrator (Portfolio-wide unrestricted access across all modules)
               </label>
               {editIsAdmin && (
-                <p style={{ margin: "4px 0 0 26px", fontSize: 11, color: "#92400e" }}>
-                  User has full administrative capabilities across all estates. You can also assign explicit roles and properties below.
+                <p style={{ margin: "4px 0 0 28px", fontSize: 11, color: "#92400e" }}>
+                  User has full administrative capabilities across all estates and modules. You can still assign specific functional roles below for fine-grained scoping.
                 </p>
               )}
             </div>
 
-            <Field label="Assigned Functional Roles">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>Toggle active RBAC roles for this user:</span>
-                <div style={{ display: "flex", gap: 8 }}>
+            {/* Module Access Entitlement & Functional Roles */}
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                <div>
+                  <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>📦 Module Access &amp; Functional Roles</h4>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+                    Toggle which modules this user can access, then customize their active functional roles.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={matrixRoleSearch}
+                    onChange={(e) => setMatrixRoleSearch(e.target.value)}
+                    placeholder="Filter roles e.g. Accountant…"
+                    style={{ padding: "5px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 170 }}
+                  />
                   <button
                     type="button"
                     onClick={() => setEditSelectedRoles(roles.map((r) => r.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
-                    Select All
+                    Select All Roles
                   </button>
                   <button
                     type="button"
@@ -1722,53 +1866,177 @@ function AdministrationContent() {
                   </button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
-                {roles.map((r) => {
-                  const isSelected = editSelectedRoles.includes(r.id);
+
+              {/* Module Cards Grid / List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
+                {MODULE_DEFINITIONS.map((mod) => {
+                  const modRoles = roles.filter((r) => getRoleModule(r) === mod.slug);
+                  const filteredModRoles = matrixRoleSearch.trim()
+                    ? modRoles.filter((r) => r.name.toLowerCase().includes(matrixRoleSearch.toLowerCase()) || (r.description && r.description.toLowerCase().includes(matrixRoleSearch.toLowerCase())))
+                    : modRoles;
+
+                  if (matrixRoleSearch.trim() && filteredModRoles.length === 0) return null;
+
+                  const activeModRoles = modRoles.filter((r) => editSelectedRoles.includes(r.id));
+                  const isModActive = activeModRoles.length > 0 || editIsAdmin;
+                  const isExpanded = expandedModules[mod.slug] ?? true;
+
                   return (
-                    <label
-                      key={r.id}
+                    <div
+                      key={mod.slug}
                       style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 8,
-                        padding: 8,
-                        borderRadius: 6,
-                        border: isSelected ? "1px solid #6366f1" : "1px solid var(--border)",
-                        background: isSelected ? "rgba(99, 102, 241, 0.08)" : "transparent",
-                        cursor: "pointer",
+                        border: isModActive ? `1px solid ${mod.accent}` : "1px solid var(--border)",
+                        borderRadius: 10,
+                        background: isModActive ? "var(--surface)" : "var(--surface-sunken, #f8fafc)",
+                        overflow: "hidden",
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                          setEditSelectedRoles((prev) => e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
+                      {/* Module Card Header */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 14px",
+                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}0f, transparent)` : "transparent",
+                          borderBottom: isExpanded ? "1px solid var(--border)" : "none",
+                          cursor: "pointer",
                         }}
-                        style={{ marginTop: 2 }}
-                      />
-                      <div>
-                        <strong style={{ fontSize: 12, display: "block", color: isSelected ? "#4338ca" : "var(--text)" }}>{r.name}</strong>
-                        {r.description && (
-                          <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.3 }}>
-                            {r.description}
-                          </span>
-                        )}
+                        onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 20 }}>{mod.icon}</span>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <strong style={{ fontSize: 13, color: isModActive ? mod.accent : "var(--text)" }}>{mod.label}</strong>
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: "1px 6px",
+                                  borderRadius: 10,
+                                  background: isModActive ? `${mod.accent}20` : "var(--border)",
+                                  color: isModActive ? mod.accent : "var(--muted)",
+                                }}
+                              >
+                                {isModActive ? `${activeModRoles.length} of ${modRoles.length} roles active` : "Module Inactive"}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: 11, color: "var(--muted)", display: "block" }}>{mod.desc}</span>
+                          </div>
+                        </div>
+
+                        {/* Module Toggle & Expand */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }} onClick={(e) => e.stopPropagation()}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, color: isModActive ? mod.accent : "var(--muted)" }}>
+                            <span>{isModActive ? "Enabled" : "Disabled"}</span>
+                            <input
+                              type="checkbox"
+                              checked={isModActive}
+                              onChange={(e) => {
+                                const enable = e.target.checked;
+                                if (enable) {
+                                  const idsToAdd = modRoles.map((r) => r.id);
+                                  setEditSelectedRoles((prev) => Array.from(new Set([...prev, ...idsToAdd])));
+                                } else {
+                                  const idsToRemove = new Set(modRoles.map((r) => r.id));
+                                  setEditSelectedRoles((prev) => prev.filter((id) => !idsToRemove.has(id)));
+                                }
+                              }}
+                              style={{ width: 16, height: 16, cursor: "pointer" }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedModules((prev) => ({ ...prev, [mod.slug]: !isExpanded }))}
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}
+                          >
+                            {isExpanded ? "▲" : "▼"}
+                          </button>
+                        </div>
                       </div>
-                    </label>
+
+                      {/* Collapsible Roles Grid */}
+                      {isExpanded && (
+                        <div style={{ padding: "10px 14px", background: "var(--surface)" }}>
+                          {filteredModRoles.length === 0 ? (
+                            <div style={{ fontSize: 11, color: "var(--muted)" }}>No roles configured for this module.</div>
+                          ) : (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              {filteredModRoles.map((r) => {
+                                const isSelected = editSelectedRoles.includes(r.id);
+                                return (
+                                  <label
+                                    key={r.id}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "flex-start",
+                                      gap: 8,
+                                      padding: "6px 10px",
+                                      borderRadius: 6,
+                                      border: isSelected ? `1px solid ${mod.accent}` : "1px solid var(--border)",
+                                      background: isSelected ? `${mod.accent}0d` : "transparent",
+                                      cursor: "pointer",
+                                      transition: "all 0.12s ease",
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        setEditSelectedRoles((prev) =>
+                                          e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id)
+                                        );
+                                      }}
+                                      style={{ marginTop: 2, cursor: "pointer" }}
+                                    />
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                      <strong style={{ fontSize: 11, display: "block", color: isSelected ? mod.accent : "var(--text)" }}>
+                                        {r.name}
+                                      </strong>
+                                      {r.description && (
+                                        <span style={{ fontSize: 10, color: "var(--muted)", display: "block", lineHeight: 1.25 }}>
+                                          {r.description}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
-            </Field>
+            </div>
 
-            <Field label={`Property Scoping Matrix (${editSelectedProps.length} of ${properties.length} assigned)`}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>Check the properties / estates this user manages:</span>
-                <div style={{ display: "flex", gap: 8 }}>
+            {/* Property Scoping Matrix */}
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <div>
+                  <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>
+                    🏢 Property Scoping Matrix ({editSelectedProps.length} of {properties.length} assigned)
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+                    Restrict this user&apos;s data visibility and management actions to designated properties / estates.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={matrixPropSearch}
+                    onChange={(e) => setMatrixPropSearch(e.target.value)}
+                    placeholder="Filter properties…"
+                    style={{ padding: "5px 10px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", width: 150 }}
+                  />
                   <button
                     type="button"
                     onClick={() => setEditSelectedProps(properties.map((p) => p.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
                     Select All ({properties.length})
                   </button>
@@ -1781,46 +2049,56 @@ function AdministrationContent() {
                   </button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 10, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 180, overflowY: "auto", background: "var(--surface)" }}>
+
+              {/* Properties Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxHeight: 180, overflowY: "auto", padding: 4 }}>
                 {properties.length === 0 ? (
-                  <div className="muted" style={{ fontSize: 12, gridColumn: "1 / -1" }}>No properties available in this organization.</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", gridColumn: "1 / -1", textAlign: "center", padding: 12 }}>
+                    No properties available in this organization.
+                  </div>
                 ) : (
-                  properties.map((p) => {
-                    const isSelected = editSelectedProps.includes(p.id);
-                    return (
-                      <label
-                        key={p.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "8px 10px",
-                          borderRadius: 6,
-                          border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
-                          cursor: "pointer",
-                          background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            setEditSelectedProps((prev) => e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id));
+                  properties
+                    .filter((p) => !matrixPropSearch.trim() || p.name.toLowerCase().includes(matrixPropSearch.toLowerCase()) || p.code.toLowerCase().includes(matrixPropSearch.toLowerCase()))
+                    .map((p) => {
+                      const isSelected = editSelectedProps.includes(p.id);
+                      return (
+                        <label
+                          key={p.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "8px 10px",
+                            borderRadius: 6,
+                            border: isSelected ? "1px solid #0284c7" : "1px solid var(--border)",
+                            cursor: "pointer",
+                            background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
+                            transition: "all 0.12s ease",
                           }}
-                        />
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <span>🏢</span>
-                          <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
-                          <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
-                            {p.code}
-                          </span>
-                        </div>
-                      </label>
-                    );
-                  })
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              setEditSelectedProps((prev) =>
+                                e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                              );
+                            }}
+                            style={{ cursor: "pointer" }}
+                          />
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0, flex: 1 }}>
+                            <span>🏢</span>
+                            <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
+                            <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
+                              {p.code}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })
                 )}
               </div>
-            </Field>
+            </div>
 
             <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setEditingMember(null)} disabled={saving}>
