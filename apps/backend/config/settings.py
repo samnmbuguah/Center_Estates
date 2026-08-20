@@ -236,7 +236,12 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-organization-id',
     'x-property-id',
     'x-property-scope',
+    'x-tenant-id',
+    'x-requested-with',
     'x-csrftoken',
+    'x-impersonate-user',
+    'x-ceest-signature',
+    'authorization',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
