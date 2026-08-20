@@ -152,7 +152,7 @@ export function authHeaders(): Record<string, string> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const tenantId = getTenantId();
+  const tenantId = getTenantId() ?? ls()?.getItem("ce_organization");
   if (tenantId) {
     headers["X-Tenant-ID"] = tenantId;
     headers["X-Organization-ID"] = tenantId;
@@ -175,14 +175,14 @@ function normalizePath(rawPath: string): string {
   p = p.replace(/^\/projects\/ingest(?:\/status)?/, "/dashboard");
 
   // Handle nested /projects/:id/subresource paths -> /subresource/?project_id=:id
-  const nestedMatch = p.match(/^\/projects\/([^/]+)\/(cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\/status|documents|members)(?:\/|\?(.*))?$/);
+  const nestedMatch = p.match(/^\/projects\/([^/]+)\/(boq-items|cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\/status|documents|members)(?:\/|\?(.*))?$/);
 
   if (nestedMatch) {
     const [, projectId, subresource, rawQuery] = nestedMatch;
     let targetEndpoint = subresource;
     if (subresource === "cost-dashboard" || subresource === "anomalies" || subresource === "ingest/status") {
       targetEndpoint = "dashboard";
-    } else if (subresource === "boq-review" || subresource === "boq-material-reconciliation") {
+    } else if (subresource === "boq-items" || subresource === "boq-review" || subresource === "boq-material-reconciliation") {
       targetEndpoint = "boq";
     } else if (subresource === "waivers") {
       targetEndpoint = "requirement-waivers";
