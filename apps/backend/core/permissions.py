@@ -10,6 +10,8 @@ class HasOrganizationContext(BasePermission):
     message = 'An active organization membership is required.'
 
     def has_permission(self, request, view):
+        if getattr(request.user, 'is_superuser', False):
+            return True
         return get_active_organization(request, required=False) is not None
 
 
@@ -18,6 +20,8 @@ class HasModuleSubscription(HasOrganizationContext):
     message = 'The active organization is not subscribed to this module.'
 
     def has_permission(self, request, view):
+        if getattr(request.user, 'is_superuser', False):
+            return True
         organization = get_active_organization(request, required=False)
         module = getattr(view, 'required_module', self.module)
         return bool(organization and module and Subscription.objects.available().filter(
@@ -30,10 +34,10 @@ class HasDomainPermission(HasModuleSubscription):
     message = 'Your role does not grant this action.'
 
     def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
         if getattr(request.user, 'is_superuser', False):
             return True
+        if not super().has_permission(request, view):
+            return False
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)
         key = getattr(view, 'required_permission', self.permission_key)
@@ -55,10 +59,10 @@ class HasModuleActionPermission(HasModuleSubscription):
     report_actions = {'export', 'exports', 'download'}
 
     def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
         if getattr(request.user, 'is_superuser', False):
             return True
+        if not super().has_permission(request, view):
+            return False
         organization = get_active_organization(request)
         membership = get_active_membership(request, organization)
         if not membership:

@@ -40,6 +40,11 @@ def get_active_organization(request, *, required: bool = True):
         request._active_membership_cache = {str(membership.organization_id): membership}
         request._active_organization_cache = {cache_key: membership.organization}
         return membership.organization
+    if user.is_superuser:
+        organization = Organization.objects.filter(is_active=True).first()
+        if organization:
+            request._active_organization_cache = {cache_key: organization}
+            return organization
     if required:
         raise PermissionDenied('No active organization membership is available.')
     return None
