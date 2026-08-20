@@ -128,7 +128,22 @@ export function RentView({
       >
         <button className="btn ghost sm" onClick={() => setTab("rent-schedules")}>Rent Schedules →</button>
         <button className="btn ghost sm" onClick={() => setTab("payments")}>Payments →</button>
-        {canFinance && <button className="btn primary sm" onClick={onAddInvoice}>+ New Invoice</button>}
+        {canFinance && (
+          <button
+            className="btn primary sm"
+            style={{
+              background: "#0284c7",
+              color: "#ffffff",
+              fontWeight: 800,
+              padding: "6px 14px",
+              boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)",
+            }}
+            onClick={() => setTab("billing")}
+          >
+            ⚡ Bulk Invoice Property
+          </button>
+        )}
+        {canFinance && <button className="btn primary sm" onClick={onAddInvoice}>+ New Single Invoice</button>}
       </ViewToolbar>
 
       <Panel

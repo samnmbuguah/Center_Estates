@@ -1,52 +1,41 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
-export type AgentActionItem = {
+type AgentActionItem = {
   id: string;
-  action_type: string;
   title: string;
   description: string;
-  target_module: string;
-  target_id?: string;
-  target_name?: string;
-  payload?: Record<string, any>;
-  urgency: "critical" | "high" | "medium" | "low";
-  status?: string;
+  urgency: "critical" | "high" | "normal" | "low";
+  target_module: "property" | "facility" | "finance" | "companion";
+  proposed_patch: Record<string, unknown>;
+  requires_approval: boolean;
 };
 
-export type LangGraphBriefingData = {
-  date?: string;
+type LangGraphBriefingData = {
   headline?: string;
+  greeting?: string;
+  date?: string;
+  generatedAt?: string;
   portfolio_health_score?: number;
   healthScore?: number;
-  health_status?: string;
-  briefing_narrative?: string;
-  key_metrics?: {
-    total_arrears?: number;
-    overdue_invoices?: number;
-    urgent_work_orders?: number;
-    open_work_orders?: number;
-    expiring_leases_60d?: number;
-    pending_leave_requests?: number;
-  };
   critical_alerts?: string[];
-  recommended_focus?: string[];
+  briefing_narrative?: string;
   proposed_actions?: AgentActionItem[];
-  // Backwards compatibility
-  greeting?: string;
-  generatedAt?: string;
-  priorities?: Array<{
-    id: string;
-    severity: string;
-    icon: string;
-    title: string;
-    description: string;
-    actionLabel: string;
-    actionRoute: string;
-    category: string;
+  kpis?: {
+    total_units?: number;
+    occupied_units?: number;
+    occupancy_rate?: number;
+    monthly_collection_rate?: number;
+    open_work_orders?: number;
+    critical_tickets?: number;
+  };
+  metrics?: Array<{
+    label: string;
+    value: string | number;
+    change?: string;
+    tone?: "green" | "red" | "yellow" | "blue";
   }>;
 };
 
@@ -128,17 +117,20 @@ export function DailyBriefingCard({
     return (
       <div
         style={{
-          background: "linear-gradient(135deg, #0b1f33 0%, #172a3e 100%)",
+          background: "linear-gradient(135deg, rgba(13, 148, 136, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)",
           borderRadius: 14,
           padding: "20px 24px",
-          color: "#ffffff",
+          color: "var(--text, #0f172a)",
+          border: "1px solid rgba(13, 148, 136, 0.2)",
           display: "flex",
           alignItems: "center",
           gap: 12,
         }}
       >
         <span style={{ fontSize: 20 }}>⏳</span>
-        <span style={{ fontSize: 13, color: "#94a3b8" }}>Running LangGraph Open Agent Orchestrator...</span>
+        <span style={{ fontSize: 13, color: "var(--text-secondary, #64748b)" }}>
+          Quartermaster AI is checking live operations…
+        </span>
       </div>
     );
   }
@@ -152,12 +144,12 @@ export function DailyBriefingCard({
   return (
     <div
       style={{
-        background: "linear-gradient(135deg, #081524 0%, #0f2742 100%)",
+        background: "linear-gradient(135deg, rgba(240, 253, 250, 0.95) 0%, rgba(240, 249, 255, 0.95) 100%)",
         borderRadius: 16,
         padding: "22px 26px",
-        color: "#ffffff",
-        boxShadow: "0 14px 36px rgba(7, 16, 29, 0.22)",
-        border: "1px solid rgba(59, 130, 246, 0.2)",
+        color: "#0f172a",
+        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
+        border: "1px solid rgba(13, 148, 136, 0.22)",
         display: "flex",
         flexDirection: "column",
         gap: 18,
@@ -171,8 +163,8 @@ export function DailyBriefingCard({
               width: 46,
               height: 46,
               borderRadius: 12,
-              background: "rgba(59, 130, 246, 0.25)",
-              border: "1.5px solid rgba(96, 165, 250, 0.4)",
+              background: "rgba(13, 148, 136, 0.12)",
+              border: "1.5px solid rgba(13, 148, 136, 0.3)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -183,12 +175,12 @@ export function DailyBriefingCard({
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11, letterSpacing: "0.08em", fontWeight: 800, color: "#60a5fa", textTransform: "uppercase" }}>
+              <span style={{ fontSize: 11, letterSpacing: "0.08em", fontWeight: 800, color: "#0f766e", textTransform: "uppercase" }}>
                 Quartermaster AI Orchestrator
               </span>
-              <span style={{ fontSize: 10, color: "#94a3b8" }}>· {data.date || data.generatedAt || "Today"}</span>
+              <span style={{ fontSize: 11, color: "#64748b" }}>· {data.date || data.generatedAt || "Today"}</span>
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 900, margin: "2px 0 0", color: "#ffffff" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 900, margin: "2px 0 0", color: "#0f172a" }}>
               {headline}
             </h3>
           </div>
@@ -200,15 +192,16 @@ export function DailyBriefingCard({
             style={{
               padding: "6px 14px",
               borderRadius: 10,
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
+              background: "rgba(255, 255, 255, 0.9)",
+              border: "1px solid rgba(13, 148, 136, 0.25)",
               display: "flex",
               alignItems: "center",
               gap: 8,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
             }}
           >
-            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Portfolio Health:</span>
-            <strong style={{ fontSize: 14, color: healthScore >= 80 ? "#4ade80" : "#fbbf24", fontWeight: 900 }}>
+            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>Portfolio Health:</span>
+            <strong style={{ fontSize: 14, color: healthScore >= 80 ? "#16a34a" : "#d97706", fontWeight: 900 }}>
               {healthScore}/100
             </strong>
           </div>
@@ -218,17 +211,19 @@ export function DailyBriefingCard({
             type="button"
             onClick={handleSpeak}
             style={{
-              background: isSpeaking ? "#ef4444" : "rgba(59, 130, 246, 0.2)",
-              color: "#ffffff",
-              border: "1px solid rgba(96, 165, 250, 0.3)",
+              background: isSpeaking ? "#ef4444" : "#ffffff",
+              color: isSpeaking ? "#ffffff" : "#0f766e",
+              border: "1px solid rgba(13, 148, 136, 0.3)",
               borderRadius: 10,
-              padding: "7px 12px",
+              padding: "7px 14px",
               fontSize: 12,
               fontWeight: 700,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: 6,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+              transition: "all 0.15s ease",
             }}
           >
             <span>{isSpeaking ? "⏹️" : "🔊"}</span>
@@ -239,7 +234,17 @@ export function DailyBriefingCard({
 
       {/* Narrative Summary if present */}
       {data.briefing_narrative && (
-        <div style={{ background: "rgba(15, 23, 42, 0.4)", borderRadius: 10, padding: "12px 16px", border: "1px solid rgba(255, 255, 255, 0.06)", fontSize: 12, lineHeight: 1.5, color: "#e2e8f0" }}>
+        <div
+          style={{
+            background: "rgba(255, 255, 255, 0.8)",
+            borderRadius: 10,
+            padding: "12px 16px",
+            border: "1px solid rgba(13, 148, 136, 0.15)",
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "#334155",
+          }}
+        >
           {data.briefing_narrative}
         </div>
       )}
@@ -248,8 +253,8 @@ export function DailyBriefingCard({
       {data.critical_alerts && data.critical_alerts.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {data.critical_alerts.map((alert, idx) => (
-            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
-              <span style={{ color: "#60a5fa" }}>•</span>
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#334155" }}>
+              <span style={{ color: "#0d9488", fontWeight: 800 }}>•</span>
               <span>{alert}</span>
             </div>
           ))}
@@ -258,8 +263,8 @@ export function DailyBriefingCard({
 
       {/* Actionable Proposed Interventions (Human in the loop 1-click execution) */}
       {actions.length > 0 && (
-        <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+        <div style={{ borderTop: "1px solid rgba(13, 148, 136, 0.15)", paddingTop: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
             ⚡ Proposed Agent Interventions ({actions.length})
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
@@ -270,61 +275,57 @@ export function DailyBriefingCard({
                 <div
                   key={act.id}
                   style={{
-                    background: isExecuted ? "rgba(34, 197, 94, 0.12)" : "rgba(15, 39, 66, 0.65)",
+                    background: isExecuted ? "rgba(22, 163, 74, 0.08)" : "#ffffff",
                     border: isExecuted
-                      ? "1px solid rgba(34, 197, 94, 0.4)"
+                      ? "1px solid rgba(22, 163, 74, 0.3)"
                       : act.urgency === "critical" || act.urgency === "high"
-                      ? "1px solid rgba(239, 68, 68, 0.4)"
-                      : "1px solid rgba(255, 255, 255, 0.1)",
+                      ? "1px solid rgba(239, 68, 68, 0.3)"
+                      : "1px solid rgba(13, 148, 136, 0.18)",
                     borderRadius: 12,
                     padding: "14px 16px",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
                     gap: 10,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
                   }}
                 >
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: isExecuted ? "#4ade80" : "#93c5fd", textTransform: "uppercase" }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: isExecuted ? "#16a34a" : "#0f766e", textTransform: "uppercase" }}>
                         {act.target_module} · {act.urgency}
                       </span>
-                      {isExecuted && <span style={{ fontSize: 11, color: "#4ade80", fontWeight: 800 }}>✓ Executed</span>}
+                      {isExecuted && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 800 }}>✓ Executed</span>}
                     </div>
-                    <strong style={{ fontSize: 13, color: "#ffffff", display: "block" }}>{act.title}</strong>
-                    <p style={{ fontSize: 11, color: "#cbd5e1", margin: "4px 0 0", lineHeight: 1.35 }}>{act.description}</p>
+                    <strong style={{ fontSize: 13, color: "#0f172a", display: "block" }}>{act.title}</strong>
+                    <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0", lineHeight: 1.4 }}>{act.description}</p>
                   </div>
 
-                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     {isExecuted ? (
-                      <span style={{ fontSize: 11, color: "#4ade80", fontWeight: 700 }}>Action completed successfully</span>
+                      <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 700 }}>Action completed successfully</span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleExecuteAction(act)}
-                        disabled={isBusy}
-                        style={{
-                          background: act.urgency === "high" || act.urgency === "critical" ? "#d92d2d" : "#0284c7",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: 6,
-                          padding: "6px 12px",
-                          fontSize: 11,
-                          fontWeight: 800,
-                          cursor: isBusy ? "not-allowed" : "pointer",
-                          opacity: isBusy ? 0.7 : 1,
-                        }}
-                      >
-                        {isBusy ? "Executing…" : `Execute: ${act.title.split(":")[0]}`}
-                      </button>
-                    )}
-                    {act.target_module && (
-                      <Link
-                        href={`/${act.target_module}`}
-                        style={{ fontSize: 11, color: "#60a5fa", textDecoration: "none", fontWeight: 700 }}
-                      >
-                        Open {act.target_module} →
-                      </Link>
+                      <>
+                        <span style={{ fontSize: 11, color: "#64748b" }}>Requires Approval</span>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => void handleExecuteAction(act)}
+                          style={{
+                            background: "#0f766e",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "6px 12px",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            transition: "background 0.12s ease",
+                          }}
+                        >
+                          {isBusy ? "Executing..." : "Approve & Execute"}
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
