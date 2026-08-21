@@ -8,6 +8,7 @@ export function RowDetailPanel({
   row,
   onEdit,
   onDelete,
+  onActivate,
   onOpenPortal,
   canLease = true,
 }: {
@@ -15,11 +16,24 @@ export function RowDetailPanel({
   row: Row;
   onEdit?: (r: Row) => void;
   onDelete?: (r: any) => void;
+  onActivate?: (r: any) => void;
   onOpenPortal?: (r: Row) => void;
   canLease?: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [activating, setActivating] = useState(false);
   const isTenant = tab === "tenants" || Boolean((row as TenantRow).tenant_type || (row as TenantRow).lease_start);
+  const isProspect = (row as TenantRow).status === "prospect";
+
+  const handleActivate = async () => {
+    if (!onActivate) return;
+    setActivating(true);
+    try {
+      await onActivate(row);
+    } finally {
+      setActivating(false);
+    }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -28,9 +42,15 @@ export function RowDetailPanel({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {/* Health & Status Badges */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
-              ● Lease Active
-            </span>
+            {isProspect ? (
+              <span style={{ background: "#fef3c7", color: "#92400e", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+                ◌ Pending Activation
+              </span>
+            ) : (
+              <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+                ● Lease Active
+              </span>
+            )}
             <span style={{ background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
               ✓ Rent Current (0 Arrears)
             </span>
@@ -51,6 +71,16 @@ export function RowDetailPanel({
               alignItems: "center",
             }}
           >
+            {isProspect && onActivate && canLease && (
+              <button
+                className="btn primary sm"
+                onClick={() => void handleActivate()}
+                disabled={activating}
+                style={{ background: "#16a34a", borderColor: "#15803d", fontWeight: 800 }}
+              >
+                {activating ? "Activating…" : "⚡ Activate Tenancy & Leases"}
+              </button>
+            )}
             {/* 1-Click WhatsApp */}
             {(row as any).phone && (
               <a

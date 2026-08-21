@@ -759,6 +759,81 @@ class TenantViewSet(OrganizationModelViewSet):
         }, status=status.HTTP_200_OK)
 
     @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def activate(self, request, pk=None):
+        tenant = self.get_object()
+        organization = get_active_organization(request)
+        tenant.status = Tenant.Status.ACTIVE
+        tenant.save(update_fields=('status', 'updated_at'))
+
+        draft_leases = Lease.objects.select_for_update().filter(
+            organization=organization, tenant=tenant, status=Lease.Status.DRAFT
+        ).select_related('unit')
+
+        activated_leases = []
+        for lease in draft_leases:
+            if lease.unit.status not in (Unit.Status.SOLD, Unit.Status.UNAVAILABLE):
+                conflict = Lease.objects.for_organization(organization).filter(
+                    unit=lease.unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+                ).exclude(pk=lease.pk).exists()
+                if not conflict:
+                    lease.status = Lease.Status.ACTIVE
+                    lease.save(update_fields=('status', 'updated_at'))
+                    generate_rent_schedule(lease)
+                    lease.unit.status = Unit.Status.OCCUPIED
+                    lease.unit.save(update_fields=('status', 'updated_at'))
+                    activated_leases.append(lease.reference)
+
+        return Response({
+            'status': 'active',
+            'tenant': TenantSerializer(tenant).data,
+            'activated_leases_count': len(activated_leases),
+            'activated_leases': activated_leases,
+            'detail': f"Tenant '{tenant.name}' and {len(activated_leases)} lease(s) activated successfully."
+        })
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk-activate')
+    def bulk_activate(self, request):
+        organization = get_active_organization(request)
+        tenant_ids = request.data.get('tenant_ids') if isinstance(request.data.get('tenant_ids'), list) else []
+        if not tenant_ids:
+            raise ValidationError({'tenant_ids': 'Select at least one tenant to activate.'})
+
+        tenants = Tenant.objects.select_for_update().filter(organization=organization, pk__in=tenant_ids)
+        total_activated_tenants = 0
+        total_activated_leases = 0
+
+        for tenant in tenants:
+            if tenant.status != Tenant.Status.ACTIVE:
+                tenant.status = Tenant.Status.ACTIVE
+                tenant.save(update_fields=('status', 'updated_at'))
+                total_activated_tenants += 1
+
+            draft_leases = Lease.objects.select_for_update().filter(
+                organization=organization, tenant=tenant, status=Lease.Status.DRAFT
+            ).select_related('unit')
+
+            for lease in draft_leases:
+                if lease.unit.status not in (Unit.Status.SOLD, Unit.Status.UNAVAILABLE):
+                    conflict = Lease.objects.for_organization(organization).filter(
+                        unit=lease.unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+                    ).exclude(pk=lease.pk).exists()
+                    if not conflict:
+                        lease.status = Lease.Status.ACTIVE
+                        lease.save(update_fields=('status', 'updated_at'))
+                        generate_rent_schedule(lease)
+                        lease.unit.status = Unit.Status.OCCUPIED
+                        lease.unit.save(update_fields=('status', 'updated_at'))
+                        total_activated_leases += 1
+
+        return Response({
+            'activated_tenants_count': total_activated_tenants,
+            'activated_leases_count': total_activated_leases,
+            'detail': f"Activated {total_activated_tenants} tenant(s) and {total_activated_leases} lease(s) successfully."
+        })
+
+    @transaction.atomic
     @action(detail=False, methods=('post',), url_path='onboard')
     def onboard(self, request):
         """Create a tenant application and its initial draft lease atomically."""
@@ -1278,6 +1353,40 @@ class LeaseViewSet(OrganizationModelViewSet):
             lease.tenant.status = Tenant.Status.ACTIVE
             lease.tenant.save(update_fields=('status', 'updated_at'))
         return Response(self.get_serializer(lease).data)
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk-activate')
+    def bulk_activate(self, request):
+        organization = get_active_organization(request)
+        lease_ids = request.data.get('lease_ids') if isinstance(request.data.get('lease_ids'), list) else []
+        if not lease_ids:
+            raise ValidationError({'lease_ids': 'Select at least one lease to activate.'})
+
+        leases = Lease.objects.select_for_update().filter(
+            organization=organization, pk__in=lease_ids, status=Lease.Status.DRAFT
+        ).select_related('unit', 'tenant')
+
+        activated_count = 0
+        for lease in leases:
+            if lease.unit.status not in (Unit.Status.SOLD, Unit.Status.UNAVAILABLE):
+                conflict = Lease.objects.for_organization(organization).filter(
+                    unit=lease.unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+                ).exclude(pk=lease.pk).exists()
+                if not conflict:
+                    lease.status = Lease.Status.ACTIVE
+                    lease.save(update_fields=('status', 'updated_at'))
+                    generate_rent_schedule(lease)
+                    lease.unit.status = Unit.Status.OCCUPIED
+                    lease.unit.save(update_fields=('status', 'updated_at'))
+                    if lease.tenant.status == Tenant.Status.PROSPECT:
+                        lease.tenant.status = Tenant.Status.ACTIVE
+                        lease.tenant.save(update_fields=('status', 'updated_at'))
+                    activated_count += 1
+
+        return Response({
+            'activated_count': activated_count,
+            'detail': f"Activated {activated_count} lease(s) successfully."
+        })
 
     def _close(self, lease, status):
         if lease.status not in (Lease.Status.ACTIVE, Lease.Status.EXPIRING):

@@ -36,6 +36,8 @@ export function TenantsView({
   onDownloadStatement = () => {},
   onEdit = () => {},
   onDelete = () => {},
+  onActivate = () => {},
+  onBulkActivate = () => {},
   canLease = true,
   onRefresh = () => {},
 }: {
@@ -52,11 +54,15 @@ export function TenantsView({
   onDownloadStatement?: (r: TenantRow) => void;
   onEdit?: (r: Row) => void;
   onDelete?: (r: TenantRow) => void;
+  onActivate?: (r: TenantRow) => void;
+  onBulkActivate?: (ids: string[]) => void;
   canLease?: boolean;
   onRefresh?: () => void;
 }) {
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activating, setActivating] = useState(false);
   const PAGE_SIZE = 20;
   const tenants = rows as TenantRow[];
   const filtered = tenants.filter((t) => !filterStatus || t.status === filterStatus);
@@ -67,12 +73,52 @@ export function TenantsView({
   const statuses = [...new Set(tenants.map((t) => t.status).filter(Boolean))];
   const selStyle = { padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13 };
 
+  const allVisibleSelected = pagedRows.length > 0 && pagedRows.every((r) => selectedIds.includes(String(r.id)));
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      const visibleIds = new Set(pagedRows.map((r) => String(r.id)));
+      setSelectedIds((prev) => prev.filter((id) => !visibleIds.has(id)));
+    } else {
+      const visibleIds = pagedRows.map((r) => String(r.id));
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
+  };
+
+  const handleRunBulkActivate = async () => {
+    if (!selectedIds.length) return;
+    setActivating(true);
+    try {
+      await onBulkActivate(selectedIds);
+      setSelectedIds([]);
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const handleActivateAllProspects = async () => {
+    const prospectIds = tenants.filter(t => t.status === "prospect").map(t => String(t.id));
+    if (!prospectIds.length) return;
+    setActivating(true);
+    try {
+      await onBulkActivate(prospectIds);
+      setSelectedIds([]);
+    } finally {
+      setActivating(false);
+    }
+  };
+
   return (
     <>
       <KpiStrip cols={4}>
         <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Tenants" value={kN(tenants.length)} sub="Registered tenants" link="View tenants" onClick={() => setTab("tenants")} />
         <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active tenancies" link="View tenants" onClick={() => setTab("tenants")} />
-        <KpiCard icon="◌" iconBg="#fef3c7" iconColor="#d97706" label="Prospects" value={kN(prospects)} sub="Potential tenants" link="View tenants" onClick={() => setTab("tenants")} />
+        <KpiCard icon="◌" iconBg="#fef3c7" iconColor="#d97706" label="Prospects" value={kN(prospects)} sub="Pending activation" link="View tenants" onClick={() => setTab("tenants")} />
         <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Combined arrears" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
@@ -81,6 +127,27 @@ export function TenantsView({
           <option value="">All Status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        {selectedIds.length > 0 && canLease && (
+          <button
+            className="btn primary sm"
+            onClick={() => void handleRunBulkActivate()}
+            disabled={activating}
+            style={{ background: "#16a34a", borderColor: "#15803d", fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}
+          >
+            {activating ? "Activating…" : `⚡ Bulk Activate (${selectedIds.length})`}
+          </button>
+        )}
+        {prospects > 0 && selectedIds.length === 0 && canLease && (
+          <button
+            className="btn ghost sm"
+            onClick={() => void handleActivateAllProspects()}
+            disabled={activating}
+            style={{ color: "#16a34a", borderColor: "#86efac", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}
+            title="Activate all pending prospect tenants and their draft leases"
+          >
+            ⚡ Activate All Prospects ({prospects})
+          </button>
+        )}
         <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
           { key: "name", label: "Name" }, { key: "code", label: "Code" }, { key: "tenant_type", label: "Type" },
           { key: "email", label: "Email" }, { key: "phone", label: "Phone" },
@@ -101,12 +168,23 @@ export function TenantsView({
         <button className="btn primary sm" onClick={() => onAdd()} style={{ fontWeight: 800 }}>+ Onboard Tenant</button>
       </ViewToolbar>
 
-      <Panel title="Tenants">
+      <Panel title={`Tenants ${selectedIds.length ? `(${selectedIds.length} selected)` : ''}`}>
         <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No tenants found" emptyDesc="Register a tenant to link leases, invoices and documents.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
                 <tr>
+                  {canLease && (
+                    <th style={{ width: 36, textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAll}
+                        style={{ cursor: "pointer" }}
+                        title="Select visible"
+                      />
+                    </th>
+                  )}
                   <th>Tenant</th>
                   <th>Unit</th>
                   <th>Contact</th>
@@ -117,76 +195,100 @@ export function TenantsView({
                 </tr>
               </thead>
               <tbody>
-                {pagedRows.map((t) => (
-                  <tr key={String(t.id)} onClick={() => onSelectRow(t)}>
-                    <td>
-                      <strong style={{ fontSize: 13 }}>{String(t.name ?? "—")}</strong>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "—")}</div>
-                    </td>
-                    <td>
-                      {(t as any).units && (t as any).units.length > 1 ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)" }}>
-                            🏢 {(t as any).units.length} Units ({[...new Set((t as any).units.map((u: any) => u.floor).filter(Boolean))].map((f: any) => `Fl ${f}`).join(', ') || 'Multi-floor'})
-                          </span>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                            {(t as any).units.map((u: any, idx: number) => (
-                              <span key={idx} className="mono" style={{ fontSize: 10, background: "var(--surface-2)", padding: "1px 5px", borderRadius: 4, border: "1px solid var(--border)" }}>
-                                {u.code}{u.floor ? ` (${u.floor})` : ''}
-                              </span>
-                            ))}
+                {pagedRows.map((t) => {
+                  const isSelected = selectedIds.includes(String(t.id));
+                  return (
+                    <tr
+                      key={String(t.id)}
+                      onClick={() => onSelectRow(t)}
+                      style={{ background: isSelected ? "rgba(59, 130, 246, 0.06)" : undefined }}
+                    >
+                      {canLease && (
+                        <td style={{ textAlign: "center" }} onClick={(e) => toggleSelectOne(String(t.id), e)}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            style={{ cursor: "pointer" }}
+                          />
+                        </td>
+                      )}
+                      <td>
+                        <strong style={{ fontSize: 13 }}>{String(t.name ?? "—")}</strong>
+                        <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "—")}</div>
+                      </td>
+                      <td>
+                        {(t as any).units && (t as any).units.length > 1 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)" }}>
+                              🏢 {(t as any).units.length} Units ({[...new Set((t as any).units.map((u: any) => u.floor).filter(Boolean))].map((f: any) => `Fl ${f}`).join(', ') || 'Multi-floor'})
+                            </span>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                              {(t as any).units.map((u: any, idx: number) => (
+                                <span key={idx} className="mono" style={{ fontSize: 10, background: "var(--surface-2)", padding: "1px 5px", borderRadius: 4, border: "1px solid var(--border)" }}>
+                                  {u.code}{u.floor ? ` (${u.floor})` : ''}
+                                </span>
+                              ))}
+                            </div>
                           </div>
+                        ) : (
+                          <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{String(t.unit ?? "—")}</span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--primary)", fontSize: 12 }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>{t.phone ? String(t.phone) : "—"}</div>
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {t.lease_start ? (
+                          <>
+                            <div>{fmtDate(t.lease_start)}</div>
+                            <div className="muted">→ {t.lease_end ? fmtDate(t.lease_end) : "—"}</div>
+                          </>
+                        ) : (
+                          <span className="muted" style={{ fontSize: 11 }}>No lease</span>
+                        )}
+                      </td>
+                      <td>
+                        {t.status === "prospect" ? (
+                          <Badge tone="yellow">Pending Activation</Badge>
+                        ) : (
+                          <StatusPill value={String(t.status ?? "—")} />
+                        )}
+                      </td>
+                      <td className="mono" style={{ color: Number(t.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)", fontWeight: 700 }}>
+                        {t.outstanding === undefined ? "—" : kM(t.outstanding)}
+                      </td>
+                      <td>
+                        <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                          {t.status === "prospect" && canLease && (
+                            <button
+                              className="btn primary sm"
+                              onClick={(e) => { e.stopPropagation(); void onActivate(t); }}
+                              style={{ background: "#16a34a", borderColor: "#15803d", fontWeight: 700 }}
+                              title="Activate this tenant and all draft leases"
+                            >
+                              ⚡ Activate
+                            </button>
+                          )}
+                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onEdit(t); }}>Edit</button>
+                          <button className="btn ghost sm" data-testid="tenant-portal-btn" onClick={(e) => { e.stopPropagation(); onOpenPortal(t); }}>Portal</button>
+                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}>Docs</button>
+                          {canLease && (
+                            <button
+                              className="btn ghost sm"
+                              onClick={(e) => { e.stopPropagation(); onDelete(t); }}
+                              style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.25)" }}
+                              title="Delete duplicate or erroneous tenant"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
-                      ) : (
-                        <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{String(t.unit ?? "—")}</span>
-                      )}
-                    </td>
-                    <td style={{ fontSize: 12 }}>
-                      <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--primary)", fontSize: 12 }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
-                      <div className="muted" style={{ fontSize: 11 }}>{t.phone ? String(t.phone) : "—"}</div>
-                    </td>
-                    <td style={{ fontSize: 12 }}>
-                      {t.lease_start ? (
-                        <>
-                          <div>{fmtDate(t.lease_start)}</div>
-                          <div className="muted">→ {t.lease_end ? fmtDate(t.lease_end) : "—"}</div>
-                        </>
-                      ) : (
-                        <span className="muted" style={{ fontSize: 11 }}>No lease</span>
-                      )}
-                    </td>
-                    <td>
-                      {t.status === "prospect" ? (
-                        <Badge tone="yellow">Pending Activation</Badge>
-                      ) : (
-                        <StatusPill value={String(t.status ?? "—")} />
-                      )}
-                    </td>
-                    <td className="mono" style={{ color: Number(t.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)", fontWeight: 700 }}>
-                      {t.outstanding === undefined ? "—" : kM(t.outstanding)}
-                    </td>
-                    <td>
-                      <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
-                        {t.status === "prospect" && (
-                          <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); setTab("leases"); }}>Activate Lease</button>
-                        )}
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onEdit(t); }}>Edit</button>
-                        <button className="btn ghost sm" data-testid="tenant-portal-btn" onClick={(e) => { e.stopPropagation(); onOpenPortal(t); }}>Portal</button>
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}>Docs</button>
-                        {canLease && (
-                          <button
-                            className="btn ghost sm"
-                            onClick={(e) => { e.stopPropagation(); onDelete(t); }}
-                            style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.25)" }}
-                            title="Delete duplicate or erroneous tenant"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

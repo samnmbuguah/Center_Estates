@@ -54,6 +54,8 @@ export function TenancyView({
   onDownloadStatement = () => {},
   onDeleteTenant = () => {},
   onEditTenant = () => {},
+  onActivateTenant = () => {},
+  onBulkActivateTenants = () => {},
   onRenewLease = () => {},
   onTerminateLease = () => {},
   onRefresh = () => {},
@@ -89,6 +91,8 @@ export function TenancyView({
   onDownloadStatement?: (r: TenantRow) => void;
   onDeleteTenant?: (r: TenantRow) => void;
   onEditTenant?: (r: Row) => void;
+  onActivateTenant?: (r: TenantRow) => void;
+  onBulkActivateTenants?: (ids: string[]) => void;
   onRenewLease?: (r: LeaseRow) => void;
   onTerminateLease?: (r: LeaseRow) => void;
   onRefresh?: () => void;
@@ -106,7 +110,7 @@ export function TenancyView({
         <UnitsView rows={unitsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onSelectRow={onSelectRow} />
       )}
       {section === "tenants" && (
-        <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onBulkUpload={onBulkUploadTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} onDownloadStatement={onDownloadStatement} onDelete={onDeleteTenant} onEdit={onEditTenant} canLease={canLease} onRefresh={onRefresh} />
+        <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onBulkUpload={onBulkUploadTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} onDownloadStatement={onDownloadStatement} onDelete={onDeleteTenant} onEdit={onEditTenant} onActivate={onActivateTenant} onBulkActivate={onBulkActivateTenants} canLease={canLease} onRefresh={onRefresh} />
       )}
       {section === "leases" && (
         <LeasesView rows={leasesRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAddLease={onAddLease} onDownloadTemplate={onDownloadTemplate} onLeaseAction={onLeaseAction} onSelectRow={onSelectLeaseRow} />

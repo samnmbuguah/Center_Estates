@@ -875,6 +875,69 @@ export function usePropertyLogic({
     }
   }, [organizationId, selectedRow, loadData, setError]);
 
+  const handleActivateTenant = useCallback(async (tenant: TenantRow) => {
+    if (!organizationId) return;
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/tenants/${tenant.id}/activate/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({}),
+      }, organizationId);
+      if (res.ok) {
+        setError("");
+        await loadData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail || "Failed to activate tenant and leases.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to activate tenant");
+    }
+  }, [organizationId, loadData, setError]);
+
+  const handleBulkActivateTenants = useCallback(async (tenantIds: string[]) => {
+    if (!organizationId || !tenantIds.length) return;
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/tenants/bulk-activate/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ tenant_ids: tenantIds }),
+      }, organizationId);
+      if (res.ok) {
+        setError("");
+        await loadData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail || "Failed to bulk activate tenants.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to bulk activate tenants");
+    }
+  }, [organizationId, loadData, setError]);
+
+  const handleBulkActivateLeases = useCallback(async (leaseIds: string[]) => {
+    if (!organizationId || !leaseIds.length) return;
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/leases/bulk-activate/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ lease_ids: leaseIds }),
+      }, organizationId);
+      if (res.ok) {
+        setError("");
+        await loadData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail || "Failed to bulk activate leases.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to bulk activate leases");
+    }
+  }, [organizationId, loadData, setError]);
+
   const downloadTenancyTemplate = () => {
     void downloadReportCSV("lease-expiry");
   };
@@ -1226,6 +1289,9 @@ export function usePropertyLogic({
     downloadReceiptPdf,
     downloadTenantStatement,
     handleDeleteTenant,
+    handleActivateTenant,
+    handleBulkActivateTenants,
+    handleBulkActivateLeases,
     generateServiceChargeAllocations,
     fetchData: loadData,
   };
