@@ -2122,8 +2122,26 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if run.property_id:
             leases = leases.filter(unit__property=run.property)
         created = 0; ready = 0; issue_count = 0
+        created = 0; ready = 0; issue_count = 0
         amount_ready = Decimal('0'); amount_issues = Decimal('0')
         from facilities.models import MeterReading, UtilityMeter
+
+        # Calculate month multiplier for quarterly or multi-month periods
+        start_year, start_month = run.period_start.year, run.period_start.month
+        end_year, end_month = run.period_end.year, run.period_end.month
+        months_count = max(1, (end_year - start_year) * 12 + (end_month - start_month) + 1)
+
+        if months_count > 1:
+            if months_count == 3 and start_month in (1, 4, 7, 10):
+                q_num = (start_month - 1) // 3 + 1
+                period_suffix = f"Q{q_num} {start_year} ({run.period_start:%b} – {run.period_end:%b %Y})"
+            else:
+                period_suffix = f"{months_count} Months ({run.period_start:%b %Y} – {run.period_end:%b %Y})"
+        else:
+            period_suffix = f"{run.period_start:%B %Y}"
+
+        qty = Decimal(str(months_count))
+
         for lease in leases:
             issue_rows = []
             items = []
@@ -2132,12 +2150,12 @@ class BillingRunViewSet(OrganizationModelViewSet):
             ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=run.period_start)).select_related('billing_item__tax_configuration')
             due_profiles = [profile for profile in profiles if self._profile_is_due(profile, run.period_start)]
             for profile in due_profiles:
-                value = profile.amount
+                monthly_val = profile.amount
                 if profile.calculation == BillingItem.Calculation.AREA_RATE:
                     if not lease.unit.area:
                         issue_rows.append(('missing_unit_area', 'Unit area is required for area-based billing.', profile))
                         continue
-                    value = (profile.rate * lease.unit.area).quantize(Decimal('0.01'))
+                    monthly_val = (profile.rate * lease.unit.area).quantize(Decimal('0.01'))
                 elif profile.calculation == BillingItem.Calculation.METERED:
                     readings = MeterReading.objects.for_organization(run.organization).filter(
                         meter__property_unit=lease.unit, meter__utility_type=UtilityMeter.Utility.WATER,
@@ -2146,31 +2164,60 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     if not readings.exists():
                         issue_rows.append(('missing_water_reading', 'A valid water meter reading is required.', profile))
                         continue
-                    value = sum((row.cost for row in readings), Decimal('0'))
+                    monthly_val = sum((row.cost for row in readings), Decimal('0'))
                 elif profile.billing_item.code.upper() == 'RENT':
-                    value = lease.effective_rent(run.period_start)
+                    monthly_val = lease.effective_rent(run.period_start)
                 elif profile.calculation == BillingItem.Calculation.PERCENTAGE:
-                    value = (lease.effective_rent(run.period_start) * profile.rate / Decimal('100')).quantize(Decimal('0.01'))
-                if value <= 0:
+                    monthly_val = (lease.effective_rent(run.period_start) * profile.rate / Decimal('100')).quantize(Decimal('0.01'))
+                if monthly_val <= 0:
                     issue_rows.append(('missing_rate', f'{profile.billing_item.name} has no billable amount.', profile))
                     continue
+                
+                line_qty = Decimal('1') if profile.calculation == BillingItem.Calculation.METERED else qty
+                line_subtotal = (monthly_val * line_qty).quantize(Decimal('0.01'))
                 tax = profile.billing_item.tax_configuration
                 tax_rate = tax.rate if tax and tax.is_active and tax.effective_from <= run.period_end and (not tax.effective_to or tax.effective_to >= run.period_start) else Decimal('0')
-                tax_amount = (value * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
-                items.append({'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': profile.billing_item.name, 'quantity': '1', 'unit_rate': str(value), 'subtotal': str(value), 'tax_code': tax.code if tax else '', 'tax_rate': str(tax_rate), 'tax_amount': str(tax_amount), 'total': str(value + tax_amount), 'source_type': 'billing_profile', 'source_id': str(profile.id)})
+                tax_amount = (line_subtotal * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
+                
+                desc = f"{profile.billing_item.name} ({period_suffix})" if months_count > 1 and profile.calculation != BillingItem.Calculation.METERED else profile.billing_item.name
+                items.append({
+                    'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': desc,
+                    'quantity': str(line_qty), 'unit_rate': str(monthly_val), 'subtotal': str(line_subtotal),
+                    'tax_code': tax.code if tax else '', 'tax_rate': str(tax_rate), 'tax_amount': str(tax_amount),
+                    'total': str(line_subtotal + tax_amount), 'source_type': 'billing_profile', 'source_id': str(profile.id)
+                })
+
             if not any(item['code'].upper() == 'RENT' for item in items):
                 rent = lease.effective_rent(run.period_start)
                 if rent > 0:
-                    items.insert(0, {'billing_item': None, 'code': 'RENT', 'description': 'Rent', 'quantity': '1', 'unit_rate': str(rent), 'subtotal': str(rent), 'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(rent), 'source_type': 'lease', 'source_id': str(lease.id)})
+                    line_subtotal = (rent * qty).quantize(Decimal('0.01'))
+                    desc = f"Rent ({period_suffix})" if months_count > 1 else "Rent"
+                    items.insert(0, {
+                        'billing_item': None, 'code': 'RENT', 'description': desc,
+                        'quantity': str(qty), 'unit_rate': str(rent), 'subtotal': str(line_subtotal),
+                        'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
+                        'source_type': 'lease', 'source_id': str(lease.id)
+                    })
                 else:
                     issue_rows.append(('missing_rent', 'The lease has no effective rent for this period.', None))
+
             allocation = ServiceChargeAllocation.objects.for_organization(run.organization).filter(
                 unit=lease.unit, service_charge__is_active=True, service_charge__starts_on__lte=run.period_end,
             ).select_related('service_charge').order_by('-service_charge__starts_on').first()
             if allocation and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
-                items.append({'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': allocation.service_charge.name, 'quantity': '1', 'unit_rate': str(allocation.monthly_amount), 'subtotal': str(allocation.monthly_amount), 'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(allocation.monthly_amount), 'source_type': 'service_charge_allocation', 'source_id': str(allocation.id)})
+                monthly_sc = allocation.monthly_amount
+                line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
+                desc = f"{allocation.service_charge.name} ({period_suffix})" if months_count > 1 else allocation.service_charge.name
+                items.append({
+                    'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
+                    'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                    'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
+                    'source_type': 'service_charge_allocation', 'source_id': str(allocation.id)
+                })
+
+            period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if months_count > 1 else run.period_start.strftime('%Y-%m')
             duplicate = Invoice.objects.for_organization(run.organization).filter(
-                lease=lease, metadata__billing_period=run.period_start.strftime('%Y-%m'),
+                lease=lease, metadata__billing_period=period_key,
             ).exclude(status=Invoice.Status.VOID).exists()
             if duplicate:
                 issue_rows.append(('duplicate_invoice', 'An invoice already exists for this tenancy and billing period.', None))
@@ -2220,6 +2267,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
         ).first()
 
         if existing:
+            if existing.period_end != period_end:
+                existing.period_end = period_end
+                existing.save(update_fields=('period_end',))
             if existing.status in (BillingRun.Status.PREPARING, BillingRun.Status.REVIEW):
                 self._execute_prepare(existing)
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
@@ -2299,8 +2349,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
         year = run.period_start.year
-        generated = []
         for candidate in candidates:
+            period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if (run.period_end.year - run.period_start.year)*12 + (run.period_end.month - run.period_start.month) >= 1 else run.period_start.strftime('%Y-%m')
             invoice = Invoice.objects.create(
                 organization=run.organization, number=next_invoice_number(run.organization, year), lease=candidate.lease,
                 invoice_type='scheduled', issued_on=candidate.invoice_date, due_on=candidate.due_date,
@@ -2308,7 +2358,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 tax_rate=(candidate.tax_amount / candidate.subtotal * Decimal('100')).quantize(Decimal('0.01')) if candidate.subtotal else 0,
                 amount=candidate.total, balance=candidate.total, status=Invoice.Status.ISSUED,
                 prepared_by=run.created_by, reviewed_by=run.approved_by, reviewed_at=run.approved_at,
-                issued_by=request.user, issued_at=timezone.now(), metadata={'source': 'billing_run', 'billing_run_id': str(run.id), 'billing_period': run.period_start.strftime('%Y-%m')},
+                issued_by=request.user, issued_at=timezone.now(), metadata={'source': 'billing_run', 'billing_run_id': str(run.id), 'billing_period': period_key, 'period_start': str(run.period_start), 'period_end': str(run.period_end)},
             )
             for item in candidate.billing_items:
                 InvoiceLine.objects.create(
