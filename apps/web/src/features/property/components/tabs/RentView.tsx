@@ -88,8 +88,8 @@ export function RentView({
   onDownloadPdf?: (row: InvoiceRow) => void;
   onRefresh?: () => void;
 }) {
-  const currentInvoices = invoices || rentInvoices;
-  const displayInvoices = rows as InvoiceRow[];
+  const currentInvoices = (invoices && invoices.length > 0 ? invoices : (rows && rows.length > 0 ? rows : rentInvoices)) as InvoiceRow[];
+  const displayInvoices = (rows && rows.length > 0 ? rows : currentInvoices) as InvoiceRow[];
   const totalBilled = currentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = currentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
   const collected = Math.max(totalBilled - outstanding, 0);

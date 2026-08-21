@@ -161,6 +161,7 @@ export function usePropertyLogic({
       "tenant-documents": "tenant-documents",
       leases: "leases",
       "rent-schedules": "rent-schedules",
+      rent: "invoices",
       reminders: "invoice-reminders",
       receipts: "receipts",
       payments: "receipts",
