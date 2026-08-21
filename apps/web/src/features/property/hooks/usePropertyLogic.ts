@@ -408,9 +408,26 @@ export function usePropertyLogic({
         .then((d) => setTenantOptions(Array.isArray(d) ? d : []));
     }
     if (showInvoiceComposer) {
-      void apiFetch("/property/leases/?search=", {}, organizationId)
+      void apiFetch("/property/leases/?status=active&search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
-        .then((d) => setLeaseOptions(Array.isArray(d) ? d : []));
+        .then((leases: unknown) => {
+          const items = Array.isArray(leases) ? leases : [];
+          setLeaseOptions(items as LeaseRow[]);
+          // Auto-select the first lease and auto-fill rent so the user never
+          // has to touch the dropdown when there's only one active lease.
+          if (items.length > 0) {
+            setInvoiceDraft((prev) => {
+              if (prev.lease) return prev; // user already changed it
+              const first = items[0] as LeaseRow;
+              const rentVal = first.monthly_rent;
+              return {
+                ...prev,
+                lease: String(first.id),
+                subtotal: rentVal ? String(rentVal) : prev.subtotal,
+              };
+            });
+          }
+        });
     }
     if (showAddServiceCharge || financialIntake === "budget" || financialIntake === "expense") {
       void apiFetch("/property/properties/?search=", {}, organizationId)
@@ -459,16 +476,14 @@ export function usePropertyLogic({
       if (field === "lease" && value) {
         const selectedLease = leaseOptions.find((l) => String(l.id) === value);
         if (selectedLease) {
-          if (!current.subtotal || current.subtotal === "0") {
-            const rentVal = (selectedLease as unknown as Record<string, unknown>).monthly_rent ?? (selectedLease as unknown as Record<string, unknown>).rent;
-            if (rentVal) updated.subtotal = String(rentVal);
-          }
-          if (!current.due_on) {
-            const issued = new Date(current.issued_on || new Date());
-            const due = new Date(issued);
-            due.setDate(due.getDate() + 5);
-            updated.due_on = due.toISOString().slice(0, 10);
-          }
+          // Always overwrite subtotal when user explicitly picks a lease
+          const rentVal = selectedLease.monthly_rent;
+          if (rentVal) updated.subtotal = String(rentVal);
+          // Always ensure due_on is set relative to issued_on
+          const issued = new Date(current.issued_on || new Date());
+          const due = new Date(issued);
+          due.setDate(due.getDate() + 5);
+          updated.due_on = due.toISOString().slice(0, 10);
         }
       }
       return updated;
