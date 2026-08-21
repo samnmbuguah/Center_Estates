@@ -353,7 +353,7 @@ def tenant_statement_pdf(tenant, start: date | None = None, end: date | None = N
         ("BACKGROUND", (0, -1), (-1, -1), PALE),
         ("FONTNAME", (3, -1), (-1, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-        ("ALIGN", (4, 1), (-1, -1), "RIGHT"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("GRID", (0, 0), (-1, -1), .3, LINE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
@@ -451,7 +451,7 @@ def tenant_payment_status_pdf(organization, property_record, start: date, end: d
         ("BACKGROUND", (0, 0), (-1, 1), colors.white), ("TEXTCOLOR", (0, 0), (-1, -1), colors.black),
         ("FONTNAME", (0, 0), (-1, 1), "Helvetica-Bold"), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eeeeee")), ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("ALIGN", (0, 0), (-1, 1), "CENTER"), ("ALIGN", (2, 2), (-1, -1), "RIGHT"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("GRID", (0, 0), (-1, -1), .45, colors.black),
         ("TOPPADDING", (0, 0), (-1, 1), 4), ("BOTTOMPADDING", (0, 0), (-1, 1), 4),
@@ -566,7 +566,7 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
         ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-        ("ALIGN", (2, 1), (-1, -1), "RIGHT"), ("ALIGN", (1, 1), (1, -1), "CENTER"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
         ("BACKGROUND", (0, 5), (-1, 5), colors.HexColor("#eef2ff")), ("FONTNAME", (0, 5), (-1, 5), "Helvetica-Bold"),
         ("BACKGROUND", (0, -2), (-1, -2), colors.HexColor("#fee2e2")), ("FONTNAME", (0, -2), (-1, -2), "Helvetica-Bold"),
@@ -595,7 +595,7 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
             style=[
                 ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+                ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ]
         )
@@ -619,7 +619,7 @@ def income_expenditure_pdf(organization, property_record, start: date, end: date
             style=[
                 ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
+                ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("BACKGROUND", (0, -1), (-1, -1), PALE), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ]
         )
@@ -714,7 +714,8 @@ def _column_widths(headers: list[str], rows: list[list[str]], page_width: float)
         is_money = any(k in h_lower for k in ("rent", "amount", "charge", "balance", "total", "subtotal", "paid", "billed", "vat", "net", "tax", "fee", "cost", "spend"))
         is_date = any(k in h_lower for k in ("date", "start", "end", "due", "issued", "expires", "completed"))
         is_rate = any(k in h_lower for k in ("%", "rate", "ratio", "interval", "days", "count", "score"))
-        is_code = any(k in h_lower for k in ("unit", "floor", "code", "no", "number", "ref", "status", "area", "use", "type"))
+        is_use = any(k in h_lower for k in ("use", "category", "specialty", "status", "party", "action"))
+        is_code = any(k in h_lower for k in ("unit", "floor", "code", "no", "number", "ref", "area", "type"))
         is_long_text = any(k in h_lower for k in ("tenant", "supplier", "description", "name", "contractor", "party", "reason", "comment"))
 
         if is_money:
@@ -723,6 +724,9 @@ def _column_widths(headers: list[str], rows: list[list[str]], page_width: float)
         elif is_date:
             base_min = 22 * mm
             flex = 0.8
+        elif is_use:
+            base_min = 27 * mm
+            flex = 1.3
         elif is_rate:
             base_min = 18 * mm
             flex = 0.6
@@ -798,12 +802,12 @@ def tabular_report_pdf(
         if body and sum(1 for row in body if _looks_numeric(row[index])) >= max(1, len(body) // 2)
     }
     data = [[
-        Paragraph(f"<b>{_clean_header_label(headers[index])}</b>", s["HeaderRight"] if index in numeric_cols else s["HeaderSmall"])
+        Paragraph(f"<b>{_clean_header_label(headers[index])}</b>", s["HeaderSmall"])
         for index in range(column_count)
     ]]
     for row in body:
         data.append([
-            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Right"] if index in numeric_cols else s["Small"])
+            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Small"])
             for index in range(column_count)
         ])
     table = Table(data, colWidths=widths, repeatRows=1)
@@ -811,11 +815,10 @@ def tabular_report_pdf(
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
         ("LEFTPADDING", (0, 0), (-1, -1), 2.5), ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
     ]
-    for index in numeric_cols:
-        style_commands.append(("ALIGN", (index, 1), (index, -1), "RIGHT"))
     if body and str(body[-1][0]).strip().upper() in {"TOTAL", "TOTALS", "GRAND TOTAL", "SURPLUS / (DEFICIT)"}:
         style_commands.extend([
             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eef2ff")),
@@ -847,7 +850,7 @@ def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summar
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("BACKGROUND", (0, -1), (-1, -1), RED),
         ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .3, LINE),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"), ("GRID", (0, 0), (-1, -1), .3, LINE),
         ("FONTSIZE", (0, 0), (-1, -1), 8.5), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
     story = [Paragraph("Ageing summary", s["Section"]), buckets, Spacer(1, 5 * mm), Paragraph("Tenant arrears detail", s["Section"])]
@@ -858,15 +861,15 @@ def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summar
             row.get("unit", ""),
             row.get("due_on", ""), row.get("days_overdue", ""), str(row.get("ageing_bucket", "")).replace("_", "–"),
             f"{Decimal(row.get('billed') or 0):,.2f}", f"{Decimal(row.get('paid') or 0):,.2f}",
-            f"{Decimal(row.get('balance') or 0):,.2f}", row.get("status", ""),
+            f"{Decimal(row.get('balance') or 0):,.2f}", str(row.get("status", "")).replace("_", " ").title(),
         ])
     if len(detail) == 1:
         detail.append(["—", "No open arrears for this period", "", "", "", "", "", "", "", ""])
-    detail_table = Table(detail, colWidths=[28*mm, 52*mm, 18*mm, 24*mm, 16*mm, 24*mm, 28*mm, 26*mm, 28*mm, 24*mm], repeatRows=1)
+    detail_table = Table(detail, colWidths=[20 * mm, 42 * mm, 18 * mm, 20 * mm, 14 * mm, 20 * mm, 24 * mm, 24 * mm, 24 * mm, 20 * mm], repeatRows=1)
     detail_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (3, 1), (-2, -1), "RIGHT"),
+        ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
         ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
     ]))
