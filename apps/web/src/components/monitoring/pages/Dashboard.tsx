@@ -283,6 +283,16 @@ export function Dashboard() {
               <Typography variant="caption">Open Tickets</Typography>
             </Box>
           </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+            <Box sx={{ 
+              p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
+              textAlign: "center"
+            }}>
+              <TrendingUp size={24} style={{ marginBottom: 8 }} />
+              <Typography variant="h3" sx={{ fontWeight: 800 }}>{utilPct}%</Typography>
+              <Typography variant="caption">Budget Utilization</Typography>
+            </Box>
+          </Grid>
         </Grid>
 
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
