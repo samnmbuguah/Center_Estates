@@ -62,7 +62,7 @@ export function PropertyFeaturePage({
       case "buildings":
         return <BuildingsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
       case "units":
-        return <UnitsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
+        return <UnitsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSelectRow={logic.handleSelectRow} />;
       case "projects":
         return <ProjectsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
       case "tenancy":

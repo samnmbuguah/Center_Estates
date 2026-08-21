@@ -120,12 +120,25 @@ export function TenantApplicationCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState(0);
+  const [extraUnits, setExtraUnits] = useState<{
+    id: string;
+    unit: string;
+    rent_type: string;
+    fixed_monthly_rent: string;
+    rent_rate_per_sqft: string;
+    service_charge_rate_per_sqft: string;
+    term_months: string;
+    starts_on: string;
+    vat_rate: string;
+    security_deposit: string;
+  }[]>([]);
   const draftRestored = formRestored || utilitiesRestored;
   const clearDraft = () => {
     clearForm();
     clearUtilities();
     clearLettingFee();
     clearRenewalFee();
+    setExtraUnits([]);
   };
 
   useEffect(() => {
@@ -197,8 +210,43 @@ export function TenantApplicationCard({
   const serviceCharge = area * Number(form.service_charge_rate_per_sqft || 0);
   const subtotal = rent + serviceCharge;
   const vat = (subtotal * Number(form.vat_rate || 0)) / 100;
-  const utilityDeposit = utilities.reduce((sum, item) => sum + (item.applicable ? item.rate_per_unit * area : 0), 0);
-  const total = subtotal + vat + Number(form.security_deposit || 0) + utilityDeposit;
+
+  // Compute extra units totals
+  const extraTotals = extraUnits.reduce(
+    (acc, eu) => {
+      const u = units.find((x) => x.id === eu.unit);
+      const eArea = Number(u?.area ?? 0);
+      let eRent = 0;
+      if (eu.rent_type === "fixed") {
+        eRent = Number(eu.fixed_monthly_rent || 0);
+      } else {
+        eRent = eArea * Number(eu.rent_rate_per_sqft || 0);
+      }
+      const eSc = eArea * Number(eu.service_charge_rate_per_sqft || 0);
+      const eSub = eRent + eSc;
+      const eVat = (eSub * Number(eu.vat_rate || 0)) / 100;
+      const eDep = Number(eu.security_deposit || 0);
+      return {
+        area: acc.area + eArea,
+        rent: acc.rent + eRent,
+        serviceCharge: acc.serviceCharge + eSc,
+        subtotal: acc.subtotal + eSub,
+        vat: acc.vat + eVat,
+        deposit: acc.deposit + eDep,
+      };
+    },
+    { area: 0, rent: 0, serviceCharge: 0, subtotal: 0, vat: 0, deposit: 0 }
+  );
+
+  const totalOccupiedArea = area + extraTotals.area;
+  const totalMonthlyRent = rent + extraTotals.rent;
+  const totalMonthlySc = serviceCharge + extraTotals.serviceCharge;
+  const totalMonthlySubtotal = subtotal + extraTotals.subtotal;
+  const totalVat = vat + extraTotals.vat;
+  const totalDeposit = Number(form.security_deposit || 0) + extraTotals.deposit;
+
+  const utilityDeposit = utilities.reduce((sum, item) => sum + (item.applicable ? item.rate_per_unit * totalOccupiedArea : 0), 0);
+  const total = totalMonthlySubtotal + totalVat + totalDeposit + utilityDeposit;
   const expiryDate = addMonths(form.starts_on, Number(form.term_months || 12));
   const charges = useMemo(
     () => [
@@ -209,9 +257,9 @@ export function TenantApplicationCard({
         renewal_fee: renewalFee,
         account_type: "G/L Account",
         account_name: "Landlord Dues",
-        area,
-        rate: computedRentRate,
-        amount: rent,
+        area: totalOccupiedArea,
+        rate: totalOccupiedArea > 0 ? totalMonthlyRent / totalOccupiedArea : 0,
+        amount: totalMonthlyRent,
       },
       {
         code: "SERVICE CHARGE",
@@ -220,9 +268,9 @@ export function TenantApplicationCard({
         renewal_fee: false,
         account_type: "G/L Account",
         account_name: "Landlord Dues",
-        area,
-        rate: Number(form.service_charge_rate_per_sqft || 0),
-        amount: serviceCharge,
+        area: totalOccupiedArea,
+        rate: totalOccupiedArea > 0 ? totalMonthlySc / totalOccupiedArea : 0,
+        amount: totalMonthlySc,
       },
       {
         code: "UTILITIES",
@@ -231,12 +279,12 @@ export function TenantApplicationCard({
         renewal_fee: false,
         account_type: "G/L Account",
         account_name: "Landlord Dues",
-        area,
+        area: totalOccupiedArea,
         rate: 0,
         amount: utilityDeposit,
       },
     ],
-    [area, computedRentRate, form.service_charge_rate_per_sqft, lettingFee, renewalFee, rent, serviceCharge, utilityDeposit]
+    [totalOccupiedArea, totalMonthlyRent, totalMonthlySc, lettingFee, renewalFee, utilityDeposit]
   );
 
   function update(name: keyof typeof initialForm, value: string) {
@@ -276,7 +324,7 @@ export function TenantApplicationCard({
             tenant: {
               name: form.name,
               tenant_type: form.tenant_type,
-              status: rentType === "prospect" ? "prospect" : "prospect",
+              status: "prospect",
               address_1: form.address_1,
               address_2: form.address_2,
               city: form.city,
@@ -303,7 +351,34 @@ export function TenantApplicationCard({
               escalation_percent: Number(form.escalation_percent || 0),
               escalation_interval_months: Number(form.escalation_interval_months || 12),
             },
-            utilities: utilities.map((item) => ({ ...item, deposit_amount: item.applicable ? item.rate_per_unit * area : 0 })),
+            additional_leases: extraUnits
+              .filter((eu) => eu.unit)
+              .map((eu) => {
+                const u = units.find((x) => x.id === eu.unit);
+                const eArea = Number(u?.area ?? 0);
+                let eRent = 0;
+                let eRate = 0;
+                if (eu.rent_type === "fixed") {
+                  eRent = Number(eu.fixed_monthly_rent || 0);
+                  eRate = eArea > 0 ? eRent / eArea : 0;
+                } else {
+                  eRate = Number(eu.rent_rate_per_sqft || 0);
+                  eRent = eArea * eRate;
+                }
+                return {
+                  unit: eu.unit,
+                  starts_on: eu.starts_on || form.starts_on || new Date().toISOString().slice(0, 10),
+                  term_months: Number(eu.term_months || form.term_months || 12),
+                  rent_type: eu.rent_type,
+                  monthly_rent: eRent,
+                  rent_rate_per_sqft: eRate,
+                  service_charge_rate_per_sqft: Number(eu.service_charge_rate_per_sqft || form.service_charge_rate_per_sqft || 0),
+                  vat_rate: Number(eu.vat_rate || form.vat_rate || 0),
+                  security_deposit: Number(eu.security_deposit || 0),
+                  billing_day: Number(form.billing_day || 1),
+                };
+              }),
+            utilities: utilities.map((item) => ({ ...item, deposit_amount: item.applicable ? item.rate_per_unit * totalOccupiedArea : 0 })),
             charges,
           }),
         },
@@ -598,6 +673,119 @@ export function TenantApplicationCard({
                   ],
                 })}
               </Box>
+
+              {/* MULTI-UNIT / MULTI-FLOOR LEASE EXPANSION */}
+              <Divider sx={{ my: 3 }} />
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexWrap: "wrap", gap: 1 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text)" }}>
+                    🏢 Additional Units / Multi-Floor Tenancy ({extraUnits.length})
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
+                    Add more units or floors occupied by this tenant with independent lease terms.
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const assignedIds = new Set([form.unit, ...extraUnits.map((e) => e.unit)]);
+                    const nextAvailable = units.find((u) => !assignedIds.has(u.id));
+                    setExtraUnits((prev) => [
+                      ...prev,
+                      {
+                        id: String(Date.now()),
+                        unit: nextAvailable ? nextAvailable.id : "",
+                        rent_type: form.rent_type || "fixed",
+                        fixed_monthly_rent: "",
+                        rent_rate_per_sqft: form.rent_rate_per_sqft || "",
+                        service_charge_rate_per_sqft: form.service_charge_rate_per_sqft || "0",
+                        term_months: form.term_months || "12",
+                        starts_on: form.starts_on || "",
+                        vat_rate: form.vat_rate || "16",
+                        security_deposit: "0",
+                      },
+                    ]);
+                  }}
+                  sx={{ textTransform: "none", fontWeight: 700, borderColor: "var(--border)" }}
+                >
+                  + Add Additional Unit / Floor
+                </Button>
+              </Box>
+
+              {extraUnits.length > 0 && (
+                <Stack spacing={2} sx={{ mb: 2 }}>
+                  {extraUnits.map((eu, idx) => {
+                    const u = units.find((x) => x.id === eu.unit);
+                    const eArea = Number(u?.area ?? 0);
+                    return (
+                      <Paper
+                        key={eu.id}
+                        variant="outlined"
+                        sx={{ p: 2, borderRadius: 2, bgcolor: "var(--surface-2)", border: "1px solid var(--border)" }}
+                      >
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                            Additional Unit #{idx + 1} {u ? `— ${u.code} (Floor ${u.floor || "1"} · ${eArea} sqft)` : ""}
+                          </Typography>
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => setExtraUnits((prev) => prev.filter((item) => item.id !== eu.id))}
+                            sx={{ textTransform: "none", fontWeight: 700, fontSize: 11 }}
+                          >
+                            Remove Unit
+                          </Button>
+                        </Box>
+                        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 1.5 }}>
+                          <TextField
+                            select
+                            size="small"
+                            label="Select Unit"
+                            value={eu.unit}
+                            onChange={(e) =>
+                              setExtraUnits((prev) =>
+                                prev.map((item) => (item.id === eu.id ? { ...item, unit: e.target.value } : item))
+                              )
+                            }
+                          >
+                            {units.map((unitOpt) => (
+                              <MenuItem key={unitOpt.id} value={unitOpt.id}>
+                                Unit {unitOpt.code} (Floor {unitOpt.floor || "1"} · {unitOpt.area || "0"} sqft)
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                          <TextField
+                            type="number"
+                            size="small"
+                            label="Monthly Rent (KES)"
+                            value={eu.fixed_monthly_rent}
+                            placeholder="e.g. 50000"
+                            onChange={(e) =>
+                              setExtraUnits((prev) =>
+                                prev.map((item) => (item.id === eu.id ? { ...item, fixed_monthly_rent: e.target.value } : item))
+                              )
+                            }
+                          />
+                          <TextField
+                            type="number"
+                            size="small"
+                            label="Service Charge Rate / sqft"
+                            value={eu.service_charge_rate_per_sqft}
+                            onChange={(e) =>
+                              setExtraUnits((prev) =>
+                                prev.map((item) =>
+                                  item.id === eu.id ? { ...item, service_charge_rate_per_sqft: e.target.value } : item
+                                )
+                              )
+                            }
+                          />
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+              )}
             </Paper>
 
             {/* UTILITIES SECURITY DEPOSIT */}

@@ -280,46 +280,94 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
       </div>
       {parseError && <div style={{background:'#fee2e2',color:'#991b1b',padding:'10px 14px',borderRadius:8,fontSize:13}}>⚠️ {parseError}</div>}
       {submitError && <div style={{background:'#fee2e2',color:'#991b1b',padding:'10px 14px',borderRadius:8,fontSize:13}}>❌ {submitError}</div>}
-      {rows.length > 0 && (
-        <div>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Preview — {rows.length} tenant{rows.length!==1?'s':''} ready to upload</div>
-          <div style={{overflowX:'auto',maxHeight:260,border:'1px solid var(--border)',borderRadius:8}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-              <thead style={{position:'sticky',top:0}}>
-                <tr style={{background:'var(--surface,#fff)',borderBottom:'2px solid var(--border)'}}>
-                  {['#','Name','Type','Email','Phone','Unit Code','Lease Start','Term (mo)','Rent (KES/mo or /sqft)'].map(h=>(
-                    <th key={h} style={{padding:'8px 10px',textAlign:'left',color:'var(--text-secondary)',fontWeight:700,whiteSpace:'nowrap'}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r,i)=>(
-                  <tr key={i} style={{borderBottom:'1px solid var(--border)'}}>
-                    <td style={{padding:'6px 10px',color:'var(--muted)'}}>{i+1}</td>
-                    <td style={{padding:'6px 10px',fontWeight:600}}>{r.name||<span style={{color:'#dc2626'}}>MISSING</span>}</td>
-                    <td style={{padding:'6px 10px'}}>{r.tenant_type}</td>
-                    <td style={{padding:'6px 10px'}}>{r.email||'—'}</td>
-                    <td style={{padding:'6px 10px'}}>{r.phone||'—'}</td>
-                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{r.unit_code||<span style={{color:'#dc2626'}}>MISSING</span>}</td>
-                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{r.lease_start||<span style={{color:'#dc2626'}}>MISSING</span>}</td>
-                    <td style={{padding:'6px 10px'}}>{r.lease_term_months}</td>
-                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{r.monthly_rent ? `KES ${r.monthly_rent}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{color:'#dc2626'}}>MISSING</span>}</td>
+      {rows.length > 0 && (() => {
+        const validationIssues = rows.map((r, i) => {
+          const issues: string[] = [];
+          if (!r.name) issues.push("Missing name");
+          if (!r.unit_code) issues.push("Missing unit code");
+          if (!r.lease_start || !/^\d{4}-\d{2}-\d{2}$/.test(r.lease_start)) issues.push("Invalid date (YYYY-MM-DD)");
+          if (!r.monthly_rent && !r.rent_rate_per_sqft) issues.push("Missing rent or rate");
+          return { row: i + 1, issues };
+        });
+        const hasErrors = validationIssues.some(v => v.issues.length > 0);
+        const multiUnitTenants = Object.entries(
+          rows.reduce((acc, r) => {
+            if (r.name) acc[r.name] = (acc[r.name] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        ).filter(([, count]) => count > 1);
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Preview — {rows.length} tenant row{rows.length !== 1 ? 's' : ''} parsed</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {multiUnitTenants.length > 0 && (
+                  <span style={{ fontSize: 11, background: "#e0e7ff", color: "#4338ca", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                    🏢 {multiUnitTenants.length} Multi-Unit Tenant{multiUnitTenants.length > 1 ? "s" : ""} Detected
+                  </span>
+                )}
+                {hasErrors ? (
+                  <span style={{ fontSize: 11, background: "#fee2e2", color: "#991b1b", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                    ⚠️ Issues detected in some rows
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                    ✓ All rows valid
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', maxHeight: 280, border: '1px solid var(--border)', borderRadius: 8 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead style={{ position: 'sticky', top: 0 }}>
+                  <tr style={{ background: 'var(--surface,#fff)', borderBottom: '2px solid var(--border)' }}>
+                    {['#', 'Validation', 'Name', 'Type', 'Unit Code', 'Lease Start', 'Term', 'Rent'].map(h => (
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => {
+                    const rowIssues = validationIssues[i]?.issues || [];
+                    const isValid = rowIssues.length === 0;
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: isValid ? 'transparent' : 'rgba(239, 68, 68, 0.04)' }}>
+                        <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{i + 1}</td>
+                        <td style={{ padding: '6px 10px' }}>
+                          {isValid ? (
+                            <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 11 }}>✓ Ready</span>
+                          ) : (
+                            <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 11 }} title={rowIssues.join(", ")}>
+                              ⚠️ {rowIssues[0]}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '6px 10px', fontWeight: 600 }}>{r.name || <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
+                        <td style={{ padding: '6px 10px' }}>{r.tenant_type}</td>
+                        <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{r.unit_code || <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
+                        <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{r.lease_start || <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
+                        <td style={{ padding: '6px 10px' }}>{r.lease_term_months} mo</td>
+                        <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
-      <div style={{display:'flex',gap:10,justifyContent:'flex-end',flexWrap:'wrap'}}>
+        );
+      })()}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         <button className="btn ghost" onClick={onCancel} disabled={submitting}>Cancel</button>
         <button
           className="btn primary"
-          onClick={()=>void handleSubmit()}
-          disabled={!rows.length||submitting}
-          style={{display:'flex',alignItems:'center',gap:8}}
+          onClick={() => void handleSubmit()}
+          disabled={!rows.length || submitting}
+          style={{ display: 'flex', alignItems: 'center', gap: 8 }}
         >
-          {submitting ? `Uploading ${rows.length} tenants…` : `⬆ Upload ${rows.length} tenant${rows.length!==1?'s':''}`}
+          {submitting ? `Uploading ${rows.length} tenants…` : `⬆ Upload ${rows.length} tenant${rows.length !== 1 ? 's' : ''}`}
         </button>
       </div>
     </div>

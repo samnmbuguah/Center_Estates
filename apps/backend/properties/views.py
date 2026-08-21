@@ -892,10 +892,75 @@ class TenantViewSet(OrganizationModelViewSet):
             escalation_percent=escalation_percent,
             escalation_interval_months=escalation_interval,
             status=Lease.Status.DRAFT,
-        metadata={'application_number': application_number, 'term_months': term_months, **calculations},
+            metadata={'application_number': application_number, 'term_months': term_months, **calculations},
         )
+
+        created_leases = [lease]
+        additional_leases_data = request.data.get('additional_leases') if isinstance(request.data.get('additional_leases'), list) else []
+        for extra in additional_leases_data:
+            extra_unit_id = extra.get('unit')
+            if not extra_unit_id:
+                continue
+            try:
+                extra_unit = Unit.objects.select_for_update().for_organization(organization).select_related('property').get(pk=extra_unit_id)
+            except Unit.DoesNotExist:
+                continue
+            if Lease.objects.for_organization(organization).filter(unit=extra_unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists():
+                continue
+            
+            try:
+                e_starts = date.fromisoformat(str(extra.get('starts_on', starts_on.isoformat())))
+                e_term = int(extra.get('term_months', term_months))
+                e_end_m = e_starts.month - 1 + e_term
+                e_end_y = e_starts.year + e_end_m // 12
+                e_end_m = e_end_m % 12 + 1
+                e_ends = e_starts.replace(year=e_end_y, month=e_end_m, day=min(e_starts.day, calendar.monthrange(e_end_y, e_end_m)[1]))
+            except Exception:
+                e_starts, e_ends, e_term = starts_on, ends_on, term_months
+            
+            e_area = Decimal(str(extra_unit.area)).quantize(Decimal('0.01')) if extra_unit.area is not None else Decimal('0.00')
+            e_rent_rate = Decimal(str(extra.get('rent_rate_per_sqft', '0'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            e_direct_rent = Decimal(str(extra.get('monthly_rent', '0') or extra.get('fixed_monthly_rent', '0'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            if e_direct_rent > 0 and e_rent_rate == 0:
+                e_monthly_rent = e_direct_rent
+                e_rent_rate = (e_monthly_rent / e_area).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if e_area > 0 else Decimal('0.00')
+            elif e_rent_rate > 0:
+                e_monthly_rent = (e_area * e_rent_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if e_area > 0 else e_rent_rate
+            else:
+                e_monthly_rent = e_direct_rent
+            
+            e_service_rate = Decimal(str(extra.get('service_charge_rate_per_sqft', '0'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            e_service = (e_area * e_service_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            e_subtotal = (e_monthly_rent + e_service).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            e_vat_rate = Decimal(str(extra.get('vat_rate', vat_rate))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            e_vat_amount = ((e_subtotal * e_vat_rate) / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if e_vat_rate > 0 else Decimal('0.00')
+            e_total_inc_vat = e_subtotal + e_vat_amount
+            e_deposit = Decimal(str(extra.get('security_deposit', '0'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+            extra_lease_ref = next_reference(Lease, 'reference', 'LEASE')
+            extra_app_num = f"APP-{timezone.localdate().year}-{extra_lease_ref.rsplit('-', 1)[-1]}"
+            extra_calc = {
+                'area': str(e_area), 'rent_rate_per_sqft': str(e_rent_rate),
+                'service_charge_rate_per_sqft': str(e_service_rate), 'monthly_rent_excl_vat': str(e_monthly_rent),
+                'monthly_service_charge_excl_vat': str(e_service), 'total_excl_vat': str(e_subtotal),
+                'vat_rate': str(e_vat_rate), 'vat_amount': str(e_vat_amount), 'total_inc_vat': str(e_total_inc_vat),
+                'security_deposit': str(e_deposit),
+            }
+            extra_lease = Lease.objects.create(
+                organization=organization, reference=extra_lease_ref, unit=extra_unit, tenant=tenant,
+                starts_on=e_starts, ends_on=e_ends, monthly_rent=e_monthly_rent,
+                deposit=e_deposit, billing_day=int(extra.get('billing_day', lease.billing_day)),
+                escalation_percent=Decimal(str(extra.get('escalation_percent', '0'))),
+                escalation_interval_months=int(extra.get('escalation_interval_months', 12)),
+                status=Lease.Status.DRAFT,
+                metadata={'application_number': extra_app_num, 'term_months': e_term, **extra_calc},
+            )
+            created_leases.append(extra_lease)
+
         return Response({
-            'tenant': TenantSerializer(tenant).data, 'lease': LeaseSerializer(lease).data,
+            'tenant': TenantSerializer(tenant).data,
+            'lease': LeaseSerializer(lease).data,
+            'leases': LeaseSerializer(created_leases, many=True).data,
             'application_number': application_number, 'calculations': calculations,
         }, status=201)
 

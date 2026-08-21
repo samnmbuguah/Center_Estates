@@ -80,16 +80,23 @@ def amount_in_words(value) -> str:
 
 
 def _branding(organization):
-    settings = organization.settings or {}
+    settings = getattr(organization, "settings", None) or {}
     branding = settings.get("branding") if isinstance(settings.get("branding"), dict) else {}
-    org_name = branding.get("company_name") or settings.get("company_name") or getattr(organization, "company_name", None) or organization.name
+    org_name = getattr(organization, "company_name", None) or getattr(organization, "name", "") or "Center Estates"
+    logo_url = getattr(organization, "logo_url", None) or branding.get("logo_url") or settings.get("logo_url") or ""
+
+    # Ensure Legend Management organization accurately maps its dedicated logo
+    if "legend" in org_name.lower() or (getattr(organization, "slug", "") and "legend" in organization.slug.lower()):
+        if not logo_url:
+            logo_url = "/legend-site-logo.png"
+
     return {
         "name": org_name,
         "address": branding.get("address") or settings.get("address") or f"{org_name} Property Management",
         "phone": branding.get("phone") or settings.get("phone") or "",
         "email": branding.get("email") or settings.get("email") or "",
         "pin": branding.get("tax_pin") or settings.get("tax_pin") or settings.get("pin") or "",
-        "logo": branding.get("logo_url") or settings.get("logo_url") or "",
+        "logo": logo_url,
     }
 
 
@@ -106,19 +113,42 @@ def _styles():
     return styles
 
 
-def _logo_path(configured_logo: str) -> Path | None:
-    """Resolve uploaded branding or the bundled Center Estates mark without remote I/O."""
+def _logo_path(configured_logo: str, organization=None) -> Path | None:
+    """Resolve uploaded branding, organization-specific mark or fallback logo without remote I/O."""
     candidates = []
+
+    org_name = getattr(organization, "name", "") or ""
+    org_slug = getattr(organization, "slug", "") or ""
+    is_legend = "legend" in org_name.lower() or "legend" in org_slug.lower() or (configured_logo and "legend" in str(configured_logo).lower())
+
+    if is_legend:
+        candidates.extend([
+            Path(django_settings.BASE_DIR) / "core" / "static" / "legend-site-logo.png",
+            Path(django_settings.BASE_DIR).parent / "web" / "public" / "legend-site-logo.png",
+            Path(django_settings.MEDIA_ROOT) / "legend-site-logo.png",
+            Path("/home2/monitori/centerestates.com/legend-site-logo.png"),
+            Path("/home2/monitori/centerestates.com/public/legend-site-logo.png"),
+        ])
+
     if configured_logo and not configured_logo.startswith(("http://", "https://", "data:")):
         relative = configured_logo.lstrip("/")
         if relative.startswith("media/"):
             candidates.append(Path(django_settings.MEDIA_ROOT) / relative.removeprefix("media/"))
         candidates.extend((
+            Path(django_settings.MEDIA_ROOT) / relative,
+            Path(django_settings.BASE_DIR) / "core" / "static" / relative,
             Path(django_settings.BASE_DIR) / relative,
             Path(django_settings.BASE_DIR).parent / "web" / "public" / relative,
+            Path("/home2/monitori/centerestates.com") / relative,
             Path(configured_logo),
         ))
-    candidates.append(Path(django_settings.BASE_DIR).parent / "web" / "public" / "center-estates-logo.png")
+
+    candidates.extend([
+        Path(django_settings.BASE_DIR) / "core" / "static" / "center-estates-logo.png",
+        Path(django_settings.BASE_DIR).parent / "web" / "public" / "center-estates-logo.png",
+        Path("/home2/monitori/centerestates.com/center-estates-logo.png"),
+        Path("/home2/monitori/centerestates.com/logo.png"),
+    ])
     return next((path for path in candidates if path.is_file()), None)
 
 
@@ -131,12 +161,12 @@ def _doc_response(
     title="REPORT",
     property_name="Portfolio",
     period="As at date of generation",
-    generated_by="System",
+    generated_by="CeEst",
     pagesize_override=None,
 ):
     buffer = BytesIO(); pagesize = pagesize_override or (landscape(A4) if wide else A4)
     brand = _branding(organization)
-    logo_path = _logo_path(brand["logo"])
+    logo_path = _logo_path(brand["logo"], organization)
     generated_at = timezone.localtime()
 
     def decorate(canvas, doc):
@@ -144,13 +174,13 @@ def _doc_response(
         header_bottom = height - 38 * mm
         canvas.setFillColor(colors.white); canvas.rect(0, header_bottom, width, 38 * mm, fill=1, stroke=0)
         if logo_path:
-            canvas.drawImage(ImageReader(str(logo_path)), 14 * mm, height - 25 * mm, width=14 * mm, height=18 * mm, preserveAspectRatio=True, anchor="c", mask="auto")
+            canvas.drawImage(ImageReader(str(logo_path)), 14 * mm, height - 25 * mm, width=16 * mm, height=20 * mm, preserveAspectRatio=True, anchor="c", mask="auto")
         canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 11.5)
-        canvas.drawString(31 * mm, height - 11 * mm, brand["name"][:64])
+        canvas.drawString(33 * mm, height - 11 * mm, brand["name"][:64])
         canvas.setFont("Helvetica", 8.25); canvas.setFillColor(MUTED)
-        canvas.drawString(31 * mm, height - 15.5 * mm, brand["address"][:76])
+        canvas.drawString(33 * mm, height - 15.5 * mm, brand["address"][:76])
         contact = "  |  ".join(item for item in (brand["phone"], brand["email"], f"PIN {brand['pin']}" if brand["pin"] else "") if item)
-        canvas.drawString(31 * mm, height - 19.5 * mm, contact[:96])
+        canvas.drawString(33 * mm, height - 19.5 * mm, contact[:96])
         canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 10.5)
         canvas.drawRightString(width - 14 * mm, height - 11 * mm, str(title).upper()[:72])
         canvas.setFont("Helvetica-Bold", 8); canvas.drawRightString(width - 14 * mm, height - 16 * mm, str(property_name)[:86])
@@ -159,7 +189,7 @@ def _doc_response(
         canvas.setFillColor(RED); canvas.rect(14 * mm, header_bottom + 3 * mm, width - 28 * mm, 1.2 * mm, fill=1, stroke=0)
         canvas.setStrokeColor(LINE); canvas.line(14 * mm, 12 * mm, width - 14 * mm, 12 * mm)
         canvas.setFillColor(MUTED); canvas.setFont("Helvetica", 7.5)
-        footer_text = f"Generated securely by {brand['name']} ERP  ·  Prepared by: {generated_by}  ·  Generated: {generated_at:%d %b %Y, %H:%M %Z}"
+        footer_text = f"Generated by CeEst  ·  {brand['name']}  ·  Generated: {generated_at:%d %b %Y, %H:%M %Z}"
         canvas.drawString(14 * mm, 7.5 * mm, footer_text)
         canvas.drawRightString(width - 14 * mm, 7.5 * mm, f"Page {doc.page}")
         canvas.restoreState()
@@ -629,7 +659,7 @@ def tabular_report_pdf(
     *,
     property_name="Portfolio",
     period="As at date of generation",
-    generated_by="System",
+    generated_by="CeEst",
     subtitle="",
 ):
     """Render the same authoritative dataset offered as CSV into a client-ready PDF."""
@@ -637,8 +667,21 @@ def tabular_report_pdf(
     rows = list(csv.reader(StringIO(csv_content.decode("utf-8-sig"))))
     if not rows:
         rows = [["Message"], ["No records match the selected property, period and filters."]]
-    headers = [str(cell).replace("_", " ").strip().title() for cell in rows[0]]
-    body = rows[1:] if len(rows) > 1 else []
+    raw_headers = [str(cell).replace("_", " ").strip().title() for cell in rows[0]]
+    raw_body = rows[1:] if len(rows) > 1 else []
+
+    # Strip redundant "Property" column since Property is already prominently displayed in the report header
+    prop_indices = {
+        i for i, h in enumerate(raw_headers)
+        if h.lower() in ("property", "property name", "property_name", "property code")
+    }
+    if prop_indices and len(raw_headers) > 1:
+        headers = [h for i, h in enumerate(raw_headers) if i not in prop_indices]
+        body = [[cell for i, cell in enumerate(row) if i not in prop_indices] for row in raw_body]
+    else:
+        headers = raw_headers
+        body = raw_body
+
     column_count = max(len(headers), max((len(row) for row in body), default=0), 1)
     headers = (headers + [""] * column_count)[:column_count]
     body = [row + [""] * (column_count - len(row)) for row in body]
@@ -682,7 +725,7 @@ def tabular_report_pdf(
     )
 
 
-def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summary: dict, *, period: str, generated_by="System"):
+def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summary: dict, *, period: str, generated_by="CeEst"):
     """Branded arrears register with age buckets and collection priority."""
     s = _styles()
     bucket_data = [["BUCKET", "AMOUNT (KES)", "SHARE"]]
@@ -702,22 +745,22 @@ def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summar
         ("FONTSIZE", (0, 0), (-1, -1), 8.5), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
     story = [Paragraph("Ageing summary", s["Section"]), buckets, Spacer(1, 5 * mm), Paragraph("Tenant arrears detail", s["Section"])]
-    detail = [["INVOICE", "TENANT", "PROPERTY", "UNIT", "DUE ON", "DAYS", "BUCKET", "BILLED", "PAID", "BALANCE", "STATUS"]]
+    detail = [["INVOICE", "TENANT", "UNIT", "DUE ON", "DAYS", "BUCKET", "BILLED", "PAID", "BALANCE", "STATUS"]]
     for row in rows:
         detail.append([
             row.get("invoice", ""), Paragraph(str(row.get("tenant", "")), s["Small"]),
-            Paragraph(str(row.get("property", "")), s["Small"]), row.get("unit", ""),
+            row.get("unit", ""),
             row.get("due_on", ""), row.get("days_overdue", ""), str(row.get("ageing_bucket", "")).replace("_", "–"),
             f"{Decimal(row.get('billed') or 0):,.2f}", f"{Decimal(row.get('paid') or 0):,.2f}",
             f"{Decimal(row.get('balance') or 0):,.2f}", row.get("status", ""),
         ])
     if len(detail) == 1:
-        detail.append(["—", "No open arrears for this period", "", "", "", "", "", "", "", "", ""])
-    detail_table = Table(detail, colWidths=[26*mm, 42*mm, 36*mm, 15*mm, 22*mm, 14*mm, 20*mm, 24*mm, 22*mm, 26*mm, 22*mm], repeatRows=1)
+        detail.append(["—", "No open arrears for this period", "", "", "", "", "", "", "", ""])
+    detail_table = Table(detail, colWidths=[28*mm, 52*mm, 18*mm, 24*mm, 16*mm, 24*mm, 28*mm, 26*mm, 28*mm, 24*mm], repeatRows=1)
     detail_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (4, 1), (-2, -1), "RIGHT"),
+        ("GRID", (0, 0), (-1, -1), .3, LINE), ("ALIGN", (3, 1), (-2, -1), "RIGHT"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
         ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
     ]))

@@ -103,7 +103,7 @@ export function TenancyView({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {section === "occupancy" && (
-        <UnitsView rows={unitsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} />
+        <UnitsView rows={unitsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onSelectRow={onSelectRow} />
       )}
       {section === "tenants" && (
         <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onBulkUpload={onBulkUploadTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} onDownloadStatement={onDownloadStatement} onDelete={onDeleteTenant} onEdit={onEditTenant} canLease={canLease} onRefresh={onRefresh} />
