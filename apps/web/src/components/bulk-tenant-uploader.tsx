@@ -166,8 +166,11 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
       const data = await res.json().catch(() => null);
       if (data && typeof data === 'object' && ('succeeded' in data || 'failed' in data)) {
         setResult(data as BulkResult);
+      } else if (res.status === 401) {
+        setSubmitError('Your session has expired. Please refresh the page to log in again.');
       } else if (!res.ok) {
-        setSubmitError(data?.detail || data?.rows || `Upload failed with HTTP ${res.status}.`);
+        const msg = data?.detail || data?.rows || (typeof data === 'object' ? Object.entries(data).map(([k,v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`).join(' | ') : '') || `Upload failed with HTTP ${res.status}.`;
+        setSubmitError(msg);
       } else {
         setSubmitError('Unexpected response from server.');
       }
@@ -251,6 +254,9 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
         <strong>Required:</strong> <span style={{color:'var(--muted)'}}>name, unit_code, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
         <span style={{margin:'0 8px',color:'var(--border)'}}>|</span>
         <strong>Optional:</strong> <span style={{color:'var(--muted)'}}>tenant_type, email, phone, tax_id, registration_number, lease_term_months, service_charge_rate_per_sqft, vat_rate, security_deposit, billing_day</span>
+      </div>
+      <div style={{background:'rgba(59, 130, 246, 0.08)',border:'1px solid rgba(59, 130, 246, 0.25)',borderRadius:8,padding:'10px 14px',fontSize:12,color:'var(--text-primary)'}}>
+        💡 <strong>Unit Code Matching:</strong> Each <code>unit_code</code> must match a registered unit in <strong>Property &rarr; Units</strong> (e.g. <code>GR-101</code>, <code>FL3-3A</code>, <code>FL5-5C</code>). If a unit is not yet registered or already has an active lease, the system will flag the exact row.
       </div>
       <div
         onDragOver={(e)=>{e.preventDefault();setDragging(true);}}

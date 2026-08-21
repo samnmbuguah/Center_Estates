@@ -1012,21 +1012,25 @@ class TenantViewSet(OrganizationModelViewSet):
                         if unit_code:
                             unit = unit_qs.filter(code__iexact=unit_code).first()
                     if unit is None:
-                        raise ValidationError({'lease.unit': 'Provide a valid unit ID or unit_code.'})
+                        target_code = lease_data.get('unit_code') or lease_data.get('unit') or 'Unknown'
+                        raise ValidationError({'lease.unit': f'Unit code "{target_code}" not found. Please ensure this unit is registered under Property -> Units first.'})
 
                     active_property = get_active_property(request, organization)
                     if active_property and unit.property_id != active_property.id:
-                        raise ValidationError({'lease.unit': 'Unit must belong to the active property.'})
+                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" belongs to a different property ({unit.property.name}) than the active property ({active_property.name}).'})
                     if Lease.objects.for_organization(organization).filter(
                         unit=unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
                     ).exists():
-                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" already has an active lease.'})
+                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" already has an active lease. Terminate or vacate the existing lease before assigning a new tenant.'})
 
                     try:
-                        starts_on = date.fromisoformat(str(lease_data.get('starts_on', '')))
+                        raw_date = str(lease_data.get('starts_on', '')).strip()
+                        if not raw_date:
+                            raise ValueError('Missing lease start date.')
+                        starts_on = date.fromisoformat(raw_date)
                         term_months = int(lease_data.get('term_months', 12))
                         if term_months < 1 or term_months > 240:
-                            raise ValueError
+                            raise ValueError('Term months must be between 1 and 240.')
                         end_month = starts_on.month - 1 + term_months
                         end_year = starts_on.year + end_month // 12
                         end_month = end_month % 12 + 1
@@ -1034,8 +1038,8 @@ class TenantViewSet(OrganizationModelViewSet):
                             year=end_year, month=end_month,
                             day=min(starts_on.day, calendar.monthrange(end_year, end_month)[1]),
                         )
-                    except (ValueError, TypeError):
-                        raise ValidationError({'lease': 'Valid commencement date and lease term are required.'})
+                    except Exception as date_err:
+                        raise ValidationError({'lease.starts_on': f'Invalid lease start date ("{lease_data.get("starts_on")}") or term ({lease_data.get("term_months")} months). Format must be YYYY-MM-DD (e.g. 2026-01-01).'})
 
                     def _amount(name, default='0'):
                         try:
