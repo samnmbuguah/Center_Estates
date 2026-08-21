@@ -441,7 +441,7 @@ export function BimViewer({ url, name, format, onClose, projectId, modelId, elem
                             color: "#fff",
                             fontSize: 11
                           }}>
-                            {severity}: {count}
+                            {severity}: {String(count)}
                           </span>
                         ))}
                       </div>
