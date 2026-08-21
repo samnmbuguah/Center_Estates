@@ -236,3 +236,12 @@ export type RentSection = "invoices" | "receipts" | "arrears" | "reminders" | "l
 export type ScSection = "setup" | "allocations" | "reconciliations" | "budget";
 export type TenancySection = "occupancy" | "tenants" | "leases" | "documents";
 export type FinancialsSection = "schedules" | "invoices" | "receipts" | "allocations" | "reconciliation" | "credit-notes";
+
+export interface BillingContext {
+  mode: "monthly" | "quarterly" | "custom" | string;
+  period_start: string;
+  period_end: string;
+  months_count: number;
+  label: string;
+}
+

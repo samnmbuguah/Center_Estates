@@ -15,7 +15,15 @@ import { OverrideDialog } from "./billing/OverrideDialog";
 
 type Invoice = { id: string; number: string; tenant_name: string; unit_code: string; amount: string; status: string; issued_on: string };
 
-export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNavigate: (tab: string) => void; onSingleInvoice: () => void }) {
+export type BillingContext = {
+  mode: string;
+  period_start: string;
+  period_end: string;
+  months_count: number;
+  label: string;
+};
+
+export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNavigate: (tab: string) => void; onSingleInvoice: (ctx: BillingContext) => void }) {
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
   const now = new Date();
@@ -197,7 +205,11 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         onRecheck={() => void mutate("prepare")}
         onApprove={() => void mutate("approve")}
         onGenerate={() => void mutate("generate")}
-        onSingleInvoice={onSingleInvoice}
+        onSingleInvoice={() => onSingleInvoice({ mode, period_start, period_end, months_count: (() => {
+          const [sy, sm] = period_start.split("-").map(Number);
+          const [ey, em] = period_end.split("-").map(Number);
+          return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+        })(), label: formattedPeriod })}
       />
 
       <BillingKpis
@@ -224,7 +236,11 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         onSelect={(id) => setSelected(curr => curr.includes(id) ? curr.filter(x => x !== id) : [...curr, id])}
         onPreview={setPreviewCandidate}
         onOverride={(c) => setOverrideIssue(c.issue_summary?.[0] ? { id: c.id, code: c.issue_summary[0].code, message: c.issue_summary[0].message, severity: c.issue_summary[0].severity, status: "open" } : null)}
-        onSingleInvoice={onSingleInvoice}
+        onSingleInvoice={() => onSingleInvoice({ mode, period_start, period_end, months_count: (() => {
+          const [sy, sm] = period_start.split("-").map(Number);
+          const [ey, em] = period_end.split("-").map(Number);
+          return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+        })(), label: formattedPeriod })}
         onNavigate={onNavigate}
       />
 

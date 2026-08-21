@@ -11,6 +11,7 @@ import {
   ServiceChargeReconciliationRow, ReceiptAllocationRow, CreditNoteRow,
   AgingTenantRow, AgingAnalytics, FinancialAnalytics, ReportItem,
   DashboardData, RentSection, ScSection, TenancySection, FinancialsSection,
+  BillingContext,
   labels,
 } from "../types/property.types";
 
@@ -113,6 +114,7 @@ export function usePropertyLogic({
   const [receiptOptions, setReceiptOptions] = useState<Row[]>([]);
   const [propertyOptions, setPropertyOptions] = useState<Row[]>([]);
   const [leaseOptions, setLeaseOptions] = useState<LeaseRow[]>([]);
+  const [billingContext, setBillingContext] = useState<BillingContext | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<InvoicePreview | null>(null);
   const [invoiceDraft, setInvoiceDraft] = useState({ number: "", lease: "", invoice_type: "rent", issued_on: "", due_on: "", subtotal: "", tax_rate: "0" });
 
@@ -419,11 +421,12 @@ export function usePropertyLogic({
             setInvoiceDraft((prev) => {
               if (prev.lease) return prev; // user already changed it
               const first = items[0] as LeaseRow;
-              const rentVal = first.monthly_rent;
+              const rentVal = Number(first.monthly_rent ?? 0);
+              const months = billingContext?.months_count || 1;
               return {
                 ...prev,
                 lease: String(first.id),
-                subtotal: rentVal ? String(rentVal) : prev.subtotal,
+                subtotal: rentVal ? String(rentVal * months) : prev.subtotal,
               };
             });
           }
@@ -456,7 +459,8 @@ export function usePropertyLogic({
     }
   }, [showAddLease, showUploadDoc, showRecordReceipt, showInvoiceComposer, showAddServiceCharge, financialIntake, matchTarget, organizationId, activeProperty?.id]);
 
-  const openInvoiceComposer = () => {
+  const openInvoiceComposer = (ctx?: BillingContext | null) => {
+    setBillingContext(ctx ?? null);
     const issued = new Date();
     const due = new Date(issued);
     due.setDate(due.getDate() + 30);
@@ -477,8 +481,9 @@ export function usePropertyLogic({
         const selectedLease = leaseOptions.find((l) => String(l.id) === value);
         if (selectedLease) {
           // Always overwrite subtotal when user explicitly picks a lease
-          const rentVal = selectedLease.monthly_rent;
-          if (rentVal) updated.subtotal = String(rentVal);
+          const rentVal = Number(selectedLease.monthly_rent ?? 0);
+          const months = billingContext?.months_count || 1;
+          if (rentVal) updated.subtotal = String(rentVal * months);
           // Always ensure due_on is set relative to issued_on
           const issued = new Date(current.issued_on || new Date());
           const due = new Date(issued);
@@ -1178,8 +1183,7 @@ export function usePropertyLogic({
     openRecordReceipt(invoice.id);
   };
   const handleInvoiceLeaseChange = (leaseId: string) => {
-    setInvoiceDraft((prev) => ({ ...prev, lease: leaseId }));
-    void previewInvoice();
+    updateInvoiceDraft("lease", leaseId);
   };
 
   return {
@@ -1271,6 +1275,10 @@ export function usePropertyLogic({
     receiptOptions,
     propertyOptions,
     leaseOptions,
+    billingContext,
+    setBillingContext,
+    openInvoiceComposer,
+    updateInvoiceDraft,
     invoicePreview,
     setInvoicePreview,
     invoiceDraft,

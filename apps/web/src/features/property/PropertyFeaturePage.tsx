@@ -76,7 +76,7 @@ export function PropertyFeaturePage({
       case "financials":
         return <ReceiptsView rows={logic.rows} receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
       case "billing":
-        return <PropertyBillingDashboard onNavigate={(t) => logic.setTab(t as PropertyTab)} onSingleInvoice={() => logic.setShowInvoiceComposer(true)} />;
+        return <PropertyBillingDashboard onNavigate={(t) => logic.setTab(t as PropertyTab)} onSingleInvoice={(ctx) => logic.openInvoiceComposer(ctx)} />;
       case "rent-schedules":
         return <RentSchedulesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onGenerateInvoice={logic.handleGenerateScheduleInvoice} onRefresh={logic.fetchData} canFinance={logic.canFinance} />;
       case "rent":

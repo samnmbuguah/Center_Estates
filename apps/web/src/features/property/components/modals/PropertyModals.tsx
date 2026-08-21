@@ -9,6 +9,7 @@ import {
   ServiceChargeReconciliationRow, ReceiptAllocationRow, CreditNoteRow,
   AgingTenantRow, AgingAnalytics, FinancialAnalytics, ReportItem,
   DashboardData, RentSection, ScSection, TenancySection, FinancialsSection,
+  BillingContext,
 } from "../../types/property.types";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
@@ -131,6 +132,7 @@ export interface PropertyModalsProps {
   receiptOptions: Row[];
   propertyOptions: Row[];
   leaseOptions: LeaseRow[];
+  billingContext?: BillingContext | null;
   invoicePreview: InvoicePreview | null;
   setInvoicePreview: (v: InvoicePreview | null) => void;
   invoiceDraft: { number: string; lease: string; invoice_type: string; issued_on: string; due_on: string; subtotal: string; tax_rate: string };
@@ -188,6 +190,7 @@ export function PropertyModals(props: PropertyModalsProps) {
     propertyData, setPropertyData,
     unitMix, setUnitMix,
     tenantOptions, unitOptions, invoiceOptions, receiptOptions, propertyOptions, leaseOptions,
+    billingContext,
     invoicePreview, setInvoicePreview,
     invoiceDraft, setInvoiceDraft,
     onAddPropertySubmit, onAddTenantSubmit, onAddLeaseSubmit, onRecordReceiptSubmit,
@@ -568,9 +571,15 @@ export function PropertyModals(props: PropertyModalsProps) {
         {showInvoiceComposer && (
           <Modal title="Create manual invoice draft" onClose={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }} wide>
             <form onSubmit={submitInvoiceDraft} style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="invoice-composer">
-              <div style={{ background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.25)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--text-primary)" }}>
-                💡 <strong>Bulk Billing Tip:</strong> For standard monthly rent and service charges across all units, use the <strong>Billing Pipeline</strong> tab to generate and issue all invoices in 1 click. Use this form only for manual, one-off, or custom adjustments.
-              </div>
+              {billingContext ? (
+                <div style={{ background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--text-primary)" }}>
+                  📅 <strong>Billing Pipeline Context:</strong> {billingContext.label} ({billingContext.months_count} billing {billingContext.months_count === 1 ? "month" : "months"}). Rent subtotal automatically calculated for {billingContext.months_count} {billingContext.months_count === 1 ? "month" : "months"}.
+                </div>
+              ) : (
+                <div style={{ background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.25)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--text-primary)" }}>
+                  💡 <strong>Bulk Billing Tip:</strong> For standard monthly rent and service charges across all units, use the <strong>Billing Pipeline</strong> tab to generate and issue all invoices in 1 click. Use this form only for manual, one-off, or custom adjustments.
+                </div>
+              )}
               <div className="grid-2">
                 <Field label="Invoice number">
                   <input readOnly value="Auto-generated on save" aria-label="Invoice number is generated automatically" />
@@ -610,31 +619,107 @@ export function PropertyModals(props: PropertyModalsProps) {
                 </div>
               </div>
               <div>
-                <Field label="Billable Amount / Rent (Excl. VAT)" required>
+                <Field label={`Billable Amount / Rent (Excl. VAT)${billingContext && billingContext.months_count > 1 ? ` — ${billingContext.months_count} Months Total` : ""}`} required>
                   <input type="number" min="0.01" step="0.01" required placeholder="e.g. 100000" value={invoiceDraft.subtotal} onChange={(e) => updateInvoiceDraft("subtotal", e.target.value)} data-testid="invoice-subtotal" />
                 </Field>
-                <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>Base amount in Ksh before VAT is calculated</span>
+                <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>
+                  {billingContext && billingContext.months_count > 1
+                    ? `Total amount in Ksh across ${billingContext.months_count} months before VAT (approx. ${kM(Number(invoiceDraft.subtotal || 0) / billingContext.months_count)} / month)`
+                    : "Base amount in Ksh before VAT is calculated"}
+                </span>
               </div>
 
               {Number(invoiceDraft.subtotal) > 0 && (
-                <section className="card" style={{ padding: 14, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Estimated Invoice Breakdown</div>
+                <section className="card" style={{ padding: 14, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>Estimated Invoice Breakdown</div>
+                    {billingContext && billingContext.months_count > 1 && (
+                      <span style={{ fontSize: 11, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
+                        {billingContext.label} · {billingContext.months_count} Months
+                      </span>
+                    )}
+                  </div>
                   <div className="grid-3">
                     <div>
                       <span className="muted" style={{ fontSize: 11 }}>Base Amount (Excl. VAT)</span>
                       <div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{kM(Number(invoiceDraft.subtotal))}</div>
+                      {billingContext && billingContext.months_count > 1 && (
+                        <div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{kM(Number(invoiceDraft.subtotal) / billingContext.months_count)} / month</div>
+                      )}
                     </div>
                     <div>
                       <span className="muted" style={{ fontSize: 11 }}>VAT ({invoiceDraft.tax_rate}%)</span>
                       <div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{kM(Number(invoiceDraft.subtotal) * (Number(invoiceDraft.tax_rate) / 100))}</div>
+                      {billingContext && billingContext.months_count > 1 && (
+                        <div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{kM((Number(invoiceDraft.subtotal) * (Number(invoiceDraft.tax_rate) / 100)) / billingContext.months_count)} / month</div>
+                      )}
                     </div>
                     <div>
                       <span className="muted" style={{ fontSize: 11 }}>Total Payable by Tenant</span>
                       <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: "#16a34a" }}>
                         {kM(Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100))}
                       </div>
+                      {billingContext && billingContext.months_count > 1 && (
+                        <div className="muted" style={{ fontSize: 10, marginTop: 2, color: "#16a34a" }}>{kM((Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100)) / billingContext.months_count)} / month</div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Monthly Breakdown Table for Multi-Month / Quarterly Periods */}
+                  {billingContext && billingContext.months_count > 1 && (
+                    <div style={{ marginTop: 6, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>📊 Monthly Breakdown ({billingContext.months_count} Months)</span>
+                      </div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse", textAlign: "left" }}>
+                          <thead>
+                            <tr style={{ background: "var(--surface-3)", color: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                              <th style={{ padding: "6px 8px" }}>#</th>
+                              <th style={{ padding: "6px 8px" }}>Billing Month</th>
+                              <th style={{ padding: "6px 8px", textAlign: "right" }}>Base Rent (Excl. VAT)</th>
+                              <th style={{ padding: "6px 8px", textAlign: "right" }}>VAT ({invoiceDraft.tax_rate}%)</th>
+                              <th style={{ padding: "6px 8px", textAlign: "right" }}>Month Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              const count = billingContext.months_count;
+                              const basePerMonth = Number(invoiceDraft.subtotal) / count;
+                              const vatRate = Number(invoiceDraft.tax_rate) / 100;
+                              const vatPerMonth = basePerMonth * vatRate;
+                              const totalPerMonth = basePerMonth + vatPerMonth;
+
+                              const [sy, sm] = (billingContext.period_start || "").split("-").map(Number);
+                              const rows = [];
+                              for (let i = 0; i < count; i++) {
+                                const d = sy && sm ? new Date(sy, sm - 1 + i, 1) : null;
+                                const monthLabel = d ? d.toLocaleDateString("en-KE", { month: "short", year: "numeric" }) : `Month ${i + 1}`;
+                                rows.push(
+                                  <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                                    <td style={{ padding: "6px 8px", color: "var(--muted)" }}>{i + 1}</td>
+                                    <td style={{ padding: "6px 8px", fontWeight: 600 }}>{monthLabel}</td>
+                                    <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(basePerMonth)}</td>
+                                    <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(vatPerMonth)}</td>
+                                    <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, color: "#16a34a" }} className="mono">{kM(totalPerMonth)}</td>
+                                  </tr>
+                                );
+                              }
+                              return rows;
+                            })()}
+                          </tbody>
+                          <tfoot>
+                            <tr style={{ fontWeight: 700, background: "var(--surface-3)", borderTop: "2px solid var(--border)" }}>
+                              <td colSpan={2} style={{ padding: "6px 8px" }}>Total ({billingContext.months_count} Months)</td>
+                              <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(Number(invoiceDraft.subtotal))}</td>
+                              <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(Number(invoiceDraft.subtotal) * (Number(invoiceDraft.tax_rate) / 100))}</td>
+                              <td style={{ padding: "6px 8px", textAlign: "right", color: "#16a34a" }} className="mono">{kM(Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100))}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </section>
               )}
 
