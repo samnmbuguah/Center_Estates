@@ -454,7 +454,25 @@ export function usePropertyLogic({
   };
 
   const updateInvoiceDraft = (field: keyof typeof invoiceDraft, value: string) => {
-    setInvoiceDraft((current) => ({ ...current, [field]: value }));
+    setInvoiceDraft((current) => {
+      const updated = { ...current, [field]: value };
+      if (field === "lease" && value) {
+        const selectedLease = leaseOptions.find((l) => String(l.id) === value);
+        if (selectedLease) {
+          if (!current.subtotal || current.subtotal === "0") {
+            const rentVal = (selectedLease as unknown as Record<string, unknown>).monthly_rent ?? (selectedLease as unknown as Record<string, unknown>).rent;
+            if (rentVal) updated.subtotal = String(rentVal);
+          }
+          if (!current.due_on) {
+            const issued = new Date(current.issued_on || new Date());
+            const due = new Date(issued);
+            due.setDate(due.getDate() + 5);
+            updated.due_on = due.toISOString().slice(0, 10);
+          }
+        }
+      }
+      return updated;
+    });
     setInvoicePreview(null);
   };
 

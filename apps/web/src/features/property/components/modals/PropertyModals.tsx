@@ -566,41 +566,80 @@ export function PropertyModals(props: PropertyModalsProps) {
         )}
 
         {showInvoiceComposer && (
-          <Modal title="Create invoice draft" onClose={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }} wide>
+          <Modal title="Create manual invoice draft" onClose={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }} wide>
             <form onSubmit={submitInvoiceDraft} style={{ display: "flex", flexDirection: "column", gap: 14 }} data-testid="invoice-composer">
+              <div style={{ background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.25)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--text-primary)" }}>
+                💡 <strong>Bulk Billing Tip:</strong> For standard monthly rent and service charges across all units, use the <strong>Billing Pipeline</strong> tab to generate and issue all invoices in 1 click. Use this form only for manual, one-off, or custom adjustments.
+              </div>
               <div className="grid-2">
                 <Field label="Invoice number">
                   <input readOnly value="Auto-generated on save" aria-label="Invoice number is generated automatically" />
                 </Field>
-                <Field label="Lease" required>
+                <Field label="Tenant & Unit (Lease)" required>
                   <select required value={invoiceDraft.lease} onChange={(e) => updateInvoiceDraft("lease", e.target.value)} data-testid="invoice-lease">
-                    <option value="" disabled>Select active lease</option>
-                    {leaseOptions.map((lease) => <option key={String(lease.id)} value={String(lease.id)}>{String(lease.reference)} · {String(lease.tenant_name)} · {String(lease.unit_code)}</option>)}
+                    <option value="" disabled>Select tenant & unit</option>
+                    {leaseOptions.map((lease) => <option key={String(lease.id)} value={String(lease.id)}>{String(lease.tenant_name)} · {String(lease.unit_code)} ({String(lease.reference)})</option>)}
                   </select>
                 </Field>
               </div>
               <div className="grid-2">
-                <Field label="Invoice type" required>
+                <Field label="Invoice type (Category)" required>
                   <select value={invoiceDraft.invoice_type} onChange={(e) => updateInvoiceDraft("invoice_type", e.target.value)}>
-                    <option value="rent">Rent</option><option value="move_in">Move-in charges</option>
-                    <option value="service_charge">Service charge</option><option value="utility">Utility</option><option value="other">Other</option>
+                    <option value="rent">Rent</option><option value="service_charge">Service charge</option>
+                    <option value="utility">Utility</option><option value="move_in">Move-in charges</option><option value="other">Other</option>
                   </select>
                 </Field>
-                <Field label="VAT" required>
+                <Field label="VAT Tax" required>
                   <select value={invoiceDraft.tax_rate} onChange={(e) => updateInvoiceDraft("tax_rate", e.target.value)} data-testid="invoice-vat">
-                    <option value="0">No VAT (0%)</option><option value="16">VAT (16%)</option>
+                    <option value="16">Standard VAT (16%)</option><option value="0">Zero-rated / No VAT (0%)</option>
                   </select>
                 </Field>
               </div>
               <div className="grid-2">
-                <Field label="Issue date" required><input type="date" required value={invoiceDraft.issued_on} onChange={(e) => updateInvoiceDraft("issued_on", e.target.value)} /></Field>
-                <Field label="Due date" required><input type="date" required min={invoiceDraft.issued_on} value={invoiceDraft.due_on} onChange={(e) => updateInvoiceDraft("due_on", e.target.value)} /></Field>
+                <div>
+                  <Field label="Invoice Date (Issued on)" required>
+                    <input type="date" required value={invoiceDraft.issued_on} onChange={(e) => updateInvoiceDraft("issued_on", e.target.value)} />
+                  </Field>
+                  <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>Date this invoice is issued to tenant</span>
+                </div>
+                <div>
+                  <Field label="Payment Due Date (Pay before)" required>
+                    <input type="date" required min={invoiceDraft.issued_on} value={invoiceDraft.due_on} onChange={(e) => updateInvoiceDraft("due_on", e.target.value)} />
+                  </Field>
+                  <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>Deadline for tenant payment</span>
+                </div>
               </div>
-              <Field label="Subtotal before VAT" required>
-                <input type="number" min="0.01" step="0.01" required value={invoiceDraft.subtotal} onChange={(e) => updateInvoiceDraft("subtotal", e.target.value)} data-testid="invoice-subtotal" />
-              </Field>
+              <div>
+                <Field label="Billable Amount / Rent (Excl. VAT)" required>
+                  <input type="number" min="0.01" step="0.01" required placeholder="e.g. 100000" value={invoiceDraft.subtotal} onChange={(e) => updateInvoiceDraft("subtotal", e.target.value)} data-testid="invoice-subtotal" />
+                </Field>
+                <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>Base amount in Ksh before VAT is calculated</span>
+              </div>
+
+              {Number(invoiceDraft.subtotal) > 0 && (
+                <section className="card" style={{ padding: 14, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Estimated Invoice Breakdown</div>
+                  <div className="grid-3">
+                    <div>
+                      <span className="muted" style={{ fontSize: 11 }}>Base Amount (Excl. VAT)</span>
+                      <div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{kM(Number(invoiceDraft.subtotal))}</div>
+                    </div>
+                    <div>
+                      <span className="muted" style={{ fontSize: 11 }}>VAT ({invoiceDraft.tax_rate}%)</span>
+                      <div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{kM(Number(invoiceDraft.subtotal) * (Number(invoiceDraft.tax_rate) / 100))}</div>
+                    </div>
+                    <div>
+                      <span className="muted" style={{ fontSize: 11 }}>Total Payable by Tenant</span>
+                      <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: "#16a34a" }}>
+                        {kM(Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100))}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {invoicePreview && (
-                <section className="card" style={{ padding: 14, background: "var(--surface-2)" }} aria-live="polite" data-testid="invoice-preview">
+                <section className="card" style={{ padding: 14, background: "var(--surface-2)", border: "1px solid var(--border)" }} aria-live="polite" data-testid="invoice-preview">
                   <strong>{invoicePreview.tenant} · {invoicePreview.property} · Unit {invoicePreview.unit}</strong>
                   <div className="grid-3" style={{ marginTop: 10 }}>
                     <div><span className="muted">Subtotal</span><div className="mono">{kM(invoicePreview.subtotal)}</div></div>
@@ -609,11 +648,11 @@ export function PropertyModals(props: PropertyModalsProps) {
                   </div>
                 </section>
               )}
-              <p className="muted" style={{ margin: 0, fontSize: 12 }}>The invoice is saved as a draft. A finance user submits it for independent approval before it can be issued and sent to the tenant.</p>
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>The invoice will be saved as a draft for review and approval before being dispatched to the tenant.</p>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }}>Cancel</button>
                 <button type="button" className="btn ghost" onClick={() => void previewInvoice()} data-testid="invoice-preview-btn">Preview invoice</button>
-                <button type="submit" className="btn primary" disabled={!invoicePreview} data-testid="invoice-save-draft">Save reviewable draft</button>
+                <button type="submit" className="btn primary" disabled={!invoicePreview && Number(invoiceDraft.subtotal) <= 0} data-testid="invoice-save-draft">Save reviewable draft</button>
               </div>
             </form>
           </Modal>
