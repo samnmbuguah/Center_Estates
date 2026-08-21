@@ -173,14 +173,34 @@ def _doc_response(
         canvas.saveState(); width, height = pagesize
         header_bottom = height - 38 * mm
         canvas.setFillColor(colors.white); canvas.rect(0, header_bottom, width, 38 * mm, fill=1, stroke=0)
+        drawn_w = 0
         if logo_path:
-            canvas.drawImage(ImageReader(str(logo_path)), 14 * mm, height - 25 * mm, width=16 * mm, height=20 * mm, preserveAspectRatio=True, anchor="c", mask="auto")
+            try:
+                img = ImageReader(str(logo_path))
+                img_w, img_h = img.getSize()
+                aspect = (img_w / img_h) if img_h else 1.0
+                if aspect > 2.0:  # Wide horizontal landscape logo (e.g. Legend Management)
+                    drawn_w = min(38 * mm, 14 * mm * aspect)
+                    drawn_h = min(16 * mm, drawn_w / aspect)
+                elif aspect > 1.2:  # Rectangular logo
+                    drawn_w = 26 * mm
+                    drawn_h = min(18 * mm, drawn_w / aspect)
+                else:  # Square or portrait logo (e.g. Center Estates)
+                    drawn_h = 18 * mm
+                    drawn_w = min(22 * mm, drawn_h * aspect)
+
+                logo_y = height - 10 * mm - drawn_h
+                canvas.drawImage(img, 14 * mm, logo_y, width=drawn_w, height=drawn_h, preserveAspectRatio=True, anchor="w", mask="auto")
+            except Exception:
+                drawn_w = 0
+
+        text_x = (14 * mm + drawn_w + 4 * mm) if drawn_w > 0 else 14 * mm
         canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 11.5)
-        canvas.drawString(33 * mm, height - 11 * mm, brand["name"][:64])
+        canvas.drawString(text_x, height - 11 * mm, brand["name"][:64])
         canvas.setFont("Helvetica", 8.25); canvas.setFillColor(MUTED)
-        canvas.drawString(33 * mm, height - 15.5 * mm, brand["address"][:76])
+        canvas.drawString(text_x, height - 15.5 * mm, brand["address"][:76])
         contact = "  |  ".join(item for item in (brand["phone"], brand["email"], f"PIN {brand['pin']}" if brand["pin"] else "") if item)
-        canvas.drawString(33 * mm, height - 19.5 * mm, contact[:96])
+        canvas.drawString(text_x, height - 19.5 * mm, contact[:96])
         canvas.setFillColor(NAVY); canvas.setFont("Helvetica-Bold", 10.5)
         canvas.drawRightString(width - 14 * mm, height - 11 * mm, str(title).upper()[:72])
         canvas.setFont("Helvetica-Bold", 8); canvas.drawRightString(width - 14 * mm, height - 16 * mm, str(property_name)[:86])
@@ -635,20 +655,106 @@ def _format_report_cell(value: str, *, header: str = "") -> str:
     return raw
 
 
+def _clean_header_label(header: str) -> str:
+    h = str(header or "").strip()
+    cleanups = {
+        "Escalation Interval (Months)": "Escalation<br/>Interval (Mos)",
+        "Escalation Interval Months": "Escalation<br/>Interval (Mos)",
+        "Escalation %": "Escalation<br/>%",
+        "Next Effective Rent": "Next Effective<br/>Rent",
+        "Service Charge": "Service<br/>Charge",
+        "Lease Start": "Lease<br/>Start",
+        "Lease End": "Lease<br/>End",
+        "Payment Mode": "Payment<br/>Mode",
+        "Billings Up To": "Billings<br/>Up To",
+        "Total Current Billings": "Total Current<br/>Billings",
+        "Days Outstanding": "Days<br/>Overdue",
+        "Days Overdue": "Days<br/>Overdue",
+        "Outstanding C/F": "Outstanding<br/>C/F",
+        "Balance B/F": "Balance<br/>B/F",
+        "Receipt Count": "Receipt<br/>Count",
+        "Total Collected": "Total<br/>Collected",
+        "Original Amount": "Original<br/>Amount",
+        "Available Since": "Available<br/>Since",
+        "Expected Rent": "Expected<br/>Rent",
+        "Vacancy Reason": "Vacancy<br/>Reason",
+        "Marketing Status": "Marketing<br/>Status",
+        "Taxable Value": "Taxable<br/>Value",
+        "VAT Amount": "VAT<br/>Amount",
+        "Output VAT": "Output<br/>VAT",
+        "Input VAT": "Input<br/>VAT",
+        "Annualized Income": "Annualized<br/>Income",
+        "Projected Rent": "Projected<br/>Rent",
+        "Lease Status": "Lease<br/>Status",
+        "Budget Code": "Budget<br/>Code",
+        "Cost Centre": "Cost<br/>Centre",
+        "Document Type": "Document<br/>Type",
+        "Document Number": "Document<br/>No.",
+        "Insurance Expiry": "Insurance<br/>Expiry",
+        "License Expiry": "License<br/>Expiry",
+        "Work Order": "Work<br/>Order",
+    }
+    return cleanups.get(h, h)
+
+
 def _column_widths(headers: list[str], rows: list[list[str]], page_width: float) -> list[float]:
-    """Weight wider text columns without letting any column collapse."""
-    weights = []
+    """Calculate balanced column widths ensuring numeric/date values never clip or wrap digits."""
+    num_cols = len(headers)
+    if num_cols == 0:
+        return [page_width]
+
+    min_widths = []
+    flex_weights = []
+
     for index, header in enumerate(headers):
-        samples = [header] + [row[index] for row in rows[:40] if index < len(row)]
-        average = sum(len(str(sample or "")) for sample in samples) / max(len(samples), 1)
-        weight = max(average, 6)
-        if any(token in header.lower() for token in ("tenant", "description", "supplier", "party", "comments", "reference")):
-            weight *= 1.35
-        if any(token in header.lower() for token in ("amount", "rent", "balance", "total", "vat", "rate", "%")):
-            weight *= 0.85
-        weights.append(weight)
-    total = sum(weights) or 1
-    return [max(page_width * (weight / total), 16 * mm) for weight in weights]
+        h_lower = header.lower()
+        samples = [row[index] for row in rows[:50] if index < len(row)]
+        max_content_len = max((len(str(s or "")) for s in samples), default=len(header))
+
+        is_money = any(k in h_lower for k in ("rent", "amount", "charge", "balance", "total", "subtotal", "paid", "billed", "vat", "net", "tax", "fee", "cost", "spend"))
+        is_date = any(k in h_lower for k in ("date", "start", "end", "due", "issued", "expires", "completed"))
+        is_rate = any(k in h_lower for k in ("%", "rate", "ratio", "interval", "days", "count", "score"))
+        is_code = any(k in h_lower for k in ("unit", "floor", "code", "no", "number", "ref", "status", "area", "use", "type"))
+        is_long_text = any(k in h_lower for k in ("tenant", "supplier", "description", "name", "contractor", "party", "reason", "comment"))
+
+        if is_money:
+            base_min = 25 * mm
+            flex = 1.0
+        elif is_date:
+            base_min = 22 * mm
+            flex = 0.8
+        elif is_rate:
+            base_min = 18 * mm
+            flex = 0.6
+        elif is_code:
+            base_min = 20 * mm
+            flex = 0.9
+        elif is_long_text:
+            base_min = 34 * mm
+            flex = 2.4
+        else:
+            base_min = max(max_content_len * 1.8 * mm, 18 * mm)
+            flex = 1.2
+
+        min_widths.append(base_min)
+        flex_weights.append(flex)
+
+    total_min = sum(min_widths)
+
+    # If total minimum widths exceed printable page width, proportionally scale down
+    if total_min >= page_width:
+        scale = page_width / total_min
+        return [w * scale for w in min_widths]
+
+    # Distribute excess remaining width proportionally according to flex weight
+    remaining_space = page_width - total_min
+    total_flex = sum(flex_weights) or 1.0
+
+    final_widths = [
+        min_widths[i] + (remaining_space * (flex_weights[i] / total_flex))
+        for i in range(num_cols)
+    ]
+    return final_widths
 
 
 def tabular_report_pdf(
@@ -692,7 +798,7 @@ def tabular_report_pdf(
         if body and sum(1 for row in body if _looks_numeric(row[index])) >= max(1, len(body) // 2)
     }
     data = [[
-        Paragraph(f"<b>{headers[index]}</b>", s["HeaderRight"] if index in numeric_cols else s["HeaderSmall"])
+        Paragraph(f"<b>{_clean_header_label(headers[index])}</b>", s["HeaderRight"] if index in numeric_cols else s["HeaderSmall"])
         for index in range(column_count)
     ]]
     for row in body:
@@ -706,7 +812,7 @@ def tabular_report_pdf(
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2.5), ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
     ]
     for index in numeric_cols:
         style_commands.append(("ALIGN", (index, 1), (index, -1), "RIGHT"))
