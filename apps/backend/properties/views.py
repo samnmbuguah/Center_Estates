@@ -1042,20 +1042,14 @@ class TenantViewSet(OrganizationModelViewSet):
     @action(detail=False, methods=('post',), url_path='bulk-onboard')
     def bulk_onboard(self, request):
         """
-        Bulk-create tenants from a JSON list.
-
-        Request body:
-            { "rows": [ { "tenant": {...}, "lease": {...}, "utilities": [...] }, ... ] }
-
-        Each row is validated independently; failures are reported per-row
-        without rolling back the successful rows.
-
-        Returns:
-            { "total": N, "succeeded_count": N, "failed_count": N,
-              "succeeded": [...], "failed": [{"row": <N>, "errors": {...}}] }
+        Bulk-create tenants and draft leases from a JSON list with unit auto-creation and friendly error reporting.
         """
+        import re
         organization = get_active_organization(request)
+        active_property = get_active_property(request, organization)
         rows = request.data.get('rows') if isinstance(request.data.get('rows'), list) else []
+        auto_create_units = request.data.get('auto_create_units', True)
+
         if not rows:
             raise ValidationError({'rows': 'Provide at least one tenant row.'})
         if len(rows) > 500:
@@ -1064,6 +1058,13 @@ class TenantViewSet(OrganizationModelViewSet):
         succeeded = []
         failed = []
 
+        def _clean_err(err_val):
+            if isinstance(err_val, dict):
+                return {k.replace('lease.', '').replace('tenant.', ''): _clean_err(v) for k, v in err_val.items()}
+            if isinstance(err_val, list):
+                return [_clean_err(x) for x in err_val]
+            return str(err_val)
+
         for index, row in enumerate(rows):
             tenant_data = row.get('tenant') or {}
             lease_data = row.get('lease') or {}
@@ -1071,7 +1072,8 @@ class TenantViewSet(OrganizationModelViewSet):
 
             try:
                 with transaction.atomic():
-                    if not str(tenant_data.get('name', '')).strip():
+                    t_name = str(tenant_data.get('name', '')).strip()
+                    if not t_name:
                         raise ValidationError({'tenant.name': 'Tenant name is required.'})
 
                     # Accept unit by PK or by unit_code
@@ -1082,21 +1084,44 @@ class TenantViewSet(OrganizationModelViewSet):
                             unit = unit_qs.get(pk=lease_data['unit'])
                         except (Unit.DoesNotExist, ValueError, TypeError):
                             pass
-                    if unit is None:
-                        unit_code = str(lease_data.get('unit_code', '')).strip()
-                        if unit_code:
-                            unit = unit_qs.filter(code__iexact=unit_code).first()
-                    if unit is None:
-                        target_code = lease_data.get('unit_code') or lease_data.get('unit') or 'Unknown'
-                        raise ValidationError({'lease.unit': f'Unit code "{target_code}" not found. Please ensure this unit is registered under Property -> Units first.'})
+                    
+                    unit_code = str(lease_data.get('unit_code', '')).strip()
+                    if unit is None and unit_code:
+                        unit = unit_qs.filter(code__iexact=unit_code).first()
 
-                    active_property = get_active_property(request, organization)
+                    # Auto-create unit if missing under active property
+                    if unit is None and unit_code:
+                        if auto_create_units and active_property:
+                            floor_match = re.search(r'(?:FL|FLOOR|LEVEL|L|F)?\s*(\d+)', unit_code, re.IGNORECASE)
+                            floor_str = floor_match.group(1) if floor_match else ('Ground' if 'GR' in unit_code.upper() or 'G' in unit_code.upper() else '1')
+                            raw_area = str(lease_data.get('area', '') or '').strip()
+                            try:
+                                parsed_area = Decimal(raw_area).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if raw_area else None
+                            except Exception:
+                                parsed_area = None
+                            
+                            unit = Unit.objects.create(
+                                organization=organization,
+                                property=active_property,
+                                code=unit_code,
+                                floor=floor_str,
+                                unit_type='commercial',
+                                area=parsed_area,
+                                status=Unit.Status.AVAILABLE,
+                            )
+                        else:
+                            prop_hint = f" for '{active_property.name}'" if active_property else ""
+                            raise ValidationError({'lease.unit': f'Unit code "{unit_code}" not found{prop_hint}. Please register this unit under Property -> Units or provide unit area.'})
+
+                    if unit is None:
+                        raise ValidationError({'lease.unit': 'Unit code is missing or could not be determined.'})
+
                     if active_property and unit.property_id != active_property.id:
-                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" belongs to a different property ({unit.property.name}) than the active property ({active_property.name}).'})
+                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" belongs to {unit.property.name}, not the active property ({active_property.name}).'})
                     if Lease.objects.for_organization(organization).filter(
                         unit=unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
                     ).exists():
-                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" already has an active lease. Terminate or vacate the existing lease before assigning a new tenant.'})
+                        raise ValidationError({'lease.unit': f'Unit "{unit.code}" already has an active lease.'})
 
                     try:
                         raw_date = str(lease_data.get('starts_on', '')).strip()
@@ -1113,34 +1138,41 @@ class TenantViewSet(OrganizationModelViewSet):
                             year=end_year, month=end_month,
                             day=min(starts_on.day, calendar.monthrange(end_year, end_month)[1]),
                         )
-                    except Exception as date_err:
-                        raise ValidationError({'lease.starts_on': f'Invalid lease start date ("{lease_data.get("starts_on")}") or term ({lease_data.get("term_months")} months). Format must be YYYY-MM-DD (e.g. 2026-01-01).'})
+                    except Exception:
+                        raise ValidationError({'lease.starts_on': f'Invalid lease start date ("{lease_data.get("starts_on")}") or term ({lease_data.get("term_months")} months). Use format YYYY-MM-DD (e.g. 2026-01-01).'})
 
                     def _amount(name, default='0'):
                         try:
-                            val = Decimal(str(lease_data.get(name, default))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                            val = Decimal(str(lease_data.get(name, default) or default)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                         except Exception:
-                            raise ValidationError({f'lease.{name}': 'Enter a valid amount.'})
+                            raise ValidationError({f'lease.{name}': 'Enter a valid number.'})
                         if val < 0:
                             raise ValidationError({f'lease.{name}': 'Amount cannot be negative.'})
                         return val
 
-                    area = Decimal(str(unit.area)).quantize(Decimal('0.01')) if unit.area else _amount('area')
+                    area = Decimal(str(unit.area)).quantize(Decimal('0.01')) if unit.area else _amount('area', '0')
                     rent_rate = _amount('rent_rate_per_sqft', '0')
                     direct_rent = _amount('monthly_rent', '0') or _amount('rent', '0')
                     service_rate = _amount('service_charge_rate_per_sqft', '0')
                     security_deposit = _amount('security_deposit', '0')
                     escalation_percent = _amount('escalation_percent', '0')
                     vat_rate = _amount('vat_rate', '16')
+
                     if direct_rent > 0 and rent_rate == 0:
                         monthly_rent = direct_rent
                         rent_rate = (monthly_rent / area).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else Decimal('0.00')
                     elif rent_rate > 0:
-                        monthly_rent = (area * rent_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else rent_rate
+                        if area <= 0:
+                            if direct_rent > 0:
+                                monthly_rent = direct_rent
+                            else:
+                                raise ValidationError({'lease.area': f'Unit "{unit.code}" has rent rate Ksh {rent_rate}/sqft, but area is 0. Please specify unit area (sq ft) or direct monthly rent.'})
+                        else:
+                            monthly_rent = (area * rent_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                     else:
                         monthly_rent = direct_rent
 
-                    monthly_service = (area * service_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    monthly_service = (area * service_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else Decimal('0.00')
                     subtotal = (monthly_rent + monthly_service).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                     vat_amount = ((subtotal * vat_rate) / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if vat_rate > 0 else Decimal('0.00')
                     total_inc_vat = subtotal + vat_amount
@@ -1157,7 +1189,6 @@ class TenantViewSet(OrganizationModelViewSet):
                         nums = [int(v.rsplit('-', 1)[-1]) for v in vals if v.rsplit('-', 1)[-1].isdigit()]
                         return f'{prefix}-{(max(nums) + 1) if nums else 1:04d}'
 
-                    t_name = str(tenant_data.get('name', '')).strip()
                     t_tax = str(tenant_data.get('tax_id', '')).strip().upper()
                     t_reg = str(tenant_data.get('registration_number', '')).strip().upper()
 
@@ -1218,17 +1249,17 @@ class TenantViewSet(OrganizationModelViewSet):
                         'unit_code': unit.code,
                     })
             except Exception as exc:
-                errors = exc.detail if hasattr(exc, 'detail') else {'detail': str(exc)}
-                failed.append({'row': index + 1, 'name': str(tenant_data.get('name', '')), 'errors': errors})
+                raw_errors = exc.detail if hasattr(exc, 'detail') else {'detail': str(exc)}
+                cleaned = _clean_err(raw_errors)
+                failed.append({'row': index + 1, 'name': str(tenant_data.get('name', '')), 'unit_code': str(lease_data.get('unit_code', '')), 'errors': cleaned})
 
-        status_code = 201 if succeeded else 400
         return Response({
             'total': len(rows),
             'succeeded_count': len(succeeded),
             'failed_count': len(failed),
             'succeeded': succeeded,
             'failed': failed,
-        }, status=status_code)
+        }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=('get',), url_path='statement.pdf')
     def statement_pdf(self, request, pk=None):

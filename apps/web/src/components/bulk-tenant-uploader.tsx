@@ -7,7 +7,7 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 type ParsedRow = {
   name: string; tenant_type: string; email: string; phone: string;
   tax_id: string; registration_number: string; unit_code: string;
-  lease_start: string; lease_term_months: string;
+  area: string; lease_start: string; lease_term_months: string;
   monthly_rent: string; rent_rate_per_sqft: string;
   service_charge_rate_per_sqft: string; vat_rate: string;
   security_deposit: string; billing_day: string;
@@ -16,12 +16,12 @@ type ParsedRow = {
 type BulkResult = {
   total: number; succeeded_count: number; failed_count: number;
   succeeded: { row: number; tenant_code: string; tenant_name: string; lease_reference: string; unit_code: string }[];
-  failed: { row: number; name: string; errors: Record<string, unknown> }[];
+  failed: { row: number; name: string; unit_code?: string; errors: Record<string, unknown> }[];
 };
 
 const TEMPLATE_HEADERS = [
   "name","tenant_type","email","phone","tax_id","registration_number",
-  "unit_code","lease_start","lease_term_months","monthly_rent","rent_rate_per_sqft",
+  "unit_code","area","lease_start","lease_term_months","monthly_rent","rent_rate_per_sqft",
   "service_charge_rate_per_sqft","vat_rate","security_deposit","billing_day",
 ];
 
@@ -67,6 +67,7 @@ function csvToRows(text: string): ParsedRow[] {
   const cTax = col(h,['tax_id','kra_pin','pin']);
   const cReg = col(h,['registration_number','reg_no','registration']);
   const cUnit = col(h,['unit_code','unit','unit_no']);
+  const cArea = col(h,['area','unit_area','sqft','square_feet','size']);
   const cStart = col(h,['lease_start','start_date','starts_on']);
   const cTerm = col(h,['lease_term_months','term_months','term']);
   const cMonthlyRent = col(h,['monthly_rent','rent','fixed_rent','rent_amount']);
@@ -79,7 +80,9 @@ function csvToRows(text: string): ParsedRow[] {
     name: get(row,cName), tenant_type: get(row,cType)||'company',
     email: get(row,cEmail), phone: get(row,cPhone),
     tax_id: get(row,cTax), registration_number: get(row,cReg),
-    unit_code: get(row,cUnit), lease_start: get(row,cStart),
+    unit_code: get(row,cUnit),
+    area: get(row,cArea),
+    lease_start: get(row,cStart),
     lease_term_months: get(row,cTerm)||'12',
     monthly_rent: get(row,cMonthlyRent),
     rent_rate_per_sqft: get(row,cRent),
@@ -95,15 +98,15 @@ function downloadTemplate() {
     TEMPLATE_HEADERS,
     [
       'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL1-UNIT-A', '2026-01-01', '24', '100000', '', '15', '16', '100000', '1',
+      'FL1-UNIT-A', '2500', '2026-01-01', '24', '100000', '', '15', '16', '100000', '1',
     ],
     [
       'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL2-UNIT-B', '2026-03-01', '12', '120000', '', '15', '16', '120000', '1',
+      'FL2-UNIT-B', '3000', '2026-03-01', '12', '', '120', '35', '16', '120000', '1',
     ],
     [
       'Kilima Tech Ventures', 'individual', 'info@kilimatech.co.ke', '0722000111', 'A009876543Z', 'BN-2023-887',
-      'FL3-SUITE-1', '2026-02-01', '12', '45000', '', '10', '16', '45000', '5',
+      'FL3-SUITE-1', '1200', '2026-02-01', '12', '45000', '', '10', '16', '45000', '5',
     ],
   ];
   const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\r\n');
@@ -151,12 +154,15 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
     setSubmitting(true); setSubmitError('');
     try {
       await apiFetch('/auth/csrf/');
-      const payload = { rows: rows.map(r => ({
-        tenant: { name:r.name, tenant_type:r.tenant_type, email:r.email, phone:r.phone, tax_id:r.tax_id, registration_number:r.registration_number },
-        lease: { unit_code:r.unit_code, starts_on:r.lease_start, term_months:Number(r.lease_term_months)||12,
-          monthly_rent:r.monthly_rent || '', rent_rate_per_sqft:r.rent_rate_per_sqft, service_charge_rate_per_sqft:r.service_charge_rate_per_sqft,
-          vat_rate:r.vat_rate, security_deposit:r.security_deposit, billing_day:Number(r.billing_day)||1 },
-      })) };
+      const payload = {
+        auto_create_units: true,
+        rows: rows.map(r => ({
+          tenant: { name:r.name, tenant_type:r.tenant_type, email:r.email, phone:r.phone, tax_id:r.tax_id, registration_number:r.registration_number },
+          lease: { unit_code:r.unit_code, area:r.area, starts_on:r.lease_start, term_months:Number(r.lease_term_months)||12,
+            monthly_rent:r.monthly_rent || '', rent_rate_per_sqft:r.rent_rate_per_sqft, service_charge_rate_per_sqft:r.service_charge_rate_per_sqft,
+            vat_rate:r.vat_rate, security_deposit:r.security_deposit, billing_day:Number(r.billing_day)||1 },
+        }))
+      };
       const res = await apiFetch('/property/tenants/bulk-onboard/', {
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRFToken':csrfFromCookie()},
@@ -192,6 +198,26 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           </div>
         ))}
       </div>
+
+      {result.failed_count > 0 && (
+        <div style={{background:'#fff1f2',border:'1px solid #fecdd3',borderRadius:10,padding:'14px 18px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:13,color:'#9f1239'}}>💡 How to fix the errors below:</div>
+            <div style={{fontSize:12,color:'#be123c',marginTop:3}}>
+              If units are missing or have 0 sq ft area, either add the units with their square footage under <strong>Property ➔ Units</strong> or add the <code>area</code> column in your CSV.
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button className="btn sm" style={{background:'#e11d48',color:'#fff',border:'none',fontWeight:700,fontSize:12}} onClick={() => { onCancel(); window.location.href = '/property?tab=units'; }}>
+              🏢 Go to Units Tab &rarr;
+            </button>
+            <button className="btn ghost sm" style={{fontSize:12}} onClick={downloadTemplate}>
+              ⬇ Download Template
+            </button>
+          </div>
+        </div>
+      )}
+
       {result.succeeded.length > 0 && (
         <div>
           <div style={{fontSize:13,fontWeight:700,marginBottom:8,color:'#166534'}}>✅ Successful imports</div>
@@ -211,25 +237,33 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           </div>
         </div>
       )}
+
       {result.failed.length > 0 && (
         <div>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:8,color:'#991b1b'}}>❌ Failed rows — fix and re-upload</div>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:8,color:'#991b1b'}}>❌ Validation Issues — Please Review</div>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead><tr style={{background:'#fff7f7',borderBottom:'1px solid #fecaca'}}>
-                {['Row','Name','Error'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#991b1b'}}>{h}</th>)}
+                {['Row','Tenant Name','Unit','Error Details','Action'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#991b1b'}}>{h}</th>)}
               </tr></thead>
               <tbody>{result.failed.map(f=><tr key={f.row} style={{borderBottom:'1px solid #fee2e2'}}>
-                <td style={{padding:'6px 10px'}}>{f.row}</td>
-                <td style={{padding:'6px 10px'}}>{f.name}</td>
+                <td style={{padding:'6px 10px',fontWeight:700}}>{f.row}</td>
+                <td style={{padding:'6px 10px',fontWeight:600}}>{f.name}</td>
+                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{f.unit_code || '—'}</td>
                 <td style={{padding:'6px 10px',color:'#dc2626'}}>
                   {typeof f.errors === 'object' ? Object.entries(f.errors).map(([k,v])=>`${k}: ${String(v)}`).join(' | ') : String(f.errors)}
+                </td>
+                <td style={{padding:'6px 10px'}}>
+                  <button className="btn sm ghost" style={{fontSize:11,padding:'2px 8px'}} onClick={() => { onCancel(); window.location.href = '/property?tab=units'; }}>
+                    Configure Unit
+                  </button>
                 </td>
               </tr>)}</tbody>
             </table>
           </div>
         </div>
       )}
+
       <div style={{display:'flex',gap:10,justifyContent:'flex-end',flexWrap:'wrap'}}>
         {result.failed_count > 0 && (
           <button className="btn ghost" onClick={()=>{setResult(null);setRows([]);setFileName('');}}>Upload another file</button>
