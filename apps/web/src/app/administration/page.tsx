@@ -306,7 +306,7 @@ function AdministrationContent() {
     if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin)) return;
     try {
       const [propRes, rolesRes] = await Promise.all([
-        apiFetch("/property/properties/", {}, organizationId),
+        apiFetch("/property/properties/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId),
         isSuperAdministrator ? apiFetch("/access/roles/", {}, organizationId) : Promise.resolve(new Response(JSON.stringify([]))),
       ]);
       if (propRes.ok) {

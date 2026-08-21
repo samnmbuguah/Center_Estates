@@ -22,18 +22,27 @@ export function FeedbackQrManager({ organizationId }: { organizationId: string |
   const [printTarget, setPrintTarget] = useState<Code | null>(null);
 
   async function load() {
-    if (!organizationId) return;
-    const [propsRes, codesRes] = await Promise.all([
-      apiFetch("/property/properties/", {}, organizationId),
-      apiFetch("/companion/feedback-qr-codes/", {}, organizationId),
-    ]);
-    if (propsRes.ok) {
-      const data = await propsRes.json();
-      setProperties(Array.isArray(data) ? data : data.results || []);
-    }
-    if (codesRes.ok) {
-      const data = await codesRes.json();
-      setCodes(Array.isArray(data) ? data : data.results || []);
+    const orgId = organizationId || (typeof window !== "undefined" ? localStorage.getItem("ce_organization") : null);
+    if (!orgId) return;
+    try {
+      const [propsRes, codesRes] = await Promise.all([
+        apiFetch("/property/properties/", { headers: { "X-Property-Scope": "portfolio" } }, orgId),
+        apiFetch("/companion/feedback-qr-codes/", { headers: { "X-Property-Scope": "portfolio" } }, orgId),
+      ]);
+      if (propsRes.ok) {
+        const data = await propsRes.json();
+        const list = (Array.isArray(data) ? data : data.results || []) as Property[];
+        setProperties(list);
+        if (list.length > 0 && !property) {
+          setProperty(list[0].id);
+        }
+      }
+      if (codesRes.ok) {
+        const data = await codesRes.json();
+        setCodes(Array.isArray(data) ? data : data.results || []);
+      }
+    } catch (err) {
+      console.error("Failed to load feedback QR properties", err);
     }
   }
 

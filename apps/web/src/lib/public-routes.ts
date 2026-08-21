@@ -10,6 +10,7 @@ export const PUBLIC_ROUTES = [
   "/faq",
   "/docs",
   "/blog",
+  "/feedback",
 ] as const;
 
 export function isPublicRoute(pathname: string) {

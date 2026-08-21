@@ -612,7 +612,15 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
-        <Panel title="Valuation Instructions" badge={filtered.length}>
+        <Panel
+          title="Valuation Instructions"
+          badge={filtered.length}
+          action={
+            <button className="btn primary sm" onClick={setShowAddModal} style={{ fontWeight: 700 }}>
+              + New Instruction
+            </button>
+          }
+        >
           <TableChrome
             search={search}
             setSearch={setSearch}
@@ -637,7 +645,16 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
             }
           >
             {filtered.length === 0 ? (
-              <EmptyState icon="📋" title="No instructions found" description={search ? "No instructions match the current search or status filter." : "Create a new valuation instruction to start the pipeline."} />
+              <EmptyState
+                icon="📋"
+                title="No instructions found"
+                description={search ? "No instructions match the current search or status filter." : "Create a new valuation instruction to start the pipeline."}
+                action={
+                  <button className="btn primary" onClick={setShowAddModal} style={{ marginTop: 12, fontWeight: 700 }}>
+                    + Create Valuation Instruction
+                  </button>
+                }
+              />
             ) : (
               <DataTable headers={["Instruction No", "Bank / Client", "Property", "Type", "Purpose", "Instructed", "Due", "Fee", "Priority", "Status", "Valuer", "Actions"]}>
                 {filtered.map((r) => {
@@ -1655,55 +1672,103 @@ function NewInstructionModal({ clients, error, onSubmit, onClose }: {
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
 }) {
+  const [useNewClient, setUseNewClient] = useState(clients.length === 0);
+  const defaultRef = `VAL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const today = new Date().toISOString().split("T")[0];
+  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+
   return (
     <Modal title="+ New Valuation Instruction" onClose={onClose} wide>
       {error ? <ErrorBanner message={error} onRetry={() => {}} /> : null}
       <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="grid-2">
-          <Field label="Instruction Ref" required>
-            <input name="reference" required placeholder="e.g. VAL-2026-0186" style={inputStyle} />
+          <Field label="Instruction Reference No." required>
+            <input name="reference" defaultValue={defaultRef} required placeholder="e.g. VAL-2026-0186" style={inputStyle} />
           </Field>
-          <Field label="Client / Lender" required>
-            <select name="client" required defaultValue="" style={inputStyle}>
-              <option value="" disabled>Select client…</option>
-              {clients.map((c) => <option key={String(c.id)} value={String(c.id)}>{String(c.name)}</option>)}
-            </select>
+          
+          <Field label="Bank / Instructing Client" required>
+            {!useNewClient && clients.length > 0 ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                <select name="client" required defaultValue={clients[0]?.id ? String(clients[0].id) : ""} style={{ ...inputStyle, flex: 1 }}>
+                  {clients.map((c) => <option key={String(c.id)} value={String(c.id)}>{String(c.name)}</option>)}
+                </select>
+                <button type="button" className="btn ghost sm" onClick={() => setUseNewClient(true)} style={{ whiteSpace: "nowrap" }}>
+                  + New Bank
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8 }}>
+                <input name="new_client_name" required placeholder="Enter Bank or Client Name (e.g. KCB Bank Kenya)" style={{ ...inputStyle, flex: 1 }} />
+                {clients.length > 0 && (
+                  <button type="button" className="btn ghost sm" onClick={() => setUseNewClient(false)}>
+                    Select Existing
+                  </button>
+                )}
+              </div>
+            )}
           </Field>
         </div>
-        <Field label="Property Description & L.R. No" required>
-          <input name="property_description" required placeholder="e.g. Commercial Complex L.R. 209/1844" style={inputStyle} />
+
+        <Field label="Property Description & Title / L.R. No." required>
+          <input name="property_description" required placeholder="e.g. Upper Hill Plaza, L.R. No. 209/1844, Nairobi" style={inputStyle} />
         </Field>
+
         <div className="grid-2">
           <Field label="Valuation Type" required>
-            <input name="valuation_type" required placeholder="e.g. Commercial Asset" style={inputStyle} />
+            <select name="valuation_type" required defaultValue="Commercial Asset" style={inputStyle}>
+              <option value="Commercial Asset">Commercial Asset</option>
+              <option value="Residential Property">Residential Property</option>
+              <option value="Industrial / Warehouse">Industrial / Warehouse</option>
+              <option value="Agricultural Land">Agricultural Land</option>
+              <option value="Hotel & Hospitality">Hotel & Hospitality</option>
+              <option value="Plant & Machinery">Plant & Machinery</option>
+              <option value="Specialized Property">Specialized Property</option>
+            </select>
           </Field>
-          <Field label="Purpose" required>
-            <input name="purpose" required placeholder="e.g. Mortgage Security" style={inputStyle} />
-          </Field>
-        </div>
-        <div className="grid-2">
-          <Field label="Instruction Date" required>
-            <input name="instructed_on" type="date" required style={inputStyle} />
-          </Field>
-          <Field label="Due Date" required>
-            <input name="due_on" type="date" required style={inputStyle} />
-          </Field>
-        </div>
-        <div className="grid-2">
-          <Field label="Quoted Fee (KES)" required>
-            <input name="quoted_fee" type="number" required min="0" placeholder="450000" style={inputStyle} />
-          </Field>
-          <Field label="Priority">
-            <select name="priority" defaultValue="normal" style={inputStyle}>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
+          
+          <Field label="Valuation Purpose" required>
+            <select name="purpose" required defaultValue="Mortgage Security" style={inputStyle}>
+              <option value="Mortgage Security">Mortgage / Bank Security</option>
+              <option value="Insurance Valuation">Insurance Valuation</option>
+              <option value="Asset / Balance Sheet Audit">Asset / Balance Sheet Audit</option>
+              <option value="Disposal / Market Sale">Disposal / Market Sale</option>
+              <option value="Compulsory Acquisition">Compulsory Acquisition / Compensation</option>
+              <option value="Court Dispute / Probate">Court Dispute / Probate</option>
             </select>
           </Field>
         </div>
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+
+        <div className="grid-2">
+          <Field label="Instruction Date" required>
+            <input name="instructed_on" type="date" defaultValue={today} required style={inputStyle} />
+          </Field>
+          <Field label="Target Due Date" required>
+            <input name="due_on" type="date" defaultValue={nextWeek} required style={inputStyle} />
+          </Field>
+        </div>
+
+        <div className="grid-2">
+          <Field label="Quoted Professional Fee (KES)" required>
+            <input name="quoted_fee" type="number" required min="0" placeholder="e.g. 150000" defaultValue="150000" style={inputStyle} />
+          </Field>
+          <Field label="Priority Level">
+            <select name="priority" defaultValue="normal" style={inputStyle}>
+              <option value="normal">Normal (Standard SLA)</option>
+              <option value="high">High (Expedited)</option>
+              <option value="urgent">Urgent (Express 24-48h)</option>
+            </select>
+          </Field>
+        </div>
+
+        <Field label="Terms of Engagement & Special Scope Notes">
+          <textarea name="instructions" rows={3} placeholder="Add any specific bank requirements, access contacts, or property access notes…" style={{ ...inputStyle, resize: "vertical" }} />
+        </Field>
+
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 8, gap: 10 }}>
           <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary">Create Instruction</button>
+          <button type="submit" className="btn primary" style={{ fontWeight: 700 }}>
+            ✓ Create Valuation Instruction
+          </button>
         </div>
       </form>
     </Modal>
@@ -2114,11 +2179,41 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
     setBusy(true);
     setFormError("");
     const form = new FormData(e.currentTarget);
+    const formEntries = Object.fromEntries(form.entries());
+    let clientId = formEntries.client as string;
+
+    if (formEntries.new_client_name) {
+      const clientName = String(formEntries.new_client_name).trim();
+      if (clientName) {
+        await apiFetch("/auth/csrf/");
+        const clientRes = await apiFetch("/valuation/clients/", {
+          method: "POST",
+          headers: { "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            name: clientName,
+            code: `CLI-${Math.floor(1000 + Math.random() * 9000)}`,
+            client_type: "bank",
+          }),
+        }, org);
+        if (clientRes.ok) {
+          const clientData = await clientRes.json();
+          clientId = clientData.id;
+        } else {
+          setBusy(false);
+          setFormError(await readError(clientRes));
+          return;
+        }
+      }
+    }
+
     const payload: Record<string, unknown> = {
-      ...Object.fromEntries(form.entries()),
+      ...formEntries,
+      client: clientId,
       valuer: session?.user.id,
       status: "new",
     };
+    delete payload.new_client_name;
+
     await apiFetch("/auth/csrf/");
     const res = await apiFetch("/valuation/instructions/", {
       method: "POST",

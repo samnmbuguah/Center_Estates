@@ -101,6 +101,31 @@ class LLMGateway:
         last_query = messages[-1].get("content", "") if messages else ""
         return self._generate_fallback_response(last_query)
 
+    def stream_chat(self, system_prompt: str, messages: List[Dict[str, str]]):
+        """Yield token chunks for Server-Sent Events (SSE) streaming."""
+        if self.client:
+            try:
+                formatted_messages: List[BaseMessage] = [SystemMessage(content=system_prompt)]
+                for m in messages:
+                    if m.get("role") == "user":
+                        formatted_messages.append(HumanMessage(content=m.get("content", "")))
+                    elif m.get("role") == "assistant":
+                        formatted_messages.append(AIMessage(content=m.get("content", "")))
+                for chunk in self.client.stream(formatted_messages):
+                    token = getattr(chunk, "content", "")
+                    if token:
+                        yield token
+                return
+            except Exception as e:
+                logger.warning("Streaming LLM call failed (%s). Using fallback chunking.", e)
+
+        fallback_text = self._generate_fallback_response(messages[-1].get("content", "") if messages else "")
+        import time
+        words = fallback_text.split(" ")
+        for i, word in enumerate(words):
+            yield (word + " " if i < len(words) - 1 else word)
+            time.sleep(0.015)
+
     def generate_structured_json(self, system_prompt: str, user_prompt: str) -> Optional[Dict[str, Any]]:
         """Request structured JSON response from the model."""
         if self.client:

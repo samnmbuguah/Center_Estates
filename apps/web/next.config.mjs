@@ -18,7 +18,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://app.posthog.com https://us.posthog.com https://app-static-prod.posthog.com https://us-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https: https://fonts.gstatic.com; connect-src 'self' https: https://app.posthog.com https://us.posthog.com https://us.i.posthog.com https://app-static-prod.posthog.com; frame-src 'self' https://app.posthog.com https://us.posthog.com https://preview.posthog.com https://vercel.com; frame-ancestors 'self' https://posthog.com https://preview.posthog.com https://vercel.com https://us.posthog.com;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://app.posthog.com https://us.posthog.com https://app-static-prod.posthog.com https://us-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https: https://fonts.gstatic.com; connect-src 'self' https: https://app.posthog.com https://us.posthog.com https://us.i.posthog.com https://app-static-prod.posthog.com; frame-src 'self' https://app.posthog.com https://us.posthog.com https://*.posthog.com https://preview.posthog.com https://vercel.com; frame-ancestors 'self' https://posthog.com https://*.posthog.com https://preview.posthog.com https://vercel.com https://us.posthog.com https://eu.posthog.com;"
           },
           {
             key: 'X-Frame-Options',

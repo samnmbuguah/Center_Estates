@@ -9,9 +9,12 @@ from .views import (
     TaskTemplateViewSet,
     TaskViewSet,
     TeamFeedbackThreadViewSet,
-    PublicFeedbackQrCodeViewSet, public_feedback, public_ticket_status,
+    PublicFeedbackQrCodeViewSet, public_feedback, public_ticket_status, public_feedback_upload,
     IssueRoutingRuleViewSet,
     TelemetryViewSet,
+    StreamingChatView,
+    ActionExecutionView,
+    DocumentExtractView,
 )
 
 router = DefaultRouter()
@@ -27,7 +30,12 @@ router.register('leave', StaffLeaveRequestViewSet, basename='companion-leave')
 router.register('hr-requests', StaffHrRequestViewSet, basename='companion-hr-requests')
 
 urlpatterns = [
+    path('chat/stream/', StreamingChatView.as_view(), name='companion-chat-stream'),
+    path('actions/execute/', ActionExecutionView.as_view(), name='companion-action-execute'),
+    path('extract-document/', DocumentExtractView.as_view(), name='companion-extract-document'),
+    path('public-feedback/<str:token>/upload/', public_feedback_upload, name='public-feedback-upload'),
     path('public-feedback/<str:token>/', public_feedback, name='public-feedback'),
     path('public-ticket/<str:reference>/', public_ticket_status, name='public-ticket-status'),
 ] + router.urls
+
 
