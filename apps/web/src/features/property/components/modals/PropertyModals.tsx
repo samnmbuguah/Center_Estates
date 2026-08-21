@@ -164,6 +164,8 @@ export interface PropertyModalsProps {
   previewInvoice?: () => void;
   showBulkTenantUpload?: boolean;
   setShowBulkTenantUpload?: (v: boolean) => void;
+  error?: string;
+  setError?: (err: string) => void;
 }
 
 export function PropertyModals(props: PropertyModalsProps) {
@@ -203,6 +205,8 @@ export function PropertyModals(props: PropertyModalsProps) {
     previewInvoice = () => {},
     showBulkTenantUpload = false,
     setShowBulkTenantUpload = () => {},
+    error = "",
+    setError = () => {},
   } = props;
 
   const submitAddProperty = (e?: any) => onAddPropertySubmit(e ?? { preventDefault: () => {} } as any);
@@ -733,11 +737,16 @@ export function PropertyModals(props: PropertyModalsProps) {
                   </div>
                 </section>
               )}
+              {error && (
+                <div style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 8, padding: "10px 14px", color: "var(--danger)", fontSize: 13 }}>
+                  ⚠️ {error}
+                </div>
+              )}
               <p className="muted" style={{ margin: 0, fontSize: 12 }}>The invoice will be saved as a draft for review and approval before being dispatched to the tenant.</p>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-                <button type="button" className="btn ghost" onClick={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }}>Cancel</button>
+                <button type="button" className="btn ghost" onClick={() => { setShowInvoiceComposer(false); setInvoicePreview(null); setError(""); }}>Cancel</button>
                 <button type="button" className="btn ghost" onClick={() => void previewInvoice()} data-testid="invoice-preview-btn">Preview invoice</button>
-                <button type="submit" className="btn primary" disabled={!invoicePreview && Number(invoiceDraft.subtotal) <= 0} data-testid="invoice-save-draft">Save reviewable draft</button>
+                <button type="submit" className="btn primary" disabled={!invoiceDraft.lease || Number(invoiceDraft.subtotal) <= 0} data-testid="invoice-save-draft">Save reviewable draft</button>
               </div>
             </form>
           </Modal>

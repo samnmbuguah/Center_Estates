@@ -520,23 +520,40 @@ export function usePropertyLogic({
 
   async function submitInvoiceDraft(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!organizationId || !invoicePreview) {
-      setError("Preview the calculated invoice before saving it for review.");
+    if (!organizationId || !invoiceDraft.lease || Number(invoiceDraft.subtotal) <= 0) {
+      setError("Select a lease and enter a positive subtotal before saving the invoice.");
       return;
     }
+    setError("");
+    const selectedLease = leaseOptions.find((l) => String(l.id) === invoiceDraft.lease);
+    const propName = invoicePreview?.property ?? (selectedLease as unknown as Record<string, unknown>)?.property_name ?? "";
     await apiFetch("/auth/csrf/");
     const response = await apiFetch("/property/invoices/", {
       method: "POST",
       body: JSON.stringify({
         lease: invoiceDraft.lease,
-        invoice_type: invoiceDraft.invoice_type, issued_on: invoiceDraft.issued_on,
-        due_on: invoiceDraft.due_on, subtotal: Number(invoiceDraft.subtotal),
-        tax_rate: Number(invoiceDraft.tax_rate), metadata: { source: "manual", property_name: invoicePreview.property },
+        invoice_type: invoiceDraft.invoice_type,
+        issued_on: invoiceDraft.issued_on,
+        due_on: invoiceDraft.due_on,
+        subtotal: Number(invoiceDraft.subtotal),
+        tax_rate: Number(invoiceDraft.tax_rate),
+        metadata: {
+          source: "manual",
+          property_name: propName,
+          billing_context: billingContext ? {
+            mode: billingContext.mode,
+            period_start: billingContext.period_start,
+            period_end: billingContext.period_end,
+            months_count: billingContext.months_count,
+            label: billingContext.label,
+          } : undefined,
+        },
       }),
     }, organizationId);
     if (response.ok) {
       setShowInvoiceComposer(false);
       setInvoicePreview(null);
+      await loadData();
       setRentSection("invoices");
       setTab("rent");
     } else {
