@@ -57,7 +57,7 @@ if [[ "${SKIP_BACKUP:-0}" != "1" ]]; then
 fi
 
 if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ) && "${SKIP_BUILD:-0}" != "1" ]]; then
-  NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build
+  NEXT_BUILD_WORKERS=1 NODE_OPTIONS="--max-old-space-size=4096" NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build
 fi
 
 if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "backend" ]]; then
