@@ -2081,38 +2081,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
     queryset = BillingRun.objects.select_related('property', 'created_by', 'approved_by').prefetch_related('issues')
     serializer_class = BillingRunSerializer
 
-    def perform_create(self, serializer):
-        organization = self._validate_organization(serializer)
-        active_property = get_active_property(self.request, organization)
-        serializer.save(
-            organization=organization,
-            created_by=self.request.user,
-            property=serializer.validated_data.get('property') or active_property,
-        )
-
-    @staticmethod
-    def _profile_is_due(profile, period_start):
-        months = (period_start.year - profile.effective_from.year) * 12 + period_start.month - profile.effective_from.month
-        if months < 0:
-            return False
-        if profile.frequency == BillingProfile.Frequency.ONE_OFF:
-            return months == 0
-        if profile.frequency in (BillingProfile.Frequency.METERED, BillingProfile.Frequency.EVENT):
-            return True
-        intervals = {
-            BillingProfile.Frequency.MONTHLY: 1, BillingProfile.Frequency.QUARTERLY: 3,
-            BillingProfile.Frequency.BIANNUAL: 6, BillingProfile.Frequency.ANNUAL: 12,
-            BillingProfile.Frequency.CUSTOM: max(profile.custom_interval_months, 1),
-        }
-        interval = intervals.get(profile.frequency)
-        return interval is not None and months % interval == 0
-
-    @transaction.atomic
-    @action(detail=True, methods=('post',))
-    def prepare(self, request, pk=None):
-        run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
-        if run.status == BillingRun.Status.GENERATED:
-            raise ValidationError({'status': 'A generated billing run cannot be prepared again.'})
+    def _execute_prepare(self, run):
         run.candidates.filter(invoice__isnull=True).delete()
         run.issues.all().delete()
         leases = Lease.objects.for_organization(run.organization).filter(
@@ -2202,6 +2171,43 @@ class BillingRunViewSet(OrganizationModelViewSet):
         run.approved_at = None
         run.totals = {'candidates': created, 'ready': ready, 'with_issues': issue_count, 'amount_ready': str(amount_ready), 'amount_with_issues': str(amount_issues), 'total_amount': str(amount_ready + amount_issues)}
         run.save(update_fields=('status', 'approved_by', 'approved_at', 'totals', 'updated_at'))
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        organization = self._validate_organization(serializer)
+        active_property = get_active_property(self.request, organization)
+        prop = serializer.validated_data.get('property') or active_property
+        period_start = serializer.validated_data.get('period_start')
+        period_end = serializer.validated_data.get('period_end')
+
+        existing = BillingRun.objects.filter(
+            organization=organization,
+            property=prop,
+            period_start=period_start,
+        ).first()
+
+        if existing:
+            if existing.status in (BillingRun.Status.PREPARING, BillingRun.Status.REVIEW):
+                self._execute_prepare(existing)
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+
+        run = serializer.save(
+            organization=organization,
+            created_by=self.request.user,
+            property=prop,
+        )
+        self._execute_prepare(run)
+        return Response(self.get_serializer(run).data, status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def prepare(self, request, pk=None):
+        run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
+        if run.status == BillingRun.Status.GENERATED:
+            raise ValidationError({'status': 'A generated billing run cannot be prepared again.'})
+        self._execute_prepare(run)
         return Response(self.get_serializer(run).data)
 
     @transaction.atomic
