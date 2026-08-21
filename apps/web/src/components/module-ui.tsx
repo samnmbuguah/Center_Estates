@@ -292,7 +292,19 @@ export function Field({ label, children, required }: { label: string; children: 
   );
 }
 
-export function Modal({ title, onClose, children, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Modal({
+  title,
+  onClose,
+  children,
+  wide,
+  footer,
+}: {
+  title: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+  footer?: ReactNode;
+}) {
   const titleId = useId();
   return (
     <Dialog
@@ -305,23 +317,97 @@ export function Modal({ title, onClose, children, wide }: { title: ReactNode; on
         paper: {
           sx: {
             borderRadius: 3,
-            maxWidth: wide ? 960 : 540,
+            maxWidth: wide ? 960 : 560,
             width: "100%",
-            maxHeight: "92vh",
+            maxHeight: "90vh",
+            display: "flex",
+            flexDirection: "column",
             backgroundImage: "none",
             boxShadow: "0 24px 64px rgba(15, 23, 42, 0.28)",
+            overflow: "hidden",
           },
         },
       }}
     >
-      <DialogTitle id={titleId} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, px: 3, py: 2, fontSize: 17, fontWeight: 800, borderBottom: "1px solid var(--border, #e2e8f0)" }}>
+      <DialogTitle
+        id={titleId}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 2,
+          px: 3,
+          py: 2,
+          fontSize: 17,
+          fontWeight: 800,
+          borderBottom: "1px solid var(--border, #e2e8f0)",
+          background: "var(--surface, #ffffff)",
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
+        }}
+      >
         {title}
-        <IconButton size="small" onClick={onClose} aria-label="Close dialog" sx={{ fontWeight: 800 }}>×</IconButton>
+        <IconButton size="small" onClick={onClose} aria-label="Close dialog" sx={{ fontWeight: 800 }}>
+          ×
+        </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
+      <DialogContent
+        sx={{
+          p: { xs: 2, sm: 3 },
+          flex: "1 1 auto",
+          overflowY: "auto",
+        }}
+      >
         {children}
       </DialogContent>
+      {footer && (
+        <div
+          style={{
+            padding: "14px 24px",
+            borderTop: "1px solid var(--border, #e2e8f0)",
+            background: "var(--surface-2, #f8fafc)",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 12,
+            position: "sticky",
+            bottom: 0,
+            zIndex: 10,
+          }}
+        >
+          {footer}
+        </div>
+      )}
     </Dialog>
+  );
+}
+
+export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
+  return (
+    <div style={{ width: "100%", overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            {Array.from({ length: cols }).map((_, c) => (
+              <th key={c} style={{ padding: "12px 14px", borderBottom: "2px solid var(--border-color, #cbd5e1)" }}>
+                <div className="skeleton-shimmer" style={{ height: 14, width: "60%" }} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }).map((_, r) => (
+            <tr key={r} style={{ borderBottom: "1px solid var(--border-subtle, #e2e8f0)" }}>
+              {Array.from({ length: cols }).map((_, c) => (
+                <td key={c} style={{ padding: "14px" }}>
+                  <div className="skeleton-shimmer" style={{ height: 14, width: c === 0 ? "80%" : "50%" }} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -339,6 +425,7 @@ export function DataTable<T>({
   keyExtractor,
   emptyTitle = "No records found",
   emptyDescription = "There are no entries in this view.",
+  loading = false,
   onRowClick,
 }: {
   rows: T[];
@@ -346,8 +433,13 @@ export function DataTable<T>({
   keyExtractor: (row: T, index: number) => string | number;
   emptyTitle?: string;
   emptyDescription?: string;
+  loading?: boolean;
   onRowClick?: (row: T) => void;
 }) {
+  if (loading) {
+    return <TableSkeleton rows={5} cols={columns.length} />;
+  }
+
   if (!rows || rows.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} />;
   }
@@ -406,4 +498,5 @@ export function DataTable<T>({
     </div>
   );
 }
+
 

@@ -12,6 +12,7 @@ import { PropertyWorkspaceProvider } from "@/lib/property-context";
 import { ThemeProvider } from "@/theme/theme-provider";
 import ChunkErrorRecovery from "@/components/chunk-error-recovery";
 import ErrorMonitoring from "@/components/error-monitoring";
+import { ToastCenter } from "@/components/toast-center";
 
 export const metadata: Metadata = {
   title: "Center Estates ERP",
@@ -46,6 +47,7 @@ export default function RootLayout({
             <ThemeProvider>
               <ToastProvider>
                 <ToastContainer />
+                <ToastCenter />
                 <FormRecoveryProvider><PropertyWorkspaceProvider>
                   <Suspense fallback={null}>
                     <PlatformShell>
