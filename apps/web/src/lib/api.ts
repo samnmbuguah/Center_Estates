@@ -233,11 +233,10 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
     return response;
   }
 
-  // Authentication reads must reflect the cookies that exist at request
-  // time. A login-page bootstrap `/me/` call can still be in flight when a
-  // fast user submits the form; reusing that pre-login response after cookies
-  // are set makes a valid sign-in appear to fail intermittently.
-  if (fullPath.startsWith("/auth/")) {
+  // Authentication mutations (login, logout, refresh) bypass GET deduplication
+  // and clear the cache so new credentials immediately take effect.
+  if (fullPath.startsWith("/auth/") && method !== "GET") {
+    clearApiCache();
     const response = await fetchWithSession(fullPath, init, headers);
     if (cleanPath === "/auth/csrf/") await rememberCsrfToken(response);
     return response.clone();
@@ -249,16 +248,23 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
     headers.get("X-Property-ID") ?? "",
     headers.get("X-Property-Scope") ?? "",
   ].join("|");
-  const cached = getResponseCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.response.clone();
-  if (cached) getResponseCache.delete(cacheKey);
+
+  // Auth reads (/auth/me/, /auth/csrf/) are not cached long-term, but MUST dedupe in-flight
+  // so concurrent component mounts share a single network request.
+  const isAuthRead = fullPath.startsWith("/auth/");
+
+  if (!isAuthRead) {
+    const cached = getResponseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.response.clone();
+    if (cached) getResponseCache.delete(cacheKey);
+  }
 
   const existing = inFlightGets.get(cacheKey);
   if (existing) return (await existing).clone();
 
   const request = fetchWithSession(fullPath, init, headers)
     .then(async (response) => {
-      if (response.ok) {
+      if (response.ok && !isAuthRead) {
         rememberGet(cacheKey, response);
       } else if (!fullPath.startsWith("/auth/") && !fullPath.includes("/telemetry/")) {
         announceApiError(await apiErrorMessage(response, "The requested information could not be loaded."));
