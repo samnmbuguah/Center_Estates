@@ -1,39 +1,73 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ExternalLink, ShieldCheck, Users, Activity, Layers,
-  RefreshCw, BarChart2, Eye, Settings, Search, CheckCircle2,
-  Clock, TrendingUp, Sparkles, Maximize2
+  Activity, ArrowUpRight, BarChart2, CheckCircle2, ChevronRight,
+  Clock, ExternalLink, Filter, HelpCircle, Layers, RefreshCw,
+  Search, Settings, ShieldAlert, ShieldCheck, Sparkles, TrendingUp,
+  UserCheck, UserMinus, UserPlus, Users, Zap
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 
-const DEFAULT_POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com";
-const DEFAULT_DASHBOARD_URL = process.env.NEXT_PUBLIC_POSTHOG_DASHBOARD_URL || "";
+type UserTelemetryStats = {
+  user_id: string;
+  username: string;
+  full_name: string;
+  email: string;
+  role: string;
+  is_admin: boolean;
+  events: number;
+  modules: string[];
+  last_seen: string | null;
+  tier: "power" | "active" | "casual" | "inactive";
+};
 
-type UserStats = { events: number; modules: string[]; last_seen: string | null };
+type TelemetrySummary = {
+  total_events: number;
+  total_members: number;
+  active_members: number;
+  adoption_rate: number;
+  top_module: string;
+};
+
+type TelemetryInsight = {
+  type: "success" | "warning" | "info" | "neutral";
+  title: string;
+  description: string;
+};
+
 type TelemetryResponse = {
+  summary?: TelemetrySummary;
   by_module: Record<string, number>;
-  by_user: Record<string, UserStats>;
+  by_user: Record<string, UserTelemetryStats>;
+  hourly_distribution?: number[];
+  insights?: TelemetryInsight[];
   events: { id: string; actor: string; note: string; created_at: string }[];
 };
 
-const moduleLabels: Record<string, { label: string; icon: string; color: string }> = {
-  property: { label: "Property Management", icon: "🏢", color: "#4f46e5" },
-  facility: { label: "Facility Management", icon: "🔧", color: "#0284c7" },
-  sales: { label: "Sales & Leasing", icon: "💰", color: "#16a34a" },
-  tender: { label: "Tender Engine", icon: "📋", color: "#d97706" },
-  valuation: { label: "Valuation Services", icon: "📜", color: "#9333ea" },
-  monitoring: { label: "Construction Monitoring", icon: "📊", color: "#ea580c" },
-  companion: { label: "Companion & Staff Ops", icon: "🧭", color: "#059669" },
+const moduleMeta: Record<string, { label: string; icon: string; color: string; desc: string }> = {
+  property: { label: "Property & Leasing", icon: "🏢", color: "#dc2626", desc: "Tenants, Units, Leases & Rent Roll" },
+  facility: { label: "Facility & Assets", icon: "🔧", color: "#0284c7", desc: "Work Orders, Preventive PPM, Assets & Meters" },
+  sales: { label: "Sales Pipeline", icon: "💰", color: "#16a34a", desc: "Plots, Buyers, Installments & Escrow" },
+  tender: { label: "Tender Engine", icon: "📋", color: "#d97706", desc: "RFQs, Contractor Bids & Evaluations" },
+  valuation: { label: "Valuation Services", icon: "📜", color: "#9333ea", desc: "Instructions, Site Inspections & Sign-offs" },
+  monitoring: { label: "Construction Monitoring", icon: "📊", color: "#ea580c", desc: "Site Snags, IPCs, S-Curves & Programme" },
+  companion: { label: "Companion & Operations", icon: "🧭", color: "#059669", desc: "Staff Tasks, Feedback Tickets & Leaves" },
 };
 
 function formatWhen(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "Never active";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" });
+  if (Number.isNaN(d.getTime())) return "Never active";
+  const now = new Date();
+  const diffHours = (now.getTime() - d.getTime()) / (1000 * 60 * 60);
+  if (diffHours < 1) return "Active just now";
+  if (diffHours < 24) return `Active ${Math.round(diffHours)}h ago`;
+  if (diffHours < 48) return "Active yesterday";
+  const days = Math.round(diffHours / 24);
+  if (days < 14) return `Active ${days}d ago`;
+  return d.toLocaleDateString("en-KE", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export default function UsageAnalyticsPage() {
@@ -41,23 +75,15 @@ export default function UsageAnalyticsPage() {
   const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
-  // PostHog Embed State
-  const [customDashboardUrl, setCustomDashboardUrl] = useState("");
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"staff" | "modules" | "feed">("staff");
+
+  const [activeTab, setActiveTab] = useState<"overview" | "staff" | "modules" | "feed">("overview");
+  const [tierFilter, setTierFilter] = useState<"all" | "power" | "active" | "casual" | "inactive">("all");
   const [userSearch, setUserSearch] = useState("");
+  const [selectedUserDetail, setSelectedUserDetail] = useState<UserTelemetryStats | null>(null);
 
   const isAdministrator = Boolean(
-    session?.user.isSuperuser || session?.permissions.includes("*") || session?.roles.includes("admin")
+    session?.user.isSuperuser || session?.permissions.includes("*") || session?.roles.includes("admin") || session?.roles.some(r => r.includes("admin") || r.includes("manager"))
   );
-
-  useEffect(() => {
-    const saved = localStorage.getItem("center_estates_posthog_embed_url");
-    if (saved) setCustomDashboardUrl(saved);
-  }, []);
-
-  const activeDashboardUrl = customDashboardUrl || DEFAULT_DASHBOARD_URL;
 
   const loadTelemetry = useCallback(async () => {
     setLoading(true);
@@ -67,10 +93,10 @@ export default function UsageAnalyticsPage() {
       if (response.ok) {
         setTelemetry(await response.json());
       } else {
-        setError("Telemetry data could not be retrieved.");
+        setError("Usage telemetry could not be loaded.");
       }
     } catch {
-      setError("Failed to connect to telemetry service.");
+      setError("Failed to connect to analytics service.");
     } finally {
       setLoading(false);
     }
@@ -80,419 +106,578 @@ export default function UsageAnalyticsPage() {
     if (isAdministrator) void loadTelemetry();
   }, [isAdministrator, loadTelemetry]);
 
+  const users = useMemo(() => {
+    if (!telemetry?.by_user) return [];
+    return Object.values(telemetry.by_user).sort((a, b) => b.events - a.events);
+  }, [telemetry]);
+
+  const modules = useMemo(() => {
+    if (!telemetry?.by_module) return [];
+    return Object.entries(telemetry.by_module).sort((a, b) => b[1] - a[1]);
+  }, [telemetry]);
+
+  const totalEvents = telemetry?.summary?.total_events ?? users.reduce((sum, s) => sum + s.events, 0);
+  const activeMembersCount = telemetry?.summary?.active_members ?? users.filter(u => u.tier !== "inactive").length;
+  const adoptionRate = telemetry?.summary?.adoption_rate ?? (users.length ? Math.round((activeMembersCount / users.length) * 100) : 0);
+
+  const tierCounts = useMemo(() => ({
+    power: users.filter(u => u.tier === "power").length,
+    active: users.filter(u => u.tier === "active").length,
+    casual: users.filter(u => u.tier === "casual").length,
+    inactive: users.filter(u => u.tier === "inactive").length,
+  }), [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const matchesSearch = u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+        u.full_name.toLowerCase().includes(userSearch.toLowerCase()) ||
+        u.role.toLowerCase().includes(userSearch.toLowerCase());
+      const matchesTier = tierFilter === "all" || u.tier === tierFilter;
+      return matchesSearch && matchesTier;
+    });
+  }, [users, userSearch, tierFilter]);
+
+  const hourlyData = telemetry?.hourly_distribution ?? Array(24).fill(0);
+  const maxHourlyCount = Math.max(1, ...hourlyData);
+
   if (!isAdministrator) {
     return (
       <div className="page-wrap" style={{ maxWidth: 800, margin: "60px auto", textAlign: "center" }}>
         <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: "48px 24px" }}>
-          <ShieldCheck size={48} style={{ color: "#d92d2d", marginBottom: 16 }} />
+          <ShieldCheck size={48} style={{ color: "#dc2626", marginBottom: 16 }} />
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Administrator Access Required</h1>
           <p style={{ color: "var(--muted)", maxWidth: 480, margin: "0 auto", fontSize: 14 }}>
-            Usage analytics contains organization-wide staff activity, feature telemetry, and product insights restricted to authorized platform administrators.
+            System usage analytics and staff adoption telemetry are restricted to organization administrators and management.
           </p>
         </div>
       </div>
     );
   }
 
-  const users = telemetry ? Object.entries(telemetry.by_user).sort((a, b) => b[1].events - a[1].events) : [];
-  const modules = telemetry ? Object.entries(telemetry.by_module).sort((a, b) => b[1] - a[1]) : [];
-  const totalEvents = users.reduce((sum, [, s]) => sum + s.events, 0);
-  const topModule = modules.length > 0 ? modules[0] : null;
-  const topUser = users.length > 0 ? users[0] : null;
-
-  const filteredUsers = users.filter(([username]) =>
-    username.toLowerCase().includes(userSearch.toLowerCase())
-  );
-
-  const handleSaveEmbedUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem("center_estates_posthog_embed_url", customDashboardUrl.trim());
-    setShowConfigModal(false);
-  };
-
   return (
     <div className="page-wrap analytics-page" style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 1400, margin: "0 auto" }}>
-      {/* 1. Header & Quick Controls */}
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
+      {/* 1. Header & Controls */}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#d92d2d", fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#dc2626", fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
             <BarChart2 size={15} />
-            <span>Platform Intelligence & Telemetry</span>
+            <span>Platform Intelligence &amp; Adoption Matrix</span>
           </div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>Usage & Product Analytics</h1>
-          <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: 14 }}>
-            Live PostHog product insights, feature adoption metrics, and staff workflow analytics.
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "var(--text-primary)" }}>
+            Usage Analytics &amp; User Adoption
+          </h1>
+          <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 13 }}>
+            Monitor organization engagement, staff adoption velocity, and module workflow utilization across Center Estates.
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={() => void loadTelemetry()}
-            className="btn ghost"
+            className="fc-toolbar-btn"
             disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}
-            title="Refresh Telemetry Metrics"
+            title="Refresh adoption metrics"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
             <span>{loading ? "Refreshing…" : "Refresh"}</span>
           </button>
-
-          <button
-            onClick={() => setShowConfigModal(true)}
-            className="btn ghost"
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}
-          >
-            <Settings size={14} />
-            <span>Configure Embed</span>
-          </button>
-
-          <a
-            className="btn primary"
-            href={DEFAULT_POSTHOG_HOST}
-            target="_blank"
-            rel="noreferrer"
-            style={{ display: "flex", alignItems: "center", gap: 6, background: "#d92d2d", borderColor: "#d92d2d", fontSize: 13 }}
-          >
-            <span>Open PostHog Cloud</span>
-            <ExternalLink size={14} />
-          </a>
         </div>
       </header>
 
-      {/* 2. TOP SECTION: POSTHOG DASHBOARD EMBEDMENT */}
-      <section style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", background: "var(--surface-2, #f8fafc)", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 18 }}>🦔</span>
-            <div>
-              <strong style={{ fontSize: 14, display: "block" }}>PostHog Analytics Live Embed</strong>
-              <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                {activeDashboardUrl ? "Displaying embedded dashboard instance" : "Embed ready — Configure shared dashboard URL"}
-              </span>
-            </div>
+      {/* 2. Executive KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        {/* Total Operations */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Total Logged Operations</span>
+            <Activity size={16} style={{ color: "#dc2626" }} />
           </div>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span className="status-pill active" style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a" }} />
-              Telemetry Tracking Live
-            </span>
+          <div style={{ fontSize: 26, fontWeight: 900, color: "var(--text-primary)" }}>
+            {totalEvents.toLocaleString()}
           </div>
-        </div>
-
-        {activeDashboardUrl ? (
-          <div style={{ position: "relative", width: "100%", height: "640px", background: "#f8fafc" }}>
-            <iframe
-              title="Center Estates PostHog Analytics Dashboard"
-              src={activeDashboardUrl}
-              allow="fullscreen"
-              sandbox="allow-scripts allow-same-origin allow-popups"
-              referrerPolicy="strict-origin-when-cross-origin"
-              style={{ width: "100%", height: "100%", border: "none" }}
-            />
-          </div>
-        ) : (
-          <div style={{ padding: "40px 24px", textAlign: "center", background: "linear-gradient(180deg, rgba(248,250,252,0.6) 0%, rgba(241,245,249,0.8) 100%)" }}>
-            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(217, 45, 45, 0.1)", color: "#d92d2d", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-              <Sparkles size={24} />
-            </div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px" }}>PostHog Dashboard Embed Ready</h3>
-            <p style={{ color: "var(--muted)", fontSize: 13, maxWidth: 500, margin: "0 auto 16px" }}>
-              Embed your PostHog Insights or Shared Dashboard directly at the top of this page to view real-time retention, funnel conversion, and staff session recordings.
-            </p>
-            <button
-              onClick={() => setShowConfigModal(true)}
-              className="btn primary"
-              style={{ background: "#d92d2d", borderColor: "#d92d2d", fontSize: 13 }}
-            >
-              + Add PostHog Shared Dashboard URL
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* 3. EXECUTIVE KPI STRIP */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>Total System Events</span>
-            <Activity size={18} style={{ color: "#4f46e5" }} />
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "var(--foreground)" }}>{totalEvents.toLocaleString()}</div>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>Recorded client & staff actions</span>
-        </div>
-
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>Active Users</span>
-            <Users size={18} style={{ color: "#0284c7" }} />
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "var(--foreground)" }}>{users.length}</div>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>Engaged team members</span>
-        </div>
-
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>Primary Module</span>
-            <Layers size={18} style={{ color: "#16a34a" }} />
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)", textTransform: "capitalize" }}>
-            {topModule ? `${moduleLabels[topModule[0]]?.icon || "📦"} ${moduleLabels[topModule[0]]?.label || topModule[0]}` : "—"}
-          </div>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>
-            {topModule ? `${topModule[1]} logged operations` : "No module events"}
+          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            Aggregated system transactions
           </span>
         </div>
 
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>Most Active Staff</span>
-            <TrendingUp size={18} style={{ color: "#d92d2d" }} />
+        {/* Staff Adoption Rate */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Staff Adoption Index</span>
+            <TrendingUp size={16} style={{ color: "#16a34a" }} />
           </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "var(--foreground)" }}>
-            {topUser ? `@${topUser[0]}` : "—"}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontSize: 26, fontWeight: 900, color: adoptionRate >= 70 ? "#16a34a" : "#d97706" }}>
+              {adoptionRate}%
+            </span>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              ({activeMembersCount}/{users.length} active staff)
+            </span>
           </div>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>
-            {topUser ? `${topUser[1].events} actions logged` : "No staff activity"}
+          <div style={{ width: "100%", height: 5, borderRadius: 3, background: "var(--border)", marginTop: 2, overflow: "hidden" }}>
+            <div style={{ width: `${adoptionRate}%`, height: "100%", background: adoptionRate >= 70 ? "#16a34a" : "#dc2626", borderRadius: 3 }} />
+          </div>
+        </div>
+
+        {/* Power Users */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Power Contributors</span>
+            <Zap size={16} style={{ color: "#f59e0b" }} />
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: "var(--text-primary)" }}>
+            {tierCounts.power} Staff
+          </div>
+          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            &gt; 20 operations logged
+          </span>
+        </div>
+
+        {/* Inactive / At-Risk */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Dormant Accounts</span>
+            <UserMinus size={16} style={{ color: tierCounts.inactive > 0 ? "#dc2626" : "#64748b" }} />
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: tierCounts.inactive > 0 ? "#dc2626" : "var(--text-primary)" }}>
+            {tierCounts.inactive} Staff
+          </div>
+          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            Require onboarding or training
           </span>
         </div>
       </div>
 
-      {/* 4. AUDITED TABBED SECTIONS (Clutter-Free UI/UX) */}
-      <section style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, overflow: "hidden" }}>
-        {/* Navigation Tabs */}
-        <div style={{ display: "flex", gap: 8, padding: "12px 20px", background: "var(--surface-2, #f8fafc)", borderBottom: "1px solid var(--border)" }}>
-          <button
-            onClick={() => setActiveTab("staff")}
-            className={`btn ${activeTab === "staff" ? "primary" : "ghost"}`}
-            style={{
-              fontSize: 13,
-              background: activeTab === "staff" ? "#d92d2d" : "transparent",
-              borderColor: activeTab === "staff" ? "#d92d2d" : "transparent",
-            }}
-          >
-            👥 Staff Activity Matrix ({users.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("modules")}
-            className={`btn ${activeTab === "modules" ? "primary" : "ghost"}`}
-            style={{
-              fontSize: 13,
-              background: activeTab === "modules" ? "#d92d2d" : "transparent",
-              borderColor: activeTab === "modules" ? "#d92d2d" : "transparent",
-            }}
-          >
-            📦 Module Adoption Breakdown ({modules.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("feed")}
-            className={`btn ${activeTab === "feed" ? "primary" : "ghost"}`}
-            style={{
-              fontSize: 13,
-              background: activeTab === "feed" ? "#d92d2d" : "transparent",
-              borderColor: activeTab === "feed" ? "#d92d2d" : "transparent",
-            }}
-          >
-            ⚡ Live Activity Stream ({telemetry?.events.length || 0})
-          </button>
-        </div>
-
-        <div style={{ padding: 20 }}>
-          {error && <div className="form-error" style={{ marginBottom: 16 }}>{error}</div>}
-
-          {/* TAB 1: STAFF ACTIVITY */}
-          {activeTab === "staff" && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
-                <div style={{ position: "relative", minWidth: 260 }}>
-                  <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-                  <input
-                    type="search"
-                    placeholder="Search staff by username…"
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    style={{ width: "100%", paddingLeft: 32, paddingRight: 12, height: 36, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", fontSize: 13 }}
-                  />
-                </div>
-                <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                  Showing {filteredUsers.length} of {users.length} tracked staff accounts
-                </span>
-              </div>
-
-              <div className="table-scroll">
-                <table className="fc-data-table">
-                  <thead>
-                    <tr>
-                      <th>Staff Account</th>
-                      <th>Total Events</th>
-                      <th>Active Modules</th>
-                      <th>Last Active Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} style={{ textAlign: "center", padding: 30 }} className="muted">
-                          {userSearch ? "No staff accounts matched your search filter." : "No staff telemetry recorded yet."}
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredUsers.map(([username, stats]) => (
-                        <tr key={username}>
-                          <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#e0e7ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
-                                {username.slice(0, 2).toUpperCase()}
-                              </span>
-                              <strong style={{ fontSize: 13 }}>@{username}</strong>
-                            </div>
-                          </td>
-                          <td className="mono" style={{ fontSize: 13, fontWeight: 700 }}>
-                            {stats.events.toLocaleString()}
-                          </td>
-                          <td>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              {stats.modules.length ? (
-                                stats.modules.map((m) => (
-                                  <span key={m} className="status-pill" style={{ fontSize: 11, padding: "2px 8px" }}>
-                                    {moduleLabels[m]?.icon || "📦"} {moduleLabels[m]?.label || m}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="muted" style={{ fontSize: 12 }}>—</span>
-                              )}
-                            </div>
-                          </td>
-                          <td style={{ fontSize: 12, color: "var(--muted)" }}>
-                            {formatWhen(stats.last_seen)}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+      {/* 3. Actionable Insights & Recommendations Banner */}
+      {telemetry?.insights && telemetry.insights.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 10 }}>
+          {telemetry.insights.map((insight, idx) => (
+            <div
+              key={idx}
+              style={{
+                padding: "12px 16px",
+                borderRadius: 8,
+                background: insight.type === "warning" ? "rgba(220, 38, 38, 0.05)" : insight.type === "success" ? "rgba(22, 163, 74, 0.05)" : "var(--surface-sunken)",
+                border: `1px solid ${insight.type === "warning" ? "rgba(220, 38, 38, 0.2)" : insight.type === "success" ? "rgba(22, 163, 74, 0.2)" : "var(--border)"}`,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>
+                {insight.type === "warning" ? "⚠️" : insight.type === "success" ? "🎯" : "💡"}
+              </span>
+              <div>
+                <strong style={{ fontSize: 13, display: "block", color: "var(--text-primary)" }}>{insight.title}</strong>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>{insight.description}</p>
               </div>
             </div>
-          )}
+          ))}
+        </div>
+      )}
 
-          {/* TAB 2: MODULE ADOPTION */}
-          {activeTab === "modules" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 6px" }}>
-                Relative feature usage and event density across the 7 ERP functional modules:
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+      {/* 4. Tab Navigation Strip */}
+      <div style={{ display: "flex", gap: 6, borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`fc-toolbar-btn ${activeTab === "overview" ? "primary" : ""}`}
+          style={{ fontWeight: 700 }}
+        >
+          📊 Adoption Overview &amp; Charts
+        </button>
+        <button
+          onClick={() => setActiveTab("staff")}
+          className={`fc-toolbar-btn ${activeTab === "staff" ? "primary" : ""}`}
+          style={{ fontWeight: 700 }}
+        >
+          👥 Staff Adoption Matrix ({users.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("modules")}
+          className={`fc-toolbar-btn ${activeTab === "modules" ? "primary" : ""}`}
+          style={{ fontWeight: 700 }}
+        >
+          📦 Module Adoption Breakdown
+        </button>
+        <button
+          onClick={() => setActiveTab("feed")}
+          className={`fc-toolbar-btn ${activeTab === "feed" ? "primary" : ""}`}
+          style={{ fontWeight: 700 }}
+        >
+          ⚡ Live Activity Stream ({telemetry?.events.length || 0})
+        </button>
+      </div>
+
+      {/* TAB 1: OVERVIEW & CHARTS */}
+      {activeTab === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Dual Visualization Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+            {/* Left: Module Usage Distribution */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "18px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--text-primary)" }}>
+                    Module Transaction Density
+                  </h3>
+                  <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>
+                    Share of logged operations by functional ERP domain
+                  </small>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#dc2626" }}>{totalEvents} Total</span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {modules.map(([modKey, count]) => {
-                  const info = moduleLabels[modKey] || { label: modKey, icon: "📦", color: "#64748b" };
+                  const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "#64748b", desc: "" };
                   const percentage = totalEvents > 0 ? Math.round((count / totalEvents) * 100) : 0;
                   return (
-                    <div
-                      key={modKey}
-                      style={{
-                        padding: 16,
-                        borderRadius: 10,
-                        border: "1px solid var(--border)",
-                        background: "var(--surface-2, #f8fafc)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 14, fontWeight: 700 }}>
-                          {info.icon} {info.label}
+                    <div key={modKey} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                        <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                          {meta.icon} {meta.label}
                         </span>
-                        <strong style={{ fontSize: 14, color: info.color }}>{count.toLocaleString()}</strong>
+                        <span style={{ fontWeight: 700, color: meta.color }}>
+                          {count.toLocaleString()} actions ({percentage}%)
+                        </span>
                       </div>
                       <div style={{ width: "100%", height: 8, borderRadius: 4, background: "var(--border)", overflow: "hidden" }}>
-                        <div style={{ width: `${percentage}%`, height: "100%", background: info.color, borderRadius: 4 }} />
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)" }}>
-                        <span>Share of total traffic</span>
-                        <span>{percentage}%</span>
+                        <div style={{ width: `${percentage}%`, height: "100%", background: meta.color, borderRadius: 4 }} />
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-          )}
 
-          {/* TAB 3: LIVE ACTIVITY FEED */}
-          {activeTab === "feed" && (
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
+            {/* Right: Hourly Activity Operational Window */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "18px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--text-primary)" }}>
+                    24-Hour Operational Load
+                  </h3>
+                  <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>
+                    System activity distribution across the working day (EAT)
+                  </small>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Peak Hours</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 160, paddingTop: 10, borderBottom: "1px solid var(--border)" }}>
+                {hourlyData.map((count, hour) => {
+                  const heightPercent = Math.max(4, Math.round((count / maxHourlyCount) * 100));
+                  const isPeak = count === maxHourlyCount && count > 0;
+                  return (
+                    <div
+                      key={hour}
+                      style={{
+                        flex: 1,
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "flex-end",
+                        alignItems: "center",
+                      }}
+                      title={`${hour}:00 - ${count} actions`}
+                    >
+                      <div
+                        style={{
+                          width: "100%",
+                          height: `${heightPercent}%`,
+                          background: isPeak ? "#dc2626" : hour >= 8 && hour <= 18 ? "rgba(220,38,38,0.4)" : "rgba(100,116,139,0.3)",
+                          borderRadius: "3px 3px 0 0",
+                          transition: "height 0.2s ease",
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-secondary)", marginTop: 6 }}>
+                <span>00:00</span>
+                <span>06:00</span>
+                <span>12:00 (Noon)</span>
+                <span>18:00</span>
+                <span>23:00</span>
+              </div>
+            </div>
+          </div>
+
+          {/* User Adoption Tier Breakdown */}
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "18px 20px" }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 800, color: "var(--text-primary)" }}>
+              Staff Adoption &amp; Engagement Tiers
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+              <div
+                onClick={() => { setTierFilter("power"); setActiveTab("staff"); }}
+                style={{ padding: 14, borderRadius: 8, background: "rgba(245, 158, 11, 0.06)", border: "1px solid rgba(245, 158, 11, 0.2)", cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>⚡ Power Users</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "#d97706" }}>{tierCounts.power}</span>
+                </div>
+                <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>20+ actions recorded · Daily workflow drivers</small>
+              </div>
+
+              <div
+                onClick={() => { setTierFilter("active"); setActiveTab("staff"); }}
+                style={{ padding: 14, borderRadius: 8, background: "rgba(22, 163, 74, 0.06)", border: "1px solid rgba(22, 163, 74, 0.2)", cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#16a34a" }}>✓ Active Contributors</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "#16a34a" }}>{tierCounts.active}</span>
+                </div>
+                <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>5-19 actions · Regular operational users</small>
+              </div>
+
+              <div
+                onClick={() => { setTierFilter("casual"); setActiveTab("staff"); }}
+                style={{ padding: 14, borderRadius: 8, background: "rgba(2, 132, 199, 0.06)", border: "1px solid rgba(2, 132, 199, 0.2)", cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#0284c7" }}>⏳ Casual Users</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "#0284c7" }}>{tierCounts.casual}</span>
+                </div>
+                <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>1-4 actions · Occasional or new logins</small>
+              </div>
+
+              <div
+                onClick={() => { setTierFilter("inactive"); setActiveTab("staff"); }}
+                style={{ padding: 14, borderRadius: 8, background: "rgba(220, 38, 38, 0.06)", border: "1px solid rgba(220, 38, 38, 0.2)", cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#dc2626" }}>⚠️ Dormant / Inactive</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "#dc2626" }}>{tierCounts.inactive}</span>
+                </div>
+                <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>0 actions · Need onboarding &amp; training</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: STAFF ADOPTION MATRIX */}
+      {activeTab === "staff" && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+          {/* Filter Bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ position: "relative", minWidth: 260 }}>
+                <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
+                <input
+                  type="search"
+                  placeholder="Search staff by name, username, or role…"
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  style={{ width: "100%", paddingLeft: 32, paddingRight: 12, height: 34, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", fontSize: 12 }}
+                />
+              </div>
+
+              {/* Tier Pills */}
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["all", "power", "active", "casual", "inactive"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTierFilter(t)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      border: "1px solid var(--border)",
+                      background: tierFilter === t ? "#dc2626" : "var(--surface-sunken)",
+                      color: tierFilter === t ? "#ffffff" : "var(--text-primary)",
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {t === "all" ? "All Tiers" : t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              Showing {filteredUsers.length} of {users.length} registered accounts
+            </span>
+          </div>
+
+          {/* Table */}
+          <div className="table-scroll" style={{ overflowX: "auto" }}>
+            <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left" }}>Staff Member &amp; Username</th>
+                  <th style={{ textAlign: "left" }}>Assigned Role</th>
+                  <th style={{ textAlign: "center" }}>Adoption Tier</th>
+                  <th style={{ textAlign: "right" }}>Total Actions</th>
+                  <th style={{ textAlign: "left" }}>Active Modules</th>
+                  <th style={{ textAlign: "left" }}>Last Active Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
                   <tr>
-                    <th style={{ width: 180 }}>When</th>
-                    <th style={{ width: 160 }}>Actor</th>
-                    <th>Activity Description</th>
+                    <td colSpan={6} style={{ textAlign: "center", padding: 30, color: "var(--text-secondary)" }}>
+                      No staff accounts matched your filter.
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {!telemetry?.events || telemetry.events.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} style={{ textAlign: "center", padding: 30 }} className="muted">
-                        No recent telemetry log records found.
+                ) : (
+                  filteredUsers.map((u) => (
+                    <tr key={u.username} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--surface-sunken)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>
+                            {u.username.slice(0, 2).toUpperCase()}
+                          </span>
+                          <div>
+                            <strong style={{ fontSize: 13, display: "block", color: "var(--text-primary)" }}>
+                              {u.full_name}
+                            </strong>
+                            <span style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace" }}>
+                              @{u.username}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 8px",
+                            borderRadius: 12,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            background: u.tier === "power" ? "rgba(245, 158, 11, 0.15)" : u.tier === "active" ? "rgba(22, 163, 74, 0.15)" : u.tier === "casual" ? "rgba(2, 132, 199, 0.15)" : "rgba(220, 38, 38, 0.15)",
+                            color: u.tier === "power" ? "#d97706" : u.tier === "active" ? "#16a34a" : u.tier === "casual" ? "#0284c7" : "#dc2626",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {u.tier === "power" ? "⚡ Power" : u.tier === "active" ? "✓ Active" : u.tier === "casual" ? "⏳ Casual" : "⚠️ Inactive"}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: 800, fontSize: 13, fontFamily: "monospace" }}>
+                        {u.events.toLocaleString()}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {u.modules.length ? (
+                            u.modules.map((m) => (
+                              <span key={m} style={{ fontSize: 11, background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 6px", borderRadius: 4 }}>
+                                {moduleMeta[m]?.icon || "📦"} {moduleMeta[m]?.label?.split(" ")[0] || m}
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, color: u.tier === "inactive" ? "#dc2626" : "var(--text-secondary)" }}>
+                          {formatWhen(u.last_seen)}
+                        </span>
                       </td>
                     </tr>
-                  ) : (
-                    telemetry.events.slice(0, 30).map((e) => (
-                      <tr key={e.id}>
-                        <td className="muted" style={{ fontSize: 12 }}>
-                          {formatWhen(e.created_at)}
-                        </td>
-                        <td>
-                          <strong style={{ fontSize: 13 }}>@{e.actor}</strong>
-                        </td>
-                        <td style={{ fontSize: 13 }}>
-                          {e.note.replace(/^Telemetry \[/, "").replace(/\]$/, "")}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </section>
+      )}
 
-      {/* MODAL: CONFIGURE POSTHOG EMBED URL */}
-      {showConfigModal && (
-        <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border)", borderRadius: 12, width: "100%", maxWidth: 540, padding: 24, boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 8px" }}>Configure PostHog Dashboard Embed</h2>
-            <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 16px" }}>
-              Paste the public or shared dashboard URL from your PostHog Cloud or self-hosted workspace to render it live at the top of the analytics page.
-            </p>
+      {/* TAB 3: MODULE ADOPTION */}
+      {activeTab === "modules" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+          {modules.map(([modKey, count]) => {
+            const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "#64748b", desc: "Operational workflows" };
+            const percentage = totalEvents > 0 ? Math.round((count / totalEvents) * 100) : 0;
+            const moduleActiveUsers = users.filter(u => u.modules.includes(modKey)).length;
+            return (
+              <div
+                key={modKey}
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "16px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 20 }}>{meta.icon}</span>
+                      <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>{meta.label}</strong>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 900, color: meta.color }}>
+                      {count.toLocaleString()} actions
+                    </span>
+                  </div>
+                  <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--text-secondary)" }}>{meta.desc}</p>
+                </div>
 
-            <form onSubmit={handleSaveEmbedUrl} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, display: "block", marginBottom: 4 }}>
-                  PostHog Shared Dashboard URL
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://app.posthog.com/embedded/..."
-                  value={customDashboardUrl}
-                  onChange={(e) => setCustomDashboardUrl(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", fontSize: 13 }}
-                />
-                <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 4 }}>
-                  In PostHog, open your Dashboard → Click &quot;Share&quot; → Toggle &quot;Embed dashboard&quot; → Copy the iframe source link.
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-secondary)" }}>
+                    <span>Traffic share: <strong>{percentage}%</strong></span>
+                    <span>Staff adoption: <strong>{moduleActiveUsers}/{users.length} users</strong></span>
+                  </div>
+                  <div style={{ width: "100%", height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden" }}>
+                    <div style={{ width: `${percentage}%`, height: "100%", background: meta.color, borderRadius: 3 }} />
+                  </div>
+                </div>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
-                <button type="button" className="btn ghost" onClick={() => setShowConfigModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn primary" style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
-                  Save Embed Settings
-                </button>
-              </div>
-            </form>
+      {/* TAB 4: LIVE ACTIVITY STREAM */}
+      {activeTab === "feed" && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+          <div className="table-scroll">
+            <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 160, textAlign: "left" }}>Timestamp</th>
+                  <th style={{ width: 180, textAlign: "left" }}>Staff Member</th>
+                  <th style={{ textAlign: "left" }}>Operation / Activity Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!telemetry?.events || telemetry.events.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: "center", padding: 30, color: "var(--text-secondary)" }}>
+                      No recent telemetry events recorded.
+                    </td>
+                  </tr>
+                ) : (
+                  telemetry.events.slice(0, 50).map((e) => (
+                    <tr key={e.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                        {formatWhen(e.created_at)}
+                      </td>
+                      <td>
+                        <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>@{e.actor}</strong>
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--text-primary)" }}>
+                        {e.note.replace(/^Telemetry \[/, "").replace(/\]$/, "")}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
