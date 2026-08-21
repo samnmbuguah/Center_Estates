@@ -385,7 +385,7 @@ export function PropertyModals(props: PropertyModalsProps) {
           <Modal
             title="⬆ Upload Tenants in Bulk"
             onClose={() => setShowBulkTenantUpload(false)}
-            wide
+            extraWide
           >
             <BulkTenantUploader
               onDone={() => { setShowBulkTenantUpload(false); setTab("tenants"); loadData(); }}

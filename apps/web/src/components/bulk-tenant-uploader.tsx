@@ -319,12 +319,12 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
               </div>
             </div>
 
-            <div style={{ overflowX: 'auto', maxHeight: 280, border: '1px solid var(--border)', borderRadius: 8 }}>
+            <div style={{ overflowX: 'auto', maxHeight: 440, border: '1px solid var(--border)', borderRadius: 10, background: "var(--surface)" }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead style={{ position: 'sticky', top: 0 }}>
-                  <tr style={{ background: 'var(--surface,#fff)', borderBottom: '2px solid var(--border)' }}>
-                    {['#', 'Validation', 'Name', 'Type', 'Unit Code', 'Lease Start', 'Term', 'Rent'].map(h => (
-                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                  <tr style={{ background: 'var(--surface-sunken, var(--surface-2))', borderBottom: '2px solid var(--border)' }}>
+                    {['#', 'Validation', 'Tenant Name', 'Type', 'Email & Phone', 'KRA PIN / Reg', 'Unit Code', 'Lease Start', 'Term', 'Commercial Rent & Terms'].map(h => (
+                      <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -333,23 +333,45 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                     const rowIssues = validationIssues[i]?.issues || [];
                     const isValid = rowIssues.length === 0;
                     return (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: isValid ? 'transparent' : 'rgba(239, 68, 68, 0.04)' }}>
-                        <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{i + 1}</td>
-                        <td style={{ padding: '6px 10px' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: isValid ? (i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)') : 'rgba(239, 68, 68, 0.05)' }}>
+                        <td style={{ padding: '8px 12px', color: 'var(--muted)', fontWeight: 700 }}>{i + 1}</td>
+                        <td style={{ padding: '8px 12px' }}>
                           {isValid ? (
-                            <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 11 }}>✓ Ready</span>
+                            <span style={{ color: "#16a34a", background: "#dcfce7", padding: "3px 8px", borderRadius: 10, fontWeight: 800, fontSize: 11 }}>✓ Ready</span>
                           ) : (
-                            <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 11 }} title={rowIssues.join(", ")}>
+                            <span style={{ color: "#991b1b", background: "#fee2e2", padding: "3px 8px", borderRadius: 10, fontWeight: 800, fontSize: 11 }} title={rowIssues.join(", ")}>
                               ⚠️ {rowIssues[0]}
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '6px 10px', fontWeight: 600 }}>{r.name || <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
-                        <td style={{ padding: '6px 10px' }}>{r.tenant_type}</td>
-                        <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{r.unit_code || <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
-                        <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{r.lease_start || <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
-                        <td style={{ padding: '6px 10px' }}>{r.lease_term_months} mo</td>
-                        <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: '#dc2626' }}>MISSING</span>}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: 700, color: "var(--text-primary)", maxWidth: 220, whiteSpace: "normal" }}>
+                          {r.name || <span style={{ color: '#dc2626', fontWeight: 800 }}>MISSING</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', textTransform: 'capitalize' }}>{r.tenant_type}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 11, color: "var(--text-secondary)" }}>
+                          {r.email && <div>✉ {r.email}</div>}
+                          {r.phone && <div>📞 {r.phone}</div>}
+                          {!r.email && !r.phone && <span>—</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11 }}>
+                          {r.tax_id || r.registration_number ? `${r.tax_id || ''} ${r.registration_number ? `(${r.registration_number})` : ''}` : '—'}
+                        </td>
+                        <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 800, color: "var(--primary)" }}>
+                          {r.unit_code || <span style={{ color: '#dc2626' }}>MISSING</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', fontFamily: 'monospace' }}>
+                          {r.lease_start || <span style={{ color: '#dc2626' }}>MISSING</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>{r.lease_term_months} mo</td>
+                        <td style={{ padding: '8px 12px', fontSize: 11 }}>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 800, color: "var(--text-primary)" }}>
+                            {r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: '#dc2626' }}>MISSING</span>}
+                          </span>
+                          {Number(r.service_charge_rate_per_sqft || 0) > 0 && (
+                            <div style={{ color: "var(--text-secondary)", fontSize: 10 }}>SC: KES {r.service_charge_rate_per_sqft}/sqft</div>
+                          )}
+                          <div style={{ color: "var(--muted)", fontSize: 10 }}>VAT: {r.vat_rate || "16"}%</div>
+                        </td>
                       </tr>
                     );
                   })}

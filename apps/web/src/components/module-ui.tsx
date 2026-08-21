@@ -297,29 +297,35 @@ export function Modal({
   onClose,
   children,
   wide,
+  extraWide,
+  maxWidth,
   footer,
 }: {
   title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  extraWide?: boolean;
+  maxWidth?: "xs" | "sm" | "md" | "lg" | "xl" | false;
   footer?: ReactNode;
 }) {
   const titleId = useId();
+  const resolvedMaxWidth = maxWidth || (extraWide ? "xl" : wide ? "lg" : "sm");
+  const pixelMaxWidth = extraWide ? 1320 : wide ? 960 : 560;
   return (
     <Dialog
       open
       onClose={onClose}
       fullWidth
-      maxWidth={wide ? "lg" : "sm"}
+      maxWidth={resolvedMaxWidth}
       aria-labelledby={titleId}
       slotProps={{
         paper: {
           sx: {
             borderRadius: 3,
-            maxWidth: wide ? 960 : 560,
+            maxWidth: pixelMaxWidth,
             width: "100%",
-            maxHeight: "90vh",
+            maxHeight: "92vh",
             display: "flex",
             flexDirection: "column",
             backgroundImage: "none",
