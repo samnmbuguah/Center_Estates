@@ -202,32 +202,57 @@ export function PropertyOnboardingForm() {
     const rows = parseCsv(await file.text());
     const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     const columns = {
-      unit_no: headerIndex(headers, ["unit_no", "unit_number", "unit"]),
-      unit_type: headerIndex(headers, ["unit_type", "type"]),
-      floor: headerIndex(headers, ["floor", "floor_number", "floor_name"]),
+      unit_no: headerIndex(headers, ["unit_no", "unit_number", "unit_code", "unit", "code"]),
+      unit_type: headerIndex(headers, ["unit_type", "type", "typology"]),
+      floor: headerIndex(headers, ["floor", "floor_number", "floor_name", "level"]),
       use: headerIndex(headers, ["use", "unit_use", "purpose"]),
-      area: headerIndex(headers, ["area", "area_sq_ft", "area_sqft", "size"]),
+      area: headerIndex(headers, ["area", "area_sq_ft", "area_sqft", "size", "sqft"]),
       rateable_area: headerIndex(headers, ["rateable_area", "rateable_area_sq_ft", "rateable_area_sqft"]),
       building_index: headerIndex(headers, ["building_number", "building_index", "building"]),
       description: headerIndex(headers, ["description", "notes"]),
     };
-    const required = ["unit_no", "unit_type", "floor", "use", "area"] as const;
-    const missing = required.filter(name => columns[name] < 0);
-    if (missing.length) {
-      setError(`Unit CSV is missing required column(s): ${missing.join(", ")}. Download the template for the exact column headers. Optional columns: rateable_area, building_number, description.`); jump("units"); return;
+
+    if (columns.unit_no < 0) {
+      setError("Unit CSV must contain a unit column (e.g. unit_no, unit_code, or unit). Download the template for reference.");
+      jump("units"); return;
     }
-    const imported: UnitDraft[] = rows.map(row => ({
-      unit_no: cell(row, columns.unit_no), unit_type: cell(row, columns.unit_type), floor: cell(row, columns.floor),
-      use: cell(row, columns.use), area: cell(row, columns.area), rateable_area: cell(row, columns.rateable_area),
-      building_index: cell(row, columns.building_index), description: cell(row, columns.description),
-    }));
-    const emptyRows = imported.filter(unit => !unit.unit_no || !unit.unit_type || !unit.floor || !unit.use);
+
+    const deriveFloor = (code: string) => {
+      const c = code.toUpperCase();
+      if (c.includes("GR") || c.startsWith("G-") || c.startsWith("G/")) return "Ground";
+      if (c.includes("MZ") || c.includes("MEZZ")) return "Mezzanine";
+      if (c.includes("BS") || c.includes("BASE")) return "Basement";
+      const match = code.match(/(?:FL|FLOOR|LEVEL|L|F)?\s*(\d+)/i);
+      return match ? match[1] : "1";
+    };
+
+    const imported: UnitDraft[] = rows
+      .map(row => {
+        const uNo = cell(row, columns.unit_no).trim();
+        if (!uNo) return null;
+        const uType = (columns.unit_type >= 0 ? cell(row, columns.unit_type) : "") || "Commercial";
+        const rawFloor = (columns.floor >= 0 ? cell(row, columns.floor) : "") || deriveFloor(uNo);
+        const uUse = (columns.use >= 0 ? cell(row, columns.use) : "") || "Commercial";
+        const rawArea = (columns.area >= 0 ? cell(row, columns.area) : "") || "1000";
+        return {
+          unit_no: uNo,
+          unit_type: uType,
+          floor: rawFloor,
+          use: uUse,
+          area: rawArea,
+          rateable_area: columns.rateable_area >= 0 ? cell(row, columns.rateable_area) : "",
+          building_index: columns.building_index >= 0 ? cell(row, columns.building_index) : "",
+          description: columns.description >= 0 ? cell(row, columns.description) : "",
+        };
+      })
+      .filter((u): u is UnitDraft => u !== null);
+
     const badArea = imported.filter(unit => !Number(unit.area) || Number(unit.area) <= 0);
     const dupeCodes = imported.filter((unit, i) => imported.findIndex(u => u.unit_no.toLowerCase() === unit.unit_no.toLowerCase()) !== i);
     const allCodes = [...units.map(unit => unit.unit_no.toLowerCase()), ...imported.map(unit => unit.unit_no.toLowerCase())];
     const globalDupes = new Set(allCodes).size !== allCodes.length;
+
     if (!imported.length) { setError("The CSV file contains no data rows. Ensure at least one unit row is present."); jump("units"); return; }
-    if (emptyRows.length) { setError(`Row(s) with unit_no "${emptyRows.slice(0, 3).map(r => r.unit_no).join('", "')}" are missing required fields (unit_no, type, floor, use). Every row must have all 5 required columns filled.`); jump("units"); return; }
     if (badArea.length) { setError(`Row(s) with unit_no "${badArea.slice(0, 3).map(r => r.unit_no).join('", "')}" have an invalid area. Area must be a positive number.`); jump("units"); return; }
     if (dupeCodes.length || globalDupes) { setError("Duplicate unit numbers found within the CSV or between the CSV and manually added units. Each unit number must be unique."); jump("units"); return; }
     if (imported.length + units.length > 500) { setError(`Importing ${imported.length} units would exceed the 500-unit limit (currently ${units.length} units). Reduce the batch size.`); jump("units"); return; }
