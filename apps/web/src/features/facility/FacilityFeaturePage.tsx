@@ -107,8 +107,10 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
         ) : logic.tab === "contractors" ? (
           <ContractorsView
             rows={logic.rows}
+            organizationId={logic.organizationId}
             onAdd={() => logic.setCreateModal("contractor")}
             canAdminister={logic.canAdminister}
+            reload={logic.load}
           />
         ) : logic.tab === "reports" ? (
           logic.dashboard ? <ReportsView dashboard={logic.dashboard} organizationId={logic.organizationId} /> : null

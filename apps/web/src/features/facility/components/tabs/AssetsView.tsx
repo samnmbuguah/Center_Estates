@@ -800,6 +800,17 @@ export function AssetsView({
           </div>
         </div>
       )}
+
+      {showBulkModal && (
+        <BulkAssetUploaderModal
+          organizationId={organizationId}
+          onClose={() => setShowBulkModal(false)}
+          onSuccess={() => {
+            setShowBulkModal(false);
+            if (reload) reload();
+          }}
+        />
+      )}
     </div>
   );
 }

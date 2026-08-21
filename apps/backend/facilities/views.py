@@ -476,6 +476,73 @@ class ContractorViewSet(FacilityModelViewSet):
             'contracts': ContractorContractSerializer(contractor.contracts.all(), many=True).data,
         })
 
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk_upload')
+    def bulk_upload(self, request):
+        organization = get_active_organization(request)
+        raw_items = request.data.get('contractors') or request.data.get('providers') or request.data
+        if not isinstance(raw_items, list) or not raw_items:
+            return Response({'detail': 'A non-empty list of service providers is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        errors = []
+        existing_codes = set(Contractor.objects.filter(organization=organization).values_list('code', flat=True))
+        code_seq = 100
+
+        for idx, item in enumerate(raw_items):
+            try:
+                name = str(item.get('name', '')).strip()
+                if not name:
+                    errors.append(f"Row {idx + 1}: Provider name is required.")
+                    continue
+
+                code = str(item.get('code', '')).strip()
+                if not code or code in existing_codes:
+                    while f"VND-{code_seq:04d}" in existing_codes:
+                        code_seq += 1
+                    code = f"VND-{code_seq:04d}"
+                existing_codes.add(code)
+
+                specialty = str(item.get('specialty') or item.get('category') or 'General Maintenance').strip()
+                contact_name = str(item.get('contact_name') or item.get('contact_person') or '').strip()
+                email = str(item.get('email') or '').strip()
+                phone = str(item.get('phone') or '').strip()
+                emergency_phone = str(item.get('emergency_phone') or phone or '').strip()
+                pin_number = str(item.get('pin_number') or item.get('tax_pin') or '').strip()
+                registration_number = str(item.get('registration_number') or '').strip()
+                coverage_areas = str(item.get('coverage_areas') or '').strip()
+                status_val = str(item.get('status') or 'active').lower().strip()
+                if status_val not in ('active', 'review', 'suspended', 'expired'):
+                    status_val = 'active'
+                try:
+                    rating = float(item.get('rating') or 4.5)
+                except (TypeError, ValueError):
+                    rating = 4.5
+
+                contractor = Contractor.objects.create(
+                    organization=organization,
+                    code=code,
+                    name=name,
+                    specialty=specialty,
+                    contact_name=contact_name,
+                    email=email,
+                    phone=phone,
+                    emergency_phone=emergency_phone,
+                    pin_number=pin_number,
+                    registration_number=registration_number,
+                    coverage_areas=coverage_areas,
+                    status=status_val,
+                    rating=rating,
+                )
+                created.append(contractor)
+            except Exception as e:
+                errors.append(f"Row {idx + 1} ({item.get('name', 'Unknown')}): {str(e)}")
+
+        return Response({
+            'created_count': len(created),
+            'errors': errors,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_400_BAD_REQUEST)
+
 
 
 class WorkOrderViewSet(FacilityModelViewSet):
@@ -1022,6 +1089,7 @@ class MeterReconciliationViewSet(FacilityModelViewSet):
 
 
 class FacilityDashboardViewSet(ViewSet):
+    serializer_class = GenericObjectSerializer
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY
 

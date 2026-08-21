@@ -5,6 +5,7 @@ import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
 import { apiFetch } from "@/lib/api";
+import { BulkContractorUploaderModal } from "../modals/BulkContractorUploaderModal";
 
 function PanelHeader({
   title,
@@ -185,15 +186,20 @@ export function ContractorsView({
   kpis,
   onAdd,
   canAdminister,
+  organizationId,
+  reload,
 }: {
   rows: Row[];
   kpis?: Record<string, string | number>;
   onAdd: () => void;
   canAdminister?: boolean;
+  organizationId?: string | null;
+  reload?: () => void;
 }) {
   const [selectedContractor, setSelectedContractor] = useState<Row | null>(null);
   const [scorecardData, setScorecardData] = useState<any>(null);
   const [showScorecardModal, setShowScorecardModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const displayRows = rows.length > 0 ? rows : [
@@ -322,22 +328,22 @@ export function ContractorsView({
               Automated performance score: Σ(KPI Score × Weight) across SLA, Quality, Response, Cost & Compliance
             </small>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "contractor-master.csv")}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "contractor-master.csv")} title="Export service providers to CSV">
               ↓ Export CSV
             </button>
             <button
+              onClick={() => setShowBulkModal(true)}
+              className="fc-toolbar-btn"
+              style={{ fontWeight: 700 }}
+              title="Upload multiple service providers at once using a CSV file"
+            >
+              ⬆ Upload Providers (CSV)
+            </button>
+            <button
               onClick={onAdd}
-              style={{
-                background: "var(--primary, #e23b3b)",
-                color: "#fff",
-                border: 0,
-                padding: "6px 14px",
-                borderRadius: 6,
-                fontWeight: 800,
-                fontSize: "0.82rem",
-                cursor: "pointer",
-              }}
+              className="fc-toolbar-btn primary"
+              style={{ fontWeight: 800 }}
             >
               + Add Provider
             </button>
@@ -488,6 +494,17 @@ export function ContractorsView({
             ) : null}
           </div>
         </div>
+      )}
+
+      {showBulkModal && (
+        <BulkContractorUploaderModal
+          organizationId={organizationId ?? null}
+          onClose={() => setShowBulkModal(false)}
+          onSuccess={() => {
+            setShowBulkModal(false);
+            if (reload) reload();
+          }}
+        />
       )}
     </div>
   );
