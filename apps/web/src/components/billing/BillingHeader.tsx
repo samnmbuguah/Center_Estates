@@ -147,25 +147,43 @@ export function BillingHeader({
           </Box>
         ) : (
           <Stack direction="row" sx={{ gap: 1, alignItems: "center" }}>
-            <TextField
-              size="small"
-              type="month"
-              label="From"
-              value={customStart}
-              onChange={(e) => onCustomStartChange?.(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 140, "& input": { fontSize: 13, py: 0.8 } }}
-            />
-            <Typography sx={{ fontWeight: 700, color: "var(--text-secondary)" }}>to</Typography>
-            <TextField
-              size="small"
-              type="month"
-              label="To"
-              value={customEnd}
-              onChange={(e) => onCustomEndChange?.(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 140, "& input": { fontSize: 13, py: 0.8 } }}
-            />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>From</Typography>
+              <input
+                type="month"
+                value={customStart}
+                onChange={(e) => onCustomStartChange?.(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-sunken)",
+                  color: "var(--text)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  outline: "none",
+                }}
+              />
+            </Box>
+            <Typography sx={{ fontWeight: 700, color: "var(--text-secondary)", pt: 2 }}>to</Typography>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>To</Typography>
+              <input
+                type="month"
+                value={customEnd}
+                onChange={(e) => onCustomEndChange?.(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-sunken)",
+                  color: "var(--text)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  outline: "none",
+                }}
+              />
+            </Box>
           </Stack>
         )}
 
