@@ -117,10 +117,16 @@ def get_active_property(request, organization, *, required=False):
 
 
 def scope_queryset_to_property(queryset, request, organization):
+    if request.headers.get('X-Property-Scope', '').lower() == 'portfolio':
+        return queryset
     property_record = get_active_property(request, organization)
     if property_record is None:
         return queryset
     if queryset.model._meta.label == 'properties.Property':
+        # When querying the property catalog itself, return all properties in the organization
+        # unless explicitly requested via query parameter
+        if not request.query_params.get('property'):
+            return queryset
         return queryset.filter(pk=property_record.pk)
     if queryset.model._meta.label == 'properties.Tenant':
         return queryset.filter(

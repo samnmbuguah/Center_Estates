@@ -11,10 +11,14 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import warnings
 from pathlib import Path
 
 from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
+
+warnings.filterwarnings('ignore', message=r'.*allowed_objects.*', module=r'.*langgraph.*')
+warnings.filterwarnings('ignore', message=r'.*allowed_objects.*')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -212,7 +216,12 @@ SPECTACULAR_SETTINGS = {
     # Disambiguate component names shared across modules (identical schema shapes
     # defined in multiple serializer modules) so the OpenAPI schema stays correct.
     'COMPONENT_SPLIT_REQUEST': True,
+    'ENUM_ADD_EXPLICIT_BLANK_NULL_CHOICE': False,
 }
+
+SILENCED_SYSTEM_CHECKS = [
+    'drf_spectacular.W001',  # Safe choice-set enum name collision fallbacks
+]
 
 CORS_ALLOWED_ORIGINS = [
     'https://centerestates.com',

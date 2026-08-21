@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import (
@@ -43,6 +44,7 @@ class TaskSerializer(serializers.ModelSerializer):
         exclude = ('organization',)
         read_only_fields = ('reference', 'status', 'acknowledged_at', 'completed_at', 'escalated', 'escalated_at', 'delegated_from')
 
+    @extend_schema_field(serializers.BooleanField())
     def get_overdue(self, obj) -> bool:
         if obj.status in (Task.Status.COMPLETED, Task.Status.CANCELLED):
             return False
@@ -75,7 +77,8 @@ class TeamFeedbackMessageSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'sender', 'thread')
 
-    def get_sender_name(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_sender_name(self, obj) -> str:
         if obj.sender:
             name = f"{obj.sender.first_name} {obj.sender.last_name}".strip()
             return name or obj.sender.username
@@ -110,14 +113,15 @@ class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
             'resolved_by', 'resolved_at', 'confirmed_by', 'confirmed_at',
         )
 
-    def get_created_by_name(self, obj):
-
+    @extend_schema_field(serializers.CharField())
+    def get_created_by_name(self, obj) -> str:
         if obj.created_by:
             name = f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
             return name or obj.created_by.username
         return "Unknown"
 
-    def get_created_by_role(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_created_by_role(self, obj) -> str:
         if obj.created_by:
             if obj.created_by.is_superuser:
                 return "Administrator"
@@ -132,17 +136,20 @@ class TeamFeedbackThreadSerializer(serializers.ModelSerializer):
 
     def _user_display_name(self, user):
         if not user:
-            return None
+            return ""
         name = f"{user.first_name} {user.last_name}".strip()
         return name or user.username
 
-    def get_assigned_to_name(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_assigned_to_name(self, obj) -> str:
         return self._user_display_name(obj.assigned_to)
 
-    def get_resolved_by_name(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_resolved_by_name(self, obj) -> str:
         return self._user_display_name(obj.resolved_by)
 
-    def get_confirmed_by_name(self, obj):
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_confirmed_by_name(self, obj) -> str:
         return self._user_display_name(obj.confirmed_by)
 
 
@@ -169,19 +176,22 @@ class StaffLeaveRequestSerializer(serializers.ModelSerializer):
             'decision_notes', 'decided_at', 'created_at', 'updated_at',
         )
 
-    def get_requester_name(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_requester_name(self, obj) -> str:
         if obj.requester:
             name = f"{obj.requester.first_name} {obj.requester.last_name}".strip()
             return name or obj.requester.username
         return ""
 
-    def get_relief_staff_name(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_relief_staff_name(self, obj) -> str:
         if obj.relief_staff:
             name = f"{obj.relief_staff.first_name} {obj.relief_staff.last_name}".strip()
             return name or obj.relief_staff.username
         return ""
 
-    def get_decided_by_name(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_decided_by_name(self, obj) -> str:
         if obj.decided_by:
             name = f"{obj.decided_by.first_name} {obj.decided_by.last_name}".strip()
             return name or obj.decided_by.username
@@ -210,13 +220,15 @@ class StaffHrRequestSerializer(serializers.ModelSerializer):
             'decision_notes', 'decided_at', 'created_at', 'updated_at',
         )
 
-    def get_requester_name(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_requester_name(self, obj) -> str:
         if obj.requester:
             name = f"{obj.requester.first_name} {obj.requester.last_name}".strip()
             return name or obj.requester.username
         return ""
 
-    def get_decided_by_name(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_decided_by_name(self, obj) -> str:
         if obj.decided_by:
             name = f"{obj.decided_by.first_name} {obj.decided_by.last_name}".strip()
             return name or obj.decided_by.username

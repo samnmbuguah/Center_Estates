@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
@@ -408,6 +409,7 @@ class CompanionDashboardViewSet(ViewSet):
         import json
         context_str = json.dumps(context, indent=2)
 
+        qm_result = {}
         llm_response = ''
         try:
             from .qm_agent import QMAgentOrchestrator
@@ -691,13 +693,15 @@ from rest_framework.permissions import IsAuthenticated
 class TelemetryViewSet(ViewSet):
     permission_classes = (IsAuthenticated,)
 
-    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
         module_param = request.query_params.get('module', '').strip()
         path_param = request.query_params.get('path', '').strip()
         user_param = request.query_params.get('user', '').strip() or request.query_params.get('actor', '').strip()
+
+        from organizations.models import Membership
+        from audit.models import AuditEvent
 
         queryset = TaskEvent.objects.filter(
             organization=organization,
@@ -717,34 +721,170 @@ class TelemetryViewSet(ViewSet):
             organization=organization,
             note__startswith='Telemetry ['
         ).select_related('actor')
-        page_counts = {}
+
+        all_audits = AuditEvent.objects.filter(
+            organization=organization
+        ).select_related('actor')[:1000]
+
+        page_counts = {
+            'property': 0,
+            'facility': 0,
+            'sales': 0,
+            'tender': 0,
+            'valuation': 0,
+            'monitoring': 0,
+            'companion': 0,
+        }
         user_stats = {}
+        hourly_counts = [0] * 24
+
+        members = Membership.objects.filter(
+            organization=organization, status=Membership.Status.ACTIVE
+        ).select_related('user').prefetch_related('roles')
+
+        for m in members:
+            u_name = m.user.username
+            role_name = m.roles.first().name if m.roles.exists() else ("Administrator" if m.is_organization_admin else "Staff")
+            full_name = f"{m.user.first_name} {m.user.last_name}".strip() or u_name
+            user_stats[u_name] = {
+                'user_id': str(m.user.id),
+                'username': u_name,
+                'full_name': full_name,
+                'email': m.user.email or '',
+                'role': role_name,
+                'is_admin': bool(m.user.is_superuser or m.is_organization_admin),
+                'events': 0,
+                'modules': set(),
+                'last_seen': None,
+                'tier': 'inactive',
+            }
+
         for ev in all_telemetry[:1000]:
             note = ev.note
-            mod = "dashboard"
+            mod = "companion"
             if "(Module: " in note:
-                mod = note.split("(Module: ")[-1].rstrip(")")
-            page_counts[mod] = page_counts.get(mod, 0) + 1
+                mod = note.split("(Module: ")[-1].rstrip(")").lower()
+            if mod in page_counts:
+                page_counts[mod] += 1
+            else:
+                page_counts[mod] = page_counts.get(mod, 0) + 1
 
-            actor_name = ev.actor.username if ev.actor else "anonymous"
-            stats = user_stats.setdefault(actor_name, {'events': 0, 'modules': set(), 'last_seen': None})
-            stats['events'] += 1
-            if mod:
-                stats['modules'].add(mod)
-            if stats['last_seen'] is None or ev.created_at > stats['last_seen']:
-                stats['last_seen'] = ev.created_at
+            if ev.created_at:
+                hourly_counts[ev.created_at.hour] += 1
+
+            actor_name = ev.actor.username if ev.actor else None
+            if actor_name:
+                stats = user_stats.setdefault(actor_name, {
+                    'user_id': str(ev.actor.id),
+                    'username': actor_name,
+                    'full_name': actor_name,
+                    'email': ev.actor.email or '',
+                    'role': 'Staff',
+                    'is_admin': False,
+                    'events': 0,
+                    'modules': set(),
+                    'last_seen': None,
+                    'tier': 'inactive',
+                })
+                stats['events'] += 1
+                if mod:
+                    stats['modules'].add(mod)
+                if stats['last_seen'] is None or ev.created_at > stats['last_seen']:
+                    stats['last_seen'] = ev.created_at
+
+        for audit in all_audits:
+            mod_guess = "property" if "property" in audit.entity_type.lower() or "tenant" in audit.entity_type.lower() or "lease" in audit.entity_type.lower() else (
+                "facility" if "facility" in audit.entity_type.lower() or "work_order" in audit.entity_type.lower() or "asset" in audit.entity_type.lower() or "contractor" in audit.entity_type.lower() else (
+                    "valuation" if "valuation" in audit.entity_type.lower() else (
+                        "monitoring" if "project" in audit.entity_type.lower() or "ticket" in audit.entity_type.lower() else "companion"
+                    )
+                )
+            )
+            page_counts[mod_guess] = page_counts.get(mod_guess, 0) + 1
+            if audit.created_at:
+                hourly_counts[audit.created_at.hour] += 1
+            if audit.actor:
+                u_name = audit.actor.username
+                if u_name in user_stats:
+                    user_stats[u_name]['events'] += 1
+                    user_stats[u_name]['modules'].add(mod_guess)
+                    if user_stats[u_name]['last_seen'] is None or audit.created_at > user_stats[u_name]['last_seen']:
+                        user_stats[u_name]['last_seen'] = audit.created_at
+
+        now = timezone.now()
+        for name, stats in user_stats.items():
+            ev_count = stats['events']
+            if ev_count >= 20:
+                stats['tier'] = 'power'
+            elif ev_count >= 5:
+                stats['tier'] = 'active'
+            elif ev_count >= 1:
+                stats['tier'] = 'casual'
+            else:
+                stats['tier'] = 'inactive'
 
         by_user = {}
         for name, stats in user_stats.items():
             by_user[name] = {
+                'user_id': stats['user_id'],
+                'username': stats['username'],
+                'full_name': stats['full_name'],
+                'email': stats['email'],
+                'role': stats['role'],
+                'is_admin': stats['is_admin'],
                 'events': stats['events'],
                 'modules': sorted(stats['modules']),
                 'last_seen': stats['last_seen'].isoformat() if stats['last_seen'] else None,
+                'tier': stats['tier'],
             }
 
+        total_users = len(user_stats)
+        active_users_count = sum(1 for s in user_stats.values() if s['tier'] in ('power', 'active', 'casual'))
+        adoption_rate = round((active_users_count / total_users * 100), 1) if total_users else 0.0
+
+        insights = []
+        if adoption_rate >= 70:
+            insights.append({
+                'type': 'success',
+                'title': 'High Organization Adoption',
+                'description': f'{adoption_rate}% of registered staff ({active_users_count}/{total_users}) are actively utilizing Center Estates ERP workflows.',
+            })
+        else:
+            insights.append({
+                'type': 'warning',
+                'title': 'Onboarding & Training Opportunity',
+                'description': f'{total_users - active_users_count} registered staff accounts are currently dormant or have low activity. Consider scheduling module onboarding.',
+            })
+
+        sorted_modules = sorted(page_counts.items(), key=lambda x: x[1], reverse=True)
+        if sorted_modules and sorted_modules[0][1] > 0:
+            top_mod_name = sorted_modules[0][0].capitalize()
+            insights.append({
+                'type': 'info',
+                'title': f'{top_mod_name} is Primary Driver',
+                'description': f'{top_mod_name} represents the largest volume of operational transactions ({sorted_modules[0][1]} actions recorded).',
+            })
+
+        dormant_users = [s['full_name'] for s in user_stats.values() if s['tier'] == 'inactive']
+        if dormant_users:
+            insights.append({
+                'type': 'neutral',
+                'title': 'Dormant Staff Accounts',
+                'description': f"{len(dormant_users)} staff accounts ({', '.join(dormant_users[:3])}{'...' if len(dormant_users) > 3 else ''}) have 0 recorded actions.",
+            })
+
         return Response({
+            'summary': {
+                'total_events': sum(page_counts.values()),
+                'total_members': total_users,
+                'active_members': active_users_count,
+                'adoption_rate': adoption_rate,
+                'top_module': sorted_modules[0][0] if sorted_modules and sorted_modules[0][1] > 0 else 'facility',
+            },
             'by_module': page_counts,
             'by_user': by_user,
+            'hourly_distribution': hourly_counts,
+            'insights': insights,
             'events': [
                 {
                     'id': str(e.id),
@@ -797,10 +937,10 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
     search_fields = ('title', 'reference', 'module')
 
     STATUS_TRANSITIONS = {
-        'open': ('in_progress', 'resolved'),
-        'in_progress': ('open', 'resolved'),
-        'resolved': ('closed', 'open'),
-        'closed': ('open',),
+        'open': ('open', 'in_progress', 'resolved', 'closed'),
+        'in_progress': ('open', 'in_progress', 'resolved', 'closed'),
+        'resolved': ('open', 'in_progress', 'resolved', 'closed'),
+        'closed': ('open', 'in_progress', 'resolved', 'closed'),
     }
 
     def get_queryset(self):
@@ -897,6 +1037,28 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
             attachment_url=attachment_url,
             is_developer_response=is_dev,
         )
+
+        # Notify requester via email if email was provided
+        if thread.contact_channel == 'email' and thread.contact_value and '@' in thread.contact_value:
+            try:
+                from notifications.services import send_email_notification
+                send_email_notification(
+                    recipient_email=thread.contact_value,
+                    recipient_name=thread.requester_name or "Occupant",
+                    subject=f'Update on Ticket {thread.ticket_no}: {thread.title}',
+                    message=(
+                        f"Hello {thread.requester_name or 'there'},\n\n"
+                        f"A new reply has been posted regarding your ticket ({thread.ticket_no} - {thread.title}):\n\n"
+                        f"\"{message_text}\"\n\n"
+                        f"Responder: {request.user.get_full_name() or request.user.username} ({organization.name})\n\n"
+                        f"Thank you for your patience."
+                    ),
+                    organization=organization,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to dispatch ticket reply email: {e}")
+
         return Response(TeamFeedbackMessageSerializer(msg).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='update-status')
@@ -936,6 +1098,28 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
             thread.confirmed_by = None
             thread.confirmed_at = None
         thread.save()
+
+        # Notify requester via email if email was provided
+        if thread.contact_channel == 'email' and thread.contact_value and '@' in thread.contact_value:
+            try:
+                from notifications.services import send_email_notification
+                status_label = new_status.replace('_', ' ').upper()
+                send_email_notification(
+                    recipient_email=thread.contact_value,
+                    recipient_name=thread.requester_name or "Occupant",
+                    subject=f'Status Update: Ticket {thread.ticket_no} is now {status_label}',
+                    message=(
+                        f"Hello {thread.requester_name or 'there'},\n\n"
+                        f"Your Helpdesk Ticket ({thread.ticket_no} - {thread.title}) status has been updated to: {status_label}.\n\n"
+                        f"Location: {thread.location_detail}\n"
+                        f"Updated by: {request.user.get_full_name() or request.user.username} ({organization.name})\n\n"
+                        f"Thank you for contacting {organization.name}."
+                    ),
+                    organization=organization,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to dispatch ticket status email: {e}")
         return Response(TeamFeedbackThreadSerializer(thread).data)
 
 
@@ -962,6 +1146,41 @@ class IssueRoutingRuleViewSet(CompanionModelViewSet):
     search_fields = ('category', 'property__name', 'assigned_team', 'assigned_user__username')
 
 
+@extend_schema(request=None, responses={201: {"type": "object"}})
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def public_feedback_upload(request, token):
+    qr = PublicFeedbackQrCode.objects.filter(token=token, active=True).first()
+    if not qr:
+        return Response({'detail': 'This feedback link is no longer active.'}, status=status.HTTP_404_NOT_FOUND)
+    
+    upload = request.FILES.get('file')
+    if not upload:
+        raise ValidationError({'file': 'No file was provided for upload.'})
+    if upload.size > 25 * 1024 * 1024:
+        raise ValidationError({'file': 'Attachment exceeds maximum 25 MB size limit.'})
+    
+    import os, uuid
+    from django.core.files.storage import default_storage
+    ext = os.path.splitext(upload.name)[1].lower() or '.jpg'
+    filename = f"companion/public_feedback/{qr.organization_id}/{uuid.uuid4().hex[:12]}_{upload.name}"
+    saved_path = default_storage.save(filename, upload)
+    file_url = default_storage.url(saved_path)
+    if not file_url.startswith('http'):
+        if not file_url.startswith('/'):
+            file_url = f"/media/{saved_path}"
+        if hasattr(request, 'build_absolute_uri'):
+            file_url = request.build_absolute_uri(file_url)
+    
+    return Response({
+        'url': file_url,
+        'name': upload.name,
+        'size': upload.size,
+    }, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(request=None, responses={200: {"type": "object"}, 201: {"type": "object"}})
 @csrf_exempt
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -1137,6 +1356,7 @@ def public_feedback(request, token):
     }, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(request=None, responses={200: {"type": "object"}, 201: {"type": "object"}})
 @csrf_exempt
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -1377,9 +1597,6 @@ class StaffHrRequestViewSet(CompanionModelViewSet):
         decision = request.data.get('decision')
         notes = request.data.get('notes', '').strip()
 
-        if decision not in ('approved', 'rejected', 'under_review'):
-            raise ValidationError({'decision': 'Decision must be approved, rejected, or under_review.'})
-
         hr_req.status = decision
         hr_req.decided_by = request.user
         hr_req.decision_notes = notes
@@ -1387,3 +1604,80 @@ class StaffHrRequestViewSet(CompanionModelViewSet):
         hr_req.save()
 
         return Response(StaffHrRequestSerializer(hr_req).data)
+
+
+class StreamingChatView(APIView):
+    permission_classes = (IsAuthenticated, HasOrganizationContext)
+
+    @extend_schema(request=None, responses={200: {"type": "string"}})
+    def post(self, request):
+        import json
+        from django.http import StreamingHttpResponse
+        from .agent.gateway import LLMGateway
+
+        organization = get_active_organization(request)
+        messages = request.data.get('messages', [])
+        if not messages:
+            last_msg = request.data.get('message', '')
+            if last_msg:
+                messages = [{'role': 'user', 'content': str(last_msg)}]
+
+        gateway = LLMGateway()
+        system_prompt = (
+            f"You are Quartermaster, the AI Operations Copilot for {organization.name if organization else 'Center Estates'}. "
+            "Provide helpful, concise, executive property and operational insights. "
+            "Format your answers with clean markdown bullets and bold headers."
+        )
+
+        def event_stream():
+            try:
+                for token in gateway.stream_chat(system_prompt, messages):
+                    payload = json.dumps({"token": token})
+                    yield f"data: {payload}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                err_payload = json.dumps({"error": str(e)})
+                yield f"data: {err_payload}\n\n"
+
+        response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
+
+
+class ActionExecutionView(APIView):
+    permission_classes = (IsAuthenticated, HasOrganizationContext)
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def post(self, request):
+        from .agent.interactive_actions import execute_agent_action
+
+        organization = get_active_organization(request)
+        action_type = request.data.get('action_type', '')
+        params = request.data.get('params', {})
+        result = execute_agent_action(action_type, params, organization, request.user)
+        status_code = 200 if result.get('success') else 400
+        return Response(result, status=status_code)
+
+
+class DocumentExtractView(APIView):
+    permission_classes = (IsAuthenticated, HasOrganizationContext)
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def post(self, request):
+        from .agent.gateway import LLMGateway
+        from .parsers.document_extractor import extract_lease_data
+
+        text = request.data.get('text', '')
+        if not text and request.FILES.get('file'):
+            uploaded_file = request.FILES['file']
+            try:
+                text = uploaded_file.read().decode('utf-8', errors='ignore')
+            except Exception:
+                text = ""
+
+        gateway = LLMGateway()
+        result = extract_lease_data(text, gateway=gateway)
+        status_code = 200 if result.get('success') else 400
+        return Response(result, status=status_code)
+

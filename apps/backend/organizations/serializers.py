@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from django.contrib.auth import get_user_model
 from django.utils.text import slugify
 from rest_framework import serializers
@@ -79,17 +80,20 @@ class MemberSerializer(serializers.ModelSerializer):
             "roles", "assigned_properties", "created_at",
         )
 
-    def get_full_name(self, obj):
+    @extend_schema_field(serializers.CharField())
+    def get_full_name(self, obj) -> str:
         name = f"{obj.user.first_name} {obj.user.last_name}".strip()
         return name or obj.user.username
 
-    def get_roles(self, obj):
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_roles(self, obj) -> list:
         return [
             {"id": str(r.id), "name": r.name, "slug": r.slug}
             for r in obj.roles.all()
         ]
 
-    def get_assigned_properties(self, obj):
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_assigned_properties(self, obj) -> list:
         return [
             {"id": str(p.id), "code": p.code, "name": p.name}
             for p in obj.assigned_properties.all()

@@ -147,6 +147,8 @@ class RoleDetailView(OrganizationAdminAPIView):
 
 
 class MemberListCreateView(OrganizationAdminAPIView):
+    serializer_class = MemberSerializer
+
     def get(self, request):
         organization, error = self.context(request)
         if error:
@@ -171,6 +173,8 @@ class MemberListCreateView(OrganizationAdminAPIView):
 
 
 class MemberDetailView(OrganizationAdminAPIView):
+    serializer_class = MemberSerializer
+
     def patch(self, request, member_id):
         organization, error = self.context(request)
         if error:
@@ -231,10 +235,13 @@ class CurrentUserProfileView(APIView):
     """
     Endpoint for any authenticated user to inspect and update their own email, name, and phone.
     """
+    serializer_class = MemberSerializer
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         user = request.user
+        if not user or not user.is_authenticated:
+            return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
         email = user.email or ""
         is_placeholder = bool(
             not email
@@ -243,8 +250,12 @@ class CurrentUserProfileView(APIView):
             or "@ceest.internal" in email
             or "@local" in email
         )
-        organization = get_active_organization(request, required=False)
-        membership = get_active_membership(request, organization) if organization else None
+        try:
+            organization = get_active_organization(request, required=False)
+            membership = get_active_membership(request, organization) if organization else None
+        except Exception:
+            organization = None
+            membership = None
 
         return Response({
             "id": user.id,

@@ -52,13 +52,19 @@ def get_active_organization(request, *, required: bool = True):
 
 def get_active_membership(request, organization=None):
     """Return the authorized membership, cached only on this request object."""
-    organization = organization or get_active_organization(request)
+    if organization is None:
+        organization = get_active_organization(request, required=False)
+    if not organization:
+        return None
     key = str(organization.pk)
     cached = getattr(request, '_active_membership_cache', {}).get(key)
     if cached is not None:
         return cached
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        return None
     membership = Membership.objects.active().filter(
-        organization=organization, user=request.user,
+        organization=organization, user=user,
     ).first()
     cache = getattr(request, '_active_membership_cache', {})
     cache[key] = membership

@@ -29,7 +29,7 @@ class ContentSecurityPolicyMiddleware:
                     "img-src 'self' data: https:; "
                     "font-src 'self' data: https: https://fonts.gstatic.com; "
                     "connect-src 'self' https:; "
-                    "frame-ancestors 'self' https://posthog.com https://preview.posthog.com https://vercel.com https://us.posthog.com"
+                    "frame-ancestors 'self' https://posthog.com https://*.posthog.com https://preview.posthog.com https://vercel.com https://us.posthog.com https://eu.posthog.com;"
                 )
             
             response['X-Content-Type-Options'] = 'nosniff'
