@@ -123,7 +123,8 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                           const isRes = u.status === "reserved";
                           const borderCol = isOcc ? "#16a34a" : isRes ? "#f59e0b" : "#3b82f6";
                           const bgCol = isOcc ? "rgba(22, 163, 74, 0.08)" : isRes ? "rgba(245, 158, 11, 0.08)" : "rgba(59, 130, 246, 0.08)";
-                          const tenantName = (u.metadata as Record<string, unknown> | undefined)?.tenant;
+                          const rawTenant = (u.metadata as Record<string, unknown> | undefined)?.tenant;
+                          const tenantName = rawTenant ? String(rawTenant) : null;
                           return (
                             <div
                               key={String(u.id)}
@@ -146,7 +147,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                               <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
                                 {u.area ? `${u.area} sqft` : u.unit_type || "Unit"}
                               </div>
-                              {tenantName && (
+                              {Boolean(tenantName) && (
                                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                   👤 {String(tenantName)}
                                 </div>
