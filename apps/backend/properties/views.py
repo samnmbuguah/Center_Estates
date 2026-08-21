@@ -2294,10 +2294,17 @@ class BillingRunViewSet(OrganizationModelViewSet):
     @transaction.atomic
     @action(detail=True, methods=('post',))
     def approve(self, request, pk=None):
+        from organizations.models import Membership
+
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status != BillingRun.Status.REVIEW:
             raise ValidationError({'status': 'Prepare and review the billing run before approval.'})
-        if run.created_by_id == request.user.id:
+        is_admin = (
+            request.user.is_superuser
+            or getattr(request.user, 'is_staff', False)
+            or Membership.objects.filter(organization=run.organization, user=request.user, is_organization_admin=True).exists()
+        )
+        if run.created_by_id == request.user.id and not is_admin:
             raise ValidationError({'approval': 'The person who prepared this billing run cannot approve it.'})
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
             raise ValidationError({'issues': 'Resolve or authorize every blocking issue before approval.'})

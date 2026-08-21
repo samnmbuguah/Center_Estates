@@ -38,7 +38,7 @@ import { ReportsView } from "./components/tabs/ReportsView";
 import { ForecastView } from "./components/tabs/ForecastView";
 import { CriticalDatesView } from "./components/tabs/CriticalDatesView";
 
-const PropertyBillingDashboard = dynamic(() => import("@/components/property-billing-dashboard").then((module) => module.PropertyBillingDashboard), { loading: () => <LoadingState rows={7} /> });
+import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
 const PropertyTenancyReports = dynamic(() => import("@/components/property-tenancy-reports").then((module) => module.PropertyTenancyReports), { loading: () => <LoadingState rows={7} /> });
 const PropertyFinancialReports = dynamic(() => import("@/components/property-financial-reports").then((module) => module.PropertyFinancialReports), { loading: () => <LoadingState rows={7} /> });
 const ModuleTicketsView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleTicketsView), { loading: () => <LoadingState rows={6} /> });

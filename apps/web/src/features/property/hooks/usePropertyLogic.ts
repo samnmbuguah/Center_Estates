@@ -185,6 +185,10 @@ export function usePropertyLogic({
 
   const loadData = useCallback(async () => {
     if (!organizationId || standaloneOnboarding) return;
+    if (tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports" || tab === "tickets" || tab === "calendar") {
+      setLoading(false);
+      return;
+    }
     const version = ++loadVersion.current;
     setLoading(true);
     setError("");
@@ -367,8 +371,6 @@ export function usePropertyLogic({
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
         setCriticalServiceCharges(Array.isArray(scData) ? scData as Row[] : []);
-      } else if (tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports") {
-        setLoading(false);
       } else {
         const ep = endpointFor(tab);
         const res = await apiFetch(`/property/${ep}/?search=${q}`, {}, organizationId);
