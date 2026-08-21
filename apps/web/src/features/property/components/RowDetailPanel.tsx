@@ -154,10 +154,56 @@ export function RowDetailPanel({
         </div>
       )}
 
+      {/* Multi-Unit / Multi-Floor Occupancy List for Tenants */}
+      {isTenant && Array.isArray((row as any).units) && (row as any).units.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>
+              🏢 Occupied Units &amp; Leases ({(row as any).units.length})
+            </strong>
+            <span style={{ fontSize: 11, background: "var(--surface)", padding: "2px 6px", borderRadius: 6, border: "1px solid var(--border)" }}>
+              {[...new Set((row as any).units.map((u: any) => u.floor).filter(Boolean))].length > 1 ? "Multi-Floor Tenancy" : "Single Floor"}
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(row as any).units.map((u: any, idx: number) => (
+              <div key={idx} style={{ padding: "8px 10px", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="mono" style={{ fontWeight: 800, fontSize: 12 }}>{u.code}</span>
+                    {u.floor && (
+                      <span style={{ fontSize: 10, background: "#e0e7ff", color: "#4338ca", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                        Floor {u.floor}
+                      </span>
+                    )}
+                    {u.area && (
+                      <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                        {u.area} sq ft
+                      </span>
+                    )}
+                  </div>
+                  <div className="mono" style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                    Lease: {u.lease_reference} ({u.lease_status})
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800 }}>
+                    KES {Number(u.monthly_rent ?? 0).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--muted)" }}>
+                    {u.starts_on} → {u.ends_on}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Property Details Grid */}
       <div style={{ display: "grid", gap: 8 }}>
         {Object.entries(row)
-          .filter(([k]) => !["id", "metadata"].includes(k))
+          .filter(([k]) => !["id", "metadata", "units"].includes(k))
           .map(([k, v]) => (
             <div
               key={k}

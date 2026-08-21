@@ -18,6 +18,9 @@ export function BimModels() {
   const [viewerName, setViewerName] = useState("");
   const [viewerFormat, setViewerFormat] = useState("");
   const [viewerModelId, setViewerModelId] = useState("");
+  const [viewerElements, setViewerElements] = useState<any[]>([]);
+  const [viewerBoqLinks, setViewerBoqLinks] = useState<any[]>([]);
+  const [viewerDiscrepancies, setViewerDiscrepancies] = useState<any[]>([]);
   const [uploadFile_, setUploadFile_] = useState<File | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
@@ -29,6 +32,21 @@ export function BimModels() {
 
   const load = () => get<any[]>(`/projects/${id}/bim-models`).then(setModels).catch(e => setError(e.message));
   useEffect(() => { load(); }, [id]);
+
+  async function loadModelDetails(modelId: string) {
+    try {
+      const [elements, boqLinks, discrepancies] = await Promise.all([
+        get<any[]>(`/projects/${id}/bim-models/${modelId}/elements`).catch(() => []),
+        get<any[]>(`/projects/${id}/bim-models/${modelId}/boq-links`).catch(() => []),
+        get<any[]>(`/projects/${id}/bim-models/${modelId}/discrepancies`).catch(() => []),
+      ]);
+      setViewerElements(elements);
+      setViewerBoqLinks(boqLinks);
+      setViewerDiscrepancies(discrepancies);
+    } catch (e) {
+      console.error("Failed to load model details:", e);
+    }
+  }
 
   async function submit() {
     if (!form.name || !uploadFile_) { setError("Name and file are required"); return; }
@@ -61,11 +79,35 @@ export function BimModels() {
 
   const isViewable3d = (fmt: string) => ["glb", "gltf"].includes(fmt);
 
+  async function openViewer(model: any) {
+    setViewerUrl(model.remote_url);
+    setViewerName(model.name);
+    setViewerFormat(model.file_format);
+    setViewerModelId(model.id);
+    await loadModelDetails(model.id);
+  }
+
   return (
     <div>
       {viewerUrl && (
         <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading 3D viewer...</div>}>
-          <BimViewer url={viewerUrl} name={viewerName} format={viewerFormat} projectId={id} modelId={viewerModelId} onClose={() => { setViewerUrl(null); setViewerModelId(""); }} />
+          <BimViewer 
+            url={viewerUrl} 
+            name={viewerName} 
+            format={viewerFormat} 
+            projectId={id} 
+            modelId={viewerModelId} 
+            elements={viewerElements}
+            boqLinks={viewerBoqLinks}
+            discrepancies={viewerDiscrepancies}
+            onClose={() => { 
+              setViewerUrl(null); 
+              setViewerModelId(""); 
+              setViewerElements([]);
+              setViewerBoqLinks([]);
+              setViewerDiscrepancies([]);
+            }} 
+          />
         </Suspense>
       )}
       <h2>BIM Models</h2>
@@ -83,7 +125,7 @@ export function BimModels() {
                 <td className="muted">{m.uploaded_by}</td>
                 <td>
                   {m.remote_url && isViewable3d(m.file_format) && (
-                    <button className="btn ghost sm" onClick={() => { setViewerUrl(m.remote_url); setViewerName(m.name); setViewerFormat(m.file_format); setViewerModelId(m.id); }}>
+                    <button className="btn ghost sm" onClick={() => openViewer(m)}>
                       <Layers size={14} style={{ marginRight: 4 }} />3D View
                     </button>
                   )}

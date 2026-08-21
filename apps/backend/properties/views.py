@@ -714,6 +714,9 @@ class TenantViewSet(OrganizationModelViewSet):
     serializer_class = TenantSerializer
     search_fields = ('name', 'code', 'email', 'phone')
 
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related('leases__unit')
+
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
         existing = Tenant.objects.filter(organization=organization, code__startswith='TNT-').values_list('code', flat=True)
@@ -992,7 +995,12 @@ class TenantViewSet(OrganizationModelViewSet):
                         monthly_rent = (area * rent_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else rent_rate
                     else:
                         monthly_rent = direct_rent
-                    monthly_service = (area * service_rate).quantize(Decimal('0.01'))
+
+                    monthly_service = (area * service_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    subtotal = (monthly_rent + monthly_service).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    vat_amount = ((subtotal * vat_rate) / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if vat_rate > 0 else Decimal('0.00')
+                    total_inc_vat = subtotal + vat_amount
+
                     utility_deposit = sum(
                         (Decimal(str(item.get('rate_per_unit', 0))) * area for item in utilities if item.get('applicable')),
                         Decimal('0'),
@@ -1005,30 +1013,49 @@ class TenantViewSet(OrganizationModelViewSet):
                         nums = [int(v.rsplit('-', 1)[-1]) for v in vals if v.rsplit('-', 1)[-1].isdigit()]
                         return f'{prefix}-{(max(nums) + 1) if nums else 1:04d}'
 
-                    tenant_code = _next_ref(Tenant, 'code', 'TNT')
-                    lease_reference = _next_ref(Lease, 'reference', 'LEASE')
-                    application_number = f"APP-{timezone.localdate().year}-{tenant_code.rsplit('-', 1)[-1]}"
+                    t_name = str(tenant_data.get('name', '')).strip()
+                    t_tax = str(tenant_data.get('tax_id', '')).strip().upper()
+                    t_reg = str(tenant_data.get('registration_number', '')).strip().upper()
 
-                    tenant_serializer = TenantSerializer(data={
-                        'name': str(tenant_data['name']).strip(),
-                        'tenant_type': tenant_data.get('tenant_type', 'company'),
-                        'email': tenant_data.get('email', ''),
-                        'phone': tenant_data.get('phone', ''),
-                        'tax_id': tenant_data.get('tax_id', ''),
-                        'registration_number': tenant_data.get('registration_number', ''),
-                        'billing_address': tenant_data.get('billing_address', ''),
-                        'status': Tenant.Status.PROSPECT,
-                        'metadata': {'tenant_application': {'application_number': application_number, 'source': 'bulk_import'}},
-                    })
-                    tenant_serializer.is_valid(raise_exception=True)
-                    tenant = tenant_serializer.save(organization=organization, property=unit.property, code=tenant_code)
+                    # Check for existing tenant in organization (for multi-floor / multi-unit occupancy)
+                    existing_tenant = None
+                    if t_tax:
+                        existing_tenant = Tenant.objects.for_organization(organization).filter(tax_id__iexact=t_tax).first()
+                    if not existing_tenant and t_reg:
+                        existing_tenant = Tenant.objects.for_organization(organization).filter(registration_number__iexact=t_reg).first()
+                    if not existing_tenant and t_name:
+                        existing_tenant = Tenant.objects.for_organization(organization).filter(name__iexact=t_name).first()
+
+                    if existing_tenant:
+                        tenant = existing_tenant
+                        tenant_code = tenant.code
+                    else:
+                        tenant_code = _next_ref(Tenant, 'code', 'TNT')
+                        application_number = f"APP-{timezone.localdate().year}-{tenant_code.rsplit('-', 1)[-1]}"
+                        tenant_serializer = TenantSerializer(data={
+                            'name': t_name,
+                            'tenant_type': tenant_data.get('tenant_type', 'company'),
+                            'email': tenant_data.get('email', ''),
+                            'phone': tenant_data.get('phone', ''),
+                            'tax_id': t_tax,
+                            'registration_number': t_reg,
+                            'billing_address': tenant_data.get('billing_address', ''),
+                            'status': Tenant.Status.PROSPECT,
+                            'metadata': {'tenant_application': {'application_number': application_number, 'source': 'bulk_import'}},
+                        })
+                        tenant_serializer.is_valid(raise_exception=True)
+                        tenant = tenant_serializer.save(organization=organization, property=unit.property, code=tenant_code)
+
+                    lease_reference = _next_ref(Lease, 'reference', 'LEASE')
+                    application_number = f"APP-{timezone.localdate().year}-{lease_reference.rsplit('-', 1)[-1]}"
 
                     calculations = {
                         'area': str(area), 'rent_rate_per_sqft': str(rent_rate),
                         'service_charge_rate_per_sqft': str(service_rate), 'monthly_rent_excl_vat': str(monthly_rent),
                         'monthly_service_charge_excl_vat': str(monthly_service), 'total_excl_vat': str(subtotal),
-                        'vat_rate': str(vat_rate), 'vat_amount': str(vat_amount), 'total_inc_vat': str(subtotal + vat_amount),
+                        'vat_rate': str(vat_rate), 'vat_amount': str(vat_amount), 'total_inc_vat': str(total_inc_vat),
                         'security_deposit': str(security_deposit), 'utilities_security_deposit': str(utility_deposit),
+                        'total_amount_payable': str(total_inc_vat + security_deposit + utility_deposit),
                     }
                     lease = Lease.objects.create(
                         organization=organization, reference=lease_reference, unit=unit, tenant=tenant,

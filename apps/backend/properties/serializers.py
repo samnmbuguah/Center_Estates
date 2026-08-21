@@ -217,9 +217,42 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class TenantSerializer(serializers.ModelSerializer):
     code = serializers.CharField(read_only=True)
+    unit = serializers.SerializerMethodField()
+    units = serializers.SerializerMethodField()
+    active_leases_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Tenant
         exclude = ('organization',)
+
+    def get_units(self, obj):
+        leases = obj.leases.all().select_related('unit')
+        res = []
+        for l in leases:
+            u = l.unit
+            res.append({
+                'unit_id': u.id,
+                'code': u.code,
+                'floor': u.floor or '',
+                'area': str(u.area) if u.area else None,
+                'lease_id': l.id,
+                'lease_reference': l.reference,
+                'lease_status': l.status,
+                'starts_on': str(l.starts_on),
+                'ends_on': str(l.ends_on),
+                'monthly_rent': str(l.monthly_rent),
+            })
+        return res
+
+    def get_unit(self, obj):
+        leases = obj.leases.all().select_related('unit')
+        if not leases:
+            return ''
+        codes = [f"{l.unit.code}{f' (Fl {l.unit.floor})' if l.unit.floor else ''}" for l in leases]
+        return ', '.join(codes)
+
+    def get_active_leases_count(self, obj):
+        return obj.leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT)).count()
 
     def validate_tax_id(self, value):
         value = value.strip().upper()

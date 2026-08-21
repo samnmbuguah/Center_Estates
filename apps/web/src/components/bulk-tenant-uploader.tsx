@@ -91,10 +91,21 @@ function csvToRows(text: string): ParsedRow[] {
 }
 
 function downloadTemplate() {
-  const sample = [TEMPLATE_HEADERS, [
-    'Acme East Africa Ltd','company','accounts@acme.co.ke','0712345678','P051234567X','CPR/2020/12345',
-    'A-001','2026-01-01','24','100','15','16','50000','1'
-  ]];
+  const sample = [
+    TEMPLATE_HEADERS,
+    [
+      'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
+      'FL1-UNIT-A', '2026-01-01', '24', '100000', '', '15', '16', '100000', '1',
+    ],
+    [
+      'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
+      'FL2-UNIT-B', '2026-03-01', '12', '120000', '', '15', '16', '120000', '1',
+    ],
+    [
+      'Kilima Tech Ventures', 'individual', 'info@kilimatech.co.ke', '0722000111', 'A009876543Z', 'BN-2023-887',
+      'FL3-SUITE-1', '2026-02-01', '12', '45000', '', '10', '16', '45000', '5',
+    ],
+  ];
   const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\r\n');
   const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a'); a.href = url; a.download = 'tenant-bulk-upload-template.csv'; a.click();
@@ -120,7 +131,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
     reader.onload = (e) => {
       const text = e.target?.result as string;
       const parsed = csvToRows(text);
-      if (!parsed.length) { setParseError('No valid data rows found. Check the file matches the template.'); return; }
+      if (!parsed.length) { setParseError('No valid data rows found. Check that the file matches the template headers.'); return; }
       setRows(parsed); setFileName(file.name);
     };
     reader.readAsText(file);
@@ -151,8 +162,15 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
         headers:{'Content-Type':'application/json','X-CSRFToken':csrfFromCookie()},
         body:JSON.stringify(payload),
       }, organizationId);
-      const data = await res.json() as BulkResult;
-      setResult(data);
+      
+      const data = await res.json().catch(() => null);
+      if (data && typeof data === 'object' && ('succeeded' in data || 'failed' in data)) {
+        setResult(data as BulkResult);
+      } else if (!res.ok) {
+        setSubmitError(data?.detail || data?.rows || `Upload failed with HTTP ${res.status}.`);
+      } else {
+        setSubmitError('Unexpected response from server.');
+      }
     } catch(err) {
       setSubmitError(err instanceof Error ? err.message : 'Bulk upload failed.');
     } finally { setSubmitting(false); }

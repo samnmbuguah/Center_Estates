@@ -1075,6 +1075,33 @@ class PropertyApiTests(TestCase):
         }, format='json', **self.headers)
         self.assertEqual(rejected.status_code, 400)
 
+    def test_bulk_onboard_tenants_and_multi_floor_leases(self):
+        u1 = Unit.objects.create(organization=self.organization, property=self.property, code='FL1-01', floor='1', area=Decimal('100.00'))
+        u2 = Unit.objects.create(organization=self.organization, property=self.property, code='FL2-01', floor='2', area=Decimal('200.00'))
+
+        payload = {
+            'rows': [
+                {
+                    'tenant': {'name': 'Mega Corp Ltd', 'tax_id': 'P059999999X', 'email': 'corp@example.com'},
+                    'lease': {'unit_code': 'FL1-01', 'starts_on': '2026-01-01', 'term_months': 12, 'monthly_rent': '50000', 'service_charge_rate_per_sqft': '15', 'vat_rate': '16'},
+                },
+                {
+                    'tenant': {'name': 'Mega Corp Ltd', 'tax_id': 'P059999999X', 'email': 'corp@example.com'},
+                    'lease': {'unit_code': 'FL2-01', 'starts_on': '2026-03-01', 'term_months': 24, 'monthly_rent': '120000', 'service_charge_rate_per_sqft': '20', 'vat_rate': '16'},
+                },
+            ]
+        }
+        res = self.client.post('/api/v1/property/tenants/bulk-onboard/', payload, format='json', **self.headers)
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['succeeded_count'], 2)
+        self.assertEqual(res.data['failed_count'], 0)
+
+        # Confirm single tenant entity created with 2 distinct leases across floors
+        tenant = Tenant.objects.get(organization=self.organization, tax_id='P059999999X')
+        leases = tenant.leases.all()
+        self.assertEqual(leases.count(), 2)
+        self.assertEqual(set(leases.values_list('unit__code', flat=True)), {'FL1-01', 'FL2-01'})
+
     def test_tenant_portal_is_user_linked_and_creates_scoped_service_request(self):
         TenantPortalAccess.objects.create(
             organization=self.organization, user=self.user, tenant=self.tenant,

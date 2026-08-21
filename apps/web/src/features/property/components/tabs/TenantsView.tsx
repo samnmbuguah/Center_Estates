@@ -124,7 +124,22 @@ export function TenantsView({
                       <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "—")}</div>
                     </td>
                     <td>
-                      <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{String(t.unit ?? "—")}</span>
+                      {(t as any).units && (t as any).units.length > 1 ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)" }}>
+                            🏢 {(t as any).units.length} Units ({[...new Set((t as any).units.map((u: any) => u.floor).filter(Boolean))].map((f: any) => `Fl ${f}`).join(', ') || 'Multi-floor'})
+                          </span>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                            {(t as any).units.map((u: any, idx: number) => (
+                              <span key={idx} className="mono" style={{ fontSize: 10, background: "var(--surface-2)", padding: "1px 5px", borderRadius: 4, border: "1px solid var(--border)" }}>
+                                {u.code}{u.floor ? ` (${u.floor})` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{String(t.unit ?? "—")}</span>
+                      )}
                     </td>
                     <td style={{ fontSize: 12 }}>
                       <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--primary)", fontSize: 12 }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
