@@ -27,9 +27,26 @@ class Property(OrganizationOwnedModel):
 
     class Meta:
         ordering = ('name',)
-        constraints = [models.UniqueConstraint(
-            fields=('organization', 'code'), name='unique_organization_property_code'
-        )]
+        constraints = [
+            models.UniqueConstraint(
+                fields=('organization', 'code'), name='unique_organization_property_code'
+            ),
+            models.UniqueConstraint(
+                fields=('organization', 'name'), name='unique_organization_property_name'
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.name and self.organization_id:
+            qs = Property.objects.filter(
+                organization_id=self.organization_id,
+                name__iexact=self.name.strip()
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({'name': f'A property named "{self.name}" already exists in this organization.'})
 
     def __str__(self):
         return f'{self.code} — {self.name}'
