@@ -35,6 +35,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const [customStart, setCustomStart] = useState(`${now.getFullYear()}-01`);
   const [customEnd, setCustomEnd] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
+  const [allRuns, setAllRuns] = useState<BillingRun[]>([]);
   const [run, setRun] = useState<BillingRun | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -109,23 +110,28 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     else if (mode === "quarterly") changeQuarter(1);
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showSkeleton = false) => {
     if (!organizationId) return;
-    setLoading(true); setError("");
+    if (showSkeleton) setLoading(true);
+    setError("");
     const [runRes, invRes] = await Promise.all([apiFetch("/property/billing-runs/", {}, organizationId), apiFetch("/property/invoices/", {}, organizationId)]);
     if (!runRes.ok || !invRes.ok) { setError(await apiErrorMessage(!runRes.ok ? runRes : invRes, "Billing data could not be loaded.")); setLoading(false); return; }
     const runRows = (await runRes.json()) as BillingRun[];
     const invRows = (await invRes.json()) as Invoice[];
+    setAllRuns(runRows);
     setInvoices(invRows);
+    setLoading(false);
+  }, [organizationId]);
 
-    const matching = runRows.find(r => r.period_start === period_start && r.period_end === period_end)
-      || runRows.find(r => r.period_start === period_start);
+  useEffect(() => { void load(true); }, [load]);
+
+  // Synchronously match run from allRuns when period or allRuns change — instant transition with zero flicker
+  useEffect(() => {
+    const matching = allRuns.find(r => r.period_start === period_start && r.period_end === period_end)
+      || allRuns.find(r => r.period_start === period_start);
     setRun(matching ?? null);
     setSelected(matching?.candidates.filter(c => c.status === "ready").map(c => c.id) ?? []);
-    setLoading(false);
-  }, [period_start, period_end, organizationId]);
-
-  useEffect(() => { void load(); }, [load]);
+  }, [allRuns, period_start, period_end]);
 
   async function mutate(action: "create" | "prepare" | "approve" | "generate") {
     if (!organizationId) return;
@@ -169,7 +175,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const readyVisibleIds = visibleCandidates.filter(c => c.status === "ready").map(c => c.id);
   const allReadySelected = readyVisibleIds.length > 0 && readyVisibleIds.every(id => selected.includes(id));
 
-  if (loading) return <LoadingState rows={6} />;
+  if (loading && allRuns.length === 0) return <LoadingState rows={6} />;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, width: "100%" }}>
