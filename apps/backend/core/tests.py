@@ -322,7 +322,7 @@ class ModuleRolePermissionApiTests(TestCase):
 
 @override_settings(
     ALLOWED_HOSTS=['testserver', 'api.centerestates.com', 'centerestates.com'],
-    CORS_ALLOWED_ORIGINS=['https://centerestates.com'],
+    CORS_ALLOWED_ORIGINS=['https://centerestates.com', 'https://www.centerestates.com'],
     SECURE_SSL_REDIRECT=False,
 )
 class CorsAndPreflightContractTests(TestCase):
@@ -340,6 +340,17 @@ class CorsAndPreflightContractTests(TestCase):
         self.assertIn('x-tenant-id', allowed_headers)
         self.assertIn('x-organization-id', allowed_headers)
         self.assertIn('authorization', allowed_headers)
+
+    def test_preflight_echoes_www_frontend_origin_with_credentials(self):
+        response = self.client.options(
+            '/api/v1/auth/csrf/',
+            HTTP_ORIGIN='https://www.centerestates.com',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='GET',
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS='x-organization-id, x-property-id, x-csrftoken',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), 'https://www.centerestates.com')
+        self.assertEqual(response.headers.get('Access-Control-Allow-Credentials'), 'true')
 
     def test_logout_endpoint_succeeds_without_prior_authentication(self):
         response = self.client.post('/api/v1/auth/logout/')
