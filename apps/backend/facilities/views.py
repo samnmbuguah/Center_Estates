@@ -248,6 +248,14 @@ class AssetViewSet(FacilityModelViewSet):
     serializer_class = FacilityAssetSerializer
     search_fields = ('code', 'name', 'category', 'serial_number', 'property__name')
 
+    @transaction.atomic
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        code = f'AST-{uuid.uuid4().hex[:8].upper()}'
+        while FacilityAsset.objects.filter(organization=organization, code=code).exists():
+            code = f'AST-{uuid.uuid4().hex[:8].upper()}'
+        serializer.save(organization=organization, code=code)
+
     @action(detail=True, methods=('get',))
     def lifecycle_analysis(self, request, pk=None):
         asset = self.get_object()
@@ -417,6 +425,14 @@ class ContractorViewSet(FacilityModelViewSet):
     queryset = Contractor.objects.all()
     serializer_class = ContractorSerializer
     search_fields = ('code', 'name', 'specialty', 'contact_name')
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        code = f'SP-{uuid.uuid4().hex[:8].upper()}'
+        while Contractor.objects.filter(organization=organization, code=code).exists():
+            code = f'SP-{uuid.uuid4().hex[:8].upper()}'
+        serializer.save(organization=organization, code=code)
 
     @action(detail=True, methods=('get',))
     def scorecard(self, request, pk=None):

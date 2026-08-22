@@ -29,6 +29,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
         status = self.request.query_params.get('status')
         if status:
             qs = qs.filter(status=status)
+        asset_id = self.request.query_params.get('asset_id')
+        if asset_id:
+            qs = qs.filter(metadata__facility_asset_id=asset_id)
+        contractor_id = self.request.query_params.get('contractor_id')
+        if contractor_id:
+            qs = qs.filter(metadata__facility_contractor_id=contractor_id)
         return qs
 
 

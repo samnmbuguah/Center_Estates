@@ -14,21 +14,53 @@ test("facility: add new asset form submits", async ({ page }, testInfo) => {
   const assetsNav = page.locator(".module-nav-bar").getByRole("button", { name: /Assets & Inventory/i });
   if (await assetsNav.count()) await assetsNav.click();
   await page.waitForTimeout(2000);
-  const addBtn = page.getByRole("button", { name: "+ Add New Asset", exact: true }).first();
+  const addBtn = page.getByRole("button", { name: /Add Asset/i }).first();
   if (await addBtn.count() === 0) {
     await expect(page.locator(".module-workspace")).toBeVisible();
     return;
   }
   await addBtn.click();
-  await page.getByLabel(/Asset code/i).waitFor({ timeout: 15000 });
+  await page.getByLabel("Asset name").waitFor({ timeout: 15000 });
   const suffix = Date.now();
-  await page.getByLabel(/Asset code/i).fill(`AST-E2E-${suffix}`);
-  await page.getByLabel(/Category/i).fill("Electrical Systems");
-  await page.getByLabel(/Asset name/i).fill(`E2E Asset ${suffix}`);
-  await page.getByRole("button", { name: /Save Asset|Add Asset|Create Asset/i }).first().click();
+  await expect(page.getByLabel("Asset ID")).toHaveValue("Generated on save");
+  await page.getByLabel("Asset name").fill(`E2E Asset ${suffix}`);
+  await page.getByLabel("Asset category").fill("Electrical Systems");
+  await page.getByLabel("Asset type").fill("Standby generator");
+  await page.getByRole("tab", { name: /Location/ }).click();
+  await page.getByLabel("Property").selectOption({ index: 1 });
+  await page.getByLabel("Room / exact location").fill("Roof plant room");
+  await page.getByRole("tab", { name: /Identity/ }).click();
+  await expect(page.getByLabel("Asset name")).toHaveValue(`E2E Asset ${suffix}`);
+  await page.getByRole("tab", { name: /Location/ }).click();
+  await page.getByRole("button", { name: "Save record" }).click();
   await page.waitForTimeout(2500);
   const body = await page.locator("body").innerText();
   expect(body).toContain(`E2E Asset ${suffix}`);
+});
+
+test("facility: comprehensive service provider onboarding persists across tabs", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel provider races");
+  await page.goto("/facility");
+  await openModuleSection(page, "Contractors", testInfo);
+  await page.getByRole("button", { name: /Add Provider/i }).click();
+  const suffix = Date.now();
+  const name = `E2E Service Provider ${suffix}`;
+  await expect(page.getByLabel("Provider ID")).toHaveValue("Generated on save");
+  await page.getByLabel("Company / organization name").fill(name);
+  await page.getByLabel("Registration number").fill(`PVT-${suffix}`);
+  await page.getByLabel("Business / entity type").fill("Limited company");
+  await page.getByLabel("Company category").fill("Facilities services");
+  await page.getByLabel("Tax PIN").fill(`P${String(suffix).slice(-9)}`);
+  await page.getByLabel("Trade / specialization").fill("Mechanical and electrical");
+  await page.getByRole("tab", { name: /Contacts/ }).click();
+  await page.getByLabel("Primary contact name").fill("Jane Manager");
+  await page.getByLabel("Primary phone").fill("+254700000001");
+  await page.getByLabel("Primary email").fill("provider@example.test");
+  await page.getByRole("tab", { name: /Services/ }).click();
+  await page.getByLabel("Geographic coverage areas").fill("Nairobi and Mombasa");
+  await page.locator('input[name="assigned_properties"]').first().check();
+  await page.getByRole("button", { name: "Save record" }).click();
+  await expect(page.getByText(name, { exact: true })).toBeVisible({ timeout: 15000 });
 });
 
 test("facility: new inspection form submits", async ({ page }, testInfo) => {

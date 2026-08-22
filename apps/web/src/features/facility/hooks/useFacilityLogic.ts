@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
-import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { ActionModal, FacilityDashboard, FacilityTab, Row, facilityLabels } from "../types/facility.types";
 
 export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
@@ -28,10 +28,12 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [properties, setProperties] = useState<Row[]>([]);
   const [assets, setAssets] = useState<Row[]>([]);
-  const [createModal, setCreateModal] = useState<"asset" | "contractor" | "inspection" | "service-request" | "ppm" | null>(null);
+  const [createModal, setCreateModalState] = useState<"asset" | "contractor" | "inspection" | "service-request" | "ppm" | null>(null);
   const [actionModal, setActionModal] = useState<ActionModal>(null);
 
   const load = useCallback(async () => {
@@ -87,6 +89,11 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
         .then(setProperties);
   }, [showCreate, createModal, organizationId]);
 
+  const setCreateModal = (value: "asset" | "contractor" | "inspection" | "service-request" | "ppm" | null) => {
+    setCreateError("");
+    setCreateModalState(value);
+  };
+
   useEffect(() => {
     if ((createModal === "inspection" || createModal === "ppm") && organizationId)
       apiFetch("/facility/assets/", {}, organizationId)
@@ -121,7 +128,9 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!createModal) return;
+    if (!createModal) return false;
+    setCreating(true);
+    setCreateError("");
     const form = new FormData(event.currentTarget);
     const path = {
       asset: "/facility/assets/",
@@ -130,8 +139,8 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
       "service-request": "/facility/service-requests/",
       ppm: "/facility/planned-maintenance/",
     }[createModal];
-    const raw = Object.fromEntries(form.entries());
-    const payload =
+    const raw = Object.fromEntries(Array.from(form.entries()).filter(([, value]) => !(value instanceof File)));
+    let payload: Record<string, unknown> =
       createModal === "service-request"
         ? {
             reference: String(raw.reference ?? "").trim() || `SR-${Date.now()}`,
@@ -143,22 +152,73 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
             submitted_at: String(raw.submitted_at ?? "").trim() || new Date().toISOString(),
           }
         : Object.fromEntries(Object.entries(raw).filter(([, value]) => String(value).trim() !== ""));
-    await apiFetch("/auth/csrf/");
-    const response = await apiFetch(
-      path,
-      {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify(payload),
-      },
-      organizationId
-    );
-    if (!response.ok) {
-      setError("The record could not be created. Check required fields.");
-      return;
+
+    if (createModal === "asset" || createModal === "contractor") {
+      const saveMode = event.currentTarget.dataset.saveMode === "draft" ? "draft" : "submit";
+      const metadata = Object.fromEntries(
+        Object.entries(raw)
+          .filter(([key, value]) => key.startsWith("meta__") && String(value).trim() !== "")
+          .map(([key, value]) => [key.slice(6), value]),
+      );
+      payload = Object.fromEntries(Object.entries(raw).filter(([key, value]) => !key.startsWith("meta__") && String(value).trim() !== ""));
+      payload.metadata = { ...metadata, onboarding_status: saveMode === "draft" ? "draft" : "complete" };
+      if (createModal === "asset") {
+        payload.is_active = saveMode === "draft" ? false : raw.is_active !== "false";
+        for (const key of ["purchase_value", "replacement_cost", "expected_useful_life_years"])
+          if (payload[key] !== undefined) payload[key] = Number(payload[key]);
+      } else {
+        payload.is_preferred = raw.is_preferred === "on";
+        payload.is_blacklisted = raw.is_blacklisted === "on";
+        payload.assigned_properties = form.getAll("assigned_properties").map(String);
+        payload.rating = Number(raw.rating || 0);
+        payload.approval_status = saveMode === "draft" ? "draft" : String(raw.approval_status || "pending");
+      }
     }
-    setCreateModal(null);
-    await load();
+    try {
+      await apiFetch("/auth/csrf/");
+      const response = await apiFetch(
+        path,
+        {
+          method: "POST",
+          headers: { "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify(payload),
+        },
+        organizationId
+      );
+      if (!response.ok) {
+        setCreateError(await apiErrorMessage(response, "The record could not be saved. Review the highlighted details and retry."));
+        setCreating(false);
+        return false;
+      }
+      const saved = await response.json() as { id?: string; name?: string; code?: string };
+      const files = form.getAll("document_files").filter((value): value is File => value instanceof File && value.size > 0);
+      const failedFiles: string[] = [];
+      for (const file of files) {
+        const body = new FormData();
+        body.append("title", file.name);
+        body.append("category", createModal === "asset" ? "facility_asset" : "facility_service_provider");
+        body.append("file", file);
+        body.append("original_filename", file.name);
+        body.append("mime_type", file.type);
+        body.append("metadata", JSON.stringify(createModal === "asset" ? { facility_asset_id: saved.id } : { facility_contractor_id: saved.id }));
+        const upload = await apiFetch("/documents/documents/", { method: "POST", body }, organizationId);
+        if (!upload.ok) failedFiles.push(file.name);
+      }
+      if (failedFiles.length) {
+        setCreateError(`${saved.name || "The record"} was saved, but these documents could not be uploaded: ${failedFiles.join(", ")}.`);
+        setCreating(false);
+        await load();
+        return false;
+      }
+      setCreateModal(null);
+      await load();
+      setCreating(false);
+      return true;
+    } catch {
+      setCreateError("The service is temporarily unavailable. Your form details are still here; check your connection and retry.");
+      setCreating(false);
+      return false;
+    }
   }
 
   async function runAction(row: Row, action: string) {
@@ -281,6 +341,9 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     setSearch,
     loading,
     error,
+    createError,
+    setCreateError,
+    creating,
     showCreate,
     setShowCreate,
     properties,

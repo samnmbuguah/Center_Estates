@@ -2,6 +2,7 @@
 
 import { Field, Modal } from "@/components/module-ui";
 import { ActionModal, Row } from "../../types/facility.types";
+import { AssetOnboardingModal, ProviderOnboardingModal } from "./FacilityOnboardingModals";
 
 export function FacilityModals({
   showCreate,
@@ -15,6 +16,8 @@ export function FacilityModals({
   handleCreate,
   properties,
   assets,
+  createError,
+  creating,
 }: {
   showCreate: boolean;
   setShowCreate: (v: boolean) => void;
@@ -24,12 +27,20 @@ export function FacilityModals({
   submitActionModal: (e: any) => void;
   createModal: "asset" | "contractor" | "inspection" | "service-request" | "ppm" | null;
   setCreateModal: (v: "asset" | "contractor" | "inspection" | "service-request" | "ppm" | null) => void;
-  handleCreate: (e: any) => void;
+  handleCreate: (e: any) => Promise<boolean>;
   properties: Row[];
   assets: Row[];
+  createError: string;
+  creating: boolean;
 }) {
   return (
     <>
+      {createModal === "asset" && (
+        <AssetOnboardingModal properties={properties} onClose={() => setCreateModal(null)} onSubmit={handleCreate} error={createError} creating={creating} />
+      )}
+      {createModal === "contractor" && (
+        <ProviderOnboardingModal properties={properties} onClose={() => setCreateModal(null)} onSubmit={handleCreate} error={createError} creating={creating} />
+      )}
       {/* Create work order modal */}
       {showCreate && (
         <div className="modal-backdrop" onMouseDown={() => setShowCreate(false)}>
@@ -143,7 +154,7 @@ export function FacilityModals({
       )}
 
       {/* Create asset modal */}
-      {createModal === "asset" && (
+      {false && createModal === "asset" && (
         <Modal title="Add New Asset" onClose={() => setCreateModal(null)}>
           <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="grid-2">
@@ -196,7 +207,7 @@ export function FacilityModals({
       )}
 
       {/* Create contractor modal */}
-      {createModal === "contractor" && (
+      {false && createModal === "contractor" && (
         <Modal title="Add Contractor" onClose={() => setCreateModal(null)}>
           <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="grid-2">

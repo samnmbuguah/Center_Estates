@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
 import { money } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
@@ -82,74 +84,7 @@ export function AssetsView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
 
-  const displayRows = rows.length > 0 ? rows : [
-    {
-      id: "ast-1",
-      code: "LIFT-01",
-      name: "Main Passenger Lift #1 (10-Person)",
-      category: "Vertical Transportation",
-      asset_class: "Mechanical & Electrical",
-      property_name: "Finance House",
-      building_name: "Main Tower",
-      unit_code: "Core Shaft A",
-      manufacturer: "Schindler Lifts",
-      model_number: "3300 AP",
-      serial_number: "SCH-99412-KE",
-      installed_on: "2018-05-15",
-      expected_useful_life_years: 15,
-      purchase_value: 8500000,
-      replacement_cost: 9500000,
-      funding_source: "Landlord Reserve Float",
-      criticality: "critical",
-      condition: "good",
-      maintenance_procedure: "Monthly lubrication, brake gap calibration & annual governor drop test (SOP-VT-01).",
-      contractor_contract: "Schindler Full Maintenance AMC",
-    },
-    {
-      id: "ast-2",
-      code: "GEN-500KVA",
-      name: "Prime Diesel Standby Generator 500kVA",
-      category: "Backup Power & Electrical",
-      asset_class: "Mechanical & Electrical",
-      property_name: "Finance House",
-      building_name: "Basement 2",
-      unit_code: "Generator Room",
-      manufacturer: "Cummins Power",
-      model_number: "C500 D5e",
-      serial_number: "CUM-448102-2020",
-      installed_on: "2020-02-10",
-      expected_useful_life_years: 20,
-      purchase_value: 12000000,
-      replacement_cost: 14500000,
-      funding_source: "CAPEX Capital Float",
-      criticality: "critical",
-      condition: "excellent",
-      maintenance_procedure: "Weekly no-load test run, monthly load bank test, fluid analysis every 250 hrs (SOP-GEN-04).",
-      contractor_contract: "PowerTech AMC",
-    },
-    {
-      id: "ast-3",
-      code: "CHILLER-01",
-      name: "Central Water-Cooled Chiller Unit #1",
-      category: "HVAC & Cooling",
-      asset_class: "Mechanical & Electrical",
-      property_name: "Finance House",
-      building_name: "Basement 1",
-      unit_code: "Chiller Plant",
-      manufacturer: "Daikin Applied",
-      model_number: "EWWD-J",
-      serial_number: "DAI-008129",
-      installed_on: "2019-09-01",
-      expected_useful_life_years: 12,
-      purchase_value: 16500000,
-      replacement_cost: 18500000,
-      funding_source: "Landlord Reserve Float",
-      criticality: "high",
-      condition: "fair",
-      maintenance_procedure: "Quarterly refrigerant leak test, condenser tube descaling, compressor vibration audit.",
-      contractor_contract: "CentAir Engineering",
-    },
-  ];
+  const displayRows = rows;
 
   const totalValue = displayRows.reduce((sum, r) => sum + Number(r.purchase_value || 0), 0);
   const criticalCount = displayRows.filter((r) => r.criticality === "critical").length;
@@ -373,6 +308,13 @@ export function AssetsView({
 
                     <td style={{ padding: "12px 14px", textAlign: "center" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <Link
+                          href={`/facility/assets/${asset.id}`}
+                          style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "var(--primary)", textDecoration: "none" }}
+                          title="Open digital asset passport"
+                        >
+                          Passport
+                        </Link>
                         <button
                           onClick={() => {
                             setSelectedAsset(asset);
@@ -775,11 +717,8 @@ export function AssetsView({
                     </div>
 
                     <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      {/* Stylized QR Matrix simulation */}
-                      <div style={{ width: 68, height: 68, background: "#000", padding: 4, borderRadius: 4, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 2, flexShrink: 0 }}>
-                        {Array.from({ length: 25 }).map((_, i) => (
-                          <div key={i} style={{ background: i % 2 === 0 || i % 3 === 0 ? "#fff" : "#000", borderRadius: 1 }} />
-                        ))}
+                      <div style={{ width: 68, height: 68, background: "#fff", padding: 3, borderRadius: 4, flexShrink: 0 }}>
+                        <QRCodeSVG value={`https://centerestates.com/facility/assets/${asset.id}`} size={62} level="M" />
                       </div>
 
                       <div style={{ fontSize: 11 }}>

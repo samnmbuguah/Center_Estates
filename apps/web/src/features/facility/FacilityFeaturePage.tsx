@@ -140,6 +140,8 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
           handleCreate={logic.handleCreate}
           properties={logic.properties}
           assets={logic.assets}
+          createError={logic.createError}
+          creating={logic.creating}
         />
       </div>
     </ModuleShell>

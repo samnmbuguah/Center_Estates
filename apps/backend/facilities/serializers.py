@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
+from core.tenancy import get_active_organization
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
@@ -20,6 +21,7 @@ class FacilityAssetSerializer(serializers.ModelSerializer):
     class Meta:
         model = FacilityAsset
         exclude = ('organization',)
+        read_only_fields = ('code',)
 
     @extend_schema_field(serializers.DictField(allow_null=True))
     def get_latest_condition(self, obj):
@@ -33,6 +35,14 @@ class ContractorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contractor
         exclude = ('organization',)
+        read_only_fields = ('code',)
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        for prop in attrs.get('assigned_properties', []):
+            if prop.organization_id != organization.id:
+                raise serializers.ValidationError({'assigned_properties': 'Every assigned property must belong to the active organization.'})
+        return attrs
 
     @extend_schema_field(serializers.IntegerField())
     def get_active_contracts_count(self, obj):
@@ -303,4 +313,3 @@ class FacilityFlagSerializer(serializers.ModelSerializer):
     class Meta:
         model = FacilityFlag
         exclude = ('organization',)
-

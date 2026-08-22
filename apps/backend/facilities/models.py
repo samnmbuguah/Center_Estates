@@ -58,6 +58,12 @@ class Contractor(OrganizationOwnedModel):
         SUSPENDED = 'suspended', 'Suspended'
         EXPIRED = 'expired', 'Compliance expired'
 
+    class ApprovalStatus(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PENDING = 'pending', 'Pending approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
     code = models.CharField(max_length=40)
     name = models.CharField(max_length=180)
     specialty = models.CharField(max_length=100)
@@ -73,6 +79,11 @@ class Contractor(OrganizationOwnedModel):
     insurance_expires_on = models.DateField(null=True, blank=True)
     license_expires_on = models.DateField(null=True, blank=True)
     tax_compliance_expires_on = models.DateField(null=True, blank=True)
+    approval_status = models.CharField(max_length=16, choices=ApprovalStatus.choices, default=ApprovalStatus.PENDING)
+    is_preferred = models.BooleanField(default=False)
+    is_blacklisted = models.BooleanField(default=False)
+    assigned_properties = models.ManyToManyField('properties.Property', related_name='facility_contractors', blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ('name',)
@@ -584,4 +595,3 @@ class FacilityFlag(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Flag property must belong to the same organization.')
-

@@ -54,6 +54,50 @@ class FacilityApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row['code'] for row in response.data], ['A1'])
 
+    def test_asset_onboarding_generates_code_and_keeps_digital_passport(self):
+        response = self.client.post('/api/v1/facility/assets/', {
+            'name': 'Roof standby generator',
+            'category': 'Backup power',
+            'property': str(self.property.id),
+            'criticality': 'critical',
+            'condition': 'good',
+            'purchase_value': '1250000.00',
+            'replacement_cost': '1800000.00',
+            'metadata': {
+                'asset_type': 'Diesel generator',
+                'capacity_rating': '500 kVA',
+                'room': 'Roof plant room',
+                'maintenance_strategy': 'preventive',
+                'onboarding_status': 'complete',
+            },
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertRegex(response.data['code'], r'^AST-[A-F0-9]{8}$')
+        self.assertEqual(response.data['metadata']['capacity_rating'], '500 kVA')
+
+    def test_service_provider_onboarding_generates_code_and_assigns_property(self):
+        response = self.client.post('/api/v1/facility/contractors/', {
+            'name': 'Reliable Technical Services Ltd',
+            'specialty': 'Mechanical and electrical',
+            'registration_number': 'PVT-12345',
+            'pin_number': 'P012345678A',
+            'contact_name': 'Jane Manager',
+            'phone': '+254700000001',
+            'email': 'service@example.test',
+            'approval_status': 'pending',
+            'assigned_properties': [str(self.property.id)],
+            'metadata': {
+                'business_type': 'Limited company',
+                'bank_name': 'Co-operative Bank',
+                'insurance_policy_number': 'POL-123',
+                'onboarding_status': 'complete',
+            },
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertRegex(response.data['code'], r'^SP-[A-F0-9]{8}$')
+        self.assertEqual(response.data['assigned_properties'], [self.property.id])
+        self.assertEqual(response.data['metadata']['bank_name'], 'Co-operative Bank')
+
     def test_dashboard_is_calculated_from_live_data(self):
         response = self.client.get('/api/v1/facility/dashboard/', **self.headers)
         self.assertEqual(response.status_code, 200)

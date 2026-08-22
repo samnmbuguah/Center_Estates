@@ -202,70 +202,9 @@ export function ContractorsView({
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const displayRows = rows.length > 0 ? rows : [
-    {
-      id: "cnt-1",
-      code: "VND-ELEV-01",
-      name: "Schindler Lifts Kenya Ltd",
-      specialty: "Vertical Transportation & Lifts",
-      contact_name: "Francis Mwangi",
-      phone: "+254 722 100 200",
-      email: "service.ke@schindler.com",
-      emergency_phone: "+254 700 999 111",
-      is_active: true,
-      rating: 4.8,
-      compliance_status: "compliant",
-      tax_pin: "P051234567X",
-      license_number: "EPRA/LIFT/2026/041",
-    },
-    {
-      id: "cnt-2",
-      code: "VND-HVAC-02",
-      name: "CentAir Mechanical Engineering",
-      specialty: "HVAC & Central Chillers",
-      contact_name: "Dennis Ochieng",
-      phone: "+254 733 400 500",
-      email: "contracts@centair.co.ke",
-      emergency_phone: "+254 711 888 222",
-      is_active: true,
-      rating: 4.6,
-      compliance_status: "compliant",
-      tax_pin: "P051987654Z",
-      license_number: "NCA-1-MECH-8821",
-    },
-    {
-      id: "cnt-3",
-      code: "VND-GEN-03",
-      name: "PowerTech Energy Systems",
-      specialty: "Diesel Generators & Switchgear",
-      contact_name: "Esther Wanjiru",
-      phone: "+254 720 333 444",
-      email: "support@powertech.co.ke",
-      emergency_phone: "+254 700 777 333",
-      is_active: true,
-      rating: 4.9,
-      compliance_status: "compliant",
-      tax_pin: "P051444777A",
-      license_number: "EPRA/GEN/2025/119",
-    },
-    {
-      id: "cnt-4",
-      code: "VND-FIRE-04",
-      name: "SecureGuard Fire Protection",
-      specialty: "Fire Fighting & Suppression Systems",
-      contact_name: "Samuel Kiprop",
-      phone: "+254 721 555 666",
-      email: "safety@secureguard.co.ke",
-      emergency_phone: "+254 700 666 444",
-      is_active: true,
-      rating: 4.7,
-      compliance_status: "compliant",
-      tax_pin: "P051888222B",
-      license_number: "DOSH/FIRE/2026/502",
-    },
-  ];
+  const displayRows = rows;
 
-  const activeCount = displayRows.filter((r) => r.is_active).length;
+  const activeCount = displayRows.filter((r) => r.status === "active" || r.approval_status === "approved").length;
 
   const viewScorecard = async (contractor: Row) => {
     setSelectedContractor(contractor);
@@ -384,7 +323,7 @@ export function ContractorsView({
 
                   <td style={{ padding: "12px 14px", fontSize: 12 }}>
                     <span style={{ color: "#dc2626", fontWeight: 800 }}>🚨 {String(vendor.emergency_phone ?? "24/7 Callout Ready")}</span>
-                    <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Tax PIN: {String(vendor.tax_pin ?? "P051...")}</div>
+                    <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Tax PIN: {String(vendor.pin_number ?? "—")}</div>
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
@@ -394,7 +333,7 @@ export function ContractorsView({
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <FcStatus value={vendor.is_active ? "active" : "inactive"} />
+                    <FcStatus value={String(vendor.approval_status ?? vendor.status ?? "review")} />
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
