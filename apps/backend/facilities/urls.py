@@ -4,7 +4,7 @@ from .views import (
     AssetConditionAssessmentViewSet, AssetViewSet, ComplianceObligationViewSet,
     ContractorContractViewSet, ContractorViewSet, FacilityAnalyticsViewSet,
     FacilityDashboardViewSet, FacilityFlagViewSet, FacilityPortalViewSet,
-    FacilityRiskViewSet, FloorPlanViewSet, FMBudgetViewSet, InspectionViewSet,
+    FacilityRiskViewSet, FloorPlanViewSet, FMBudgetViewSet, FacilityExpenseViewSet, InspectionViewSet,
     MeterReadingViewSet, MeterReconciliationViewSet, MeterResetEventViewSet,
     PreventiveScheduleViewSet, ServiceRequestViewSet, StrategicFMPlanViewSet,
     UtilityMeterViewSet, WorkOrderAttachmentViewSet, WorkOrderCostItemViewSet,
@@ -30,6 +30,7 @@ router.register('meter-reconciliations', MeterReconciliationViewSet)
 router.register('contractors', ContractorViewSet)
 router.register('contracts', ContractorContractViewSet)
 router.register('budgets', FMBudgetViewSet)
+router.register('expenses', FacilityExpenseViewSet)
 router.register('compliance', ComplianceObligationViewSet)
 router.register('risks', FacilityRiskViewSet)
 router.register('flags', FacilityFlagViewSet)
@@ -38,4 +39,3 @@ router.register('work-order-cost-items', WorkOrderCostItemViewSet)
 router.register('work-order-attachments', WorkOrderAttachmentViewSet)
 
 urlpatterns = router.urls
-

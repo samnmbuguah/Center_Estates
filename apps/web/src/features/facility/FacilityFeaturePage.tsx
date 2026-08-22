@@ -58,7 +58,12 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
         ) : logic.tab === "budgets" ? (
           <FMBudgetView rows={logic.rows} organizationId={logic.organizationId} />
         ) : logic.tab === "compliance" || logic.tab === "risks" ? (
-          <ComplianceRiskView complianceRows={logic.tab === "compliance" ? logic.rows : []} riskRows={logic.tab === "risks" ? logic.rows : []} organizationId={logic.organizationId} />
+          <ComplianceRiskView
+            mode={logic.tab}
+            complianceRows={logic.tab === "compliance" ? logic.rows : []}
+            riskRows={logic.tab === "risks" ? logic.rows : []}
+            organizationId={logic.organizationId}
+          />
         ) : logic.tab === "work-orders" ? (
           <WorkOrdersView
             rows={logic.rows}
@@ -115,7 +120,13 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
         ) : logic.tab === "reports" ? (
           logic.dashboard ? <ReportsView dashboard={logic.dashboard} organizationId={logic.organizationId} /> : null
         ) : logic.tab === "expenditure" ? (
-          <ExpenditureView rows={logic.rows} organizationId={logic.organizationId} />
+          <ExpenditureView
+            rows={logic.rows}
+            organizationId={logic.organizationId}
+            propertyId={logic.activePropertyId}
+            canApprove={logic.canApprove}
+            reload={logic.load}
+          />
         ) : logic.tab === "spare-parts" ? (
           <InventoryView variant="spare-parts" rows={logic.rows} onAdd={() => logic.setCreateModal("asset")} />
         ) : logic.tab === "consumables" ? (

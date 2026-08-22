@@ -111,18 +111,17 @@ test("inspections list shows completed inspections with scores", async ({ page }
   await expect(page.locator("table, [role=table]").first()).toBeVisible();
 });
 
-test("service requests list shows requests with actions", async ({ page }, testInfo) => {
-  await page.goto("/facility");
-  await openFacilityTab(page, "Service requests", testInfo);
+test("service requests list shows requests with actions", async ({ page }) => {
+  await page.goto("/facility?tab=service-requests");
 
   await expect(page.getByRole("heading", { name: "Service Requests Management" })).toBeVisible();
   await expect(page.getByText("Open Requests", { exact: true })).toBeVisible();
   await expect(page.getByText("In Progress", { exact: true })).toBeVisible();
   await expect(page.locator("table")).toBeVisible();
 
-  const requestRows = page.locator("tbody tr");
-  if (await requestRows.count()) {
-    await requestRows.first().getByRole("checkbox").check();
+  const selectableRequests = page.locator("tbody tr").filter({ has: page.getByRole("checkbox") });
+  if (await selectableRequests.count()) {
+    await selectableRequests.first().getByRole("checkbox").check();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export selected" }).click();
     const download = await downloadPromise;

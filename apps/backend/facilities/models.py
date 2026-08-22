@@ -527,6 +527,39 @@ class FMBudget(OrganizationOwnedModel):
             raise ValidationError('FM Budget property must belong to the same organization.')
 
 
+class FacilityExpense(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_expenses')
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='expenses')
+    spent_on = models.DateField()
+    category = models.CharField(max_length=80)
+    description = models.CharField(max_length=240)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    float_reference = models.CharField(max_length=100, blank=True)
+    supplier = models.CharField(max_length=180, blank=True)
+    receipt_reference = models.CharField(max_length=120, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='recorded_facility_expenses')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_facility_expenses')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    decision_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-spent_on', '-created_at')
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Facility expense property must belong to the same organization.')
+        if self.work_order_id and self.work_order.property_id != self.property_id:
+            raise ValidationError({'work_order': 'The work order must belong to the selected property.'})
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Expense amount must be greater than zero.'})
+
+
 class ComplianceObligation(OrganizationOwnedModel):
     property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='compliance_obligations')
     building = models.ForeignKey('properties.Building', on_delete=models.SET_NULL, null=True, blank=True, related_name='compliance_obligations')

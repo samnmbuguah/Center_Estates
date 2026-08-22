@@ -9,7 +9,7 @@ import { WorkOrderDetail } from "./WorkOrderDetail";
 
 function EmptyState({ message = "No data available." }: { message?: string }) {
   return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "#8a96a7" }}>
+    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
       {message}
     </div>
   );
@@ -68,11 +68,42 @@ export function WorkOrdersView({
   onTransition: (row: Row, target: string, notes: string) => void;
 }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
-  const displayRows = rows;
-
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const priorityColors: Record<string, string> = {
     critical: "#b91c1c", high: "#c2410c", medium: "#a16207", low: "#15803d",
   };
+  const displayRows = rows.filter((row) => {
+    const term = search.trim().toLowerCase();
+    const matchesSearch = !term || [row.number, row.title, row.category, row.property_name]
+      .some((value) => String(value ?? "").toLowerCase().includes(term));
+    return matchesSearch
+      && (statusFilter === "all" || row.status === statusFilter)
+      && (priorityFilter === "all" || row.priority === priorityFilter);
+  });
+  const breachedCount = rows.filter((row) => Boolean(row.sla_breached)).length;
+  const atRiskCount = rows.filter((row) => {
+    const dueIn = new Date(String(row.resolution_due_at ?? "")).getTime() - Date.now();
+    return !row.sla_breached && ["open", "assigned", "in_progress"].includes(String(row.status)) && dueIn >= 0 && dueIn < 86400000;
+  }).length;
+  const withinSlaCount = Math.max(0, rows.length - breachedCount - atRiskCount);
+  const slaPercent = rows.length ? Math.round((withinSlaCount / rows.length) * 100) : 100;
+  const prioritySummary = ["critical", "high", "medium", "low"].map((priority) => ({
+    label: priority[0].toUpperCase() + priority.slice(1),
+    count: rows.filter((row) => row.priority === priority).length,
+    color: priorityColors[priority],
+  }));
+  const maxPriority = Math.max(1, ...prioritySummary.map((item) => item.count));
+  const categoryCosts = Object.values(rows.reduce<Record<string, { label: string; amount: number }>>((summary, row) => {
+    const label = String(row.category ?? "Other");
+    const amount = Number(row.total_cost ?? 0) || Number(row.labor_cost ?? 0) + Number(row.parts_cost ?? 0) + Number(row.other_cost ?? 0);
+    const item = summary[label] ?? { label, amount: 0 };
+    item.amount += amount;
+    summary[label] = item;
+    return summary;
+  }, {})).sort((a, b) => b.amount - a.amount);
+  const totalMaintenanceCost = categoryCosts.reduce((total, item) => total + item.amount, 0);
 
   if (selectedRow) {
     return <WorkOrderDetail row={selectedRow} onBack={() => setSelectedRow(null)} organizationId={organizationId} canWork={permissions.canWork} />;
@@ -83,7 +114,7 @@ export function WorkOrdersView({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
           <h2 style={{ fontSize: 22, margin: "0 0 4px", letterSpacing: "-.02em" }}>Maintenance Overview</h2>
-          <p style={{ color: "#8a96a7", fontSize: 13, margin: 0 }}>Monitor maintenance performance, compliance and asset reliability in real time.</p>
+          <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: 0 }}>Monitor maintenance performance, compliance and asset reliability in real time.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           {permissions.canWork && (
@@ -93,7 +124,7 @@ export function WorkOrdersView({
       </div>
 
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${String(kpis?.maintenanceCompliance ?? 92)}%`} sub="Schedule compliance" />
+        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${String(kpis?.maintenanceCompliance ?? 0)}%`} sub="Schedule compliance" />
         <FcKpiCard icon="📂" iconBg="#dcfce7" iconColor="#16a34a" label="Open Work Orders" value={String(kpis?.openWorkOrders ?? 0)} sub="Active across all buildings" />
         <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Work Orders" value={String(kpis?.overdueWorkOrders ?? 0)} sub="Past resolution due" />
         <FcKpiCard icon="⏱" iconBg="#fef3c7" iconColor="#92400e" label="Avg. Resolution Time" value="—" sub="Target 24 hrs" />
@@ -106,10 +137,13 @@ export function WorkOrdersView({
           <article className="data-panel">
             <div className="fc-table-toolbar">
               <div className="fc-table-toolbar-left">
-                <input placeholder="Search work orders…" data-testid="wo-register-search" style={{ border: "1px solid #d7dce5", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 220 }} />
-                {["All Buildings", "All Categories", "All Priority", "All Status"].map((opt) => (
-                  <select key={opt} className="fc-toolbar-select"><option>{opt}</option></select>
-                ))}
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search work orders…" data-testid="wo-register-search" style={{ border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 220 }} />
+                <select aria-label="Work order priority" className="fc-toolbar-select" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+                  <option value="all">All priorities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+                </select>
+                <select aria-label="Work order status" className="fc-toolbar-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                  <option value="all">All statuses</option><option value="open">Open</option><option value="assigned">Assigned</option><option value="in_progress">In progress</option><option value="on_hold">On hold</option><option value="completed">Completed</option>
+                </select>
               </div>
               <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "work-orders.csv")}>↓ Export</button>
             </div>
@@ -134,9 +168,9 @@ export function WorkOrdersView({
                     return (
                       <tr key={String(row.id)} onClick={() => setSelectedRow(row)} style={{ cursor: "pointer" }}>
                         <td><FcStatus value={String(row.status ?? "open").replace("_", " ")} /></td>
-                        <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(row.number ?? "—")}</span></td>
+                        <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(row.number ?? "—")}</span></td>
                         <td><strong style={{ fontSize: 12 }}>{String(row.title ?? "—")}</strong></td>
-                        <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.property_name ?? "—")}</td>
+                        <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.property_name ?? "—")}</td>
                         <td>
                           <span className="fc-priority-chip">
                             <i style={{ background: priorityColors[priority] ?? "#9ca3af" }} />
@@ -198,21 +232,21 @@ export function WorkOrdersView({
           <article className="data-panel">
             <PanelHeader title="SLA Performance (This Month)" />
             <div className="fc-sla-gauge">
-              <div className="donut" style={{ background: "conic-gradient(#22c55e 0% 88%, #f59e0b 88% 95%, #ef4444 95% 100%)", height: 130, width: 130, marginBottom: 12 }}>
-                <strong style={{ fontSize: 22 }}>88%</strong>
+              <div className="donut" style={{ background: `conic-gradient(#22c55e 0% ${slaPercent}%, #ef4444 ${slaPercent}% 100%)`, height: 130, width: 130, marginBottom: 12 }}>
+                <strong style={{ fontSize: 22 }}>{slaPercent}%</strong>
                 <small>Within SLA</small>
               </div>
               <div style={{ display: "grid", gap: 8, width: "100%" }}>
                 {[
-                  { label: "Within SLA", pct: 88, count: 236, color: "#22c55e" },
-                  { label: "At Risk", pct: 7, count: 19, color: "#f59e0b" },
-                  { label: "Breached", pct: 5, count: 13, color: "#ef4444" },
+                  { label: "Within SLA", pct: slaPercent, count: withinSlaCount, color: "#22c55e" },
+                  { label: "At Risk", pct: rows.length ? Math.round(atRiskCount / rows.length * 100) : 0, count: atRiskCount, color: "#f59e0b" },
+                  { label: "Breached", pct: rows.length ? Math.round(breachedCount / rows.length * 100) : 0, count: breachedCount, color: "#ef4444" },
                 ].map((item) => (
                   <div key={item.label} style={{ alignItems: "center", display: "flex", fontSize: 12, gap: 8 }}>
                     <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
-                    <span style={{ color: "#6b7280", flex: 1 }}>{item.label}</span>
-                    <span style={{ color: "#27364a", fontWeight: 700 }}>{item.pct}%</span>
-                    <span style={{ color: "#9aacbf", fontSize: 11 }}>({item.count})</span>
+                    <span style={{ color: "var(--text-secondary)", flex: 1 }}>{item.label}</span>
+                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{item.pct}%</span>
+                    <span style={{ color: "var(--text-muted)", fontSize: 11 }}>({item.count})</span>
                   </div>
                 ))}
               </div>
@@ -222,17 +256,12 @@ export function WorkOrdersView({
           <article className="data-panel">
             <PanelHeader title="Work Orders by Priority" />
             <div className="fc-priority-bars">
-              {[
-                { label: "Critical", count: 38, color: "#ef4444", max: 52 },
-                { label: "High", count: 52, color: "#f97316", max: 52 },
-                { label: "Medium", count: 28, color: "#f59e0b", max: 52 },
-                { label: "Low", count: 16, color: "#22c55e", max: 52 },
-              ].map((item) => (
+              {prioritySummary.map((item) => (
                 <div key={item.label} className="fc-priority-row">
                   <i className="fc-priority-dot" style={{ background: item.color }} />
                   <span className="fc-priority-label">{item.label}</span>
                   <div className="fc-priority-bar">
-                    <i style={{ background: item.color, width: `${(item.count / item.max) * 100}%` }} />
+                    <i style={{ background: item.color, width: `${(item.count / maxPriority) * 100}%` }} />
                   </div>
                   <span className="fc-priority-count">{item.count}</span>
                 </div>
@@ -244,31 +273,26 @@ export function WorkOrdersView({
             <PanelHeader title="Maintenance Cost (This Month)" />
             <div style={{ padding: "16px 18px" }}>
               <div style={{ marginBottom: 12 }}>
-                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Total Cost</span>
-                <strong style={{ fontSize: 22 }}>KES 4.25M</strong>
-                <span style={{ color: "#16a34a", fontSize: 11 }}> ↓ 8.5% vs last month</span>
+                <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>Total Cost</span>
+                <strong style={{ fontSize: 22 }}>{money.format(totalMaintenanceCost)}</strong>
               </div>
-              <p style={{ color: "#8a96a7", fontSize: 11, fontWeight: 700, margin: "0 0 10px", textTransform: "uppercase" }}>Top Cost by Category</p>
-              {[
-                { label: "Electrical Systems", pct: 34, amount: "1.45M" },
-                { label: "Lift Systems", pct: 28, amount: "1.20M" },
-                { label: "Plumbing & Drainage", pct: 20, amount: "860K" },
-                { label: "HVAC Systems", pct: 11, amount: "450K" },
-                { label: "Fire Safety Systems", pct: 7, amount: "290K" },
-              ].map((item, i) => {
+              <p style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, margin: "0 0 10px", textTransform: "uppercase" }}>Top Cost by Category</p>
+              {categoryCosts.slice(0, 5).map((item, i) => {
                 const colors = ["#4f46e5", "#3b82f6", "#22c55e", "#f59e0b", "#ef4444"];
+                const pct = totalMaintenanceCost ? Math.round(item.amount / totalMaintenanceCost * 100) : 0;
                 return (
                   <div key={item.label} style={{ marginBottom: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
                       <span style={{ color: "#4b5563" }}>{item.label}</span>
-                      <span style={{ fontWeight: 700 }}>KES {item.amount}</span>
+                      <span style={{ fontWeight: 700 }}>{money.format(item.amount)}</span>
                     </div>
                     <div style={{ background: "#edf0f5", borderRadius: 99, height: 5, overflow: "hidden" }}>
-                      <i style={{ background: colors[i], borderRadius: "inherit", display: "block", height: "100%", width: `${item.pct}%` }} />
+                      <i style={{ background: colors[i], borderRadius: "inherit", display: "block", height: "100%", width: `${pct}%` }} />
                     </div>
                   </div>
                 );
               })}
+              {categoryCosts.length === 0 && <EmptyState message="No work-order costs recorded this month." />}
             </div>
           </article>
         </div>

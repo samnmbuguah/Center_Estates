@@ -118,6 +118,15 @@ export const facilityNav: ModuleNavGroup[] = [
       { id: "reports",           label: "Reports & BI",        icon: "📈" },
     ],
   },
+  {
+    label: "GOVERNANCE",
+    items: [
+      { id: "strategic-plans", label: "Strategic FM Plan", icon: "🧭" },
+      { id: "budgets", label: "Budgets & Commitments", icon: "💼" },
+      { id: "compliance", label: "Statutory Compliance", icon: "🛡️" },
+      { id: "risks", label: "Risk Register", icon: "⚠️" },
+    ],
+  },
   { label: "WORKSPACE", items: [{ id: "tickets", label: "Tickets & Issues", icon: "🎫" }, { id: "calendar", label: "Calendar", icon: "📅" }] },
 ];
 

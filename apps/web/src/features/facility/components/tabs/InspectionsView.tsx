@@ -7,7 +7,7 @@ import { FcStatus, HealthBar } from "../FacilityToolbar";
 
 function EmptyState({ message = "No data available." }: { message?: string }) {
   return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "#8a96a7" }}>
+    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
       {message}
     </div>
   );
@@ -56,7 +56,8 @@ export function InspectionsView({
   onAdd: () => void;
 }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
-  const [subTab, setSubTab] = useState("list");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
 
   const displayRows = rows;
 
@@ -64,7 +65,8 @@ export function InspectionsView({
   const totalInsp = rows.length;
   const completedInsp = rows.filter((r) => !["scheduled", "in_progress"].includes(String(r.status))).length;
   const inProgressInsp = rows.filter((r) => String(r.status) === "in_progress").length;
-  const overdueInsp = rows.filter((r) => String(r.status) === "overdue").length;
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueInsp = rows.filter((row) => ["scheduled", "in_progress"].includes(String(row.status)) && String(row.scheduled_on ?? "") < today).length;
   const defectsFound = rows.reduce((s, r) => s + Number(r.violations ?? 0), 0);
   const scoredRows = rows.filter((r) => Number(r.score ?? 0) > 0);
   const complianceScore = scoredRows.length ? Math.round(scoredRows.reduce((s, r) => s + Number(r.score ?? 0), 0) / scoredRows.length) : Number(kpis?.maintenanceCompliance ?? 0);
@@ -86,12 +88,13 @@ export function InspectionsView({
         <article className="data-panel">
           <div className="fc-table-toolbar">
             <div className="fc-table-toolbar-left">
-              <input placeholder="Search inspections…" data-testid="insp-search-input" style={{ border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
-              <select className="fc-toolbar-select" value={subTab} onChange={(e) => setSubTab(e.target.value)}>
-                <option value="list">All Inspections</option>
-                <option value="templates">Completed Templates</option>
-                <option value="checklists">High Compliance (90%+)</option>
-                <option value="reports">Overdue / Defect Reports</option>
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search inspections…" data-testid="insp-search-input" style={{ border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
+              <select className="fc-toolbar-select" aria-label="Inspection status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="all">All Inspections</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="in_progress">In progress</option>
+                <option value="completed">Completed</option>
+                <option value="follow_up">Follow-up required</option>
               </select>
             </div>
             <div className="fc-table-toolbar-right">
@@ -101,11 +104,16 @@ export function InspectionsView({
           </div>
 
           {(() => {
-            const filteredRows = subTab === "list" ? displayRows
-              : subTab === "templates" ? displayRows.filter((r) => String(r.status) === "completed")
-              : subTab === "checklists" ? displayRows.filter((r) => Number(r.score ?? 0) >= 90)
-              : subTab === "reports" ? displayRows.filter((r) => String(r.status) === "overdue" || Number(r.violations ?? 0) > 0)
-              : displayRows;
+            const term = search.trim().toLowerCase();
+            const completedStatuses = new Set(["passed", "failed"]);
+            const filteredRows = displayRows.filter((row) => {
+              const status = String(row.status ?? "");
+              const statusMatches = statusFilter === "all" || statusFilter === "list"
+                || (statusFilter === "completed" ? completedStatuses.has(status) : status === statusFilter);
+              const searchMatches = !term || [row.title, row.reference, row.asset_name, row.property_name, row.inspection_type]
+                .some((value) => String(value ?? "").toLowerCase().includes(term));
+              return statusMatches && searchMatches;
+            });
             return (
               <div className="table-scroll">
                 <table className="fc-data-table">
@@ -131,42 +139,39 @@ export function InspectionsView({
                     ) : filteredRows.map((row) => {
                       const score = Number(row.score ?? 0);
                       const status = String(row.status ?? "scheduled");
-                      const typeMap: Record<string, string> = { "INSP-2026-0056": "statutory", "INSP-2026-0055": "routine", "INSP-2026-0054": "routine", "INSP-2026-0053": "routine", "INSP-2026-0052": "preventive", "INSP-2026-0051": "routine" };
-                      const insType = typeMap[String(row.reference)] ?? "routine";
+                      const insType = String(row.inspection_type ?? "routine");
                       return (
                         <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
                           <td>
-                            <strong style={{ fontSize: 13, color: "#0f172a", display: "block" }}>{String(row.title ?? "—")}</strong>
+                            <strong style={{ fontSize: 13, color: "var(--text-primary)", display: "block" }}>{String(row.title ?? "—")}</strong>
                             {Boolean(row.reference) && <small style={{ fontSize: 10, color: "#64748b" }}>{String(row.reference)}</small>}
                           </td>
-                          <td style={{ fontSize: 12, color: "#1e293b", fontWeight: 600 }}>{String(row.asset_name ?? "—")}</td>
-                          <td style={{ fontSize: 12, color: "#1e293b", fontWeight: 600 }}>{String(row.property_name ?? "—")}</td>
+                          <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.asset_name ?? "—")}</td>
+                          <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.property_name ?? "—")}</td>
                           <td><FcStatus value={insType} /></td>
-                          <td style={{ fontSize: 12, color: "#1e293b", fontWeight: 600 }}>{String(row.scheduled_on ?? "—")}</td>
+                          <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.scheduled_on ?? "—")}</td>
                           <td><FcStatus value={status.replace("_", "-")} /></td>
                           <td>
                             {score > 0 ? (
                               <div className="fc-score">
                                 <span className="fc-score-dot" style={{ background: score >= 90 ? "#22c55e" : score >= 75 ? "#f59e0b" : "#ef4444" }} />
-                                <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{score}%</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{score}%</span>
                               </div>
-                            ) : <span style={{ color: "#9aacbf", fontSize: 12 }}>—</span>}
+                            ) : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>}
                           </td>
                           <td>
                             <div style={{ display: "flex", gap: 6 }}>
-                              <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>👁</button>
                               {permissions.canInspect && ["scheduled", "in_progress"].includes(status) && (
                                 <button onClick={(e) => { e.stopPropagation(); onAction(row, "complete"); }} style={{ background: "#e23b3b", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
                                   Complete
                                 </button>
                               )}
-                              <button style={{ background: "none", border: "1px solid #d7dce5", borderRadius: 6, cursor: "pointer", fontSize: 18, padding: "2px 6px" }}>⋯</button>
+                              <button onClick={(event) => { event.stopPropagation(); setSelectedRow(row); }} className="fc-toolbar-btn">View details</button>
                             </div>
                           </td>
                         </tr>
                       );
                     })}
-                    {filteredRows.length === 0 && <tr><td colSpan={8}><EmptyState message="No inspection records found." /></td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -183,13 +188,13 @@ export function InspectionsView({
             <div className="fc-detail-header">
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(selectedRow.reference ?? "")}</span>
+                  <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(selectedRow.reference ?? "")}</span>
                   <FcStatus value={String(selectedRow.status ?? "completed").replace("_", "-")} />
                 </div>
                 <strong style={{ display: "block", fontSize: 15 }}>{String(selectedRow.title ?? "—")}</strong>
-                <small style={{ color: "#8a96a7" }}>{String(selectedRow.asset_name ?? "—")} • {String(selectedRow.property_name ?? "—")}</small>
+                <small style={{ color: "var(--text-secondary)" }}>{String(selectedRow.asset_name ?? "—")} • {String(selectedRow.property_name ?? "—")}</small>
               </div>
-              <button onClick={() => setSelectedRow(null)} style={{ background: "none", border: 0, color: "#8a96a7", cursor: "pointer", fontSize: 20 }}>×</button>
+              <button onClick={() => setSelectedRow(null)} style={{ background: "none", border: 0, color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
             <div className="fc-detail-tabs">
               {["Overview", "Checklist", "Findings (2)", "Photos (6)", "Documents"].map((t, i) => (
@@ -207,14 +212,14 @@ export function InspectionsView({
                 { label: "Next Inspection", value: "18 Jun 2026" },
               ].map((f) => (
                 <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "9px 0" }}>
-                  <span style={{ color: "#8a96a7", fontSize: 11 }}>{f.label}</span>
+                  <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{f.label}</span>
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{f.value}</span>
                 </div>
               ))}
 
               {Number(selectedRow.score ?? 0) > 0 && (
                 <div style={{ marginTop: 14 }}>
-                  <span style={{ color: "#8a96a7", display: "block", fontSize: 11, marginBottom: 6 }}>Overall Score</span>
+                  <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11, marginBottom: 6 }}>Overall Score</span>
                   <strong style={{ fontSize: 22 }}>{String(selectedRow.score ?? 0)}%</strong>
                   <HealthBar pct={Number(selectedRow.score ?? 0)} />
                 </div>
@@ -229,7 +234,7 @@ export function InspectionsView({
                 ].map((stat) => (
                   <div key={stat.label} style={{ textAlign: "center" }}>
                     <strong style={{ display: "block", fontSize: 18 }}>{stat.value}</strong>
-                    <small style={{ color: "#8a96a7", fontSize: 10 }}>{stat.label}</small>
+                    <small style={{ color: "var(--text-secondary)", fontSize: 10 }}>{stat.label}</small>
                   </div>
                 ))}
               </div>
@@ -243,7 +248,7 @@ export function InspectionsView({
                 <div key={f.item} style={{ alignItems: "flex-start", borderBottom: "1px solid #f0f2f6", display: "flex", gap: 10, justifyContent: "space-between", padding: "10px 0" }}>
                   <div>
                     <strong style={{ display: "block", fontSize: 12 }}>{f.item}</strong>
-                    <small style={{ color: "#8a96a7", fontSize: 10 }}>{f.note}</small>
+                    <small style={{ color: "var(--text-secondary)", fontSize: 10 }}>{f.note}</small>
                   </div>
                   <span className="fc-status" style={{ background: f.color + "22", color: f.color }}>{f.status}</span>
                 </div>

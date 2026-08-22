@@ -61,7 +61,7 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     } else if (tab === "spare-parts" || tab === "consumables") {
       path = `/facility/assets/?search=${encodeURIComponent(search)}`;
     } else if (tab === "expenditure") {
-      path = `/facility/work-order-cost-items/?search=${encodeURIComponent(search)}`;
+      path = `/facility/expenses/?search=${encodeURIComponent(search)}`;
     } else {
       path = `/facility/${tab}/?search=${encodeURIComponent(search)}`;
     }
@@ -103,6 +103,7 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
 
   async function createWorkOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setCreateError("");
     const form = new FormData(event.currentTarget);
     await apiFetch("/auth/csrf/");
     const response = await apiFetch(
@@ -119,10 +120,11 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
       organizationId
     );
     if (!response.ok) {
-      setError("The work order could not be created. Check its number and required fields.");
+      setCreateError(await apiErrorMessage(response, "The work order could not be created. Review the required fields and retry."));
       return;
     }
     setShowCreate(false);
+    setCreateError("");
     setTab("work-orders");
   }
 
@@ -328,6 +330,7 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
 
   return {
     organizationId,
+    activePropertyId: activeProperty?.id ?? null,
     canWork,
     canInspect,
     canAdminister,

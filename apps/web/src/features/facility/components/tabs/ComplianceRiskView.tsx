@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
@@ -39,32 +39,60 @@ export function ComplianceRiskView({
   complianceRows = [],
   riskRows = [],
   organizationId,
+  mode,
 }: {
   complianceRows?: Row[];
   riskRows?: Row[];
   organizationId: string | null;
+  mode: "compliance" | "risks";
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<"compliance" | "risks" | "flags">("compliance");
   const [selectedCell, setSelectedCell] = useState<{ l: number; i: number } | null>(null);
+  const [flags, setFlags] = useState<Row[]>([]);
+  const [flagError, setFlagError] = useState("");
+  const [resolvingFlag, setResolvingFlag] = useState<string | null>(null);
 
-  const obligations = complianceRows.length > 0 ? complianceRows : [
-    { id: "c1", category: "Fire Safety", title: "Nairobi County Fire Safety Compliance Certificate", authority: "Nairobi City County Fire Dept", cert_no: "NCC/FIRE/2026/0991", expiry_date: "2027-02-28", status: "compliant", responsible: "Facilities Manager" },
-    { id: "c2", category: "Lifts / Elevators", title: "DOSH Annual Passenger Lift Inspection Certificate", authority: "Directorate of Occupational Safety & Health", cert_no: "DOSH/LIFT/8412", expiry_date: "2026-09-15", status: "due_soon", responsible: "Schindler Lead" },
-    { id: "c3", category: "Electrical & Energy", title: "EPRA Standby Generator License & Safety Audit", authority: "Energy & Petroleum Regulatory Authority", cert_no: "EPRA/GEN/500/2025", expiry_date: "2027-05-30", status: "compliant", responsible: "PowerTech Eng" },
-    { id: "c4", category: "Building Insurance", title: "Comprehensive All-Risk & Public Liability Policy", authority: "Jubilee Insurance Kenya", cert_no: "POL/PL/2026/884", expiry_date: "2027-01-31", status: "compliant", responsible: "Property Director" },
-    { id: "c5", category: "Occupational Health", title: "OSHA Workplace Safety & First Aid Registration", authority: "Ministry of Labour / DOSH", cert_no: "OSHA/NRB/9921", expiry_date: "2026-11-20", status: "compliant", responsible: "OHS Officer" },
-  ];
+  const obligations = complianceRows;
+  const risks = riskRows;
 
-  const risks = riskRows.length > 0 ? riskRows : [
-    { id: "r1", risk_id: "RSK-LIFT-01", category: "Operational", description: "Passenger Lift #2 intermittent door interlock tripping during peak morning hours.", likelihood: 3, impact: 4, inherent: 12, controls: "Replace door roller guide & sensor array under AMC.", owner: "Schindler Lifts", due_date: "2026-08-25", residual: 4, status: "mitigating" },
-    { id: "r2", risk_id: "RSK-GEN-02", category: "Life Safety / Critical", description: "Diesel fuel sediment buildup in standby generator day tank.", likelihood: 2, impact: 5, inherent: 10, controls: "Fuel polishing & filter flush scheduled on Saturday.", owner: "PowerTech Energy", due_date: "2026-08-23", residual: 2, status: "open" },
-    { id: "r3", risk_id: "RSK-WATER-03", category: "Financial / Utility", description: "Water consumption discrepancy between bulk supply and sub-meter total (6.8% variance).", likelihood: 4, impact: 2, inherent: 8, controls: "Install ultrasonic check meters on commercial riser.", owner: "HydroFlow Services", due_date: "2026-09-01", residual: 2, status: "open" },
-  ];
+  useEffect(() => {
+    if (mode !== "compliance" || !organizationId) return;
+    apiFetch("/facility/flags/", {}, organizationId)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("flags unavailable");
+        const data = await response.json();
+        setFlags(Array.isArray(data) ? data.filter((flag) => !flag.is_resolved) : []);
+        setFlagError("");
+      })
+      .catch(() => setFlagError("Operational flags could not be loaded."));
+  }, [mode, organizationId]);
 
-  const flags = [
-    { id: "f1", severity: "warning", title: "Lift Inspection Certificate Due in 27 Days", message: "DOSH annual inspection due on 2026-09-15 for Finance House.", ref: "DOSH/LIFT/8412", date: "2026-08-19" },
-    { id: "f2", severity: "info", title: "HVAC Quarterly PM Schedule Due this Week", message: "Chiller #1 quarterly refrigerant audit assigned to CentAir Engineering.", ref: "PM-CHILLER-Q3", date: "2026-08-19" },
-  ];
+  async function resolveFlag(flag: Row) {
+    if (!organizationId || !flag.id) return;
+    setResolvingFlag(String(flag.id));
+    setFlagError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const response = await apiFetch(`/facility/flags/${flag.id}/resolve/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({}),
+      }, organizationId);
+      if (!response.ok) throw new Error("resolve failed");
+      setFlags((current) => current.filter((item) => item.id !== flag.id));
+    } catch {
+      setFlagError("The flag could not be resolved. Please retry.");
+    } finally {
+      setResolvingFlag(null);
+    }
+  }
+
+  const visibleRisks = selectedCell
+    ? risks.filter((risk) => {
+        const likelihood = Number(risk.likelihood ?? Math.ceil(Number(risk.inherent_score || 9) / 5));
+        const impact = Number(risk.impact ?? 3);
+        return likelihood === selectedCell.l && impact === selectedCell.i;
+      })
+    : risks;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -77,70 +105,7 @@ export function ComplianceRiskView({
         <FcKpiCard icon="🔔" iconBg="#fdf4ff" iconColor="#9333ea" label="Active Automated Flags" value={String(flags.length)} sub="Rule-based operational triggers" />
       </div>
 
-      {/* Sub-tab Navigation */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 12,
-          padding: "10px 16px",
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: 8,
-        }}
-      >
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            onClick={() => setActiveSubTab("compliance")}
-            style={{
-              border: 0,
-              padding: "6px 14px",
-              borderRadius: 6,
-              fontSize: "0.82rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              background: activeSubTab === "compliance" ? "var(--surface-sunken)" : "transparent",
-              color: activeSubTab === "compliance" ? "var(--primary)" : "var(--text-secondary)",
-            }}
-          >
-            📋 Statutory Compliance Register ({obligations.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab("risks")}
-            style={{
-              border: 0,
-              padding: "6px 14px",
-              borderRadius: 6,
-              fontSize: "0.82rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              background: activeSubTab === "risks" ? "var(--surface-sunken)" : "transparent",
-              color: activeSubTab === "risks" ? "var(--primary)" : "var(--text-secondary)",
-            }}
-          >
-            🚨 Risk Register & 5×5 Matrix ({risks.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab("flags")}
-            style={{
-              border: 0,
-              padding: "6px 14px",
-              borderRadius: 6,
-              fontSize: "0.82rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              background: activeSubTab === "flags" ? "var(--surface-sunken)" : "transparent",
-              color: activeSubTab === "flags" ? "var(--primary)" : "var(--text-secondary)",
-            }}
-          >
-            🔔 Automated Rule Flags ({flags.length})
-          </button>
-        </div>
-      </div>
-
-      {activeSubTab === "compliance" && (
+      {mode === "compliance" && (
         <article className="data-panel">
           <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
@@ -177,8 +142,8 @@ export function ComplianceRiskView({
                       </strong>
                       <span style={{ color: "#2563eb", fontSize: 11, fontWeight: 700 }}>{String(c.category)}</span>
                     </td>
-                    <td style={{ padding: "12px 14px", fontSize: 12 }}>{String(c.authority)}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 700 }}>{String(c.cert_no)}</td>
+                    <td style={{ padding: "12px 14px", fontSize: 12 }}>{String(c.issuing_authority ?? "—")}</td>
+                    <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 700 }}>{String(c.certificate_number ?? "—")}</td>
                     <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 800, color: c.status === "due_soon" ? "#d97706" : "inherit" }}>
                       {String(c.expiry_date)}
                     </td>
@@ -197,16 +162,17 @@ export function ComplianceRiskView({
                         {c.status === "due_soon" ? "⚠️ Due Soon (27d)" : String(c.status ?? "")}
                       </span>
                     </td>
-                    <td style={{ padding: "12px 14px", fontSize: 12 }}>{String(c.responsible ?? "—")}</td>
+                    <td style={{ padding: "12px 14px", fontSize: 12 }}>{String(c.responsible_person_name ?? "—")}</td>
                   </tr>
                 ))}
+                {obligations.length === 0 && <tr><td colSpan={6}><div className="empty-state">No statutory compliance obligations are recorded for this property.</div></td></tr>}
               </tbody>
             </table>
           </div>
         </article>
       )}
 
-      {activeSubTab === "risks" && (
+      {mode === "risks" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Interactive 5x5 Heat Matrix */}
           <article className="data-panel">
@@ -252,7 +218,7 @@ export function ComplianceRiskView({
                       const score = l * i;
                       const isSelected = selectedCell?.l === l && selectedCell?.i === i;
                       const cellRisks = risks.filter((r) => {
-                        const rL = Number(r.likelihood ?? Math.ceil(Number(r.inherent || 9) / 5));
+                        const rL = Number(r.likelihood ?? Math.ceil(Number(r.inherent_score || 9) / 5));
                         const rI = Number(r.impact ?? 3);
                         return rL === l && rI === i;
                       });
@@ -317,15 +283,8 @@ export function ComplianceRiskView({
                   </tr>
                 </thead>
                 <tbody>
-                  {(selectedCell
-                    ? risks.filter((r) => {
-                        const rL = Number(r.likelihood ?? Math.ceil(Number(r.inherent || 9) / 5));
-                        const rI = Number(r.impact ?? 3);
-                        return rL === selectedCell.l && rI === selectedCell.i;
-                      })
-                    : risks
-                  ).map((r) => {
-                    const inherentVal = Number(r.inherent ?? 9);
+                  {visibleRisks.map((r) => {
+                    const inherentVal = Number(r.inherent_score ?? 9);
                     return (
                       <tr key={String(r.id)} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={{ padding: "12px 14px" }}>
@@ -342,15 +301,15 @@ export function ComplianceRiskView({
                           </span>
                         </td>
                         <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>
-                          {String(r.controls ?? "—")}
+                          {String(r.mitigation_controls ?? "—")}
                         </td>
                         <td style={{ padding: "12px 14px", textAlign: "center" }}>
                           <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 4, fontWeight: 800 }}>
-                            {String(r.residual ?? "—")}
+                            {String(r.residual_score ?? "—")}
                           </span>
                         </td>
                         <td style={{ padding: "12px 14px", fontSize: 12 }}>
-                          <div style={{ fontWeight: 700 }}>{String(r.owner ?? "—")}</div>
+                          <div style={{ fontWeight: 700 }}>{String(r.action_owner_name ?? "—")}</div>
                           <small style={{ color: "var(--text-muted)" }}>Due: {String(r.due_date ?? "—")}</small>
                         </td>
                         <td style={{ padding: "12px 14px", textAlign: "center" }}>
@@ -361,6 +320,7 @@ export function ComplianceRiskView({
                       </tr>
                     );
                   })}
+                  {visibleRisks.length === 0 && <tr><td colSpan={6}><div className="empty-state">No risk records match this property and filter.</div></td></tr>}
                 </tbody>
               </table>
             </div>
@@ -368,7 +328,7 @@ export function ComplianceRiskView({
         </div>
       )}
 
-      {activeSubTab === "flags" && (
+      {mode === "compliance" && (
         <article className="data-panel">
           <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
             <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
@@ -376,9 +336,11 @@ export function ComplianceRiskView({
             </h2>
           </header>
           <div style={{ padding: "16px 20px", display: "grid", gap: 12 }}>
+            {flagError && <div className="form-error" role="alert">{flagError}</div>}
+            {flags.length === 0 && !flagError && <div className="empty-state">No active operational flags for this property.</div>}
             {flags.map((f) => (
               <div
-                key={f.id}
+                key={String(f.id)}
                 style={{
                   padding: "14px 18px",
                   background: "var(--surface-sunken)",
@@ -394,8 +356,8 @@ export function ComplianceRiskView({
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <span style={{ fontSize: "1.4rem" }}>{f.severity === "warning" ? "⚠️" : "ℹ️"}</span>
                   <div>
-                    <strong style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>{f.title}</strong>
-                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 2 }}>{f.message}</div>
+                    <strong style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>{String(f.title ?? "Operational flag")}</strong>
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 2 }}>{String(f.message ?? "")}</div>
                   </div>
                 </div>
                 <button
@@ -408,9 +370,10 @@ export function ComplianceRiskView({
                     fontWeight: 700,
                     cursor: "pointer",
                   }}
-                  onClick={() => alert(`Operational Flag ${f.ref} marked as acknowledged.`)}
+                  disabled={resolvingFlag === String(f.id)}
+                  onClick={() => void resolveFlag(f)}
                 >
-                  ✓ Acknowledge / Resolve
+                  {resolvingFlag === String(f.id) ? "Resolving…" : "✓ Acknowledge / Resolve"}
                 </button>
               </div>
             ))}

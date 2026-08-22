@@ -298,7 +298,7 @@ export function ReportsView({
                   onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
                 />
                 <div>
-                  <div style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", fontWeight: 800 }}>
+                  <div style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary)", fontWeight: 800 }}>
                     {orgName} · Facilities Management ERP
                   </div>
                   <h1 style={{ margin: "4px 0 2px", fontSize: "1.4rem", fontWeight: 900, color: "#111827" }}>
@@ -348,17 +348,17 @@ export function ReportsView({
               <div style={{ display: "flex", flexDirection: "column", gap: 20, fontSize: "0.85rem" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
-                    <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 700 }}>OVERALL FM INDEX</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>OVERALL FM INDEX</span>
                     <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#16a34a" }}>{weightedIndex} / 100</div>
                     <small style={{ color: "#166534", fontWeight: 700 }}>Grade A · Excellent</small>
                   </div>
                   <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
-                    <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 700 }}>PM SCHEDULE COMPLIANCE</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>PM SCHEDULE COMPLIANCE</span>
                     <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#2563eb" }}>{compliance}%</div>
                     <small style={{ color: "#4b5563" }}>Target: 95.0% (Passed)</small>
                   </div>
                   <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
-                    <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 700 }}>BUDGET VARIANCE (YTD)</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>BUDGET VARIANCE (YTD)</span>
                     <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#0891b2" }}>84.2%</div>
                     <small style={{ color: "#166534", fontWeight: 700 }}>Under Budget by KES 1.97M</small>
                   </div>

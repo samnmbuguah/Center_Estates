@@ -9,7 +9,7 @@ import { FcStatus } from "../FacilityToolbar";
 
 function EmptyState({ message = "No data available." }: { message?: string }) {
   return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "#8a96a7" }}>
+    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
       {message}
     </div>
   );
@@ -95,19 +95,19 @@ export function WorkOrderDetail({
 
   return (
     <>
-      <nav style={{ marginBottom: 12, fontSize: 12, color: "#8a96a7" }}>
+      <nav style={{ marginBottom: 12, fontSize: 12, color: "var(--text-secondary)" }}>
         <span style={{ cursor: "pointer" }} onClick={onBack}>Maintenance</span>
         <span style={{ margin: "0 6px" }}>/</span>
         <span style={{ cursor: "pointer" }} onClick={onBack}>Work Orders</span>
         <span style={{ margin: "0 6px" }}>/</span>
-        <span style={{ color: "#27364a" }}>{String(row.number ?? "—")}</span>
+        <span style={{ color: "var(--text-primary)" }}>{String(row.number ?? "—")}</span>
       </nav>
       <button onClick={onBack} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0 }}>
         ← Back to Work Orders
       </button>
       <div className="data-panel" style={{ padding: "16px 18px", marginBottom: 16 }}>
         <div style={{ alignItems: "center", display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
-          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 16, fontWeight: 700, color: "#27364a" }}>{String(row.number ?? "—")}</span>
+          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{String(row.number ?? "—")}</span>
           <FcStatus value={status.replace("_", "-")} />
           <span className="fc-priority-chip">
             <i style={{ background: priorityColors[priority] ?? "#9ca3af" }} />
@@ -152,7 +152,7 @@ export function WorkOrderDetail({
               { label: "Progress", value: `${String(row.progress ?? 0)}%` },
             ].map((f) => (
               <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "9px 0" }}>
-                <span style={{ color: "#8a96a7", fontSize: 11 }}>{f.label}</span>
+                <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{f.label}</span>
                 <span style={{ fontSize: 12, fontWeight: 600 }}>{f.value}</span>
               </div>
             ))}
@@ -191,7 +191,7 @@ export function WorkOrderDetail({
               { label: "Other Cost", value: money.format(Number(row.other_cost ?? 0)) },
             ].map((f) => (
               <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "8px 0" }}>
-                <span style={{ color: "#8a96a7", fontSize: 11 }}>{f.label}</span>
+                <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{f.label}</span>
                 <span style={{ fontSize: 12, fontWeight: 600 }}>{f.value}</span>
               </div>
             ))}
@@ -220,7 +220,7 @@ export function WorkOrderDetail({
                   </div>
                   <div style={{ paddingBottom: 8 }}>
                     <strong style={{ display: "block", fontSize: 12 }}>{String(evt.event_type ?? "—").replace(/_/g, " ")}</strong>
-                    <span style={{ color: "#8a96a7", fontSize: 11 }}>{String(evt.created_at ?? "—")}</span>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{String(evt.created_at ?? "—")}</span>
                     {Boolean(evt.notes) && <p style={{ color: "#4b5563", fontSize: 11, margin: "4px 0 0" }}>{String(evt.notes)}</p>}
                   </div>
                 </div>
@@ -247,12 +247,12 @@ export function WorkOrderDetail({
                     <div style={{ alignItems: "center", display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <strong style={{ fontSize: 13 }}>{String(evt.event_type ?? "—").replace(/_/g, " ")}</strong>
                       {Boolean(evt.from_status || evt.to_status) && (
-                        <span style={{ fontSize: 11, color: "#6b7890" }}>
+                        <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                           {String(evt.from_status ?? "—").replace(/_/g, " ")} → {String(evt.to_status ?? "—").replace(/_/g, " ")}
                         </span>
                       )}
                     </div>
-                    <span style={{ color: "#8a96a7", fontSize: 11 }}>{String(evt.created_at ?? "—")} · by {String(evt.actor_name ?? "—")}</span>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{String(evt.created_at ?? "—")} · by {String(evt.actor_name ?? "—")}</span>
                     {Boolean(evt.notes) && <p style={{ color: "#4b5563", fontSize: 12, margin: "6px 0 0" }}>{String(evt.notes)}</p>}
                   </div>
                 </div>
@@ -267,7 +267,7 @@ export function WorkOrderDetail({
       {detailTab === "parts" && (
         <div className="data-panel">
           <div className="fc-table-toolbar">
-            <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>Labor & Parts Cost Items</span>
+            <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13 }}>Labor & Parts Cost Items</span>
             <div className="row" style={{ gap: 8 }}>
               <button className="fc-toolbar-btn" onClick={() => exportCsv(costItems, `work-order-${String(row.number ?? "cost")}-items.csv`)}>↓ Export</button>
               {canWork && <button className="fc-toolbar-btn primary" onClick={() => setShowCostForm(true)}>+ Add Cost Item</button>}
@@ -286,9 +286,9 @@ export function WorkOrderDetail({
                     <td style={{ fontSize: 12 }}>{String(item.quantity ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{money.format(Number(item.unit_cost ?? 0))}</td>
                     <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</td>
-                    <td style={{ fontSize: 12, color: "#6b7890" }}>{String(item.supplier ?? "—")}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(item.supplier ?? "—")}</td>
                     <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(item.reference ?? "—")}</td>
-                    <td style={{ fontSize: 12, color: "#6b7890" }}>{String(item.added_by_name ?? "—")}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(item.added_by_name ?? "—")}</td>
                   </tr>
                 )) : (
                   <tr><td colSpan={8}><EmptyState message="No cost items recorded for this work order yet." /></td></tr>
@@ -318,14 +318,14 @@ export function WorkOrderDetail({
                         <img src={url} alt={String(att.caption ?? att.file_name ?? "attachment")} style={{ height: "100%", width: "100%", objectFit: "cover" }} />
                       </div>
                     ) : (
-                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "#eef1f5", color: "#6b7890", fontSize: 32 }}>📄</div>
+                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "#eef1f5", color: "var(--text-secondary)", fontSize: 32 }}>📄</div>
                     )}
                     <div style={{ padding: "10px 12px" }}>
                       <strong style={{ display: "block", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(att.file_name ?? "—")}</strong>
-                      <small style={{ color: "#8a96a7", fontSize: 10 }}>{String(att.caption ?? att.media_type ?? "—")}</small>
+                      <small style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(att.caption ?? att.media_type ?? "—")}</small>
                       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                         {url && <a href={url} target="_blank" rel="noreferrer" style={{ color: "#e23b3b", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>Open →</a>}
-                        <span style={{ color: "#8a96a7", fontSize: 10, marginLeft: "auto" }}>{String(att.uploaded_by_name ?? "—")}</span>
+                        <span style={{ color: "var(--text-secondary)", fontSize: 10, marginLeft: "auto" }}>{String(att.uploaded_by_name ?? "—")}</span>
                       </div>
                     </div>
                   </div>

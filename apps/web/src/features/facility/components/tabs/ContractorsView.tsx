@@ -201,6 +201,7 @@ export function ContractorsView({
   const [showScorecardModal, setShowScorecardModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [scorecardError, setScorecardError] = useState("");
 
   const displayRows = rows;
 
@@ -210,36 +211,18 @@ export function ContractorsView({
     setSelectedContractor(contractor);
     setShowScorecardModal(true);
     setLoading(true);
+    setScorecardData(null);
+    setScorecardError("");
     try {
       const res = await apiFetch(`/facility/contractors/${contractor.id}/scorecard/`);
       if (res.ok) {
         const data = await res.json();
         setScorecardData(data);
       } else {
-        // High fidelity fallback calculation
-        setScorecardData({
-          contractor_id: contractor.id,
-          contractor_name: contractor.name,
-          specialty: contractor.specialty,
-          weighted_score: 92.4,
-          rag_status: "green",
-          completed_jobs: 24,
-          pillars: [
-            { name: "SLA Resolution", weight: 20, score: 95.0, metric: "23/24 completed on-time" },
-            { name: "First-Time Quality", weight: 20, score: 92.0, metric: "22 supervisor verified" },
-            { name: "Response Speed", weight: 10, score: 94.0, metric: "1.4 hr avg response" },
-            { name: "Cost Compliance", weight: 15, score: 90.0, metric: "Aligned to approved rate card" },
-            { name: "Statutory Safety", weight: 15, score: 100.0, metric: "3/3 valid compliance docs" },
-            { name: "Customer CSAT", weight: 10, score: 96.0, metric: `${contractor.rating ?? 4.8} / 5.0 stars` },
-            { name: "Reporting Evidence", weight: 10, score: 88.0, metric: "Photo proof on ticket closure" },
-          ],
-          contracts: [
-            { contract_number: "CNT-2026-001", scope_of_work: "Comprehensive Annual OEM Maintenance Contract", contract_value: 1800000, start_date: "2026-01-01", end_date: "2026-12-31", response_sla_hours: 1, resolution_sla_hours: 4 },
-          ],
-        });
+        setScorecardError("The live performance scorecard could not be loaded. Retry after contractor activity has been recorded.");
       }
     } catch {
-      // ignore
+      setScorecardError("The live performance scorecard could not be loaded. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -380,6 +363,11 @@ export function ContractorsView({
 
             {loading ? (
               <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>Calculating weighted KPI scorecard...</div>
+            ) : scorecardError ? (
+              <div className="form-error" role="alert" style={{ padding: 16 }}>
+                {scorecardError}
+                <button className="btn ghost" style={{ marginLeft: 12 }} onClick={() => void viewScorecard(selectedContractor)}>Retry</button>
+              </div>
             ) : scorecardData ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* Overall Score Meter */}

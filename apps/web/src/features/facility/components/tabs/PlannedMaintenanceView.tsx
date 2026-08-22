@@ -8,7 +8,7 @@ import { FcStatus } from "../FacilityToolbar";
 
 function EmptyState({ message = "No data available." }: { message?: string }) {
   return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "#8a96a7" }}>
+    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
       {message}
     </div>
   );
@@ -74,6 +74,7 @@ export function PlannedMaintenanceView({
   const [bulkGrid, setBulkGrid] = useState<Record<string, Record<number, string>>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMessage, setBulkMessage] = useState("");
+  const [weekOffset, setWeekOffset] = useState(0);
   const bulkMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function openBulkSchedule() {
@@ -117,10 +118,9 @@ export function PlannedMaintenanceView({
     setBulkSaving(true);
     setBulkMessage("");
     await apiFetch("/auth/csrf/");
-    let failed = 0;
-    for (const entry of entries) {
+    const records = entries.map((entry) => {
       const monthName = bulkMonths[entry.monthIndex];
-      const payload = {
+      return {
         code: `PPM-${String(entry.asset.code ?? "AST")}-${year}${String(entry.monthIndex + 1).padStart(2, "0")}`,
         name: `Annual Maintenance — ${String(entry.asset.name ?? "Asset")} (${monthName})`,
         asset: entry.asset.id,
@@ -129,51 +129,63 @@ export function PlannedMaintenanceView({
         estimated_hours: 1,
         is_active: true,
       };
-      const response = await apiFetch(
-        "/facility/planned-maintenance/",
-        { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify(payload) },
-        organizationId
-      );
-      if (!response.ok) failed++;
-    }
+    });
+    const response = await apiFetch(
+      "/facility/planned-maintenance/bulk-create/",
+      { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ records }) },
+      organizationId
+    );
     setBulkSaving(false);
-    setBulkMessage(failed ? `${entries.length - failed}/${entries.length} schedules saved — ${failed} failed.` : `${entries.length} annual schedule${entries.length > 1 ? "s" : ""} saved.`);
+    if (!response.ok) {
+      setBulkMessage("The schedules could not be saved. Check for duplicate asset/month entries and retry.");
+      return;
+    }
+    setBulkMessage(`${entries.length} annual schedule${entries.length > 1 ? "s" : ""} saved.`);
     setShowBulk(false);
     setBulkGrid({});
     reload();
   }
-  const days = ["Mon 12 May", "Tue 13 May", "Wed 14 May", "Thu 15 May", "Fri 16 May", "Sat 17 May", "Sun 18 May"];
-  const calEvents = [
-    [
-      { name: "Generator Monthly Service", id: "GEN-001", type: "gen" },
-    ],
-    [
-      { name: "Fire Pump Test", id: "FP-01, FP-02", type: "fire" },
-      { name: "Lift Preventive Maintenance", id: "LIFT-1", type: "cctv" },
-    ],
-    [
-      { name: "Lift Inspection", id: "LIFT-1, LIFT-2", type: "cctv" },
-      { name: "Fire Extinguisher Check", id: "FE-01 to 35", type: "fire" },
-    ],
-    [
-      { name: "Water Tank Cleaning", id: "WT-1", type: "water" },
-      { name: "Electrical DB Inspection", id: "DB-MDB-1", type: "elec" },
-    ],
-    [
-      { name: "CCTV System Check", id: "CCTV-01 to 08", type: "cctv" },
-      { name: "Water Pump Service", id: "WP-1, WP-2", type: "water" },
-    ],
-    [],
-    [],
-  ];
-
   const displayRows = rows;
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  weekStart.setDate(weekStart.getDate() + weekOffset * 7);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekDates = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+    return date;
+  });
+  const localDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const days = weekDates.map((date) => date.toLocaleDateString("en-KE", { weekday: "short", day: "numeric", month: "short" }));
+  const calEvents = weekDates.map((date) => rows.filter((row) => String(row.next_due_on ?? "") === localDateKey(date)).map((row) => {
+    const name = String(row.name ?? "Scheduled maintenance");
+    const lower = name.toLowerCase();
+    const type = lower.includes("fire") ? "fire" : lower.includes("water") ? "water" : lower.includes("electric") ? "elec" : lower.includes("generator") ? "gen" : "cctv";
+    return { name, id: String(row.asset_code ?? row.code ?? ""), type };
+  }));
+  const maintenancePlans = Object.values(rows.reduce<Record<string, { name: string; freq: string; done: number; total: number; pct: number }>>((plans, row) => {
+    const key = String(row.frequency ?? "Unscheduled");
+    const plan = plans[key] ?? { name: `${key.replace(/\b\w/g, (letter) => letter.toUpperCase())} maintenance`, freq: key, done: 0, total: 0, pct: 0 };
+    plan.total += 1;
+    if (row.last_completed_on) plan.done += 1;
+    plan.pct = Math.round((plan.done / plan.total) * 100);
+    plans[key] = plan;
+    return plans;
+  }, {}));
 
   const compliance = Number(kpis?.maintenanceCompliance ?? 0);
   const completedTasks = rows.filter((r) => r.last_completed_on).length;
   const scheduledTasks = rows.length;
-  const upcomingTasks = rows.filter((r) => !r.last_completed_on).length;
-  const overdueTasks = rows.filter((r) => !r.last_completed_on && String(r.next_due_on ?? "").length).length;
+  const todayKey = localDateKey(today);
+  const nextWeek = new Date(today);
+  nextWeek.setDate(today.getDate() + 7);
+  const nextWeekKey = localDateKey(nextWeek);
+  const upcomingTasks = rows.filter((row) => {
+    const due = String(row.next_due_on ?? "");
+    return due >= todayKey && due <= nextWeekKey;
+  }).length;
+  const overdueTasks = rows.filter((row) => String(row.next_due_on ?? "") < todayKey && row.is_active !== false).length;
   const uniqueTechnicians = rows.length > 0
     ? new Set(rows.map((r) => String(r.assigned_to ?? "")).filter(Boolean)).size
     : 0;
@@ -194,8 +206,8 @@ export function PlannedMaintenanceView({
         <PanelHeader title="PPM Compliance Trend (Last 6 Months)" />
         <div style={{ padding: "14px 18px" }}>
           {(() => {
-            const trendMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-            const trendValues = [85, 88, 90, 87, 92, compliance];
+            const trendMonths = [today.toLocaleDateString("en-KE", { month: "short", year: "2-digit" })];
+            const trendValues = [compliance];
             const maxVal = Math.max(...trendValues, 1);
             return (
               <div style={{ alignItems: "flex-end", display: "flex", gap: 10, height: 120 }}>
@@ -203,7 +215,7 @@ export function PlannedMaintenanceView({
                   <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: trendValues[i] >= 90 ? "#16a34a" : trendValues[i] >= 80 ? "#a16207" : "#b91c1c" }}>{trendValues[i]}%</span>
                     <div style={{ background: trendValues[i] >= 90 ? "#22c55e" : trendValues[i] >= 80 ? "#f59e0b" : "#ef4444", borderRadius: "4px 4px 0 0", height: `${(trendValues[i] / maxVal) * 100}%`, minHeight: 4, width: "100%" }} />
-                    <span style={{ color: "#8a96a7", fontSize: 9 }}>{m}</span>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 9 }}>{m}</span>
                   </div>
                 ))}
                 <div style={{ position: "relative", width: "100%", height: 0, top: 0 }}>
@@ -235,17 +247,9 @@ export function PlannedMaintenanceView({
           <article className="data-panel">
             <div style={{ borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", padding: "14px 16px" }}>
               <strong style={{ fontSize: 13 }}>Maintenance Plans</strong>
-              <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>View all</button>
+              <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>View all</button>
             </div>
-            {[
-              { name: "Lift Systems Maintenance", freq: "Monthly", done: 16, total: 18, pct: 89 },
-              { name: "Fire Safety Systems", freq: "Quarterly", done: 18, total: 20, pct: 90 },
-              { name: "Generator Maintenance", freq: "Monthly", done: 8, total: 12, pct: 67 },
-              { name: "Water Supply Systems", freq: "Monthly", done: 9, total: 12, pct: 75 },
-              { name: "Electrical Systems", freq: "Monthly", done: 14, total: 16, pct: 88 },
-              { name: "CCTV & Access Control", freq: "Monthly", done: 7, total: 8, pct: 88 },
-              { name: "Plumbing & Drainage", freq: "Monthly", done: 6, total: 10, pct: 60 },
-            ].map((plan) => {
+            {maintenancePlans.map((plan) => {
               const colors = ["#4f46e5", "#ef4444", "#f59e0b", "#3b82f6", "#a855f7", "#10b981", "#6366f1"];
               const ci = ["Lift", "Fire", "Generator", "Water", "Electrical", "CCTV", "Plumbing"].findIndex((k) => plan.name.includes(k));
               const col = colors[Math.max(0, ci)];
@@ -257,21 +261,22 @@ export function PlannedMaintenanceView({
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <strong style={{ display: "block", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{plan.name}</strong>
-                      <small style={{ color: "#8a96a7", fontSize: 9 }}>{plan.freq}</small>
+                      <small style={{ color: "var(--text-secondary)", fontSize: 9 }}>{plan.freq}</small>
                     </div>
                   </div>
                   <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
                     <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 5, overflow: "hidden" }}>
                       <i style={{ background: col, borderRadius: "inherit", display: "block", height: "100%", width: `${plan.pct}%` }} />
                     </div>
-                    <span style={{ color: "#27364a", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>{plan.done}/{plan.total}</span>
-                    <span style={{ color: "#8a96a7", fontSize: 10 }}>{plan.pct}%</span>
+                    <span style={{ color: "var(--text-primary)", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>{plan.done}/{plan.total}</span>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{plan.pct}%</span>
                   </div>
                 </div>
               );
             })}
+            {maintenancePlans.length === 0 && <EmptyState message="No maintenance plans are configured for this property." />}
             <div style={{ padding: "12px 16px" }}>
-              <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Add New Maintenance Plan</button>
+              <button onClick={onAdd} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Add New Maintenance Plan</button>
             </div>
           </article>
         </div>
@@ -284,15 +289,11 @@ export function PlannedMaintenanceView({
           <article className="data-panel" style={{ overflow: "hidden" }}>
             <div className="fc-ppm-header">
               <div className="fc-ppm-cal-nav">
-                <button>‹</button>
-                <strong className="fc-ppm-cal-month">May 12 – 18, 2026</strong>
-                <button>›</button>
+                <button aria-label="Previous week" onClick={() => setWeekOffset((value) => value - 1)}>‹</button>
+                <strong className="fc-ppm-cal-month">{days[0]} – {days[6]}</strong>
+                <button aria-label="Next week" onClick={() => setWeekOffset((value) => value + 1)}>›</button>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {["All Buildings", "All Categories", "All Status", "All Technicians"].map((f) => (
-                  <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
-                ))}
-              </div>
+              {weekOffset !== 0 && <button className="fc-toolbar-btn" onClick={() => setWeekOffset(0)}>This week</button>}
               <button className="fc-toolbar-btn primary" onClick={onAdd}>Create PPM Task</button>
             </div>
             {/* Week grid */}
@@ -331,11 +332,6 @@ export function PlannedMaintenanceView({
             <div className="fc-ppm-header">
               <div className="fc-ppm-cal-nav">
                 <strong className="fc-ppm-cal-month">Gantt — PPM Tasks</strong>
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {["All Buildings", "All Categories", "All Status", "All Technicians"].map((f) => (
-                  <select key={f} className="fc-toolbar-select"><option>{f}</option></select>
-                ))}
               </div>
               <button className="fc-toolbar-btn primary" onClick={onAdd}>Create PPM Task</button>
             </div>
@@ -410,8 +406,8 @@ export function PlannedMaintenanceView({
                       return (
                         <div key={String(task.id)} style={{ display: "flex", gap: 4, marginBottom: 6, fontSize: 12 }}>
                           <div style={{ minWidth: 180, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <span style={{ fontWeight: 600, color: "#27364a" }}>{String(task.name ?? "—")}</span>
-                            <span style={{ color: "#8a96a7", fontSize: 10, marginLeft: 6 }}>{freq}</span>
+                            <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{String(task.name ?? "—")}</span>
+                            <span style={{ color: "var(--text-secondary)", fontSize: 10, marginLeft: 6 }}>{freq}</span>
                           </div>
                           <div style={{ flex: 1, position: "relative", height: 22, background: "var(--surface-2, #f0f2f6)", borderRadius: 4 }}>
                             <div
@@ -453,7 +449,7 @@ export function PlannedMaintenanceView({
                     ▦ Bulk Schedule
                   </button>
                 )}
-                <button style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all</button>
+                <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all</button>
               </div>
             </div>
             <div className="table-scroll">
@@ -510,25 +506,24 @@ export function PlannedMaintenanceView({
       {showBulk && (
         <Modal title="Bulk Annual Schedule" onClose={() => setShowBulk(false)} wide>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={{ color: "#4b5563", fontSize: 12, margin: 0 }}>
-              Set the scheduled annual maintenance date for each asset and month. Each filled cell creates one annual{" "}
-              <code>PreventiveSchedule</code> via <code>/facility/planned-maintenance/</code> (backend has no bulk endpoint, so one create per asset).
+            <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>
+              Select maintenance dates for multiple assets. The complete schedule is validated and saved together.
             </p>
             {bulkMessage && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, color: "#15803d", fontSize: 12, padding: "8px 12px" }}>{bulkMessage}</div>}
             <div className="table-scroll" style={{ maxHeight: 420 }}>
               <table className="fc-data-table" style={{ minWidth: 1240 }}>
                 <thead>
                   <tr>
-                    <th style={{ position: "sticky", left: 0, background: "#fff", zIndex: 2, minWidth: 180 }}>Asset</th>
+                    <th style={{ position: "sticky", left: 0, background: "var(--surface-sunken)", zIndex: 2, minWidth: 180 }}>Asset</th>
                     {bulkMonths.map((m) => <th key={m}>{m}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {bulkAssets.length > 0 ? bulkAssets.map((asset) => (
                     <tr key={String(asset.id)}>
-                      <td style={{ position: "sticky", left: 0, background: "#fff", fontSize: 12, minWidth: 180 }}>
+                      <td style={{ position: "sticky", left: 0, background: "var(--surface-raised)", fontSize: 12, minWidth: 180 }}>
                         <strong>{String(asset.name ?? "—")}</strong>
-                        <small style={{ color: "#8a96a7", display: "block", fontSize: 10 }}>{String(asset.code ?? "—")}</small>
+                        <small style={{ color: "var(--text-secondary)", display: "block", fontSize: 10 }}>{String(asset.code ?? "—")}</small>
                       </td>
                       {bulkMonths.map((m, mi) => (
                         <td key={m} style={{ padding: "6px 4px" }}>

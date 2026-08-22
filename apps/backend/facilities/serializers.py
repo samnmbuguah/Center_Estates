@@ -6,7 +6,7 @@ from core.tenancy import get_active_organization
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
-    FacilityFlag, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
+    FacilityExpense, FacilityFlag, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
     MeterResetEvent, PreventiveSchedule, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
@@ -60,6 +60,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         model = WorkOrder
         exclude = ('organization', 'reported_by')
         ref_name = 'FacilityWorkOrder'
+        extra_kwargs = {'number': {'required': False, 'allow_blank': True}}
 
     @extend_schema_field(serializers.DecimalField(max_digits=14, decimal_places=2))
     def get_total_cost(self, obj):
@@ -283,6 +284,23 @@ class FMBudgetSerializer(serializers.ModelSerializer):
             return Decimal('0.00')
         spent = obj.actual_amount + obj.committed_amount
         return ((spent / obj.allocated_amount) * Decimal('100.0')).quantize(Decimal('0.01'))
+
+
+class FacilityExpenseSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    work_order_number = serializers.CharField(source='work_order.number', read_only=True, default='')
+    recorded_by_name = serializers.CharField(source='recorded_by.get_full_name', read_only=True, default='')
+    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = FacilityExpense
+        exclude = ('organization', 'recorded_by', 'approved_by', 'approved_at')
+        read_only_fields = ('status', 'decision_notes')
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Expense amount must be greater than zero.')
+        return value
 
 
 class ComplianceObligationSerializer(serializers.ModelSerializer):

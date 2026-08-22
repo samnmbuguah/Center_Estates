@@ -37,7 +37,7 @@ export function UtilityBarChart({
             <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "#4b5563" }}>{format(values[i])}</span>
               <div style={{ background: color, borderRadius: "4px 4px 0 0", height: `${(values[i] / max) * 100}%`, minHeight: 4, width: "100%", transition: "height 0.3s" }} />
-              <span style={{ color: "#8a96a7", fontSize: 9 }}>{m}</span>
+              <span style={{ color: "var(--text-secondary)", fontSize: 9 }}>{m}</span>
             </div>
           ))}
         </div>
@@ -324,12 +324,12 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
                 </thead>
                 <tbody>
                   {reconLoading ? (
-                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#6b7890" }}>Loading reconciliations…</td></tr>
+                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>Loading reconciliations…</td></tr>
                   ) : reconciliations.length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#6b7890" }}>No bulk/check reconciliations recorded yet.</td></tr>
+                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>No bulk/check reconciliations recorded yet.</td></tr>
                   ) : reconciliations.map((row) => (
                     <tr key={String(row.id)}>
-                      <td style={{ fontSize: 12 }}>{String(row.meter_name ?? "—")}<br /><span style={{ color: "#8a96a7", fontSize: 10 }}>{String(row.property_name ?? "")}</span></td>
+                      <td style={{ fontSize: 12 }}>{String(row.meter_name ?? "—")}<br /><span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(row.property_name ?? "")}</span></td>
                       <td style={{ fontSize: 12 }}>{String(row.period_start ?? "—")} → {String(row.period_end ?? "—")}</td>
                       <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.bulk_consumption ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String(row.check_consumption ?? "—")}</td>
@@ -386,12 +386,12 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
                               <span style={{ fontSize: 12, textTransform: "capitalize" }}>{String(row.utility_type ?? "—")} ({String(row.unit ?? "")})</span>
                             </div>
                           </td>
-                          <td style={{ fontSize: 12 }}>{String(row.name ?? "—")}<br /><span style={{ color: "#8a96a7", fontSize: 10 }}>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</span></td>
+                          <td style={{ fontSize: 12 }}>{String(row.name ?? "—")}<br /><span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</span></td>
                           <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.current_reading ?? "—")}</td>
-                          <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.previous_reading ?? "—")}</td>
+                          <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.previous_reading ?? "—")}</td>
                           <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.consumption ?? "—")} {String(row.unit ?? "")}</td>
                           <td style={{ fontSize: 12 }}>KES {Number(row.tariff ?? 0).toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
-                          <td style={{ fontSize: 11, color: "#6b7890" }}>{String(row.read_at ?? "—")}</td>
+                          <td style={{ fontSize: 11, color: "var(--text-secondary)" }}>{String(row.read_at ?? "—")}</td>
                           <td><FcStatus value={String(row.reading_status ?? "not_read")} /></td>
                           <td>
                             <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
@@ -408,7 +408,7 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
                           </td>
                         </tr>
                       ))
-                    : <tr><td colSpan={9} style={{ color: "#6b7890", padding: 24, textAlign: "center" }}>No utility meters or readings have been recorded yet.</td></tr>}
+                    : <tr><td colSpan={9} style={{ color: "var(--text-secondary)", padding: 24, textAlign: "center" }}>No utility meters or readings have been recorded yet.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -438,19 +438,19 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
             <PanelHeader title="Monthly Summary" />
             <div style={{ padding: "14px 18px", display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
               <div>
-                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Total Consumption (YTD)</span>
+                <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>Total Consumption (YTD)</span>
                 <strong style={{ fontSize: 18 }}>{totalConsumption >= 1000 ? `${(totalConsumption / 1000).toFixed(1)}k` : totalConsumption}</strong>
               </div>
               <div>
-                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Total Cost (YTD)</span>
+                <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>Total Cost (YTD)</span>
                 <strong style={{ fontSize: 18 }}>KES {totalCost >= 1000000 ? `${(totalCost / 1000000).toFixed(2)}M` : `${(totalCost / 1000).toFixed(0)}k`}</strong>
               </div>
               <div>
-                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Avg. Monthly Consumption</span>
+                <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>Avg. Monthly Consumption</span>
                 <strong style={{ fontSize: 14 }}>{totalConsumption >= 1000 ? `${(totalConsumption / 12000).toFixed(1)}k` : Math.round(totalConsumption / 12)}</strong>
               </div>
               <div>
-                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Avg. Monthly Cost</span>
+                <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>Avg. Monthly Cost</span>
                 <strong style={{ fontSize: 14 }}>KES {totalCost >= 1000000 ? `${(totalCost / 12000000).toFixed(2)}M` : `${(totalCost / 12000).toFixed(0)}k`}</strong>
               </div>
             </div>
@@ -470,20 +470,20 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
                     <small>{String(row.name ?? row.code ?? "Utility meter")}</small>
                     <small>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</small>
                   </div>
-                  <span style={{ color: "#9aacbf", fontSize: 10 }}>{String(row.read_at ?? "")}</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: 10 }}>{String(row.read_at ?? "")}</span>
                 </div>
-              )) : <div style={{ color: "#6b7890", fontSize: 12, padding: 18 }}>No utility anomalies or readings awaiting review.</div>}
+              )) : <div style={{ color: "var(--text-secondary)", fontSize: 12, padding: 18 }}>No utility anomalies or readings awaiting review.</div>}
             </div>
           </article>
 
           <article className="data-panel">
             <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--line)" }}>
               <strong style={{ fontSize: 13 }}>Utility Cost Summary</strong>
-              <div style={{ fontSize: 10, color: "#8a96a7" }}>This Month</div>
+              <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>This Month</div>
             </div>
             <div style={{ padding: "16px 18px" }}>
               <div style={{ marginBottom: 14 }}>
-                <span style={{ color: "#8a96a7", display: "block", fontSize: 11 }}>Total Cost</span>
+                <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>Total Cost</span>
                 <strong style={{ fontSize: 22 }}>KES {utilityCost}</strong>
                 <span style={{ color: "#ef4444", fontSize: 11 }}> YTD</span>
               </div>

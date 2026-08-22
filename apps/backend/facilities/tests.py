@@ -11,7 +11,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import Contractor, FacilityAsset, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import Contractor, FacilityAsset, FacilityExpense, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -104,6 +104,61 @@ class FacilityApiTests(TestCase):
         self.assertEqual(response.data['kpis']['activeAssets'], 1)
         self.assertEqual(response.data['kpis']['openWorkOrders'], 1)
         self.assertEqual(response.data['kpis']['overdueWorkOrders'], 1)
+
+    def test_facility_expense_is_persisted_scoped_and_approved(self):
+        created = self.client.post('/api/v1/facility/expenses/', {
+            'property': str(self.property.id),
+            'spent_on': '2026-08-23',
+            'category': 'Repairs',
+            'description': 'Generator oil and filter service',
+            'amount': '18500.00',
+            'float_reference': 'FLT-2026-08',
+            'supplier': 'PowerTech Services',
+            'receipt_reference': 'RCT-1842',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        expense = FacilityExpense.objects.get(pk=created.data['id'])
+        self.assertEqual(expense.recorded_by, self.user)
+        self.assertEqual(expense.status, FacilityExpense.Status.PENDING)
+
+        approved = self.client.post(
+            f'/api/v1/facility/expenses/{expense.id}/approve/',
+            {'notes': 'Receipt and service completion verified.'}, format='json', **self.headers,
+        )
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], FacilityExpense.Status.APPROVED)
+        listed = self.client.get('/api/v1/facility/expenses/', **{
+            **self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id),
+        })
+        self.assertEqual([row['description'] for row in listed.data], ['Generator oil and filter service'])
+
+    def test_preventive_schedules_can_be_created_atomically_in_bulk(self):
+        response = self.client.post('/api/v1/facility/planned-maintenance/bulk-create/', {
+            'records': [
+                {
+                    'code': 'PPM-A1-202608', 'name': 'August lift service',
+                    'asset': str(self.asset.id), 'frequency': 'monthly',
+                    'next_due_on': '2026-08-28', 'estimated_hours': '2.00', 'is_active': True,
+                },
+                {
+                    'code': 'PPM-A1-202609', 'name': 'September lift service',
+                    'asset': str(self.asset.id), 'frequency': 'monthly',
+                    'next_due_on': '2026-09-28', 'estimated_hours': '2.00', 'is_active': True,
+                },
+            ],
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(PreventiveSchedule.objects.filter(organization=self.organization).count(), 2)
+
+        duplicate = self.client.post('/api/v1/facility/planned-maintenance/bulk-create/', {
+            'records': [{
+                'code': 'PPM-A1-202608', 'name': 'Duplicate schedule',
+                'asset': str(self.asset.id), 'frequency': 'monthly',
+                'next_due_on': '2026-10-28', 'estimated_hours': '2.00', 'is_active': True,
+            }],
+        }, format='json', **self.headers)
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertEqual(PreventiveSchedule.objects.filter(organization=self.organization).count(), 2)
 
     def test_dashboard_and_contractors_honor_selected_property(self):
         assigned = Contractor.objects.create(

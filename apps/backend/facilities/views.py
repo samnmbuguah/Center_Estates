@@ -26,13 +26,13 @@ from notifications.services import notify_permission, notify_user
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
-    FacilityFlag, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
+    FacilityExpense, FacilityFlag, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
     MeterResetEvent, PreventiveSchedule, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 from .serializers import (
     AssetConditionAssessmentSerializer, ComplianceObligationSerializer, ContractorContractSerializer,
-    ContractorSerializer, FacilityAssetSerializer, FacilityFlagSerializer, FacilityRiskSerializer,
+    ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityRiskSerializer,
     FloorPlanSerializer, FMBudgetSerializer, InspectionSerializer, MeterReadingSerializer,
     MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer,
     ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
@@ -210,6 +210,39 @@ class FMBudgetViewSet(FacilityModelViewSet):
     queryset = FMBudget.objects.select_related('property')
     serializer_class = FMBudgetSerializer
     search_fields = ('category', 'property__name')
+
+
+class FacilityExpenseViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    queryset = FacilityExpense.objects.select_related('property', 'work_order', 'recorded_by', 'approved_by')
+    serializer_class = FacilityExpenseSerializer
+    search_fields = ('description', 'category', 'float_reference', 'supplier', 'receipt_reference', 'property__name')
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer), recorded_by=self.request.user)
+
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        expense = self.get_object()
+        expense.status = FacilityExpense.Status.APPROVED
+        expense.approved_by = request.user
+        expense.approved_at = timezone.now()
+        expense.decision_notes = str(request.data.get('notes', '')).strip()
+        expense.save(update_fields=('status', 'approved_by', 'approved_at', 'decision_notes', 'updated_at'))
+        return Response(self.get_serializer(expense).data)
+
+    @action(detail=True, methods=('post',))
+    def reject(self, request, pk=None):
+        notes = str(request.data.get('notes', '')).strip()
+        if not notes:
+            raise ValidationError({'notes': 'Explain why this expense is being rejected.'})
+        expense = self.get_object()
+        expense.status = FacilityExpense.Status.REJECTED
+        expense.approved_by = request.user
+        expense.approved_at = timezone.now()
+        expense.decision_notes = notes
+        expense.save(update_fields=('status', 'approved_by', 'approved_at', 'decision_notes', 'updated_at'))
+        return Response(self.get_serializer(expense).data)
 
 
 class ComplianceObligationViewSet(FacilityModelViewSet):
@@ -570,7 +603,12 @@ class WorkOrderViewSet(FacilityModelViewSet):
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
-        work_order = serializer.save(organization=organization, reported_by=self.request.user)
+        number = str(serializer.validated_data.get('number', '')).strip()
+        if not number:
+            number = f'WO-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+            while WorkOrder.objects.filter(organization=organization, number=number).exists():
+                number = f'WO-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+        work_order = serializer.save(organization=organization, reported_by=self.request.user, number=number)
         WorkOrderEvent.objects.create(
             organization=organization, work_order=work_order, event_type='created',
             to_status=work_order.status, notes='Work order created', actor=self.request.user,
@@ -671,6 +709,33 @@ class PreventiveScheduleViewSet(FacilityModelViewSet):
     queryset = PreventiveSchedule.objects.select_related('asset__property')
     serializer_class = PreventiveScheduleSerializer
     search_fields = ('code', 'name', 'asset__name')
+
+    @action(detail=False, methods=('post',), url_path='bulk-create')
+    @transaction.atomic
+    def bulk_create(self, request):
+        records = request.data.get('records') if isinstance(request.data, dict) else None
+        if not isinstance(records, list) or not records:
+            raise ValidationError({'records': 'Provide at least one preventive schedule.'})
+        if len(records) > 500:
+            raise ValidationError({'records': 'A maximum of 500 schedules can be created at once.'})
+        serializer = self.get_serializer(data=records, many=True)
+        serializer.is_valid(raise_exception=True)
+        organization = get_active_organization(request)
+        codes = [str(item.get('code', '')).strip() for item in records]
+        duplicate_codes = {code for code in codes if code and codes.count(code) > 1}
+        existing_codes = set(
+            PreventiveSchedule.objects.filter(organization=organization, code__in=codes)
+            .values_list('code', flat=True)
+        )
+        if duplicate_codes or existing_codes:
+            conflicts = sorted(duplicate_codes | existing_codes)
+            raise ValidationError({'records': f"Schedule code already exists: {', '.join(conflicts)}"})
+        for item in serializer.validated_data:
+            for name, value in item.items():
+                if getattr(value, 'organization_id', organization.id) != organization.id:
+                    raise ValidationError({name: 'The selected record belongs to another organization.'})
+        created = serializer.save(organization=organization)
+        return Response(self.get_serializer(created, many=True).data, status=201)
 
     def perform_update(self, serializer):
         if {'last_completed_on', 'next_due_on'} & set(serializer.validated_data):

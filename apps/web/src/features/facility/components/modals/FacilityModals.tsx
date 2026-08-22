@@ -56,7 +56,7 @@ export function FacilityModals({
               <div className="form-row">
                 <label>
                   Work order number
-                  <input name="number" required placeholder="WO-2026-1790" data-testid="wo-number-input" />
+                  <input value="Generated automatically on save" disabled aria-label="Work order number" data-testid="wo-number-input" />
                 </label>
                 <label>
                   Priority
@@ -93,6 +93,7 @@ export function FacilityModals({
                 Description
                 <textarea name="description" rows={4} data-testid="wo-description-input" />
               </label>
+              {createError && <div className="form-error" role="alert">{createError}</div>}
               <input type="hidden" name="status" value="open" />
               <div className="form-actions">
                 <button type="button" onClick={() => setShowCreate(false)}>Cancel</button>

@@ -15,8 +15,9 @@ test("approved service request becomes an evidenced and resolved work order", as
 
   await page.goto("/facility");
   const propertySelector = page.getByLabel("Select property");
-  const westlands = await propertySelector.locator("option", { hasText: "Westlands Business Centre" }).getAttribute("value");
-  await propertySelector.selectOption(westlands ?? "");
+  await expect(propertySelector).toBeVisible();
+  const activeProperty = await propertySelector.inputValue();
+  expect(activeProperty).not.toBe("");
   await openModuleSection(page, "Service Requests", testInfo);
 
   await page.getByRole("button", { name: "New Service Request", exact: true }).click();
@@ -25,7 +26,7 @@ test("approved service request becomes an evidenced and resolved work order", as
   await createDialog.getByLabel("Category").selectOption("Electrical");
   await createDialog.getByLabel("Priority").selectOption("high");
   await createDialog.getByLabel("Reference").fill(reference);
-  await createDialog.getByLabel("Property").selectOption(westlands ?? "");
+  await createDialog.getByLabel("Property").selectOption(activeProperty);
   await createDialog.getByLabel("Description").fill("Replace failed common-area fitting and record completion evidence.");
   await createDialog.getByRole("button", { name: "Create Request", exact: true }).click();
 

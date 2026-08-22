@@ -83,6 +83,8 @@ export function AssetsView({
   const [showQrModal, setShowQrModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [assetError, setAssetError] = useState("");
 
   const displayRows = rows;
 
@@ -93,41 +95,19 @@ export function AssetsView({
     setSelectedAsset(asset);
     setShowLifecycleModal(true);
     setLoading(true);
+    setAssetError("");
     try {
       const res = await apiFetch(`/facility/assets/${asset.id}/lifecycle_analysis/`);
       if (res.ok) {
         const data = await res.json();
         setLifecycleData(data);
       } else {
-        // Fallback calculation
-        const repl = Number(asset.replacement_cost || asset.purchase_value || 10000000);
-        setLifecycleData({
-          asset_id: asset.id,
-          code: asset.code,
-          name: asset.name,
-          category: asset.category,
-          purchase_value: asset.purchase_value,
-          replacement_cost: repl,
-          total_repair_cost: 450000,
-          repair_to_replacement_ratio_percent: 4.5,
-          failure_count: 2,
-          condition_grade: 4,
-          age_years: 6,
-          expected_useful_life_years: 15,
-          remaining_useful_years: 9,
-          recommendation: "Continue Routine Preventive Maintenance",
-          recommendation_color: "success",
-          capex_5_year_projections: [
-            { year: 2027, planned_capex: 0, projected_condition_score: 4, status: "Routine Operation" },
-            { year: 2028, planned_capex: 0, projected_condition_score: 3.5, status: "Routine Operation" },
-            { year: 2029, planned_capex: 0, projected_condition_score: 3, status: "Mid-Life Refurbishment" },
-            { year: 2030, planned_capex: 0, projected_condition_score: 3, status: "Routine Operation" },
-            { year: 2031, planned_capex: repl, projected_condition_score: 5, status: "Capital Renewal Scheduled" },
-          ],
-        });
+        setLifecycleData(null);
+        setAssetError("Lifecycle analysis could not be loaded. Please retry.");
       }
     } catch {
-      // ignore
+      setLifecycleData(null);
+      setAssetError("Lifecycle analysis could not be loaded. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -153,12 +133,17 @@ export function AssetsView({
     });
     if (res.ok) {
       setShowAssessmentModal(false);
-      alert("Condition assessment recorded successfully!");
+      setNotice("Condition assessment recorded successfully.");
+      reload?.();
+    } else {
+      setAssetError("The condition assessment could not be saved. Review the details and retry.");
     }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {notice && <div className="form-success" role="status">{notice}</div>}
+      {assetError && <div className="form-error" role="alert">{assetError}</div>}
       {/* Top KPI Cards */}
       <div className="fc-kpi-strip">
         <FcKpiCard icon="📦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Registered Assets" value={String(displayRows.length)} sub="Unique tagged assets" />
@@ -647,7 +632,7 @@ export function AssetsView({
               onClick={() => setSelectedIds(new Set())}
               style={{
                 background: "none",
-                color: "#94a3b8",
+                color: "var(--text-muted)",
                 border: 0,
                 padding: "6px 8px",
                 fontSize: 12,
@@ -663,10 +648,10 @@ export function AssetsView({
       {/* Batch QR Code Printable Sheet Modal */}
       {showQrModal && (
         <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-          <div style={{ background: "#ffffff", color: "#111827", width: "100%", maxWidth: 840, borderRadius: 12, padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
+          <div style={{ background: "var(--surface-raised)", color: "var(--text-primary)", border: "1px solid var(--border-color)", width: "100%", maxWidth: 840, borderRadius: 12, padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "#0f172a" }}>
+                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "var(--text-primary)" }}>
                   🖨️ Batch Asset QR Code Tag Sheet (Avery / Label Print Ready)
                 </h2>
                 <small style={{ color: "#64748b", fontSize: "0.8rem" }}>
@@ -722,7 +707,7 @@ export function AssetsView({
                       </div>
 
                       <div style={{ fontSize: 11 }}>
-                        <strong style={{ display: "block", color: "#0f172a", fontSize: 12, lineHeight: 1.2 }}>
+                        <strong style={{ display: "block", color: "var(--text-primary)", fontSize: 12, lineHeight: 1.2 }}>
                           {String(asset.name)}
                         </strong>
                         <div style={{ color: "#64748b", marginTop: 2 }}>{String(asset.building_name ?? "Tower A")}</div>
@@ -730,7 +715,7 @@ export function AssetsView({
                       </div>
                     </div>
 
-                    <div style={{ fontSize: 9, color: "#94a3b8", textAlign: "center", borderTop: "1px solid #e2e8f0", paddingTop: 4 }}>
+                    <div style={{ fontSize: 9, color: "var(--text-muted)", textAlign: "center", borderTop: "1px solid #e2e8f0", paddingTop: 4 }}>
                       Serial: {String(asset.serial_number ?? "AST-KE-2026")}
                     </div>
                   </div>

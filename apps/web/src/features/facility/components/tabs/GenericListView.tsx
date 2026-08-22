@@ -6,7 +6,7 @@ import { FacilityTab, Row, facilityLabels } from "../../types/facility.types";
 
 function EmptyState({ message = "No data available." }: { message?: string }) {
   return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "#8a96a7" }}>
+    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
       {message}
     </div>
   );
