@@ -1,103 +1,141 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DetailDrawer, Field } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
 
-function EmptyState({ message = "No data available." }: { message?: string }) {
-  return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "#8a96a7" }}>
-      {message}
-    </div>
-  );
+type InventoryVariant = "spare-parts" | "consumables";
+
+const copy: Record<InventoryVariant, { title: string; singular: string; icon: string; description: string; categories: string[] }> = {
+  "spare-parts": {
+    title: "Spare Parts",
+    singular: "spare part",
+    icon: "🔩",
+    description: "Replacement components held for repairs and planned maintenance.",
+    categories: ["spare", "part"],
+  },
+  consumables: {
+    title: "Consumables",
+    singular: "consumable",
+    icon: "🧴",
+    description: "Frequently used supplies monitored for replenishment and issue control.",
+    categories: ["consum"],
+  },
+};
+
+function quantity(row: Row) {
+  const value = Number(row.quantity ?? 1);
+  return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
-export function InventoryView({ variant, rows }: { variant: "spare-parts" | "consumables"; rows: Row[] }) {
+export function InventoryView({
+  variant,
+  rows,
+  onAdd,
+}: {
+  variant: InventoryVariant;
+  rows: Row[];
+  onAdd: () => void;
+}) {
   const [selected, setSelected] = useState<Row | null>(null);
-  const isSpare = variant === "spare-parts";
-  const title = isSpare ? "Spare Parts" : "Consumables";
-  const matchCategories = isSpare ? ["spare", "part"] : ["consum", "general"];
-
-  const filtered = rows.filter((r) => {
-    const cat = String(r.category ?? "").toLowerCase();
-    return matchCategories.some((c) => cat.includes(c));
-  });
-  const displayRows = filtered.length > 0 ? filtered : rows;
+  const content = copy[variant];
+  const inventoryRows = useMemo(
+    () => rows.filter((row) => content.categories.some((category) => String(row.category ?? "").toLowerCase().includes(category))),
+    [content.categories, rows],
+  );
+  const activeItems = inventoryRows.filter((row) => row.is_active !== false).length;
+  const unitsOnHand = inventoryRows.reduce((total, row) => total + quantity(row), 0);
 
   return (
-    <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+    <section className="inventory-workspace" aria-labelledby={`${variant}-title`}>
+      <header className="inventory-header">
         <div>
-          <h2 style={{ fontSize: 20, margin: 0, letterSpacing: "-.02em" }}>{title}</h2>
-          <p style={{ color: "#8a96a7", fontSize: 13, margin: "4px 0 0" }}>
-            Derived from the asset register — the backend has no dedicated inventory model.
-          </p>
+          <p className="inventory-eyebrow">Stock control</p>
+          <h2 id={`${variant}-title`}>{content.title}</h2>
+          <p>{content.description}</p>
         </div>
-        <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, `${variant}.csv`)}>↓ Export</button>
+        <div className="inventory-actions">
+          <button
+            className="fc-toolbar-btn"
+            disabled={inventoryRows.length === 0}
+            onClick={() => exportCsv(inventoryRows, `${variant}.csv`)}
+          >
+            ↓ Export CSV
+          </button>
+          <button className="btn primary" onClick={onAdd}>+ Add {content.singular}</button>
+        </div>
+      </header>
+
+      <div className="inventory-summary" aria-label={`${content.title} summary`}>
+        <article><span>📦</span><div><small>Stock records</small><strong>{inventoryRows.length}</strong></div></article>
+        <article><span>✓</span><div><small>Active records</small><strong>{activeItems}</strong></div></article>
+        <article><span>▦</span><div><small>Quantity on hand</small><strong>{unitsOnHand.toLocaleString()}</strong></div></article>
       </div>
 
-      <div className="data-panel">
-        <div className="fc-table-toolbar">
-          <div className="fc-table-toolbar-left">
-            <span style={{ color: "#27364a", fontWeight: 700, fontSize: 13 }}>{title} ({displayRows.length})</span>
+      <article className="data-panel inventory-panel">
+        <header className="inventory-panel-header">
+          <div>
+            <h3>{content.title} register</h3>
+            <p>Items remain linked to the selected property and its maintenance records.</p>
           </div>
-          {filtered.length === 0 && (
-            <span style={{ color: "#92400e", fontSize: 11, fontWeight: 600 }}>
-              No assets matched the {isSpare ? "“spare” / “part”" : "“consumable” / “general”"} category — showing all assets. Categorize assets to enable the split.
-            </span>
-          )}
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Qty on Hand</th>
-                <th>Location</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayRows.length > 0 ? displayRows.map((row) => {
-                const qty = Number(row.quantity ?? (row.is_active === false ? 0 : 1));
-                return (
+          <span className="inventory-count">{inventoryRows.length} {inventoryRows.length === 1 ? "record" : "records"}</span>
+        </header>
+
+        {inventoryRows.length === 0 ? (
+          <div className="inventory-empty">
+            <span className="inventory-empty-icon" aria-hidden="true">{content.icon}</span>
+            <h3>No {content.title.toLowerCase()} recorded</h3>
+            <p>Add an inventory item and classify its category as {content.title} to make it available to maintenance teams.</p>
+            <button className="btn primary" onClick={onAdd}>+ Add {content.singular}</button>
+          </div>
+        ) : (
+          <div className="table-scroll">
+            <table className="fc-data-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Qty on hand</th>
+                  <th>Location</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryRows.map((row) => (
                   <tr
                     key={String(row.id)}
                     className={selected?.id === row.id ? "selected" : ""}
                     onClick={() => setSelected(selected?.id === row.id ? null : row)}
                   >
-                    <td style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#6b7890" }}>{String(row.code ?? "—")}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(row.name ?? "—")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(row.category ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{qty}</td>
-                    <td style={{ fontSize: 12, color: "#6b7890" }}>{String(row.property_name ?? "—")}</td>
+                    <td className="inventory-code">{String(row.code ?? "—")}</td>
+                    <td><strong>{String(row.name ?? "—")}</strong></td>
+                    <td>{String(row.category ?? "—")}</td>
+                    <td>{quantity(row).toLocaleString()}</td>
+                    <td className="inventory-location">{String(row.property_name ?? "—")}</td>
                     <td><FcStatus value={String(row.is_active === false ? "inactive" : (row.condition ?? "active"))} /></td>
                   </tr>
-                );
-              }) : (
-                <tr><td colSpan={6}><EmptyState message={`No ${title.toLowerCase()} available.`} /></td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
 
       {selected && (
-        <DetailDrawer title={`${title} — Details`} onClose={() => setSelected(null)}>
+        <DetailDrawer title={`${content.title} — Details`} onClose={() => setSelected(null)}>
           <div style={{ display: "grid", gap: 12 }}>
             <Field label="Code"><span>{String(selected.code ?? "—")}</span></Field>
             <Field label="Name"><span>{String(selected.name ?? "—")}</span></Field>
             <Field label="Category"><span>{String(selected.category ?? "—")}</span></Field>
-            <Field label="Qty on Hand"><span>{String(selected.quantity ?? "1")}</span></Field>
+            <Field label="Qty on hand"><span>{quantity(selected).toLocaleString()}</span></Field>
             <Field label="Location"><span>{String(selected.property_name ?? "—")}</span></Field>
             <Field label="Condition"><span>{String(selected.condition ?? "good")}</span></Field>
           </div>
         </DetailDrawer>
       )}
-    </>
+    </section>
   );
 }

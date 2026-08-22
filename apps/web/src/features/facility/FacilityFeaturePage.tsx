@@ -117,9 +117,9 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
         ) : logic.tab === "expenditure" ? (
           <ExpenditureView rows={logic.rows} organizationId={logic.organizationId} />
         ) : logic.tab === "spare-parts" ? (
-          <InventoryView variant="spare-parts" rows={logic.rows} />
+          <InventoryView variant="spare-parts" rows={logic.rows} onAdd={() => logic.setCreateModal("asset")} />
         ) : logic.tab === "consumables" ? (
-          <InventoryView variant="consumables" rows={logic.rows} />
+          <InventoryView variant="consumables" rows={logic.rows} onAdd={() => logic.setCreateModal("asset")} />
         ) : logic.tab === "tickets" ? (
           <ModuleTicketsView moduleName="Facility" />
         ) : logic.tab === "calendar" ? (

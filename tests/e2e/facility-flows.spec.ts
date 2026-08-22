@@ -10,7 +10,7 @@ async function signIn(page: Page) {
   await page.locator("#password").fill(password);
   await page.locator("button[type=submit]").click();
   await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
-  await expect(page.getByRole("heading", { name: "ERP modules", exact: true })).toBeVisible();
+  await expect(page.locator("a.module-card").first()).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => signIn(page));
@@ -55,6 +55,19 @@ test("assets register shows data with detail panel", async ({ page }, testInfo) 
   await expect(page.getByText("Operational", { exact: true }).first()).toBeVisible();
   await expect(page.locator("table")).toBeVisible();
   await expect(page.getByRole("button", { name: /Export/i }).first()).toBeVisible();
+});
+
+test("inventory pages use accessible customer-facing empty states", async ({ page }) => {
+  for (const tab of ["spare-parts", "consumables"]) {
+    await page.goto(`/facility?tab=${tab}`);
+    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+    await expect(page.locator(".inventory-workspace")).toBeVisible();
+    await expect(page.getByText(/backend has no dedicated inventory model/i)).toHaveCount(0);
+    await expect(page.getByText(/No assets matched/i)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^\+ Add/i }).first()).toBeVisible();
+    await expect(page.locator(".inventory-summary")).toBeVisible();
+    await expect(page.locator(".inventory-panel")).toBeVisible();
+  }
 });
 
 test("work orders list shows orders with status badges", async ({ page }, testInfo) => {
