@@ -52,8 +52,8 @@ export const lightTheme = {
   },
   text: {
     primary: slate[900],
-    secondary: slate[600],
-    muted: slate[400],
+    secondary: slate[700],
+    muted: slate[500],
     inverse: '#ffffff',
     onBrand: '#ffffff',
   },
@@ -68,23 +68,23 @@ export const lightTheme = {
 // ─── DARK THEME ───
 export const darkTheme = {
   bg: {
-    app: slate[950],
-    surface: slate[800],
-    sidebar: '#000000',
-    sidebarHover: slate[900],
+    app: '#071524',
+    surface: '#112234',
+    sidebar: '#020d19',
+    sidebarHover: '#162c44',
     muted: slate[700],
   },
   text: {
     primary: slate[50],
-    secondary: slate[300],
-    muted: slate[500],
+    secondary: '#d5deea',
+    muted: '#aab8cb',
     inverse: slate[900],
     onBrand: '#ffffff',
   },
   border: {
-    default: slate[700],
-    subtle: slate[700],
-    strong: slate[600],
+    default: '#36516f',
+    subtle: '#29445f',
+    strong: '#527396',
   },
   brand: '#ef4444', // Lighter red for dark mode
 } as const;

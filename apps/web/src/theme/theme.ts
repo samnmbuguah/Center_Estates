@@ -27,7 +27,15 @@ export const getTheme = (mode: 'light' | 'dark') => {
     components: {
       MuiButton: {
         styleOverrides: {
-          root: { borderRadius: 8, textTransform: 'none', fontWeight: 600 },
+          root: {
+            borderRadius: 8,
+            textTransform: 'none',
+            fontWeight: 700,
+            '&:focus-visible': {
+              outline: `3px solid ${mode === 'light' ? '#93c5fd' : '#60a5fa'}`,
+              outlineOffset: 2,
+            },
+          },
         },
       },
       MuiCard: {
@@ -43,7 +51,10 @@ export const getTheme = (mode: 'light' | 'dark') => {
       MuiChip: { styleOverrides: { root: { borderRadius: 6 } } },
       MuiTextField: {
         styleOverrides: {
-          root: { '& .MuiOutlinedInput-root': { borderRadius: 8 } },
+          root: {
+            '& .MuiOutlinedInput-root': { borderRadius: 8 },
+            '& .MuiInputLabel-root': { color: palette.text.secondary },
+          },
         },
       },
       MuiPaper: {
@@ -73,6 +84,7 @@ export const getTheme = (mode: 'light' | 'dark') => {
         styleOverrides: {
           root: {
             borderColor: palette.divider,
+            color: palette.text.primary,
           },
         },
       },

@@ -5868,3 +5868,220 @@ button, a, input, select, textarea { transition: border-color .16s ease, box-sha
   border-radius: 6px;
 }
 
+/* =====================================================================
+   Center Estates colour contract
+
+   These semantic tokens are the final authority for application chrome and
+   module workspaces. Components must consume a role (surface, text, link,
+   border, status) instead of assuming that a literal light colour is safe.
+   ===================================================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f1f5f9;
+  --interactive-hover: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text: var(--text-primary);
+  --ink: var(--text-primary);
+  --muted: var(--text-secondary);
+  --border-color: #cbd5e1;
+  --border: #cbd5e1;
+  --border-subtle: #e2e8f0;
+  --border-strong: #94a3b8;
+  --line: var(--border-color);
+  --link-color: #b91c1c;
+  --focus-ring: #2563eb;
+  --status-success-bg: #dcfce7;
+  --status-success-text: #166534;
+  --status-warning-bg: #fef3c7;
+  --status-warning-text: #854d0e;
+  --status-danger-bg: #fee2e2;
+  --status-danger-text: #991b1b;
+  --status-info-bg: #dbeafe;
+  --status-info-text: #1e40af;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #071524;
+  --bg-surface: #112234;
+  --surface: #112234;
+  --surface-2: #162c44;
+  --surface-raised: #162c44;
+  --surface-sunken: #0b1727;
+  --interactive-hover: #1d3654;
+  --text-primary: #f8fafc;
+  --text-secondary: #d5deea;
+  --text-muted: #aab8cb;
+  --text: var(--text-primary);
+  --ink: var(--text-primary);
+  --muted: var(--text-secondary);
+  --border-color: #36516f;
+  --border: #36516f;
+  --border-subtle: #29445f;
+  --border-strong: #527396;
+  --line: var(--border-color);
+  --link-color: #fecaca;
+  --focus-ring: #93c5fd;
+  --status-success-bg: #123e2a;
+  --status-success-text: #86efac;
+  --status-warning-bg: #4a3212;
+  --status-warning-text: #fde68a;
+  --status-danger-bg: #4c1d24;
+  --status-danger-text: #fecaca;
+  --status-info-bg: #15365d;
+  --status-info-text: #bfdbfe;
+}
+
+body,
+.module-workspace,
+.module-workspace-main,
+.module-workspace-content {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+}
+
+.module-nav-bar,
+.data-panel,
+.card,
+.form-modal,
+.fc-kpi-card,
+.fc-filter-panel,
+.fc-detail-panel {
+  background: var(--surface-raised);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.module-nav-groups { background: var(--surface-sunken); }
+.module-nav-pages { background: var(--surface-raised); }
+.module-nav-groups button,
+.module-nav-pages button,
+.module-nav-groups button.active,
+.module-nav-pages button.active {
+  color: var(--text-primary);
+}
+.module-nav-groups button:hover,
+.module-nav-pages button:hover {
+  background: var(--interactive-hover);
+  color: var(--text-primary);
+}
+
+.fc-kpi-label,
+.fc-kpi-value,
+.fc-task-label,
+.fc-wo-id,
+.fc-wo-title strong,
+.fc-health-pct,
+.fc-priority-count,
+.fc-location-name strong,
+.fc-detail-field span,
+.fc-ppm-cal-month,
+.fc-timeline-event strong {
+  color: var(--text-primary);
+}
+.fc-kpi-sub,
+.fc-wo-title small,
+.fc-priority-label,
+.fc-location-name small,
+.fc-detail-field label,
+.fc-timeline-time,
+.fc-timeline-event small,
+.fc-pager-info,
+.fc-sla-label,
+.fc-sla-target {
+  color: var(--text-secondary);
+}
+.fc-kpi-link,
+.panel-title button,
+.fc-filter-header button {
+  color: var(--link-color);
+}
+
+.fc-alert-item,
+.fc-quick-action,
+.invoice-alert,
+.secondary-action,
+.table-actions button,
+.form-actions > button:not(.primary-action),
+.fc-page-btn,
+.fc-ppm-cal-nav button,
+.fc-ppm-day-col,
+.fc-ppm-time-col,
+.fc-ppm-day-header,
+.fc-toolbar-select,
+.fc-filter-section select,
+.fc-detail-cta.outline {
+  background: var(--surface-raised);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+.fc-alert-item:hover,
+.fc-quick-action:hover,
+.invoice-alert:hover,
+.fc-page-btn:hover:not(.active),
+.fc-location-item:hover,
+.fc-data-table tbody tr:hover {
+  background: var(--interactive-hover);
+}
+.fc-location-item.active,
+.fc-data-table tbody tr.selected {
+  background: color-mix(in srgb, var(--brand-primary) 15%, var(--surface-raised));
+}
+
+.fc-data-table th,
+.fc-data-table td,
+.fc-task-row,
+.fc-wo-row,
+.fc-filter-section,
+.fc-detail-field,
+.fc-ppm-time-slot {
+  border-color: var(--border-subtle);
+}
+.fc-data-table th {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.fc-data-table td { background: var(--surface-raised); color: var(--text-primary); }
+.fc-kpi-progress,
+.fc-priority-bar,
+.fc-health-track,
+.fc-sla-arc-track { background-color: var(--surface-sunken); }
+.fc-donut-lg::after { background: var(--surface-raised); }
+
+.fc-status-open,
+.fc-status-statutory { background: var(--status-info-bg); color: var(--status-info-text); }
+.fc-status-in-progress,
+.fc-status-scheduled,
+.fc-status-pending,
+.fc-status-maintenance,
+.fc-status-medium,
+.fc-status-fair { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.fc-status-overdue,
+.fc-status-out-of-service,
+.fc-status-blacklisted,
+.fc-status-critical,
+.fc-status-poor { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.fc-status-completed,
+.fc-status-operational,
+.fc-status-active,
+.fc-status-routine,
+.fc-status-preventive,
+.fc-status-low,
+.fc-status-good { background: var(--status-success-bg); color: var(--status-success-text); }
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--focus-ring) 65%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-kpi-card { transition: none; }
+  .fc-kpi-card:hover { transform: none; }
+}

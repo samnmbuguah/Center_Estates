@@ -163,7 +163,7 @@ test("horizontal navigation remains legible in light and dark themes", async ({ 
   const navButton = page.locator(".module-nav-pages button.active");
   await expect(navButton).toBeVisible();
 
-  const contrast = async () => navButton.evaluate((element) => {
+  const contrast = async (selector = ".module-nav-pages button.active") => page.locator(selector).first().evaluate((element) => {
     const parse = (value: string) => {
       const canvas = document.createElement("canvas");
       canvas.width = 1;
@@ -181,12 +181,18 @@ test("horizontal navigation remains legible in light and dark themes", async ({ 
       return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
     };
     const style = getComputedStyle(element);
+    let background = style.backgroundColor;
+    let ancestor = element.parentElement;
+    while (ancestor && (background === "transparent" || background === "rgba(0, 0, 0, 0)")) {
+      background = getComputedStyle(ancestor).backgroundColor;
+      ancestor = ancestor.parentElement;
+    }
     const foreground = luminance(parse(style.color));
-    const background = luminance(parse(style.backgroundColor));
+    const backgroundLuminance = luminance(parse(background));
     return {
-      ratio: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
+      ratio: (Math.max(foreground, backgroundLuminance) + 0.05) / (Math.min(foreground, backgroundLuminance) + 0.05),
       foreground: style.color,
-      background: style.backgroundColor,
+      background,
     };
   });
 
@@ -197,6 +203,20 @@ test("horizontal navigation remains legible in light and dark themes", async ({ 
   await page.waitForTimeout(250);
   const darkContrast = await contrast();
   expect(darkContrast.ratio, JSON.stringify(darkContrast)).toBeGreaterThanOrEqual(4.5);
+
+  await page.goto("/facility?tab=overview");
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await expect(page.locator(".fc-kpi-card").first()).toBeVisible();
+  for (const selector of [
+    ".module-nav-groups button:not(.active)",
+    ".module-nav-pages button:not(.active)",
+    ".fc-kpi-card .fc-kpi-label",
+    ".fc-kpi-card .fc-kpi-sub",
+    ".data-panel .panel-title h2",
+  ]) {
+    const result = await contrast(selector);
+    expect(result.ratio, `${selector}: ${JSON.stringify(result)}`).toBeGreaterThanOrEqual(4.5);
+  }
 });
 
 test("property invoice composer previews VAT before creating a reviewable draft", async ({ page }) => {
