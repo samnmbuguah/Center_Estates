@@ -104,7 +104,7 @@ export function BillingActionBanner({
         >
           <Box sx={{ flex: 1 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "#0284c7" }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "info.main" }}>
                 ⚡ Bulk Invoicing Queue for {formattedMonth}
               </Typography>
               <Chip size="small" label="Ready to Scan" color="info" sx={{ fontWeight: 700, height: 20, fontSize: "0.72rem" }} />
@@ -183,7 +183,7 @@ export function BillingActionBanner({
         >
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "#854d0e" }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "warning.dark" }}>
                 Step 2: Candidate Review · {ready} Ready to Bill · {issues} Exceptions
               </Typography>
               {blockingOpen ? (
@@ -243,8 +243,8 @@ export function BillingActionBanner({
         >
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <CheckCircle2 size={20} style={{ color: "#16a34a" }} />
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "#15803d" }}>
+              <CheckCircle2 size={20} style={{ color: "var(--success, #16a34a)" }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "success.dark" }}>
                 Step 3: Approved · {selectedCount} Invoice(s) Selected
               </Typography>
             </Box>

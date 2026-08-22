@@ -97,7 +97,7 @@ export function Panel({ title, badge, action, children, style }: { title?: React
           <h2 style={{ fontSize: 14, margin: 0, display: "flex", gap: 8, alignItems: "center" }}>
             {title}
             {badge !== undefined && (
-              <span style={{ background: "#fee2e2", borderRadius: 99, color: "#c02727", fontSize: 10, fontWeight: 800, padding: "2px 8px" }}>{badge}</span>
+              <span style={{ background: "var(--error-bg, #fee2e2)", borderRadius: 99, color: "var(--error, #c02727)", fontSize: 10, fontWeight: 800, padding: "2px 8px" }}>{badge}</span>
             )}
           </h2>
           {action}

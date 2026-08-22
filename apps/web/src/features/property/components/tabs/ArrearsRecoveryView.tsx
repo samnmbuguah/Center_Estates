@@ -42,9 +42,9 @@ export function ArrearsRecoveryView({
       {subTab === "aging" && (
         <>
           <KpiStrip>
-            <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Total Outstanding" value={kM(totalOutstanding)} sub={`${tenants.length} tenant(s)`} />
-            <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#d97706" label="Oldest Debt" value={`${kN(oldestDays)} days`} sub="Days overdue" />
-            <KpiCard icon="🔔" iconBg="#e0e7ff" iconColor="#4f46e5" label="Reminders Sent" value={kN(reminderList.length)} sub="This period" />
+            <KpiCard icon="⚠️" iconBg="rgba(220,38,38,0.12)" iconColor="#dc2626" label="Total Outstanding" value={kM(totalOutstanding)} sub={`${tenants.length} tenant(s)`} />
+            <KpiCard icon="📅" iconBg="rgba(217,119,6,0.12)" iconColor="#d97706" label="Oldest Debt" value={`${kN(oldestDays)} days`} sub="Days overdue" />
+            <KpiCard icon="🔔" iconBg="rgba(79,70,229,0.12)" iconColor="#4f46e5" label="Reminders Sent" value={kN(reminderList.length)} sub="This period" />
           </KpiStrip>
 
           <Panel title="Aging Buckets">
