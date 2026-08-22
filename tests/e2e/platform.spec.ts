@@ -10,7 +10,7 @@ async function signIn(page: Page) {
   await page.locator("#password").fill(password);
   await page.locator("button[type=submit]").click();
   await expect(page).toHaveURL(/(\/|\/workspaces)$/, { timeout: 30000 });
-  await expect(page.getByRole("heading", { name: "ERP modules", exact: true })).toBeVisible();
+  await expect(page.locator("a.module-card").first()).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => signIn(page));
@@ -216,6 +216,16 @@ test("horizontal navigation remains legible in light and dark themes", async ({ 
   ]) {
     const result = await contrast(selector);
     expect(result.ratio, `${selector}: ${JSON.stringify(result)}`).toBeGreaterThanOrEqual(4.5);
+  }
+
+  for (const modulePath of ["property", "companion"]) {
+    await page.goto(`/${modulePath}`);
+    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+    await expect(page.locator(".module-nav-bar")).toBeVisible();
+    for (const selector of [".module-nav-groups button.active", ".module-nav-pages button.active"]) {
+      const result = await contrast(selector);
+      expect(result.ratio, `${modulePath} ${selector}: ${JSON.stringify(result)}`).toBeGreaterThanOrEqual(4.5);
+    }
   }
 });
 

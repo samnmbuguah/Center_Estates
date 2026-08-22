@@ -105,6 +105,9 @@ export function ModuleShell({
   const resolvedGroups = groups ?? MODULE_NAV_BY_KEY[moduleKey];
   const hasGroups = Array.isArray(resolvedGroups) && resolvedGroups.length > 0;
   const activeGroup = resolvedGroups?.find((group) => group.items.some((item) => item.id === activeId)) ?? resolvedGroups?.[0];
+  const navigationActiveId = activeGroup?.items.some((item) => item.id === activeId)
+    ? activeId
+    : activeGroup?.items[0]?.id;
 
   return (
     <div
@@ -120,7 +123,7 @@ export function ModuleShell({
             <nav className="module-nav-bar" aria-label={`${moduleName} navigation`}>
               <label className="module-nav-mobile-select">
                 <span>Module page</span>
-                <select value={activeId ?? ""} onChange={(event) => onSelect?.(event.target.value)}>
+                <select value={navigationActiveId ?? ""} onChange={(event) => onSelect?.(event.target.value)}>
                   {resolvedGroups.flatMap((group) => group.items.map((item) => (
                     <option value={item.id} key={item.id}>{group.label} — {item.label}</option>
                   )))}
@@ -153,10 +156,10 @@ export function ModuleShell({
                     <button
                       key={item.id}
                       type="button"
-                      aria-current={activeId === item.id ? "page" : undefined}
-                      className={activeId === item.id ? "active" : ""}
+                      aria-current={navigationActiveId === item.id ? "page" : undefined}
+                      className={navigationActiveId === item.id ? "active" : ""}
                       onClick={() => onSelect?.(item.id)}
-                      style={activeId === item.id ? { "--module-accent": accent } as CSSProperties : undefined}
+                      style={navigationActiveId === item.id ? { "--module-accent": accent } as CSSProperties : undefined}
                     >
                       {item.icon ? <span aria-hidden="true">{item.icon}</span> : null}
                       {item.label}
