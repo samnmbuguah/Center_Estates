@@ -67,26 +67,26 @@ export default function SingleWorkOrderWorkspacePage({ params }: { params: Promi
         ) : (
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>WO Reference</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "#0284c7", fontFamily: "monospace" }}>{String(wo?.wo_number)}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Assigned Technician</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#0f172a" }}>{String(wo?.technician_name || "Peter Mwangi")}</h3>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(wo?.technician_name || "Peter Mwangi")}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Total Labor & Parts Cost</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "#16a34a" }}>{cash.format(Number(wo?.total_cost || 84000))}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Priority Level</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "#dc2626" }}>HIGH PRIORITY</h3>
               </div>
             </div>
 
-            <div style={{ background: "#ffffff", padding: 18, borderRadius: 10, border: "1px solid #e2e8f0" }}>
-              <h4 style={{ margin: "0 0 10px 0", color: "#0f172a" }}>Technician Execution Timeline & Photo Proof</h4>
+            <div style={{ background: "var(--surface)", padding: 18, borderRadius: 10, border: "1px solid var(--line)" }}>
+              <h4 style={{ margin: "0 0 10px 0", color: "var(--text)" }}>Technician Execution Timeline & Photo Proof</h4>
               <div style={{ display: "flex", gap: 10 }}>
                 <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontWeight: "bold", fontSize: "0.75rem" }}>DISPATCHED</span>
                 <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dbeafe", color: "#1e40af", fontWeight: "bold", fontSize: "0.75rem" }}>IN PROGRESS</span>

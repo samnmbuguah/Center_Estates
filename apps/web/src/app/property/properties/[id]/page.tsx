@@ -63,25 +63,25 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
         ) : (
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Property Code</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "#00a3ff", fontFamily: "monospace" }}>{String(property?.code)}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Total Units</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#0f172a" }}>{String(property?.units_count || 48)} Units</h3>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(property?.units_count || 48)} Units</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Occupancy Rate</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "#16a34a" }}>94.2%</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>City / Location</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#0f172a" }}>{String(property?.city || "Nairobi")}</h3>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(property?.city || "Nairobi")}</h3>
               </div>
             </div>
 
-            <h3 style={{ fontSize: "1.1rem", margin: "0 0 12px 0", color: "#0f172a" }}>Property Sub-Workspaces & Management Areas</h3>
+            <h3 style={{ fontSize: "1.1rem", margin: "0 0 12px 0", color: "var(--text)" }}>Property Sub-Workspaces & Management Areas</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
               <Link href={`/property/tenants`} style={{ textDecoration: "none" }}>
                 <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>

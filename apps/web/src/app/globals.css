@@ -4560,6 +4560,52 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 .pill-purple { background: rgba(124, 58, 237, 0.12); color: #7c3aed; border: 1px solid rgba(124, 58, 237, 0.3); }
 .pill-gray { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
 
+.login-root {
+  --login-page-bg: #f7f7f5;
+  --login-panel-bg: #ffffff;
+  --login-card-bg: #ffffff;
+  --login-input-bg: #ffffff;
+  --login-text: #1c1d21;
+  --login-secondary: #44484f;
+  --login-muted: #737b87;
+  --login-border: #e4e2de;
+  --login-hero-overlay: linear-gradient(105deg, rgba(255,255,255,.84), rgba(255,255,255,.62));
+  --login-card-shadow: 0 12px 36px rgba(0,0,0,.08);
+  --login-module-bg: rgba(255,255,255,.86);
+  --login-module-shadow: 0 4px 12px rgba(0,0,0,.06);
+}
+
+[data-theme="dark"] .login-root {
+  --login-page-bg: #071827;
+  --login-panel-bg: #0b2032;
+  --login-card-bg: #102a3e;
+  --login-input-bg: #0a1d2f;
+  --login-text: #f8fafc;
+  --login-secondary: #d5dee8;
+  --login-muted: #aebdcb;
+  --login-border: #355067;
+  --login-hero-overlay: linear-gradient(105deg, rgba(5,18,30,.82), rgba(5,18,30,.64));
+  --login-card-shadow: 0 18px 48px rgba(0,0,0,.28);
+  --login-module-bg: rgba(12,36,54,.90);
+  --login-module-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+
+[data-theme="dark"] .login-root .login-form-panel,
+[data-theme="dark"] .login-root .login-auth-card,
+[data-theme="dark"] .login-root .login-module-card {
+  background: var(--login-card-bg) !important;
+  color: var(--login-text) !important;
+  border-color: var(--login-border) !important;
+}
+
+[data-theme="dark"] .login-root .login-form-panel { background: var(--login-panel-bg) !important; }
+[data-theme="dark"] .login-root .login-module-card { background: var(--login-module-bg) !important; }
+[data-theme="dark"] .login-root button:not(.MuiButton-root) {
+  background: var(--login-input-bg) !important;
+  color: var(--login-secondary) !important;
+  border-color: var(--login-border) !important;
+}
+
 [data-theme="dark"] .badge-blue { background: #1d4ed8; color: #ffffff; }
 [data-theme="dark"] .pill-blue { background: #172f4f; color: #dbeafe; border-color: #60a5fa; }
 

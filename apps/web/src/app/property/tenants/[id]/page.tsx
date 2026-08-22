@@ -61,22 +61,22 @@ export default function SingleTenantWorkspacePage({ params }: { params: Promise<
         {loading ? (
           <div className="data-loading">Loading tenant workspace…</div>
         ) : (
-          <div style={{ background: "#fff", padding: 20, borderRadius: 10, border: "1px solid #e2e8f0" }}>
-            <h3 style={{ margin: "0 0 8px 0", color: "#0f172a" }}>{name}</h3>
+          <div style={{ background: "var(--surface)", padding: 20, borderRadius: 10, border: "1px solid var(--line)" }}>
+            <h3 style={{ margin: "0 0 8px 0", color: "var(--text)" }}>{name}</h3>
             <p style={{ margin: "0 0 16px 0", color: "#64748b", fontSize: "0.85rem" }}>
               📧 {String(tenant?.email)} | 📞 {String(tenant?.phone_number)}
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface-2)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Active Leases</small>
                 <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "#00a3ff", marginTop: 2 }}>1 Active Contract</div>
               </div>
-              <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface-2)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Monthly Rent</small>
                 <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "#16a34a", marginTop: 2 }}>KES 185,000</div>
               </div>
-              <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface-2)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
                 <small style={{ color: "#64748b" }}>Arrears Balance</small>
                 <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "#2563eb", marginTop: 2 }}>KES 0 (Current)</div>
               </div>
