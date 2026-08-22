@@ -305,17 +305,16 @@ function AdministrationContent() {
   const loadPropertiesAndRoles = useCallback(async () => {
     if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin)) return;
     try {
+      const needsRoles = isSuperAdministrator && (tab === "users" || tab === "roles");
       const [propRes, rolesRes] = await Promise.all([
         apiFetch("/property/properties/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId),
-        isSuperAdministrator ? apiFetch("/access/roles/", {}, organizationId) : Promise.resolve(new Response(JSON.stringify([]))),
+        needsRoles ? apiFetch("/access/roles/", {}, organizationId) : Promise.resolve(new Response(JSON.stringify([]))),
       ]);
       if (propRes.ok) {
         const data = await propRes.json();
         const list = (Array.isArray(data) ? data : data.results || []) as PropertyItem[];
         setProperties(list);
-        if (list.length > 0 && !selectedPropertyId) {
-          setSelectedPropertyId(list[0].id);
-        }
+        if (list.length > 0) setSelectedPropertyId((current) => current || list[0].id);
       }
       if (rolesRes.ok) {
         const data = await rolesRes.json();
@@ -324,7 +323,7 @@ function AdministrationContent() {
     } catch (err) {
       console.error("Failed to load properties or roles", err);
     }
-  }, [organizationId, isSuperAdministrator, isFinanceAdmin, selectedPropertyId]);
+  }, [organizationId, isSuperAdministrator, isFinanceAdmin, tab]);
 
   // 2. Load Members / Users
   const loadMembers = useCallback(async () => {
@@ -429,16 +428,19 @@ function AdministrationContent() {
   }, [organizationId, isSuperAdministrator, isFinanceAdmin]);
 
   useEffect(() => {
-    void loadPropertiesAndRoles();
-    void loadMembers();
-    void loadSmtpConfig();
-  }, [loadPropertiesAndRoles, loadMembers, loadSmtpConfig]);
+    const timer = window.setTimeout(() => {
+      if (tab === "users" || tab === "roles" || tab === "mpesa") void loadPropertiesAndRoles();
+      if (tab === "users") void loadMembers();
+      if (tab === "smtp") void loadSmtpConfig();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [tab, loadPropertiesAndRoles, loadMembers, loadSmtpConfig]);
 
   useEffect(() => {
-    if (selectedPropertyId) {
-      void loadGateway();
-    }
-  }, [selectedPropertyId, loadGateway]);
+    if (tab !== "mpesa" || !selectedPropertyId) return;
+    const timer = window.setTimeout(() => void loadGateway(), 0);
+    return () => window.clearTimeout(timer);
+  }, [tab, selectedPropertyId, loadGateway]);
 
   async function handleSaveSmtp(e: FormEvent) {
     e.preventDefault();
@@ -1920,6 +1922,7 @@ function AdministrationContent() {
               <Field label="Username (Login Handle)" required>
                 <input
                   required
+                  autoComplete="username"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="e.g. lydia, abel, sharon, marilyn"
@@ -1929,6 +1932,7 @@ function AdministrationContent() {
               <Field label="Email Address">
                 <input
                   type="email"
+                  autoComplete="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="staff@centerestates.co.ke"
@@ -1941,6 +1945,7 @@ function AdministrationContent() {
               <Field label="First Name" required>
                 <input
                   required
+                  autoComplete="given-name"
                   value={newFirstName}
                   onChange={(e) => setNewFirstName(e.target.value)}
                   placeholder="e.g. Lydia"
@@ -1950,6 +1955,7 @@ function AdministrationContent() {
               <Field label="Last Name" required>
                 <input
                   required
+                  autoComplete="family-name"
                   value={newLastName}
                   onChange={(e) => setNewLastName(e.target.value)}
                   placeholder="e.g. Kipkorir"
@@ -1961,6 +1967,7 @@ function AdministrationContent() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Field label="Phone Number (SMS & Direct Contact)">
                 <input
+                  autoComplete="tel"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
                   placeholder="+254 700 000 000"
@@ -1970,6 +1977,7 @@ function AdministrationContent() {
               <Field label="Initial Password (Optional)">
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Leave blank for auto-invite"
@@ -2270,6 +2278,7 @@ function AdministrationContent() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Field label="First Name">
                 <input
+                  autoComplete="given-name"
                   value={editFirstName}
                   onChange={(e) => setEditFirstName(e.target.value)}
                   placeholder="First name"
@@ -2278,6 +2287,7 @@ function AdministrationContent() {
               </Field>
               <Field label="Last Name">
                 <input
+                  autoComplete="family-name"
                   value={editLastName}
                   onChange={(e) => setEditLastName(e.target.value)}
                   placeholder="Last name"
@@ -2290,6 +2300,7 @@ function AdministrationContent() {
               <Field label="Verified Work Email Address">
                 <input
                   type="email"
+                  autoComplete="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="user@centerestates.com"
@@ -2298,6 +2309,7 @@ function AdministrationContent() {
               </Field>
               <Field label="Contact Phone Number">
                 <input
+                  autoComplete="tel"
                   value={editPhone}
                   onChange={(e) => setEditPhone(e.target.value)}
                   placeholder="+254 700 000 000"

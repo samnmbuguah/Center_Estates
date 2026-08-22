@@ -35,22 +35,13 @@ export function NotificationCenter() {
   const [filter, setFilter] = useState<"all" | "unread" | "urgent">("all");
   const [loading, setLoading] = useState(false);
   const [toastAlert, setToastAlert] = useState<NotificationItem | null>(null);
-  const [permissionAsked, setPermissionAsked] = useState(false);
-  const [showPermissionBanner, setShowPermissionBanner] = useState(false);
+  const [showPermissionBanner, setShowPermissionBanner] = useState(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return false;
+    return window.Notification.permission === "default" && !localStorage.getItem("ce_notif_prompt_dismissed");
+  });
 
   const seenIdsRef = useRef<Set<string>>(new Set());
-
-  // Check browser notification permission
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (window.Notification.permission === "default") {
-        const dismissed = localStorage.getItem("ce_notif_prompt_dismissed");
-        if (!dismissed) {
-          setShowPermissionBanner(true);
-        }
-      }
-    }
-  }, []);
+  const pollingStoppedRef = useRef(false);
 
   const requestBrowserPermission = async () => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -74,9 +65,15 @@ export function NotificationCenter() {
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
-    if (!organizationId) return;
+    if (!organizationId || pollingStoppedRef.current) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
     try {
       const res = await apiFetch("/notifications/", {}, organizationId);
+      if (res.status === 401 || res.status === 403) {
+        pollingStoppedRef.current = true;
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         const items: NotificationItem[] = data.results || (Array.isArray(data) ? data : []);
@@ -106,8 +103,9 @@ export function NotificationCenter() {
   }, [organizationId]);
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    pollingStoppedRef.current = false;
+    void fetchNotifications();
+    const interval = setInterval(() => void fetchNotifications(), 60_000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 

@@ -45,6 +45,8 @@ export type Session = {
 
 const GET_CACHE_MS = 30_000;
 const MAX_GET_CACHE_ENTRIES = 120;
+const READ_TIMEOUT_MS = 20_000;
+const READ_RETRY_DELAYS_MS = [350];
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
 const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
 const inFlightGets = new Map<string, Promise<Response>>();
@@ -123,12 +125,29 @@ async function refreshAccessToken() {
 
 async function fetchWithSession(fullPath: string, init: RequestInit, headers: Headers) {
   const execute = async () => {
-    try {
-      return await fetch(`${API_BASE_URL}${fullPath}`, { ...init, headers, credentials: "include" });
-    } catch (error) {
-      if (!fullPath.includes("/telemetry/")) announceApiError("The server could not be reached. Your entered data has been retained; check your connection and retry.");
-      throw error;
+    const method = String(init.method ?? "GET").toUpperCase();
+    const isSafeRead = method === "GET" || method === "HEAD";
+    const delays = isSafeRead ? [0, ...READ_RETRY_DELAYS_MS] : [0];
+    let lastError: unknown;
+    for (const delay of delays) {
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      const controller = !init.signal && isSafeRead ? new AbortController() : null;
+      const timeout = controller ? setTimeout(() => controller.abort(), READ_TIMEOUT_MS) : null;
+      try {
+        return await fetch(`${API_BASE_URL}${fullPath}`, {
+          ...init,
+          headers,
+          credentials: "include",
+          signal: init.signal ?? controller?.signal,
+        });
+      } catch (error) {
+        lastError = error;
+      } finally {
+        if (timeout) clearTimeout(timeout);
+      }
     }
+    if (!fullPath.includes("/telemetry/")) announceApiError("The server could not be reached. Your entered data has been retained; check your connection and retry.");
+    throw lastError;
   };
   let response = await execute();
   const isAuthenticationRequest = ["/auth/login/", "/auth/refresh/", "/auth/logout/", "/auth/csrf/"].includes(fullPath);

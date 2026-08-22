@@ -91,6 +91,12 @@ ssh "$REMOTE_HOST" "
     cp -p .htaccess .htaccess.before-cors-cleanup
     sed -i '/^# ALWAYS-ON CORS HEADERS/,/^<\/IfModule>\$/d' .htaccess
   fi
+  # Keep this low-traffic API from spawning excessive Python children when
+  # LiteSpeed creates more than one application master during host recovery.
+  # Four children per master still provides ample demo concurrency.
+  if grep -q 'SetEnv LSAPI_CHILDREN' .htaccess 2>/dev/null; then
+    sed -i 's/SetEnv LSAPI_CHILDREN [0-9][0-9]*/SetEnv LSAPI_CHILDREN 4/' .htaccess
+  fi
   find apps/backend -type f -name '*.py[co]' -delete
   find apps/backend -type d -name '__pycache__' -empty -delete
   requirements_hash=\$(sha256sum apps/backend/requirements.txt | awk '{print \$1}')

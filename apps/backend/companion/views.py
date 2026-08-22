@@ -294,9 +294,6 @@ class TaskTemplateViewSet(CompanionModelViewSet):
     search_fields = ('name', 'title_template')
 
 
-from .agent import agent_orchestrator, LLMGateway
-
-
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
@@ -521,6 +518,10 @@ class CompanionDashboardViewSet(ViewSet):
             'conversation_history': [],
         }
         try:
+            # Import the LangGraph stack only when an AI briefing is requested.
+            # Loading it at URL-registration time made every API worker pay the
+            # considerable AI dependency startup cost, including health/auth.
+            from .agent import agent_orchestrator
             result = agent_orchestrator.invoke(initial_state)
             briefing = result.get('daily_briefing', {})
             briefing['health_score'] = result.get('health_score', 100)
@@ -566,6 +567,7 @@ class CompanionDashboardViewSet(ViewSet):
             'proposed_actions': request.data.get('proposed_actions', []),
             'conversation_history': [],
         }
+        from .agent import agent_orchestrator
         result = agent_orchestrator.invoke(state)
         return Response({
             'status': 'success',
