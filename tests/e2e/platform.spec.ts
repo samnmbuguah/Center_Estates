@@ -213,6 +213,8 @@ test("horizontal navigation remains legible in light and dark themes", async ({ 
     ".fc-kpi-card .fc-kpi-label",
     ".fc-kpi-card .fc-kpi-sub",
     ".data-panel .panel-title h2",
+    ".data-panel .panel-title button",
+    ".platform-avatar",
   ]) {
     const result = await contrast(selector);
     expect(result.ratio, `${selector}: ${JSON.stringify(result)}`).toBeGreaterThanOrEqual(4.5);

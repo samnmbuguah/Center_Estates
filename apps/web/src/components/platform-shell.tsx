@@ -448,7 +448,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
 
               <Box ref={profileRef} sx={{ position: "relative" }}>
                 <IconButton onClick={() => setProfileOpen((open) => !open)} aria-haspopup="menu">
-                  <Avatar sx={{ width: 36, height: 36, background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", fontWeight: 800 }}>
+                  <Avatar className="platform-avatar" sx={{ width: 36, height: 36, bgcolor: "#1d2b44", color: "#ffffff", fontWeight: 800 }}>
                     {initials}
                   </Avatar>
                 </IconButton>
@@ -464,7 +464,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                 >
                   <Box sx={{ px: 2, py: 1.5, bgcolor: "background.default", borderBottom: 1, borderColor: "divider" }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
-                      <Avatar sx={{ width: 40, height: 40, background: "linear-gradient(145deg, #1d2b44, #0f1a2c)", fontWeight: 800 }}>
+                      <Avatar className="platform-avatar" sx={{ width: 40, height: 40, bgcolor: "#1d2b44", color: "#ffffff", fontWeight: 800 }}>
                         {initials}
                       </Avatar>
                       <Box>

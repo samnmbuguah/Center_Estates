@@ -6001,7 +6001,7 @@ body,
 .fc-kpi-link,
 .panel-title button,
 .fc-filter-header button {
-  color: var(--link-color);
+  color: var(--link-color) !important;
 }
 
 .fc-alert-item,
