@@ -307,31 +307,6 @@
   color: var(--text-secondary) !important;
 }
 
-/* LIGHT MODE GREY FONT ELIMINATION OVERRIDE — System-Wide High Contrast Bold Black */
-:root:not([data-theme="dark"]), [data-theme="light"] {
-  [style*="color: #8a96a7"],
-  [style*="color: #6b7280"],
-  [style*="color: #64748b"],
-  [style*="color: #94a3b8"],
-  [style*="color: #6b7890"],
-  [style*="color: #778197"],
-  [style*="color: #4b5563"],
-  [style*="color: #667084"],
-  [style*="color: #5a6478"],
-  [style*="color: #69738a"],
-  [style*="color: #3b465d"],
-  [style*="color: #566177"],
-  [style*="color:#8a96a7"],
-  [style*="color:#6b7280"],
-  [style*="color:#64748b"],
-  [style*="color:#94a3b8"],
-  [style*="color:#6b7890"],
-  [style*="color:#778197"] {
-    color: #0f172a !important;
-    font-weight: 750 !important;
-  }
-}
-
 /* Fix specific component backgrounds and text in dark mode */
 [data-theme="dark"] .card,
 [data-theme="dark"] .data-panel,
@@ -1413,17 +1388,6 @@ html {
   }
 }
 
-/* Dark Mode Support - Updated */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #f7fafc;
-    --muted: #a0aec0;
-    --line: #4a5568;
-    --surface: #1a202c;
-    --surface-2: #2d3748;
-  }
-}
-
 /* Print Styles */
 @media print {
   .no-print {
@@ -1440,60 +1404,6 @@ html {
     text-decoration: underline;
   }
 }
-
-/* ============================================================
-   SYSTEM-WIDE GREY FONT ELIMINATION (Light Mode)
-   Replaces every known grey/muted hex code with bold dark charcoal
-   so all text is fully legible in light mode.
-   ============================================================ */
-
-/* .muted class and small tags — override to bold dark charcoal */
-small, .text-sm, .text-xs, .text-caption, .muted {
-  color: #0f172a !important;
-  font-weight: 750;
-}
-
-/* var(--muted) inline style overrides */
-[style*="color: var(--muted)"] {
-  color: #0f172a !important;
-  font-weight: 750;
-}
-[style*="color: var(--text-muted)"] {
-  color: #0f172a !important;
-  font-weight: 750;
-}
-
-/* Hardcoded grey hex inline style overrides (light mode only) */
-:root:not([data-theme="dark"]) [style*="color: #8a96a7"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #6b7280"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #64748b"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #94a3b8"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #9ca3af"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #718096"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #a0aec0"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #b8c8d7"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #778197"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #69738a"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #566177"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #667084"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #5a6478"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #4b5563"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: #3b465d"] { color: #0f172a !important; font-weight: 750; }
-/* var(--muted, #...) fallback patterns */
-:root:not([data-theme="dark"]) [style*="color: var(--muted, #8a96a7)"] { color: #0f172a !important; font-weight: 750; }
-:root:not([data-theme="dark"]) [style*="color: var(--muted, #6b7280)"] { color: #0f172a !important; font-weight: 750; }
-
-/* Fix light mode specific color issues - only for known problematic colors */
-[data-theme="light"] [style*="color: #b8c8d7"] {
-  color: var(--text-secondary) !important;
-}
-
-/* Fix dark mode specific color issues - only for known problematic colors */
-[data-theme="dark"] [style*="color: #b8c8d7"] {
-  color: var(--text-secondary) !important;
-}
-
-/* Remove aggressive background color overrides - were breaking UI */
 
 /* Sidebar Text Contrast - Always legible */
 .sidebar a, .sidebar button, .sidebar span {
