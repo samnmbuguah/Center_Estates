@@ -304,7 +304,7 @@ class TicketsFeedView(APIView):
 def _set_token_cookie(response, name, value, max_age, path):
     response.set_cookie(
         name, value, max_age=max_age, httponly=True, secure=not settings.DEBUG,
-        samesite='Lax', path=path, domain='.centerestates.com',
+        samesite='Lax', path=path, domain=settings.JWT_COOKIE_DOMAIN,
     )
 
 

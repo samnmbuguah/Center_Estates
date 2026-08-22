@@ -19,7 +19,7 @@ test("approved service request becomes an evidenced and resolved work order", as
   await propertySelector.selectOption(westlands ?? "");
   await openModuleSection(page, "Service Requests", testInfo);
 
-  await page.getByRole("button", { name: "+ New Service Request", exact: true }).click();
+  await page.getByRole("button", { name: "New Service Request", exact: true }).click();
   const createDialog = page.getByRole("dialog", { name: "New Service Request" });
   await createDialog.getByLabel("Subject / Title").fill("E2E common-area lighting repair");
   await createDialog.getByLabel("Category").selectOption("Electrical");

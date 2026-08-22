@@ -1,0 +1,31 @@
+[run]
+branch = True
+source =
+    companion
+    core
+    facilities
+    notifications
+    organizations
+    properties
+omit =
+    */migrations/*
+    */tests.py
+    */tests/*
+    */management/commands/*
+    manage.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    raise NotImplementedError
+show_missing = True
+skip_covered = True
+precision = 1
+fail_under = 65
+
+[html]
+directory = coverage_html
+
+[xml]
+output = coverage.xml

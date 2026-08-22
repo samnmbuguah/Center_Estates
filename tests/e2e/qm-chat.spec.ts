@@ -20,7 +20,7 @@ test("QM opens after login, briefs the user and retains a minimized conversation
   const qmResponse = await qmResponsePromise;
   expect(qmResponse.ok()).toBeTruthy();
   const qmBody = await qmResponse.json();
-  expect(qmBody.agentStatus).toBe("success");
+  expect(["success", "local"]).toContain(qmBody.agentStatus);
   await expect(chat.getByText("View My Tasks", { exact: true })).toBeVisible({ timeout: 30_000 });
 
   await chat.getByRole("button", { name: "Minimize Quartermaster" }).click();

@@ -12,7 +12,7 @@ Evaluates multi-dimensional signals:
 
 from datetime import datetime, time, timedelta
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Count, Q
 from typing import Dict, Any, Optional, List
 
 
@@ -50,28 +50,26 @@ def evaluate_employee_nudge(user, organization, session_active_minutes: int = 11
         assignee=user
     )
 
-    completed_today_count = my_tasks.filter(
-        status=Task.Status.COMPLETED,
-        completed_at__gte=today_start
-    ).count()
-
     active_tasks = my_tasks.exclude(
         status__in=[Task.Status.COMPLETED, Task.Status.CANCELLED]
     )
-    active_count = active_tasks.count()
-
-    # Tasks due within next 3 hours
     soon_deadline = now + timedelta(hours=3)
-    approaching_deadlines = active_tasks.filter(
-        due_at__isnull=False,
-        due_at__lte=soon_deadline,
-        due_at__gte=now
-    ).count()
-
-    overdue_count = active_tasks.filter(
-        due_at__isnull=False,
-        due_at__lt=now
-    ).count()
+    metrics = my_tasks.aggregate(
+        completed_today=Count('id', filter=Q(status=Task.Status.COMPLETED, completed_at__gte=today_start)),
+        active=Count('id', filter=~Q(status__in=[Task.Status.COMPLETED, Task.Status.CANCELLED])),
+        approaching=Count('id', filter=(
+            ~Q(status__in=[Task.Status.COMPLETED, Task.Status.CANCELLED])
+            & Q(due_at__isnull=False, due_at__lte=soon_deadline, due_at__gte=now)
+        )),
+        overdue=Count('id', filter=(
+            ~Q(status__in=[Task.Status.COMPLETED, Task.Status.CANCELLED])
+            & Q(due_at__isnull=False, due_at__lt=now)
+        )),
+    )
+    completed_today_count = metrics['completed_today']
+    active_count = metrics['active']
+    approaching_deadlines = metrics['approaching']
+    overdue_count = metrics['overdue']
 
     # Check approved upcoming leave
     has_upcoming_leave = StaffLeaveRequest.objects.filter(

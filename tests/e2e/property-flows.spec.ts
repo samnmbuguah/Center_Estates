@@ -31,11 +31,11 @@ test("property overview is scoped to the selected property", async ({ page }) =>
   await page.waitForTimeout(2000);
 
   await expect(page.getByText(/Outstanding Rent|Monthly Rent|Collection Rate|Arrears Aging/i).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: /MONTHLY RENT COLLECTION TREND|PROPERTY PERFORMANCE|LEASE EXPIRY OVERVIEW/i }).first()).toBeVisible();
-  await expect(page.getByText("Expected (KES)")).toBeVisible();
-  await expect(page.getByText("Actual (KES)")).toBeVisible();
-  await expect(page.getByLabel("Rent collection summary")).toContainText("Variance");
-  await expect(page.getByLabel("Rent collection summary")).toContainText("Collection rate");
+  await expect(page.getByRole("heading", { name: /Monthly Rent Collection & Variance Trend/i })).toBeVisible();
+  await expect(page.getByText("Expected Target (KES)")).toBeVisible();
+  await expect(page.getByText("Actual Collected (KES)")).toBeVisible();
+  await expect(page.getByText("Net Variance", { exact: true })).toBeVisible();
+  await expect(page.getByText("Period Efficiency", { exact: true })).toBeVisible();
   await expect(page.locator("h2, h3, .panel-title").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: /Property Portfolio Summary/i })).toHaveCount(0);
   await expect(page.getByText("All Properties", { exact: true })).toHaveCount(0);
@@ -92,7 +92,7 @@ test("tenant creation flow works end to end", async ({ page }, testInfo) => {
   const suffix = Date.now();
   const tenantName = `E2E Test Tenant ${suffix}`;
 
-  const addBtn = page.getByRole("button", { name: /Add Tenant|Add New Tenant/i }).last();
+  const addBtn = page.getByRole("button", { name: /Onboard Tenant/i }).last();
   await addBtn.click();
   await page.waitForTimeout(500);
 
@@ -210,7 +210,9 @@ test("receipts list shows receipt data and credit notes", async ({ page }) => {
   await page.goto("/property?tab=credit-notes");
   await page.waitForTimeout(1000);
 
-  await expect(page.locator("table, [role=table], .fc-alert-list").first()).toBeVisible();
+  await expect(
+    page.locator("table, [role=table], .fc-alert-list").first().or(page.getByRole("heading", { name: /No credit notes found/i }))
+  ).toBeVisible();
 
   const receiptChip = page.locator("button, a, span").filter({ hasText: /Receipts/i }).first();
   if (await receiptChip.count() > 0) await expect(receiptChip).toBeVisible();

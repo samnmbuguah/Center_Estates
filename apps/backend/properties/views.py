@@ -1259,7 +1259,7 @@ class TenantViewSet(OrganizationModelViewSet):
             'failed_count': len(failed),
             'succeeded': succeeded,
             'failed': failed,
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=('get',), url_path='statement.pdf')
     def statement_pdf(self, request, pk=None):
@@ -2112,6 +2112,36 @@ class BillingRunViewSet(OrganizationModelViewSet):
     queryset = BillingRun.objects.select_related('property', 'created_by', 'approved_by').prefetch_related('issues')
     serializer_class = BillingRunSerializer
 
+    @staticmethod
+    def _profile_is_due(profile, period_start):
+        """Return whether a recurring profile is billable in the selected month.
+
+        Effective dates are already constrained by the caller. Frequencies are
+        anchored to the profile's effective month so quarterly, annual and
+        custom schedules remain deterministic across billing runs.
+        """
+        frequency = profile.frequency
+        if frequency in (BillingProfile.Frequency.MONTHLY, BillingProfile.Frequency.METERED):
+            return True
+        month_delta = (
+            (period_start.year - profile.effective_from.year) * 12
+            + period_start.month
+            - profile.effective_from.month
+        )
+        # A profile beginning later in the same billing month is still due.
+        month_delta = max(month_delta, 0)
+        intervals = {
+            BillingProfile.Frequency.QUARTERLY: 3,
+            BillingProfile.Frequency.BIANNUAL: 6,
+            BillingProfile.Frequency.ANNUAL: 12,
+            BillingProfile.Frequency.CUSTOM: max(profile.custom_interval_months, 1),
+        }
+        if frequency in intervals:
+            return month_delta % intervals[frequency] == 0
+        if frequency in (BillingProfile.Frequency.ONE_OFF, BillingProfile.Frequency.EVENT):
+            return month_delta == 0
+        return False
+
     def _execute_prepare(self, run):
         run.candidates.filter(invoice__isnull=True).delete()
         run.issues.all().delete()
@@ -2121,7 +2151,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
         ).select_related('tenant', 'unit__property')
         if run.property_id:
             leases = leases.filter(unit__property=run.property)
-        created = 0; ready = 0; issue_count = 0
         created = 0; ready = 0; issue_count = 0
         amount_ready = Decimal('0'); amount_issues = Decimal('0')
         from facilities.models import MeterReading, UtilityMeter
@@ -2270,8 +2299,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
             if existing.period_end != period_end:
                 existing.period_end = period_end
                 existing.save(update_fields=('period_end',))
-            if existing.status in (BillingRun.Status.PREPARING, BillingRun.Status.REVIEW):
-                self._execute_prepare(existing)
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
 
         run = serializer.save(
@@ -2279,7 +2306,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
             created_by=self.request.user,
             property=prop,
         )
-        self._execute_prepare(run)
         return Response(self.get_serializer(run).data, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
@@ -2294,17 +2320,10 @@ class BillingRunViewSet(OrganizationModelViewSet):
     @transaction.atomic
     @action(detail=True, methods=('post',))
     def approve(self, request, pk=None):
-        from organizations.models import Membership
-
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status != BillingRun.Status.REVIEW:
             raise ValidationError({'status': 'Prepare and review the billing run before approval.'})
-        is_admin = (
-            request.user.is_superuser
-            or getattr(request.user, 'is_staff', False)
-            or Membership.objects.filter(organization=run.organization, user=request.user, is_organization_admin=True).exists()
-        )
-        if run.created_by_id == request.user.id and not is_admin:
+        if run.created_by_id == request.user.id:
             raise ValidationError({'approval': 'The person who prepared this billing run cannot approve it.'})
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
             raise ValidationError({'issues': 'Resolve or authorize every blocking issue before approval.'})
@@ -2356,6 +2375,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
         year = run.period_start.year
+        generated = []
         for candidate in candidates:
             period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if (run.period_end.year - run.period_start.year)*12 + (run.period_end.month - run.period_start.month) >= 1 else run.period_start.strftime('%Y-%m')
             invoice = Invoice.objects.create(

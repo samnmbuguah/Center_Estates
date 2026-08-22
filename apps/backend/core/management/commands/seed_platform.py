@@ -211,13 +211,12 @@ class Command(BaseCommand):
             'read-only': ('Rita', 'Reviewer'),
         }
         for role_slug, (role_name, keys) in core_roles.items():
-            core_role, created = Role.objects.get_or_create(
+            core_role, _ = Role.objects.update_or_create(
                 organization=organization,
                 slug=role_slug,
                 defaults={'name': role_name, 'is_system': True},
             )
-            if created:
-                core_role.permissions.set(permission_catalog[key] for key in keys)
+            core_role.permissions.set(permission_catalog[key] for key in keys)
             first_name, last_name = core_people[role_slug]
             seed_role_user(f'role-{role_slug}', first_name, last_name, core_role)
 

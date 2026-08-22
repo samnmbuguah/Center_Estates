@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useCallback, useMemo, ReactNode } from "react";
+import { useState, useMemo, ReactNode } from "react";
 import {
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Checkbox, IconButton, Tooltip, Chip, Menu, MenuItem, TextField,
-  Select, InputAdornment, Collapse, Button, Typography, Alert,
+  InputAdornment, Collapse, Button, Typography, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, Pagination, CircularProgress
 } from "@mui/material";
 import { 
-  Search, Filter, Download, MoreVertical, ChevronDown, ChevronUp,
-  Eye, Edit, Trash2, FileText, Check, X, Columns, Settings
+  Search, Filter, Download, ChevronDown, ChevronUp,
+  Eye, Edit, Trash2, Columns
 } from "lucide-react";
 
 export interface Column<T> {
@@ -17,7 +17,7 @@ export interface Column<T> {
   label: string;
   sortable?: boolean;
   filterable?: boolean;
-  render?: (value: any, row: T) => ReactNode;
+  render?: (value: unknown, row: T) => ReactNode;
   width?: number | string;
   align?: "left" | "center" | "right";
   visible?: boolean;
@@ -57,7 +57,7 @@ export interface EnhancedDataTableProps<T> {
   initialFilters?: FilterState;
 }
 
-export function EnhancedDataTable<T extends Record<string, any>>({
+export function EnhancedDataTable<T extends Record<string, unknown>>({
   data,
   columns,
   loading = false,
@@ -84,11 +84,14 @@ export function EnhancedDataTable<T extends Record<string, any>>({
     new Set(columns.filter(c => c.visible !== false).map(c => String(c.id)))
   );
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(pageSize);
+  const [rowsPerPage] = useState(pageSize);
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<HTMLElement | null>(null);
   const [columnMenuAnchor, setColumnMenuAnchor] = useState<HTMLElement | null>(null);
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
-  const [bulkActionDialog, setBulkActionDialog] = useState<{ open: boolean; action: any }>({ open: false, action: null });
+  const [bulkActionDialog, setBulkActionDialog] = useState<{
+    open: boolean;
+    action: ((rows: T[]) => void) | null;
+  }>({ open: false, action: null });
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
@@ -121,8 +124,8 @@ export function EnhancedDataTable<T extends Record<string, any>>({
     // Apply sorting
     if (sortConfig) {
       result.sort((a, b) => {
-        const aValue = a[sortConfig.key as keyof T];
-        const bValue = b[sortConfig.key as keyof T];
+        const aValue = String(a[sortConfig.key as keyof T] ?? "");
+        const bValue = String(b[sortConfig.key as keyof T] ?? "");
         
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -291,7 +294,7 @@ export function EnhancedDataTable<T extends Record<string, any>>({
               startIcon={<Download size={16} />}
               onClick={handleExport}
             >
-              Export
+              {selectedCount > 0 ? "Export selected" : "Export"}
             </Button>
           )}
         </Box>
@@ -572,10 +575,39 @@ export function EnhancedDataTable<T extends Record<string, any>>({
           </Button>
           <Button 
             variant="contained" 
-            onClick={() => handleBulkAction(bulkActionDialog.action)}
+            onClick={() => bulkActionDialog.action && handleBulkAction(bulkActionDialog.action)}
+            disabled={!bulkActionDialog.action}
             color="error"
           >
             Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(activeFilterColumn)} onClose={() => setActiveFilterColumn(null)}>
+        <DialogTitle>
+          Filter {columns.find((column) => String(column.id) === activeFilterColumn)?.label ?? "column"}
+        </DialogTitle>
+        <DialogContent sx={{ minWidth: { xs: 280, sm: 380 }, pt: "12px !important" }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Contains"
+            value={activeFilterColumn ? String(filters[activeFilterColumn] ?? "") : ""}
+            onChange={(event) => activeFilterColumn && handleFilterChange(activeFilterColumn, event.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              if (activeFilterColumn) handleFilterChange(activeFilterColumn, "");
+              setActiveFilterColumn(null);
+            }}
+          >
+            Clear
+          </Button>
+          <Button variant="contained" onClick={() => setActiveFilterColumn(null)}>
+            Apply
           </Button>
         </DialogActions>
       </Dialog>

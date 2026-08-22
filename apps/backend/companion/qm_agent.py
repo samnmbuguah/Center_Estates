@@ -40,7 +40,8 @@ class QMAgentOrchestrator:
             or os.environ.get('NVIDIA_MODEL')
             or 'deepseek-chat'
         )
-        self.timeout_seconds = min(max(int(os.environ.get('AI_TIMEOUT_SECONDS', '30')), 5), 45)
+        timeout = os.environ.get('AI_TIMEOUT_SECONDS') or os.environ.get('NVIDIA_TIMEOUT_SECONDS') or '30'
+        self.timeout_seconds = min(max(int(timeout), 5), 45)
 
     @property
     def configured(self) -> bool:

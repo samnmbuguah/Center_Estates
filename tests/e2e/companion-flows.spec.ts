@@ -31,9 +31,7 @@ test("companion renders overview with greeting and KPIs", async ({ page }) => {
   await page.goto("/companion");
   await page.waitForTimeout(500);
 
-  // The module title h1 renders on desktop; on mobile the greeting h2 is the
-  // visible heading signal.
-  await expect(page.getByRole("heading", { name: /Companion|Good (morning|afternoon|evening)/i }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Portfolio operating|Priority Triage Assistance/i }).first()).toBeVisible();
   const greeting = page.locator("text=/Good morning|Good afternoon|Good evening/i").first();
   if (await greeting.count() > 0) await expect(greeting).toBeVisible();
 

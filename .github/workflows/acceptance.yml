@@ -33,7 +33,13 @@ jobs:
             sleep 2
           done
           exit 1
-      - run: npx playwright test
+      - name: Core Property, Facility and Companion role gate
+        run: >-
+          npx playwright test tests/e2e/core-roles.spec.ts tests/e2e/roles.spec.ts
+          --grep 'portfolio manager|operations staff|finance officer reaches|read-only role|ROLE-(PROPERTY|LEASING|FACILITY|COMPANION)'
+          --project=desktop-chromium --workers=1
+      - name: Full browser acceptance suite
+        run: npx playwright test
       - name: Publish acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4

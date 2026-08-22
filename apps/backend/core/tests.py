@@ -147,6 +147,14 @@ class AuthenticationApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_login_cookie_domain_can_be_host_only_for_non_production_domains(self):
+        with self.settings(JWT_COOKIE_DOMAIN=None):
+            response = self.client.post(
+                '/api/v1/auth/login/', {'username': 'api-user', 'password': 'correct-password'}, format='json'
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.cookies['ce_access']['domain'], '')
+
     def test_login_attempts_are_rate_limited(self):
         csrf_token = self._csrf()
         responses = [self.client.post(

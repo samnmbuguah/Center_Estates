@@ -33,6 +33,7 @@ services:
       DB_PORT: "5432"
       CORS_ALLOWED_ORIGINS: https://erp.169-58-102-217.sslip.io
       CSRF_TRUSTED_ORIGINS: https://erp.169-58-102-217.sslip.io
+      JWT_COOKIE_DOMAIN: ""
       SEED_DEMO_DATA: "true"
       SEED_ADMIN_USERNAME: admin
       GUNICORN_WORKERS: "3"

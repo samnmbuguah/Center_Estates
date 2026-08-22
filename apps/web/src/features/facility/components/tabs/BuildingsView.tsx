@@ -57,12 +57,26 @@ function FcKpiCard({
   );
 }
 
-export function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Record<string, string | number> }) {
+type FloorPlanTag = {
+  id: string;
+  room: string;
+  type: string;
+  area: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  status: string;
+  tenant: string;
+  color: string;
+};
+
+export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, string | number> }) {
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | number>((rows[0]?.id as string | number) ?? "bld-1");
   const [selectedFloor, setSelectedFloor] = useState("Floor 2");
   const [selectedAreaType, setSelectedAreaType] = useState<"all" | "lettable" | "common" | "core">("all");
   const [zoom, setZoom] = useState(1.0);
-  const [hoveredTag, setHoveredTag] = useState<any | null>(null);
+  const [hoveredTag, setHoveredTag] = useState<FloorPlanTag | null>(null);
 
   const buildings = rows.length > 0 ? rows : [
     { id: "bld-1", name: "Finance House", code: "BLD-001", lr_number: "LR 209/10842", year_built: 2018, floors: 12, gfa: 25000, common_area: 5000, lettable: 20000, occupied: 19600, location: "Nairobi CBD", operating_hours: "06:00 - 20:00 Mon-Sat", emergency_contact: "+254 700 123 456" },
@@ -93,7 +107,7 @@ export function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Record<string
   ];
 
   // Scaled polygon tags for Floor 2
-  const floorPlanTags = [
+  const floorPlanTags: FloorPlanTag[] = [
     { id: "t1", room: "Unit 201 (Anchor Tenant)", type: "lettable", area: 420.5, x: 20, y: 30, w: 220, h: 120, status: "Occupied", tenant: "Safaricom PLC", color: "#3b82f6" },
     { id: "t2", room: "Unit 202 (Executive Suite)", type: "lettable", area: 380.0, x: 260, y: 30, w: 200, h: 120, status: "Occupied", tenant: "PwC Kenya", color: "#3b82f6" },
     { id: "t3", room: "Unit 203 (Office Suite)", type: "lettable", area: 410.0, x: 480, y: 30, w: 210, h: 120, status: "Occupied", tenant: "KCB Bank", color: "#3b82f6" },
@@ -110,6 +124,11 @@ export function BuildingsView({ rows, kpis }: { rows: Row[]; kpis: Record<string
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button className="fc-toolbar-btn" onClick={() => exportCsv(buildings, "facility-buildings.csv")}>
+          ↓ Export CSV
+        </button>
+      </div>
       {/* Top Building KPI Strip */}
       <div className="fc-kpi-strip">
         <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Gross Floor Area (GFA)" value={`${gfa.toLocaleString()} m²`} sub="Total measured envelope" />

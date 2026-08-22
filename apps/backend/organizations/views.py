@@ -63,12 +63,9 @@ class RoleListCreateView(OrganizationAdminAPIView):
     serializer_class = RoleSerializer
 
     def get(self, request):
-        organization = get_active_organization(request, required=False)
-        if not organization:
-            return Response(
-                {"detail": "An active organization membership is required."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        organization, error = self.context(request)
+        if error:
+            return error
         import time
         from django.db import OperationalError
         for attempt in range(3):
@@ -319,4 +316,3 @@ class CurrentUserProfileView(APIView):
             "is_placeholder_email": is_placeholder,
             "detail": "Profile updated successfully.",
         })
-

@@ -21,12 +21,15 @@ for (const module of moduleCases) {
   test(`@role:viewer @module:${module} @story:ROLE-${module.toUpperCase()}-VIEW viewer sees only their module`, async ({ page }, testInfo) => {
     await signInAs(page, `role-${module}-viewer`);
     const moduleLinks = page.locator("a.module-card");
-    await expect(moduleLinks).toHaveCount(1);
+    const expectedModules = module === "companion" ? ["companion"] : [module, "companion"];
+    await expect(moduleLinks).toHaveCount(expectedModules.length);
+    const hrefs = await moduleLinks.evaluateAll((items) => items.map((item) => item.getAttribute("href")).sort());
+    expect(hrefs).toEqual(expectedModules.map((item) => `/${item}`).sort());
     if (testInfo.project.name.startsWith("mobile")) {
       await page.getByRole("button", { name: "Open navigation" }).click();
     }
     // The entire redesigned module card is the link target.
-    await moduleLinks.first().click();
+    await page.locator(`a.module-card[href='/${module}']`).click();
     // The redesigned workspace shell no longer renders a module title heading;
     // its navigation bar is the reliable signal that the module loaded.
     await expect(page.locator(".module-nav-bar, .module-workspace").first()).toBeVisible();
@@ -135,18 +138,19 @@ test("@role:admin @module:platform @story:ROLE-ADMIN-SWITCH admin can open demo 
 // Construction (monitoring) is disabled in the production scope; its controls
 // are not rendered, so those roles are covered by the denial checks below.
 const businessControlCases = [
-  ["leasing-officer", "/property", "+ Add Tenant", true, "+ Record Receipt", false],
-  ["property-accountant", "/property", "+ Add Tenant", false, "+ Record Receipt", true],
-  ["facility-technician", "/facility", "+ New Work Order", true, "", false],
-  ["facility-inspector", "/facility", "+ New Work Order", true, "", false],
-  ["valuation-coordinator", "/valuation", "+ New Instruction", true, "", false],
-  ["valuer-inspector", "/valuation", "+ New Instruction", false, "", false],
+  ["leasing-officer", "/property", "Tenants", "+ Onboard Tenant", true, "+ Record Receipt", false],
+  ["property-accountant", "/property", "Receipts", "+ Onboard Tenant", false, "+ Record Receipt", true],
+  ["facility-technician", "/facility", "Work Orders", "+ Create Work Order", true, "", false],
+  ["facility-inspector", "/facility", "Work Orders", "+ Create Work Order", true, "", false],
+  ["valuation-coordinator", "/valuation", "Instructions", "+ New Instruction", true, "", false],
+  ["valuer-inspector", "/valuation", "Instructions", "+ New Instruction", false, "", false],
 ] as const;
 
-for (const [role, path, primary, primaryVisible, secondary, secondaryVisible] of businessControlCases) {
+for (const [role, path, section, primary, primaryVisible, secondary, secondaryVisible] of businessControlCases) {
   test(`@role:${role} @story:ROLE-${role.toUpperCase()} business controls follow least privilege`, async ({ page }) => {
     await signInAs(page, `role-${role}`);
     await page.goto(path);
+    await openModuleSection(page, section);
     await expect(page.getByRole("button", { name: primary, exact: true })).toHaveCount(primaryVisible ? 1 : 0);
     if (secondary) {
       await expect(page.getByRole("button", { name: secondary, exact: true })).toHaveCount(secondaryVisible ? 1 : 0);
@@ -161,23 +165,20 @@ test("@role:leasing-officer @module:property @story:ROLE-LEASING-OFFICER leasing
   await expect(page.getByRole("button", { name: "+ Record Receipt", exact: true })).toHaveCount(0);
 
   await openModuleSection(page, "Tenants");
-  await page.getByRole("button", { name: "+ Add Tenant", exact: true }).last().click();
-  // The redesigned onboarding uses the full-page Tenant Application Card.
-  const card = page.locator(".tenant-application-card");
+  await page.getByRole("button", { name: "+ Onboard Tenant", exact: true }).last().click();
+  const card = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Tenant Application & Onboarding Card" }) });
   await expect(card).toBeVisible();
   const suffix = Date.now();
   const tenantName = `Leasing Prospect ${suffix}`;
-  await card.getByLabel(/Tenant \/ company name/i).fill(tenantName);
+  await card.getByLabel(/Tenant \/ Company Legal Name/i).fill(tenantName);
   await card.getByLabel(/KRA PIN|Tax ID/i).fill(`P0${String(suffix).slice(-8)}X`);
-  await card.getByLabel(/Registration no/i).fill(`REG-${suffix}`);
+  await card.getByLabel(/Registration \/ Certificate Number/i).fill(`REG-${suffix}`);
   await card.getByLabel(/Email/i).first().fill(`prospect-${suffix}@example.test`);
-  // The application requires lease fields (unit, commencement, rent rate) to save.
-  await card.getByRole("tab", { name: /Lease & charges/i }).click();
-  const unitSelect = card.getByLabel(/Unit no/i);
+  const unitSelect = card.getByLabel("Assigned Unit");
   await unitSelect.click();
-  await page.locator("li[role='option']").first().click();
+  await page.getByRole("option").first().click();
   await card.getByLabel(/Commencement date/i).fill("2026-09-01");
-  await card.getByLabel(/Applicable rent rate/i).fill("1200");
+  await card.getByLabel(/Fixed Monthly Rent/i).fill("120000");
   await card.getByRole("button", { name: /Save (tenant )?application/i }).first().click();
   // The save closes the card and returns to the tenants tab; the created
   // tenant may appear on a later page, so confirm via the saved-state signal.
@@ -193,7 +194,7 @@ test("@role:leasing-officer @module:property @story:ROLE-LEASING-OFFICER leasing
     await pendingRow.getByRole("button", { name: "Verify", exact: true }).click();
     await expect(pendingRow).toContainText(/verified|under review/i);
   } else {
-    await expect(page.locator("table, [role=table]").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No documents found" })).toBeVisible();
   }
 });
 
@@ -239,8 +240,13 @@ test("@role:facility-technician @module:facility @story:ROLE-FACILITY-TECHNICIAN
   await create.getByLabel("Category").fill("Plumbing");
   await create.getByLabel("Property").selectOption({ index: 1 });
   await create.getByLabel("Description").fill("Created from the technician role journey.");
+  const createdResponse = page.waitForResponse((response) => (
+    response.url().includes("/api/v1/facility/work-orders/")
+    && response.request().method() === "POST"
+  ));
   await create.getByRole("button", { name: "Create Work Order" }).click();
-  await expect(page.getByText(number, { exact: true }).first()).toBeVisible();
+  expect((await createdResponse).status()).toBe(201);
+  await expect(create).toBeHidden();
 
   await openTab(page, "Work Orders");
   // Start assigned work when an assigned row is available (seed rows are not

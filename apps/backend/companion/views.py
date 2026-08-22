@@ -42,6 +42,7 @@ from .serializers import (
 )
 from notifications.models import Notification
 from notifications.services import notify_user, send_email_notification
+from .qm_agent import QMAgentOrchestrator
 
 STATUS_TRANSITIONS = {
     Task.Status.PENDING: {Task.Status.ACKNOWLEDGED, Task.Status.CANCELLED, Task.Status.IN_PROGRESS},
@@ -412,7 +413,6 @@ class CompanionDashboardViewSet(ViewSet):
         qm_result = {}
         llm_response = ''
         try:
-            from .qm_agent import QMAgentOrchestrator
             qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
             qm_result = qm_orchestrator.execute_agent(
                 prompt=raw_prompt,
@@ -906,6 +906,8 @@ class TelemetryViewSet(ViewSet):
             events = raw_events if isinstance(raw_events, list) else [request.data]
             if not events:
                 return Response({'status': 'ok', 'accepted': 0}, status=status.HTTP_200_OK)
+            if len(events) > 100:
+                raise ValidationError({'events': 'Submit no more than 100 telemetry events per batch.'})
             records = []
             for payload in events[:100]:
                 if not isinstance(payload, dict):
@@ -926,6 +928,8 @@ class TelemetryViewSet(ViewSet):
             if records:
                 TaskEvent.objects.bulk_create(records)
             return Response({'status': 'ok', 'accepted': len(records)}, status=status.HTTP_201_CREATED)
+        except ValidationError:
+            raise
         except Exception:
             return Response({'status': 'ok', 'accepted': 0}, status=status.HTTP_200_OK)
 
@@ -1680,4 +1684,3 @@ class DocumentExtractView(APIView):
         result = extract_lease_data(text, gateway=gateway)
         status_code = 200 if result.get('success') else 400
         return Response(result, status=status_code)
-

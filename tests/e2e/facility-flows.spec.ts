@@ -27,9 +27,9 @@ test("facility overview renders dashboard components", async ({ page }) => {
   await expect(page.getByText("Active Assets", { exact: true })).toBeVisible();
   await expect(page.getByText("Open Work Orders", { exact: true }).first()).toBeVisible();
 
-  await expect(page.getByText("Work Orders Overview", { exact: true })).toBeVisible();
-  await expect(page.getByText("Recent Work Orders", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/Critical Alerts|CRITICAL ALERTS/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Work Orders Lifecycle & Helpdesk Status/i })).toBeVisible();
+  await expect(page.getByText(/Total Active|SLA Overdue/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Operational Flags & Risks/i })).toBeVisible();
 
   await expect(page.locator(".form-error")).toHaveCount(0);
 });
@@ -39,9 +39,9 @@ test("buildings list shows locations with export capability", async ({ page }, t
   await openFacilityTab(page, "Buildings", testInfo);
 
   await expect(page.locator("table")).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /Building Name|Name|Code/i }).first()).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /Location/i })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /Type|Building Type/i }).first()).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /Floor Level/i })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /Primary Use/i })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /Gross Area/i })).toBeVisible();
 
   await expect(page.getByRole("button", { name: /Export/i })).toBeVisible();
 });
@@ -51,8 +51,8 @@ test("assets register shows data with detail panel", async ({ page }, testInfo) 
   await openFacilityTab(page, "Assets", testInfo);
   await page.waitForTimeout(2000);
 
-  await expect(page.getByText("Total Assets", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Operational", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Registered Assets", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Asset Master Information/i })).toBeVisible();
   await expect(page.locator("table")).toBeVisible();
   await expect(page.getByRole("button", { name: /Export/i }).first()).toBeVisible();
 });
@@ -115,17 +115,27 @@ test("service requests list shows requests with actions", async ({ page }, testI
   await page.goto("/facility");
   await openFacilityTab(page, "Service requests", testInfo);
 
-  await expect(page.locator(".fc-kpi-card, .data-panel").getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
-  await expect(page.locator(".fc-kpi-card, .data-panel").getByText("Open", { exact: true }).first()).toBeVisible();
-  await expect(page.locator(".fc-kpi-card, .data-panel").getByText("In Progress", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Service Requests Management" })).toBeVisible();
+  await expect(page.getByText("Open Requests", { exact: true })).toBeVisible();
+  await expect(page.getByText("In Progress", { exact: true })).toBeVisible();
   await expect(page.locator("table")).toBeVisible();
+
+  const requestRows = page.locator("tbody tr");
+  if (await requestRows.count()) {
+    await requestRows.first().getByRole("checkbox").check();
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export selected" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("facility-service-requests.csv");
+  }
 });
 
 test("contractors list shows contractors with ratings", async ({ page }, testInfo) => {
   await page.goto("/facility");
   await openFacilityTab(page, "Contractors", testInfo);
 
-  await expect(page.getByText(/Total Contractors|Active Contractors/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Service Provider Master/i })).toBeVisible();
+  await expect(page.getByText(/Active SLA Contracts/i).first()).toBeVisible();
   await expect(page.locator("table")).toBeVisible();
 });
 
@@ -165,16 +175,17 @@ test("facility preventive and service workflows are interactive", async ({ page 
   await openFacilityTab(page, "Work orders", testInfo);
   await expect(page.getByRole("columnheader", { name: /Status/i }).first()).toBeVisible();
   await openFacilityTab(page, "Service requests", testInfo);
-  await expect(page.locator(".fc-kpi-card, .data-panel").getByText(/Open Requests|In Progress|Service/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Service Requests Management" })).toBeVisible();
+  await expect(page.getByText("Open Requests", { exact: true })).toBeVisible();
 });
 
 test("facility reports export current operational data", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Download verification runs once on desktop");
   await page.goto("/facility");
   await openFacilityTab(page, "Reports & BI", testInfo);
-  await expect(page.getByRole("heading", { name: "Operational report exports" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Raw Operational Data Registers/i })).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export CSV" }).first().click();
+  await page.getByRole("button", { name: /Download/i }).first().click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/assets.*\.csv|center-estates-assets\.csv/i);
+  expect(download.suggestedFilename()).toMatch(/assets.*\.csv|center-estates.*\.csv/i);
 });

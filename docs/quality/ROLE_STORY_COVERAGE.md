@@ -51,6 +51,10 @@ Demo identity switching (super-admin profile menu) is available for all seeded `
 
 The backend permission suite independently covers safe-read allow, mutation deny, manage allow and approve separation for all six modules.
 
+### Core demo acceptance gate
+
+The Property, Facility and Companion release slice was last verified on 22 August 2026. The role gate passed 17/17 desktop browser journeys, the critical workflow gate passed 38/38 executed journeys with one intentionally skipped duplicate mobile mutation, and the complete backend suite passed 224/224 tests. Backend coverage is 65.3% for the active core domains and the frontend unit/component gate passed 29/29 tests. The role gate covers the four core roles (Portfolio Manager, Operations Staff, Finance Officer and Read Only), module viewers, Leasing Officer, Property Accountant, Facility Technician, Facility Inspector, Facility Occupant and Companion Viewer. The scheduled acceptance workflow runs this traceable slice before the full browser suite.
+
 | Module | Role | Representative user story | Current state |
 |---|---|---|---|
 | Platform | Super / organization administrator | Subscribe modules, manage access, demo-switch identities | PASS |

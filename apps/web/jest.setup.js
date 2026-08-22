@@ -35,20 +35,3 @@ const localStorageMock = {
 }
 global.localStorage = localStorageMock
 
-// Mock window.location
-delete global.window.location
-global.window.location = {
-  href: '',
-  origin: '',
-  protocol: '',
-  host: '',
-  hostname: '',
-  port: '',
-  pathname: '',
-  search: '',
-  hash: '',
-  assign: jest.fn(),
-  reload: jest.fn(),
-  replace: jest.fn(),
-}
-

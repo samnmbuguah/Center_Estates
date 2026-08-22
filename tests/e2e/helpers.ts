@@ -32,7 +32,7 @@ const TAB_ALIASES: Record<string, string | string[]> = {
   "Financial reports": "Financial Analytics",
   "Financial Analytics": "Financial Analytics",
   Invoices: "Invoice Register",
-  Receipts: "Receipts",
+  Receipts: "Payments & Credits",
   // Facility
   "Work orders": "Maintenance",
   "Work Orders": "Maintenance",
