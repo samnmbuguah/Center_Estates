@@ -21,8 +21,8 @@ export default defineConfig({
     video: "retain-on-failure",
     ignoreHTTPSErrors: true,
     // Use test database for all E2E tests
-    extraHTTPHeaders: {
-      'X-Test-Mode': 'true',
+    extraHTTPHeaders: process.env.E2E_TEST_MODE === "false" ? {} : {
+      "X-Test-Mode": "true",
     },
   },
   projects: [
