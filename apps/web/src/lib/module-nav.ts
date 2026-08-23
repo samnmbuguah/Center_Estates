@@ -105,7 +105,9 @@ export const facilityNav: ModuleNavGroup[] = [
   {
     label: "OPERATIONS",
     items: [
+      { id: "service-profiles",  label: "Service Profiles",    icon: "🧩" },
       { id: "service-requests",  label: "Service Requests",    icon: "🎫" },
+      { id: "incidents",         label: "Incident Reporting",  icon: "🚨" },
       { id: "inspections",       label: "Inspections",         icon: "🔍" },
       { id: "meters",            label: "Energy & Utilities",  icon: "⚡" },
       { id: "contractors",       label: "Vendors & Contracts", icon: "🤝" },

@@ -14,6 +14,8 @@ export type FacilityTab =
   | "risks"
   | "inspections"
   | "service-requests"
+  | "service-profiles"
+  | "incidents"
   | "meters"
   | "reports"
   | "expenditure"
@@ -136,6 +138,8 @@ export const facilityLabels: Record<FacilityTab, string> = {
   risks: "Risk Register & Mitigations",
   inspections: "Inspections & Audits",
   "service-requests": "Service Requests",
+  "service-profiles": "Service Profiles",
+  incidents: "Incident Reporting",
   meters: "Utility Management",
   reports: "Reports & BI",
   expenditure: "Expenditure & Floats",
@@ -144,4 +148,3 @@ export const facilityLabels: Record<FacilityTab, string> = {
   tickets: "Tickets & Issues",
   calendar: "Calendar",
 };
-

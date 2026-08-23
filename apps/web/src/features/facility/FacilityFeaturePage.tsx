@@ -15,6 +15,7 @@ import { UtilitiesView } from "./components/tabs/UtilitiesView";
 import { ContractorsView } from "./components/tabs/ContractorsView";
 import { InventoryView } from "./components/tabs/InventoryView";
 import { GenericListView } from "./components/tabs/GenericListView";
+import { OperationsRegistryView } from "./components/tabs/OperationsRegistryView";
 import { FacilityModals } from "./components/modals/FacilityModals";
 import { ErrorBanner, LoadingState } from "@/components/module-ui";
 
@@ -98,6 +99,16 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             onAction={logic.runAction}
             permissions={{ canWork: logic.canWork, canApprove: logic.canApprove }}
             onAdd={() => logic.setCreateModal("service-request")}
+          />
+        ) : logic.tab === "service-profiles" || logic.tab === "incidents" ? (
+          <OperationsRegistryView
+            mode={logic.tab}
+            rows={logic.rows}
+            organizationId={logic.organizationId}
+            propertyId={logic.activePropertyId}
+            canApprove={logic.canApprove}
+            canAdminister={logic.canAdminister}
+            reload={logic.load}
           />
         ) : logic.tab === "meters" ? (
           <UtilitiesView

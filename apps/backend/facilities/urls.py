@@ -4,9 +4,9 @@ from .views import (
     AssetConditionAssessmentViewSet, AssetViewSet, ComplianceObligationViewSet,
     ContractorContractViewSet, ContractorViewSet, FacilityAnalyticsViewSet,
     FacilityDashboardViewSet, FacilityFlagViewSet, FacilityPortalViewSet,
-    FacilityRiskViewSet, FloorPlanViewSet, FMBudgetViewSet, FacilityExpenseViewSet, InspectionViewSet,
+    FacilityIncidentViewSet, FacilityRiskViewSet, FloorPlanViewSet, FMBudgetViewSet, FacilityExpenseViewSet, InspectionViewSet,
     MeterReadingViewSet, MeterReconciliationViewSet, MeterResetEventViewSet,
-    PreventiveScheduleViewSet, ServiceRequestViewSet, StrategicFMPlanViewSet,
+    PreventiveScheduleViewSet, ServiceProfileAllocationViewSet, ServiceProfileViewSet, ServiceRequestViewSet, StrategicFMPlanViewSet,
     UtilityMeterViewSet, WorkOrderAttachmentViewSet, WorkOrderCostItemViewSet,
     WorkOrderEventViewSet, WorkOrderViewSet,
 )
@@ -22,6 +22,9 @@ router.register('work-orders', WorkOrderViewSet)
 router.register('planned-maintenance', PreventiveScheduleViewSet)
 router.register('inspections', InspectionViewSet)
 router.register('service-requests', ServiceRequestViewSet)
+router.register('service-profiles', ServiceProfileViewSet)
+router.register('service-profile-allocations', ServiceProfileAllocationViewSet)
+router.register('incidents', FacilityIncidentViewSet)
 router.register('portal', FacilityPortalViewSet, basename='facility-portal')
 router.register('meters', UtilityMeterViewSet)
 router.register('meter-readings', MeterReadingViewSet)

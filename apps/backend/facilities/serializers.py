@@ -6,10 +6,69 @@ from core.tenancy import get_active_organization
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
-    FacilityExpense, FacilityFlag, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
+    FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
+    MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
+
+
+class ServiceProfileAllocationSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    provider_name = serializers.CharField(source='provider.name', read_only=True, default='')
+
+    class Meta:
+        model = ServiceProfileAllocation
+        exclude = ('organization',)
+
+
+class ServiceProfileSerializer(serializers.ModelSerializer):
+    allocations = ServiceProfileAllocationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ServiceProfile
+        exclude = ('organization', 'created_by')
+        read_only_fields = ('code',)
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        for prop in attrs.get('properties', []):
+            if prop.organization_id != organization.id:
+                raise serializers.ValidationError({'properties': 'Every property must belong to the active organization.'})
+        for asset in attrs.get('assets', []):
+            if asset.organization_id != organization.id:
+                raise serializers.ValidationError({'assets': 'Every asset must belong to the active organization.'})
+        return attrs
+
+
+class FacilityIncidentEventSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.get_full_name', read_only=True)
+
+    class Meta:
+        model = FacilityIncidentEvent
+        exclude = ('organization', 'actor')
+
+
+class FacilityIncidentSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    unit_code = serializers.CharField(source='unit.code', read_only=True, default='')
+    asset_name = serializers.CharField(source='asset.name', read_only=True, default='')
+    provider_name = serializers.CharField(source='service_provider.name', read_only=True, default='')
+    reported_by_name = serializers.CharField(source='reported_by.get_full_name', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True, default='')
+    events = FacilityIncidentEventSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = FacilityIncident
+        exclude = ('organization', 'reported_by')
+        read_only_fields = ('reference', 'status', 'reviewed_by', 'submitted_at', 'closed_at', 'work_order')
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        for field in ('property', 'unit', 'asset', 'service_provider'):
+            value = attrs.get(field)
+            if value is not None and getattr(value, 'organization_id', organization.id) != organization.id:
+                raise serializers.ValidationError({field: 'The selected record belongs to another organization.'})
+        return attrs
 
 
 class FacilityAssetSerializer(serializers.ModelSerializer):

@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 import calendar
 from decimal import Decimal
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -26,16 +26,16 @@ from notifications.services import notify_permission, notify_user
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
-    FacilityExpense, FacilityFlag, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
+    FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
+    MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 from .serializers import (
     AssetConditionAssessmentSerializer, ComplianceObligationSerializer, ContractorContractSerializer,
-    ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityRiskSerializer,
+    ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityIncidentEventSerializer, FacilityIncidentSerializer, FacilityRiskSerializer,
     FloorPlanSerializer, FMBudgetSerializer, InspectionSerializer, MeterReadingSerializer,
     MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer,
-    ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
+    ServiceProfileAllocationSerializer, ServiceProfileSerializer, ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
     WorkOrderAttachmentSerializer, WorkOrderCostItemSerializer, WorkOrderEventSerializer,
     WorkOrderSerializer,
 )
@@ -56,9 +56,9 @@ class FacilityModelViewSet(ModelViewSet):
             for field in self.search_fields:
                 query |= Q(**{f'{field}__icontains': search})
             queryset = queryset.filter(query)
-        status = self.request.query_params.get('status')
-        if status and any(field.name == 'status' for field in queryset.model._meta.fields):
-            queryset = queryset.filter(status=status)
+        requested_status = self.request.query_params.get('status')
+        if requested_status and any(field.name == 'status' for field in queryset.model._meta.fields):
+            queryset = queryset.filter(status=requested_status)
         return queryset
 
     def _validate_organization(self, serializer):
@@ -74,6 +74,139 @@ class FacilityModelViewSet(ModelViewSet):
     def perform_update(self, serializer):
         self._validate_organization(serializer)
         serializer.save()
+
+
+class ServiceProfileViewSet(FacilityModelViewSet):
+    write_permission = 'facility.administer'
+    queryset = ServiceProfile.objects.prefetch_related('properties', 'assets', 'allocations__property', 'allocations__provider')
+    serializer_class = ServiceProfileSerializer
+    search_fields = ('code', 'name', 'category', 'description')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        code = f'SVC-{uuid.uuid4().hex[:8].upper()}'
+        while ServiceProfile.objects.filter(organization=organization, code=code).exists():
+            code = f'SVC-{uuid.uuid4().hex[:8].upper()}'
+        profile = serializer.save(organization=organization, created_by=self.request.user, code=code)
+        Notification.objects.create(
+            organization=organization, recipient=self.request.user,
+            title='Service profile created', message=f'{profile.name} ({profile.code}) is ready for provider allocation.',
+            action_url='/facility?tab=service-profiles', metadata={'category': 'workflow', 'service_profile_id': str(profile.id)},
+        )
+
+
+class ServiceProfileAllocationViewSet(FacilityModelViewSet):
+    write_permission = 'facility.administer'
+    queryset = ServiceProfileAllocation.objects.select_related('service_profile', 'property', 'provider')
+    serializer_class = ServiceProfileAllocationSerializer
+    search_fields = ('service_profile__name', 'property__name', 'provider__name')
+
+
+class FacilityIncidentViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'review': 'facility.approve', 'resolve': 'facility.work', 'close': 'facility.approve', 'create_work_order': 'facility.work'}
+    queryset = FacilityIncident.objects.select_related(
+        'property', 'unit', 'asset', 'service_provider', 'reported_by', 'reviewed_by', 'work_order',
+    ).prefetch_related('events__actor')
+    serializer_class = FacilityIncidentSerializer
+    search_fields = ('reference', 'location', 'category', 'narrative', 'property__name')
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        reference = f'INC-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+        while FacilityIncident.objects.filter(organization=organization, reference=reference).exists():
+            reference = f'INC-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+        incident = serializer.save(organization=organization, reported_by=self.request.user, reference=reference)
+        FacilityIncidentEvent.objects.create(
+            organization=organization, incident=incident, event_type='created',
+            to_status=incident.status, notes='Incident draft created', actor=self.request.user,
+        )
+
+    def perform_update(self, serializer):
+        if 'status' in serializer.validated_data:
+            raise ValidationError({'status': 'Use the incident workflow actions so every status change is audited.'})
+        super().perform_update(serializer)
+
+    def _transition(self, request, incident, target, notes='', event_type='status_change'):
+        previous = incident.status
+        incident.status = target
+        if target == FacilityIncident.Status.SUBMITTED:
+            incident.submitted_at = timezone.now()
+        if target in (FacilityIncident.Status.UNDER_REVIEW, FacilityIncident.Status.CLOSED):
+            incident.reviewed_by = request.user
+        if target == FacilityIncident.Status.CLOSED:
+            incident.closed_at = timezone.now()
+        incident.save()
+        FacilityIncidentEvent.objects.create(
+            organization=incident.organization, incident=incident, event_type=event_type,
+            from_status=previous, to_status=target, notes=notes, actor=request.user,
+        )
+        return Response(self.get_serializer(incident).data)
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def submit(self, request, pk=None):
+        incident = self.get_object()
+        if incident.status != FacilityIncident.Status.DRAFT:
+            raise ValidationError({'status': 'Only a draft incident can be submitted.'})
+        if not incident.narrative or not incident.location:
+            raise ValidationError({'detail': 'Location and incident narrative are required before submission.'})
+        level = Notification.Level.URGENT if incident.severity in (FacilityIncident.Severity.HIGH, FacilityIncident.Severity.CRITICAL) else Notification.Level.WARNING
+        notify_permission(
+            organization=incident.organization, permission_key='facility.approve',
+            title=f'{incident.get_severity_display()} incident reported',
+            message=f'{incident.reference} at {incident.property.name}: {incident.narrative[:140]}', level=level,
+            action_url='/facility?tab=incidents', event_key=f'incident-submitted:{incident.id}', exclude_user=request.user,
+        )
+        return self._transition(request, incident, FacilityIncident.Status.SUBMITTED, 'Submitted for manager review', 'submitted')
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def review(self, request, pk=None):
+        incident = self.get_object()
+        if incident.status != FacilityIncident.Status.SUBMITTED:
+            raise ValidationError({'status': 'Only a submitted incident can enter review.'})
+        return self._transition(request, incident, FacilityIncident.Status.UNDER_REVIEW, str(request.data.get('notes', '')).strip(), 'reviewed')
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def resolve(self, request, pk=None):
+        incident = self.get_object()
+        notes = str(request.data.get('resolution_notes', '')).strip()
+        if incident.status not in (FacilityIncident.Status.UNDER_REVIEW, FacilityIncident.Status.FOLLOW_UP) or not notes:
+            raise ValidationError({'resolution_notes': 'Resolution notes are required for an incident under review.'})
+        incident.resolution_notes = notes
+        incident.save(update_fields=('resolution_notes', 'updated_at'))
+        return self._transition(request, incident, FacilityIncident.Status.RESOLVED, notes, 'resolved')
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def close(self, request, pk=None):
+        incident = self.get_object()
+        if incident.status != FacilityIncident.Status.RESOLVED:
+            raise ValidationError({'status': 'Resolve the incident before manager closure.'})
+        return self._transition(request, incident, FacilityIncident.Status.CLOSED, str(request.data.get('notes', '')).strip(), 'closed')
+
+    @action(detail=True, methods=('post',), url_path='create-work-order')
+    @transaction.atomic
+    def create_work_order(self, request, pk=None):
+        incident = self.get_object()
+        if incident.work_order_id:
+            raise ValidationError({'work_order': 'This incident already has a work order.'})
+        order = WorkOrder.objects.create(
+            organization=incident.organization, number=f'WO-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}',
+            title=f'Incident follow-up: {incident.category}', description=incident.recommended_action or incident.narrative,
+            category=incident.category, source='incident', property=incident.property, asset=incident.asset,
+            contractor=incident.service_provider, reported_by=request.user, priority=(WorkOrder.Priority.CRITICAL if incident.severity == FacilityIncident.Severity.CRITICAL else WorkOrder.Priority.HIGH),
+            reported_at=timezone.now(), scheduled_for=timezone.make_aware(timezone.datetime.combine(incident.target_date, timezone.datetime.min.time())) if incident.target_date else None,
+        )
+        incident.work_order = order
+        incident.status = FacilityIncident.Status.FOLLOW_UP
+        incident.save(update_fields=('work_order', 'status', 'updated_at'))
+        WorkOrderEvent.objects.create(organization=incident.organization, work_order=order, event_type='created', to_status=order.status, notes=f'Created from {incident.reference}', actor=request.user)
+        FacilityIncidentEvent.objects.create(organization=incident.organization, incident=incident, event_type='work_order_created', from_status=FacilityIncident.Status.UNDER_REVIEW, to_status=incident.status, notes=order.number, actor=request.user)
+        return Response(self.get_serializer(incident).data, status=status.HTTP_201_CREATED)
 
 
 class FloorPlanViewSet(FacilityModelViewSet):

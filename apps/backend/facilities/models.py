@@ -90,6 +90,130 @@ class Contractor(OrganizationOwnedModel):
         constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_contractor_code')]
 
 
+class ServiceProfile(OrganizationOwnedModel):
+    """Reusable definition of a required service, independent of its provider."""
+
+    class ServiceType(models.TextChoices):
+        ROUTINE = 'routine', 'Routine'
+        PREVENTIVE = 'preventive', 'Preventive'
+        REACTIVE = 'reactive', 'Reactive'
+        SPECIALIST = 'specialist', 'Specialist'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        ACTIVE = 'active', 'Active'
+        SUSPENDED = 'suspended', 'Suspended'
+
+    class Criticality(models.TextChoices):
+        CRITICAL = 'critical', 'Critical'
+        HIGH = 'high', 'High'
+        MEDIUM = 'medium', 'Medium'
+        LOW = 'low', 'Low'
+
+    class Coverage(models.TextChoices):
+        PROPERTY = 'property', 'This property'
+        MULTIPLE = 'multiple', 'Multiple properties'
+        PORTFOLIO = 'portfolio', 'Portfolio'
+        REGION = 'region', 'Region'
+
+    code = models.CharField(max_length=50)
+    name = models.CharField(max_length=180)
+    category = models.CharField(max_length=80)
+    service_type = models.CharField(max_length=16, choices=ServiceType.choices)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    criticality = models.CharField(max_length=16, choices=Criticality.choices, default=Criticality.MEDIUM)
+    coverage = models.CharField(max_length=16, choices=Coverage.choices, default=Coverage.PROPERTY)
+    default_frequency = models.CharField(max_length=80, blank=True)
+    description = models.TextField()
+    notes = models.TextField(blank=True)
+    properties = models.ManyToManyField('properties.Property', related_name='facility_service_profiles', blank=True)
+    assets = models.ManyToManyField(FacilityAsset, related_name='service_profiles', blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_service_profiles')
+
+    class Meta:
+        ordering = ('name',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_service_profile_code')]
+
+
+class ServiceProfileAllocation(OrganizationOwnedModel):
+    """Time-safe provider allocation; changing provider never rewrites the service master."""
+
+    service_profile = models.ForeignKey(ServiceProfile, on_delete=models.PROTECT, related_name='allocations')
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='service_profile_allocations')
+    provider = models.ForeignKey(Contractor, on_delete=models.PROTECT, related_name='service_profile_allocations', null=True, blank=True)
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    response_target_minutes = models.PositiveIntegerField(null=True, blank=True)
+    resolution_target_minutes = models.PositiveIntegerField(null=True, blank=True)
+    quality_target_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('service_profile__name', 'property__name', '-starts_on')
+
+
+class FacilityIncident(OrganizationOwnedModel):
+    """Mobile-first operational incident with controlled review and closure."""
+
+    class Severity(models.TextChoices):
+        LOW = 'low', 'Low'
+        MEDIUM = 'medium', 'Medium'
+        HIGH = 'high', 'High'
+        CRITICAL = 'critical', 'Critical'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SUBMITTED = 'submitted', 'Submitted'
+        UNDER_REVIEW = 'under_review', 'Under review'
+        FOLLOW_UP = 'follow_up', 'Follow-up required'
+        RESOLVED = 'resolved', 'Resolved'
+        CLOSED = 'closed', 'Closed'
+
+    reference = models.CharField(max_length=60)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_incidents')
+    unit = models.ForeignKey('properties.Unit', on_delete=models.SET_NULL, related_name='facility_incidents', null=True, blank=True)
+    asset = models.ForeignKey(FacilityAsset, on_delete=models.SET_NULL, related_name='incidents', null=True, blank=True)
+    service_provider = models.ForeignKey(Contractor, on_delete=models.SET_NULL, related_name='incidents', null=True, blank=True)
+    location = models.CharField(max_length=180)
+    occurred_at = models.DateTimeField()
+    category = models.CharField(max_length=80)
+    severity = models.CharField(max_length=12, choices=Severity.choices, default=Severity.MEDIUM)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    narrative = models.TextField()
+    people_involved = models.JSONField(default=list, blank=True)
+    impacts = models.JSONField(default=list, blank=True)
+    immediate_action = models.TextField(blank=True)
+    evidence = models.JSONField(default=list, blank=True)
+    recommended_action = models.TextField(blank=True)
+    responsible_person = models.CharField(max_length=160, blank=True)
+    target_date = models.DateField(null=True, blank=True)
+    prevention_notes = models.TextField(blank=True)
+    investigation_notes = models.TextField(blank=True)
+    resolution_notes = models.TextField(blank=True)
+    work_order = models.ForeignKey('facilities.WorkOrder', on_delete=models.SET_NULL, related_name='source_incidents', null=True, blank=True)
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='reported_facility_incidents')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='reviewed_facility_incidents', null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-occurred_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_facility_incident_ref')]
+
+
+class FacilityIncidentEvent(OrganizationOwnedModel):
+    incident = models.ForeignKey(FacilityIncident, on_delete=models.CASCADE, related_name='events')
+    event_type = models.CharField(max_length=40)
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status = models.CharField(max_length=20, blank=True)
+    notes = models.TextField(blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='facility_incident_events')
+
+    class Meta:
+        ordering = ('-created_at',)
+
+
 class WorkOrder(OrganizationOwnedModel):
     class Status(models.TextChoices):
         OPEN = 'open', 'Open'

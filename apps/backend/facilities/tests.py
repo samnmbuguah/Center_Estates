@@ -11,7 +11,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import Contractor, FacilityAsset, FacilityExpense, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import Contractor, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentEvent, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -97,6 +97,50 @@ class FacilityApiTests(TestCase):
         self.assertRegex(response.data['code'], r'^SP-[A-F0-9]{8}$')
         self.assertEqual(response.data['assigned_properties'], [self.property.id])
         self.assertEqual(response.data['metadata']['bank_name'], 'Co-operative Bank')
+
+    def test_service_profile_is_independent_and_property_scoped(self):
+        response = self.client.post('/api/v1/facility/service-profiles/', {
+            'name': 'Generator maintenance', 'category': 'Mechanical', 'service_type': 'preventive',
+            'status': 'active', 'criticality': 'critical', 'coverage': 'property',
+            'default_frequency': 'Monthly', 'description': 'Keep standby generation available.',
+            'properties': [str(self.property.id)], 'assets': [str(self.asset.id)],
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertRegex(response.data['code'], r'^SVC-[A-F0-9]{8}$')
+        profile = ServiceProfile.objects.get(pk=response.data['id'])
+        self.assertEqual(profile.created_by, self.user)
+        self.assertEqual(profile.allocations.count(), 0)
+        scoped = self.client.get('/api/v1/facility/service-profiles/', **{
+            **self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id),
+        })
+        self.assertEqual([row['name'] for row in scoped.data], ['Generator maintenance'])
+
+    def test_incident_draft_review_work_order_and_closure_are_audited(self):
+        created = self.client.post('/api/v1/facility/incidents/', {
+            'property': str(self.property.id), 'location': 'Lift lobby',
+            'occurred_at': timezone.now().isoformat(), 'category': 'Safety', 'severity': 'high',
+            'narrative': 'A passenger was briefly trapped when the lift stopped.',
+            'people_involved': ['Visitor'], 'impacts': ['Service disruption'],
+            'immediate_action': 'Isolated the lift and assisted the passenger.',
+            'recommended_action': 'Inspect lift controls.',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        incident = FacilityIncident.objects.get(pk=created.data['id'])
+        self.assertEqual(incident.status, FacilityIncident.Status.DRAFT)
+        submitted = self.client.post(f'/api/v1/facility/incidents/{incident.id}/submit/', {}, format='json', **self.headers)
+        self.assertEqual(submitted.status_code, 200, submitted.data)
+        reviewed = self.client.post(f'/api/v1/facility/incidents/{incident.id}/review/', {'notes': 'Escalated to lift vendor.'}, format='json', **self.headers)
+        self.assertEqual(reviewed.status_code, 200, reviewed.data)
+        linked = self.client.post(f'/api/v1/facility/incidents/{incident.id}/create-work-order/', {}, format='json', **self.headers)
+        self.assertEqual(linked.status_code, 201, linked.data)
+        resolved = self.client.post(f'/api/v1/facility/incidents/{incident.id}/resolve/', {'resolution_notes': 'Control relay replaced and lift tested.'}, format='json', **self.headers)
+        self.assertEqual(resolved.status_code, 200, resolved.data)
+        closed = self.client.post(f'/api/v1/facility/incidents/{incident.id}/close/', {'notes': 'Manager verified closure.'}, format='json', **self.headers)
+        self.assertEqual(closed.status_code, 200, closed.data)
+        incident.refresh_from_db()
+        self.assertEqual(incident.status, FacilityIncident.Status.CLOSED)
+        self.assertIsNotNone(incident.work_order_id)
+        self.assertEqual(FacilityIncidentEvent.objects.filter(incident=incident).count(), 6)
 
     def test_dashboard_is_calculated_from_live_data(self):
         response = self.client.get('/api/v1/facility/dashboard/', **self.headers)
