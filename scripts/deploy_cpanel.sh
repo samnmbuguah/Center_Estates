@@ -93,9 +93,10 @@ ssh "$REMOTE_HOST" "
   fi
   # Keep this low-traffic API from spawning excessive Python children when
   # LiteSpeed creates more than one application master during host recovery.
-  # Four children per master still provides ample demo concurrency.
+  # Six children per master is the account limit and prevents short request
+  # bursts (login + session + notifications + workspace data) from queueing.
   if grep -q 'SetEnv LSAPI_CHILDREN' .htaccess 2>/dev/null; then
-    sed -i 's/SetEnv LSAPI_CHILDREN [0-9][0-9]*/SetEnv LSAPI_CHILDREN 4/' .htaccess
+    sed -i 's/SetEnv LSAPI_CHILDREN [0-9][0-9]*/SetEnv LSAPI_CHILDREN 6/' .htaccess
   fi
   find apps/backend -type f -name '*.py[co]' -delete
   find apps/backend -type d -name '__pycache__' -empty -delete
