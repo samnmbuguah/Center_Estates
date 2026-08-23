@@ -129,6 +129,23 @@ test("service requests list shows requests with actions", async ({ page }) => {
   }
 });
 
+test("service profiles and incident reporting are accessible workflows", async ({ page }) => {
+  await page.goto("/facility?tab=service-profiles");
+  await expect(page.getByRole("heading", { name: "Service profiles", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create service profile" })).toBeVisible();
+  await page.getByRole("button", { name: "Create service profile" }).click();
+  await expect(page.getByRole("heading", { name: "Create service profile" })).toBeVisible();
+  await expect(page.getByLabel("Service name")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  await page.goto("/facility?tab=incidents");
+  await expect(page.getByRole("heading", { name: "Incident reporting", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Report incident" })).toBeVisible();
+  await page.getByRole("button", { name: "Report incident" }).click();
+  await expect(page.getByRole("heading", { name: "Report an incident" })).toBeVisible();
+  await expect(page.getByLabel("What happened?")).toBeVisible();
+});
+
 test("contractors list shows contractors with ratings", async ({ page }, testInfo) => {
   await page.goto("/facility");
   await openFacilityTab(page, "Contractors", testInfo);
