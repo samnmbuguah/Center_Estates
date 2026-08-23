@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
 import { Pagination } from "@/components/module-ui";
 import { Building2, Edit3, Plus, Search, CheckCircle2, Wrench, Users, DollarSign } from "lucide-react";
+import { PortfolioAnalyticsDashboard, type PortfolioDashboardData } from "@/components/portfolio-analytics-dashboard";
 
 type PropertyRecord = {
   id: string;
@@ -41,6 +42,7 @@ export function PortfolioOverviewWorkspace() {
 
   const [pulse, setPulse] = useState<Pulse>({});
   const [propertiesList, setPropertiesList] = useState<PropertyRecord[]>([]);
+  const [dashboard, setDashboard] = useState<PortfolioDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editingProperty, setEditingProperty] = useState<PropertyRecord | null>(null);
@@ -67,6 +69,7 @@ export function PortfolioOverviewWorkspace() {
         const results = Array.isArray(propsData) ? propsData : propsData.results || [];
         if (dashboardRes.ok) {
           const dashboardData = await dashboardRes.json();
+          setDashboard(dashboardData as PortfolioDashboardData);
           const summaries = Array.isArray(dashboardData.portfolio) ? dashboardData.portfolio : [];
           const summaryById = new Map(summaries.map((row: PropertyRecord) => [String(row.id), row]));
           setPropertiesList(results.map((property: PropertyRecord) => ({ ...property, ...(summaryById.get(String(property.id)) ?? {}) })));
@@ -87,7 +90,8 @@ export function PortfolioOverviewWorkspace() {
   }, [sessionOrganization, contextProps]);
 
   useEffect(() => {
-    void fetchData();
+    const task = window.setTimeout(() => void fetchData(), 0);
+    return () => window.clearTimeout(task);
   }, [fetchData]);
 
   // Handle Edit Property Submit
@@ -144,10 +148,6 @@ export function PortfolioOverviewWorkspace() {
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
-
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
 
   const filtered = propertiesList.filter((p) => {
     const q = search.toLowerCase();
@@ -257,6 +257,8 @@ export function PortfolioOverviewWorkspace() {
         </article>
       </div>
 
+      <PortfolioAnalyticsDashboard data={dashboard} />
+
       {/* Properties Register Section */}
       <article className="data-panel" style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -275,7 +277,10 @@ export function PortfolioOverviewWorkspace() {
               type="text"
               placeholder="Search properties..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               style={{
                 paddingTop: 9,
                 paddingBottom: 9,

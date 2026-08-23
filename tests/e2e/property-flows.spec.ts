@@ -52,6 +52,12 @@ test("portfolio overview shows properties with working search", async ({ page })
   await page.waitForTimeout(1500);
 
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Portfolio performance" })).toBeVisible();
+  await expect(page.getByText("Monthly rent collection trend", { exact: true })).toBeVisible();
+  await expect(page.getByText("Collection summary", { exact: true })).toBeVisible();
+  await expect(page.getByText("Lease expiry outlook", { exact: true })).toBeVisible();
+  await expect(page.getByText("Occupancy by property", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rent ageing summary", { exact: true })).toBeVisible();
   await expect(page.getByText(/Properties Register/i)).toBeVisible();
   const search = page.getByPlaceholder("Search properties...");
   await expect(search).toBeVisible();
