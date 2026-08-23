@@ -8,6 +8,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from core.views import CalendarFeedView
 from organizations.models import Membership
 from notifications.models import Notification
+from notifications.services import is_category_enabled_for_user, send_email_notification
 
 
 class Command(BaseCommand):
@@ -49,9 +50,21 @@ class Command(BaseCommand):
                         'starts_at': event['starts_at'], 'status': event.get('status'),
                     },
                 }
-                _, was_created = Notification.objects.update_or_create(
+                notification, was_created = Notification.objects.update_or_create(
                     organization=membership.organization, recipient=membership.user,
                     metadata__event_key=event['id'], defaults=defaults,
                 )
+                if (
+                    was_created and membership.user.email
+                    and is_category_enabled_for_user(membership.user, membership.organization, 'workflow')
+                ):
+                    send_email_notification(
+                        recipient_email=membership.user.email,
+                        recipient_name=membership.user.get_full_name() or membership.user.get_username(),
+                        subject=f'[Center Estates] {notification.title}',
+                        message=f'{notification.message} Due {event_date:%d %b %Y}.',
+                        action_url=notification.action_url,
+                        organization=membership.organization,
+                    )
                 created += int(was_created); updated += int(not was_created)
         self.stdout.write(self.style.SUCCESS(f'Calendar notifications synchronized: {created} created, {updated} updated.'))

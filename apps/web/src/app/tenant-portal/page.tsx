@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Rating, TextField } from "@mui/material";
 
 type Row = Record<string, string | number | boolean | null>;
 type Portal = {
@@ -61,6 +62,12 @@ export default function TenantPortalPage() {
   const [error, setError] = useState("");
   const [modal, setModal] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState<string | null>(null);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [confirmationRequest, setConfirmationRequest] = useState<Row | null>(null);
+  const [confirmationMode, setConfirmationMode] = useState<"confirm" | "reopen">("confirm");
+  const [satisfactionScore, setSatisfactionScore] = useState<number | null>(5);
+  const [reopenReason, setReopenReason] = useState("");
+  const [confirmationBusy, setConfirmationBusy] = useState(false);
   const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true);
@@ -107,6 +114,42 @@ export default function TenantPortalPage() {
     setTab("maintenance");
     await load();
   }
+  async function submitResolutionDecision() {
+    if (!confirmationRequest) return;
+    if (confirmationMode === "reopen" && !reopenReason.trim()) {
+      setError("Tell the maintenance team what remains unresolved.");
+      return;
+    }
+    if (confirmationMode === "confirm" && !satisfactionScore) {
+      setError("Rate the completed work before closing this request.");
+      return;
+    }
+    setConfirmationBusy(true);
+    setError("");
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(
+      `/facility/portal/service-requests/${confirmationRequest.id}/${confirmationMode}/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify(
+          confirmationMode === "confirm"
+            ? { satisfaction_score: satisfactionScore }
+            : { reason: reopenReason.trim() },
+        ),
+      },
+      organizationId,
+    );
+    const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    setConfirmationBusy(false);
+    if (!response.ok) {
+      setError(String(result.detail || result.status || result.reason || "The request could not be updated."));
+      return;
+    }
+    setConfirmationRequest(null);
+    setReopenReason("");
+    await load();
+  }
   async function downloadDocument(path: string, fallbackName: string) {
     setError("");
     const response = await apiFetch(path, {}, organizationId);
@@ -124,28 +167,34 @@ export default function TenantPortalPage() {
   }
   const [stkNotice, setStkNotice] = useState<string | null>(null);
   const [stkPhone, setStkPhone] = useState("");
-  const [pendingPayInvoice, setPendingPayInvoice] = useState<Row | null>(null);
+  const [pendingPayInvoices, setPendingPayInvoices] = useState<Row[] | null>(null);
 
   async function payInvoice(invoice: Row) {
+    await payInvoices([invoice]);
+  }
+
+  async function payInvoices(invoices: Row[]) {
+    if (!invoices.length) return;
     const gateway = data?.paymentGateways?.[0];
     const tenantPhone = data?.tenant?.phone || "";
 
     // If M-Pesa and no phone stored, prompt for it first
     if ((gateway?.provider === "mpesa" || !gateway) && !tenantPhone) {
       setStkPhone("");
-      setPendingPayInvoice(invoice);
+      setPendingPayInvoices(invoices);
       return;
     }
 
-    await _executePayment(invoice, tenantPhone, gateway);
+    await _executePayment(invoices, tenantPhone, gateway);
   }
 
   async function _executePayment(
-    invoice: Row,
+    invoices: Row[],
     phone: string,
     gateway: typeof data extends null ? never : NonNullable<typeof data>["paymentGateways"][0] | undefined
   ) {
-    setPaymentBusy(String(invoice.id));
+    const paymentKey = invoices.length === 1 ? String(invoices[0].id) : "selected";
+    setPaymentBusy(paymentKey);
     setError("");
     setStkNotice(null);
     await apiFetch("/auth/csrf/");
@@ -157,7 +206,7 @@ export default function TenantPortalPage() {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
           body: JSON.stringify({
-            invoice: invoice.id,
+            invoices: invoices.map(invoice => invoice.id),
             phone_number: phone,
           }),
         },
@@ -182,7 +231,7 @@ export default function TenantPortalPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
         body: JSON.stringify({
-          invoice: invoice.id,
+          invoices: invoices.map(invoice => invoice.id),
           provider: gateway.provider,
         }),
       },
@@ -244,9 +293,9 @@ export default function TenantPortalPage() {
         ))}
       </nav>
       {error && <div className="form-error">{error}</div>}
-      {pendingPayInvoice && (
+      {pendingPayInvoices && (
         <div style={{ background: "#eff6ff", color: "#1e40af", padding: "16px", borderRadius: 8, marginBottom: 16, border: "1px solid #bfdbfe" }}>
-          <strong style={{ display: "block", marginBottom: 8 }}>📲 Enter your M-Pesa phone number to pay</strong>
+          <strong style={{ display: "block", marginBottom: 8 }}>📲 Enter your M-Pesa phone number to pay {pendingPayInvoices.length} invoice{pendingPayInvoices.length === 1 ? "" : "s"}</strong>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <input
               type="tel"
@@ -257,17 +306,17 @@ export default function TenantPortalPage() {
             />
             <button
               className="primary-action"
-              disabled={!stkPhone.trim() || paymentBusy === String(pendingPayInvoice.id)}
+              disabled={!stkPhone.trim() || paymentBusy !== null}
               onClick={async () => {
-                const inv = pendingPayInvoice;
+                const invoices = pendingPayInvoices;
                 const gw = data?.paymentGateways?.[0];
-                setPendingPayInvoice(null);
-                await _executePayment(inv, stkPhone.trim(), gw);
+                setPendingPayInvoices(null);
+                await _executePayment(invoices, stkPhone.trim(), gw);
               }}
             >
-              {paymentBusy === String(pendingPayInvoice.id) ? "Starting…" : "Send STK Push"}
+              {paymentBusy ? "Starting…" : "Send STK Push"}
             </button>
-            <button onClick={() => setPendingPayInvoice(null)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Cancel</button>
+            <button onClick={() => setPendingPayInvoices(null)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Cancel</button>
           </div>
         </div>
       )}
@@ -346,9 +395,17 @@ export default function TenantPortalPage() {
         </>
       )}
       {tab === "invoices" && (
-        <Panel title="Billing & Invoices">
+        <Panel title="Billing & Invoices" action={selectedInvoiceIds.length > 0 ? (
+          <button
+            type="button" className="primary-action" disabled={paymentBusy !== null}
+            onClick={() => void payInvoices(data.invoices.filter(invoice => selectedInvoiceIds.includes(String(invoice.id))))}
+          >
+            Pay selected ({selectedInvoiceIds.length}) · {cash.format(data.invoices.filter(invoice => selectedInvoiceIds.includes(String(invoice.id))).reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0))}
+          </button>
+        ) : undefined}>
           <PortalTable
             headers={[
+              "Select",
               "Invoice #",
               "Due Date",
               "Amount",
@@ -358,6 +415,13 @@ export default function TenantPortalPage() {
               "Action",
             ]}
             rows={data.invoices.map((row) => [
+              Number(row.balance) > 0 && ["issued", "partial", "overdue"].includes(String(row.status)) ? (
+                <input
+                  key={String(row.id)} type="checkbox" aria-label={`Select invoice ${String(row.number)}`}
+                  checked={selectedInvoiceIds.includes(String(row.id))}
+                  onChange={(event) => setSelectedInvoiceIds(current => event.target.checked ? [...current, String(row.id)] : current.filter(id => id !== String(row.id)))}
+                />
+              ) : null,
               String(row.number),
               String(row.due_on),
               cash.format(Number(row.total_amount)),
@@ -433,13 +497,18 @@ export default function TenantPortalPage() {
           }
         >
           <PortalTable
-            headers={["Subject", "Priority", "Status", "Created", "Last updated"]}
+            headers={["Subject", "Priority", "Status", "Created", "Resolution confirmation"]}
             rows={data.serviceRequests.map((row) => [
               String(row.subject),
               String(row.priority),
               String(row.status),
-              String(row.created_at).slice(0, 16),
-              String(row.updated_at).slice(0, 16),
+              String(row.submitted_at || "").slice(0, 16),
+              String(row.status) === "resolved" ? (
+                <span key={String(row.id)} style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" onClick={() => { setConfirmationMode("confirm"); setConfirmationRequest(row); }}>Confirm & close</button>
+                  <button type="button" onClick={() => { setConfirmationMode("reopen"); setConfirmationRequest(row); }}>Reopen</button>
+                </span>
+              ) : String(row.status) === "closed" ? `Closed · ${row.satisfaction_score || "—"}/5` : "Awaiting maintenance",
             ])}
           />
         </Panel>
@@ -475,6 +544,29 @@ export default function TenantPortalPage() {
           />
         </Panel>
       )}
+      <Dialog open={Boolean(confirmationRequest)} onClose={() => !confirmationBusy && setConfirmationRequest(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{confirmationMode === "confirm" ? "Confirm completed work" : "Reopen maintenance request"}</DialogTitle>
+        <DialogContent sx={{ pt: "12px !important" }}>
+          {confirmationMode === "confirm" ? (
+            <>
+              <p>Confirm that <strong>{String(confirmationRequest?.subject || "this issue")}</strong> has been resolved. This closes the request.</p>
+              <Rating value={satisfactionScore} onChange={(_event, value) => setSatisfactionScore(value)} aria-label="Satisfaction score" />
+            </>
+          ) : (
+            <TextField
+              autoFocus fullWidth multiline minRows={4} label="What remains unresolved?"
+              value={reopenReason} onChange={(event) => setReopenReason(event.target.value)}
+              helperText="Your reason is sent to the assigned maintenance team."
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmationRequest(null)} disabled={confirmationBusy}>Cancel</Button>
+          <Button variant="contained" color={confirmationMode === "confirm" ? "success" : "warning"} onClick={() => void submitResolutionDecision()} disabled={confirmationBusy}>
+            {confirmationBusy ? "Saving…" : confirmationMode === "confirm" ? "Confirm & close" : "Reopen request"}
+          </Button>
+        </DialogActions>
+      </Dialog>
       {tab === "profile" && (
         <Panel title="Tenant Profile & Lease">
           <div className="portal-profile-grid">

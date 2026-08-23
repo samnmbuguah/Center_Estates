@@ -111,7 +111,7 @@ export function FacilityModals({
             ? "Complete Inspection"
             : actionModal.type === "request-decision"
               ? `${actionModal.decision === "approve" ? "Approve" : "Reject"} Service Request · ${String(actionModal.row.reference ?? "")}`
-              : "Resolve Service Request"}
+              : "Mark Service Request Resolved"}
           onClose={() => setActionModal(null)}
         >
           <form onSubmit={submitActionModal} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -136,9 +136,9 @@ export function FacilityModals({
                 <textarea name="notes" rows={4} required={actionModal.decision === "reject"} placeholder={actionModal.decision === "reject" ? "Explain why this request will not proceed" : "Budget, priority or assignment instructions"} />
               </Field>
             ) : (
-              <Field label="Satisfaction score" required>
-                <input type="number" name="satisfaction_score" min={1} max={5} step={1} required placeholder="1–5" />
-              </Field>
+              <div className="info-banner">
+                This records that maintenance work is complete and asks the requester to confirm it. The request only closes after the requester accepts the work; they can reopen it with a reason.
+              </div>
             )}
             <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
               <button type="button" className="btn ghost" onClick={() => setActionModal(null)}>Cancel</button>
@@ -147,7 +147,7 @@ export function FacilityModals({
                   ? "Complete Inspection"
                   : actionModal.type === "request-decision"
                     ? `${actionModal.decision === "approve" ? "Approve" : "Reject"} Request`
-                    : "Resolve Request"}
+                    : "Mark resolved & notify requester"}
               </button>
             </div>
           </form>

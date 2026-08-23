@@ -98,9 +98,10 @@ class NotificationTenantTests(TestCase):
         self.assertEqual(marked.status_code, 200, marked.data)
         self.assertIsNotNone(marked.data['read_at'])
 
+    @patch('notifications.management.commands.sync_calendar_notifications.send_email_notification')
     @patch('notifications.management.commands.sync_calendar_notifications.CalendarFeedView.as_view')
-    def test_calendar_sync_is_deduplicated_per_recipient_and_event(self, as_view):
-        user = get_user_model().objects.create_user(username='calendar-recipient')
+    def test_calendar_sync_is_deduplicated_per_recipient_and_event(self, as_view, send_email):
+        user = get_user_model().objects.create_user(username='calendar-recipient', email='calendar@example.com')
         org = Organization.objects.create(name='Calendar Org', slug='notify-calendar')
         Membership.objects.create(user=user, organization=org, is_default=True)
         as_view.return_value = lambda request: Response({'results': [{
@@ -115,3 +116,5 @@ class NotificationTenantTests(TestCase):
         notices = Notification.objects.filter(recipient=user, metadata__event_key='lease-expiry:abc')
         self.assertEqual(notices.count(), 1)
         self.assertEqual(notices.get().level, Notification.Level.WARNING)
+        send_email.assert_called_once()
+        self.assertIn('Lease expires', send_email.call_args.kwargs['subject'])

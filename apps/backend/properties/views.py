@@ -51,6 +51,53 @@ from .serializers import (
     TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
     UnitSerializer, UnitStatusHistorySerializer,
 )
+
+
+def _payment_intent_invoices(intent, *, lock=False):
+    """Return the audited invoice allocation encoded when an intent is created.
+
+    PaymentIntent keeps its original invoice foreign key for compatibility while
+    metadata carries a deterministic allocation for consolidated payments.
+    """
+    allocations = intent.metadata.get('invoice_allocations', []) if isinstance(intent.metadata, dict) else []
+    invoice_ids = [str(row.get('invoice_id')) for row in allocations if row.get('invoice_id')]
+    queryset = Invoice.objects.for_organization(intent.organization).filter(
+        lease__tenant=intent.tenant,
+        pk__in=invoice_ids or [intent.invoice_id],
+    ).select_related('lease__unit__property')
+    if lock:
+        queryset = queryset.select_for_update()
+    invoices_by_id = {str(invoice.pk): invoice for invoice in queryset}
+    if not allocations:
+        return [(intent.invoice if not lock else invoices_by_id[str(intent.invoice_id)], intent.amount)]
+    resolved = []
+    for row in allocations:
+        invoice = invoices_by_id.get(str(row.get('invoice_id')))
+        try:
+            amount = Decimal(str(row.get('amount')))
+        except Exception:
+            raise ValidationError({'payment': 'The stored invoice allocation is invalid.'})
+        if invoice is None or amount <= 0:
+            raise ValidationError({'payment': 'A selected invoice is no longer available for this payment.'})
+        resolved.append((invoice, amount))
+    if sum((amount for _invoice, amount in resolved), Decimal('0')) != intent.amount:
+        raise ValidationError({'payment': 'The invoice allocations do not equal the payment total.'})
+    return resolved
+
+
+def _allocate_payment_receipt(intent, receipt, user):
+    allocations = _payment_intent_invoices(intent, lock=True)
+    for invoice, amount in allocations:
+        if amount > invoice.balance:
+            raise ValidationError({'payment': f'Invoice {invoice.number} changed after checkout. Reconcile this payment manually.'})
+        ReceiptAllocation.objects.create(
+            organization=intent.organization, receipt=receipt,
+            invoice=invoice, amount=amount, allocated_by=user,
+        )
+        invoice.balance = max(Decimal('0'), invoice.balance - amount)
+        invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
+        invoice.save(update_fields=('balance', 'status', 'updated_at'))
+    return [invoice for invoice, _amount in allocations]
 from .pdf_documents import (
     arrears_aging_pdf, income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf,
     tenant_payment_status_pdf, tenant_payment_status_rows, tenant_statement_pdf,
@@ -316,14 +363,8 @@ class PaymentWebhookViewSet(ViewSet):
                 amount=intent.amount, payment_method='M-Pesa',
                 external_reference=parsed.get('mpesa_receipt_number', event_id), received_by=receiver.user,
             )
-            ReceiptAllocation.objects.create(
-                organization=configuration.organization, receipt=receipt,
-                invoice=intent.invoice, amount=intent.amount, allocated_by=receiver.user,
-            )
-            invoice = intent.invoice
-            invoice.balance = max(Decimal('0'), invoice.balance - intent.amount)
-            invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
-            invoice.save(update_fields=('balance', 'status', 'updated_at'))
+            paid_invoices = _allocate_payment_receipt(intent, receipt, receiver.user)
+            invoice = paid_invoices[0]
             BankTransaction.objects.create(
                 organization=configuration.organization,
                 reference=parsed.get('mpesa_receipt_number', event_id), transacted_on=timezone.localdate(),
@@ -340,7 +381,7 @@ class PaymentWebhookViewSet(ViewSet):
             Notification.objects.create(
                 organization=configuration.organization, recipient=receiver.user,
                 title=f'M-Pesa payment received: {receipt.number}',
-                message=f'Your M-Pesa payment of KES {intent.amount:,.2f} for invoice {invoice.number} was received. Receipt: {parsed.get("mpesa_receipt_number", "")}',
+                message=f'Your M-Pesa payment of KES {intent.amount:,.2f} for {len(paid_invoices)} invoice(s) was received. Receipt: {parsed.get("mpesa_receipt_number", "")}',
                 level=Notification.Level.SUCCESS, action_url='/tenant-portal',
                 metadata={'payment_intent_id': str(intent.id), 'invoice_id': str(invoice.id), 'receipt_id': str(receipt.id), 'provider': 'MPESA'},
             )
@@ -408,14 +449,8 @@ class PaymentWebhookViewSet(ViewSet):
                 amount=intent.amount, payment_method=configuration.get_provider_display(),
                 external_reference=external_reference or event_id, received_by=receiver.user,
             )
-            ReceiptAllocation.objects.create(
-                organization=configuration.organization, receipt=receipt,
-                invoice=intent.invoice, amount=intent.amount, allocated_by=receiver.user,
-            )
-            invoice = intent.invoice
-            invoice.balance = max(Decimal('0'), invoice.balance - intent.amount)
-            invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
-            invoice.save(update_fields=('balance', 'status', 'updated_at'))
+            paid_invoices = _allocate_payment_receipt(intent, receipt, receiver.user)
+            invoice = paid_invoices[0]
             BankTransaction.objects.create(
                 organization=configuration.organization,
                 reference=external_reference or event_id, transacted_on=timezone.localdate(),
@@ -431,7 +466,7 @@ class PaymentWebhookViewSet(ViewSet):
             Notification.objects.create(
                 organization=configuration.organization, recipient=receiver.user,
                 title=f'Payment received: {receipt.number}',
-                message=f'Your payment of KES {intent.amount:,.2f} for invoice {invoice.number} was received and reconciled.',
+                message=f'Your payment of KES {intent.amount:,.2f} for {len(paid_invoices)} invoice(s) was received and reconciled.',
                 level=Notification.Level.SUCCESS, action_url='/tenant-portal',
                 metadata={'payment_intent_id': str(intent.id), 'invoice_id': str(invoice.id), 'receipt_id': str(receipt.id), 'provider': configuration.provider},
             )
@@ -3607,6 +3642,27 @@ class TenantPortalViewSet(ViewSet):
             raise PermissionDenied('No active tenant portal profile is linked to this account.')
         return access
 
+    def _selected_payment_invoices(self, access):
+        raw_ids = self.request.data.get('invoices') or [self.request.data.get('invoice')]
+        if not isinstance(raw_ids, list):
+            raise ValidationError({'invoices': 'Select one or more invoices.'})
+        invoice_ids = list(dict.fromkeys(str(value) for value in raw_ids if value))
+        if not invoice_ids:
+            raise ValidationError({'invoices': 'Select one or more invoices.'})
+        invoices = list(Invoice.objects.for_organization(access.organization).select_related(
+            'lease__unit__property', 'lease__tenant',
+        ).filter(pk__in=invoice_ids, lease__tenant=access.tenant).order_by('issued_on', 'number'))
+        if len(invoices) != len(invoice_ids):
+            raise ValidationError({'invoices': 'One or more selected invoices are not available in your account.'})
+        property_ids = {invoice.lease.unit.property_id for invoice in invoices}
+        if len(property_ids) != 1:
+            raise ValidationError({'invoices': 'A combined payment can only include invoices from the same property.'})
+        allowed = (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE)
+        invalid = [invoice.number for invoice in invoices if invoice.status not in allowed or invoice.balance <= 0]
+        if invalid:
+            raise ValidationError({'invoices': f'Only outstanding issued invoices can be paid: {", ".join(invalid)}.'})
+        return invoices
+
     @action(detail=False, methods=('get',), url_path=r'invoices/(?P<invoice_id>[0-9a-fA-F-]{36})/pdf')
     def invoice_document(self, request, invoice_id=None):
         access = self._access()
@@ -3677,7 +3733,10 @@ class TenantPortalViewSet(ViewSet):
             ).data,
             'serviceRequests': list(ServiceRequest.objects.for_organization(tenant.organization).filter(
                 tenant=tenant,
-            ).values('id', 'reference', 'subject', 'category', 'priority', 'status', 'submitted_at', 'resolved_at')[:12]),
+            ).values(
+                'id', 'reference', 'subject', 'category', 'priority', 'status',
+                'submitted_at', 'resolved_at', 'satisfaction_score',
+            )[:12]),
             'notices': list(Notification.objects.for_organization(tenant.organization).filter(
                 recipient=request.user,
             ).values('id', 'title', 'message', 'level', 'created_at', 'read_at')[:12]),
@@ -3686,17 +3745,10 @@ class TenantPortalViewSet(ViewSet):
     @action(detail=False, methods=('post',), url_path='payments/initiate')
     def initiate_payment(self, request):
         access = self._access()
-        invoice_id = request.data.get('invoice')
         provider = str(request.data.get('provider') or PaymentGatewayConfiguration.Provider.ECITIZEN)
-        invoice = Invoice.objects.for_organization(access.organization).select_related(
-            'lease__unit__property', 'lease__tenant',
-        ).filter(pk=invoice_id, lease__tenant=access.tenant).first()
-        if invoice is None:
-            raise ValidationError({'invoice': 'Select one of your invoices.'})
-        if invoice.status not in (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE):
-            raise ValidationError({'invoice': 'Only issued, partially paid, or overdue invoices can be paid.'})
-        if invoice.balance <= 0:
-            raise ValidationError({'invoice': 'This invoice has no outstanding balance.'})
+        invoices = self._selected_payment_invoices(access)
+        invoice = invoices[0]
+        total_amount = sum((item.balance for item in invoices), Decimal('0'))
         configuration = PaymentGatewayConfiguration.objects.for_organization(access.organization).filter(
             property=invoice.lease.unit.property, provider=provider, is_enabled=True,
         ).first()
@@ -3705,8 +3757,8 @@ class TenantPortalViewSet(ViewSet):
         reference = f'PAY-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:10].upper()}'
         values = {
             'reference': reference,
-            'amount': f'{invoice.balance:.2f}',
-            'invoice': invoice.number,
+            'amount': f'{total_amount:.2f}',
+            'invoice': invoice.number if len(invoices) == 1 else f'{len(invoices)}-INVOICES',
             'merchant': configuration.merchant_reference,
         }
         try:
@@ -3718,8 +3770,12 @@ class TenantPortalViewSet(ViewSet):
         intent = PaymentIntent.objects.create(
             organization=access.organization, configuration=configuration,
             invoice=invoice, tenant=access.tenant, reference=reference,
-            amount=invoice.balance, status=PaymentIntent.Status.REDIRECTED,
+            amount=total_amount, status=PaymentIntent.Status.REDIRECTED,
             checkout_url=checkout_url, expires_at=timezone.now() + timedelta(minutes=30),
+            metadata={'invoice_allocations': [
+                {'invoice_id': str(item.id), 'invoice_number': item.number, 'amount': str(item.balance)}
+                for item in invoices
+            ]},
         )
         return Response(PaymentIntentSerializer(intent).data, status=201)
 
@@ -3728,19 +3784,14 @@ class TenantPortalViewSet(ViewSet):
         from .mpesa_client import initiate_stk_push
 
         access = self._access()
-        invoice_id = request.data.get('invoice')
         raw_phone = str(request.data.get('phone_number') or access.tenant.phone or '').strip().replace('+', '').replace(' ', '')
         if not raw_phone:
             raise ValidationError({'phone_number': 'Provide a valid M-Pesa phone number (e.g. 2547XXXXXXXX).'})
         phone_number = f'254{raw_phone[1:]}' if raw_phone.startswith('0') else raw_phone
 
-        invoice = Invoice.objects.for_organization(access.organization).select_related(
-            'lease__unit__property', 'lease__tenant',
-        ).filter(pk=invoice_id, lease__tenant=access.tenant).first()
-        if invoice is None:
-            raise ValidationError({'invoice': 'Select one of your invoices.'})
-        if invoice.balance <= 0:
-            raise ValidationError({'invoice': 'This invoice has no outstanding balance.'})
+        invoices = self._selected_payment_invoices(access)
+        invoice = invoices[0]
+        total_amount = sum((item.balance for item in invoices), Decimal('0'))
 
         configuration = PaymentGatewayConfiguration.objects.for_organization(access.organization).filter(
             property=invoice.lease.unit.property, provider=PaymentGatewayConfiguration.Provider.MPESA, is_enabled=True,
@@ -3769,13 +3820,17 @@ class TenantPortalViewSet(ViewSet):
             invoice=invoice,
             tenant=access.tenant,
             reference=reference,
-            amount=invoice.balance,
+            amount=total_amount,
             status=PaymentIntent.Status.PENDING,
             expires_at=timezone.now() + timedelta(minutes=15),
             metadata={
                 'phone_number': phone_number,
                 'shortcode': shortcode,
                 'account_number': account_ref,
+                'invoice_allocations': [
+                    {'invoice_id': str(item.id), 'invoice_number': item.number, 'amount': str(item.balance)}
+                    for item in invoices
+                ],
             }
         )
 
@@ -3786,10 +3841,10 @@ class TenantPortalViewSet(ViewSet):
             shortcode=shortcode,
             passkey=passkey,
             phone_number=phone_number,
-            amount=invoice.balance,
+            amount=total_amount,
             callback_url=callback_url,
             account_reference=account_ref,
-            transaction_desc=f'Invoice {invoice.number}',
+            transaction_desc=f'{len(invoices)} Center Estates invoice(s)',
             environment=environment,
         )
 
@@ -3807,7 +3862,7 @@ class TenantPortalViewSet(ViewSet):
                 'message': result.get('customer_message', f'M-Pesa STK Push prompt sent to {phone_number}. Enter M-Pesa PIN on your phone to complete payment.'),
                 'reference': reference,
                 'phone_number': phone_number,
-                'amount': str(invoice.balance),
+                'amount': str(total_amount),
                 'intent_id': str(intent.id),
             }, status=201)
         else:

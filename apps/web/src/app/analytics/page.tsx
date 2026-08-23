@@ -70,6 +70,13 @@ function formatWhen(iso: string | null): string {
   return d.toLocaleDateString("en-KE", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function downloadCsv(filename: string, rows: Array<Array<string | number>>) {
+  const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
+}
+
 export default function UsageAnalyticsPage() {
   const { session } = useAuth();
   const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
@@ -140,6 +147,20 @@ export default function UsageAnalyticsPage() {
   const hourlyData = telemetry?.hourly_distribution ?? Array(24).fill(0);
   const maxHourlyCount = Math.max(1, ...hourlyData);
 
+  const exportUsageReport = () => {
+    const exportUsers = selectedUserDetail ? [selectedUserDetail] : filteredUsers;
+    downloadCsv(
+      `center-estates-usage-${selectedUserDetail?.username || "all-staff"}.csv`,
+      [
+        ["Staff member", "Username", "Email", "Role", "Adoption tier", "Logged actions", "Modules used", "Last active"],
+        ...exportUsers.map(user => [
+          user.full_name || user.username, user.username, user.email, user.role, user.tier,
+          user.events, user.modules.join("; "), user.last_seen || "Never",
+        ]),
+      ],
+    );
+  };
+
   if (!isAdministrator) {
     return (
       <div className="page-wrap" style={{ maxWidth: 800, margin: "60px auto", textAlign: "center" }}>
@@ -172,6 +193,10 @@ export default function UsageAnalyticsPage() {
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={exportUsageReport} className="fc-toolbar-btn" disabled={loading || users.length === 0} title="Export the filtered staff adoption report">
+            <ArrowUpRight size={13} />
+            <span>{selectedUserDetail ? `Export ${selectedUserDetail.full_name || selectedUserDetail.username}` : "Export CSV"}</span>
+          </button>
           <button
             onClick={() => void loadTelemetry()}
             className="fc-toolbar-btn"

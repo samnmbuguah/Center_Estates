@@ -113,7 +113,10 @@ export function ServiceRequestsView({
                   <Button size="small" variant="contained" onClick={() => onAction(row, "convert")}>Create WO</Button>
                 )}
                 {["assigned", "in_progress"].includes(String(row.status)) && permissions.canWork && (
-                  <Button size="small" variant="outlined" onClick={() => onAction(row, "resolve")}>Resolve</Button>
+                  <Button size="small" variant="outlined" onClick={() => onAction(row, "resolve")}>Mark resolved</Button>
+                )}
+                {String(row.status) === "resolved" && (
+                  <Typography variant="caption" color="warning.main" sx={{ fontWeight: 700 }}>Awaiting requester confirmation</Typography>
                 )}
               </Box>
             ),

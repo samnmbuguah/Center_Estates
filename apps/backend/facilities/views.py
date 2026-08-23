@@ -906,10 +906,25 @@ class ServiceRequestViewSet(FacilityModelViewSet):
         if service_request.status not in (ServiceRequest.Status.ASSIGNED, ServiceRequest.Status.IN_PROGRESS): raise ValidationError({'status': 'Only assigned or active requests can be resolved.'})
         if not service_request.work_order_id or service_request.work_order.status != WorkOrder.Status.COMPLETED:
             raise ValidationError({'work_order': 'Complete the linked work order before resolving the service request.'})
-        score = request.data.get('satisfaction_score')
-        if score is not None and (int(score) < 1 or int(score) > 5): raise ValidationError({'satisfaction_score': 'Score must be 1-5.'})
-        service_request.status = ServiceRequest.Status.RESOLVED; service_request.resolved_at = timezone.now(); service_request.satisfaction_score = score
+        service_request.status = ServiceRequest.Status.RESOLVED
+        service_request.resolved_at = timezone.now()
+        service_request.satisfaction_score = None
+        service_request.work_order.requester_confirmed = False
+        service_request.work_order.save(update_fields=('requester_confirmed', 'updated_at'))
         service_request.save(update_fields=('status', 'resolved_at', 'satisfaction_score', 'updated_at'))
+        if service_request.tenant_id:
+            from properties.models import TenantPortalAccess
+            portal_access = TenantPortalAccess.objects.for_organization(service_request.organization).filter(
+                tenant_id=service_request.tenant_id, is_active=True,
+            ).select_related('user').first()
+            if portal_access:
+                notify_user(
+                    organization=service_request.organization, recipient=portal_access.user,
+                    title=f'Repair ready for confirmation · {service_request.reference}',
+                    message='Please confirm that the issue was resolved, or reopen it with a reason.',
+                    level=Notification.Level.INFO, action_url='/tenant-portal?tab=maintenance',
+                    event_key=f'service-request-confirmation:{service_request.pk}', category='approval',
+                )
         return Response(self.get_serializer(service_request).data)
 
 
@@ -924,7 +939,11 @@ class FacilityPortalViewSet(ViewSet):
 
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.FACILITY
-    permission_map = {'service_request': 'facility.view'}
+    permission_map = {
+        'service_request': 'facility.view',
+        'confirm_service_request': 'facility.view',
+        'reopen_service_request': 'facility.view',
+    }
 
     serializer_class = GenericObjectSerializer
 
@@ -965,7 +984,7 @@ class FacilityPortalViewSet(ViewSet):
             } if lease else None,
             'serviceRequests': list(requests.values(
                 'id', 'reference', 'subject', 'category', 'priority', 'status',
-                'submitted_at', 'resolved_at',
+                'submitted_at', 'resolved_at', 'satisfaction_score',
             )),
         })
 
@@ -992,6 +1011,69 @@ class FacilityPortalViewSet(ViewSet):
             submitted_at=timezone.now(),
         )
         return Response(ServiceRequestSerializer(service_request).data, status=201)
+
+    @action(detail=False, methods=('post',), url_path=r'service-requests/(?P<request_id>[0-9a-fA-F-]{36})/confirm')
+    @transaction.atomic
+    def confirm_service_request(self, request, request_id=None):
+        access = self._access()
+        service_request = ServiceRequest.objects.select_for_update().filter(
+            pk=request_id, organization=access.organization, tenant=access.tenant,
+        ).first()
+        if not service_request or service_request.status != ServiceRequest.Status.RESOLVED:
+            raise ValidationError({'status': 'Only a resolved request awaiting your confirmation can be closed.'})
+        try:
+            score = int(request.data.get('satisfaction_score'))
+        except (TypeError, ValueError):
+            raise ValidationError({'satisfaction_score': 'Rate the completed work from 1 to 5.'})
+        if score < 1 or score > 5:
+            raise ValidationError({'satisfaction_score': 'Score must be from 1 to 5.'})
+        service_request.status = ServiceRequest.Status.CLOSED
+        service_request.satisfaction_score = score
+        service_request.save(update_fields=('status', 'satisfaction_score', 'updated_at'))
+        if service_request.work_order_id:
+            service_request.work_order.requester_confirmed = True
+            service_request.work_order.save(update_fields=('requester_confirmed', 'updated_at'))
+        return Response(ServiceRequestSerializer(service_request).data)
+
+    @action(detail=False, methods=('post',), url_path=r'service-requests/(?P<request_id>[0-9a-fA-F-]{36})/reopen')
+    @transaction.atomic
+    def reopen_service_request(self, request, request_id=None):
+        access = self._access()
+        reason = str(request.data.get('reason', '')).strip()
+        if not reason:
+            raise ValidationError({'reason': 'Explain what remains unresolved so the maintenance team can act.'})
+        service_request = ServiceRequest.objects.select_for_update().filter(
+            pk=request_id, organization=access.organization, tenant=access.tenant,
+        ).first()
+        if not service_request or service_request.status != ServiceRequest.Status.RESOLVED:
+            raise ValidationError({'status': 'Only a resolved request awaiting your confirmation can be reopened.'})
+        service_request.status = ServiceRequest.Status.IN_PROGRESS
+        service_request.resolved_at = None
+        service_request.satisfaction_score = None
+        service_request.decision_notes = reason
+        service_request.save(update_fields=('status', 'resolved_at', 'satisfaction_score', 'decision_notes', 'updated_at'))
+        if service_request.work_order_id:
+            work_order = service_request.work_order
+            previous_status = work_order.status
+            work_order.status = WorkOrder.Status.IN_PROGRESS
+            work_order.completed_at = None
+            work_order.progress = min(work_order.progress, 90)
+            work_order.requester_confirmed = False
+            work_order.save(update_fields=('status', 'completed_at', 'progress', 'requester_confirmed', 'updated_at'))
+            WorkOrderEvent.objects.create(
+                organization=service_request.organization, work_order=work_order,
+                event_type='requester_reopened', from_status=previous_status,
+                to_status=work_order.status, notes=reason, actor=request.user,
+            )
+        notify_permission(
+            organization=service_request.organization, permission_key='facility.work',
+            title=f'Service request reopened · {service_request.reference}', message=reason,
+            level=Notification.Level.WARNING, action_url='/facility?tab=service-requests',
+            event_key=f'service-request-reopened:{service_request.pk}:{service_request.updated_at.isoformat()}',
+            exclude_user=request.user,
+            metadata={'service_request_id': str(service_request.pk), 'property_id': str(service_request.property_id)},
+        )
+        return Response(ServiceRequestSerializer(service_request).data)
 
 
 class UtilityMeterViewSet(FacilityModelViewSet):

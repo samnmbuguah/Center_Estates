@@ -283,7 +283,7 @@ class FacilityApiTests(TestCase):
         self.assertIsNotNone(inspection.follow_up_work_order)
         self.assertTrue(WorkOrderEvent.objects.filter(work_order=inspection.follow_up_work_order, event_type='inspection_finding').exists())
 
-    def test_service_request_converts_once_and_records_resolution_score(self):
+    def test_service_request_resolution_waits_for_requester_confirmation(self):
         service_request = ServiceRequest.objects.create(
             organization=self.organization, reference='SR-01', subject='Lift noise', category='Mechanical',
             property=self.property, status=ServiceRequest.Status.NEW, priority=WorkOrder.Priority.HIGH,
@@ -302,11 +302,13 @@ class FacilityApiTests(TestCase):
         service_request.work_order.status = WorkOrder.Status.COMPLETED
         service_request.work_order.completed_at = timezone.now()
         service_request.work_order.save(update_fields=('status', 'completed_at', 'updated_at'))
-        resolved = self.client.post(f'{url}resolve/', {'satisfaction_score': 5}, format='json', **self.headers)
+        resolved = self.client.post(f'{url}resolve/', {}, format='json', **self.headers)
         self.assertEqual(resolved.status_code, 200, resolved.data)
         service_request.refresh_from_db()
         self.assertEqual(service_request.status, ServiceRequest.Status.RESOLVED)
-        self.assertEqual(service_request.satisfaction_score, 5)
+        self.assertIsNone(service_request.satisfaction_score)
+        service_request.work_order.refresh_from_db()
+        self.assertFalse(service_request.work_order.requester_confirmed)
 
     def test_service_request_rejection_requires_reason_and_blocks_conversion(self):
         service_request = ServiceRequest.objects.create(
@@ -652,6 +654,39 @@ class FacilityRolePermissionApiTests(TestCase):
         portal = self.client.get('/api/v1/facility/portal/', **self.headers)
         self.assertEqual(len(portal.data['serviceRequests']), 1)
         self.assertEqual(portal.data['serviceRequests'][0]['subject'], 'Leaking tap')
+
+        service_request = ServiceRequest.objects.get(pk=created.data['id'])
+        work_order = WorkOrder.objects.create(
+            organization=self.organization, number='FR-WO-CONFIRM', title='Repair leaking tap',
+            category='Plumbing', property=self.property, reported_by=self.user,
+            status=WorkOrder.Status.COMPLETED, reported_at=timezone.now(), completed_at=timezone.now(), progress=100,
+        )
+        service_request.work_order = work_order
+        service_request.status = ServiceRequest.Status.RESOLVED
+        service_request.resolved_at = timezone.now()
+        service_request.save(update_fields=('work_order', 'status', 'resolved_at', 'updated_at'))
+        decision_url = f'/api/v1/facility/portal/service-requests/{service_request.id}/'
+        self.assertEqual(self.client.post(f'{decision_url}confirm/', {}, format='json', **self.headers).status_code, 400)
+        confirmed = self.client.post(
+            f'{decision_url}confirm/', {'satisfaction_score': 5}, format='json', **self.headers,
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertEqual(confirmed.data['status'], ServiceRequest.Status.CLOSED)
+        work_order.refresh_from_db()
+        self.assertTrue(work_order.requester_confirmed)
+
+        service_request.status = ServiceRequest.Status.RESOLVED
+        service_request.save(update_fields=('status', 'updated_at'))
+        reopened = self.client.post(
+            f'{decision_url}reopen/', {'reason': 'The tap is still leaking under pressure.'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(reopened.status_code, 200, reopened.data)
+        self.assertEqual(reopened.data['status'], ServiceRequest.Status.IN_PROGRESS)
+        work_order.refresh_from_db()
+        self.assertEqual(work_order.status, WorkOrder.Status.IN_PROGRESS)
+        self.assertFalse(work_order.requester_confirmed)
+        self.assertTrue(WorkOrderEvent.objects.filter(work_order=work_order, event_type='requester_reopened').exists())
 
         # A facility staff endpoint stays out of reach: work mutation requires facility.work.
         self.assertEqual(

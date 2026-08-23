@@ -548,6 +548,48 @@ class PropertyApiTests(TestCase):
         self.assertTrue(duplicate.data['duplicate'])
         self.assertEqual(Receipt.objects.filter(external_reference='ECZ-12345').count(), 1)
 
+    @mock.patch.dict(os.environ, {'ECITIZEN_TEST_SECRET': 'client-supplied-signing-secret'})
+    def test_tenant_can_pay_and_reconcile_multiple_invoices_in_one_transaction(self):
+        TenantPortalAccess.objects.create(
+            organization=self.organization, tenant=self.tenant, user=self.user, is_active=True,
+        )
+        gateway = PaymentGatewayConfiguration.objects.create(
+            organization=self.organization, property=self.property,
+            provider=PaymentGatewayConfiguration.Provider.ECITIZEN,
+            display_name='eCitizen', merchant_reference='CE-TEST',
+            checkout_url_template='https://payments.example.test/checkout?ref={reference}&amount={amount}&invoice={invoice}',
+            webhook_secret_env='ECITIZEN_TEST_SECRET', is_enabled=True,
+        )
+        second_invoice = Invoice.objects.create(
+            organization=self.organization, number='INV-2', lease=self.lease,
+            issued_on='2026-08-01', due_on='2026-08-07', amount=Decimal('350'),
+            balance=Decimal('350'), status=Invoice.Status.ISSUED,
+        )
+        initiated = self.client.post('/api/v1/property/portal/payments/initiate/', {
+            'invoices': [str(self.invoice.id), str(second_invoice.id)], 'provider': 'ecitizen',
+        }, format='json', **self.headers)
+        self.assertEqual(initiated.status_code, 201, initiated.data)
+        intent = PaymentIntent.objects.get(id=initiated.data['id'])
+        self.assertEqual(intent.amount, Decimal('1350'))
+        self.assertEqual(len(intent.metadata['invoice_allocations']), 2)
+
+        payload = json.dumps({
+            'event_id': 'evt-consolidated', 'reference': intent.reference,
+            'transaction_reference': 'ECZ-CONSOLIDATED', 'status': 'paid', 'amount': '1350.00',
+        }, separators=(',', ':')).encode()
+        signature = hmac.new(b'client-supplied-signing-secret', payload, hashlib.sha256).hexdigest()
+        processed = self.client.generic(
+            'POST', f'/api/v1/property/payment-webhooks/{gateway.public_key}/', payload,
+            content_type='application/json', HTTP_X_CEEST_SIGNATURE=f'sha256={signature}',
+        )
+        self.assertEqual(processed.status_code, 200, processed.data)
+        self.invoice.refresh_from_db(); second_invoice.refresh_from_db()
+        self.assertEqual(self.invoice.balance, Decimal('0'))
+        self.assertEqual(second_invoice.balance, Decimal('0'))
+        receipt = Receipt.objects.get(external_reference='ECZ-CONSOLIDATED')
+        self.assertEqual(receipt.amount, Decimal('1350'))
+        self.assertEqual(ReceiptAllocation.objects.filter(receipt=receipt).count(), 2)
+
     def test_report_catalogue_uses_client_categories_and_exports_each_family(self):
         catalogue = self.client.get('/api/v1/property/analytics/', **self.headers)
         self.assertEqual(catalogue.status_code, 200)
@@ -1743,4 +1785,3 @@ class PropertyRolePermissionApiTests(TestCase):
         ).status_code, 403)
 
     # ─── P0: CREDIT NOTE VOID ───
-

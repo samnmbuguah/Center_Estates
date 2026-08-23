@@ -79,9 +79,9 @@ test("approved service request becomes an evidenced and resolved work order", as
   await expect(workOrderRow).toContainText("completed");
 
   await openModuleSection(page, "Service Requests", testInfo);
-  await requestRow.getByRole("button", { name: "Resolve", exact: true }).click();
+  await requestRow.getByRole("button", { name: "Mark resolved", exact: true }).click();
   const resolveDialog = page.getByRole("dialog", { name: "Resolve Service Request" });
-  await resolveDialog.getByLabel("Satisfaction score").fill("5");
-  await resolveDialog.getByRole("button", { name: "Resolve Request", exact: true }).click();
+  await resolveDialog.getByRole("button", { name: "Mark resolved & notify requester", exact: true }).click();
   await expect(requestRow).toContainText("resolved");
+  await expect(requestRow).toContainText("Awaiting requester confirmation");
 });

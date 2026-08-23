@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert, Box, Button, Chip, Divider, FormControlLabel, IconButton,
-  MenuItem, Paper, Switch, Tab, Tabs, TextField, Typography,
+  LinearProgress, MenuItem, Paper, Switch, Tab, Tabs, TextField, Typography,
 } from "@mui/material";
 import { ArrowLeft, Download, Plus, Save, Trash2, Upload } from "lucide-react";
 
@@ -126,6 +126,21 @@ export function PropertyOnboardingForm() {
   const [error, setError] = useState("");
   const restoredDraft = valuesRestored || unitsRestored || utilitiesRestored || assetsRestored || contactsRestored || providersRestored;
   const clearDraft = () => { clearValues(); clearUnits(); clearBuildings(); clearUtilities(); clearAssets(); clearContacts(); clearProviders(); };
+  const readiness = useMemo(() => {
+    const checks = [
+      { section: "general", label: "Property name", complete: Boolean(values.name?.trim()) },
+      { section: "general", label: "Landlord", complete: Boolean(values.landlord_name?.trim()) },
+      { section: "location", label: "Physical address", complete: Boolean(values.address?.trim() && values.city?.trim() && values.county?.trim()) },
+      { section: "buildings", label: "Building details", complete: buildings.length > 0 || Boolean(values.floors) },
+      { section: "units", label: "At least one unit", complete: units.length > 0 },
+      { section: "utilities", label: "Utility accounts", complete: utilities.length > 0 },
+      { section: "contacts", label: "Property contact", complete: contacts.some(contact => Boolean(contact.name && (contact.email || contact.phone))) },
+      { section: "providers", label: "Service provider", complete: providers.some(provider => Boolean(provider.name && provider.service)) },
+      { section: "documents", label: "Property document", complete: documents.length > 0 },
+    ];
+    const completed = checks.filter(check => check.complete).length;
+    return { checks, completed, score: Math.round((completed / checks.length) * 100), missing: checks.filter(check => !check.complete) };
+  }, [buildings.length, contacts, documents.length, providers, units.length, utilities.length, values]);
 
   useEffect(() => {
     if (!editId) return;
@@ -358,7 +373,14 @@ export function PropertyOnboardingForm() {
       utilities, assets, contacts, service_providers: providers,
       documents: documents.map(({ file, ...document }) => ({ ...document, filename: file?.name ?? "" })),
       landlord_engagement: { engagement_type: values.engagement_type || "management", starts_on: values.engagement_start || null, ends_on: values.engagement_end || null, management_fee_percent: values.management_fee || null, payment_terms: values.payment_terms || "" },
-      notes: values.notes || "", onboarding_status: "draft",
+      notes: values.notes || "",
+      onboarding_status: readiness.score === 100 ? "complete" : "in_progress",
+      onboarding_readiness: {
+        score: readiness.score,
+        completed: readiness.completed,
+        total: readiness.checks.length,
+        missing: readiness.missing.map(item => ({ section: item.section, label: item.label })),
+      },
     };
     try {
       const endpoint = editId ? `/property/properties/${editId}/` : "/property/properties/onboard/";
@@ -416,6 +438,19 @@ export function PropertyOnboardingForm() {
         <Button fullWidth={false} variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()} sx={{ minWidth: { xs: "100%", sm: 120 } }}>{saving ? "Saving…" : "Save & Close"}</Button>
       </Box>
     </Box>
+    <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "background.paper" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 1 }}>
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Onboarding readiness</Typography>
+          <Typography variant="body2" color="text.secondary">{readiness.completed} of {readiness.checks.length} setup areas complete. You can save a draft and continue later.</Typography>
+        </Box>
+        <Chip label={`${readiness.score}%`} color={readiness.score === 100 ? "success" : readiness.score >= 60 ? "warning" : "default"} sx={{ fontWeight: 800, fontSize: 14 }} />
+      </Box>
+      <LinearProgress variant="determinate" value={readiness.score} color={readiness.score === 100 ? "success" : "primary"} sx={{ height: 8, borderRadius: 99, mb: readiness.missing.length ? 1.5 : 0 }} />
+      {readiness.missing.length > 0 && <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+        {readiness.missing.map(item => <Chip key={`${item.section}:${item.label}`} size="small" variant="outlined" label={`Add ${item.label}`} onClick={() => jump(item.section)} />)}
+      </Box>}
+    </Paper>
     <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 40, "& .MuiTab-root": { minHeight: 40, fontSize: { xs: 12, md: 14 } } }}>{sections.map(([id, label]) => <Tab key={id} value={id} label={label} />)}</Tabs></Paper>
     <DraftBanner
       restored={restoredDraft}
