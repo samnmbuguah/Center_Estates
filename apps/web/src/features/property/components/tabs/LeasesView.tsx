@@ -18,6 +18,7 @@ import {
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { Zap, CheckSquare, Layers, AlertCircle, CheckCircle2 } from "lucide-react";
+import { BulkLeaseImporter } from "../BulkLeaseImporter";
 
 export function LeasesView({
   rows,
@@ -58,6 +59,7 @@ export function LeasesView({
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -203,6 +205,7 @@ export function LeasesView({
             </button>
           )}
           <button className="btn primary sm" data-testid="property-add-lease-btn" onClick={handleAdd}>+ Add Lease</button>
+          <button className="btn ghost sm" onClick={() => setShowImport(true)}>Import leases</button>
         </div>
       </div>
 
@@ -408,6 +411,7 @@ export function LeasesView({
           </form>
         </Modal>
       )}
+      <BulkLeaseImporter open={showImport} onClose={() => setShowImport(false)} onDone={onRefresh} />
     </>
   );
 }

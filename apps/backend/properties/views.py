@@ -131,6 +131,39 @@ REPORT_TITLES = {
     'critical-dates': 'Critical Dates Register',
     'stakeholder-directory': 'Master Contacts & Stakeholders Directory (Tenants, Landlords, Service Providers, PINs)',
 }
+
+
+def _unit_rule_amount(rule, unit):
+    if rule.calculation == BillingItem.Calculation.AREA_RATE:
+        return ((unit.area or Decimal('0')) * rule.rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return rule.amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _unit_deposit_amount(unit):
+    """Return refundable deposits configured on the unit billing schedule."""
+    rules = unit.charge_rules.filter(is_active=True).select_related('billing_item')
+    return sum(
+        (_unit_rule_amount(rule, unit) for rule in rules
+         if 'DEPOSIT' in rule.billing_item.code.upper()),
+        Decimal('0.00'),
+    ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _inherit_unit_charge_profiles(lease):
+    """Snapshot unit defaults onto a lease; future unit edits never rewrite signed terms."""
+    profiles = [
+        BillingProfile(
+            organization=lease.organization, lease=lease, billing_item=rule.billing_item,
+            frequency=rule.frequency, calculation=rule.calculation,
+            amount=rule.amount, rate=rule.rate, effective_from=lease.starts_on,
+            effective_to=lease.ends_on, billing_day=rule.billing_day,
+            custom_interval_months=rule.custom_interval_months,
+            instructions=rule.instructions,
+        )
+        for rule in lease.unit.charge_rules.filter(is_active=True).select_related('billing_item')
+    ]
+    if profiles:
+        BillingProfile.objects.bulk_create(profiles, ignore_conflicts=True)
 from .lease_billing import generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
 
 
@@ -837,6 +870,54 @@ class TenantViewSet(OrganizationModelViewSet):
             property=serializer.validated_data.get('property') or get_active_property(self.request, organization),
         )
 
+    @action(detail=False, methods=('get',), url_path='deposit-arrears-exposure')
+    def deposit_arrears_exposure(self, request):
+        """Compare refundable deposit cover with live arrears for current leases."""
+        organization = get_active_organization(request)
+        active_property = get_active_property(request, organization)
+        leases = Lease.objects.for_organization(organization).filter(
+            status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
+        ).select_related('tenant', 'unit__property')
+        if active_property:
+            leases = leases.filter(unit__property=active_property)
+
+        rows = []
+        for lease in leases:
+            invoices = list(Invoice.objects.for_organization(organization).filter(
+                lease=lease,
+            ).exclude(status__in=(Invoice.Status.DRAFT, Invoice.Status.VOID)).order_by('due_on'))
+            deposit_invoices = [
+                invoice for invoice in invoices
+                if 'deposit' in invoice.invoice_type.lower()
+                or invoice.lines.filter(billing_item__code__icontains='deposit').exists()
+            ]
+            deposit_ids = {invoice.id for invoice in deposit_invoices}
+            outstanding_invoices = [
+                invoice for invoice in invoices if invoice.balance > 0 and invoice.id not in deposit_ids
+            ]
+            arrears = sum((invoice.balance for invoice in outstanding_invoices), Decimal('0.00'))
+            deposit_billed = sum((invoice.amount for invoice in deposit_invoices), Decimal('0.00'))
+            deposit_paid = sum((invoice.amount - invoice.balance for invoice in deposit_invoices), Decimal('0.00'))
+            oldest = outstanding_invoices[0] if outstanding_invoices else None
+            oldest_days = max((timezone.localdate() - oldest.due_on).days, 0) if oldest else 0
+            rows.append({
+                'tenant_id': str(lease.tenant_id), 'tenant': lease.tenant.name,
+                'lease_id': str(lease.id), 'lease_reference': lease.reference,
+                'unit': lease.unit.code, 'property': lease.unit.property.name,
+                'deposit_required': lease.deposit, 'deposit_billed': deposit_billed,
+                'deposit_paid': deposit_paid, 'arrears': arrears,
+                'net_exposure': max(arrears - deposit_paid, Decimal('0.00')),
+                'oldest_days': oldest_days,
+                'oldest_invoice_id': str(oldest.id) if oldest else None,
+                'oldest_invoice_number': oldest.number if oldest else None,
+                'recommended_action': (
+                    'notice_to_vacate' if oldest_days >= 90 else
+                    'formal_demand' if oldest_days >= 60 else
+                    'payment_reminder' if arrears > 0 else 'none'
+                ),
+            })
+        return Response({'results': rows})
+
     @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         tenant = self.get_object()
@@ -1001,7 +1082,7 @@ class TenantViewSet(OrganizationModelViewSet):
         direct_rent = amount('monthly_rent', '0') or amount('fixed_monthly_rent', '0')
         rent_type = str(lease_data.get('rent_type', 'rate_per_sqft' if rent_rate > 0 else 'fixed')).lower()
         service_rate = amount('service_charge_rate_per_sqft', '0')
-        security_deposit = amount('security_deposit', '0')
+        security_deposit = _unit_deposit_amount(unit)
         escalation_percent = amount('escalation_percent', '0')
         try:
             escalation_interval = int(lease_data.get('escalation_interval_months', 12))
@@ -1026,16 +1107,8 @@ class TenantViewSet(OrganizationModelViewSet):
         if monthly_rent <= 0 and tenant_status not in ('prospect', 'pending', 'applicant') and rent_type != 'prospect':
             raise ValidationError({'lease.monthly_rent': 'Monthly rent must be greater than zero.'})
         monthly_service = (area * service_rate).quantize(Decimal('0.01'))
-        utilities = request.data.get('utilities') if isinstance(request.data.get('utilities'), list) else []
-        try:
-            utility_deposit = sum(
-                (Decimal(str(item.get('rate_per_unit', 0))) * area for item in utilities if item.get('applicable')),
-                Decimal('0'),
-            ).quantize(Decimal('0.01'))
-        except Exception:
-            raise ValidationError({'utilities': 'Utility rates must be valid non-negative amounts.'})
-        if utility_deposit < 0:
-            raise ValidationError({'utilities': 'Utility rates cannot be negative.'})
+        utilities = []
+        utility_deposit = Decimal('0.00')
         subtotal = monthly_rent + monthly_service
         vat_amount = (subtotal * vat_rate / 100).quantize(Decimal('0.01'))
         total_inc_vat = subtotal + vat_amount
@@ -1088,22 +1161,7 @@ class TenantViewSet(OrganizationModelViewSet):
             metadata={'application_number': application_number, 'term_months': term_months, **calculations},
         )
 
-        def inherit_unit_charges(target_lease):
-            """Snapshot unit defaults onto the lease so later unit edits do not rewrite contracts."""
-            profiles = []
-            for rule in target_lease.unit.charge_rules.filter(is_active=True).select_related('billing_item'):
-                profiles.append(BillingProfile(
-                    organization=organization, lease=target_lease, billing_item=rule.billing_item,
-                    frequency=rule.frequency, calculation=rule.calculation,
-                    amount=rule.amount, rate=rule.rate, effective_from=target_lease.starts_on,
-                    effective_to=target_lease.ends_on, billing_day=rule.billing_day,
-                    custom_interval_months=rule.custom_interval_months,
-                    instructions=rule.instructions,
-                ))
-            if profiles:
-                BillingProfile.objects.bulk_create(profiles)
-
-        inherit_unit_charges(lease)
+        _inherit_unit_charge_profiles(lease)
 
         # Parking is a separately billed service, while allocation remains traceable by bay.
         parking_payload = request.data.get('parking_assignments') if isinstance(request.data.get('parking_assignments'), list) else []
@@ -1234,7 +1292,7 @@ class TenantViewSet(OrganizationModelViewSet):
             e_vat_rate = Decimal(str(extra.get('vat_rate', vat_rate))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             e_vat_amount = ((e_subtotal * e_vat_rate) / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if e_vat_rate > 0 else Decimal('0.00')
             e_total_inc_vat = e_subtotal + e_vat_amount
-            e_deposit = Decimal(str(extra.get('security_deposit', '0'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            e_deposit = _unit_deposit_amount(extra_unit)
 
             extra_lease_ref = next_reference(Lease, 'reference', 'LEASE')
             extra_app_num = f"APP-{timezone.localdate().year}-{extra_lease_ref.rsplit('-', 1)[-1]}"
@@ -1254,7 +1312,7 @@ class TenantViewSet(OrganizationModelViewSet):
                 status=Lease.Status.DRAFT,
                 metadata={'application_number': extra_app_num, 'term_months': e_term, **extra_calc},
             )
-            inherit_unit_charges(extra_lease)
+            _inherit_unit_charge_profiles(extra_lease)
             created_leases.append(extra_lease)
 
         return Response({
@@ -1379,7 +1437,7 @@ class TenantViewSet(OrganizationModelViewSet):
                     rent_rate = _amount('rent_rate_per_sqft', '0')
                     direct_rent = _amount('monthly_rent', '0') or _amount('rent', '0')
                     service_rate = _amount('service_charge_rate_per_sqft', '0')
-                    security_deposit = _amount('security_deposit', '0')
+                    security_deposit = _unit_deposit_amount(unit)
                     escalation_percent = _amount('escalation_percent', '0')
                     vat_rate = _amount('vat_rate', '16')
 
@@ -1402,10 +1460,7 @@ class TenantViewSet(OrganizationModelViewSet):
                     vat_amount = ((subtotal * vat_rate) / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if vat_rate > 0 else Decimal('0.00')
                     total_inc_vat = subtotal + vat_amount
 
-                    utility_deposit = sum(
-                        (Decimal(str(item.get('rate_per_unit', 0))) * area for item in utilities if item.get('applicable')),
-                        Decimal('0'),
-                    ).quantize(Decimal('0.01'))
+                    utility_deposit = Decimal('0.00')
 
                     def _next_ref(model, field, prefix):
                         vals = model.objects.filter(
@@ -1466,6 +1521,7 @@ class TenantViewSet(OrganizationModelViewSet):
                         status=Lease.Status.DRAFT,
                         metadata={'application_number': application_number, 'term_months': term_months, 'source': 'bulk_import', **calculations},
                     )
+                    _inherit_unit_charge_profiles(lease)
                     succeeded.append({
                         'row': index + 1,
                         'tenant_code': tenant_code,
@@ -1511,6 +1567,106 @@ class LeaseViewSet(OrganizationModelViewSet):
     queryset = Lease.objects.select_related('tenant', 'unit__property')
     serializer_class = LeaseSerializer
     search_fields = ('reference', 'tenant__name', 'unit__code')
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk-import')
+    def bulk_import(self, request):
+        """Preview or import leases for existing tenants and units without accepting deposits."""
+        organization = get_active_organization(request)
+        active_property = get_active_property(request, organization)
+        source_rows = request.data.get('rows') if isinstance(request.data.get('rows'), list) else []
+        commit = str(request.data.get('mode', 'preview')).lower() == 'commit'
+        if not source_rows:
+            raise ValidationError({'rows': 'Upload at least one lease row.'})
+        if len(source_rows) > 1000:
+            raise ValidationError({'rows': 'A maximum of 1,000 leases can be imported at once.'})
+
+        existing_refs = Lease.objects.for_organization(organization).filter(reference__startswith='LEASE-').values_list('reference', flat=True)
+        ref_numbers = [int(ref.rsplit('-', 1)[-1]) for ref in existing_refs if ref.rsplit('-', 1)[-1].isdigit()]
+        next_number = max(ref_numbers, default=0)
+        results, created = [], []
+        for index, raw in enumerate(source_rows, start=2):
+            row = {str(key).strip().lower(): value for key, value in (raw or {}).items()}
+            errors = {}
+            tenant_key = str(row.get('tenant_code') or row.get('tenant') or '').strip()
+            unit_code = str(row.get('unit_code') or row.get('unit') or '').strip()
+            tenant = Tenant.objects.for_organization(organization).filter(
+                Q(code__iexact=tenant_key) | Q(email__iexact=tenant_key) | Q(name__iexact=tenant_key)
+            ).first() if tenant_key else None
+            units = Unit.objects.for_organization(organization).filter(code__iexact=unit_code).select_related('property')
+            if active_property:
+                units = units.filter(property=active_property)
+            unit = units.first()
+            if not tenant:
+                errors['tenant'] = 'Match an existing tenant by code, email or exact name.'
+            if not unit:
+                errors['unit'] = 'Match an existing unit in the selected property.'
+            try:
+                starts_on = date.fromisoformat(str(row.get('starts_on') or row.get('commencement_date') or ''))
+            except ValueError:
+                starts_on = None
+                errors['starts_on'] = 'Use YYYY-MM-DD.'
+            try:
+                ends_on = date.fromisoformat(str(row.get('ends_on') or row.get('expiry_date') or ''))
+                if starts_on and ends_on <= starts_on:
+                    raise ValueError
+            except ValueError:
+                ends_on = None
+                errors['ends_on'] = 'Use YYYY-MM-DD after commencement.'
+            try:
+                monthly_rent = Decimal(str(row.get('monthly_rent') or '')).quantize(Decimal('0.01'))
+                if monthly_rent <= 0:
+                    raise ValueError
+            except Exception:
+                monthly_rent = Decimal('0.00')
+                errors['monthly_rent'] = 'Enter an amount greater than zero.'
+            try:
+                billing_day = int(row.get('billing_day') or 1)
+                if not 1 <= billing_day <= 28:
+                    raise ValueError
+            except Exception:
+                billing_day = 1
+                errors['billing_day'] = 'Use a day from 1 to 28.'
+            try:
+                escalation_percent = Decimal(str(row.get('escalation_percent') or 0)).quantize(Decimal('0.01'))
+                escalation_interval = int(row.get('escalation_interval_months') or 12)
+                if escalation_percent < 0 or not 1 <= escalation_interval <= 120:
+                    raise ValueError
+            except Exception:
+                escalation_percent, escalation_interval = Decimal('0.00'), 12
+                errors['escalation'] = 'Use a non-negative percentage and interval from 1 to 120 months.'
+            if unit and Lease.objects.for_organization(organization).filter(
+                unit=unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
+            ).exists():
+                errors['unit'] = 'Unit already has a current lease.'
+
+            normalized = {
+                'tenant': tenant.name if tenant else tenant_key, 'tenant_code': tenant.code if tenant else '',
+                'unit_code': unit.code if unit else unit_code,
+                'starts_on': starts_on.isoformat() if starts_on else '', 'ends_on': ends_on.isoformat() if ends_on else '',
+                'monthly_rent': str(monthly_rent), 'billing_day': billing_day,
+                'escalation_percent': str(escalation_percent),
+                'escalation_interval_months': escalation_interval,
+                'deposit': str(_unit_deposit_amount(unit)) if unit else '0.00',
+            }
+            if commit and not errors:
+                next_number += 1
+                lease = Lease.objects.create(
+                    organization=organization, reference=f'LEASE-{next_number:04d}', tenant=tenant, unit=unit,
+                    starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
+                    deposit=_unit_deposit_amount(unit), billing_day=billing_day,
+                    escalation_percent=escalation_percent, escalation_interval_months=escalation_interval,
+                    status=Lease.Status.DRAFT, metadata={'source': 'lease_import', 'imported_by': request.user.get_username()},
+                )
+                _inherit_unit_charge_profiles(lease)
+                created.append(str(lease.id))
+            results.append({'row': index, 'data': normalized, 'errors': errors})
+        return Response({
+            'mode': 'commit' if commit else 'preview', 'rows': results,
+            'valid_count': sum(1 for row in results if not row['errors']),
+            'error_count': sum(1 for row in results if row['errors']),
+            'created_count': len(created), 'created_ids': created,
+        }, status=status.HTTP_201_CREATED if commit and created else status.HTTP_200_OK)
 
     @transaction.atomic
     @action(detail=False, methods=('post',), url_path='bulk-update')

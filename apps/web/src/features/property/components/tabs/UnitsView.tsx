@@ -21,11 +21,13 @@ import {
   occupancyTone, shortId, exportCsv, exportLeaseICS, exportICS,
   criticalFormatDate, criticalDaysUntil,
 } from "../../utils/property.utils";
+import { UnitBillingScheduleDrawer } from "../UnitBillingScheduleDrawer";
 
 export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRow }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onSelectRow?: (r: Row) => void;
 }) {
   const [view, setView] = useState<"commercial" | "residential" | "stacking">("residential");
+  const [billingUnit, setBillingUnit] = useState<UnitRow | null>(null);
   const units = rows as UnitRow[];
   const occupied = units.filter((u) => u.status === "occupied").length;
   const available = units.filter((u) => u.status === "available").length;
@@ -217,6 +219,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                     )}
                     <th>Status</th>
                     <th>Tenant</th>
+                    <th>Billing</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -238,6 +241,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                         )}
                         <td><StatusPill value={String(u.status ?? "—")} /></td>
                         <td style={{ fontSize: 12 }}>{String((u.metadata as Record<string, unknown> | undefined)?.tenant ?? "—")} {rent !== undefined ? <span className="muted" style={{ fontSize: 11 }}>· {kM(rent)}/mo</span> : null}</td>
+                        <td><button type="button" className="btn ghost sm" onClick={(event) => { event.stopPropagation(); setBillingUnit(u); }}>Schedule</button></td>
                       </tr>
                     );
                   })}
@@ -247,6 +251,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
           </ListState>
         </Panel>
       )}
+      {billingUnit && <UnitBillingScheduleDrawer unit={billingUnit} onClose={() => setBillingUnit(null)} />}
     </>
   );
 }

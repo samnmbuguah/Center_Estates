@@ -1,13 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { Box, Button, Typography } from "@mui/material";
-import { Panel, EmptyState, Badge, KpiStrip, KpiCard, money } from "@/components/module-ui";
-import { ViewToolbar, ListState, SubTabs } from "../PropertyToolbar";
+import { useEffect, useState } from "react";
+import { Alert, Button, Typography } from "@mui/material";
+import { Panel, EmptyState, Badge, KpiStrip, KpiCard } from "@/components/module-ui";
+import { ListState, SubTabs } from "../PropertyToolbar";
 import { PropertyTab, Row, AgingTenantRow, AgingAnalytics, ReminderRow } from "../../types/property.types";
 import { kM, kN, fmtDate, pct } from "../../utils/property.utils";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
+import { useAuth } from "@/components/auth-provider";
 
-type SubTab = "aging" | "reminders";
+type SubTab = "aging" | "exposure" | "reminders";
+type ExposureRow = {
+  tenant_id: string; tenant: string; unit: string; property: string; lease_reference: string;
+  deposit_required: string; deposit_billed: string; deposit_paid: string; arrears: string;
+  net_exposure: string; oldest_days: number; oldest_invoice_id?: string; oldest_invoice_number?: string;
+  recommended_action: "none" | "payment_reminder" | "formal_demand" | "notice_to_vacate";
+};
 
 export function ArrearsRecoveryView({
   rows, reminders = [], analytics, loading, search, setSearch, setTab, onSendReminder,
@@ -16,7 +24,12 @@ export function ArrearsRecoveryView({
   loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onSendReminder?: (r: ReminderRow) => void;
 }) {
+  const { session } = useAuth();
   const [subTab, setSubTab] = useState<SubTab>("aging");
+  const [exposure, setExposure] = useState<ExposureRow[]>([]);
+  const [exposureLoading, setExposureLoading] = useState(false);
+  const [exposureError, setExposureError] = useState("");
+  const [notice, setNotice] = useState("");
   const tenants = rows as AgingTenantRow[];
   const reminderList = reminders as ReminderRow[];
   const summary = analytics?.summary ?? {};
@@ -31,10 +44,43 @@ export function ArrearsRecoveryView({
     { label: "90+ days", key: "over_120" },
   ];
 
+  useEffect(() => {
+    if (subTab !== "exposure" || !session?.activeOrganizationId) return;
+    let active = true;
+    setExposureLoading(true); setExposureError("");
+    apiFetch("/property/tenants/deposit-arrears-exposure/", {}, session.activeOrganizationId)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "Exposure could not be loaded."));
+        const payload = await response.json(); if (active) setExposure(payload.results ?? []);
+      })
+      .catch((reason) => { if (active) setExposureError(reason instanceof Error ? reason.message : "Exposure could not be loaded."); })
+      .finally(() => { if (active) setExposureLoading(false); });
+    return () => { active = false; };
+  }, [subTab, session?.activeOrganizationId]);
+
+  async function sendRecoveryNotice(row: ExposureRow) {
+    if (!row.oldest_invoice_id || !session?.activeOrganizationId) return;
+    const action = row.recommended_action.replaceAll("_", " ");
+    if (!window.confirm(`Send ${action} to ${row.tenant} through the tenant portal?`)) return;
+    setNotice(""); setExposureError("");
+    const message = row.recommended_action === "notice_to_vacate"
+      ? `Notice to remedy arrears: KES ${Number(row.arrears).toLocaleString()} remains outstanding for ${row.unit}. Please settle or contact management immediately. This notice does not terminate the lease without the required approval and legal process.`
+      : row.recommended_action === "formal_demand"
+        ? `Formal payment demand: KES ${Number(row.arrears).toLocaleString()} remains outstanding for ${row.unit}. Please settle the balance or contact management to agree a recovery plan.`
+        : `Payment reminder: KES ${Number(row.arrears).toLocaleString()} remains outstanding for ${row.unit}. Please review your invoices in the tenant portal.`;
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(`/property/invoices/${row.oldest_invoice_id}/send-reminder/`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify({ channel: "portal", message }),
+    }, session.activeOrganizationId);
+    if (!response.ok) { setExposureError(await apiErrorMessage(response, "Notice could not be sent.")); return; }
+    setNotice(`${action.charAt(0).toUpperCase()}${action.slice(1)} sent to ${row.tenant}.`);
+  }
+
   return (
     <>
       <SubTabs
-        tabs={[{ id: "aging", label: "Aging Overview" }, { id: "reminders", label: `Reminder History (${reminderList.length})` }]}
+        tabs={[{ id: "aging", label: "Aging Overview" }, { id: "exposure", label: "Deposit & arrears exposure" }, { id: "reminders", label: `Notice history (${reminderList.length})` }]}
         active={subTab}
         onChange={(id) => setSubTab(id as SubTab)}
       />
@@ -106,6 +152,24 @@ export function ArrearsRecoveryView({
           </Panel>
         </>
       )}
+
+      {subTab === "exposure" && <Panel title="Deposit cover & recovery actions">
+        <Typography color="text.secondary" sx={{ mb: 2, fontSize: 13 }}>
+          Deposit obligations come from the unit billing schedule. Paid deposits are shown separately from arrears and never posted as rent income.
+        </Typography>
+        {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
+        {exposureError && <Alert severity="error" sx={{ mb: 2 }}>{exposureError}</Alert>}
+        <ListState loading={exposureLoading} empty={exposure.length === 0} emptyTitle="No current lease exposure" emptyDesc="Current leases will appear here with deposit cover and arrears.">
+          <div className="table-scroll"><table className="fc-data-table"><thead><tr><th>Tenant / unit</th><th>Deposit required</th><th>Deposit paid</th><th>Arrears</th><th>Net exposure</th><th>Age</th><th>Recommended next step</th></tr></thead>
+            <tbody>{exposure.map((row) => <tr key={row.lease_reference}>
+              <td><strong>{row.tenant}</strong><br/><span className="muted">{row.unit} · {row.lease_reference}</span></td>
+              <td className="mono">{kM(row.deposit_required)}</td><td className="mono">{kM(row.deposit_paid)}</td>
+              <td className="mono" style={{ color: Number(row.arrears) > 0 ? "var(--danger)" : undefined }}>{kM(row.arrears)}</td>
+              <td className="mono"><strong>{kM(row.net_exposure)}</strong></td><td>{row.oldest_days}d</td>
+              <td>{row.recommended_action === "none" ? <Badge tone="green">Clear</Badge> : <Button size="small" variant="outlined" color={row.recommended_action === "notice_to_vacate" ? "error" : "primary"} onClick={() => sendRecoveryNotice(row)}>{row.recommended_action.replaceAll("_", " ")}</Button>}</td>
+            </tr>)}</tbody></table></div>
+        </ListState>
+      </Panel>}
 
       {subTab === "reminders" && (
         <Panel title="Payment Reminders">

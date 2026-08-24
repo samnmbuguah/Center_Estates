@@ -11,7 +11,7 @@ type ParsedRow = {
   area: string; lease_start: string; lease_term_months: string;
   monthly_rent: string; rent_rate_per_sqft: string;
   service_charge_rate_per_sqft: string; vat_rate: string;
-  security_deposit: string; billing_day: string;
+  billing_day: string;
 };
 
 type BulkResult = {
@@ -23,7 +23,7 @@ type BulkResult = {
 const TEMPLATE_HEADERS = [
   "name","tenant_type","email","phone","tax_id","registration_number",
   "unit_code","area","lease_start","lease_term_months","monthly_rent","rent_rate_per_sqft",
-  "service_charge_rate_per_sqft","vat_rate","security_deposit","billing_day",
+  "service_charge_rate_per_sqft","vat_rate","billing_day",
 ];
 
 function csvToRows(text: string): ParsedRow[] {
@@ -44,7 +44,6 @@ function csvToRows(text: string): ParsedRow[] {
   const cRent = col(h,['rent_rate_per_sqft','rent_rate','rent_per_sqft']);
   const cSC = col(h,['service_charge_rate_per_sqft','sc_rate','service_charge_rate']);
   const cVat = col(h,['vat_rate','vat']);
-  const cDep = col(h,['security_deposit','deposit']);
   const cBill = col(h,['billing_day','bill_day']);
   return all.slice(1).map((row) => ({
     name: get(row,cName), tenant_type: get(row,cType)||'company',
@@ -58,7 +57,6 @@ function csvToRows(text: string): ParsedRow[] {
     rent_rate_per_sqft: get(row,cRent),
     service_charge_rate_per_sqft: get(row,cSC)||'0',
     vat_rate: get(row,cVat)||'16',
-    security_deposit: get(row,cDep)||'0',
     billing_day: get(row,cBill)||'1',
   })).filter((r) => r.name);
 }
@@ -68,15 +66,15 @@ function downloadTemplate() {
     TEMPLATE_HEADERS,
     [
       'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL1-UNIT-A', '2500', '2026-01-01', '24', '100000', '', '15', '16', '100000', '1',
+      'FL1-UNIT-A', '2500', '2026-01-01', '24', '100000', '', '15', '16', '1',
     ],
     [
       'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL2-UNIT-B', '3000', '2026-03-01', '12', '', '120', '35', '16', '120000', '1',
+      'FL2-UNIT-B', '3000', '2026-03-01', '12', '', '120', '35', '16', '1',
     ],
     [
       'Kilima Tech Ventures', 'individual', 'info@kilimatech.co.ke', '0722000111', 'A009876543Z', 'BN-2023-887',
-      'FL3-SUITE-1', '1200', '2026-02-01', '12', '45000', '', '10', '16', '45000', '5',
+      'FL3-SUITE-1', '1200', '2026-02-01', '12', '45000', '', '10', '16', '5',
     ],
   ];
   const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\r\n');
@@ -130,7 +128,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           tenant: { name:r.name, tenant_type:r.tenant_type, email:r.email, phone:r.phone, tax_id:r.tax_id, registration_number:r.registration_number },
           lease: { unit_code:r.unit_code, area:r.area, starts_on:r.lease_start, term_months:Number(r.lease_term_months)||12,
             monthly_rent:r.monthly_rent || '', rent_rate_per_sqft:r.rent_rate_per_sqft, service_charge_rate_per_sqft:r.service_charge_rate_per_sqft,
-            vat_rate:r.vat_rate, security_deposit:r.security_deposit, billing_day:Number(r.billing_day)||1 },
+            vat_rate:r.vat_rate, billing_day:Number(r.billing_day)||1 },
         }))
       };
       const res = await apiFetch('/property/tenants/bulk-onboard/', {
@@ -257,7 +255,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
       <div style={{background:'var(--surface-2,#f8fafc)',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12}}>
         <strong>Required:</strong> <span style={{color:'var(--muted)'}}>name, unit_code, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
         <span style={{margin:'0 8px',color:'var(--border)'}}>|</span>
-        <strong>Optional:</strong> <span style={{color:'var(--muted)'}}>tenant_type, email, phone, tax_id, registration_number, lease_term_months, service_charge_rate_per_sqft, vat_rate, security_deposit, billing_day</span>
+        <strong>Optional:</strong> <span style={{color:'var(--muted)'}}>tenant_type, email, phone, tax_id, registration_number, lease_term_months, service_charge_rate_per_sqft, vat_rate, billing_day. Deposits and utilities come from the unit billing schedule.</span>
       </div>
       <div style={{background:'rgba(59, 130, 246, 0.08)',border:'1px solid rgba(59, 130, 246, 0.25)',borderRadius:8,padding:'10px 14px',fontSize:12,color:'var(--text-primary)'}}>
         💡 <strong>Unit Code Matching:</strong> Each <code>unit_code</code> must match a registered unit in <strong>Property &rarr; Units</strong> (e.g. <code>GR-101</code>, <code>FL3-3A</code>, <code>FL5-5C</code>). If a unit is not yet registered or already has an active lease, the system will flag the exact row.

@@ -68,7 +68,6 @@ const initialForm = {
   rent_rate_per_sqft: "",
   service_charge_rate_per_sqft: "0",
   vat_rate: "16",
-  security_deposit: "0",
   billing_day: "1",
   escalation_percent: "0",
   escalation_interval_months: "12",
@@ -133,7 +132,6 @@ export function TenantApplicationCard({
     term_months: string;
     starts_on: string;
     vat_rate: string;
-    security_deposit: string;
   }[]>([]);
   const draftRestored = formRestored;
   const clearDraft = () => {
@@ -179,8 +177,6 @@ export function TenantApplicationCard({
           current.service_charge_rate_per_sqft !== "0"
             ? current.service_charge_rate_per_sqft
             : String(defaults.service_charge_rate_per_sqft ?? 0),
-        security_deposit:
-          current.security_deposit !== "0" ? current.security_deposit : String(defaults.security_deposit ?? 0),
         billing_day: current.billing_day !== "1" ? current.billing_day : String(defaults.billing_day ?? 1),
       }));
     });
@@ -209,6 +205,9 @@ export function TenantApplicationCard({
     if (!rule) return 0;
     return rule.calculation === "area_rate" ? Number(unit?.area || 0) * Number(rule.rate || 0) : Number(rule.amount || 0);
   };
+  const depositAmount = (unit: Unit | undefined) => (unit?.charge_rules ?? [])
+    .filter((rule) => rule.billing_item_code.toUpperCase().includes("DEPOSIT"))
+    .reduce((sum, rule) => sum + (rule.calculation === "area_rate" ? Number(unit?.area || 0) * Number(rule.rate || 0) : Number(rule.amount || 0)), 0);
   const serviceCharge = chargeAmount(selectedUnit, "SERVICE_CHARGE") || chargeAmount(selectedUnit, "SC");
   const subtotal = rent + serviceCharge;
   const parkingFee = (form.parking_space || form.parking_new_code.trim()) ? Number(form.parking_monthly_fee || 0) : 0;
@@ -229,7 +228,7 @@ export function TenantApplicationCard({
       const eSc = chargeAmount(u, "SERVICE_CHARGE") || chargeAmount(u, "SC");
       const eSub = eRent + eSc;
       const eVat = (eSub * Number(eu.vat_rate || 0)) / 100;
-      const eDep = Number(eu.security_deposit || 0);
+      const eDep = depositAmount(u);
       return {
         area: acc.area + eArea,
         rent: acc.rent + eRent,
@@ -247,7 +246,7 @@ export function TenantApplicationCard({
   const totalMonthlySc = serviceCharge + extraTotals.serviceCharge;
   const totalMonthlySubtotal = subtotal + extraTotals.subtotal;
   const totalVat = vat + extraTotals.vat;
-  const totalDeposit = Number(form.security_deposit || 0) + extraTotals.deposit;
+  const totalDeposit = depositAmount(selectedUnit) + extraTotals.deposit;
 
   const total = totalMonthlySubtotal + totalVat + totalDeposit;
   const expiryDate = addMonths(form.starts_on, Number(form.term_months || 12));
@@ -338,7 +337,6 @@ export function TenantApplicationCard({
               rent_rate_per_sqft: computedRentRate,
               service_charge_rate_per_sqft: Number(form.service_charge_rate_per_sqft || 0),
               vat_rate: Number(form.vat_rate || 0),
-              security_deposit: Number(form.security_deposit || 0),
               billing_day: Number(form.billing_day || 1),
               escalation_percent: Number(form.escalation_percent || 0),
               escalation_interval_months: Number(form.escalation_interval_months || 12),
@@ -366,7 +364,6 @@ export function TenantApplicationCard({
                   rent_rate_per_sqft: eRate,
                   service_charge_rate_per_sqft: Number(eu.service_charge_rate_per_sqft || form.service_charge_rate_per_sqft || 0),
                   vat_rate: Number(eu.vat_rate || form.vat_rate || 0),
-                  security_deposit: Number(eu.security_deposit || 0),
                   billing_day: Number(form.billing_day || 1),
                 };
               }),
@@ -416,7 +413,7 @@ export function TenantApplicationCard({
     ["Total monthly recurring (excl. VAT)", subtotal],
     ["VAT amount (16%)", vat],
     ["Total monthly amount (inc. VAT)", subtotal + vat],
-    ["Security deposit (refundable)", Number(form.security_deposit || 0)],
+    ["Deposits inherited from unit", depositAmount(selectedUnit)],
     ["Opening arrears brought forward", openingBalance],
     ["Total initial move-in payable", total + parkingFee + openingBalance],
   ] as const;
@@ -459,7 +456,7 @@ export function TenantApplicationCard({
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block" }}>
-              {activeProperty?.name ?? "Select Property"} · Legal tenant profile, lease contract terms, utility deposits & auto-drafting
+              {activeProperty?.name ?? "Select Property"} · Legal tenant profile, lease terms and unit billing inheritance
             </Typography>
           </Box>
           <Stack direction="row" sx={{ gap: 1.5, alignItems: "center" }}>
@@ -583,7 +580,7 @@ export function TenantApplicationCard({
                 SECTION 2 · LEASE TERMS & FINANCIAL RATES
               </Typography>
               <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 2.5 }}>
-                Configure rent structure (Fixed Monthly, Rate by Area, or Prospective Negotiation), service charges, and deposit requirements.
+                Configure the signed rent terms. Deposits and utilities are inherited from the selected unit’s billing schedule.
               </Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
                 {input("Rent Pricing Structure", "rent_type", {
@@ -637,11 +634,6 @@ export function TenantApplicationCard({
                       VAT Exempt (0%)
                     </MenuItem>,
                   ],
-                })}
-                {input("Security Deposit (KES)", "security_deposit", {
-                  type: "number",
-                  inputProps: { min: 0, step: 0.01 },
-                  helperText: "Refundable deposit upon vacating",
                 })}
                 {input("Invoice Due Day", "billing_day", {
                   type: "number",
@@ -739,7 +731,6 @@ export function TenantApplicationCard({
                         term_months: form.term_months || "12",
                         starts_on: form.starts_on || "",
                         vat_rate: form.vat_rate || "16",
-                        security_deposit: "0",
                       },
                     ]);
                   }}
@@ -898,7 +889,7 @@ export function TenantApplicationCard({
                 💰 Live Financial Computation
               </Typography>
               <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block", mb: 2 }}>
-                Calculated automatically from unit sqft area, tax rates, and security deposit terms.
+                Calculated automatically from unit area, tax rates and the selected unit billing schedule.
               </Typography>
 
               <Stack sx={{ gap: 1.25 }}>

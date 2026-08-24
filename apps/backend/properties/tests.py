@@ -246,6 +246,10 @@ class PropertyApiTests(TestCase):
             organization=self.organization, code='WATER', name='Water consumption',
             calculation=BillingItem.Calculation.FIXED, income_category='utilities',
         )
+        deposit_item = BillingItem.objects.create(
+            organization=self.organization, code='SECURITY_DEPOSIT', name='Security deposit',
+            calculation=BillingItem.Calculation.FIXED, income_category='refundable_deposits', is_recurring=False,
+        )
         unit = Unit.objects.create(
             organization=self.organization, property=self.property, code='RULE-01',
             status=Unit.Status.AVAILABLE, area=Decimal('500'),
@@ -255,6 +259,10 @@ class PropertyApiTests(TestCase):
             'calculation': 'fixed', 'amount': '750.00', 'rate': '0', 'billing_day': 5,
         }, format='json', **self.headers)
         self.assertEqual(rule.status_code, 201, rule.data)
+        UnitChargeRule.objects.create(
+            organization=self.organization, unit=unit, billing_item=deposit_item,
+            frequency=UnitChargeRule.Frequency.ONE_OFF, calculation='fixed', amount=Decimal('100000'),
+        )
 
         onboarded = self.client.post('/api/v1/property/tenants/onboard/', {
             'tenant': {'name': 'Unit Rule Tenant', 'tenant_type': 'company'},
@@ -268,6 +276,8 @@ class PropertyApiTests(TestCase):
         inherited = lease.billing_profiles.get(billing_item=water)
         self.assertEqual(inherited.amount, Decimal('750'))
         self.assertEqual(inherited.effective_from, date(2026, 9, 1))
+        self.assertEqual(lease.deposit, Decimal('100000'))
+        self.assertTrue(lease.billing_profiles.filter(billing_item=deposit_item, frequency='one_off').exists())
 
         lease.status = Lease.Status.ACTIVE
         lease.save(update_fields=('status',))
@@ -283,10 +293,10 @@ class PropertyApiTests(TestCase):
         self.client.force_authenticate(self.user)
         generated = self.client.post(f'{run_url}generate/', {'candidate_ids': [candidate['id']]}, format='json', **self.headers)
         self.assertEqual(generated.status_code, 201, generated.data)
-        self.assertEqual(generated.data['generated_count'], 2)
+        self.assertEqual(generated.data['generated_count'], 3)
         invoices = Invoice.objects.filter(metadata__billing_candidate_id=candidate['id'])
-        self.assertEqual(set(invoices.values_list('invoice_type', flat=True)), {'rent', 'water'})
-        self.assertEqual(sum(invoices.values_list('amount', flat=True), Decimal('0')), Decimal('50750'))
+        self.assertEqual(set(invoices.values_list('invoice_type', flat=True)), {'rent', 'water', 'security_deposit'})
+        self.assertEqual(sum(invoices.values_list('amount', flat=True), Decimal('0')), Decimal('150750'))
 
     def _create_billing_approver(self):
         approver = get_user_model().objects.create_user(
@@ -672,6 +682,14 @@ class PropertyApiTests(TestCase):
             organization=self.organization, property=self.property, code='202', floor='2',
             area=Decimal('1000'), status=Unit.Status.AVAILABLE,
         )
+        deposit_item = BillingItem.objects.create(
+            organization=self.organization, code='SECURITY_DEPOSIT', name='Security deposit',
+            calculation=BillingItem.Calculation.FIXED, is_recurring=False,
+        )
+        UnitChargeRule.objects.create(
+            organization=self.organization, unit=available_unit, billing_item=deposit_item,
+            frequency=UnitChargeRule.Frequency.ONE_OFF, amount=Decimal('200000'),
+        )
         response = self.client.post('/api/v1/property/tenants/onboard/', {
             'tenant': {
                 'name': 'Acme Kenya Limited', 'tenant_type': 'company', 'address_1': 'Moi Avenue',
@@ -683,7 +701,7 @@ class PropertyApiTests(TestCase):
             'lease': {
                 'unit': str(available_unit.id), 'term_months': 72, 'starts_on': '2026-09-01',
                 'area': 1000, 'rent_rate_per_sqft': 100, 'service_charge_rate_per_sqft': 15,
-                'vat_rate': 16, 'security_deposit': 200000, 'billing_day': 1,
+                'vat_rate': 16, 'security_deposit': 999999, 'billing_day': 1,
                 'escalation_percent': 5, 'escalation_interval_months': 12,
             },
             'utilities': [
@@ -703,10 +721,11 @@ class PropertyApiTests(TestCase):
         self.assertTrue(lease.reference.startswith('LEASE-'))
         self.assertEqual(lease.ends_on.isoformat(), '2032-09-01')
         self.assertEqual(lease.monthly_rent, Decimal('100000.00'))
+        self.assertEqual(lease.deposit, Decimal('200000.00'))
         self.assertEqual(lease.escalation_percent, Decimal('5.00'))
         self.assertEqual(lease.escalation_interval_months, 12)
         self.assertEqual(lease.metadata['monthly_service_charge_excl_vat'], '15000.00')
-        self.assertEqual(response.data['calculations']['total_amount_payable'], '343400.00')
+        self.assertEqual(response.data['calculations']['total_amount_payable'], '333400.00')
         activated = self.client.post(f'/api/v1/property/leases/{lease.id}/activate/', {}, format='json', **self.headers)
         self.assertEqual(activated.status_code, 200, activated.data)
         schedules = RentSchedule.objects.filter(lease=lease).order_by('period_start')
@@ -1233,6 +1252,31 @@ class PropertyApiTests(TestCase):
         leases = tenant.leases.all()
         self.assertEqual(leases.count(), 2)
         self.assertEqual(set(leases.values_list('unit__code', flat=True)), {'FL1-01', 'FL2-01'})
+
+    def test_lease_import_previews_then_creates_drafts_with_unit_deposit(self):
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='IMPORT-01', area=Decimal('500'))
+        tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-IMPORT', name='Imported Tenant')
+        deposit_item = BillingItem.objects.create(
+            organization=self.organization, code='SECURITY_DEPOSIT', name='Security deposit',
+            calculation=BillingItem.Calculation.FIXED, is_recurring=False,
+        )
+        UnitChargeRule.objects.create(
+            organization=self.organization, unit=unit, billing_item=deposit_item,
+            frequency=UnitChargeRule.Frequency.ONE_OFF, amount=Decimal('75000'),
+        )
+        rows = [{'tenant_code': tenant.code, 'unit_code': unit.code, 'starts_on': '2026-09-01', 'ends_on': '2027-08-31', 'monthly_rent': '45000', 'billing_day': '5'}]
+        preview = self.client.post('/api/v1/property/leases/bulk-import/', {'mode': 'preview', 'rows': rows}, format='json', **self.headers)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data['valid_count'], 1)
+        self.assertEqual(preview.data['rows'][0]['data']['deposit'], '75000.00')
+        self.assertFalse(Lease.objects.filter(unit=unit).exists())
+        committed = self.client.post('/api/v1/property/leases/bulk-import/', {'mode': 'commit', 'rows': rows}, format='json', **self.headers)
+        self.assertEqual(committed.status_code, 201, committed.data)
+        lease = Lease.objects.get(unit=unit)
+        self.assertEqual(lease.status, Lease.Status.DRAFT)
+        self.assertEqual(lease.deposit, Decimal('75000'))
+        self.assertEqual(lease.metadata['source'], 'lease_import')
+        self.assertTrue(lease.billing_profiles.filter(billing_item=deposit_item).exists())
 
     def test_tenant_portal_is_user_linked_and_creates_scoped_service_request(self):
         TenantPortalAccess.objects.create(
