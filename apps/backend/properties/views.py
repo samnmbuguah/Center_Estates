@@ -53,6 +53,31 @@ from .serializers import (
 )
 
 
+def _parse_flexible_date(val):
+    """Normalize ISO, DD/MM/YYYY, DD-MM-YYYY, Excel numbers, or text dates into a Python date."""
+    if not val:
+        return None
+    val_str = str(val).strip()
+    if not val_str:
+        return None
+    try:
+        return date.fromisoformat(val_str)
+    except Exception:
+        pass
+    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y/%m/%d', '%d/%m/%y', '%d-%m-%y', '%Y.%m.%d', '%B %d, %Y', '%d %b %Y', '%d %B %Y'):
+        try:
+            return datetime.strptime(val_str, fmt).date()
+        except Exception:
+            pass
+    if val_str.isdigit() and len(val_str) == 5:
+        from datetime import timedelta
+        try:
+            return date(1899, 12, 30) + timedelta(days=int(val_str))
+        except Exception:
+            pass
+    return None
+
+
 def _payment_intent_invoices(intent, *, lock=False):
     """Return the audited invoice allocation encoded when an intent is created.
 
@@ -1442,30 +1467,9 @@ class TenantViewSet(OrganizationModelViewSet):
                         raise ValidationError({'lease.unit': f'Unit "{unit.code}" already has an active lease.'})
 
                     try:
-                        raw_date = str(lease_data.get('starts_on', '')).strip()
-                        if not raw_date:
-                            raise ValueError('Missing lease start date.')
-                        
-                        # Flexible date parsing supporting ISO, DD/MM/YYYY, DD-MM-YYYY, Excel serial, etc.
-                        starts_on = None
-                        try:
-                            starts_on = date.fromisoformat(raw_date)
-                        except Exception:
-                            for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y/%m/%d', '%d/%m/%y', '%d-%m-%y', '%Y.%m.%d', '%B %d, %Y', '%d %b %Y', '%d %B %Y'):
-                                try:
-                                    starts_on = datetime.strptime(raw_date, fmt).date()
-                                    break
-                                except Exception:
-                                    pass
-                        if starts_on is None and raw_date.isdigit() and len(raw_date) == 5:
-                            from datetime import timedelta
-                            try:
-                                starts_on = date(1899, 12, 30) + timedelta(days=int(raw_date))
-                            except Exception:
-                                pass
-                        
+                        starts_on = _parse_flexible_date(lease_data.get('starts_on'))
                         if starts_on is None:
-                            raise ValueError('Invalid date format.')
+                            raise ValueError('Missing or invalid lease start date.')
 
                         term_months = int(lease_data.get('term_months', 12))
                         if term_months < 1 or term_months > 240:
@@ -1657,18 +1661,14 @@ class LeaseViewSet(OrganizationModelViewSet):
                 errors['tenant'] = 'Match an existing tenant by code, email or exact name.'
             if not unit:
                 errors['unit'] = 'Match an existing unit in the selected property.'
-            try:
-                starts_on = date.fromisoformat(str(row.get('starts_on') or row.get('commencement_date') or ''))
-            except ValueError:
-                starts_on = None
-                errors['starts_on'] = 'Use YYYY-MM-DD.'
-            try:
-                ends_on = date.fromisoformat(str(row.get('ends_on') or row.get('expiry_date') or ''))
-                if starts_on and ends_on <= starts_on:
-                    raise ValueError
-            except ValueError:
-                ends_on = None
-                errors['ends_on'] = 'Use YYYY-MM-DD after commencement.'
+            starts_on = _parse_flexible_date(row.get('starts_on') or row.get('commencement_date'))
+            if not starts_on:
+                errors['starts_on'] = 'Invalid date. Use YYYY-MM-DD or DD/MM/YYYY.'
+            ends_on = _parse_flexible_date(row.get('ends_on') or row.get('expiry_date'))
+            if not ends_on:
+                errors['ends_on'] = 'Invalid date. Use YYYY-MM-DD or DD/MM/YYYY.'
+            elif starts_on and ends_on <= starts_on:
+                errors['ends_on'] = 'Expiry date must be after commencement date.'
             try:
                 monthly_rent = Decimal(str(row.get('monthly_rent') or '')).quantize(Decimal('0.01'))
                 if monthly_rent <= 0:

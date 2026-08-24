@@ -34,14 +34,14 @@ from notifications.services import notify_permission, notify_user
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
+    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 from .serializers import (
     AssetConditionAssessmentSerializer, ComplianceObligationSerializer, ContractorContractSerializer,
     ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityIncidentAttachmentSerializer, FacilityIncidentEventSerializer, FacilityIncidentSerializer, FacilityRiskSerializer,
     FloorPlanSerializer, FMBudgetSerializer, InspectionSerializer, MeterReadingSerializer,
-    MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer,
+    MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer, RepairRequisitionSerializer,
     ServiceProfileAllocationSerializer, ServiceProfileSerializer, ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
     WorkOrderAttachmentSerializer, WorkOrderCostItemSerializer, WorkOrderEventSerializer,
     WorkOrderSerializer,
@@ -107,6 +107,119 @@ class ServiceProfileAllocationViewSet(FacilityModelViewSet):
     queryset = ServiceProfileAllocation.objects.select_related('service_profile', 'property', 'provider')
     serializer_class = ServiceProfileAllocationSerializer
     search_fields = ('service_profile__name', 'property__name', 'provider__name')
+
+
+class RepairRequisitionViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'approve': 'facility.approve', 'reject': 'facility.approve', 'convert_to_work_order': 'facility.work'}
+    queryset = RepairRequisition.objects.select_related(
+        'property', 'unit', 'asset', 'service_request', 'requester', 'manager', 'provider', 'work_order',
+    )
+    serializer_class = RepairRequisitionSerializer
+    search_fields = ('code', 'title', 'location', 'issue_description', 'property__name')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        code = f'RQR-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
+        while RepairRequisition.objects.filter(organization=organization, code=code).exists():
+            code = f'RQR-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
+        serializer.save(organization=organization, requester=self.request.user, code=code)
+
+    def perform_update(self, serializer):
+        if 'status' in serializer.validated_data:
+            raise ValidationError({'status': 'Use the submit/approve/reject actions so every status change is controlled.'})
+        super().perform_update(serializer)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='submit')
+    def submit(self, request, pk=None):
+        requisition = self.get_object()
+        if requisition.status != RepairRequisition.Status.DRAFT:
+            raise ValidationError({'status': 'Only draft requisitions can be submitted.'})
+        requisition.status = RepairRequisition.Status.SUBMITTED
+        requisition.save(update_fields=('status', 'updated_at'))
+        Notification.objects.create(
+            organization=requisition.organization, recipient=request.user,
+            title=f'Requisition {requisition.code} submitted',
+            message=f'{requisition.title} is awaiting manager approval.',
+            action_url='/facility?tab=requisitions', metadata={'category': 'workflow', 'requisition_id': str(requisition.id)},
+        )
+        return Response(RepairRequisitionSerializer(requisition).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='approve')
+    def approve(self, request, pk=None):
+        requisition = self.get_object()
+        if requisition.status != RepairRequisition.Status.SUBMITTED:
+            raise ValidationError({'status': 'Only submitted requisitions can be approved.'})
+        requisition.status = RepairRequisition.Status.APPROVED
+        requisition.manager = request.user
+        requisition.manager_approved_at = timezone.now()
+        requisition.manager_notes = str(request.data.get('notes', '')).strip()
+        requisition.save(update_fields=('status', 'manager', 'manager_approved_at', 'manager_notes', 'updated_at'))
+        return Response(RepairRequisitionSerializer(requisition).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='reject')
+    def reject(self, request, pk=None):
+        requisition = self.get_object()
+        if requisition.status != RepairRequisition.Status.SUBMITTED:
+            raise ValidationError({'status': 'Only submitted requisitions can be rejected.'})
+        reason = str(request.data.get('reason', '')).strip()
+        if not reason:
+            raise ValidationError({'reason': 'A rejection reason is required.'})
+        requisition.status = RepairRequisition.Status.REJECTED
+        requisition.manager = request.user
+        requisition.manager_approved_at = timezone.now()
+        requisition.rejected_reason = reason
+        requisition.save(update_fields=('status', 'manager', 'manager_approved_at', 'rejected_reason', 'updated_at'))
+        return Response(RepairRequisitionSerializer(requisition).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='convert-to-work-order')
+    def convert_to_work_order(self, request, pk=None):
+        requisition = self.get_object()
+        if requisition.status != RepairRequisition.Status.APPROVED:
+            raise ValidationError({'status': 'Only approved requisitions can be converted to a work order.'})
+        if requisition.work_order_id:
+            raise ValidationError({'status': 'This requisition has already been converted.'})
+        provider = requisition.provider
+        if request.data.get('provider'):
+            provider = Contractor.objects.filter(pk=request.data.get('provider'), organization=requisition.organization).first()
+            if provider is None:
+                raise ValidationError({'provider': 'Select a valid provider.'})
+            requisition.provider = provider
+        number = f'WO-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
+        while WorkOrder.objects.filter(organization=requisition.organization, number=number).exists():
+            number = f'WO-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
+        priority_map = {
+            RepairRequisition.Priority.LOW: WorkOrder.Priority.LOW,
+            RepairRequisition.Priority.MEDIUM: WorkOrder.Priority.MEDIUM,
+            RepairRequisition.Priority.HIGH: WorkOrder.Priority.HIGH,
+            RepairRequisition.Priority.EMERGENCY: WorkOrder.Priority.CRITICAL,
+        }
+        work_order = WorkOrder.objects.create(
+            organization=requisition.organization, number=number,
+            title=requisition.title, description=requisition.required_repair,
+            category='corrective', source='requisition', property=requisition.property,
+            asset=requisition.asset, contractor=provider, reported_by=request.user,
+            priority=priority_map.get(requisition.priority, WorkOrder.Priority.MEDIUM),
+            status=WorkOrder.Status.OPEN, reported_at=timezone.now(),
+        )
+        requisition.status = RepairRequisition.Status.CONVERTED
+        requisition.work_order = work_order
+        requisition.converted_at = timezone.now()
+        requisition.save(update_fields=('status', 'work_order', 'provider', 'converted_at', 'updated_at'))
+        if requisition.service_request_id and not requisition.service_request.work_order_id:
+            requisition.service_request.work_order = work_order
+            requisition.service_request.save(update_fields=('work_order', 'updated_at'))
+        Notification.objects.create(
+            organization=requisition.organization, recipient=request.user,
+            title=f'Work order {number} created',
+            message=f'Requisition {requisition.code} converted to work order {number}.',
+            action_url='/facility?tab=work-orders', metadata={'category': 'workflow', 'work_order_id': str(work_order.id)},
+        )
+        return Response(RepairRequisitionSerializer(requisition).data)
 
 
 class FacilityIncidentViewSet(FacilityModelViewSet):

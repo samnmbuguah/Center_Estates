@@ -39,3 +39,63 @@ export function csvColumn(headers: string[], aliases: string[]) {
 export function csvCell(row: string[], index: number) {
   return index >= 0 ? (row[index] ?? "").trim() : "";
 }
+
+/**
+ * Normalizes any common date representation (ISO YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY,
+ * DD.MM.YYYY, YYYY/MM/DD, Excel serial date numbers, or word dates) to standard ISO 'YYYY-MM-DD'.
+ */
+export function normalizeDateString(raw: string | number | null | undefined): string {
+  if (!raw) return "";
+  const str = String(raw).trim();
+  if (!str) return "";
+
+  // 1. ISO YYYY-MM-DD (or YYYY/MM/DD, YYYY.MM.DD)
+  const isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = isoMatch[2].padStart(2, "0");
+    const d = isoMatch[3].padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  // 2. Day-first: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY (or D/M/YYYY)
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmyMatch) {
+    const d = dmyMatch[1].padStart(2, "0");
+    const m = dmyMatch[2].padStart(2, "0");
+    const y = dmyMatch[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  // 3. Short year: DD/MM/YY, DD-MM-YY
+  const dmyShortMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})$/);
+  if (dmyShortMatch) {
+    const d = dmyShortMatch[1].padStart(2, "0");
+    const m = dmyShortMatch[2].padStart(2, "0");
+    const y = Number(dmyShortMatch[3]) > 50 ? `19${dmyShortMatch[3]}` : `20${dmyShortMatch[3]}`;
+    return `${y}-${m}-${d}`;
+  }
+
+  // 4. Excel integer serial date numbers (e.g. 45321)
+  if (/^\d{5}$/.test(str)) {
+    const serial = Number(str);
+    const utcDays = serial - 25569;
+    const utcValue = utcDays * 86400;
+    const dateInfo = new Date(utcValue * 1000);
+    if (!isNaN(dateInfo.getTime())) {
+      return dateInfo.toISOString().split("T")[0];
+    }
+  }
+
+  // 5. JavaScript natural language date parser (e.g., "1 Jan 2026", "August 1, 2026")
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  return str;
+}
+

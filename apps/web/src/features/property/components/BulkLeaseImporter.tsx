@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
-import { csvCell, csvColumn, normalizeCsvHeader, parseCsv } from "@/lib/csv";
+import { csvCell, csvColumn, normalizeCsvHeader, normalizeDateString, parseCsv } from "@/lib/csv";
 import { useAuth } from "@/components/auth-provider";
 
 type SourceRow = Record<string, string>;
@@ -12,7 +12,11 @@ type PreviewRow = { row: number; data: SourceRow; errors: Record<string, string>
 const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "billing_day", "escalation_percent", "escalation_interval_months"];
 
 function downloadTemplate() {
-  const csv = [headers, ["TNT-0001", "G-01", "2026-09-01", "2027-08-31", "145000", "1", "10", "12"]]
+  const csv = [
+    headers,
+    ["TNT-0001", "G-01", "2026-09-01", "2027-08-31", "145000", "1", "10", "12"],
+    ["TNT-0002", "F1-02", "01/09/2026", "31/08/2027", "85000", "1", "10", "12"],
+  ]
     .map((row) => row.map((value) => `"${value}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a"); link.href = url; link.download = "lease-import-template.csv"; link.click();
@@ -23,9 +27,14 @@ function readRows(text: string): SourceRow[] {
   const parsed = parseCsv(text);
   if (parsed.length < 2) return [];
   const normalized = parsed[0].map(normalizeCsvHeader);
-  return parsed.slice(1).map((row) => Object.fromEntries(headers.map((header) => [
-    header, csvCell(row, csvColumn(normalized, [header])),
-  ]))).filter((row) => row.tenant_code || row.unit_code);
+  return parsed.slice(1).map((row) => {
+    const raw = Object.fromEntries(headers.map((header) => [
+      header, csvCell(row, csvColumn(normalized, [header])),
+    ]));
+    if (raw.starts_on) raw.starts_on = normalizeDateString(raw.starts_on);
+    if (raw.ends_on) raw.ends_on = normalizeDateString(raw.ends_on);
+    return raw;
+  }).filter((row) => row.tenant_code || row.unit_code);
 }
 
 export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
