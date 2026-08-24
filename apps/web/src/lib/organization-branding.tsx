@@ -11,7 +11,7 @@ export type OrganizationBrand = {
 };
 
 export const DEFAULT_ORGANIZATION_BRAND: OrganizationBrand = {
-  name: "Center Estates",
+  name: "CeEst",
   logoUrl: "/logo.png",
   primaryColor: "#e52e2e",
 };

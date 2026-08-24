@@ -82,7 +82,7 @@ def amount_in_words(value) -> str:
 def _branding(organization):
     settings = getattr(organization, "settings", None) or {}
     branding = settings.get("branding") if isinstance(settings.get("branding"), dict) else {}
-    org_name = getattr(organization, "company_name", None) or getattr(organization, "name", "") or "Center Estates"
+    org_name = getattr(organization, "company_name", None) or getattr(organization, "name", "") or "CeEst"
     logo_url = getattr(organization, "logo_url", None) or branding.get("logo_url") or settings.get("logo_url") or ""
 
     # Ensure Legend Management organization accurately maps its dedicated logo

@@ -1135,18 +1135,38 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
             created_by=self.request.user,
             property=get_active_property(self.request, organization),
         )
-        # Auto-assign to the default developer if no assignee was provided
+        # Intelligent routing based on category
         if not thread.assigned_to:
             from django.contrib.auth import get_user_model
+            from organizations.models import Membership
             User = get_user_model()
-            default_dev = User.objects.filter(
-                username='samuel', is_active=True,
-                erp_memberships__organization=organization,
-                erp_memberships__status='active',
-            ).first()
-            if default_dev:
-                thread.assigned_to = default_dev
-                thread.save(update_fields=['assigned_to'])
+            if thread.category in (TeamFeedbackThread.FeedbackType.BUG, TeamFeedbackThread.FeedbackType.FEATURE):
+                # Developer / Engineering feedback -> Route to Developer (samuel)
+                developer = User.objects.filter(
+                    username='samuel', is_active=True,
+                    erp_memberships__organization=organization,
+                    erp_memberships__status='active',
+                ).first()
+                if developer:
+                    thread.assigned_to = developer
+                    thread.assigned_team = 'Engineering & Platform Development'
+                    thread.save(update_fields=['assigned_to', 'assigned_team'])
+            else:
+                # Operational / Facility feedback -> Route to Property Manager or Org Admin
+                manager_membership = Membership.objects.active().filter(
+                    organization=organization,
+                    roles__slug__in=['property-manager', 'facility-manager', 'admin'],
+                ).select_related('user').first()
+                if not manager_membership:
+                    manager_membership = Membership.objects.active().filter(
+                        organization=organization,
+                        is_organization_admin=True,
+                    ).select_related('user').first()
+                if manager_membership:
+                    thread.assigned_to = manager_membership.user
+                    if not thread.assigned_team:
+                        thread.assigned_team = 'Property Management'
+                    thread.save(update_fields=['assigned_to', 'assigned_team'])
         initial_message = self.request.data.get('initial_message')
         attachment_url = self.request.data.get('attachment_url', '')
         if initial_message:
@@ -1184,6 +1204,63 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
             'name': upload.name,
             'size': upload.size,
         }, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='developer-report')
+    def report_to_developer(self, request):
+        """Submit platform bug, error, or technical feedback directly to the lead developer (Samuel N)."""
+        organization = get_active_organization(request)
+        title = str(request.data.get('title') or 'System Bug / Developer Report').strip()
+        message = str(request.data.get('message') or '').strip()
+        if not message:
+            raise ValidationError({'message': 'Issue description is required.'})
+        priority = str(request.data.get('priority') or TeamFeedbackThread.Priority.HIGH).strip()
+        if priority not in TeamFeedbackThread.Priority.values:
+            priority = TeamFeedbackThread.Priority.HIGH
+        attachment_url = str(request.data.get('attachment_url') or '').strip()
+        system_metadata = request.data.get('metadata') if isinstance(request.data.get('metadata'), dict) else {}
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        developer = User.objects.filter(
+            username='samuel', is_active=True,
+        ).first()
+
+        thread = TeamFeedbackThread.objects.create(
+            organization=organization,
+            title=title,
+            category=TeamFeedbackThread.FeedbackType.BUG,
+            issue_category='System & Developer Bug',
+            priority=priority,
+            created_by=request.user,
+            assigned_to=developer,
+            assigned_team='Engineering & Platform Development',
+            module=str(request.data.get('module') or 'platform'),
+            metadata={
+                'source': 'developer_report_dialog',
+                'reported_by_user': request.user.username,
+                'user_email': request.user.email,
+                **system_metadata,
+            },
+        )
+        TeamFeedbackMessage.objects.create(
+            organization=organization,
+            thread=thread,
+            sender=request.user,
+            sender_name=f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+            message=message,
+            attachment_url=attachment_url,
+        )
+        if developer:
+            notify_user(
+                organization=organization,
+                recipient=developer,
+                title=f"[Developer Bug] {title}",
+                message=f"New platform bug reported by {request.user.username}:\n{message[:200]}...",
+                module='companion',
+                action_url=f"/companion?tab=feedback&thread={thread.id}",
+                priority='high',
+            )
+        return Response(self.get_serializer(thread).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='messages')
     def add_message(self, request, pk=None):
@@ -1406,20 +1483,26 @@ def public_feedback(request, token):
             category__iexact=issue_category, property__isnull=True,
         ).first()
 
-    assigned_team = routing_rule.assigned_team if routing_rule else 'Facility Management'
+    assigned_team = routing_rule.assigned_team if routing_rule else f"{qr.property.name} Management Office"
     assigned_user = routing_rule.assigned_user if routing_rule else None
     sla_hours = routing_rule.sla_hours if routing_rule else (4 if priority == 'urgent' else 24)
 
-    from django.contrib.auth import get_user_model
-    User = get_user_model()
-    developer = User.objects.filter(
-        username='samuel', is_active=True,
-        erp_memberships__organization=qr.organization,
-        erp_memberships__status='active',
-    ).first()
+    if not assigned_user:
+        # Fallback to Property Manager or Organization Admin for the property's organization
+        from organizations.models import Membership
+        manager_membership = Membership.objects.active().filter(
+            organization=qr.organization,
+            roles__slug__in=['property-manager', 'facility-manager', 'admin'],
+        ).select_related('user').first()
 
-    if not assigned_user and developer:
-        assigned_user = developer
+        if not manager_membership:
+            manager_membership = Membership.objects.active().filter(
+                organization=qr.organization,
+                is_organization_admin=True,
+            ).select_related('user').first()
+
+        if manager_membership:
+            assigned_user = manager_membership.user
 
     import datetime
     now = timezone.now()

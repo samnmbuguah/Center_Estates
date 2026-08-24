@@ -38,7 +38,7 @@ export function Login() {
     <div className="login-wrap" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--bg)" }}>
       <div className="login-hero" style={{ background: "linear-gradient(135deg, #0b1727, #071524)", color: "#fff", padding: 48, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div className="top" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/logo.png" alt="Center Estates ERP" style={{ height: 44, width: "auto", background: "#ffffff", padding: "6px 14px", borderRadius: 8, objectFit: "contain" }} />
+          <img src="/logo.png" alt="CeEst ERP" style={{ height: 44, width: "auto", background: "#ffffff", padding: "6px 14px", borderRadius: 8, objectFit: "contain" }} />
         </div>
         <div style={{ margin: "auto 0" }}>
           <h1 style={{ fontSize: 38, lineHeight: 1.2, margin: "0 0 16px", fontWeight: 800 }}>

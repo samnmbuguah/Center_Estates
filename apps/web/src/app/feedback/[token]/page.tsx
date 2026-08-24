@@ -260,7 +260,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             marginBottom: 10
           }}>
             <ShieldCheck size={15} color="#38bdf8" />
-            <span>Center Estates Smart Concierge</span>
+            <span>CeEst Smart Concierge</span>
           </div>
 
           <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", color: "#0f172a" }}>
@@ -903,7 +903,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
         {/* Footer */}
         <footer style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "#94a3b8" }}>
-          Powered by Center Estates ERP Smart Property Helpdesk
+          Powered by CeEst ERP Smart Property Helpdesk
         </footer>
       </div>
     </div>

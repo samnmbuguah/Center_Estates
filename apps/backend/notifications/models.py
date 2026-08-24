@@ -49,7 +49,7 @@ class EmailConfiguration(OrganizationOwnedModel):
     use_tls = models.BooleanField(default=True)
     use_ssl = models.BooleanField(default=False)
     from_email = models.EmailField(default='noreply@centerestates.com')
-    from_name = models.CharField(max_length=120, default='Center Estates ERP')
+    from_name = models.CharField(max_length=120, default='CeEst ERP')
     is_active = models.BooleanField(default=True)
 
     class Meta:

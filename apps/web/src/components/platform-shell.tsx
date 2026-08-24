@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie, type DemoIdentityGroup } from "@/lib/api";
 import { useCallback } from "react";
 
-import { Search, Moon, Sun, LogOut, HelpCircle } from "lucide-react";
+import { Search, Moon, Sun, LogOut, HelpCircle, Bug } from "lucide-react";
 import AppSidebar from "@/components/app-sidebar";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { isPublicRoute } from "@/lib/public-routes";
@@ -19,6 +19,7 @@ import { BrandedLoader } from "@/components/branded-loader";
 import { NotificationCenter } from "@/components/notification-center";
 import { EmailUpdateBanner } from "@/components/email-update-banner";
 import { QmChatLauncher } from "@/components/qm-chat-launcher";
+import { DeveloperReportDialog } from "@/components/developer-report-dialog";
 import { useTheme } from "@/theme/theme-provider";
 import {
   AppBar,
@@ -97,6 +98,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const [subModalOpen, setSubModalOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
+  const [devReportOpen, setDevReportOpen] = useState(false);
   const [subscriptionsList, setSubscriptionsList] = useState<Array<{ id: string; module: string; is_active: boolean }>>([]);
   const [updatingSub, setUpdatingSub] = useState<string | null>(null);
 
@@ -486,6 +488,10 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                   </Box>
                   <Divider />
                   <MenuItem onClick={() => setProfileOpen(false)}><ListItemIcon><HelpCircle size={18} /></ListItemIcon><ListItemText primary={<TourLauncher />} /></MenuItem>
+                  <MenuItem onClick={() => { setProfileOpen(false); setDevReportOpen(true); }}>
+                    <ListItemIcon><Bug size={18} color="#ef4444" /></ListItemIcon>
+                    <ListItemText primary="Report System Bug" secondary="Direct to Developer (Samuel)" />
+                  </MenuItem>
                   {session?.canSwitchIdentity && activeIdentityGroups.length > 0 && (
                     <>
                       <Box sx={{ px: 2, py: 1 }}>
@@ -609,6 +615,12 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
         </div>
       </div>
     )}
+    <DeveloperReportDialog
+      open={devReportOpen}
+      onClose={() => setDevReportOpen(false)}
+      organizationId={activeOrganization?.id}
+      username={session?.user?.username}
+    />
     <QmChatLauncher
       enabled={allowed.has("companion")}
       organizationId={session.activeOrganizationId}

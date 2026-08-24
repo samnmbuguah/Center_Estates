@@ -86,7 +86,7 @@ export default function LoginPage() {
 
         {/* Footer info */}
         <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "space-between", color: "var(--login-muted)", fontSize: "0.75rem" }}>
-          <span>© 2026 Center Estates ERP. All rights reserved.</span>
+          <span>© 2026 CeEst ERP. All rights reserved.</span>
           <span>v2.4 Production Build · ISO 27001</span>
         </div>
       </div>

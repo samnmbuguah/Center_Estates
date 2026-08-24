@@ -5,7 +5,7 @@ import { ChevronDown, MessageCircle } from "lucide-react";
 import "./marketing.css";
 
 const WHATSAPP_NUMBER = "254712345678";
-const WHATSAPP_MESSAGE = "Hi! I'm interested in Center Estates ERP. Can we chat?";
+const WHATSAPP_MESSAGE = "Hi! I'm interested in CeEst ERP. Can we chat?";
 
 const PAGE_LINKS = [
   { to: "/product", label: "Product" },
@@ -83,7 +83,8 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
       {/* ── Nav ─────────────────────────────────── */}
       <nav className={`marketing-nav${scrolled ? " scrolled" : ""}`}>
         <Link to="/" className="nav-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <img src="/logo.png" alt="Center Estates" style={{ height: 44, width: 38, objectFit: "cover", objectPosition: "top", background: "#fff", borderRadius: 8 }} />
+          <img src="/logo.png" alt="CeEst" style={{ height: 44, width: 38, objectFit: "cover", objectPosition: "top", background: "#fff", borderRadius: 8 }} />
+          <span className="brand-text">CeEst <span>ERP</span></span>
         </Link>
 
         <div className="nav-links">
@@ -160,7 +161,7 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
                     <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                 </span>
-                <span className="footer-wordmark">Center Estates <span>ERP</span></span>
+                <span className="footer-wordmark">CeEst <span>ERP</span></span>
               </div>
               <div className="footer-tagline">One connected platform for property, facilities, construction, sales, tenders and valuation</div>
             </div>
@@ -173,7 +174,7 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
             </div>
           </div>
           <div className="footer-bottom">
-            <span>&copy; {new Date().getFullYear()} Center Estates ERP. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} CeEst ERP. All rights reserved.</span>
             <span>Connected operations. Clear accountability.</span>
           </div>
         </div>

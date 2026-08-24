@@ -43,7 +43,7 @@ def get_email_connection_and_sender(organization):
     # Fallback to default Django mail settings or console
     connection = get_connection()
     from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@centerestates.com')
-    return connection, from_email, 'Center Estates ERP'
+    return connection, from_email, 'CeEst ERP'
 
 
 def send_email_notification(*, recipient_email, recipient_name, subject, message, action_url='', organization=None):
@@ -79,16 +79,16 @@ def send_email_notification(*, recipient_email, recipient_name, subject, message
 <body>
   <div class="card">
     <div class="header">
-      <h1>Center Estates</h1>
+      <h1>CeEst</h1>
       <p>{escape(sender_name)} Notification</p>
     </div>
     <div class="body">
       <p>Hello <strong>{escape(recipient_name or 'there')}</strong>,</p>
       <p>{escape(message)}</p>
-      {f'<p><a href="{escape(full_action_url)}" class="btn">View in Center Estates &rarr;</a></p>' if full_action_url else ''}
+      {f'<p><a href="{escape(full_action_url)}" class="btn">View in CeEst &rarr;</a></p>' if full_action_url else ''}
     </div>
     <div class="footer">
-      This is an automated notification from Center Estates Property & Workplace Management.<br>
+      This is an automated notification from CeEst Property & Workplace Management.<br>
       Manage your notification settings inside your user profile.
     </div>
   </div>
@@ -98,7 +98,7 @@ def send_email_notification(*, recipient_email, recipient_name, subject, message
         plain_text = f"Hello {recipient_name or 'there'},\n\n{message}\n\n"
         if full_action_url:
             plain_text += f"View details here: {full_action_url}\n\n"
-        plain_text += "---\nCenter Estates Property & Workplace Management"
+        plain_text += "---\nCeEst Property & Workplace Management"
 
         email = EmailMultiAlternatives(
             subject=subject,
@@ -160,7 +160,7 @@ def notify_user(*, organization, recipient, title, message, level=Notification.L
             send_email_notification(
                 recipient_email=recipient.email,
                 recipient_name=recipient.get_full_name() or recipient.username,
-                subject=f'[Center Estates] {title}',
+                subject=f'[CeEst] {title}',
                 message=message,
                 action_url=action_url,
                 organization=organization,

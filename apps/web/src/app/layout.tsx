@@ -15,7 +15,7 @@ import ErrorMonitoring from "@/components/error-monitoring";
 import { ToastCenter } from "@/components/toast-center";
 
 export const metadata: Metadata = {
-  title: "Center Estates ERP",
+  title: "CeEst ERP",
   description: "Unified estate and property operations platform",
   icons: {
     icon: [

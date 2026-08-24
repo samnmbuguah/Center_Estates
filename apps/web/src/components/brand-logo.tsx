@@ -11,7 +11,7 @@ export function BrandLogo({
   showWordmark = true,
   href,
   dark = true,
-  brandName = "Center Estates",
+  brandName = "CeEst",
   tagline = "Estate ERP",
   logoUrl,
   primaryColor = "#e52e2e",
