@@ -73,6 +73,7 @@ const initialForm = {
   escalation_percent: "0",
   escalation_interval_months: "12",
   parking_space: "",
+  parking_new_code: "",
   parking_monthly_fee: "0",
   opening_balance_amount: "0",
   opening_balance_as_of: "",
@@ -210,7 +211,7 @@ export function TenantApplicationCard({
   };
   const serviceCharge = chargeAmount(selectedUnit, "SERVICE_CHARGE") || chargeAmount(selectedUnit, "SC");
   const subtotal = rent + serviceCharge;
-  const parkingFee = form.parking_space ? Number(form.parking_monthly_fee || 0) : 0;
+  const parkingFee = (form.parking_space || form.parking_new_code.trim()) ? Number(form.parking_monthly_fee || 0) : 0;
   const openingBalance = Number(form.opening_balance_amount || 0);
   const vat = (subtotal * Number(form.vat_rate || 0)) / 100;
 
@@ -369,8 +370,9 @@ export function TenantApplicationCard({
                   billing_day: Number(form.billing_day || 1),
                 };
               }),
-            parking_assignments: form.parking_space ? [{
+            parking_assignments: (form.parking_space || form.parking_new_code.trim()) ? [{
               parking_space: form.parking_space,
+              new_code: form.parking_new_code,
               monthly_fee: parkingFee,
             }] : [],
             opening_balance: {
@@ -675,7 +677,7 @@ export function TenantApplicationCard({
               <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 2 }}>
                 Reserve an available bay for this tenancy. Its fee is invoiced separately from rent for clear reconciliation.
               </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, gap: 2 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr 1fr" }, gap: 2 }}>
                 {input("Parking bay (optional)", "parking_space", {
                   select: true,
                   children: [
@@ -683,8 +685,12 @@ export function TenantApplicationCard({
                     ...parkingSpaces.map((space) => <MenuItem key={space.id} value={space.id}>{space.code} · {space.floor_or_zone || "Unzoned"} · {space.space_type}</MenuItem>),
                   ],
                 })}
+                {input("Or register new bay code", "parking_new_code", {
+                  disabled: Boolean(form.parking_space), placeholder: "e.g. B2-014",
+                  helperText: parkingSpaces.length ? "Use only when the bay is not listed" : "No bays listed; enter the physical bay code",
+                })}
                 {input("Monthly parking fee (KES)", "parking_monthly_fee", {
-                  type: "number", disabled: !form.parking_space,
+                  type: "number", disabled: !form.parking_space && !form.parking_new_code.trim(),
                   inputProps: { min: 0, step: 0.01 }, helperText: "Billed as a separate parking invoice",
                 })}
               </Box>

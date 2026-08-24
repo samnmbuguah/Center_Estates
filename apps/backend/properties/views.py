@@ -1116,12 +1116,25 @@ class TenantViewSet(OrganizationModelViewSet):
                 raise ValidationError({'parking_assignments': f'Parking row {index} has an invalid monthly fee.'})
             if monthly_fee < 0:
                 raise ValidationError({'parking_assignments': f'Parking row {index} fee cannot be negative.'})
-            try:
-                space = ParkingSpace.objects.select_for_update().for_organization(organization).get(
-                    pk=allocation.get('parking_space'), property=unit.property,
+            space_id = allocation.get('parking_space')
+            new_code = str(allocation.get('new_code', '')).strip().upper()
+            if space_id:
+                try:
+                    space = ParkingSpace.objects.select_for_update().for_organization(organization).get(
+                        pk=space_id, property=unit.property,
+                    )
+                except (ParkingSpace.DoesNotExist, ValueError, TypeError):
+                    raise ValidationError({'parking_assignments': f'Parking row {index} does not reference an available bay at this property.'})
+            elif new_code:
+                if ParkingSpace.objects.for_organization(organization).filter(property=unit.property, code__iexact=new_code).exists():
+                    raise ValidationError({'parking_assignments': f'Parking bay code {new_code} already exists; select it from the available bays.'})
+                space = ParkingSpace.objects.create(
+                    organization=organization, property=unit.property, code=new_code,
+                    floor_or_zone=str(allocation.get('floor_or_zone', '')).strip(),
+                    status=ParkingSpace.Status.AVAILABLE,
                 )
-            except (ParkingSpace.DoesNotExist, ValueError, TypeError):
-                raise ValidationError({'parking_assignments': f'Parking row {index} does not reference an available bay at this property.'})
+            else:
+                raise ValidationError({'parking_assignments': f'Parking row {index} needs a selected bay or a new bay code.'})
             if space.pk in seen_spaces or space.status != ParkingSpace.Status.AVAILABLE:
                 raise ValidationError({'parking_assignments': f'Parking bay {space.code} is no longer available.'})
             seen_spaces.add(space.pk)
