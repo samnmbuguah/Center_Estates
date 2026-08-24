@@ -71,9 +71,16 @@ class Command(BaseCommand):
         organization_settings['branding'] = branding
         organization.settings = organization_settings
         organization.save(update_fields=('settings',))
+        has_other_default = Membership.objects.filter(user=user, is_default=True).exclude(
+            organization=organization,
+        ).exists()
         Membership.objects.update_or_create(
             organization=organization, user=user,
-            defaults={'is_default': True, 'is_organization_admin': True, 'status': Membership.Status.ACTIVE},
+            defaults={
+                'is_default': not has_other_default,
+                'is_organization_admin': True,
+                'status': Membership.Status.ACTIVE,
+            },
         )
         # Explicit super-admin membership with platform-admin role for demo switching.
         for module, _label in Module.choices:
