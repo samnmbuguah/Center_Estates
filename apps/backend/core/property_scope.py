@@ -52,6 +52,7 @@ PROPERTY_LOOKUPS = {
     'facilities.ServiceRequest': 'property_id',
     'facilities.ServiceProfile': 'properties__id',
     'facilities.ServiceProfileAllocation': 'property_id',
+    'facilities.RepairRequisition': 'property_id',
     'facilities.FacilityIncident': 'property_id',
     'facilities.FacilityIncidentEvent': 'incident__property_id',
     'facilities.UtilityMeter': 'property_id',

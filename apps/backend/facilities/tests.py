@@ -12,7 +12,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import Contractor, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import Contractor, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -850,3 +850,99 @@ class FacilityRolePermissionApiTests(TestCase):
             {'notes': 'Worker cannot approve'}, format='json', **self.headers,
         )
         self.assertEqual(forbidden.status_code, 403)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class RepairRequisitionApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='req-user', password='test')
+        self.organization = Organization.objects.create(name='Req Client', slug='req-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='P1', name='Req Building')
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def _create(self, **overrides):
+        payload = {
+            'title': 'Broken water pump',
+            'property': str(self.property.id),
+            'location': 'Basement plant room',
+            'issue_description': 'Pump stopped on Monday; no water above 2nd floor.',
+            'required_repair': 'Replace impeller and seals; pressure test.',
+            'estimated_cost': '45000.00',
+            'priority': 'high',
+        }
+        payload.update(overrides)
+        return self.client.post('/api/v1/facility/requisitions/', payload, format='json', **self.headers)
+
+    def test_full_requisition_lifecycle(self):
+        created = self._create()
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data['status'], 'draft')
+        self.assertTrue(created.data['code'].startswith('RQR-'))
+
+        requisition_id = created.data['id']
+        submitted = self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/submit/', {}, format='json', **self.headers)
+        self.assertEqual(submitted.status_code, 200, submitted.data)
+        self.assertEqual(submitted.data['status'], 'submitted')
+
+        approved = self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/approve/', {'notes': 'Approved, urgent'}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], 'approved')
+        self.assertEqual(approved.data['manager_notes'], 'Approved, urgent')
+
+        converted = self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/convert-to-work-order/', {}, format='json', **self.headers)
+        self.assertEqual(converted.status_code, 200, converted.data)
+        self.assertEqual(converted.data['status'], 'converted')
+        self.assertTrue(converted.data['work_order_number'].startswith('WO-'))
+
+        work_order = WorkOrder.objects.get(number=converted.data['work_order_number'])
+        self.assertEqual(work_order.source, 'requisition')
+        self.assertEqual(work_order.priority, WorkOrder.Priority.HIGH)
+
+    def test_invalid_transitions_are_rejected(self):
+        created = self._create()
+        requisition_id = created.data['id']
+        # Cannot approve a draft
+        early = self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/approve/', {}, format='json', **self.headers)
+        self.assertEqual(early.status_code, 400)
+        # Cannot convert a draft
+        early_convert = self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/convert-to-work-order/', {}, format='json', **self.headers)
+        self.assertEqual(early_convert.status_code, 400)
+
+    def test_reject_requires_reason(self):
+        created = self._create()
+        requisition_id = created.data['id']
+        self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/submit/', {}, format='json', **self.headers)
+        missing = self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/reject/', {'reason': ''}, format='json', **self.headers)
+        self.assertEqual(missing.status_code, 400)
+        rejected = self.client.post(f'/api/v1/facility/requisitions/{requisition_id}/reject/', {'reason': 'Over budget'}, format='json', **self.headers)
+        self.assertEqual(rejected.status_code, 200, rejected.data)
+        self.assertEqual(rejected.data['status'], 'rejected')
+        self.assertEqual(rejected.data['rejected_reason'], 'Over budget')
+
+    def test_requisitions_are_organization_scoped(self):
+        other = Organization.objects.create(name='Req Other', slug='req-other')
+        other_property = Property.objects.create(organization=other, code='P9', name='Hidden Building')
+        RepairRequisition.objects.create(
+            organization=other, property=other_property, code='RQR-OTHER-1',
+            title='Hidden requisition', issue_description='x', required_repair='y',
+            requester=self.user,
+        )
+        response = self.client.get('/api/v1/facility/requisitions/', **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)
+
+    def test_direct_status_edit_is_blocked(self):
+        created = self._create()
+        patched = self.client.patch(
+            f"/api/v1/facility/requisitions/{created.data['id']}/",
+            {'status': 'approved'}, format='json', **self.headers,
+        )
+        self.assertEqual(patched.status_code, 200, patched.data)
+        # Status is read-only: the patch is ignored and the record stays a draft.
+        self.assertEqual(patched.data['status'], 'draft')
+        requisition = RepairRequisition.objects.get(pk=created.data['id'])
+        self.assertEqual(requisition.status, RepairRequisition.Status.DRAFT)

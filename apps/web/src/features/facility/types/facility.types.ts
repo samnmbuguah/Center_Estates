@@ -5,6 +5,7 @@ export type FacilityTab =
   | "assets"
   | "planned-maintenance"
   | "work-orders"
+  | "requisitions"
   | "work-order-events"
   | "work-order-cost-items"
   | "work-order-attachments"
@@ -130,6 +131,7 @@ export const facilityLabels: Record<FacilityTab, string> = {
   assets: "Asset Master & Lifecycle",
   "planned-maintenance": "Planned Maintenance",
   "work-orders": "Work Orders & Helpdesk",
+  requisitions: "Repair Requisitions",
   "work-order-events": "Work History",
   "work-order-cost-items": "Labor & Parts",
   "work-order-attachments": "Work Media",

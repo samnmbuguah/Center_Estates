@@ -16,6 +16,7 @@ import { ContractorsView } from "./components/tabs/ContractorsView";
 import { InventoryView } from "./components/tabs/InventoryView";
 import { GenericListView } from "./components/tabs/GenericListView";
 import { OperationsRegistryView } from "./components/tabs/OperationsRegistryView";
+import { RequisitionsView } from "./components/tabs/RequisitionsView";
 import { FacilityModals } from "./components/modals/FacilityModals";
 import { ErrorBanner, LoadingState } from "@/components/module-ui";
 
@@ -74,6 +75,20 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             organizationId={logic.organizationId}
             onTransition={(row, target, notes) => void logic.runWorkTransition(row, target, notes)}
             onVerify={(row) => void logic.verifyWorkOrder(row)}
+          />
+        ) : logic.tab === "requisitions" ? (
+          <RequisitionsView
+            rows={logic.rows}
+            loading={logic.loading}
+            error={logic.error}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            organizationId={logic.organizationId}
+            propertyOptions={logic.properties}
+            canWork={logic.canWork}
+            canApprove={logic.canApprove}
+            reload={() => void logic.load()}
+            setTab={logic.selectTab}
           />
         ) : logic.tab === "planned-maintenance" ? (
           <PlannedMaintenanceView

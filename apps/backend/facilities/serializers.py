@@ -7,7 +7,7 @@ from core.tenancy import get_active_organization
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
+    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 
@@ -106,6 +106,35 @@ class FacilityAssetSerializer(serializers.ModelSerializer):
     def get_latest_condition(self, obj):
         latest = obj.condition_assessments.first()
         return AssetConditionAssessmentSerializer(latest).data if latest else None
+
+
+class RepairRequisitionSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    unit_code = serializers.CharField(source='unit.code', read_only=True, default='')
+    asset_name = serializers.CharField(source='asset.name', read_only=True, default='')
+    provider_name = serializers.CharField(source='provider.name', read_only=True, default='')
+    requester_name = serializers.CharField(source='requester.get_full_name', read_only=True, default='')
+    service_request_reference = serializers.CharField(source='service_request.reference', read_only=True, default='')
+    work_order_number = serializers.CharField(source='work_order.number', read_only=True, default='')
+
+    class Meta:
+        model = RepairRequisition
+        exclude = ('organization',)
+        read_only_fields = ('code', 'status', 'requester', 'manager', 'manager_approved_at',
+                            'landlord_approved_at', 'rejected_reason', 'work_order', 'converted_at')
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        prop = attrs.get('property')
+        if prop and prop.organization_id != organization.id:
+            raise serializers.ValidationError({'property': 'Property must belong to the active organization.'})
+        unit = attrs.get('unit')
+        if unit and unit.organization_id != organization.id:
+            raise serializers.ValidationError({'unit': 'Unit must belong to the active organization.'})
+        asset = attrs.get('asset')
+        if asset and asset.organization_id != organization.id:
+            raise serializers.ValidationError({'asset': 'Asset must belong to the active organization.'})
+        return attrs
 
 
 class ContractorSerializer(serializers.ModelSerializer):

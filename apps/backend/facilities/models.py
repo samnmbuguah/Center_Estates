@@ -764,3 +764,61 @@ class FacilityFlag(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Flag property must belong to the same organization.')
+
+
+class RepairRequisition(OrganizationOwnedModel):
+    """Formal repair requisition raised from a ticket or inspection, flowing through
+    approval, procurement and work-order conversion before supplier invoicing."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SUBMITTED = 'submitted', 'Submitted'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        CONVERTED = 'converted', 'Converted to work order'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    class Priority(models.TextChoices):
+        LOW = 'low', 'Low'
+        MEDIUM = 'medium', 'Medium'
+        HIGH = 'high', 'High'
+        EMERGENCY = 'emergency', 'Emergency'
+
+    code = models.CharField(max_length=60)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='repair_requisitions')
+    unit = models.ForeignKey('properties.Unit', on_delete=models.SET_NULL, related_name='repair_requisitions', null=True, blank=True)
+    asset = models.ForeignKey(FacilityAsset, on_delete=models.SET_NULL, related_name='repair_requisitions', null=True, blank=True)
+    service_request = models.ForeignKey(ServiceRequest, on_delete=models.SET_NULL, related_name='requisitions', null=True, blank=True)
+    title = models.CharField(max_length=200)
+    location = models.CharField(max_length=180, blank=True)
+    issue_description = models.TextField()
+    required_repair = models.TextField()
+    quotation_specification = models.TextField(blank=True)
+    estimated_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    priority = models.CharField(max_length=12, choices=Priority.choices, default=Priority.MEDIUM)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    required_by = models.DateField(null=True, blank=True)
+    requester = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='raised_facility_requisitions')
+    manager = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_facility_requisitions')
+    manager_approved_at = models.DateTimeField(null=True, blank=True)
+    manager_notes = models.TextField(blank=True)
+    landlord_approval_required = models.BooleanField(default=False)
+    landlord_approved_at = models.DateTimeField(null=True, blank=True)
+    landlord_notes = models.TextField(blank=True)
+    rejected_reason = models.TextField(blank=True)
+    provider = models.ForeignKey(Contractor, on_delete=models.SET_NULL, related_name='requisitions', null=True, blank=True)
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, related_name='source_requisitions', null=True, blank=True)
+    converted_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_requisition_code')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Requisition property must belong to the same organization.')
+        if self.provider_id and self.provider.organization_id != self.organization_id:
+            raise ValidationError('Requisition provider must belong to the same organization.')
+        if self.work_order_id and self.work_order.organization_id != self.organization_id:
+            raise ValidationError('Requisition work order must belong to the same organization.')

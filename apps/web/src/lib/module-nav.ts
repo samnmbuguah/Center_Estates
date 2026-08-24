@@ -99,6 +99,7 @@ export const facilityNav: ModuleNavGroup[] = [
     label: "MAINTENANCE",
     items: [
       { id: "work-orders",       label: "Maintenance",         icon: "🔧" },
+      { id: "requisitions",      label: "Repair Requisitions", icon: "📝" },
       { id: "work-order-events", label: "Work History",        icon: "🕘" },
       { id: "work-order-cost-items", label: "Labor & Parts",   icon: "🧾" },
       { id: "work-order-attachments", label: "Work Media",     icon: "📎" },
