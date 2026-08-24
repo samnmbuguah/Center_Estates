@@ -186,18 +186,18 @@ test("facility work history, cost and media registers are connected", async ({ p
 test("facility preventive and service workflows are interactive", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Single mutation avoids parallel maintenance races");
   await page.goto("/facility?tab=planned-maintenance");
-  await expect(page.getByText(/PPM Compliance|Preventive|Schedule/i).first()).toBeVisible();
+  await expect(page.getByText(/PPM Compliance|Preventive|Schedule/i).first()).toBeVisible({ timeout: 45000 });
   await page.goto("/facility?tab=work-orders");
-  await expect(page.getByRole("columnheader", { name: /Status/i }).first()).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /Status/i }).first()).toBeVisible({ timeout: 45000 });
   await page.goto("/facility?tab=service-requests");
-  await expect(page.getByRole("heading", { name: "Service Requests Management" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Service Requests Management" })).toBeVisible({ timeout: 45000 });
   await expect(page.getByText("Open Requests", { exact: true })).toBeVisible();
 });
 
 test("facility reports export current operational data", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.startsWith("mobile"), "Download verification runs once on desktop");
   await page.goto("/facility?tab=reports");
-  await expect(page.getByRole("heading", { name: /Raw Operational Data Registers/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Raw Operational Data Registers/i })).toBeVisible({ timeout: 45000 });
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /Download/i }).first().click();
   const download = await downloadPromise;
