@@ -100,7 +100,7 @@ export function PropertyFeaturePage({
       case "credit-notes":
         return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} onVoid={logic.handleVoidCreditNote} />;
       case "service-profiles":
-        return <ServiceProfilesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
+        return <ServiceProfilesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} organizationId={logic.organizationId} reload={logic.fetchData} />;
       case "service-charges":
         return <ServiceChargesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.setShowAddServiceCharge(true)} onAllocate={logic.generateServiceChargeAllocations} onReconcile={logic.setReconciliationTarget} />;
       case "service-charge-allocations":
