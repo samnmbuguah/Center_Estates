@@ -2,6 +2,7 @@ export type PropertyTab =
   | "overview"
   | "properties"
   | "buildings"
+  | "feedback-qr"
   | "units"
   | "projects"
   | "tenancy"
@@ -19,6 +20,7 @@ export type PropertyTab =
   | "bank-reconciliation"
   | "credit-notes"
   | "payments"
+  | "service-profiles"
   | "service-charges"
   | "service-charge-allocations"
   | "service-charge-reconciliations"
@@ -41,6 +43,7 @@ export const labels: Record<PropertyTab, string> = {
   overview: "Overview",
   properties: "Properties",
   buildings: "Buildings",
+  "feedback-qr": "Concierge QR Codes",
   units: "Occupancy",
   projects: "Projects",
   tenancy: "Tenancy",
@@ -58,6 +61,7 @@ export const labels: Record<PropertyTab, string> = {
   "bank-reconciliation": "Bank Reconciliation",
   "credit-notes": "Credit Notes",
   payments: "Payments & Credits",
+  "service-profiles": "Service Profiles",
   "service-charges": "Service Charge Setup",
   "service-charge-allocations": "Charge Allocations",
   "service-charge-reconciliations": "Reconciliations",
@@ -244,4 +248,3 @@ export interface BillingContext {
   months_count: number;
   label: string;
 }
-

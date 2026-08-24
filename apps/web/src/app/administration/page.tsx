@@ -104,15 +104,23 @@ function AdministrationContent() {
     session?.permissions?.includes("property.finance") ||
     session?.roles?.some((r) => r.includes("finance") || r.includes("admin") || r.includes("manager"))
   );
+  const isManagerOrAdmin = Boolean(
+    isSuperAdministrator ||
+    isFinanceAdmin ||
+    session?.roles?.some((r) => r.includes("manager") || r.includes("admin") || r.includes("finance") || r.includes("operations")) ||
+    session?.permissions?.some((p) => p.startsWith("property.") || p.startsWith("facility."))
+  );
   const organizationId = session?.activeOrganizationId ?? null;
 
   // Active subtab read from sidebar URL search parameter
   const urlTab = searchParams ? searchParams.get("tab") : null;
   const tab = (urlTab && ["users", "roles", "mpesa", "smtp", "orgs", "tax", "audit", "feedback-qr"].includes(urlTab))
     ? (urlTab as "users" | "roles" | "mpesa" | "smtp" | "orgs" | "tax" | "audit" | "feedback-qr")
-    : (isSuperAdministrator ? "users" : "mpesa");
+    : (isSuperAdministrator ? "users" : "feedback-qr");
 
-  const canAccessAdministration = isSuperAdministrator || ((tab === "mpesa" || tab === "smtp") && isFinanceAdmin);
+  const canAccessAdministration = isSuperAdministrator || (
+    isManagerOrAdmin && ["feedback-qr", "mpesa", "smtp", "tax", "audit", "users"].includes(tab)
+  );
 
   // Shared Data
   const [loading, setLoading] = useState(false);
@@ -303,7 +311,7 @@ function AdministrationContent() {
 
   // 1. Load Properties & Roles
   const loadPropertiesAndRoles = useCallback(async () => {
-    if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin)) return;
+    if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin && !isManagerOrAdmin)) return;
     try {
       const needsRoles = isSuperAdministrator && (tab === "users" || tab === "roles");
       const [propRes, rolesRes] = await Promise.all([
@@ -323,11 +331,11 @@ function AdministrationContent() {
     } catch (err) {
       console.error("Failed to load properties or roles", err);
     }
-  }, [organizationId, isSuperAdministrator, isFinanceAdmin, tab]);
+  }, [organizationId, isSuperAdministrator, isFinanceAdmin, isManagerOrAdmin, tab]);
 
   // 2. Load Members / Users
   const loadMembers = useCallback(async () => {
-    if (!organizationId || !isSuperAdministrator) return;
+    if (!organizationId || (!isSuperAdministrator && !isManagerOrAdmin)) return;
     setLoading(true);
     try {
       const res = await apiFetch("/access/members/", {}, organizationId);
@@ -340,11 +348,11 @@ function AdministrationContent() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, isSuperAdministrator]);
+  }, [organizationId, isSuperAdministrator, isManagerOrAdmin]);
 
   // 3. Load Gateways
   const loadGateway = useCallback(async () => {
-    if (!organizationId || !selectedPropertyId || (!isSuperAdministrator && !isFinanceAdmin)) return;
+    if (!organizationId || !selectedPropertyId || (!isSuperAdministrator && !isFinanceAdmin && !isManagerOrAdmin)) return;
     try {
       const res = await apiFetch(`/property/payment-gateways/?property=${selectedPropertyId}`, {}, organizationId);
       if (res.ok) {
@@ -355,7 +363,7 @@ function AdministrationContent() {
     } catch (err) {
       console.error("Failed to load gateway settings", err);
     }
-  }, [organizationId, selectedPropertyId, isSuperAdministrator, isFinanceAdmin]);
+  }, [organizationId, selectedPropertyId, isSuperAdministrator, isFinanceAdmin, isManagerOrAdmin]);
 
   function openAddGateway() {
     setEditingGateway(null);
@@ -403,7 +411,7 @@ function AdministrationContent() {
 
   // 4. Load SMTP Configuration
   const loadSmtpConfig = useCallback(async () => {
-    if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin)) return;
+    if (!organizationId || (!isSuperAdministrator && !isFinanceAdmin && !isManagerOrAdmin)) return;
     try {
       const res = await apiFetch("/notifications/email-settings/", {}, organizationId);
       if (res.ok) {
@@ -415,17 +423,18 @@ function AdministrationContent() {
           setSmtpHost(activeConfig.host || "");
           setSmtpPort(String(activeConfig.port || 587));
           setSmtpUsername(activeConfig.username || "");
+          setSmtpPassword(activeConfig.password || "");
           setSmtpUseTls(activeConfig.use_tls ?? true);
           setSmtpUseSsl(activeConfig.use_ssl ?? false);
-          setSmtpFromEmail(activeConfig.from_email || "notifications@centerestates.com");
-          setSmtpFromName(activeConfig.from_name || "Center Estates");
+          setSmtpFromEmail(activeConfig.from_email || "noreply@centerestates.com");
+          setSmtpFromName(activeConfig.from_name || "CeEst");
           setSmtpIsActive(activeConfig.is_active ?? true);
         }
       }
     } catch (err) {
       console.error("Failed to load SMTP settings", err);
     }
-  }, [organizationId, isSuperAdministrator, isFinanceAdmin]);
+  }, [organizationId, isSuperAdministrator, isFinanceAdmin, isManagerOrAdmin]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

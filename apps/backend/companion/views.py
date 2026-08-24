@@ -1370,7 +1370,8 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
 class PublicFeedbackQrCodeViewSet(CompanionModelViewSet):
     queryset = PublicFeedbackQrCode.objects.select_related('property', 'building')
     serializer_class = PublicFeedbackQrCodeSerializer
-    write_permission = 'companion.assign'
+    write_permission = None
+    read_permission = None
     search_fields = ('label', 'property__name', 'building__name', 'floor', 'unit')
 
     def perform_create(self, serializer):

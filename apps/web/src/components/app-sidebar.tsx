@@ -601,8 +601,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                       marginBottom: 4,
                     }}
                   >
-                    {ADMIN_SUBITEMS.filter((item) => isAdministrator || item.id === "mpesa").map((item) => {
-                      const isItemActive = pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === "users"));
+                    {ADMIN_SUBITEMS.filter((item) => isAdministrator || ["feedback-qr", "mpesa", "tax", "smtp", "users", "audit"].includes(item.id)).map((item) => {
+                      const isItemActive = pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === (isAdministrator ? "users" : "feedback-qr")));
                       return (
                         <Link
                           key={item.id}

@@ -168,6 +168,7 @@ export function usePropertyLogic({
       "receipt-allocations": "receipt-allocations",
       "bank-reconciliation": "bank-transactions",
       "credit-notes": "credit-notes",
+      "service-profiles": "service-profiles",
       "service-charges": "service-charges",
       "service-charge-allocations": "service-charge-allocations",
       "service-charge-reconciliations": "service-charge-reconciliations",
@@ -185,7 +186,7 @@ export function usePropertyLogic({
 
   const loadData = useCallback(async () => {
     if (!organizationId || standaloneOnboarding) return;
-    if (tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports" || tab === "tickets" || tab === "calendar") {
+    if (tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports" || tab === "tickets" || tab === "calendar" || tab === "feedback-qr") {
       setLoading(false);
       return;
     }

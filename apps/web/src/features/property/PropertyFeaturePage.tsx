@@ -31,6 +31,7 @@ import { CreditNotesView } from "./components/tabs/CreditNotesView";
 import { ServiceChargesView } from "./components/tabs/ServiceChargesView";
 import { ServiceChargeAllocationsView } from "./components/tabs/ServiceChargeAllocationsView";
 import { ServiceChargeReconciliationsView } from "./components/tabs/ServiceChargeReconciliationsView";
+import { ServiceProfilesView } from "./components/tabs/ServiceProfilesView";
 import { BudgetsView } from "./components/tabs/BudgetsView";
 import { ExpensesView } from "./components/tabs/ExpensesView";
 import { FeesView } from "./components/tabs/FeesView";
@@ -43,6 +44,7 @@ const PropertyTenancyReports = dynamic(() => import("@/components/property-tenan
 const PropertyFinancialReports = dynamic(() => import("@/components/property-financial-reports").then((module) => module.PropertyFinancialReports), { loading: () => <LoadingState rows={7} /> });
 const ModuleTicketsView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleTicketsView), { loading: () => <LoadingState rows={6} /> });
 const ModuleCalendarView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleCalendarView), { loading: () => <LoadingState rows={6} /> });
+import { FeedbackQrManager } from "@/components/feedback-qr-manager";
 
 export function PropertyFeaturePage({
   initialTab = "properties",
@@ -61,6 +63,8 @@ export function PropertyFeaturePage({
         return <PropertiesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddProperty(true)} setTab={logic.setTab} />;
       case "buildings":
         return <BuildingsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
+      case "feedback-qr":
+        return <FeedbackQrManager organizationId={logic.organizationId} />;
       case "units":
         return <UnitsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSelectRow={logic.handleSelectRow} />;
       case "projects":
@@ -95,6 +99,8 @@ export function PropertyFeaturePage({
         return <BankReconciliationView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onMatch={(r) => logic.setMatchTarget(r as BankTransactionRow)} />;
       case "credit-notes":
         return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} onVoid={logic.handleVoidCreditNote} />;
+      case "service-profiles":
+        return <ServiceProfilesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
       case "service-charges":
         return <ServiceChargesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.setShowAddServiceCharge(true)} onAllocate={logic.generateServiceChargeAllocations} onReconcile={logic.setReconciliationTarget} />;
       case "service-charge-allocations":

@@ -14,6 +14,8 @@ export const propertyNav: ModuleNavGroup[] = [
     items: [
       { id: "properties", label: "Property Details", icon: "🏢" },
       { id: "buildings", label: "Buildings", icon: "🏗️" },
+      { id: "feedback-qr", label: "Concierge QR Codes", icon: "▦" },
+      { id: "service-profiles", label: "Service Profiles", icon: "📋" },
     ],
   },
   {
@@ -87,9 +89,10 @@ export const facilityNav: ModuleNavGroup[] = [
   {
     label: "ASSETS & STOCK",
     items: [
-      { id: "assets",            label: "Assets & Inventory",  icon: "📦" },
-      { id: "spare-parts",       label: "Spare Parts",         icon: "🔩" },
-      { id: "consumables",       label: "Consumables",         icon: "🧴" },
+      { id: "assets", label: "Assets & Inventory", icon: "📦" },
+      { id: "spare-parts", label: "Spare Parts", icon: "🔩" },
+      { id: "consumables", label: "Consumables", icon: "🧴" },
+      { id: "service-providers", label: "Service Providers", icon: "🤝" },
     ],
   },
   {
@@ -105,12 +108,11 @@ export const facilityNav: ModuleNavGroup[] = [
   {
     label: "OPERATIONS",
     items: [
-      { id: "service-profiles",  label: "Service Profiles",    icon: "🧩" },
-      { id: "service-requests",  label: "Service Requests",    icon: "🎫" },
-      { id: "incidents",         label: "Incident Reporting",  icon: "🚨" },
-      { id: "inspections",       label: "Inspections",         icon: "🔍" },
-      { id: "meters",            label: "Energy & Utilities",  icon: "⚡" },
-      { id: "contractors",       label: "Vendors & Contracts", icon: "🤝" },
+      { id: "service-requests", label: "Service Requests", icon: "🎫" },
+      { id: "incidents", label: "Incident Reporting", icon: "🔍" },
+      { id: "inspections", label: "Inspections", icon: "🔎" },
+      { id: "meters", label: "Energy & Utilities", icon: "⚡" },
+      { id: "contractors", label: "Vendors & Contracts", icon: "🤝" },
     ],
   },
   {
