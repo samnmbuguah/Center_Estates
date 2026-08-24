@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "@/components/monitoring/react-router-shim";
 import { 
-  Download, Upload, Plane, MapPin, Calendar, FileText, 
-  Activity, AlertTriangle, CheckCircle2, Eye, Layers, 
-  Filter, Search, BarChart3, Globe, Thermometer, Cloud
+  Download, Upload, Plane, MapPin, Calendar, FileText,
+  Activity, AlertTriangle, CheckCircle2, Eye, Layers,
+  Search, BarChart3, Globe
 } from "lucide-react";
 
 import { get, patch, post } from "../api";

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "@/components/monitoring/react-router-shim";
 import { 
-  MessageSquareText, Plus, Search, Filter, Calendar, 
-  User, AlertTriangle, CheckCircle2, Clock, FileText,
-  Send, Archive, Eye, TrendingUp, BarChart3
+  MessageSquareText, Search, Calendar, 
+  AlertTriangle, CheckCircle2, Clock, FileText,
+  Archive, TrendingUp, BarChart3
 } from "lucide-react";
 import { get, post, patch } from "../api";
 import { useAuth } from "../auth";

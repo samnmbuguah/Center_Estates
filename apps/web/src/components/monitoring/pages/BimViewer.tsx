@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { 
-  Layers, Download, Maximize2, RotateCcw, Search, Filter, 
-  Ruler, Camera, Share2, FileText, AlertTriangle, CheckCircle2,
-  Eye, EyeOff, Zap, Box, Info
+  Layers, Download, RotateCcw, Search, 
+  Ruler, Camera, Share2, FileText, AlertTriangle,
+  Eye, EyeOff, Box, Info
 } from "lucide-react";
 
 interface Props {
