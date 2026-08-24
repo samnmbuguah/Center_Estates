@@ -7,7 +7,7 @@ from .models import (
     Receipt, ReceiptAllocation, RentSchedule, ReportDefinition, ReportExecution, ScheduledReport,
     ServiceCharge, TaxConfiguration, TenantMovement, UnitStatusHistory, LeaseEscalation,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
-    TenantDocument, TenantPortalAccess, Unit, ParkingSpace,
+    TenantDocument, TenantPortalAccess, Unit, UnitChargeRule, ParkingSpace,
 )
 
 
@@ -31,6 +31,15 @@ class BillingItemSerializer(serializers.ModelSerializer):
     tax_code = serializers.CharField(source='tax_configuration.code', read_only=True, default='')
     class Meta:
         model = BillingItem
+        exclude = ('organization',)
+
+
+class UnitChargeRuleSerializer(serializers.ModelSerializer):
+    billing_item_name = serializers.CharField(source='billing_item.name', read_only=True)
+    billing_item_code = serializers.CharField(source='billing_item.code', read_only=True)
+
+    class Meta:
+        model = UnitChargeRule
         exclude = ('organization',)
 
 
@@ -203,6 +212,7 @@ class BuildingSerializer(serializers.ModelSerializer):
 class UnitSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
     building_name = serializers.CharField(source='building.name', read_only=True, default='')
+    charge_rules = UnitChargeRuleSerializer(many=True, read_only=True)
     class Meta:
         model = Unit
         exclude = ('organization',)

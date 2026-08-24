@@ -9,7 +9,6 @@ import {
   Checkbox,
   Dialog,
   Divider,
-  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
@@ -43,8 +42,8 @@ const Transition = forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-type Unit = { id: string; code: string; floor?: string; unit_type?: string; area?: string | number; status?: string };
-type Utility = { utility: string; applicable: boolean; rate_per_unit: number };
+type UnitChargeRule = { id: string; billing_item_name: string; billing_item_code: string; calculation: string; amount: string | number; rate: string | number; frequency: string };
+type Unit = { id: string; code: string; floor?: string; unit_type?: string; area?: string | number; status?: string; charge_rules?: UnitChargeRule[] };
 type PropertyDetails = { address?: string; city?: string; country?: string; metadata?: Record<string, unknown> };
 
 const initialForm = {
@@ -74,7 +73,7 @@ const initialForm = {
   escalation_interval_months: "12",
 };
 
-const applicationSections = ["tenant-general", "tenant-lease", "tenant-utilities", "tenant-review"] as const;
+const applicationSections = ["tenant-general", "tenant-lease", "tenant-review"] as const;
 
 function money(value: number) {
   return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 2 }).format(value || 0);
@@ -109,12 +108,6 @@ export function TenantApplicationCard({
   const [form, setForm, clearForm, formRestored, formSavedAt] = useFormDraft("tenant-application:form", initialForm, draftScope);
   const [units, setUnits] = useState<Unit[]>([]);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
-  const initialUtilities: Utility[] = [
-    { utility: "Electricity", applicable: false, rate_per_unit: 0 },
-    { utility: "Water", applicable: false, rate_per_unit: 0 },
-    { utility: "Other", applicable: false, rate_per_unit: 0 },
-  ];
-  const [utilities, setUtilities, clearUtilities, utilitiesRestored] = useFormDraft<Utility[]>("tenant-application:utilities", initialUtilities, draftScope);
   const [lettingFee, setLettingFee, clearLettingFee] = useFormDraft("tenant-application:letting-fee", false, draftScope);
   const [renewalFee, setRenewalFee, clearRenewalFee] = useFormDraft("tenant-application:renewal-fee", false, draftScope);
   const [saving, setSaving] = useState(false);
@@ -132,10 +125,9 @@ export function TenantApplicationCard({
     vat_rate: string;
     security_deposit: string;
   }[]>([]);
-  const draftRestored = formRestored || utilitiesRestored;
+  const draftRestored = formRestored;
   const clearDraft = () => {
     clearForm();
-    clearUtilities();
     clearLettingFee();
     clearRenewalFee();
     setExtraUnits([]);
@@ -155,6 +147,7 @@ export function TenantApplicationCard({
           unit_type: String(row.unit_type ?? ""),
           area: row.area as string | number,
           status: String(row.status ?? ""),
+          charge_rules: Array.isArray(row.charge_rules) ? row.charge_rules as UnitChargeRule[] : [],
         }))
       );
       if (!propertyData) return;
@@ -175,19 +168,8 @@ export function TenantApplicationCard({
           current.security_deposit !== "0" ? current.security_deposit : String(defaults.security_deposit ?? 0),
         billing_day: current.billing_day !== "1" ? current.billing_day : String(defaults.billing_day ?? 1),
       }));
-      const configuredUtilities = Array.isArray(metadata.utilities) ? (metadata.utilities as Array<Record<string, unknown>>) : [];
-      setUtilities(
-        ["Electricity", "Water", "Other"].map((utility) => {
-          const configured = configuredUtilities.find((row) => String(row.type ?? "").toLowerCase() === utility.toLowerCase());
-          return {
-            utility,
-            applicable: Boolean(configured),
-            rate_per_unit: Number(configured?.security_deposit_rate ?? defaults[`${utility.toLowerCase()}_deposit_rate`] ?? 0),
-          };
-        })
-      );
     });
-  }, [open, organizationId, activeProperty?.id, setForm, setUtilities]);
+  }, [open, organizationId, activeProperty?.id, setForm]);
 
   const selectedUnit = units.find((unit) => unit.id === form.unit);
   const area = Number(selectedUnit?.area ?? 0);
@@ -207,7 +189,12 @@ export function TenantApplicationCard({
     computedRentRate = area > 0 ? rent / area : Number(form.rent_rate_per_sqft || 0);
   }
 
-  const serviceCharge = area * Number(form.service_charge_rate_per_sqft || 0);
+  const chargeAmount = (unit: Unit | undefined, code: string) => {
+    const rule = unit?.charge_rules?.find((row) => row.billing_item_code.toLowerCase() === code.toLowerCase());
+    if (!rule) return 0;
+    return rule.calculation === "area_rate" ? Number(unit?.area || 0) * Number(rule.rate || 0) : Number(rule.amount || 0);
+  };
+  const serviceCharge = chargeAmount(selectedUnit, "SERVICE_CHARGE") || chargeAmount(selectedUnit, "SC");
   const subtotal = rent + serviceCharge;
   const vat = (subtotal * Number(form.vat_rate || 0)) / 100;
 
@@ -222,7 +209,7 @@ export function TenantApplicationCard({
       } else {
         eRent = eArea * Number(eu.rent_rate_per_sqft || 0);
       }
-      const eSc = eArea * Number(eu.service_charge_rate_per_sqft || 0);
+      const eSc = chargeAmount(u, "SERVICE_CHARGE") || chargeAmount(u, "SC");
       const eSub = eRent + eSc;
       const eVat = (eSub * Number(eu.vat_rate || 0)) / 100;
       const eDep = Number(eu.security_deposit || 0);
@@ -245,8 +232,7 @@ export function TenantApplicationCard({
   const totalVat = vat + extraTotals.vat;
   const totalDeposit = Number(form.security_deposit || 0) + extraTotals.deposit;
 
-  const utilityDeposit = utilities.reduce((sum, item) => sum + (item.applicable ? item.rate_per_unit * totalOccupiedArea : 0), 0);
-  const total = totalMonthlySubtotal + totalVat + totalDeposit + utilityDeposit;
+  const total = totalMonthlySubtotal + totalVat + totalDeposit;
   const expiryDate = addMonths(form.starts_on, Number(form.term_months || 12));
   const charges = useMemo(
     () => [
@@ -272,19 +258,8 @@ export function TenantApplicationCard({
         rate: totalOccupiedArea > 0 ? totalMonthlySc / totalOccupiedArea : 0,
         amount: totalMonthlySc,
       },
-      {
-        code: "UTILITIES",
-        name: "Utility Charge",
-        letting_fee: false,
-        renewal_fee: false,
-        account_type: "G/L Account",
-        account_name: "Landlord Dues",
-        area: totalOccupiedArea,
-        rate: 0,
-        amount: utilityDeposit,
-      },
     ],
-    [totalOccupiedArea, totalMonthlyRent, totalMonthlySc, lettingFee, renewalFee, utilityDeposit]
+    [totalOccupiedArea, totalMonthlyRent, totalMonthlySc, lettingFee, renewalFee]
   );
 
   function update(name: keyof typeof initialForm, value: string) {
@@ -378,7 +353,6 @@ export function TenantApplicationCard({
                   billing_day: Number(form.billing_day || 1),
                 };
               }),
-            utilities: utilities.map((item) => ({ ...item, deposit_amount: item.applicable ? item.rate_per_unit * totalOccupiedArea : 0 })),
             charges,
           }),
         },
@@ -413,7 +387,6 @@ export function TenantApplicationCard({
     ["VAT amount (16%)", vat],
     ["Total monthly amount (inc. VAT)", subtotal + vat],
     ["Security deposit (refundable)", Number(form.security_deposit || 0)],
-    ["Utilities security deposit", utilityDeposit],
     ["Total initial move-in payable", total],
   ] as const;
 
@@ -499,8 +472,7 @@ export function TenantApplicationCard({
         >
           <Tab label="1. General Details" />
           <Tab label="2. Lease & Charges" />
-          <Tab label="3. Utilities & Deposits" />
-          <Tab label="4. Review & Move-In Breakdown" />
+          <Tab label="3. Review & Confirm" />
         </Tabs>
       </AppBar>
 
@@ -512,7 +484,6 @@ export function TenantApplicationCard({
           onDiscard={() => {
             clearDraft();
             setForm(initialForm);
-            setUtilities(initialUtilities);
           }}
           message="Your unsaved tenant application draft was automatically restored from local storage."
         />
@@ -625,12 +596,6 @@ export function TenantApplicationCard({
                   helperText: form.rent_type === "prospect" ? "Optional for prospective applicants" : "Lease start date",
                 })}
                 <TextField label="Calculated Expiry Date" value={expiryDate || "Select start date"} disabled />
-                {input("Service Charge Rate / Sq.Ft (KES)", "service_charge_rate_per_sqft", {
-                  type: "number",
-                  inputProps: { min: 0, step: 0.01 },
-                  placeholder: "e.g. 35.00",
-                  helperText: area > 0 && Number(form.service_charge_rate_per_sqft) > 0 ? `Total: ${money(area * Number(form.service_charge_rate_per_sqft))}/mo` : "Optional service rate",
-                })}
                 {input("VAT Rate", "vat_rate", {
                   select: true,
                   children: [
@@ -767,19 +732,6 @@ export function TenantApplicationCard({
                               )
                             }
                           />
-                          <TextField
-                            type="number"
-                            size="small"
-                            label="Service Charge Rate / sqft"
-                            value={eu.service_charge_rate_per_sqft}
-                            onChange={(e) =>
-                              setExtraUnits((prev) =>
-                                prev.map((item) =>
-                                  item.id === eu.id ? { ...item, service_charge_rate_per_sqft: e.target.value } : item
-                                )
-                              )
-                            }
-                          />
                         </Box>
                       </Paper>
                     );
@@ -788,59 +740,28 @@ export function TenantApplicationCard({
               )}
             </Paper>
 
-            {/* UTILITIES SECURITY DEPOSIT */}
-            <Paper id="tenant-utilities" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, background: "var(--surface)" }}>
+            {/* UNIT CHARGES ARE CONTROLLED ON THE UNIT, NOT RE-ENTERED PER TENANT */}
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, background: "var(--surface)" }}>
               <Typography variant="overline" sx={{ fontWeight: 900, color: "var(--primary)" }}>
-                SECTION 3 · UTILITIES & SUB-METER DEPOSITS
+                INHERITED UNIT BILLING SCHEDULE
               </Typography>
               <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 2 }}>
-                Configure electricity and water sub-meter security deposits applicable to this unit.
+                Water, electricity, service charge and other recurring items are configured once on the unit. They will be copied to this lease and invoiced separately, while the tenant can still pay all outstanding invoices together.
               </Typography>
-              {utilities.map((item, index) => (
-                <Box
-                  key={item.utility}
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", sm: "minmax(140px, 1fr) 160px 190px" },
-                    gap: 2,
-                    alignItems: "center",
-                    py: 1.25,
-                    borderBottom: "1px solid var(--border)",
-                  }}
-                >
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={item.applicable}
-                        onChange={(e) =>
-                          setUtilities((rows) =>
-                            rows.map((row, i) => (i === index ? { ...row, applicable: e.target.checked } : row))
-                          )
-                        }
-                      />
-                    }
-                    label={<strong style={{ fontSize: 13 }}>{item.utility} Deposit</strong>}
-                  />
-                  <TextField
-                    type="number"
-                    size="small"
-                    label="Rate / sqft (KES)"
-                    value={item.rate_per_unit}
-                    disabled={!item.applicable}
-                    onChange={(e) =>
-                      setUtilities((rows) =>
-                        rows.map((row, i) => (i === index ? { ...row, rate_per_unit: Number(e.target.value) } : row))
-                      )
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Deposit Amount"
-                    value={money(item.applicable ? item.rate_per_unit * area : 0)}
-                    disabled
-                  />
-                </Box>
-              ))}
+              {!selectedUnit ? (
+                <Alert severity="info">Select a unit to review its recurring billing rules.</Alert>
+              ) : selectedUnit.charge_rules?.length ? (
+                <Stack spacing={1}>
+                  {selectedUnit.charge_rules.map((rule) => (
+                    <Box key={rule.id} sx={{ display: "flex", justifyContent: "space-between", gap: 2, py: 1, borderBottom: "1px solid var(--border)" }}>
+                      <Box><Typography variant="body2" sx={{ fontWeight: 800 }}>{rule.billing_item_name}</Typography><Typography variant="caption" color="text.secondary">{rule.frequency.replaceAll("_", " ")} · {rule.calculation.replaceAll("_", " ")}</Typography></Box>
+                      <Typography variant="body2" sx={{ fontWeight: 800 }}>{rule.calculation === "metered" ? "From approved meter reading" : money(chargeAmount(selectedUnit, rule.billing_item_code))}</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <Alert severity="warning">This unit has no recurring charge rules. Configure its utilities and service charges before approving the tenancy.</Alert>
+              )}
             </Paper>
 
             {/* CHARGES BREAKDOWN TABLE */}

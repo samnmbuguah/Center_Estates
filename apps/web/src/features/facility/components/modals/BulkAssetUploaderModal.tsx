@@ -2,6 +2,7 @@
 
 import React, { useCallback, useRef, useState } from "react";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { csvCell as get, csvColumn as col, normalizeCsvHeader as norm, parseCsv } from "@/lib/csv";
 
 type ParsedAssetRow = {
   name: string;
@@ -42,37 +43,6 @@ Main Passenger Lift #1,LIFT-01,Vertical Transportation,Mechanical & Electrical,c
 Prime Standby Generator 500kVA,GEN-500,Backup Power,Mechanical & Electrical,critical,excellent,Cummins,C500 D5e,CUM-44810,12000000,14500000,20,CAPEX Reserve,Weekly no-load test run and fluid analysis
 Central Chiller Unit #1,CHILL-01,HVAC & Cooling,Mechanical & Electrical,high,fair,Daikin,EWWD-J,DAI-00812,16500000,18500000,12,CAPEX Reserve,Quarterly refrigerant leak test
 Fire Alarm Control Panel,FACP-01,Life Safety,Life Safety,critical,excellent,Notifier,NFS2-3030,NOT-88123,2500000,3000000,15,Safety Float,Monthly battery check and loop test`;
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], cell = "", quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
-    else if (c === '"') quoted = !quoted;
-    else if (c === ',' && !quoted) { row.push(cell.trim()); cell = ""; }
-    else if ((c === "\n" || c === "\r") && !quoted) {
-      if (c === "\r" && text[i + 1] === "\n") i++;
-      row.push(cell.trim());
-      if (row.some(Boolean)) rows.push(row);
-      row = []; cell = "";
-    } else cell += c;
-  }
-  row.push(cell.trim());
-  if (row.some(Boolean)) rows.push(row);
-  return rows;
-}
-
-function norm(h: string) {
-  return h.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-}
-
-function col(headers: string[], aliases: string[]): number {
-  const a = aliases.map(norm);
-  return a.reduce((f, x) => f >= 0 ? f : headers.indexOf(x), -1);
-}
-
-function get(row: string[], idx: number) { return idx >= 0 ? (row[idx] ?? "").trim() : ""; }
 
 function csvToAssetRows(text: string): ParsedAssetRow[] {
   const all = parseCsv(text);

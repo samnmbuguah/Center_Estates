@@ -26,7 +26,7 @@ from .models import (
     PaymentWebhookEvent, Property, Receipt, ReceiptAllocation, RentSchedule,
     ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
-    TaxConfiguration, TenantMovement, Unit, UnitStatusHistory,
+    TaxConfiguration, TenantMovement, Unit, UnitChargeRule, UnitStatusHistory,
 )
 
 
@@ -240,6 +240,53 @@ class PropertyApiTests(TestCase):
         self.assertTrue(replayed.data['replayed'])
         self.assertEqual(replayed.data['generated_count'], 0)
         self.assertEqual(Invoice.objects.filter(metadata__billing_run_id=str(created.data['id'])).count(), 1)
+
+    def test_unit_charge_rules_are_inherited_and_charges_generate_separate_invoices(self):
+        water = BillingItem.objects.create(
+            organization=self.organization, code='WATER', name='Water consumption',
+            calculation=BillingItem.Calculation.FIXED, income_category='utilities',
+        )
+        unit = Unit.objects.create(
+            organization=self.organization, property=self.property, code='RULE-01',
+            status=Unit.Status.AVAILABLE, area=Decimal('500'),
+        )
+        rule = self.client.post('/api/v1/property/unit-charge-rules/', {
+            'unit': str(unit.id), 'billing_item': str(water.id), 'frequency': 'monthly',
+            'calculation': 'fixed', 'amount': '750.00', 'rate': '0', 'billing_day': 5,
+        }, format='json', **self.headers)
+        self.assertEqual(rule.status_code, 201, rule.data)
+
+        onboarded = self.client.post('/api/v1/property/tenants/onboard/', {
+            'tenant': {'name': 'Unit Rule Tenant', 'tenant_type': 'company'},
+            'lease': {
+                'unit': str(unit.id), 'starts_on': '2026-09-01', 'term_months': 12,
+                'monthly_rent': '50000', 'billing_day': 5, 'vat_rate': 0,
+            },
+        }, format='json', **self.headers)
+        self.assertEqual(onboarded.status_code, 201, onboarded.data)
+        lease = Lease.objects.get(pk=onboarded.data['lease']['id'])
+        inherited = lease.billing_profiles.get(billing_item=water)
+        self.assertEqual(inherited.amount, Decimal('750'))
+        self.assertEqual(inherited.effective_from, date(2026, 9, 1))
+
+        lease.status = Lease.Status.ACTIVE
+        lease.save(update_fields=('status',))
+        created = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id), 'period_start': '2026-09-01', 'period_end': '2026-09-30',
+        }, format='json', **self.headers)
+        run_url = f"/api/v1/property/billing-runs/{created.data['id']}/"
+        prepared = self.client.post(f'{run_url}prepare/', {}, format='json', **self.headers)
+        candidate = next(row for row in prepared.data['candidates'] if row['lease_reference'] == lease.reference)
+        approver = self._create_billing_approver()
+        self.client.force_authenticate(approver)
+        self.assertEqual(self.client.post(f'{run_url}approve/', {}, format='json', **self.headers).status_code, 200)
+        self.client.force_authenticate(self.user)
+        generated = self.client.post(f'{run_url}generate/', {'candidate_ids': [candidate['id']]}, format='json', **self.headers)
+        self.assertEqual(generated.status_code, 201, generated.data)
+        self.assertEqual(generated.data['generated_count'], 2)
+        invoices = Invoice.objects.filter(metadata__billing_candidate_id=candidate['id'])
+        self.assertEqual(set(invoices.values_list('invoice_type', flat=True)), {'rent', 'water'})
+        self.assertEqual(sum(invoices.values_list('amount', flat=True), Decimal('0')), Decimal('50750'))
 
     def _create_billing_approver(self):
         approver = get_user_model().objects.create_user(
@@ -1443,10 +1490,10 @@ class PropertyApiTests(TestCase):
             'candidate_ids': [candidate['id']],
         }, format='json', **self.headers)
         self.assertEqual(generated.status_code, 201, generated.data)
-        invoice = Invoice.objects.get(number=generated.data['invoices'][0]['number'])
-        descriptions = set(InvoiceLine.objects.filter(invoice=invoice).values_list('description', flat=True))
+        invoice_ids = [row['id'] for row in generated.data['invoices']]
+        descriptions = set(InvoiceLine.objects.filter(invoice_id__in=invoice_ids).values_list('description', flat=True))
         self.assertIn('Water', descriptions)
-        water_line = InvoiceLine.objects.get(invoice=invoice, description='Water')
+        water_line = InvoiceLine.objects.get(invoice_id__in=invoice_ids, description='Water')
         self.assertEqual(water_line.total, Decimal('3000.00'))
         self.assertEqual(water_line.source_type, 'billing_profile')
 

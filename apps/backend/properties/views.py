@@ -36,7 +36,7 @@ from .models import (
     PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation,
     RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, ParkingSpace, UnitStatusHistory, LeaseEscalation,
+    TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, UnitStatusHistory, LeaseEscalation,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -49,7 +49,7 @@ from .serializers import (
     ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer, ParkingSpaceSerializer,
     ServiceChargeSerializer, TaxConfigurationSerializer, TenantDocumentSerializer,
     TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
-    UnitSerializer, UnitStatusHistorySerializer,
+    UnitSerializer, UnitChargeRuleSerializer, UnitStatusHistorySerializer,
 )
 
 
@@ -608,7 +608,7 @@ class PropertyViewSet(OrganizationModelViewSet):
                     building = buildings[idx]
                 except (TypeError, ValueError):
                     raise ValidationError({'units': f'Unit {code} has an invalid building number "{building_index}". Use a whole number (1, 2, 3…) or leave blank.'})
-            units.append(Unit.objects.create(
+            unit = Unit.objects.create(
                 organization=organization,
                 property=property_record,
                 building=building,
@@ -621,8 +621,28 @@ class PropertyViewSet(OrganizationModelViewSet):
                     'use': str(raw_unit.get('use') or '').strip(),
                     'rateable_area': raw_unit.get('rateable_area') or None,
                     'description': str(raw_unit.get('description') or '').strip(),
+                    'billing_setup': {
+                        'service_charge_rate': str(raw_unit.get('service_charge_rate') or '0'),
+                    },
                 },
-            ))
+            )
+            units.append(unit)
+            try:
+                service_rate = Decimal(str(raw_unit.get('service_charge_rate') or 0))
+            except Exception:
+                raise ValidationError({'units': f'Unit {code} has an invalid service charge rate.'})
+            if service_rate < 0:
+                raise ValidationError({'units': f'Unit {code} service charge rate cannot be negative.'})
+            if service_rate:
+                service_item, _ = BillingItem.objects.get_or_create(
+                    organization=organization, code='SERVICE_CHARGE',
+                    defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.AREA_RATE, 'income_category': 'service_charge'},
+                )
+                UnitChargeRule.objects.create(
+                    organization=organization, unit=unit, billing_item=service_item,
+                    frequency=UnitChargeRule.Frequency.MONTHLY, calculation=BillingItem.Calculation.AREA_RATE,
+                    rate=service_rate, billing_day=1,
+                )
 
         # Utility accounts remain part of the property profile, while metered
         # water/electricity/gas supplies are also registered in Facility
@@ -648,15 +668,26 @@ class PropertyViewSet(OrganizationModelViewSet):
                 raise ValidationError({'utilities': f'Utility {index} has an invalid tariff or opening reading.'})
             if tariff < 0 or opening_value < 0:
                 raise ValidationError({'utilities': f'Utility {index} tariff and opening reading cannot be negative.'})
+            assigned_unit = next((row for row in units if row.code == str(utility.get('unit_code') or '').strip().upper()), None)
+            is_postpaid = utility_type != 'electricity' or utility.get('supply_mode', 'postpaid') == 'postpaid'
             meter = UtilityMeter.objects.create(
-                organization=organization, property=property_record, code=meter_code,
+                organization=organization, property=property_record, property_unit=assigned_unit, code=meter_code,
                 name=f"{property_record.name} {utility_type.title()} {meter_code}", utility_type=utility_type,
                 unit=str(utility.get('unit') or ('kWh' if utility_type == 'electricity' else 'm³'))[:20],
                 tariff=tariff, is_active=str(utility.get('status', 'active')).lower() == 'active',
             )
             meters.append(meter)
+            if assigned_unit and tariff > 0 and is_postpaid:
+                item_code = utility_type.upper()
+                billing_item, _ = BillingItem.objects.get_or_create(
+                    organization=organization, code=item_code,
+                    defaults={'name': f'{utility_type.title()} consumption', 'calculation': BillingItem.Calculation.METERED, 'income_category': 'utilities'},
+                )
+                UnitChargeRule.objects.update_or_create(
+                    organization=organization, unit=assigned_unit, billing_item=billing_item,
+                    defaults={'frequency': UnitChargeRule.Frequency.METERED, 'calculation': BillingItem.Calculation.METERED, 'rate': tariff, 'billing_day': 1, 'is_active': True},
+                )
             has_opening_reading = str(utility.get('initial_reading', '')).strip() != ''
-            is_postpaid = utility_type != 'electricity' or utility.get('supply_mode', 'postpaid') == 'postpaid'
             if has_opening_reading and is_postpaid:
                 try:
                     reading_date = date.fromisoformat(str(utility.get('reading_date'))) if utility.get('reading_date') else timezone.localdate()
@@ -734,6 +765,21 @@ class UnitViewSet(OrganizationModelViewSet):
     queryset = Unit.objects.select_related('property', 'building')
     serializer_class = UnitSerializer
     search_fields = ('code', 'unit_type', 'property__name')
+
+
+class UnitChargeRuleViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = UnitChargeRule.objects.select_related('unit__property', 'billing_item')
+    serializer_class = UnitChargeRuleSerializer
+    search_fields = ('unit__code', 'billing_item__name', 'billing_item__code')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        unit_id = self.request.query_params.get('unit')
+        return queryset.filter(unit_id=unit_id) if unit_id else queryset
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self._validate_organization(serializer))
 
 
 class ProjectViewSet(OrganizationModelViewSet):
@@ -1005,6 +1051,23 @@ class TenantViewSet(OrganizationModelViewSet):
             metadata={'application_number': application_number, 'term_months': term_months, **calculations},
         )
 
+        def inherit_unit_charges(target_lease):
+            """Snapshot unit defaults onto the lease so later unit edits do not rewrite contracts."""
+            profiles = []
+            for rule in target_lease.unit.charge_rules.filter(is_active=True).select_related('billing_item'):
+                profiles.append(BillingProfile(
+                    organization=organization, lease=target_lease, billing_item=rule.billing_item,
+                    frequency=rule.frequency, calculation=rule.calculation,
+                    amount=rule.amount, rate=rule.rate, effective_from=target_lease.starts_on,
+                    effective_to=target_lease.ends_on, billing_day=rule.billing_day,
+                    custom_interval_months=rule.custom_interval_months,
+                    instructions=rule.instructions,
+                ))
+            if profiles:
+                BillingProfile.objects.bulk_create(profiles)
+
+        inherit_unit_charges(lease)
+
         created_leases = [lease]
         additional_leases_data = request.data.get('additional_leases') if isinstance(request.data.get('additional_leases'), list) else []
         for extra in additional_leases_data:
@@ -1065,6 +1128,7 @@ class TenantViewSet(OrganizationModelViewSet):
                 status=Lease.Status.DRAFT,
                 metadata={'application_number': extra_app_num, 'term_months': e_term, **extra_calc},
             )
+            inherit_unit_charges(extra_lease)
             created_leases.append(extra_lease)
 
         return Response({
@@ -2413,24 +2477,46 @@ class BillingRunViewSet(OrganizationModelViewSet):
         generated = []
         for candidate in candidates:
             period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if (run.period_end.year - run.period_start.year)*12 + (run.period_end.month - run.period_start.month) >= 1 else run.period_start.strftime('%Y-%m')
-            invoice = Invoice.objects.create(
-                organization=run.organization, number=next_invoice_number(run.organization, year), lease=candidate.lease,
-                invoice_type='scheduled', issued_on=candidate.invoice_date, due_on=candidate.due_date,
-                subtotal=candidate.subtotal, tax_amount=candidate.tax_amount,
-                tax_rate=(candidate.tax_amount / candidate.subtotal * Decimal('100')).quantize(Decimal('0.01')) if candidate.subtotal else 0,
-                amount=candidate.total, balance=candidate.total, status=Invoice.Status.ISSUED,
-                prepared_by=run.created_by, reviewed_by=run.approved_by, reviewed_at=run.approved_at,
-                issued_by=request.user, issued_at=timezone.now(), metadata={'source': 'billing_run', 'billing_run_id': str(run.id), 'billing_period': period_key, 'period_start': str(run.period_start), 'period_end': str(run.period_end)},
-            )
+            # A charge dispute must not hold up unrelated rent or utilities. Each
+            # recurring charge therefore receives its own auditable invoice.
+            candidate_invoices = []
             for item in candidate.billing_items:
+                code = str(item.get('code') or 'charge').strip().lower()
+                invoice_type = {
+                    'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge',
+                    'water': 'water', 'electricity': 'electricity',
+                }.get(code, code[:40])
+                line_subtotal = Decimal(item['subtotal'])
+                line_tax = Decimal(item['tax_amount'])
+                line_total = Decimal(item['total'])
+                invoice = Invoice.objects.create(
+                    organization=run.organization, number=next_invoice_number(run.organization, year), lease=candidate.lease,
+                    invoice_type=invoice_type, issued_on=candidate.invoice_date, due_on=candidate.due_date,
+                    subtotal=line_subtotal, tax_amount=line_tax,
+                    tax_rate=(line_tax / line_subtotal * Decimal('100')).quantize(Decimal('0.01')) if line_subtotal else 0,
+                    amount=line_total, balance=line_total, status=Invoice.Status.ISSUED,
+                    prepared_by=run.created_by, reviewed_by=run.approved_by, reviewed_at=run.approved_at,
+                    issued_by=request.user, issued_at=timezone.now(), metadata={
+                        'source': 'billing_run', 'billing_run_id': str(run.id),
+                        'billing_candidate_id': str(candidate.id), 'billing_period': period_key,
+                        'period_start': str(run.period_start), 'period_end': str(run.period_end),
+                        'charge_code': item.get('code', ''),
+                    },
+                )
                 InvoiceLine.objects.create(
                     organization=run.organization, invoice=invoice,
                     billing_item_id=item.get('billing_item') or None, description=item['description'],
-                    quantity=Decimal(item['quantity']), unit_rate=Decimal(item['unit_rate']), subtotal=Decimal(item['subtotal']),
-                    tax_code=item.get('tax_code', ''), tax_rate=Decimal(item['tax_rate']), tax_amount=Decimal(item['tax_amount']), total=Decimal(item['total']),
+                    quantity=Decimal(item['quantity']), unit_rate=Decimal(item['unit_rate']), subtotal=line_subtotal,
+                    tax_code=item.get('tax_code', ''), tax_rate=Decimal(item['tax_rate']), tax_amount=line_tax, total=line_total,
                     source_type=item.get('source_type', ''), source_id=item.get('source_id', ''),
                 )
-            candidate.invoice = invoice; candidate.status = BillingCandidate.Status.GENERATED; candidate.save()
+                candidate_invoices.append(invoice)
+                generated.append(invoice)
+            primary = next((row for row in candidate_invoices if row.invoice_type == 'rent'), candidate_invoices[0])
+            candidate.invoice = primary
+            candidate.status = BillingCandidate.Status.GENERATED
+            candidate.save(update_fields=('invoice', 'status', 'updated_at'))
+            candidate.generated_invoices.add(*candidate_invoices)
             portal_access = TenantPortalAccess.objects.for_organization(run.organization).filter(
                 tenant=candidate.lease.tenant, is_active=True,
             ).select_related('user').first()
@@ -2438,17 +2524,16 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 Notification.objects.create(
                     organization=run.organization,
                     recipient=portal_access.user,
-                    title=f'New invoice: {invoice.number}',
-                    message=f'Your invoice of KES {invoice.amount:,.2f} is due on {invoice.due_on:%d %b %Y}.',
+                    title=f'{len(candidate_invoices)} new invoice(s) for {period_key}',
+                    message=f'Rent and recurring charges totalling KES {candidate.total:,.2f} are due on {candidate.due_date:%d %b %Y}. You may pay them together.',
                     level=Notification.Level.INFO,
                     action_url='/tenant-portal',
                     metadata={
-                        'invoice_id': str(invoice.id),
+                        'invoice_ids': [str(row.id) for row in candidate_invoices],
                         'billing_run_id': str(run.id),
                         'billing_period': run.period_start.strftime('%Y-%m'),
                     },
                 )
-            generated.append(invoice)
         if not run.candidates.filter(status=BillingCandidate.Status.READY, invoice__isnull=True).exists():
             run.status = BillingRun.Status.GENERATED; run.generated_at = timezone.now(); run.save(update_fields=('status', 'generated_at', 'updated_at'))
         return Response({'generated_count': len(generated), 'invoices': InvoiceSerializer(generated, many=True).data}, status=201)

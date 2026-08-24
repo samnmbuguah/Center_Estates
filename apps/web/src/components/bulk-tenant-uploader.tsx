@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { csvCell as get, csvColumn as col, normalizeCsvHeader as norm, parseCsv } from "@/lib/csv";
 
 type ParsedRow = {
   name: string; tenant_type: string; email: string; phone: string;
@@ -24,37 +25,6 @@ const TEMPLATE_HEADERS = [
   "unit_code","area","lease_start","lease_term_months","monthly_rent","rent_rate_per_sqft",
   "service_charge_rate_per_sqft","vat_rate","security_deposit","billing_day",
 ];
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], cell = "", quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
-    else if (c === '"') quoted = !quoted;
-    else if (c === ',' && !quoted) { row.push(cell.trim()); cell = ''; }
-    else if ((c === '\n' || c === '\r') && !quoted) {
-      if (c === '\r' && text[i+1] === '\n') i++;
-      row.push(cell.trim());
-      if (row.some(Boolean)) rows.push(row);
-      row = []; cell = '';
-    } else cell += c;
-  }
-  row.push(cell.trim());
-  if (row.some(Boolean)) rows.push(row);
-  return rows;
-}
-
-function norm(h: string) {
-  return h.replace(/^\uFEFF/,'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
-}
-
-function col(headers: string[], aliases: string[]): number {
-  const a = aliases.map(norm);
-  return a.reduce((f, x) => f >= 0 ? f : headers.indexOf(x), -1);
-}
-
-function get(row: string[], idx: number) { return idx >= 0 ? (row[idx] ?? '').trim() : ''; }
 
 function csvToRows(text: string): ParsedRow[] {
   const all = parseCsv(text);

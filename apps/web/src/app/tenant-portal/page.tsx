@@ -402,11 +402,14 @@ export default function TenantPortalPage() {
           >
             Pay selected ({selectedInvoiceIds.length}) · {cash.format(data.invoices.filter(invoice => selectedInvoiceIds.includes(String(invoice.id))).reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0))}
           </button>
+        ) : data.invoices.some(invoice => Number(invoice.balance) > 0 && ["issued", "partial", "overdue"].includes(String(invoice.status))) ? (
+          <button type="button" className="primary-action" disabled={paymentBusy !== null} onClick={() => void payInvoices(data.invoices.filter(invoice => Number(invoice.balance) > 0 && ["issued", "partial", "overdue"].includes(String(invoice.status))))}>Pay all outstanding</button>
         ) : undefined}>
           <PortalTable
             headers={[
               "Select",
               "Invoice #",
+              "Charge",
               "Due Date",
               "Amount",
               "Paid",
@@ -423,9 +426,10 @@ export default function TenantPortalPage() {
                 />
               ) : null,
               String(row.number),
+              String(row.invoice_type || "charge").replaceAll("_", " "),
               String(row.due_on),
-              cash.format(Number(row.total_amount)),
-              cash.format(Number(row.paid_amount)),
+              cash.format(Number(row.amount || row.total_amount || 0)),
+              cash.format(Number(row.amount || row.total_amount || 0) - Number(row.balance || 0)),
               cash.format(Number(row.balance)),
               String(row.status),
               <span key={String(row.id)} className="portal-action-group">

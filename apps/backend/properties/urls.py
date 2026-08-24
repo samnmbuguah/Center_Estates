@@ -13,7 +13,7 @@ from .views import (
     ServiceChargeReconciliationViewSet, ServiceChargeViewSet,
     TenantDocumentViewSet, TenantPortalAccessViewSet, TenantPortalViewSet,
     TaxConfigurationViewSet, TenantMovementViewSet, TenantViewSet,
-    UnitStatusHistoryViewSet, UnitViewSet,
+    UnitChargeRuleViewSet, UnitStatusHistoryViewSet, UnitViewSet,
 )
 
 router = DefaultRouter()
@@ -22,6 +22,7 @@ router.register('properties', PropertyViewSet)
 router.register('buildings', BuildingViewSet)
 router.register('parking-spaces', ParkingSpaceViewSet)
 router.register('units', UnitViewSet)
+router.register('unit-charge-rules', UnitChargeRuleViewSet)
 router.register('projects', ProjectViewSet)
 router.register('tenants', TenantViewSet)
 router.register('tenant-portal-access', TenantPortalAccessViewSet)

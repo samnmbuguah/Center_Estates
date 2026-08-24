@@ -106,6 +106,48 @@ class Unit(OrganizationOwnedModel):
         return f'{self.property.code}/{self.code}'
 
 
+class UnitChargeRule(OrganizationOwnedModel):
+    """Default recurring charge attached to a unit, inherited by new leases."""
+
+    class Frequency(models.TextChoices):
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        BIANNUAL = 'biannual', 'Biannual'
+        ANNUAL = 'annual', 'Annual'
+        ONE_OFF = 'one_off', 'One-off'
+        METERED = 'metered', 'Meter-based'
+        CUSTOM = 'custom', 'Custom schedule'
+
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name='charge_rules')
+    billing_item = models.ForeignKey('BillingItem', on_delete=models.PROTECT, related_name='unit_rules')
+    frequency = models.CharField(max_length=16, choices=Frequency.choices, default=Frequency.MONTHLY)
+    calculation = models.CharField(max_length=16, choices=(
+        ('fixed', 'Fixed amount'), ('area_rate', 'Rate per area'),
+        ('metered', 'Meter consumption'), ('percentage', 'Percentage'),
+        ('manual', 'Authorized manual amount'),
+    ), default='fixed')
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    rate = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    billing_day = models.PositiveSmallIntegerField(default=1)
+    custom_interval_months = models.PositiveSmallIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    instructions = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('unit__code', 'billing_item__name')
+        constraints = [models.UniqueConstraint(fields=('unit', 'billing_item'), name='unique_unit_billing_item_rule')]
+
+    def clean(self):
+        if self.unit_id and self.unit.organization_id != self.organization_id:
+            raise ValidationError('Unit charge rule must belong to the unit organization.')
+        if self.billing_item_id and self.billing_item.organization_id != self.organization_id:
+            raise ValidationError('Billing item must belong to the rule organization.')
+        if not 1 <= self.billing_day <= 28:
+            raise ValidationError({'billing_day': 'Billing day must be between 1 and 28.'})
+        if self.amount < 0 or self.rate < 0:
+            raise ValidationError('Charge amounts and rates cannot be negative.')
+
+
 class ParkingSpace(OrganizationOwnedModel):
     class Status(models.TextChoices):
         AVAILABLE = 'available', 'Available'
@@ -577,6 +619,7 @@ class BillingCandidate(OrganizationOwnedModel):
     exclusion_reason = models.TextField(blank=True)
     excluded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='excluded_billing_candidates')
     invoice = models.OneToOneField(Invoice, on_delete=models.PROTECT, null=True, blank=True, related_name='billing_candidate')
+    generated_invoices = models.ManyToManyField(Invoice, blank=True, related_name='billing_candidates')
 
     class Meta:
         ordering = ('lease__tenant__name',)

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useRef, useState } from "react";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { csvCell as get, csvColumn as col, normalizeCsvHeader as norm, parseCsv } from "@/lib/csv";
 
 type ParsedContractorRow = {
   name: string;
@@ -23,37 +24,6 @@ Schindler Lifts Kenya Ltd,VND-ELEV-01,Vertical Transportation & Lifts,Francis Mw
 CentAir Mechanical Engineering,VND-HVAC-02,HVAC & Central Chillers,Dennis Ochieng,contracts@centair.co.ke,+254733400500,+254711888222,P051987654Z,REG-CA-2015,Coast Region,4.6,active
 PowerTech Energy Systems,VND-GEN-03,Diesel Generators & Switchgear,Esther Wanjiru,support@powertech.co.ke,+254799000444,+254700777333,P051444333A,REG-PT-2020,Nationwide,4.9,active
 Metro Fire Safety Solutions,VND-FIRE-04,Fire Suppression & Life Safety,Peter Kimani,info@metrofire.co.ke,+254711222333,+254722555666,P051777888K,REG-MF-2019,Nairobi & Kiambu,4.7,active`;
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], cell = "", quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
-    else if (c === '"') quoted = !quoted;
-    else if (c === ',' && !quoted) { row.push(cell.trim()); cell = ""; }
-    else if ((c === "\n" || c === "\r") && !quoted) {
-      if (c === "\r" && text[i + 1] === "\n") i++;
-      row.push(cell.trim());
-      if (row.some(Boolean)) rows.push(row);
-      row = []; cell = "";
-    } else cell += c;
-  }
-  row.push(cell.trim());
-  if (row.some(Boolean)) rows.push(row);
-  return rows;
-}
-
-function norm(h: string) {
-  return h.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-}
-
-function col(headers: string[], aliases: string[]): number {
-  const a = aliases.map(norm);
-  return a.reduce((f, x) => f >= 0 ? f : headers.indexOf(x), -1);
-}
-
-function get(row: string[], idx: number) { return idx >= 0 ? (row[idx] ?? "").trim() : ""; }
 
 function csvToContractorRows(text: string): ParsedContractorRow[] {
   const all = parseCsv(text);

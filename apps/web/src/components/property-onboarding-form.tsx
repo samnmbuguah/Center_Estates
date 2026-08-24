@@ -14,62 +14,26 @@ import { useFormDraft } from "@/lib/form-drafts";
 import { usePropertyContext } from "@/lib/property-context";
 import { useToast } from "@/components/monitoring/hooks/useToast";
 import { DraftBanner } from "@/components/draft-banner";
+import { csvCell as cell, csvColumn as headerIndex, normalizeCsvHeader, parseCsv } from "@/lib/csv";
 
 type Values = Record<string, string>;
-type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; description: string; building_index: string };
+type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; service_charge_rate: string; description: string; building_index: string };
 type UnitImportRow = UnitDraft & { sourceRow: number; errors: Partial<Record<keyof UnitDraft, string>> };
-type UtilityDraft = { type: string; account_no: string; provider: string; bill_cycle: string; status: string; meter_code: string; supply_mode: string; initial_reading: string; reading_date: string; tariff: string; unit: string };
+type UtilityDraft = { type: string; account_no: string; provider: string; bill_cycle: string; status: string; meter_code: string; supply_mode: string; initial_reading: string; reading_date: string; tariff: string; unit: string; unit_code: string };
 type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
 type ContactDraft = { name: string; role: string; email: string; phone: string };
 type ProviderDraft = { name: string; service: string; contact: string; email: string; phone: string };
 type DocumentDraft = { name: string; type: string; reference: string; expires_on: string; file: File | null };
 type BuildingDraft = { name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
 
-const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", description: "", building_index: "" };
-const blankUtility: UtilityDraft = { type: "water", account_no: "", provider: "", bill_cycle: "monthly", status: "active", meter_code: "", supply_mode: "postpaid", initial_reading: "", reading_date: "", tariff: "0", unit: "m³" };
+const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", service_charge_rate: "0", description: "", building_index: "" };
+const blankUtility: UtilityDraft = { type: "water", account_no: "", provider: "", bill_cycle: "monthly", status: "active", meter_code: "", supply_mode: "postpaid", initial_reading: "", reading_date: "", tariff: "0", unit: "m³", unit_code: "" };
 const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity: "1", status: "active" };
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
 const blankProvider: ProviderDraft = { name: "", service: "", contact: "", email: "", phone: "" };
 const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "", file: null };
 const blankBuilding: BuildingDraft = { name: "", floors: "1", floor_numbers: "", use: "", access_points: "", parking_spaces: "0", amenities: "" };
 const initialValues: Values = { status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold" };
-
-function parseCsv(text: string) {
-  const rows: string[][] = [];
-  let row: string[] = [], cell = "", quoted = false;
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (character === '"' && quoted && text[index + 1] === '"') { cell += '"'; index += 1; }
-    else if (character === '"') quoted = !quoted;
-    else if (character === "," && !quoted) { row.push(cell.trim()); cell = ""; }
-    else if ((character === "\n" || character === "\r") && !quoted) {
-      if (character === "\r" && text[index + 1] === "\n") index += 1;
-      row.push(cell.trim());
-      if (row.some(Boolean)) rows.push(row);
-      row = []; cell = "";
-    } else cell += character;
-  }
-  row.push(cell.trim());
-  if (row.some(Boolean)) rows.push(row);
-  return rows;
-}
-
-function normalizeCsvHeader(value: string) {
-  return value
-    .replace(/^\uFEFF/, "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
-}
-
-function headerIndex(headers: string[], aliases: string[]) {
-  return aliases.map(normalizeCsvHeader).reduce((found, alias) => found >= 0 ? found : headers.indexOf(alias), -1);
-}
-
-function cell(row: string[], index: number) {
-  return index >= 0 ? (row[index] ?? "").trim() : "";
-}
 
 function normalizeNumber(value: string) {
   return value.replace(/[\s,]/g, "").trim();
@@ -197,6 +161,7 @@ export function PropertyOnboardingForm() {
               use: u.use || "Office",
               area: String(u.area || "500"),
               rateable_area: String(u.rateable_area || u.area || "500"),
+              service_charge_rate: String(u.service_charge_rate || u.metadata?.billing_setup?.service_charge_rate || "0"),
               description: u.description || "",
               building_index: "0",
             })));
@@ -251,6 +216,7 @@ export function PropertyOnboardingForm() {
       rateable_area: headerIndex(headers, ["rateable_area", "rateable_area_sq_ft", "rateable_area_sqft"]),
       building_index: headerIndex(headers, ["building_number", "building_index", "building"]),
       description: headerIndex(headers, ["description", "notes"]),
+      service_charge_rate: headerIndex(headers, ["service_charge_rate", "service_charge_per_sqft", "sc_rate"]),
     };
 
     if (columns.unit_no < 0) {
@@ -284,6 +250,7 @@ export function PropertyOnboardingForm() {
           rateable_area: columns.rateable_area >= 0 ? normalizeNumber(cell(row, columns.rateable_area)) : "",
           building_index: columns.building_index >= 0 ? cell(row, columns.building_index) : "",
           description: columns.description >= 0 ? cell(row, columns.description) : "",
+          service_charge_rate: columns.service_charge_rate >= 0 ? normalizeNumber(cell(row, columns.service_charge_rate)) : "0",
         };
       })
       .filter((u): u is UnitDraft => u !== null);
@@ -329,6 +296,7 @@ export function PropertyOnboardingForm() {
       rateable_area: normalizeNumber(row.rateable_area),
       building_index: row.building_index,
       description: row.description,
+      service_charge_rate: normalizeNumber(row.service_charge_rate),
     }))]);
     setUnitImportRows([]); setUnitImportFile(""); setError("");
     toast.success(`${validated.length} units were validated and added to this property draft.`);
@@ -389,10 +357,10 @@ export function PropertyOnboardingForm() {
   const importUtilities = async (file?: File) => {
     if (!file) return;
     const rows = parseCsv(await file.text());
-    const expected = ["utility_type", "supply_mode", "account_number", "provider", "bill_cycle", "meter_number", "opening_reading", "reading_date", "tariff", "unit", "status"];
+    const expected = ["utility_type", "supply_mode", "account_number", "provider", "bill_cycle", "meter_number", "opening_reading", "reading_date", "tariff", "unit", "status", "unit_code"];
     const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) { setError(`Utility CSV columns must be: ${expected.join(", ")}.`); jump("utilities"); return; }
-    const imported: UtilityDraft[] = rows.map(row => ({ type: (row[0] || "").toLowerCase(), supply_mode: (row[1] || "postpaid").toLowerCase(), account_no: row[2] ?? "", provider: row[3] ?? "", bill_cycle: row[4] || "monthly", meter_code: row[5] ?? "", initial_reading: row[6] ?? "", reading_date: row[7] ?? "", tariff: row[8] || "0", unit: row[9] || (row[0] === "electricity" ? "kWh" : "m³"), status: (row[10] || "active").toLowerCase() }));
+    const imported: UtilityDraft[] = rows.map(row => ({ type: (row[0] || "").toLowerCase(), supply_mode: (row[1] || "postpaid").toLowerCase(), account_no: row[2] ?? "", provider: row[3] ?? "", bill_cycle: row[4] || "monthly", meter_code: row[5] ?? "", initial_reading: row[6] ?? "", reading_date: row[7] ?? "", tariff: row[8] || "0", unit: row[9] || (row[0] === "electricity" ? "kWh" : "m³"), status: (row[10] || "active").toLowerCase(), unit_code: row[11] ?? "" }));
     const validTypes = ["water", "electricity", "sewerage", "gas", "internet"];
     const invalidType = imported.find(utility => !validTypes.includes(utility.type));
     const missingAccount = imported.find(utility => !utility.account_no && !utility.meter_code);
@@ -494,7 +462,7 @@ export function PropertyOnboardingForm() {
     <Box sx={{ display: "flex", alignItems: { xs: "flex-start", sm: "center" }, justifyContent: "space-between", gap: 2, mb: 2, flexDirection: { xs: "column", sm: "row" } }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/overview")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800, fontSize: { xs: "1.25rem", md: "1.5rem" } }}>{editId ? `Edit Property: ${values.name || "Loading..."}` : "Property Onboarding"}</Typography><Typography color="text.secondary" variant="body2">{editId ? "Update property details." : "Fill in property details, then add buildings and units."}</Typography></Box></Box>
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: { xs: "stretch", sm: "flex-end" }, width: { xs: "100%", sm: "auto" } }}>
-        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-template.csv", [["utility_type","supply_mode","account_number","provider","bill_cycle","meter_number","opening_reading","reading_date","tariff","unit","status"],["water","postpaid","WTR-100","County Water","monthly","MTR-WTR-100","250","2026-08-01","120","m³","active"],["electricity","prepaid","KPLC-200","KPLC","prepaid","MTR-KPLC-200","","","0","kWh","active"]])}>Template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
+        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-template.csv", [["utility_type","supply_mode","account_number","provider","bill_cycle","meter_number","opening_reading","reading_date","tariff","unit","status","unit_code"],["water","postpaid","WTR-100","County Water","monthly","MTR-WTR-100","250","2026-08-01","120","m³","active","G-01"],["electricity","prepaid","KPLC-200","KPLC","prepaid","MTR-KPLC-200","","","0","kWh","active","G-01"]])}>Template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
         <Button fullWidth={false} variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()} sx={{ minWidth: { xs: "100%", sm: 120 } }}>{saving ? "Saving…" : "Save & Close"}</Button>
       </Box>
     </Box>
@@ -575,7 +543,7 @@ export function PropertyOnboardingForm() {
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
           <Typography variant="body2" color="text.secondary">Add units manually or import from CSV (max 500 rows). Required columns: unit_no, unit_type, floor, use, area.</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [["unit_no","unit_type","floor","use","area","rateable_area","building_number","description"],["G-01","Shop","Ground","Commercial","850","820","1","Ground floor retail unit"]])}>Download template</Button>
+            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [["unit_no","unit_type","floor","use","area","rateable_area","building_number","service_charge_rate","description"],["G-01","Shop","Ground","Commercial","850","820","1","35","Ground floor retail unit"]])}>Download template</Button>
             <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
           </Box>
         </Box>
@@ -585,20 +553,20 @@ export function PropertyOnboardingForm() {
             <Chip color={unitImportRows.some((row) => Object.keys(row.errors).length) ? "error" : "success"} label={unitImportRows.some((row) => Object.keys(row.errors).length) ? `${unitImportRows.filter((row) => Object.keys(row.errors).length).length} rows need attention` : `${unitImportRows.length} rows ready`} />
           </Box>
           <Box sx={{ overflowX: "auto", maxHeight: 430 }}><Box component="table" sx={{ width: "100%", minWidth: 980, borderCollapse: "collapse", "th,td": { p: 1, borderBottom: "1px solid", borderColor: "divider", verticalAlign: "top" }, th: { position: "sticky", top: 0, bgcolor: "background.paper", zIndex: 1, textAlign: "left" } }}>
-            <thead><tr><th>CSV row</th>{["Unit no.", "Type", "Floor", "Use", "Area", "Rateable area", "Building #", "Description"].map((label) => <th key={label}>{label}</th>)}</tr></thead>
+            <thead><tr><th>CSV row</th>{["Unit no.", "Type", "Floor", "Use", "Area", "Rateable area", "Building #", "Service charge / sq ft", "Description"].map((label) => <th key={label}>{label}</th>)}</tr></thead>
             <tbody>{unitImportRows.map((row, index) => <tr key={`${row.sourceRow}-${index}`} style={{ background: Object.keys(row.errors).length ? "rgba(211, 47, 47, 0.07)" : undefined }}>
               <td><Chip size="small" label={row.sourceRow} color={Object.keys(row.errors).length ? "error" : "default"} /></td>
-              {(["unit_no", "unit_type", "floor", "use", "area", "rateable_area", "building_index", "description"] as (keyof UnitDraft)[]).map((field) => <td key={field}><TextField data-unit-import-error={Boolean(row.errors[field])} size="small" value={row[field]} error={Boolean(row.errors[field])} helperText={row.errors[field] || " "} onChange={(event) => editUnitImport(index, field, event.target.value)} slotProps={{ htmlInput: { "aria-label": `${field.replaceAll("_", " ")} row ${row.sourceRow}` } }} sx={{ minWidth: field === "description" ? 180 : 110 }} /></td>)}
+              {(["unit_no", "unit_type", "floor", "use", "area", "rateable_area", "building_index", "service_charge_rate", "description"] as (keyof UnitDraft)[]).map((field) => <td key={field}><TextField data-unit-import-error={Boolean(row.errors[field])} size="small" value={row[field]} error={Boolean(row.errors[field])} helperText={row.errors[field] || " "} onChange={(event) => editUnitImport(index, field, event.target.value)} slotProps={{ htmlInput: { "aria-label": `${field.replaceAll("_", " ")} row ${row.sourceRow}` } }} sx={{ minWidth: field === "description" ? 180 : 110 }} /></td>)}
             </tr>)}</tbody>
           </Box></Box>
           <Box sx={{ p: 1.5, display: "flex", justifyContent: "flex-end", gap: 1 }}><Button color="inherit" onClick={() => { setUnitImportRows([]); setUnitImportFile(""); setError(""); }}>Discard preview</Button><Button variant="contained" onClick={applyUnitImport}>Add validated units</Button></Box>
         </Paper>}
-        <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
+        <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Service charge / sq ft" value={unitDraft.service_charge_rate} onChange={e => setUnitDraft({ ...unitDraft, service_charge_rate: e.target.value })} helperText="Inherited by every tenancy" /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
         <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button><Divider sx={{ my: 2 }} /><RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—"]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
         <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}><Chip label={`Total units: ${units.length}`} /><Chip label={`Lettable area: ${totalArea.toLocaleString()} sq ft`} /><Chip label={`Vacant units: ${units.length}`} color="success" variant="outlined" /></Box>
       </Section>
 
-      <Section id="utilities" title="Utility accounts and meters"><Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Register the provider account and, for metered supplies, capture the opening reading. Future readings continue in Facility Management.</Typography><Grid columns={4}><TextField select label="Utility type" value={utilityDraft.type} onChange={e => { const type = e.target.value; setUtilityDraft({ ...utilityDraft, type, unit: type === "water" ? "m³" : type === "gas" ? "m³" : "kWh", supply_mode: type === "electricity" ? utilityDraft.supply_mode : "postpaid" }); }}>{["water","electricity","sewerage","gas","internet"].map(v => <MenuItem key={v} value={v}>{v[0].toUpperCase() + v.slice(1)}</MenuItem>)}</TextField>{utilityDraft.type === "electricity" && <TextField select label="Electricity billing" value={utilityDraft.supply_mode} onChange={e => setUtilityDraft({ ...utilityDraft, supply_mode: e.target.value })}><MenuItem value="prepaid">Prepaid / token</MenuItem><MenuItem value="postpaid">Postpaid / metered</MenuItem></TextField>}<TextField label="Account number" value={utilityDraft.account_no} onChange={e => setUtilityDraft({ ...utilityDraft, account_no: e.target.value })} /><TextField label="Provider" value={utilityDraft.provider} onChange={e => setUtilityDraft({ ...utilityDraft, provider: e.target.value })} /><TextField select label="Bill cycle" value={utilityDraft.bill_cycle} onChange={e => setUtilityDraft({ ...utilityDraft, bill_cycle: e.target.value })}><MenuItem value="monthly">Monthly</MenuItem><MenuItem value="bi_monthly">Every two months</MenuItem><MenuItem value="quarterly">Quarterly</MenuItem><MenuItem value="prepaid">Prepaid</MenuItem></TextField><TextField label="Meter number" value={utilityDraft.meter_code} onChange={e => setUtilityDraft({ ...utilityDraft, meter_code: e.target.value })} /><TextField type="number" label="Opening reading" value={utilityDraft.initial_reading} onChange={e => setUtilityDraft({ ...utilityDraft, initial_reading: e.target.value })} /><TextField type="date" label="Reading date" value={utilityDraft.reading_date} onChange={e => setUtilityDraft({ ...utilityDraft, reading_date: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="number" label={`Tariff (KES / ${utilityDraft.unit})`} value={utilityDraft.tariff} onChange={e => setUtilityDraft({ ...utilityDraft, tariff: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!utilityDraft.account_no.trim() && !utilityDraft.meter_code.trim()} onClick={() => { setUtilities(rows => [...rows, utilityDraft]); setUtilityDraft(blankUtility); }}>Add utility account</Button></Grid><Box sx={{ mt: 2 }}><RowList rows={utilities} columns={["Type","Billing","Account","Provider","Meter","Opening reading","Bill cycle"]} render={u => [u.type,u.type === "electricity" ? u.supply_mode : "Metered",u.account_no || "—",u.provider || "—",u.meter_code || "—",u.initial_reading ? `${u.initial_reading} ${u.unit}` : "—",u.bill_cycle]} onRemove={i => setUtilities(rows => rows.filter((_, index) => index !== i))} empty="No utility accounts or meters added." /></Box></Section>
+      <Section id="utilities" title="Utility accounts and meters"><Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Register the provider account and, for metered supplies, capture the opening reading. Future readings continue in Facility Management.</Typography><Grid columns={4}><TextField select label="Utility type" value={utilityDraft.type} onChange={e => { const type = e.target.value; setUtilityDraft({ ...utilityDraft, type, unit: type === "water" ? "m³" : type === "gas" ? "m³" : "kWh", supply_mode: type === "electricity" ? utilityDraft.supply_mode : "postpaid" }); }}>{["water","electricity","sewerage","gas","internet"].map(v => <MenuItem key={v} value={v}>{v[0].toUpperCase() + v.slice(1)}</MenuItem>)}</TextField>{utilityDraft.type === "electricity" && <TextField select label="Electricity billing" value={utilityDraft.supply_mode} onChange={e => setUtilityDraft({ ...utilityDraft, supply_mode: e.target.value })}><MenuItem value="prepaid">Prepaid / token</MenuItem><MenuItem value="postpaid">Postpaid / metered</MenuItem></TextField>}<TextField label="Account number" value={utilityDraft.account_no} onChange={e => setUtilityDraft({ ...utilityDraft, account_no: e.target.value })} /><TextField label="Provider" value={utilityDraft.provider} onChange={e => setUtilityDraft({ ...utilityDraft, provider: e.target.value })} /><TextField select label="Bill cycle" value={utilityDraft.bill_cycle} onChange={e => setUtilityDraft({ ...utilityDraft, bill_cycle: e.target.value })}><MenuItem value="monthly">Monthly</MenuItem><MenuItem value="bi_monthly">Every two months</MenuItem><MenuItem value="quarterly">Quarterly</MenuItem><MenuItem value="prepaid">Prepaid</MenuItem></TextField><TextField label="Meter number" value={utilityDraft.meter_code} onChange={e => setUtilityDraft({ ...utilityDraft, meter_code: e.target.value })} /><TextField select label="Assigned unit" value={utilityDraft.unit_code} onChange={e => setUtilityDraft({ ...utilityDraft, unit_code: e.target.value })}><MenuItem value="">Property bulk meter</MenuItem>{units.map(unit => <MenuItem key={unit.unit_no} value={unit.unit_no}>{unit.unit_no}</MenuItem>)}</TextField><TextField type="number" label="Opening reading" value={utilityDraft.initial_reading} onChange={e => setUtilityDraft({ ...utilityDraft, initial_reading: e.target.value })} /><TextField type="date" label="Reading date" value={utilityDraft.reading_date} onChange={e => setUtilityDraft({ ...utilityDraft, reading_date: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="number" label={`Tariff (KES / ${utilityDraft.unit})`} value={utilityDraft.tariff} onChange={e => setUtilityDraft({ ...utilityDraft, tariff: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!utilityDraft.account_no.trim() && !utilityDraft.meter_code.trim()} onClick={() => { setUtilities(rows => [...rows, utilityDraft]); setUtilityDraft(blankUtility); }}>Add utility account</Button></Grid><Box sx={{ mt: 2 }}><RowList rows={utilities} columns={["Type","Billing","Account","Provider","Meter","Opening reading","Bill cycle"]} render={u => [u.type,u.type === "electricity" ? u.supply_mode : "Metered",u.account_no || "—",u.provider || "—",u.meter_code || "—",u.initial_reading ? `${u.initial_reading} ${u.unit}` : "—",u.bill_cycle]} onRemove={i => setUtilities(rows => rows.filter((_, index) => index !== i))} empty="No utility accounts or meters added." /></Box></Section>
 
       <Section id="assets" title="Assets — property fixtures and equipment"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Register assets individually or import an asset register from CSV.</Typography><Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-asset-template.csv", [["asset_name","category","location","quantity","status"],["Passenger lift","Vertical transport","Block A","1","active"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload asset CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importAssets(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Asset name" value={assetDraft.name} onChange={e => setAssetDraft({ ...assetDraft, name: e.target.value })} /><TextField label="Category" value={assetDraft.category} onChange={e => setAssetDraft({ ...assetDraft, category: e.target.value })} /><TextField label="Location" value={assetDraft.location} onChange={e => setAssetDraft({ ...assetDraft, location: e.target.value })} /><TextField type="number" label="Quantity" value={assetDraft.quantity} onChange={e => setAssetDraft({ ...assetDraft, quantity: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!assetDraft.name.trim()} onClick={() => { setAssets(rows => [...rows, assetDraft]); setAssetDraft(blankAsset); }}>Add asset</Button></Grid><RowList rows={assets} columns={["Asset","Category","Location","Qty","Status"]} render={a => [a.name,a.category,a.location,a.quantity,a.status]} onRemove={i => setAssets(rows => rows.filter((_, index) => index !== i))} empty="No assets added yet." /></Section>
 
