@@ -45,6 +45,7 @@ const Transition = forwardRef(function Transition(
 type UnitChargeRule = { id: string; billing_item_name: string; billing_item_code: string; calculation: string; amount: string | number; rate: string | number; frequency: string };
 type Unit = { id: string; code: string; floor?: string; unit_type?: string; area?: string | number; status?: string; charge_rules?: UnitChargeRule[] };
 type PropertyDetails = { address?: string; city?: string; country?: string; metadata?: Record<string, unknown> };
+type ParkingSpace = { id: string; code: string; floor_or_zone?: string; space_type?: string; status?: string };
 
 const initialForm = {
   name: "",
@@ -71,6 +72,13 @@ const initialForm = {
   billing_day: "1",
   escalation_percent: "0",
   escalation_interval_months: "12",
+  parking_space: "",
+  parking_monthly_fee: "0",
+  opening_balance_amount: "0",
+  opening_balance_as_of: "",
+  opening_balance_previous_agent: "",
+  opening_balance_reference: "",
+  opening_balance_notes: "",
 };
 
 const applicationSections = ["tenant-general", "tenant-lease", "tenant-review"] as const;
@@ -107,6 +115,7 @@ export function TenantApplicationCard({
   const draftScope = `${organizationId || "unknown"}:${session?.user.id || "unknown"}:${activeProperty?.id || "no-property"}`;
   const [form, setForm, clearForm, formRestored, formSavedAt] = useFormDraft("tenant-application:form", initialForm, draftScope);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [parkingSpaces, setParkingSpaces] = useState<ParkingSpace[]>([]);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [lettingFee, setLettingFee, clearLettingFee] = useFormDraft("tenant-application:letting-fee", false, draftScope);
   const [renewalFee, setRenewalFee, clearRenewalFee] = useFormDraft("tenant-application:renewal-fee", false, draftScope);
@@ -137,8 +146,9 @@ export function TenantApplicationCard({
     if (!open || !organizationId || !activeProperty?.id) return;
     Promise.all([
       apiFetch("/property/units/?status=available", {}, organizationId).then(async (response) => (response.ok ? response.json() : [])),
+      apiFetch(`/property/parking-spaces/?property=${activeProperty.id}&status=available`, {}, organizationId).then(async (response) => (response.ok ? response.json() : [])),
       apiFetch(`/property/properties/${activeProperty.id}/`, {}, organizationId).then(async (response) => (response.ok ? response.json() : null)),
-    ]).then(([unitData, propertyData]) => {
+    ]).then(([unitData, parkingData, propertyData]) => {
       setUnits(
         (Array.isArray(unitData) ? unitData : unitData.results ?? []).map((row: Record<string, unknown>) => ({
           id: String(row.id),
@@ -150,6 +160,10 @@ export function TenantApplicationCard({
           charge_rules: Array.isArray(row.charge_rules) ? row.charge_rules as UnitChargeRule[] : [],
         }))
       );
+      setParkingSpaces((Array.isArray(parkingData) ? parkingData : parkingData.results ?? []).map((row: Record<string, unknown>) => ({
+        id: String(row.id), code: String(row.code), floor_or_zone: String(row.floor_or_zone ?? ""),
+        space_type: String(row.space_type ?? "standard"), status: String(row.status ?? "available"),
+      })));
       if (!propertyData) return;
       const details = propertyData as PropertyDetails;
       setPropertyDetails(details);
@@ -196,6 +210,8 @@ export function TenantApplicationCard({
   };
   const serviceCharge = chargeAmount(selectedUnit, "SERVICE_CHARGE") || chargeAmount(selectedUnit, "SC");
   const subtotal = rent + serviceCharge;
+  const parkingFee = form.parking_space ? Number(form.parking_monthly_fee || 0) : 0;
+  const openingBalance = Number(form.opening_balance_amount || 0);
   const vat = (subtotal * Number(form.vat_rate || 0)) / 100;
 
   // Compute extra units totals
@@ -353,6 +369,17 @@ export function TenantApplicationCard({
                   billing_day: Number(form.billing_day || 1),
                 };
               }),
+            parking_assignments: form.parking_space ? [{
+              parking_space: form.parking_space,
+              monthly_fee: parkingFee,
+            }] : [],
+            opening_balance: {
+              amount: openingBalance,
+              as_of: form.opening_balance_as_of || form.starts_on || new Date().toISOString().slice(0, 10),
+              previous_agent: form.opening_balance_previous_agent,
+              reference: form.opening_balance_reference,
+              notes: form.opening_balance_notes,
+            },
             charges,
           }),
         },
@@ -383,11 +410,13 @@ export function TenantApplicationCard({
   const summary = [
     ["Monthly rent (excl. VAT)", rent],
     ["Monthly service charge (excl. VAT)", serviceCharge],
+    ["Monthly parking fee", parkingFee],
     ["Total monthly recurring (excl. VAT)", subtotal],
     ["VAT amount (16%)", vat],
     ["Total monthly amount (inc. VAT)", subtotal + vat],
     ["Security deposit (refundable)", Number(form.security_deposit || 0)],
-    ["Total initial move-in payable", total],
+    ["Opening arrears brought forward", openingBalance],
+    ["Total initial move-in payable", total + parkingFee + openingBalance],
   ] as const;
 
   return (
@@ -637,6 +666,42 @@ export function TenantApplicationCard({
                     </MenuItem>,
                   ],
                 })}
+              </Box>
+
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.5, color: "var(--text)" }}>
+                Parking allocation and recurring fee
+              </Typography>
+              <Typography variant="body2" sx={{ color: "var(--text-secondary)", mb: 2 }}>
+                Reserve an available bay for this tenancy. Its fee is invoiced separately from rent for clear reconciliation.
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, gap: 2 }}>
+                {input("Parking bay (optional)", "parking_space", {
+                  select: true,
+                  children: [
+                    <MenuItem key="none" value="">No parking allocation</MenuItem>,
+                    ...parkingSpaces.map((space) => <MenuItem key={space.id} value={space.id}>{space.code} · {space.floor_or_zone || "Unzoned"} · {space.space_type}</MenuItem>),
+                  ],
+                })}
+                {input("Monthly parking fee (KES)", "parking_monthly_fee", {
+                  type: "number", disabled: !form.parking_space,
+                  inputProps: { min: 0, step: 0.01 }, helperText: "Billed as a separate parking invoice",
+                })}
+              </Box>
+
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.5, color: "var(--text)" }}>
+                Existing arrears / opening balance
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Use this only for verified debt inherited from a previous agent or system. It remains separate from current rent income and preserves its source reference.
+              </Alert>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 2 }}>
+                {input("Opening arrears amount (KES)", "opening_balance_amount", { type: "number", inputProps: { min: 0, step: 0.01 } })}
+                {input("Balance as at", "opening_balance_as_of", { type: "date", slotProps: { inputLabel: { shrink: true } }, disabled: !openingBalance })}
+                {input("Previous managing agent", "opening_balance_previous_agent", { disabled: !openingBalance })}
+                {input("Source statement / reference", "opening_balance_reference", { disabled: !openingBalance })}
+                {input("Opening balance notes", "opening_balance_notes", { disabled: !openingBalance, multiline: true, minRows: 2, sx: { gridColumn: { md: "span 2" } } })}
               </Box>
 
               {/* MULTI-UNIT / MULTI-FLOOR LEASE EXPANSION */}

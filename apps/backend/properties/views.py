@@ -36,7 +36,7 @@ from .models import (
     PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation,
     RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
-    TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, UnitStatusHistory, LeaseEscalation,
+    TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment, UnitStatusHistory, LeaseEscalation,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -46,7 +46,7 @@ from .serializers import (
     PaymentIntentSerializer, ProjectSerializer, PropertySerializer,
     ReceiptAllocationSerializer, ReceiptSerializer, RentScheduleSerializer, ReportDefinitionSerializer,
     ReportExecutionSerializer, ScheduledReportSerializer,
-    ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer, ParkingSpaceSerializer,
+    ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer, ParkingSpaceSerializer, ParkingAssignmentSerializer,
     ServiceChargeSerializer, TaxConfigurationSerializer, TenantDocumentSerializer,
     TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
     UnitSerializer, UnitChargeRuleSerializer, UnitStatusHistorySerializer,
@@ -140,6 +140,18 @@ def next_invoice_number(organization, year):
     values = Invoice.objects.for_organization(organization).filter(number__startswith=f'INV-{year}-').values_list('number', flat=True)
     sequences = [int(value.rsplit('-', 1)[-1]) for value in values if value.rsplit('-', 1)[-1].isdigit()]
     return f'INV-{year}-{max(sequences, default=0) + 1:06d}'
+
+
+def activate_lease_allocations(lease, user):
+    """Promote reserved operational/financial records when a draft lease becomes active."""
+    for allocation in lease.parking_assignments.filter(status=ParkingAssignment.Status.RESERVED).select_related('parking_space'):
+        allocation.status = ParkingAssignment.Status.ACTIVE
+        allocation.save(update_fields=('status', 'updated_at'))
+        allocation.parking_space.status = ParkingSpace.Status.ASSIGNED
+        allocation.parking_space.save(update_fields=('status', 'updated_at'))
+    Invoice.objects.filter(lease=lease, invoice_type='opening_balance', status=Invoice.Status.DRAFT).update(
+        status=Invoice.Status.ISSUED, issued_by=user, issued_at=timezone.now(), updated_at=timezone.now()
+    )
 
 
 class OrganizationModelViewSet(ModelViewSet):
@@ -759,6 +771,23 @@ class ParkingSpaceViewSet(OrganizationModelViewSet):
     serializer_class = ParkingSpaceSerializer
     search_fields = ('code', 'floor_or_zone', 'property__name', 'building__name', 'unit__code')
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_value = self.request.query_params.get('status')
+        property_id = self.request.query_params.get('property')
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+        if property_id:
+            queryset = queryset.filter(property_id=property_id)
+        return queryset
+
+
+class ParkingAssignmentViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = ParkingAssignment.objects.select_related('parking_space__property', 'lease__tenant', 'lease__unit')
+    serializer_class = ParkingAssignmentSerializer
+    search_fields = ('parking_space__code', 'lease__tenant__name', 'lease__unit__code')
+
 
 class UnitViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
@@ -824,8 +853,14 @@ class TenantViewSet(OrganizationModelViewSet):
                 'detail': f"Cannot delete tenant '{tenant.name}' ({tenant.code}) because active leases or financial transactions (invoices/receipts) exist. Mark status as 'Former' or 'Suspended' instead."
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Clean up draft leases, documents, movements, portal accesses
-        Lease.objects.filter(organization=organization, tenant=tenant, status=Lease.Status.DRAFT).delete()
+        # Clean up draft leases and release any bays reserved by an abandoned application.
+        draft_leases = Lease.objects.filter(organization=organization, tenant=tenant, status=Lease.Status.DRAFT)
+        reserved_spaces = ParkingSpace.objects.filter(
+            assignments__lease__in=draft_leases,
+            assignments__status=ParkingAssignment.Status.RESERVED,
+        ).distinct()
+        reserved_spaces.update(status=ParkingSpace.Status.AVAILABLE, unit=None, updated_at=timezone.now())
+        draft_leases.delete()
         TenantMovement.objects.filter(organization=organization, tenant=tenant).delete()
         TenantDocument.objects.filter(organization=organization, tenant=tenant).delete()
         TenantPortalAccess.objects.filter(organization=organization, tenant=tenant).delete()
@@ -863,6 +898,7 @@ class TenantViewSet(OrganizationModelViewSet):
                     generate_rent_schedule(lease)
                     lease.unit.status = Unit.Status.OCCUPIED
                     lease.unit.save(update_fields=('status', 'updated_at'))
+                    activate_lease_allocations(lease, request.user)
                     activated_leases.append(lease.reference)
 
         return Response({
@@ -906,6 +942,7 @@ class TenantViewSet(OrganizationModelViewSet):
                         generate_rent_schedule(lease)
                         lease.unit.status = Unit.Status.OCCUPIED
                         lease.unit.save(update_fields=('status', 'updated_at'))
+                        activate_lease_allocations(lease, request.user)
                         total_activated_leases += 1
 
         return Response({
@@ -1067,6 +1104,82 @@ class TenantViewSet(OrganizationModelViewSet):
                 BillingProfile.objects.bulk_create(profiles)
 
         inherit_unit_charges(lease)
+
+        # Parking is a separately billed service, while allocation remains traceable by bay.
+        parking_payload = request.data.get('parking_assignments') if isinstance(request.data.get('parking_assignments'), list) else []
+        parking_total = Decimal('0.00')
+        seen_spaces = set()
+        for index, allocation in enumerate(parking_payload, 1):
+            try:
+                monthly_fee = Decimal(str(allocation.get('monthly_fee', 0))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            except Exception:
+                raise ValidationError({'parking_assignments': f'Parking row {index} has an invalid monthly fee.'})
+            if monthly_fee < 0:
+                raise ValidationError({'parking_assignments': f'Parking row {index} fee cannot be negative.'})
+            try:
+                space = ParkingSpace.objects.select_for_update().for_organization(organization).get(
+                    pk=allocation.get('parking_space'), property=unit.property,
+                )
+            except (ParkingSpace.DoesNotExist, ValueError, TypeError):
+                raise ValidationError({'parking_assignments': f'Parking row {index} does not reference an available bay at this property.'})
+            if space.pk in seen_spaces or space.status != ParkingSpace.Status.AVAILABLE:
+                raise ValidationError({'parking_assignments': f'Parking bay {space.code} is no longer available.'})
+            seen_spaces.add(space.pk)
+            ParkingAssignment.objects.create(
+                organization=organization, parking_space=space, lease=lease,
+                monthly_fee=monthly_fee, starts_on=starts_on, ends_on=ends_on,
+                status=ParkingAssignment.Status.RESERVED,
+                notes=str(allocation.get('notes', '')).strip(),
+            )
+            space.status = ParkingSpace.Status.RESERVED
+            space.unit = unit
+            space.save(update_fields=('status', 'unit', 'updated_at'))
+            parking_total += monthly_fee
+
+        if parking_total > 0:
+            parking_item, _ = BillingItem.objects.get_or_create(
+                organization=organization, code='PARKING',
+                defaults={'name': 'Parking fee', 'calculation': BillingItem.Calculation.FIXED, 'income_category': 'Parking', 'is_recurring': True},
+            )
+            BillingProfile.objects.create(
+                organization=organization, lease=lease, billing_item=parking_item,
+                frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+                amount=parking_total, effective_from=starts_on, effective_to=ends_on,
+                billing_day=lease.billing_day, instructions='Recurring parking fees from allocated bays.',
+            )
+
+        # Imported debt is its own draft opening-balance document, not current-period rent income.
+        opening_payload = request.data.get('opening_balance') if isinstance(request.data.get('opening_balance'), dict) else {}
+        try:
+            opening_amount = Decimal(str(opening_payload.get('amount', 0))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        except Exception:
+            raise ValidationError({'opening_balance.amount': 'Enter a valid opening arrears amount.'})
+        if opening_amount < 0:
+            raise ValidationError({'opening_balance.amount': 'Opening arrears cannot be negative.'})
+        if opening_amount > 0:
+            try:
+                balance_date = date.fromisoformat(str(opening_payload.get('as_of') or starts_on.isoformat()))
+            except ValueError:
+                raise ValidationError({'opening_balance.as_of': 'Enter a valid opening balance date.'})
+            opening_item, _ = BillingItem.objects.get_or_create(
+                organization=organization, code='OPENING_BALANCE',
+                defaults={'name': 'Opening arrears', 'calculation': BillingItem.Calculation.MANUAL, 'income_category': 'Opening balances', 'is_recurring': False},
+            )
+            invoice = Invoice.objects.create(
+                organization=organization, number=next_invoice_number(organization, balance_date.year), lease=lease,
+                invoice_type='opening_balance', issued_on=balance_date, due_on=max(balance_date, starts_on),
+                subtotal=opening_amount, tax_rate=0, tax_amount=0, amount=opening_amount, balance=opening_amount,
+                status=Invoice.Status.DRAFT, prepared_by=request.user,
+                metadata={'legacy_balance': True, 'previous_agent': str(opening_payload.get('previous_agent', '')).strip(),
+                          'reference': str(opening_payload.get('reference', '')).strip(),
+                          'notes': str(opening_payload.get('notes', '')).strip()},
+            )
+            InvoiceLine.objects.create(
+                organization=organization, invoice=invoice, billing_item=opening_item,
+                description='Opening arrears brought forward', quantity=1, unit_rate=opening_amount,
+                subtotal=opening_amount, tax_rate=0, tax_amount=0, total=opening_amount,
+                source_type='opening_balance', source_id=str(tenant.pk), metadata=invoice.metadata,
+            )
 
         created_leases = [lease]
         additional_leases_data = request.data.get('additional_leases') if isinstance(request.data.get('additional_leases'), list) else []
@@ -1452,6 +1565,7 @@ class LeaseViewSet(OrganizationModelViewSet):
                 if lease.tenant.status == Tenant.Status.PROSPECT:
                     lease.tenant.status = Tenant.Status.ACTIVE
                     lease.tenant.save(update_fields=('status', 'updated_at'))
+                activate_lease_allocations(lease, request.user)
                 dirty = True
 
             if dirty:
@@ -1482,6 +1596,7 @@ class LeaseViewSet(OrganizationModelViewSet):
         if lease.tenant.status == Tenant.Status.PROSPECT:
             lease.tenant.status = Tenant.Status.ACTIVE
             lease.tenant.save(update_fields=('status', 'updated_at'))
+        activate_lease_allocations(lease, request.user)
         return Response(self.get_serializer(lease).data)
 
     @transaction.atomic
@@ -1511,6 +1626,7 @@ class LeaseViewSet(OrganizationModelViewSet):
                     if lease.tenant.status == Tenant.Status.PROSPECT:
                         lease.tenant.status = Tenant.Status.ACTIVE
                         lease.tenant.save(update_fields=('status', 'updated_at'))
+                    activate_lease_allocations(lease, request.user)
                     activated_count += 1
 
         return Response({

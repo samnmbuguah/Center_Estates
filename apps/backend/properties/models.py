@@ -188,6 +188,38 @@ class ParkingSpace(OrganizationOwnedModel):
         return f'{self.property.code}/{self.code}'
 
 
+class ParkingAssignment(OrganizationOwnedModel):
+    """Auditable allocation of a parking bay to a tenancy."""
+
+    class Status(models.TextChoices):
+        RESERVED = 'reserved', 'Reserved pending tenancy approval'
+        ACTIVE = 'active', 'Active'
+        RELEASED = 'released', 'Released'
+
+    parking_space = models.ForeignKey(ParkingSpace, on_delete=models.PROTECT, related_name='assignments')
+    lease = models.ForeignKey('Lease', on_delete=models.CASCADE, related_name='parking_assignments')
+    monthly_fee = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    starts_on = models.DateField()
+    ends_on = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.RESERVED)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('parking_space__code', '-starts_on')
+
+    def clean(self):
+        if self.parking_space_id and self.parking_space.organization_id != self.organization_id:
+            raise ValidationError('Parking assignment must belong to the parking-space organization.')
+        if self.lease_id and self.lease.organization_id != self.organization_id:
+            raise ValidationError('Parking assignment must belong to the lease organization.')
+        if self.parking_space_id and self.lease_id and self.parking_space.property_id != self.lease.unit.property_id:
+            raise ValidationError({'parking_space': 'Parking space and lease must belong to the same property.'})
+        if self.monthly_fee < 0:
+            raise ValidationError({'monthly_fee': 'Monthly parking fee cannot be negative.'})
+        if self.ends_on and self.ends_on < self.starts_on:
+            raise ValidationError({'ends_on': 'End date cannot precede the allocation start date.'})
+
+
 class Project(OrganizationOwnedModel):
     class Status(models.TextChoices):
         PLANNED = 'planned', 'Planned'

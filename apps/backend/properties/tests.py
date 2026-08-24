@@ -26,7 +26,7 @@ from .models import (
     PaymentWebhookEvent, Property, Receipt, ReceiptAllocation, RentSchedule,
     ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
-    TaxConfiguration, TenantMovement, Unit, UnitChargeRule, UnitStatusHistory,
+    TaxConfiguration, TenantMovement, Unit, UnitChargeRule, UnitStatusHistory, ParkingSpace, ParkingAssignment,
 )
 
 
@@ -718,6 +718,49 @@ class PropertyApiTests(TestCase):
         premature = self.client.post(f'/api/v1/property/rent-schedules/{schedules[0].id}/generate-invoice/', {}, format='json', **self.headers)
         self.assertEqual(premature.status_code, 400)
         self.assertIn('commencement', str(premature.data).lower())
+
+    def test_tenant_onboarding_reserves_parking_and_records_opening_arrears_separately(self):
+        unit = Unit.objects.create(
+            organization=self.organization, property=self.property, code='PARK-UNIT',
+            area=Decimal('500'), status=Unit.Status.AVAILABLE,
+        )
+        bay = ParkingSpace.objects.create(
+            organization=self.organization, property=self.property, code='B2-014',
+            floor_or_zone='Basement 2', status=ParkingSpace.Status.AVAILABLE,
+        )
+        response = self.client.post('/api/v1/property/tenants/onboard/', {
+            'tenant': {'name': 'Opening Balance Tenant', 'tenant_type': 'company'},
+            'lease': {
+                'unit': str(unit.id), 'starts_on': '2026-09-01', 'term_months': 12,
+                'monthly_rent': '50000', 'billing_day': 5, 'vat_rate': 0,
+            },
+            'parking_assignments': [{'parking_space': str(bay.id), 'monthly_fee': '7500'}],
+            'opening_balance': {
+                'amount': '125000', 'as_of': '2026-08-31',
+                'previous_agent': 'Previous Agency Ltd', 'reference': 'STATEMENT-2026-08',
+                'notes': 'Verified handover balance',
+            },
+        }, format='json', HTTP_X_PROPERTY_ID=str(self.property.id), **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        lease = Lease.objects.get(pk=response.data['lease']['id'])
+        allocation = ParkingAssignment.objects.get(lease=lease)
+        self.assertEqual(allocation.status, ParkingAssignment.Status.RESERVED)
+        self.assertEqual(allocation.monthly_fee, Decimal('7500'))
+        bay.refresh_from_db()
+        self.assertEqual(bay.status, ParkingSpace.Status.RESERVED)
+        self.assertEqual(lease.billing_profiles.get(billing_item__code='PARKING').amount, Decimal('7500'))
+        opening = Invoice.objects.get(lease=lease, invoice_type='opening_balance')
+        self.assertEqual(opening.status, Invoice.Status.DRAFT)
+        self.assertEqual(opening.balance, Decimal('125000'))
+        self.assertEqual(opening.metadata['previous_agent'], 'Previous Agency Ltd')
+        self.assertEqual(opening.lines.get().source_type, 'opening_balance')
+
+        activated = self.client.post(f'/api/v1/property/leases/{lease.id}/activate/', {}, format='json', **self.headers)
+        self.assertEqual(activated.status_code, 200, activated.data)
+        allocation.refresh_from_db(); bay.refresh_from_db(); opening.refresh_from_db()
+        self.assertEqual(allocation.status, ParkingAssignment.Status.ACTIVE)
+        self.assertEqual(bay.status, ParkingSpace.Status.ASSIGNED)
+        self.assertEqual(opening.status, Invoice.Status.ISSUED)
 
     def test_delete_duplicate_tenant_and_protected_tenant(self):
         # 1. Create a duplicate/erroneous tenant with no active leases or invoices

@@ -42,7 +42,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # Faster password hashing for tests
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.MD5PasswordHasher',
-    'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
 ]
 
 # Disable migrations for faster test runs
