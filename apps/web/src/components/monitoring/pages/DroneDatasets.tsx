@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "@/components/monitoring/react-router-shim";
+import { 
+  Download, Upload, Plane, MapPin, Calendar, FileText, 
+  Activity, AlertTriangle, CheckCircle2, Eye, Layers, 
+  Filter, Search, BarChart3, Globe, Thermometer, Cloud
+} from "lucide-react";
 
 import { get, patch, post } from "../api";
 import { droneUploadChunk } from "../api";
@@ -18,7 +23,7 @@ export function DroneDatasets() {
   const [datasets, setDatasets] = useState<DroneRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<DroneRow | null>(null);
-  const [activeTab, setActiveTab] = useState<"reviews" | "audit" | "sign">("reviews");
+  const [activeTab, setActiveTab] = useState<"reviews" | "audit" | "sign" | "analytics">("reviews");
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditRow[]>([]);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -29,9 +34,43 @@ export function DroneDatasets() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadForm, setUploadForm] = useState({ data_type: "image", operator_id: "", flight_date: "", classification: "informational", milestone_id: "" });
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  
+  // Enhanced filtering and analytics
+  const [filterType, setFilterType] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const load = () => get<DroneRow[]>(`/projects/${id}/drone-datasets`).then(setDatasets).catch(e => setError(e.message));
   useEffect(() => { load(); }, [id]);
+
+  // Filter datasets
+  const filteredDatasets = datasets.filter(ds => {
+    const matchesType = !filterType || ds.data_type === filterType;
+    const matchesStatus = !filterStatus || ds.review_status === filterStatus;
+    const matchesSearch = !searchQuery || 
+      ds.operator_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ds.data_type?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesStatus && matchesSearch;
+  });
+
+  // Calculate statistics
+  const stats = {
+    total: datasets.length,
+    byType: datasets.reduce((acc, ds) => {
+      acc[ds.data_type] = (acc[ds.data_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>),
+    byStatus: datasets.reduce((acc, ds) => {
+      acc[ds.review_status] = (acc[ds.review_status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>),
+    compliant: datasets.filter(ds => ds.compliance_declared).length,
+    storageDistribution: datasets.reduce((acc, ds) => {
+      acc[ds.storage_tier] = (acc[ds.storage_tier] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>),
+  };
 
   const submit = () => {
     setError(null);
@@ -128,30 +167,196 @@ export function DroneDatasets() {
       <h2>Drone &amp; Satellite Datasets</h2>
       <ErrorBanner message={error} />
 
-      <div className="card">
-        <table>
-          <thead><tr>
-            <th>Type</th><th>Flight Date</th><th>Operator</th><th>Classification</th>
-            <th>Status</th><th>Tier</th><th>Compliant</th><th>Outputs</th><th></th><th></th>
-          </tr></thead>
-          <tbody>
-            {datasets.map(d => (
-              <tr key={d.id} className={selected?.id === d.id ? "active-row" : ""}>
-                <td>{d.data_type}</td><td>{d.flight_date}</td>
-                <td className="mono">{d.operator_id || "—"}</td>
-                <td>{d.classification}</td>
-                <td><span className={`badge badge-${d.review_status === "reviewed" || d.review_status === "linked" ? "success" : d.review_status === "under_review" ? "warn" : "muted"}`}>{d.review_status}</span></td>
-                <td>{d.storage_tier}</td>
-                <td>{d.compliance_declared ? "Yes" : "No"}</td>
-                <td>{Object.keys(d.key_outputs || {}).length}</td>
-                <td><button className="btn ghost sm" onClick={() => select(d)}>Review</button></td>
-                <td>{can("documents.upload") && <button className="btn ghost sm" onClick={() => setConfirmAction({ title: "Archive dataset", message: "Archive this dataset?", onConfirm: () => archive(d.id) })}>Archive</button>}</td>
-              </tr>
-            ))}
-            {datasets.length === 0 && <tr><td colSpan={10} className="empty">No drone datasets recorded.</td></tr>}
-          </tbody>
-        </table>
+      {/* Statistics Dashboard */}
+      <div className="grid mb-md" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--primary)" }}>
+          <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <Plane size={20} style={{ color: "var(--primary)" }} />
+            <span className="muted fs-xs">Total Datasets</span>
+          </div>
+          <div className="fw-700 fs-24">{stats.total}</div>
+        </div>
+        
+        <div className="card card-compact" style={{ borderLeft: "4px solid #22c55e" }}>
+          <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <CheckCircle2 size={20} style={{ color: "#22c55e" }} />
+            <span className="muted fs-xs">Compliant</span>
+          </div>
+          <div className="fw-700 fs-24">{stats.compliant}</div>
+        </div>
+        
+        <div className="card card-compact" style={{ borderLeft: "4px solid #f59e0b" }}>
+          <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <Activity size={20} style={{ color: "#f59e0b" }} />
+            <span className="muted fs-xs">Under Review</span>
+          </div>
+          <div className="fw-700 fs-24">{stats.byStatus.under_review || 0}</div>
+        </div>
+        
+        <div className="card card-compact" style={{ borderLeft: "4px solid #ef4444" }}>
+          <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <AlertTriangle size={20} style={{ color: "#ef4444" }} />
+            <span className="muted fs-xs">Pending</span>
+          </div>
+          <div className="fw-700 fs-24">{stats.byStatus.pending || 0}</div>
+        </div>
       </div>
+
+      {/* Enhanced Filters */}
+      <div className="card mb-md" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="row" style={{ gap: 8, alignItems: "center", flex: 1, minWidth: 200 }}>
+            <Search size={16} style={{ color: "var(--muted)" }} />
+            <input
+              placeholder="Search by operator or type..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+          </div>
+          
+          <select 
+            value={filterType} 
+            onChange={e => setFilterType(e.target.value)}
+            style={{ minWidth: 150 }}
+          >
+            <option value="">All Types</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+            <option value="orthomosaic">Orthomosaic</option>
+            <option value="point_cloud">Point Cloud</option>
+            <option value="3d_model">3D Model</option>
+            <option value="measurement">Measurement</option>
+          </select>
+          
+          <select 
+            value={filterStatus} 
+            onChange={e => setFilterStatus(e.target.value)}
+            style={{ minWidth: 150 }}
+          >
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="under_review">Under Review</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="linked">Linked</option>
+            <option value="archived">Archived</option>
+          </select>
+          
+          <div className="row" style={{ gap: 8 }}>
+            <button 
+              className={`btn sm ${viewMode === "grid" ? "" : "ghost"}`}
+              onClick={() => setViewMode("grid")}
+            >
+              <Layers size={14} />
+            </button>
+            <button 
+              className={`btn sm ${viewMode === "list" ? "" : "ghost"}`}
+              onClick={() => setViewMode("list")}
+            >
+              <FileText size={14} />
+            </button>
+          </div>
+          
+          {(filterType || filterStatus || searchQuery) && (
+            <button 
+              className="btn ghost sm"
+              onClick={() => { setFilterType(""); setFilterStatus(""); setSearchQuery(""); }}
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Datasets Display */}
+      {viewMode === "grid" ? (
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 20 }}>
+          {filteredDatasets.map(d => (
+            <div 
+              key={d.id} 
+              className={`card ${selected?.id === d.id ? "active-card" : ""}`}
+              style={{ 
+                cursor: "pointer",
+                border: selected?.id === d.id ? "2px solid var(--primary)" : "1px solid var(--border)",
+                transition: "all 0.2s"
+              }}
+              onClick={() => select(d)}
+            >
+              <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+                <span className="badge badge-muted" style={{ textTransform: "capitalize" }}>
+                  {d.data_type}
+                </span>
+                <span className={`badge badge-${d.review_status === "reviewed" || d.review_status === "linked" ? "success" : d.review_status === "under_review" ? "warn" : "muted"}`}>
+                  {d.review_status}
+                </span>
+              </div>
+              
+              <div className="row" style={{ gap: 8, marginBottom: 8, fontSize: 12, color: "var(--muted)" }}>
+                <Calendar size={14} />
+                <span>{d.flight_date || "—"}</span>
+              </div>
+              
+              <div className="row" style={{ gap: 8, marginBottom: 8, fontSize: 12, color: "var(--muted)" }}>
+                <MapPin size={14} />
+                <span className="mono">{d.operator_id || "—"}</span>
+              </div>
+              
+              <div className="row" style={{ gap: 8, marginBottom: 12, fontSize: 12, color: "var(--muted)" }}>
+                <Globe size={14} />
+                <span style={{ textTransform: "capitalize" }}>{d.classification}</span>
+              </div>
+              
+              <div className="row" style={{ justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                <div className="row" style={{ gap: 8, fontSize: 11 }}>
+                  <span style={{ color: "var(--muted)" }}>{d.storage_tier}</span>
+                  {d.compliance_declared && (
+                    <span style={{ color: "#22c55e" }}>✓ Compliant</span>
+                  )}
+                </div>
+                <div className="row" style={{ gap: 4 }}>
+                  {d.key_outputs && Object.keys(d.key_outputs).length > 0 && (
+                    <span className="badge badge-muted" style={{ fontSize: 10 }}>
+                      {Object.keys(d.key_outputs).length} outputs
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {filteredDatasets.length === 0 && (
+            <div className="card" style={{ gridColumn: "1 / -1", textAlign: "center", padding: 40 }}>
+              <Plane size={48} style={{ color: "var(--muted)", marginBottom: 16 }} />
+              <p className="muted">No drone datasets found matching your filters.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <table>
+            <thead><tr>
+              <th>Type</th><th>Flight Date</th><th>Operator</th><th>Classification</th>
+              <th>Status</th><th>Tier</th><th>Compliant</th><th>Outputs</th><th></th><th></th>
+            </tr></thead>
+            <tbody>
+              {filteredDatasets.map(d => (
+                <tr key={d.id} className={selected?.id === d.id ? "active-row" : ""}>
+                  <td>{d.data_type}</td><td>{d.flight_date}</td>
+                  <td className="mono">{d.operator_id || "—"}</td>
+                  <td>{d.classification}</td>
+                  <td><span className={`badge badge-${d.review_status === "reviewed" || d.review_status === "linked" ? "success" : d.review_status === "under_review" ? "warn" : "muted"}`}>{d.review_status}</span></td>
+                  <td>{d.storage_tier}</td>
+                  <td>{d.compliance_declared ? "Yes" : "No"}</td>
+                  <td>{Object.keys(d.key_outputs || {}).length}</td>
+                  <td><button className="btn ghost sm" onClick={() => select(d)}>Review</button></td>
+                  <td>{can("documents.upload") && <button className="btn ghost sm" onClick={() => setConfirmAction({ title: "Archive dataset", message: "Archive this dataset?", onConfirm: () => archive(d.id) })}>Archive</button>}</td>
+                </tr>
+              ))}
+              {filteredDatasets.length === 0 && <tr><td colSpan={10} className="empty">No drone datasets found matching your filters.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {selected && (
         <div className="card">
@@ -161,6 +366,7 @@ export function DroneDatasets() {
               <button className={`btn ghost sm${activeTab === "reviews" ? " active" : ""}`} onClick={() => setActiveTab("reviews")}>Review</button>
               <button className={`btn ghost sm${activeTab === "sign" ? " active" : ""}`} onClick={() => setActiveTab("sign")}>Signed URL</button>
               <button className={`btn ghost sm${activeTab === "audit" ? " active" : ""}`} onClick={() => setActiveTab("audit")}>Audit Log</button>
+              <button className={`btn ghost sm${activeTab === "analytics" ? " active" : ""}`} onClick={() => setActiveTab("analytics")}>Analytics</button>
             </div>
           </div>
 
@@ -233,6 +439,92 @@ export function DroneDatasets() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === "analytics" && (
+            <div>
+              <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+                <div className="card card-compact">
+                  <div className="muted fs-xs mb-xs">Data Type</div>
+                  <div className="fw-700 fs-18" style={{ textTransform: "capitalize" }}>{selected.data_type}</div>
+                </div>
+                <div className="card card-compact">
+                  <div className="muted fs-xs mb-xs">Classification</div>
+                  <div className="fw-700 fs-18" style={{ textTransform: "capitalize" }}>{selected.classification}</div>
+                </div>
+                <div className="card card-compact">
+                  <div className="muted fs-xs mb-xs">Storage Tier</div>
+                  <div className="fw-700 fs-18" style={{ textTransform: "capitalize" }}>{selected.storage_tier}</div>
+                </div>
+                <div className="card card-compact">
+                  <div className="muted fs-xs mb-xs">File Size</div>
+                  <div className="fw-700 fs-18">{selected.file_size_bytes ? `${(Number(selected.file_size_bytes) / 1024 / 1024).toFixed(2)} MB` : "—"}</div>
+                </div>
+              </div>
+
+              <div className="card" style={{ marginBottom: 16 }}>
+                <h4 style={{ marginTop: 0 }}>Key Outputs</h4>
+                {Object.keys(selected.key_outputs || {}).length > 0 ? (
+                  <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                    {Object.entries(selected.key_outputs || {}).map(([label, url]) => (
+                      <div key={label} style={{ 
+                        padding: 12, 
+                        background: "var(--surface-2)", 
+                        borderRadius: 8,
+                        border: "1px solid var(--border)"
+                      }}>
+                        <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+                          <strong style={{ textTransform: "capitalize", fontSize: 12 }}>{label.replaceAll("_", " ")}</strong>
+                          <a className="btn ghost sm" href={String(url)} target="_blank" rel="noreferrer" style={{ fontSize: 10 }}>
+                            <Eye size={12} />
+                          </a>
+                        </div>
+                        <p className="mono muted" style={{ 
+                          wordBreak: "break-all", 
+                          marginBottom: 0, 
+                          fontSize: 10,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}>{String(url)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted">No key outputs available for this dataset.</p>
+                )}
+              </div>
+
+              <div className="card">
+                <h4 style={{ marginTop: 0 }}>Metadata</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  <div>
+                    <div className="muted fs-xs mb-xs">Flight Date</div>
+                    <div>{selected.flight_date || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="muted fs-xs mb-xs">Operator ID</div>
+                    <div className="mono">{selected.operator_id || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="muted fs-xs mb-xs">Milestone</div>
+                    <div className="mono">{selected.milestone_id || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="muted fs-xs mb-xs">Sales Campaign</div>
+                    <div className="mono">{selected.sales_campaign_id || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="muted fs-xs mb-xs">File Hash</div>
+                    <div className="mono" style={{ fontSize: 10 }}>{selected.file_hash || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="muted fs-xs mb-xs">Compliance</div>
+                    <div>{selected.compliance_declared ? "✓ Declared" : "—"}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
