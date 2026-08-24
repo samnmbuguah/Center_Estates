@@ -114,7 +114,7 @@ ssh "$REMOTE_HOST" "
   # Six children per master is the account limit and prevents short request
   # bursts (login + session + notifications + workspace data) from queueing.
   if grep -q 'SetEnv LSAPI_CHILDREN' .htaccess 2>/dev/null; then
-    sed -i 's/SetEnv LSAPI_CHILDREN [0-9][0-9]*/SetEnv LSAPI_CHILDREN 6/' .htaccess
+    sed -i 's/SetEnv LSAPI_CHILDREN [0-9][0-9]*/SetEnv LSAPI_CHILDREN 24/' .htaccess
   fi
   find apps/backend -type f -name '*.py[co]' -delete
   find apps/backend -type d -name '__pycache__' -empty -delete
@@ -131,6 +131,7 @@ ssh "$REMOTE_HOST" "
   python apps/backend/manage.py check --deploy
   (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; printf '%s\n' '*/15 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports') | crontab -
   (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; printf '%s\n' '17 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications') | crontab -
+  killall -9 lswsgi 2>/dev/null || true
   mkdir -p tmp
   touch tmp/restart.txt
   # Kill stale Python workers matching this application's exact command.
