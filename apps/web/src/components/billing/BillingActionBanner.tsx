@@ -193,7 +193,7 @@ export function BillingActionBanner({
               )}
             </Box>
             <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5 }}>
-              Review the candidate invoice list below. If everything is correct, click <strong>"Approve Billing Run"</strong> to enable final invoice generation.
+              Review the candidate invoice list below. If everything is correct, click <strong>&quot;Approve Billing Run&quot;</strong> to enable final invoice generation.
             </Typography>
           </Box>
           <Stack direction="row" sx={{ gap: 1, flexShrink: 0, flexWrap: "wrap" }}>

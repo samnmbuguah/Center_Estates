@@ -1726,7 +1726,7 @@ function AdministrationContent() {
                 <span>🎨 Organization Branding & System Logo</span>
               </h2>
               <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.875rem" }}>
-                Customize your organization's display name, header logo, and brand accent color across the entire ERP and tenant portal.
+                Customize your organization&apos;s display name, header logo, and brand accent color across the entire ERP and tenant portal.
               </p>
             </div>
 

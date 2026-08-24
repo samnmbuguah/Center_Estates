@@ -195,7 +195,7 @@ export function BreadcrumbNavigation({
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                       {/* Search results would go here */}
                       <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-                        No results found for "{searchQuery}"
+                        No results found for &quot;{searchQuery}&quot;
                       </Typography>
                     </Box>
                   </Box>

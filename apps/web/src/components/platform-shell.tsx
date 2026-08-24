@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { modules, ACTIVE_MODULES } from "@/lib/modules";
 import { useAuth } from "@/components/auth-provider";
@@ -56,6 +56,7 @@ const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; ico
 
 export default function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { activeProperty, properties, propertyContextReady, selectProperty } = usePropertyContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +96,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const [switchError, setSwitchError] = useState("");
   const [subModalOpen, setSubModalOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
   const [subscriptionsList, setSubscriptionsList] = useState<Array<{ id: string; module: string; is_active: boolean }>>([]);
   const [updatingSub, setUpdatingSub] = useState<string | null>(null);
 
@@ -225,9 +227,12 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     return () => window.removeEventListener("mousedown", onPointer);
   }, [profileOpen]);
 
+  useEffect(() => {
+    if (session?.user && (pathname === "/login" || pathname === "/sign-up")) router.replace("/workspaces");
+  }, [pathname, router, session?.user]);
+
   if (isPublicRoute(pathname)) {
     if (session?.user && (pathname === "/login" || pathname === "/sign-up")) {
-      if (typeof window !== "undefined") window.location.href = "/workspaces";
       return <BrandedLoader message="Opening your workspace" />;
     }
     return <>{children}</>;
@@ -447,15 +452,15 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
               <NotificationCenter />
 
               <Box ref={profileRef} sx={{ position: "relative" }}>
-                <IconButton onClick={() => setProfileOpen((open) => !open)} aria-haspopup="menu">
+                <IconButton onClick={(event) => { setProfileAnchor(event.currentTarget); setProfileOpen((open) => !open); }} aria-haspopup="menu">
                   <Avatar className="platform-avatar" sx={{ width: 36, height: 36, bgcolor: "#1d2b44", color: "#ffffff", fontWeight: 800 }}>
                     {initials}
                   </Avatar>
                 </IconButton>
                 <Menu
-                  anchorEl={profileRef.current}
+                  anchorEl={profileAnchor}
                   open={profileOpen}
-                  onClose={() => setProfileOpen(false)}
+                  onClose={() => { setProfileOpen(false); setProfileAnchor(null); }}
                   slotProps={{
                     paper: {
                       sx: { width: 280, borderRadius: 3 }
