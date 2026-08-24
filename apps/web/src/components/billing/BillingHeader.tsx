@@ -54,11 +54,12 @@ export function BillingHeader({
         </Typography>
       </Box>
 
-      {/* Mode Switcher */}
+      {/* Period Navigator & Status */}
       <Stack
-        direction={{ xs: "column", sm: "row" }}
-        sx={{ gap: 1.5, alignItems: { xs: "stretch", sm: "center" }, flexWrap: "wrap" }}
+        direction="row"
+        sx={{ gap: 1.5, alignItems: "center", flexWrap: "wrap" }}
       >
+        {/* Date Navigator */}
         <Box
           sx={{
             display: "flex",
@@ -67,125 +68,18 @@ export function BillingHeader({
             borderRadius: 2,
             p: 0.5,
             border: "1px solid var(--border)",
-            gap: 0.5,
           }}
         >
-          <Button
-            size="small"
-            variant={mode === "monthly" ? "contained" : "text"}
-            onClick={() => onModeChange("monthly")}
-            startIcon={<Calendar size={14} />}
-            sx={{
-              fontWeight: 700,
-              fontSize: 12,
-              px: 1.2,
-              py: 0.4,
-              minWidth: 0,
-              borderRadius: 1.5,
-              textTransform: "none",
-            }}
-          >
-            Monthly
+          <Button size="small" onClick={onPrev} sx={{ minWidth: 32, p: 0.5, color: "var(--text)" }}>
+            <ChevronLeft size={18} />
           </Button>
-          <Button
-            size="small"
-            variant={mode === "quarterly" ? "contained" : "text"}
-            onClick={() => onModeChange("quarterly")}
-            startIcon={<Layers size={14} />}
-            sx={{
-              fontWeight: 700,
-              fontSize: 12,
-              px: 1.2,
-              py: 0.4,
-              minWidth: 0,
-              borderRadius: 1.5,
-              textTransform: "none",
-            }}
-          >
-            Quarterly (Q1–Q4)
-          </Button>
-          <Button
-            size="small"
-            variant={mode === "custom" ? "contained" : "text"}
-            onClick={() => onModeChange("custom")}
-            startIcon={<Clock size={14} />}
-            sx={{
-              fontWeight: 700,
-              fontSize: 12,
-              px: 1.2,
-              py: 0.4,
-              minWidth: 0,
-              borderRadius: 1.5,
-              textTransform: "none",
-            }}
-          >
-            Multi-Month / Catch-up
+          <Typography sx={{ px: 1.5, fontWeight: 800, fontSize: 13, color: "var(--text)", whiteSpace: "nowrap" }}>
+            {formattedPeriod}
+          </Typography>
+          <Button size="small" onClick={onNext} sx={{ minWidth: 32, p: 0.5, color: "var(--text)" }}>
+            <ChevronRight size={18} />
           </Button>
         </Box>
-
-        {/* Date Navigator */}
-        {mode !== "custom" ? (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              background: "var(--surface-sunken)",
-              borderRadius: 2,
-              p: 0.5,
-              border: "1px solid var(--border)",
-            }}
-          >
-            <Button size="small" onClick={onPrev} sx={{ minWidth: 32, p: 0.5, color: "var(--text)" }}>
-              <ChevronLeft size={18} />
-            </Button>
-            <Typography sx={{ px: 1.5, fontWeight: 700, fontSize: 13, color: "var(--text)", whiteSpace: "nowrap" }}>
-              {formattedPeriod}
-            </Typography>
-            <Button size="small" onClick={onNext} sx={{ minWidth: 32, p: 0.5, color: "var(--text)" }}>
-              <ChevronRight size={18} />
-            </Button>
-          </Box>
-        ) : (
-          <Stack direction="row" sx={{ gap: 1, alignItems: "center" }}>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>From</Typography>
-              <input
-                type="month"
-                value={customStart}
-                onChange={(e) => onCustomStartChange?.(e.target.value)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface-sunken)",
-                  color: "var(--text)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  outline: "none",
-                }}
-              />
-            </Box>
-            <Typography sx={{ fontWeight: 700, color: "var(--text-secondary)", pt: 2 }}>to</Typography>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>To</Typography>
-              <input
-                type="month"
-                value={customEnd}
-                onChange={(e) => onCustomEndChange?.(e.target.value)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface-sunken)",
-                  color: "var(--text)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  outline: "none",
-                }}
-              />
-            </Box>
-          </Stack>
-        )}
 
         {runStatus && (
           <Chip
