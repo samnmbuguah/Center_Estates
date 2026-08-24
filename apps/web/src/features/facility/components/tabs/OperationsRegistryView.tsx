@@ -58,6 +58,23 @@ export function OperationsRegistryView({ mode, rows, organizationId, propertyId,
     await reload();
   }
 
+  async function downloadMemo(row: Row) {
+    setError("");
+    try {
+      const response = await apiFetch(`/facility/incidents/${row.id}/memo/`, {}, organizationId);
+      if (!response.ok) { setError(await apiErrorMessage(response, "The incident memo could not be generated.")); return; }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `incident-memo-${String(row.reference || row.id)}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("The incident memo could not be downloaded. Check your connection and retry.");
+    }
+  }
+
   async function uploadEvidence(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) return;
@@ -96,8 +113,9 @@ export function OperationsRegistryView({ mode, rows, organizationId, propertyId,
           <tbody>{filtered.map((row) => mode === "service-profiles" ? <tr key={String(row.id)}>
             <td className="mono">{String(row.code)}</td><td><strong>{String(row.name)}</strong><small className="muted" style={{ display: "block" }}>{String(row.description || "")}</small></td><td>{String(row.category)}</td><td><StatusPill value={String(row.service_type)} /></td><td><StatusPill value={String(row.criticality)} /></td><td>{String(row.default_frequency || "On demand")}</td><td><StatusPill value={String(row.status)} /></td><td>{Array.isArray(row.allocations) ? row.allocations.length : 0}</td>
           </tr> : <tr key={String(row.id)}>
-            <td className="mono">{String(row.reference)}</td><td>{new Date(String(row.occurred_at)).toLocaleString()}</td><td>{String(row.location)}</td><td>{String(row.category)}</td><td><StatusPill value={String(row.severity)} /></td><td><StatusPill value={String(row.status)} /></td><td>{String(row.reported_by_name || "—")}</td><td><Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+            <td className="mono">{String(row.reference)}</td><td>{new Date(String(row.occurred_at)).toLocaleString()}</td><td>{String(row.location)}</td><td>{String(row.category)}</td><td><StatusPill value={String(row.severity)} /></td><td><StatusPill value={String(row.status)} /></td><td>{String(row.reported_by_name || "—")}</td>            <td><Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
               <Button size="small" onClick={() => setSelected(row)}>View</Button>
+              <Button size="small" onClick={() => void downloadMemo(row)}>Memo PDF</Button>
               {row.status === "draft" && <Button size="small" onClick={() => action(row, "submit")}>Submit</Button>}
               {row.status === "submitted" && canApprove && <Button size="small" onClick={() => action(row, "review")}>Review</Button>}
               {row.status === "under_review" && <Button size="small" onClick={() => action(row, "create-work-order")}>Work order</Button>}

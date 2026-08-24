@@ -346,6 +346,120 @@ class FacilityIncidentViewSet(FacilityModelViewSet):
         )
         return Response(FacilityIncidentAttachmentSerializer(attachment, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=('get',), url_path='memo')
+    def memo(self, request, pk=None):
+        """Branded incident memo matching the client's report format."""
+        incident = self.get_object()
+        organization = incident.organization
+        branding = (organization.settings or {}).get('branding', {})
+        company_name = branding.get('company_name') or organization.name
+        address = branding.get('address') or ''
+        contact = ' | '.join(filter(None, (branding.get('phone'), branding.get('email'))))
+
+        events = incident.events.select_related('actor').order_by('created_at')
+        attachments = incident.attachments.all()
+        today = timezone.localdate()
+
+        stream = BytesIO()
+        document = SimpleDocTemplate(
+            stream, pagesize=A4, rightMargin=18 * mm, leftMargin=18 * mm,
+            topMargin=14 * mm, bottomMargin=16 * mm,
+            title=f'Incident Memo {incident.reference}', author=company_name,
+        )
+        styles = getSampleStyleSheet()
+        navy = colors.HexColor('#10233F')
+        red = colors.HexColor('#D62828')
+        muted = colors.HexColor('#475569')
+        title_style = ParagraphStyle('MemoTitle', parent=styles['Heading1'], fontSize=15, leading=18, textColor=navy, spaceAfter=2)
+        right_style = ParagraphStyle('MemoRight', parent=styles['Normal'], alignment=TA_RIGHT, textColor=navy, leading=13)
+        small_style = ParagraphStyle('MemoSmall', parent=styles['Normal'], fontSize=8.5, leading=11, textColor=muted)
+        section_style = ParagraphStyle('MemoSection', parent=styles['Heading2'], fontSize=10.5, leading=13, textColor=navy, spaceBefore=9, spaceAfter=4)
+        body_style = ParagraphStyle('MemoBody', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.HexColor('#0F172A'))
+
+        header = Table([
+            [Paragraph(f'<b>{company_name}</b><br/><font size="8">{address}<br/>{contact}</font>', title_style),
+             Paragraph(f'<b>INCIDENT MEMORANDUM</b><br/><font size="8">Ref: {incident.reference}<br/>Issued: {today:%d %b %Y}</font>', right_style)],
+        ], colWidths=[105 * mm, 70 * mm])
+        header.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LINEBELOW', (0, 0), (-1, 0), 1, red)]))
+
+        def kv_table(pairs):
+            data = [[Paragraph(f'<b>{k}</b>', small_style), Paragraph(str(v or '—'), small_style)] for k, v in pairs]
+            t = Table(data, colWidths=[42 * mm, 133 * mm])
+            t.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.3, colors.HexColor('#E2E8F0')),
+            ]))
+            return t
+
+        story = [header, Spacer(1, 6 * mm)]
+        story.append(Paragraph(f'{incident.category} — {incident.get_severity_display()} severity', section_style))
+        story.append(kv_table([
+            ('Subject', incident.location),
+            ('Property', incident.property.name),
+            ('Unit / Asset', ' · '.join(filter(None, [getattr(incident.unit, 'code', ''), getattr(incident.asset, 'name', '')])) or '—'),
+            ('Incident date', incident.occurred_at.strftime('%d %b %Y %H:%M')),
+            ('Reported by', incident.reported_by.get_full_name() or incident.reported_by.username),
+            ('Reported on', incident.created_at.strftime('%d %b %Y %H:%M')),
+            ('Status', incident.get_status_display()),
+            ('Service provider', getattr(incident.service_provider, 'name', '') or '—'),
+            ('Linked work order', getattr(incident.work_order, 'number', '') or '—'),
+            ('Responsible person', incident.responsible_person or '—'),
+        ]))
+
+        story.append(Paragraph('Incident narrative', section_style))
+        for paragraph in (incident.narrative or 'No narrative recorded.').split('\n'):
+            if paragraph.strip():
+                story.append(Paragraph(paragraph.strip(), body_style))
+
+        if incident.immediate_action:
+            story.append(Paragraph('Immediate action taken', section_style))
+            story.append(Paragraph(incident.immediate_action, body_style))
+        if incident.recommended_action:
+            story.append(Paragraph('Recommended action', section_style))
+            story.append(Paragraph(incident.recommended_action, body_style))
+        if incident.prevention_notes:
+            story.append(Paragraph('Prevention measures', section_style))
+            story.append(Paragraph(incident.prevention_notes, body_style))
+
+        people = incident.people_involved or []
+        if people:
+            story.append(Paragraph('People and premises involved', section_style))
+            story.append(kv_table([(p.get('role', 'Person'), p.get('name', '')) for p in people if isinstance(p, dict)]))
+
+        if events.exists():
+            story.append(Paragraph('Chronology of events', section_style))
+            story.append(kv_table([
+                (e.created_at.strftime('%d %b %Y %H:%M'), f'{e.get_event_type_display() if hasattr(e, "get_event_type_display") else e.event_type} — {e.notes or ""} ({e.actor.get_full_name() or e.actor.username})')
+                for e in events
+            ]))
+
+        if attachments.exists():
+            story.append(Paragraph('Attached evidence', section_style))
+            story.append(kv_table([(a.name, getattr(a, 'content_type', '') or 'file') for a in attachments]))
+
+        story.append(Spacer(1, 10 * mm))
+        signature = Table([
+            [Paragraph('Reported by (Caretaker / Reporter)', small_style), Paragraph('Reviewed by (Property Manager)', small_style)],
+            [Spacer(1, 12 * mm), Spacer(1, 12 * mm)],
+            [Paragraph('_____________________________', small_style), Paragraph('_____________________________', small_style)],
+        ], colWidths=[87 * mm, 87 * mm])
+        signature.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+        story.append(signature)
+
+        if incident.reviewed_by:
+            review_note = f'Review status: {incident.get_status_display()} · Reviewed by {incident.reviewed_by.get_full_name() or incident.reviewed_by.username}'
+            if incident.submitted_at:
+                review_note += f' · Submitted {incident.submitted_at:%d %b %Y}'
+            story.append(Spacer(1, 4 * mm))
+            story.append(Paragraph(review_note, small_style))
+
+        document.build(story)
+        pdf = stream.getvalue()
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="incident-memo-{incident.reference}.pdf"'
+        return response
+
 
 class FloorPlanViewSet(FacilityModelViewSet):
     write_permission = 'facility.administer'

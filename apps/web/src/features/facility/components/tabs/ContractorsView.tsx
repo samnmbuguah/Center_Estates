@@ -210,6 +210,21 @@ export function ContractorsView({
 
   const activeCount = displayRows.filter((r) => r.status === "active" || r.approval_status === "approved").length;
 
+  const today = new Date().toISOString().slice(0, 10);
+  const in60Days = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+  const expiringDocs = displayRows.flatMap((r) => {
+    const items: { contractor: string; doc: string; date: string }[] = [];
+    for (const [field, label] of [["insurance_expires_on", "Insurance"], ["license_expires_on", "License"], ["tax_compliance_expires_on", "Tax compliance"]] as const) {
+      const d = r[field] ? String(r[field]) : "";
+      if (d && d <= in60Days) items.push({ contractor: String(r.name), doc: label, date: d });
+    }
+    return items;
+  }).sort((a, b) => a.date.localeCompare(b.date));
+  const expiredCount = expiringDocs.filter((d) => d.date <= today).length;
+  const activeContracts = displayRows.reduce((s, r) => s + Number(r.active_contracts_count ?? 0), 0);
+  const rated = displayRows.filter((r) => Number(r.rating ?? 0) > 0);
+  const avgRating = rated.length ? (rated.reduce((s, r) => s + Number(r.rating ?? 0), 0) / rated.length).toFixed(1) : "—";
+
   const viewScorecard = async (contractor: Row) => {
     setSelectedContractor(contractor);
     setShowScorecardModal(true);
@@ -236,11 +251,31 @@ export function ContractorsView({
       {/* KPI Strip */}
       <div className="fc-kpi-strip">
         <FcKpiCard icon="🤝" iconBg="#e0e7ff" iconColor="#4f46e5" label="Registered Providers" value={String(displayRows.length)} sub="Specialist vendor master" />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active & Approved" value={String(activeCount)} sub="100% compliant documentation" />
-        <FcKpiCard icon="📄" iconBg="#dbeafe" iconColor="#2563eb" label="Active SLA Contracts" value="6 Contracts" sub="Annual maintenance agreements" />
-        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="#9333ea" label="Average Vendor Rating" value="4.7 / 5.0" sub="Evaluated on 7 SLA pillars" />
-        <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Compliance Expiring" value="0 Overdue" sub="Tax, insurance & licenses" />
+        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active & Approved" value={String(activeCount)} sub={`${displayRows.length - activeCount} pending or suspended`} />
+        <FcKpiCard icon="📄" iconBg="#dbeafe" iconColor="#2563eb" label="Active SLA Contracts" value={String(activeContracts)} sub="Across all providers" />
+        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="#9333ea" label="Average Vendor Rating" value={avgRating === "—" ? "—" : `${avgRating} / 5.0`} sub={`${rated.length} rated on 7 pillars`} />
+        <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Compliance Expiring" value={expiredCount > 0 ? `${expiredCount} expired` : `${expiringDocs.length} due ≤60d`} sub="Tax, insurance & licenses" />
       </div>
+
+      {expiringDocs.length > 0 && (
+        <article className="data-panel" style={{ borderColor: expiredCount > 0 ? "var(--error, #dc2626)" : "var(--warning, #d97706)" }}>
+          <header className="panel-title" style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: expiredCount > 0 ? "var(--error, #dc2626)" : "var(--warning, #d97706)" }}>
+                {expiredCount > 0 ? `${expiredCount} expired document(s) — action required` : `${expiringDocs.length} document(s) expiring within 60 days`}
+              </h2>
+            </div>
+          </header>
+          <div style={{ padding: "8px 20px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {expiringDocs.slice(0, 8).map((d, i) => (
+              <span key={i} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 8, background: d.date <= today ? "var(--error-bg, #fee2e2)" : "var(--warning-bg, #fef3c7)", color: "var(--text-primary)" }}>
+                <strong>{d.contractor}</strong> · {d.doc} · {d.date <= today ? `expired ${d.date}` : `due ${d.date}`}
+              </span>
+            ))}
+            {expiringDocs.length > 8 && <span style={{ fontSize: 12, alignSelf: "center", color: "var(--text-secondary)" }}>+{expiringDocs.length - 8} more</span>}
+          </div>
+        </article>
+      )}
 
       {/* Main Vendor Master Table */}
       <article className="data-panel">

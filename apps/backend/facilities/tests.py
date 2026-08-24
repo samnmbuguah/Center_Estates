@@ -946,3 +946,33 @@ class RepairRequisitionApiTests(TestCase):
         self.assertEqual(patched.data['status'], 'draft')
         requisition = RepairRequisition.objects.get(pk=created.data['id'])
         self.assertEqual(requisition.status, RepairRequisition.Status.DRAFT)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class IncidentMemoApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='memo-user', password='test')
+        self.organization = Organization.objects.create(name='Memo Client', slug='memo-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='P1', name='Memo Building')
+        self.incident = FacilityIncident.objects.create(
+            organization=self.organization, reference='INC-TEST-001', property=self.property,
+            location='Gate house', occurred_at=timezone.now(), category='Break-in',
+            severity=FacilityIncident.Severity.HIGH, status=FacilityIncident.Status.SUBMITTED,
+            narrative='Night guard reported forced entry at the gate house around 2am.',
+            immediate_action='Police notified; site secured.',
+            recommended_action='Install floodlights and reinforce the gate padlock.',
+            reported_by=self.user,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_incident_memo_generates_branded_pdf(self):
+        response = self.client.get(f'/api/v1/facility/incidents/{self.incident.id}/memo/', **self.headers)
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('incident-memo-INC-TEST-001', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+        self.assertGreater(len(response.content), 2000)
