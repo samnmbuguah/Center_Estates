@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Box, Button, Chip, IconButton, Paper, TextField, Typography } from "@mui/material";
-import { ArrowUp, Minimize2, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowUp, ExternalLink, Minimize2, Sparkles, Trash2, X } from "lucide-react";
 
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { usePropertyContext } from "@/lib/property-context";
@@ -16,8 +16,10 @@ type QmResponse = {
   agentStatus?: string;
   groundedAt?: string;
   suggestedActions?: QmAction[];
+  conversationId?: string;
 };
 type QmMessage = { id: string; role: "user" | "assistant"; text: string; response?: QmResponse };
+type StoredConversation = { id: string; messages?: Array<{ id: string; role: "user" | "assistant"; content: string; response_metadata?: QmResponse }> };
 
 export default function QmChatWindow({
   organizationId,
@@ -37,7 +39,9 @@ export default function QmChatWindow({
   const [messages, setMessages] = useState<QmMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const initialSent = useRef(false);
+  const [conversationId, setConversationId] = useState<string>();
+  const [historyReady, setHistoryReady] = useState(false);
+  const initialSent = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const send = useCallback(async (question: string) => {
@@ -51,10 +55,11 @@ export default function QmChatWindow({
     try {
       const response = await apiFetch("/companion/dashboard/chat/", {
         method: "POST",
-        body: JSON.stringify({ prompt: clean }),
+        body: JSON.stringify({ prompt: clean, conversation_id: conversationId }),
       }, organizationId);
       if (!response.ok) throw new Error(await apiErrorMessage(response, "QM could not answer that question."));
       const answer = await response.json() as QmResponse;
+      if (answer.conversationId) setConversationId(answer.conversationId);
       setMessages((current) => [...current, {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -66,13 +71,32 @@ export default function QmChatWindow({
     } finally {
       setLoading(false);
     }
-  }, [loading, organizationId]);
+  }, [conversationId, loading, organizationId]);
 
   useEffect(() => {
-    if (!initialPrompt || initialSent.current) return;
-    initialSent.current = true;
+    if (!organizationId) return;
+    let active = true;
+    setHistoryReady(false);
+    apiFetch("/companion/qm-conversations/?is_archived=false", {}, organizationId).then(async (response) => {
+      if (!active || !response.ok) return;
+      const payload = await response.json() as StoredConversation[] | { results?: StoredConversation[] };
+      const conversations = Array.isArray(payload) ? payload : payload.results || [];
+      const latest = conversations[0];
+      if (!latest) return;
+      setConversationId(latest.id);
+      setMessages((latest.messages || []).map((message) => ({
+        id: message.id, role: message.role, text: message.content,
+        response: message.role === "assistant" ? message.response_metadata : undefined,
+      })));
+    }).catch(() => undefined).finally(() => { if (active) setHistoryReady(true); });
+    return () => { active = false; };
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (!historyReady || !initialPrompt || initialSent.current === initialPrompt) return;
+    initialSent.current = initialPrompt;
     void send(initialPrompt);
-  }, [initialPrompt, send]);
+  }, [historyReady, initialPrompt, send]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -104,6 +128,7 @@ export default function QmChatWindow({
           <Typography sx={{ fontWeight: 850, lineHeight: 1.2 }}>Quartermaster</Typography>
           <Typography variant="caption" sx={{ color: "rgba(255,255,255,.78)" }}>Grounded in your role and {activeProperty?.name || "portfolio"}</Typography>
         </Box>
+        <IconButton component={Link} href="/companion?tab=qm" size="small" aria-label="Open Quartermaster workspace and chat history" sx={{ color: "white" }}><ExternalLink size={17} /></IconButton>
         <IconButton size="small" aria-label="Minimize Quartermaster" onClick={onMinimize} sx={{ color: "white" }}><Minimize2 size={18} /></IconButton>
         <IconButton size="small" aria-label="Close Quartermaster" onClick={onClose} sx={{ color: "white" }}><X size={18} /></IconButton>
       </Box>
@@ -158,7 +183,7 @@ export default function QmChatWindow({
         </Box>
         <Box sx={{ mt: .65, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Typography variant="caption" color="text.secondary">Enter to send · Shift+Enter for a new line</Typography>
-          {messages.length > 0 && <Button size="small" color="inherit" startIcon={<Trash2 size={13} />} onClick={() => { setMessages([]); setError(""); }}>Clear</Button>}
+          {messages.length > 0 && <Button size="small" color="inherit" startIcon={<Trash2 size={13} />} onClick={async () => { if (conversationId) await apiFetch(`/companion/qm-conversations/${conversationId}/archive/`, { method: "POST" }, organizationId); setConversationId(undefined); setMessages([]); setError(""); }}>Archive</Button>}
         </Box>
       </Box>
     </Paper>

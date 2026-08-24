@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, Box, CircularProgress, Fab, Tooltip } from "@mui/material";
 import { Sparkles } from "lucide-react";
 
@@ -17,6 +17,7 @@ export function QmChatLauncher({ enabled, organizationId, offsetForSidebar = fal
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [initialPrompt, setInitialPrompt] = useState<string>();
+  const lastAutomaticHelp = useRef(0);
 
   useEffect(() => {
     if (!enabled) {
@@ -37,6 +38,33 @@ export function QmChatLauncher({ enabled, organizationId, offsetForSidebar = fal
     }
     const timer = window.setTimeout(reveal, 900);
     return () => window.clearTimeout(timer);
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const offerAutomaticHelp = (event: Event) => {
+      const now = Date.now();
+      if (now - lastAutomaticHelp.current < 30_000) return;
+      lastAutomaticHelp.current = now;
+      const message = (event as CustomEvent<{ message?: string }>).detail?.message || "The last request could not be completed.";
+      setInitialPrompt(`I encountered this application error: "${message}" Explain what it means, confirm whether my entered data is retained, and give me the safest next step.`);
+      setLoaded(true);
+      setOpen(true);
+    };
+    window.addEventListener("ce:api-error", offerAutomaticHelp);
+    return () => window.removeEventListener("ce:api-error", offerAutomaticHelp);
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const offerHelp = (event: Event) => {
+      const message = (event as CustomEvent<{ message?: string }>).detail?.message;
+      setInitialPrompt(message || "Help me understand and resolve the error I just encountered. Explain the safest next step without losing my entered data.");
+      setLoaded(true);
+      setOpen(true);
+    };
+    window.addEventListener("ce:qm-help", offerHelp);
+    return () => window.removeEventListener("ce:qm-help", offerHelp);
   }, [enabled]);
 
   if (!enabled) return null;

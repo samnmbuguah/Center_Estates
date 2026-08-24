@@ -50,14 +50,32 @@ if [[ "$RUN_TESTS" == "1" ]]; then
   cd ../..
 fi
 
-# Always take a snapshot of live database and media before release
-if [[ "${SKIP_BACKUP:-0}" != "1" ]]; then
+# A frontend-only release cannot mutate database or media, so avoid spending
+# several minutes taking an unnecessary production backup. Backend/full
+# releases keep the safety snapshot by default.
+if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "backend" ) && "${SKIP_BACKUP:-0}" != "1" ]]; then
   echo "Taking pre-deploy backup..."
   "$(dirname "$0")/backup_cpanel.sh" "${REMOTE_HOST}" "${DOMAIN}" "${API_DOMAIN}" || echo "Warning: Pre-deploy backup encountered an issue; proceeding cautiously."
 fi
 
 if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ) && "${SKIP_BUILD:-0}" != "1" ]]; then
-  NEXT_BUILD_WORKERS=1 NODE_OPTIONS="--max-old-space-size=4096" NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build
+  # Repeated deploys of the same frontend source reuse the verified standalone
+  # artifact. The fingerprint excludes generated output and dependencies, but
+  # includes every source/config/public file that can affect the bundle.
+  FRONTEND_FINGERPRINT="$({
+    find apps/web -type f \
+      -not -path 'apps/web/.next/*' \
+      -not -path 'apps/web/node_modules/*' \
+      -print0
+    printf '%s\0' package.json package-lock.json
+  } | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')"
+  BUILT_FINGERPRINT="$(cat apps/web/.next/.cpanel-source.sha256 2>/dev/null || true)"
+  if [[ "$FRONTEND_FINGERPRINT" == "$BUILT_FINGERPRINT" && -f apps/web/.next/standalone/apps/web/server.js ]]; then
+    echo "Frontend source unchanged; reusing verified standalone build."
+  else
+    NEXT_BUILD_WORKERS=1 NODE_OPTIONS="--max-old-space-size=4096" NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build
+    printf '%s\n' "$FRONTEND_FINGERPRINT" > apps/web/.next/.cpanel-source.sha256
+  fi
 fi
 
 if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "backend" ]]; then

@@ -85,6 +85,8 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
   const [aiError, setAiError] = useState("");
   const [aiMessages, setAiMessages] = useState<{ role: "user" | "assistant"; text: string; response?: any }[]>([]);
   const [aiResponse, setAiResponse] = useState<any>(null);
+  const [aiConversationId, setAiConversationId] = useState<string | null>(null);
+  const [aiConversations, setAiConversations] = useState<any[]>([]);
 
   // Performance filters
   const [dateFrom, setDateFrom] = useState("");
@@ -578,15 +580,21 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     setAiPrompt("");
     try {
       await apiFetch("/auth/csrf/");
-      const res = await apiFetch("/companion/qm/chat/", {
+      const res = await apiFetch("/companion/dashboard/chat/", {
         method: "POST",
         headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify({ prompt: text, property: activeProperty?.id }),
+        body: JSON.stringify({
+          prompt: text,
+          property: activeProperty?.id,
+          conversation_id: aiConversationId,
+        }),
       }, org);
       if (res.ok) {
         const data = await res.json();
+        setAiConversationId(data.conversationId || null);
         setAiResponse(data);
-        setAiMessages((prev) => [...prev, { role: "assistant", text: data.reply || data.text || "I have analyzed the records for this property.", response: data }]);
+        setAiMessages((prev) => [...prev, { role: "assistant", text: data.response || "I have analyzed the records for this property.", response: data }]);
+        void loadAiConversations(false);
       } else {
         setAiError("Quartermaster AI service returned an error. Please try again.");
       }
@@ -596,6 +604,66 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       setAiLoading(false);
     }
   }
+
+  const loadAiConversations = useCallback(async (restoreLatest = true) => {
+    if (!org) return;
+    try {
+      const res = await apiFetch("/companion/qm-conversations/?is_archived=false", {}, org);
+      if (!res.ok) return;
+      const data = await res.json();
+      const conversations = Array.isArray(data) ? data : data.results || [];
+      setAiConversations(conversations);
+      if (restoreLatest && conversations.length > 0 && !aiConversationId) {
+        const latest = conversations[0];
+        setAiConversationId(latest.id);
+        setAiMessages((latest.messages || []).map((message: any) => ({
+          role: message.role,
+          text: message.content,
+          response: message.response_metadata || undefined,
+        })));
+        const latestAssistant = [...(latest.messages || [])].reverse().find((message: any) => message.role === "assistant");
+        setAiResponse(latestAssistant?.response_metadata || null);
+      }
+    } catch {
+      // Conversation history is helpful but should never block the Companion workspace.
+    }
+  }, [aiConversationId, org]);
+
+  const selectAiConversation = useCallback((conversation: any) => {
+    setAiConversationId(conversation.id);
+    setAiMessages((conversation.messages || []).map((message: any) => ({
+      role: message.role,
+      text: message.content,
+      response: message.response_metadata || undefined,
+    })));
+    const latestAssistant = [...(conversation.messages || [])].reverse().find((message: any) => message.role === "assistant");
+    setAiResponse(latestAssistant?.response_metadata || null);
+    setAiError("");
+  }, []);
+
+  const archiveAiConversation = useCallback(async () => {
+    if (!org || !aiConversationId) {
+      setAiMessages([]);
+      setAiResponse(null);
+      return;
+    }
+    try {
+      await apiFetch("/auth/csrf/");
+      await apiFetch(`/companion/qm-conversations/${aiConversationId}/archive/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+      }, org);
+    } finally {
+      setAiConversationId(null);
+      setAiMessages([]);
+      setAiResponse(null);
+      void loadAiConversations(false);
+    }
+  }, [aiConversationId, loadAiConversations, org]);
+
+  useEffect(() => {
+    if (tab === "qm") void loadAiConversations();
+  }, [loadAiConversations, tab]);
 
   async function handleCreateLeaveRequest(payload: {
     leave_type: string;
@@ -784,6 +852,10 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
     setAiMessages,
     aiResponse,
     setAiResponse,
+    aiConversations,
+    aiConversationId,
+    selectAiConversation,
+    archiveAiConversation,
     sendAiPrompt,
     dateFrom,
     setDateFrom,

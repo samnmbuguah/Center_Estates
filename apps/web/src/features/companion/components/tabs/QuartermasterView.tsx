@@ -14,6 +14,9 @@ export function QuartermasterView({
   aiLoading,
   aiError,
   aiResponse,
+  aiConversations,
+  aiConversationId,
+  selectConversation,
   sendAiPrompt,
   clearConversation,
 }: {
@@ -23,6 +26,9 @@ export function QuartermasterView({
   aiLoading: boolean;
   aiError: string;
   aiResponse: any;
+  aiConversations: any[];
+  aiConversationId: string | null;
+  selectConversation: (conversation: any) => void;
   sendAiPrompt: (promptOverride?: string) => Promise<void>;
   clearConversation: () => void;
 }) {
@@ -171,6 +177,29 @@ export function QuartermasterView({
 
         <Box sx={{ display: "grid", alignContent: "start", gap: 1.5 }}>
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+            <Typography sx={{ fontWeight: 800, mb: 1 }}>Past conversations</Typography>
+            {aiConversations.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">Your Quartermaster conversations will appear here.</Typography>
+            ) : (
+              <Box sx={{ display: "grid", gap: .75, maxHeight: 220, overflowY: "auto" }}>
+                {aiConversations.map((conversation) => (
+                  <Button
+                    key={conversation.id}
+                    variant={conversation.id === aiConversationId ? "contained" : "text"}
+                    color={conversation.id === aiConversationId ? "primary" : "inherit"}
+                    onClick={() => selectConversation(conversation)}
+                    sx={{ justifyContent: "flex-start", textAlign: "left", textTransform: "none" }}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 700 }}>{conversation.title}</Typography>
+                      <Typography variant="caption" sx={{ opacity: .75 }}>{conversation.property_name || "Portfolio"}</Typography>
+                    </Box>
+                  </Button>
+                ))}
+              </Box>
+            )}
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
             <Typography sx={{ fontWeight: 800, mb: 1 }}>Suggested questions</Typography>
             <Box sx={{ display: "grid", gap: 1 }}>
               {[
@@ -186,7 +215,7 @@ export function QuartermasterView({
             </Box>
           </Paper>
           <Alert severity="info">QM can analyse records and execute human-confirmed operational actions safely with audit trails.</Alert>
-          {aiMessages.length > 0 && <Button variant="outlined" color="inherit" onClick={clearConversation}>Clear conversation</Button>}
+          {aiMessages.length > 0 && <Button variant="outlined" color="inherit" onClick={clearConversation}>Archive conversation</Button>}
         </Box>
       </Box>
 
@@ -242,4 +271,3 @@ export function QuartermasterView({
     </Box>
   );
 }
-

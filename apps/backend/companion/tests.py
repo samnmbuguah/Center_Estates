@@ -9,7 +9,7 @@ import os
 from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
 from subscriptions.models import Subscription
-from companion.models import Task, TaskEvent
+from companion.models import QmConversation, QmMessage, Task, TaskEvent
 from django.utils import timezone
 from datetime import timedelta
 from companion.qm_agent import QMAgentOrchestrator
@@ -134,6 +134,39 @@ class CompanionApiTests(TestCase):
         self.assertTrue(len(response.data['suggestedActions']) > 0)
         self.assertEqual(response.data['agentStatus'], 'local')
         self.assertNotIn('24 Portfolio Buildings', response.data['response'])
+        conversation = QmConversation.objects.get(user=self.admin)
+        self.assertEqual(response.data['conversationId'], str(conversation.id))
+        self.assertEqual(
+            list(conversation.messages.values_list('role', flat=True)),
+            [QmMessage.Role.USER, QmMessage.Role.ASSISTANT],
+        )
+
+    def test_qm_conversation_history_is_private_and_can_be_archived(self):
+        self.login(self.admin)
+        with patch('companion.views.QMAgentOrchestrator.execute_agent', return_value={'agent': 'Quartermaster (QM)', 'status': 'local', 'response': ''}):
+            first = self.client.post('/api/v1/companion/dashboard/chat/', {'prompt': 'Show my priorities'}, format='json')
+            second = self.client.post('/api/v1/companion/dashboard/chat/', {
+                'prompt': 'Now show maintenance risks',
+                'conversation_id': first.data['conversationId'],
+            }, format='json')
+        self.assertEqual(second.status_code, 200, second.content)
+        self.assertEqual(QmConversation.objects.count(), 1)
+        self.assertEqual(QmMessage.objects.count(), 4)
+
+        history = self.client.get('/api/v1/companion/qm-conversations/')
+        self.assertEqual(history.status_code, 200, history.content)
+        self.assertEqual(len(history.data), 1)
+        self.assertEqual(len(history.data[0]['messages']), 4)
+
+        self.login(self.staff)
+        staff_history = self.client.get('/api/v1/companion/qm-conversations/')
+        self.assertEqual(staff_history.status_code, 200, staff_history.content)
+        self.assertEqual(len(staff_history.data), 0)
+
+        self.login(self.admin)
+        archived = self.client.post(f"/api/v1/companion/qm-conversations/{first.data['conversationId']}/archive/")
+        self.assertEqual(archived.status_code, 200, archived.content)
+        self.assertTrue(QmConversation.objects.get(pk=first.data['conversationId']).is_archived)
 
     def test_ai_chat_endpoint_default_prompt(self):
         self.login(self.admin)

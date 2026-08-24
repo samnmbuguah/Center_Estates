@@ -17,6 +17,7 @@ import { DraftBanner } from "@/components/draft-banner";
 
 type Values = Record<string, string>;
 type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; description: string; building_index: string };
+type UnitImportRow = UnitDraft & { sourceRow: number; errors: Partial<Record<keyof UnitDraft, string>> };
 type UtilityDraft = { type: string; account_no: string; provider: string; bill_cycle: string; status: string; meter_code: string; supply_mode: string; initial_reading: string; reading_date: string; tariff: string; unit: string };
 type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
 type ContactDraft = { name: string; role: string; email: string; phone: string };
@@ -70,6 +71,29 @@ function cell(row: string[], index: number) {
   return index >= 0 ? (row[index] ?? "").trim() : "";
 }
 
+function normalizeNumber(value: string) {
+  return value.replace(/[\s,]/g, "").trim();
+}
+
+function validateUnitImport(rows: UnitImportRow[], existing: UnitDraft[]) {
+  const seen = new Set(existing.map((unit) => unit.unit_no.trim().toLowerCase()));
+  return rows.map((row) => {
+    const errors: UnitImportRow["errors"] = {};
+    const code = row.unit_no.trim().toLowerCase();
+    if (!code) errors.unit_no = "Unit number is required.";
+    else if (seen.has(code)) errors.unit_no = "Duplicate unit number.";
+    else seen.add(code);
+    if (!row.unit_type.trim()) errors.unit_type = "Unit type is required.";
+    if (!row.floor.trim()) errors.floor = "Floor is required.";
+    if (!row.use.trim()) errors.use = "Use is required.";
+    const area = Number(normalizeNumber(row.area));
+    const rateableArea = Number(normalizeNumber(row.rateable_area));
+    if (!normalizeNumber(row.area) || !Number.isFinite(area) || area <= 0) errors.area = "Enter a positive area.";
+    if (row.rateable_area && (!Number.isFinite(rateableArea) || rateableArea < 0)) errors.rateable_area = "Enter zero or a positive rateable area.";
+    return { ...row, errors };
+  });
+}
+
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -84,7 +108,7 @@ const sections = [
 ] as const;
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return <Paper id={id} variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, scrollMarginTop: 155 }}><Typography variant="overline" color="primary" sx={{ fontWeight: 800 }}>{title}</Typography><Box sx={{ mt: 1.25 }}>{children}</Box></Paper>;
+  return <Paper className="onboarding-section" role="tabpanel" id={id} aria-labelledby={`onboarding-tab-${id}`} variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}><Typography variant="overline" color="primary" sx={{ fontWeight: 800 }}>{title}</Typography><Box sx={{ mt: 1.25 }}>{children}</Box></Paper>;
 }
 
 function Grid({ children, columns = 3 }: { children: React.ReactNode; columns?: number }) {
@@ -110,6 +134,8 @@ export function PropertyOnboardingForm() {
   const [vatRegistered, setVatRegistered] = useState(false);
   const [units, setUnits, clearUnits, unitsRestored] = useFormDraft<UnitDraft[]>("property-onboarding:units", [], draftScope);
   const [unitDraft, setUnitDraft] = useState<UnitDraft>(blankUnit);
+  const [unitImportRows, setUnitImportRows] = useState<UnitImportRow[]>([]);
+  const [unitImportFile, setUnitImportFile] = useState("");
   const [utilities, setUtilities, clearUtilities, utilitiesRestored] = useFormDraft<UtilityDraft[]>("property-onboarding:utilities", [], draftScope);
   const [utilityDraft, setUtilityDraft] = useState<UtilityDraft>(blankUtility);
   const [assets, setAssets, clearAssets, assetsRestored] = useFormDraft<AssetDraft[]>("property-onboarding:assets", [], draftScope);
@@ -186,7 +212,7 @@ export function PropertyOnboardingForm() {
 
   const jump = (id: string) => {
     setSection(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector(".property-onboarding-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const addUnit = () => {
@@ -254,24 +280,58 @@ export function PropertyOnboardingForm() {
           unit_type: uType,
           floor: rawFloor,
           use: uUse,
-          area: rawArea,
-          rateable_area: columns.rateable_area >= 0 ? cell(row, columns.rateable_area) : "",
+          area: normalizeNumber(rawArea),
+          rateable_area: columns.rateable_area >= 0 ? normalizeNumber(cell(row, columns.rateable_area)) : "",
           building_index: columns.building_index >= 0 ? cell(row, columns.building_index) : "",
           description: columns.description >= 0 ? cell(row, columns.description) : "",
         };
       })
       .filter((u): u is UnitDraft => u !== null);
 
-    const badArea = imported.filter(unit => !Number(unit.area) || Number(unit.area) <= 0);
-    const dupeCodes = imported.filter((unit, i) => imported.findIndex(u => u.unit_no.toLowerCase() === unit.unit_no.toLowerCase()) !== i);
-    const allCodes = [...units.map(unit => unit.unit_no.toLowerCase()), ...imported.map(unit => unit.unit_no.toLowerCase())];
-    const globalDupes = new Set(allCodes).size !== allCodes.length;
-
     if (!imported.length) { setError("The CSV file contains no data rows. Ensure at least one unit row is present."); jump("units"); return; }
-    if (badArea.length) { setError(`Row(s) with unit_no "${badArea.slice(0, 3).map(r => r.unit_no).join('", "')}" have an invalid area. Area must be a positive number.`); jump("units"); return; }
-    if (dupeCodes.length || globalDupes) { setError("Duplicate unit numbers found within the CSV or between the CSV and manually added units. Each unit number must be unique."); jump("units"); return; }
     if (imported.length + units.length > 500) { setError(`Importing ${imported.length} units would exceed the 500-unit limit (currently ${units.length} units). Reduce the batch size.`); jump("units"); return; }
-    setUnits(current => [...current, ...imported]); setError("");
+    const preview = validateUnitImport(imported.map((unit, index) => ({ ...unit, sourceRow: index + 2, errors: {} })), units);
+    setUnitImportRows(preview);
+    setUnitImportFile(file.name);
+    const errorCount = preview.filter((row) => Object.keys(row.errors).length).length;
+    setError(errorCount ? `${errorCount} row(s) need attention. Correct the highlighted cells in the preview before importing.` : "");
+    jump("units");
+  };
+
+  const editUnitImport = (index: number, field: keyof UnitDraft, value: string) => {
+    setUnitImportRows((current) => {
+      const next = validateUnitImport(current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row), units);
+      const errorCount = next.filter((row) => Object.keys(row.errors).length).length;
+      setError(errorCount ? `${errorCount} row(s) need attention. Correct the highlighted cells in the preview before importing.` : "");
+      return next;
+    });
+  };
+
+  const applyUnitImport = () => {
+    const validated = validateUnitImport(unitImportRows, units);
+    setUnitImportRows(validated);
+    const invalid = validated.filter((row) => Object.keys(row.errors).length);
+    if (invalid.length) {
+      setError(`${invalid.length} row(s) still contain errors. Correct every highlighted cell before importing.`);
+      window.requestAnimationFrame(() => {
+        const firstError = document.querySelector<HTMLElement>('[data-unit-import-error="true"] input');
+        firstError?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        firstError?.focus();
+      });
+      return;
+    }
+    setUnits((current) => [...current, ...validated.map((row) => ({
+      unit_no: row.unit_no,
+      unit_type: row.unit_type,
+      floor: row.floor,
+      use: row.use,
+      area: normalizeNumber(row.area),
+      rateable_area: normalizeNumber(row.rateable_area),
+      building_index: row.building_index,
+      description: row.description,
+    }))]);
+    setUnitImportRows([]); setUnitImportFile(""); setError("");
+    toast.success(`${validated.length} units were validated and added to this property draft.`);
   };
 
   const importAssets = async (file?: File) => {
@@ -451,7 +511,7 @@ export function PropertyOnboardingForm() {
         {readiness.missing.map(item => <Chip key={`${item.section}:${item.label}`} size="small" variant="outlined" label={`Add ${item.label}`} onClick={() => jump(item.section)} />)}
       </Box>}
     </Paper>
-    <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 40, "& .MuiTab-root": { minHeight: 40, fontSize: { xs: 12, md: 14 } } }}>{sections.map(([id, label]) => <Tab key={id} value={id} label={label} />)}</Tabs></Paper>
+    <Paper variant="outlined" sx={{ position: "sticky", top: 76, zIndex: 5, mb: 2, overflowX: "auto" }}><Tabs value={section} onChange={(_, value) => jump(value)} variant="scrollable" scrollButtons="auto" aria-label="Property onboarding sections" sx={{ minHeight: 40, "& .MuiTab-root": { minHeight: 40, fontSize: { xs: 12, md: 14 } } }}>{sections.map(([id, label]) => <Tab id={`onboarding-tab-${id}`} aria-controls={id} key={id} value={id} label={label} />)}</Tabs></Paper>
     <DraftBanner
       restored={restoredDraft}
       savedAt={valuesSavedAt}
@@ -463,8 +523,8 @@ export function PropertyOnboardingForm() {
       }}
       message="Your unsaved property onboarding draft was restored."
     />
-    {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
-    <Box sx={{ display: "grid", gap: 2 }}>
+    {error && <Alert severity="error" variant="filled" action={<Button color="inherit" size="small" onClick={() => window.dispatchEvent(new CustomEvent("ce:qm-help", { detail: { message: `Help me resolve this property onboarding error: ${error}` } }))}>Ask QM</Button>} sx={{ mb: 2, position: "sticky", top: 128, zIndex: 4, boxShadow: 3 }}><strong>Action needed:</strong> {error} Your entered information has been retained.</Alert>}
+    <Box sx={{ display: "grid", gap: 2, [`& > .onboarding-section:not(#${section})`]: { display: "none" } }}>
       <Section id="general" title="General information">
         <Grid><TextField label="Property code" value="Auto generated" disabled /><TextField required label="Property name" value={values.name || ""} onChange={set("name")} /><TextField select required label="Property status" value={values.status} onChange={set("status")}><MenuItem value="draft">Draft</MenuItem><MenuItem value="active">Active</MenuItem><MenuItem value="inactive">Inactive</MenuItem></TextField>
         <TextField select required label="Property type" value={values.property_type} onChange={set("property_type")}><MenuItem value="commercial">Commercial</MenuItem><MenuItem value="residential">Residential</MenuItem><MenuItem value="mixed_use">Mixed use</MenuItem><MenuItem value="industrial">Industrial</MenuItem></TextField><TextField label="Property category" value={values.category || ""} onChange={set("category")} /><TextField label="LR number (optional)" value={values.lr_number || ""} onChange={set("lr_number")} />
@@ -519,6 +579,20 @@ export function PropertyOnboardingForm() {
             <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
           </Box>
         </Box>
+        {unitImportRows.length > 0 && <Paper variant="outlined" sx={{ mb: 2, overflow: "hidden", borderColor: unitImportRows.some((row) => Object.keys(row.errors).length) ? "error.main" : "success.main" }}>
+          <Box sx={{ p: 1.5, display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap", bgcolor: "action.hover" }}>
+            <Box><Typography sx={{ fontWeight: 800 }}>CSV preview · {unitImportFile}</Typography><Typography variant="body2" color="text.secondary">Review and edit the parsed values before adding them to the property draft.</Typography></Box>
+            <Chip color={unitImportRows.some((row) => Object.keys(row.errors).length) ? "error" : "success"} label={unitImportRows.some((row) => Object.keys(row.errors).length) ? `${unitImportRows.filter((row) => Object.keys(row.errors).length).length} rows need attention` : `${unitImportRows.length} rows ready`} />
+          </Box>
+          <Box sx={{ overflowX: "auto", maxHeight: 430 }}><Box component="table" sx={{ width: "100%", minWidth: 980, borderCollapse: "collapse", "th,td": { p: 1, borderBottom: "1px solid", borderColor: "divider", verticalAlign: "top" }, th: { position: "sticky", top: 0, bgcolor: "background.paper", zIndex: 1, textAlign: "left" } }}>
+            <thead><tr><th>CSV row</th>{["Unit no.", "Type", "Floor", "Use", "Area", "Rateable area", "Building #", "Description"].map((label) => <th key={label}>{label}</th>)}</tr></thead>
+            <tbody>{unitImportRows.map((row, index) => <tr key={`${row.sourceRow}-${index}`} style={{ background: Object.keys(row.errors).length ? "rgba(211, 47, 47, 0.07)" : undefined }}>
+              <td><Chip size="small" label={row.sourceRow} color={Object.keys(row.errors).length ? "error" : "default"} /></td>
+              {(["unit_no", "unit_type", "floor", "use", "area", "rateable_area", "building_index", "description"] as (keyof UnitDraft)[]).map((field) => <td key={field}><TextField data-unit-import-error={Boolean(row.errors[field])} size="small" value={row[field]} error={Boolean(row.errors[field])} helperText={row.errors[field] || " "} onChange={(event) => editUnitImport(index, field, event.target.value)} slotProps={{ htmlInput: { "aria-label": `${field.replaceAll("_", " ")} row ${row.sourceRow}` } }} sx={{ minWidth: field === "description" ? 180 : 110 }} /></td>)}
+            </tr>)}</tbody>
+          </Box></Box>
+          <Box sx={{ p: 1.5, display: "flex", justifyContent: "flex-end", gap: 1 }}><Button color="inherit" onClick={() => { setUnitImportRows([]); setUnitImportFile(""); setError(""); }}>Discard preview</Button><Button variant="contained" onClick={applyUnitImport}>Add validated units</Button></Box>
+        </Paper>}
         <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
         <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button><Divider sx={{ my: 2 }} /><RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—"]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
         <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}><Chip label={`Total units: ${units.length}`} /><Chip label={`Lettable area: ${totalArea.toLocaleString()} sq ft`} /><Chip label={`Vacant units: ${units.length}`} color="success" variant="outlined" /></Box>

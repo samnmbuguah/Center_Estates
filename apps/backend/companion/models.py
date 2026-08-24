@@ -423,3 +423,29 @@ class StaffLeaveBalance(OrganizationOwnedModel):
     @property
     def remaining_days(self):
         return max(0.0, self.total_entitlement - self.get_taken_days())
+
+
+class QmConversation(OrganizationOwnedModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='qm_conversations')
+    property = models.ForeignKey('properties.Property', on_delete=models.SET_NULL, null=True, blank=True, related_name='qm_conversations')
+    title = models.CharField(max_length=180, default='Quartermaster conversation')
+    is_archived = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ('-updated_at',)
+        indexes = [models.Index(fields=('organization', 'user', 'is_archived'))]
+
+
+class QmMessage(OrganizationOwnedModel):
+    class Role(models.TextChoices):
+        USER = 'user', 'User'
+        ASSISTANT = 'assistant', 'Assistant'
+
+    conversation = models.ForeignKey(QmConversation, on_delete=models.CASCADE, related_name='messages')
+    role = models.CharField(max_length=12, choices=Role.choices)
+    content = models.TextField()
+    response_metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('created_at',)
+        indexes = [models.Index(fields=('organization', 'conversation', 'created_at'))]

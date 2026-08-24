@@ -15,6 +15,7 @@ from .views import (
     StreamingChatView,
     ActionExecutionView,
     DocumentExtractView,
+    QmConversationViewSet,
 )
 
 router = DefaultRouter()
@@ -28,6 +29,7 @@ router.register('performance', PerformanceViewSet, basename='companion-performan
 router.register('telemetry', TelemetryViewSet, basename='companion-telemetry')
 router.register('leave', StaffLeaveRequestViewSet, basename='companion-leave')
 router.register('hr-requests', StaffHrRequestViewSet, basename='companion-hr-requests')
+router.register('qm-conversations', QmConversationViewSet, basename='companion-qm-conversation')
 
 urlpatterns = [
     path('chat/stream/', StreamingChatView.as_view(), name='companion-chat-stream'),
@@ -37,5 +39,4 @@ urlpatterns = [
     path('public-feedback/<str:token>/', public_feedback, name='public-feedback'),
     path('public-ticket/<str:reference>/', public_ticket_status, name='public-ticket-status'),
 ] + router.urls
-
 

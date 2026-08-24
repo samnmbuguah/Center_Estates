@@ -29,6 +29,8 @@ from .models import (
     TeamFeedbackMessage,
     TeamFeedbackThread,
     PublicFeedbackQrCode,
+    QmConversation,
+    QmMessage,
 )
 from .serializers import (
     StaffHrRequestSerializer,
@@ -39,6 +41,7 @@ from .serializers import (
     TaskTemplateSerializer,
     TeamFeedbackThreadSerializer,
     PublicFeedbackQrCodeSerializer,
+    QmConversationSerializer,
 )
 from notifications.models import Notification
 from notifications.services import notify_user, send_email_notification
@@ -294,6 +297,30 @@ class TaskTemplateViewSet(CompanionModelViewSet):
     search_fields = ('name', 'title_template')
 
 
+class QmConversationViewSet(CompanionModelViewSet):
+    serializer_class = QmConversationSerializer
+    queryset = QmConversation.objects.select_related('property', 'user').prefetch_related('messages')
+    required_permission = 'companion.view'
+
+    def get_queryset(self):
+        queryset = super().get_queryset().filter(user=self.request.user)
+        archived = self.request.query_params.get('is_archived')
+        if archived is not None:
+            queryset = queryset.filter(is_archived=archived.lower() in ('1', 'true', 'yes'))
+        return queryset
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(organization=organization, user=self.request.user, property=get_active_property(self.request, organization))
+
+    @action(detail=True, methods=('post',))
+    def archive(self, request, pk=None):
+        conversation = self.get_object()
+        conversation.is_archived = True
+        conversation.save(update_fields=('is_archived', 'updated_at'))
+        return Response(self.get_serializer(conversation).data)
+
+
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
@@ -348,11 +375,23 @@ class CompanionDashboardViewSet(ViewSet):
     @action(detail=False, methods=('post',), throttle_classes=(QMChatRateThrottle,))
     def chat(self, request):
         organization = get_active_organization(request)
-        raw_prompt = str(request.data.get('prompt', '')).strip()
+        raw_prompt = str(request.data.get('prompt', '')).strip() or 'Give me my operational briefing.'
         if len(raw_prompt) > 2000:
             raise ValidationError({'prompt': 'Keep your question under 2,000 characters.'})
         prompt = raw_prompt.lower()
         now = timezone.now()
+        conversation_id = request.data.get('conversation_id')
+        conversation = QmConversation.objects.filter(
+            id=conversation_id, organization=organization, user=request.user, is_archived=False,
+        ).first() if conversation_id else None
+        if conversation is None:
+            conversation = QmConversation.objects.create(
+                organization=organization, user=request.user, property=get_active_property(request, organization),
+                title=raw_prompt[:177] + ('…' if len(raw_prompt) > 177 else ''),
+            )
+        QmMessage.objects.create(
+            organization=organization, conversation=conversation, role=QmMessage.Role.USER, content=raw_prompt,
+        )
 
         # QM is read-only and is grounded only in records this user is authorized to see.
         tasks = scope_model_queryset(Task, request, organization).select_related(
@@ -495,7 +534,7 @@ class CompanionDashboardViewSet(ViewSet):
                 {"label": "Assign New Task", "action": "assign", "href": "/companion?tab=tasks"},
             ]
 
-        return Response({
+        payload = {
             'prompt': request.data.get('prompt', ''),
             'response': response_text,
             'suggestedActions': suggested_actions,
@@ -503,7 +542,17 @@ class CompanionDashboardViewSet(ViewSet):
             'agentStatus': qm_result.get('status', 'local'),
             'groundedAt': now.isoformat(),
             'timestamp': now.isoformat(),
-        })
+            'conversationId': str(conversation.id),
+        }
+        QmMessage.objects.create(
+            organization=organization, conversation=conversation, role=QmMessage.Role.ASSISTANT,
+            content=response_text, response_metadata={
+                'suggestedActions': suggested_actions,
+                'agent': payload['agent'], 'agentStatus': payload['agentStatus'], 'groundedAt': payload['groundedAt'],
+            },
+        )
+        conversation.save(update_fields=('updated_at',))
+        return Response(payload)
 
     @action(detail=False, methods=('get', 'post'), url_path='daily-briefing')
     def daily_briefing(self, request):

@@ -86,6 +86,10 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
     setAiMessages,
     aiResponse,
     setAiResponse,
+    aiConversations,
+    aiConversationId,
+    selectAiConversation,
+    archiveAiConversation,
     sendAiPrompt,
     dateFrom,
     setDateFrom,
@@ -200,11 +204,11 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             aiLoading={aiLoading}
             aiError={aiError}
             aiResponse={aiResponse}
+            aiConversations={aiConversations}
+            aiConversationId={aiConversationId}
+            selectConversation={selectAiConversation}
             sendAiPrompt={sendAiPrompt}
-            clearConversation={() => {
-              setAiMessages([]);
-              setAiResponse(null);
-            }}
+            clearConversation={() => void archiveAiConversation()}
           />
         )}
 

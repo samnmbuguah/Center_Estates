@@ -185,3 +185,19 @@ test("property onboarding: autosaved draft restores on reload and can be discard
   await page.getByLabel(/Property name/i).waitFor({ timeout: 20000 });
   await expect(page.getByLabel(/Property name/i)).toHaveValue("");
 });
+
+test("property onboarding: unit CSV preview accepts formatted numbers and remains editable", async ({ page }) => {
+  await page.goto("/property-onboarding");
+  await page.getByRole("tab", { name: "Units", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Create units" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "General information" })).toBeHidden();
+
+  await page.getByRole("tabpanel", { name: "Units" }).locator('input[type="file"]').setInputFiles("tests/fixtures/property-units-thousands.csv");
+  await expect(page.getByText(/3 rows ready/i)).toBeVisible();
+  await expect(page.getByLabel("area row 2")).toHaveValue("3101.00");
+  await page.getByLabel("area row 4").fill("not-a-number");
+  await expect(page.getByText("Enter a positive area.")).toBeVisible();
+  await page.getByLabel("area row 4").fill("950");
+  await page.getByRole("button", { name: "Add validated units" }).click();
+  await expect(page.getByText("Total units: 3")).toBeVisible();
+});

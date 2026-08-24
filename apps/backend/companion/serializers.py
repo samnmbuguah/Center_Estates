@@ -9,7 +9,25 @@ from .models import (
     TeamFeedbackThread,
     PublicFeedbackQrCode,
     IssueRoutingRule,
+    QmConversation,
+    QmMessage,
 )
+
+
+class QmMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QmMessage
+        exclude = ('organization', 'conversation')
+
+
+class QmConversationSerializer(serializers.ModelSerializer):
+    messages = QmMessageSerializer(many=True, read_only=True)
+    property_name = serializers.CharField(source='property.name', read_only=True, default='Portfolio')
+
+    class Meta:
+        model = QmConversation
+        exclude = ('organization', 'user')
+        read_only_fields = ('title', 'property', 'is_archived')
 
 
 class PublicFeedbackQrCodeSerializer(serializers.ModelSerializer):

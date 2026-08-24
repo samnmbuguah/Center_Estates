@@ -1,0 +1,4 @@
+unit_no,unit_type,floor,use,area,rateable_area,building_number,description
+F1-1,Office,1,Commercial,"3,101.00","3,101.00",1,First floor office
+F3-3A,Office,3,Commercial,"1,250.50","1,200.00",1,Third floor office
+F5-5B,Office,5,Commercial,950,900,1,Fifth floor office
