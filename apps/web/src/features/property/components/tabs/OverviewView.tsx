@@ -82,20 +82,19 @@ export function OverviewView({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      
-      {/* ═══ EXECUTIVE HERO HEADER ════════════════════════════════════ */}
+          {/* ═══ EXECUTIVE HERO HEADER ════════════════════════════════════ */}
       <div
         style={{
-          background: "linear-gradient(135deg, #0b1f33 0%, #172a3e 100%)",
+          background: "var(--surface, #ffffff)",
+          border: "1px solid var(--border, #e2e8f0)",
           borderRadius: 14,
           padding: "20px 24px",
-          color: "#ffffff",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
           gap: 16,
-          boxShadow: "0 10px 30px rgba(11, 31, 51, 0.12)",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -104,8 +103,8 @@ export function OverviewView({
               width: 48,
               height: 48,
               borderRadius: 12,
-              background: "rgba(59, 130, 246, 0.2)",
-              border: "1.5px solid rgba(96, 165, 250, 0.4)",
+              background: "rgba(37, 99, 235, 0.08)",
+              border: "1.5px solid rgba(37, 99, 235, 0.2)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -116,7 +115,7 @@ export function OverviewView({
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.01em", color: "#ffffff" }}>
+              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.01em", color: "var(--text-primary, #0f172a)" }}>
                 {String(currentProperty?.name ?? "Property Overview")}
               </h2>
               <span
@@ -125,16 +124,16 @@ export function OverviewView({
                   fontWeight: 800,
                   padding: "3px 9px",
                   borderRadius: 6,
-                  background: occupancyRate >= 80 ? "rgba(34, 197, 94, 0.2)" : "rgba(245, 158, 11, 0.2)",
-                  color: occupancyRate >= 80 ? "#4ade80" : "#fbbf24",
-                  border: occupancyRate >= 80 ? "1px solid rgba(74, 222, 128, 0.3)" : "1px solid rgba(251, 191, 36, 0.3)",
+                  background: occupancyRate >= 80 ? "rgba(34, 197, 94, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                  color: occupancyRate >= 80 ? "#16a34a" : "#d97706",
+                  border: occupancyRate >= 80 ? "1px solid rgba(34, 197, 94, 0.3)" : "1px solid rgba(245, 158, 11, 0.3)",
                 }}
               >
                 {occupancyRate}% OCCUPIED
               </span>
             </div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-              Commercial & Residential Operations · <strong>{units} Units</strong> ({occupied} active, {vacant} vacant)
+            <div style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", marginTop: 4 }}>
+              Commercial & Residential Operations · <strong style={{ color: "var(--text-primary, #0f172a)" }}>{units} Units</strong> ({occupied} active, {vacant} vacant)
             </div>
           </div>
         </div>
@@ -145,7 +144,7 @@ export function OverviewView({
             type="button"
             className="btn ghost sm"
             onClick={() => setTab("tenants")}
-            style={{ color: "#ffffff", borderColor: "rgba(255,255,255,0.2)", fontWeight: 700, fontSize: 12 }}
+            style={{ fontWeight: 700, fontSize: 12 }}
           >
             👥 Tenants ({kN(k.activeLeases ?? occupied)})
           </button>
@@ -153,7 +152,7 @@ export function OverviewView({
             type="button"
             className="btn ghost sm"
             onClick={() => setTab("billing")}
-            style={{ color: "#ffffff", borderColor: "rgba(255,255,255,0.2)", fontWeight: 700, fontSize: 12 }}
+            style={{ fontWeight: 700, fontSize: 12 }}
           >
             🧾 Billing Pipeline
           </button>
@@ -161,7 +160,7 @@ export function OverviewView({
             type="button"
             className="btn ghost sm"
             onClick={() => setTab("rent")}
-            style={{ color: "#ffffff", borderColor: "rgba(255,255,255,0.2)", fontWeight: 700, fontSize: 12 }}
+            style={{ fontWeight: 700, fontSize: 12 }}
           >
             📄 Invoices & Receipts
           </button>

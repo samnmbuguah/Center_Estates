@@ -110,10 +110,10 @@ export function ExpenditureView({ rows, organizationId, propertyId, canApprove, 
 
       {/* Landlord Float balance card */}
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginBottom: 16 }}>
-        <div className="data-panel" style={{ background: "linear-gradient(135deg, #0f2744, #1e3a5f)", border: 0 }}>
-          <span style={{ color: "#ffffff", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>LANDLORD FLOAT ALLOCATED</span>
-          <strong style={{ color: "#fff", display: "block", fontSize: 26, fontWeight: 900 }}>{money.format(floatAllocated)}</strong>
-          <small style={{ color: "#dbeafe", display: "block", fontWeight: 700, marginTop: 10 }}>From the approved FM budget for this property</small>
+        <div className="data-panel" style={{ padding: 18, border: "1.5px solid #2563eb", background: "rgba(37, 99, 235, 0.05)" }}>
+          <span style={{ color: "#2563eb", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>LANDLORD FLOAT ALLOCATED</span>
+          <strong style={{ color: "var(--text-primary)", display: "block", fontSize: 26, fontWeight: 900 }}>{money.format(floatAllocated)}</strong>
+          <small style={{ color: "var(--text-secondary)", display: "block", fontWeight: 700, marginTop: 10 }}>From the approved FM budget for this property</small>
         </div>
         <div className="data-panel" style={{ padding: 18 }}>
           <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>SPENT</span>

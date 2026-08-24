@@ -256,12 +256,13 @@ export function MeterReadingsView({
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       {/* 1. EXECUTIVE HEADER & KPI STRIP */}
       <Paper
-        elevation={0}
+        variant="outlined"
         sx={{
           p: 3,
           borderRadius: 3,
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-          color: "#ffffff",
+          background: "var(--surface, #ffffff)",
+          borderColor: "var(--border, #e2e8f0)",
+          color: "text.primary",
           display: "flex",
           flexDirection: { xs: "column", md: "row" },
           justifyContent: "space-between",
@@ -272,11 +273,11 @@ export function MeterReadingsView({
         <Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <span style={{ fontSize: 24 }}>⚡</span>
-            <Typography variant="h5" sx={{ fontWeight: 900, color: "#ffffff" }}>
+            <Typography variant="h5" sx={{ fontWeight: 900, color: "text.primary" }}>
               Caretaker Field Meter Reading Hub
             </Typography>
           </Box>
-          <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)", mt: 0.5 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
             {activeProperty?.name ?? "Select Property"} · Fast bulk walk-through capture, instant consumption deltas & admin verification queue
           </Typography>
         </Box>
