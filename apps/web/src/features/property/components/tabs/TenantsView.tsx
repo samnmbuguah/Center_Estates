@@ -214,39 +214,41 @@ export function TenantsView({
                         </td>
                       )}
                       <td>
-                        <strong style={{ fontSize: 13 }}>{String(t.name ?? "—")}</strong>
-                        <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(t.code ?? "—")}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{String(t.name ?? "—")}</div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 6px", borderRadius: 4, display: "inline-block", marginTop: 3 }}>
+                          {String(t.code ?? "—")}
+                        </span>
                       </td>
                       <td>
                         {(t as any).units && (t as any).units.length > 1 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--primary)" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#2563eb" }}>
                               🏢 {(t as any).units.length} Units ({[...new Set((t as any).units.map((u: any) => u.floor).filter(Boolean))].map((f: any) => `Fl ${f}`).join(', ') || 'Multi-floor'})
                             </span>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                               {(t as any).units.map((u: any, idx: number) => (
-                                <span key={idx} className="mono" style={{ fontSize: 10, background: "var(--surface-2)", padding: "1px 5px", borderRadius: 4, border: "1px solid var(--border)" }}>
+                                <span key={idx} style={{ fontSize: 11, fontWeight: 600, background: "var(--surface-sunken)", padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", color: "var(--text-primary)" }}>
                                   {u.code}{u.floor ? ` (${u.floor})` : ''}
                                 </span>
                               ))}
                             </div>
                           </div>
                         ) : (
-                          <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{String(t.unit ?? "—")}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{String(t.unit ?? "—")}</span>
                         )}
                       </td>
                       <td style={{ fontSize: 12 }}>
-                        <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--primary)", fontSize: 12 }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
-                        <div className="muted" style={{ fontSize: 11 }}>{t.phone ? String(t.phone) : "—"}</div>
+                        <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "#2563eb", fontSize: 12, fontWeight: 500, textDecoration: "none" }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
+                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2, fontWeight: 600 }}>{t.phone ? String(t.phone) : "—"}</div>
                       </td>
                       <td style={{ fontSize: 12 }}>
                         {t.lease_start ? (
                           <>
-                            <div>{fmtDate(t.lease_start)}</div>
-                            <div className="muted">→ {t.lease_end ? fmtDate(t.lease_end) : "—"}</div>
+                            <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{fmtDate(t.lease_start)}</div>
+                            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>→ {t.lease_end ? fmtDate(t.lease_end) : "—"}</div>
                           </>
                         ) : (
-                          <span className="muted" style={{ fontSize: 11 }}>No lease</span>
+                          <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>No lease</span>
                         )}
                       </td>
                       <td>
@@ -256,32 +258,68 @@ export function TenantsView({
                           <StatusPill value={String(t.status ?? "—")} />
                         )}
                       </td>
-                      <td className="mono" style={{ color: Number(t.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)", fontWeight: 700 }}>
+                      <td style={{ fontSize: 13, color: Number(t.outstanding ?? 0) > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: 700 }}>
                         {t.outstanding === undefined ? "—" : kM(t.outstanding)}
                       </td>
                       <td>
-                        <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", justifyContent: "flex-end", flexWrap: "nowrap" }}>
                           {t.status === "prospect" && canLease && (
                             <button
-                              className="btn primary sm"
+                              className="fc-toolbar-btn primary"
                               onClick={(e) => { e.stopPropagation(); void onActivate(t); }}
-                              style={{ background: "#16a34a", borderColor: "#15803d", fontWeight: 700 }}
+                              style={{ background: "#16a34a", borderColor: "#15803d", color: "#fff", fontWeight: 700, padding: "4px 8px", fontSize: 11, borderRadius: 6 }}
                               title="Activate this tenant and all draft leases"
                             >
                               ⚡ Activate
                             </button>
                           )}
-                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onEdit(t); }}>Edit</button>
-                          <button className="btn ghost sm" data-testid="tenant-portal-btn" onClick={(e) => { e.stopPropagation(); onOpenPortal(t); }}>Portal</button>
-                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}>Docs</button>
+                          <button
+                            className="fc-toolbar-btn"
+                            onClick={(e) => { e.stopPropagation(); onEdit(t); }}
+                            style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "5px 9px", fontSize: 11, fontWeight: 600, borderRadius: 6, color: "var(--text-primary)" }}
+                            title="Edit tenant profile"
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            className="fc-toolbar-btn"
+                            data-testid="tenant-portal-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`/tenant-portal?tenant=${t.id}`, "_blank", "noopener,noreferrer");
+                            }}
+                            style={{
+                              background: "rgba(37, 99, 235, 0.08)",
+                              border: "1px solid rgba(37, 99, 235, 0.25)",
+                              color: "#2563eb",
+                              padding: "5px 9px",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              borderRadius: 6,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                            }}
+                            title="Open tenant portal in a new tab (impersonate tenant view)"
+                          >
+                            🌐 Portal ↗
+                          </button>
+                          <button
+                            className="fc-toolbar-btn"
+                            onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}
+                            style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "5px 9px", fontSize: 11, fontWeight: 600, borderRadius: 6, color: "var(--text-primary)" }}
+                            title="Upload / view tenant documents"
+                          >
+                            📁 Docs
+                          </button>
                           {canLease && (
                             <button
-                              className="btn ghost sm"
+                              className="fc-toolbar-btn"
                               onClick={(e) => { e.stopPropagation(); onDelete(t); }}
-                              style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.25)" }}
+                              style={{ background: "var(--surface)", border: "1px solid rgba(239, 68, 68, 0.25)", color: "#dc2626", padding: "5px 8px", fontSize: 11, fontWeight: 600, borderRadius: 6 }}
                               title="Delete duplicate or erroneous tenant"
                             >
-                              Delete
+                              🗑️
                             </button>
                           )}
                         </div>

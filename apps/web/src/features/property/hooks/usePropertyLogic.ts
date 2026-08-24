@@ -1105,7 +1105,7 @@ export function usePropertyLogic({
 
   const openTenantPortal = (row: Row) => {
     if (typeof window !== "undefined") {
-      window.location.href = `/tenant-portal?tenant=${row.id}`;
+      window.open(`/tenant-portal?tenant=${row.id}`, "_blank", "noopener,noreferrer");
     }
   };
 
