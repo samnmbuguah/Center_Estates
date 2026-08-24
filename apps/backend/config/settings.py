@@ -301,6 +301,10 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'false').lower() == 'true'
 EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'false').lower() == 'true'
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Center Estates Helpdesk <noreply@centerestates.com>')
 SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+PLATFORM_EMAIL_ORGANIZATION_SLUG = os.environ.get(
+    'PLATFORM_EMAIL_ORGANIZATION_SLUG',
+    'center-estates-demo',
+)
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://centerestates.com')
 
 JWT_ACCESS_COOKIE = 'ce_access'

@@ -11,10 +11,21 @@ logger = logging.getLogger(__name__)
 
 def get_email_connection_and_sender(organization):
     """
-    Retrieve the active EmailConfiguration for the organization.
+    Retrieve the active EmailConfiguration for the organization, falling back
+    to the platform sender when a customer has not configured its own gateway.
+
+    The platform fallback deliberately reuses the persisted Center Estates
+    connection instead of copying SMTP credentials into every organization.
+    A customer's active configuration always takes precedence.
     Returns (connection, from_email, from_name).
     """
     config = EmailConfiguration.objects.filter(organization=organization, is_active=True).first()
+    if not config:
+        platform_slug = getattr(settings, 'PLATFORM_EMAIL_ORGANIZATION_SLUG', 'center-estates-demo')
+        config = EmailConfiguration.objects.filter(
+            organization__slug=platform_slug,
+            is_active=True,
+        ).first()
     if config and config.backend_type == 'smtp' and config.host:
         connection = get_connection(
             backend='django.core.mail.backends.smtp.EmailBackend',
@@ -175,4 +186,3 @@ def notify_permission(*, organization, permission_key, title, message, level=Not
             action_url=action_url, event_key=f'{event_key}:{recipient.pk}' if event_key else '',
             category=category, metadata=metadata,
         )
-

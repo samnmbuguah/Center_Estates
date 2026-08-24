@@ -9,11 +9,54 @@ from unittest.mock import patch
 
 from organizations.models import Membership, Organization
 
-from .models import Notification
+from .models import EmailConfiguration, Notification
+from .services import get_email_connection_and_sender
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class NotificationTenantTests(TestCase):
+    @override_settings(PLATFORM_EMAIL_ORGANIZATION_SLUG='center-estates-demo')
+    def test_customer_without_email_gateway_uses_platform_sender(self):
+        platform = Organization.objects.create(name='Center Estates Demo', slug='center-estates-demo')
+        customer = Organization.objects.create(name='Legend Management', slug='legend-management')
+        EmailConfiguration.objects.create(
+            organization=platform, host='mail.centerestates.com', port=465,
+            username='companion@centerestates.com', password='platform-secret',
+            use_tls=False, use_ssl=True, from_email='companion@centerestates.com',
+            from_name='Center Estates', is_active=True,
+        )
+
+        connection, from_email, sender_name = get_email_connection_and_sender(customer)
+
+        self.assertEqual(connection.host, 'mail.centerestates.com')
+        self.assertEqual(connection.username, 'companion@centerestates.com')
+        self.assertEqual(from_email, 'Center Estates <companion@centerestates.com>')
+        self.assertEqual(sender_name, 'Center Estates')
+
+    @override_settings(PLATFORM_EMAIL_ORGANIZATION_SLUG='center-estates-demo')
+    def test_customer_email_gateway_overrides_platform_sender(self):
+        platform = Organization.objects.create(name='Center Estates Demo', slug='center-estates-demo')
+        customer = Organization.objects.create(name='Legend Management', slug='legend-management')
+        EmailConfiguration.objects.create(
+            organization=platform, host='mail.centerestates.com', port=465,
+            username='companion@centerestates.com', password='platform-secret',
+            use_tls=False, use_ssl=True, from_email='companion@centerestates.com',
+            from_name='Center Estates', is_active=True,
+        )
+        EmailConfiguration.objects.create(
+            organization=customer, host='smtp.propertylegend.com', port=587,
+            username='notifications@propertylegend.com', password='legend-secret',
+            use_tls=True, use_ssl=False, from_email='notifications@propertylegend.com',
+            from_name='Legend Management', is_active=True,
+        )
+
+        connection, from_email, sender_name = get_email_connection_and_sender(customer)
+
+        self.assertEqual(connection.host, 'smtp.propertylegend.com')
+        self.assertEqual(connection.username, 'notifications@propertylegend.com')
+        self.assertEqual(from_email, 'Legend Management <notifications@propertylegend.com>')
+        self.assertEqual(sender_name, 'Legend Management')
+
     def test_recipient_must_belong_to_notification_organization(self):
         user = get_user_model().objects.create_user(username='notify')
         first = Organization.objects.create(name='First', slug='notify-first')
