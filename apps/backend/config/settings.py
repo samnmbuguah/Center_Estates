@@ -289,6 +289,20 @@ REST_FRAMEWORK = {
     },
 }
 
+# Transactional email defaults use the hosted domain instead of Django's
+# webmaster@localhost identity. Organizations can still override this through
+# Administration -> Outbound email.
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'false').lower() == 'true'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'false').lower() == 'true'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Center Estates Helpdesk <noreply@centerestates.com>')
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://centerestates.com')
+
 JWT_ACCESS_COOKIE = 'ce_access'
 JWT_REFRESH_COOKIE = 'ce_refresh'
 SIMPLE_JWT = {

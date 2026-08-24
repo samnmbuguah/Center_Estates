@@ -9,7 +9,7 @@ import os
 from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
 from subscriptions.models import Subscription
-from companion.models import QmConversation, QmMessage, Task, TaskEvent
+from companion.models import QmConversation, QmMessage, Task, TaskEvent, PublicFeedbackQrCode, TeamFeedbackThread
 from django.utils import timezone
 from datetime import timedelta
 from companion.qm_agent import QMAgentOrchestrator
@@ -48,6 +48,29 @@ class CompanionApiTests(TestCase):
         self.assertEqual(agent.api_url, 'https://integrate.api.nvidia.com/v1/chat/completions')
         self.assertEqual(agent.model, 'meta/llama-3.1-8b-instruct')
         self.assertEqual(agent.timeout_seconds, 24)
+
+    @patch('companion.views.send_email_notification', return_value=True)
+    def test_public_qr_ticket_is_trackable_and_records_email_acknowledgement(self, send_email):
+        property_record = Property.objects.create(
+            organization=self.organization, code='QR-1', name='QR Plaza'
+        )
+        qr = PublicFeedbackQrCode.objects.create(
+            organization=self.organization, property=property_record, label='Reception'
+        )
+        created = self.client.post(f'/api/v1/companion/public-feedback/{qr.token}/', {
+            'category': 'Cleaning', 'description': 'Spill at reception', 'name': 'Visitor',
+            'contact_channel': 'email', 'contact_value': 'visitor@example.com', 'priority': 'normal',
+        }, format='json')
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data['acknowledgement_email_status'], 'queued')
+        send_email.assert_called_once()
+        thread = TeamFeedbackThread.objects.get(ticket_no=created.data['ticket_no'])
+        self.assertEqual(thread.metadata['acknowledgement_email_status'], 'queued')
+
+        tracked = self.client.get(f"/api/v1/companion/public-ticket/{thread.ticket_no}/")
+        self.assertEqual(tracked.status_code, 200, tracked.data)
+        self.assertEqual(tracked.data['reference'], thread.ticket_no)
+        self.assertEqual(tracked.data['acknowledgement_email_status'], 'queued')
 
     def test_admin_can_create_and_complete_task(self):
         self.login(self.admin)

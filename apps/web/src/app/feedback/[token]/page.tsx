@@ -39,6 +39,7 @@ type TicketStatus = {
   confirmed_at?: string;
   resolution_notes?: string;
   reopened_count: number;
+  acknowledgement_email_status?: "queued" | "failed" | "not_requested" | "unknown";
   messages: { sender: string; message: string; is_developer_response: boolean; created_at: string }[];
 };
 
@@ -745,6 +746,20 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                 </button>
               </div>
             </div>
+
+            {ticket.acknowledgement_email_status === "queued" ? (
+              <div style={{ padding: "11px 14px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#166534", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                <Mail size={16} /> Acknowledgement email queued for delivery. Check the inbox and spam folder.
+              </div>
+            ) : ticket.acknowledgement_email_status === "failed" ? (
+              <div style={{ padding: "11px 14px", borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                <AlertCircle size={16} /> The ticket is safely recorded, but its acknowledgement email could not be sent. Keep the reference above and ask the property team to verify outbound email settings.
+              </div>
+            ) : ticket.acknowledgement_email_status === "not_requested" ? (
+              <div style={{ padding: "11px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569", fontSize: 13, fontWeight: 700 }}>
+                No email acknowledgement was requested for this ticket.
+              </div>
+            ) : null}
 
             {/* SLA & Team Assignment Info */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

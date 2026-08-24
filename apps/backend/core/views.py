@@ -242,6 +242,27 @@ class TicketsFeedView(APIView):
         # Include module-specific tickets only if user has module access
         if can(Module.FACILITY) or can(Module.PROPERTY):
             from facilities.models import WorkOrder, ServiceRequest
+            from companion.models import TeamFeedbackThread
+            feedback_threads = scope_model_queryset(TeamFeedbackThread, request, organization).select_related(
+                'property', 'assigned_to', 'created_by'
+            ).filter(module='facility').order_by('-updated_at')[:100]
+            for thread in feedback_threads:
+                first_message = thread.messages.order_by('created_at').values_list('message', flat=True).first()
+                add(
+                    id=f'feedback:{thread.pk}',
+                    reference=thread.ticket_no or thread.reference,
+                    title=thread.title,
+                    description=first_message or '',
+                    priority=thread.priority,
+                    status=thread.status,
+                    module='facility',
+                    source_url=f'/companion?tab=feedback&thread={thread.pk}',
+                    property_record=thread.property,
+                    assigned_to=thread.assigned_to.get_username() if thread.assigned_to else thread.assigned_team,
+                    raised_by=thread.requester_name or (thread.created_by.get_username() if thread.created_by else None),
+                    created_at=thread.created_at,
+                    updated_at=thread.updated_at,
+                )
             for order in scope_model_queryset(WorkOrder, request, organization).select_related('property', 'assigned_to', 'reported_by').order_by('-reported_at')[:50]:
                 add(
                     id=f'work-order:{order.pk}',

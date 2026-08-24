@@ -1408,8 +1408,9 @@ def public_feedback(request, token):
     )
 
     # 4. Requester Acknowledgement
+    acknowledgement_status = 'not_requested'
     if contact_channel == 'email' and contact_value and '@' in contact_value:
-        send_email_notification(
+        acknowledgement_status = 'queued' if send_email_notification(
             recipient_email=contact_value,
             recipient_name=name,
             subject=f'Ticket Acknowledged: {thread.ticket_no} - {issue_category}',
@@ -1424,7 +1425,9 @@ def public_feedback(request, token):
             ),
             action_url=f"/feedback/{token}?ref={thread.ticket_no}",
             organization=qr.organization,
-        )
+        ) else 'failed'
+    thread.metadata = {**(thread.metadata or {}), 'acknowledgement_email_status': acknowledgement_status}
+    thread.save(update_fields=('metadata', 'updated_at'))
 
     # 5. Staff Notification (in-app + email)
     assignee_name = assigned_user.get_full_name() or assigned_user.username if assigned_user else assigned_team
@@ -1458,6 +1461,7 @@ def public_feedback(request, token):
         'sla_hours': sla_hours,
         'sla_due_at': thread.sla_due_at.isoformat() if thread.sla_due_at else None,
         'detail': f'Thank you. Your request has been logged under Ticket {thread.ticket_no}.',
+        'acknowledgement_email_status': acknowledgement_status,
     }, status=status.HTTP_201_CREATED)
 
 
@@ -1470,7 +1474,7 @@ def public_ticket_status(request, reference):
     Public ticket status tracking, confirmation, and reopening.
     """
     thread = TeamFeedbackThread.objects.select_related('property', 'assigned_to').filter(
-        models.Q(reference__iexact=reference) | models.Q(ticket_no__iexact=reference)
+        Q(reference__iexact=reference) | Q(ticket_no__iexact=reference)
     ).first()
     if not thread:
         return Response({'detail': 'Ticket not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -1493,6 +1497,7 @@ def public_ticket_status(request, reference):
             'confirmed_at': thread.confirmed_at.isoformat() if thread.confirmed_at else None,
             'resolution_notes': thread.resolution_notes,
             'reopened_count': thread.reopened_count,
+            'acknowledgement_email_status': (thread.metadata or {}).get('acknowledgement_email_status', 'unknown'),
             'messages': [
                 {
                     'sender': m.sender_name or (m.sender.username if m.sender else 'System'),

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { CalendarDays, CircleAlert, RefreshCw } from "lucide-react";
 import { Box, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Typography } from "@mui/material";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
@@ -56,8 +57,8 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
         <span className="status-pill"><CircleAlert size={14} /> {relevantRows.length} visible</span>
       </div>
       {loading ? <ActivityState message="Loading tickets…" onRetry={load} /> : error ? <ActivityState message={error} onRetry={load} /> : relevantRows.length === 0 ? <ActivityState message={activeProperty ? "No open tickets or issues are recorded for this property." : "No open tickets or issues recorded in this organization."} onRetry={load} /> : (
-        <div className="data-panel table-scroll"><table className="fc-data-table"><thead><tr><th>Reference</th><th>Title</th><th>Module</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead><tbody>
-          {relevantRows.map((row, index) => <tr key={String(row.id ?? index)}><td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td><td>{String(row.title ?? row.subject ?? row.description ?? "—")}</td><td><span style={{ textTransform: "capitalize", fontSize: "0.85rem" }}>{String(row.module ?? "general")}</span></td><td>{String(row.priority ?? "—")}</td><td><span className="status-pill">{String(row.status ?? "open")}</span></td><td>{formatDate(row.updated_at ?? row.created_at)}</td></tr>)}
+        <div className="data-panel table-scroll"><table className="fc-data-table"><thead><tr><th>Reference</th><th>Title</th><th>Raised by</th><th>Priority</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody>
+          {relevantRows.map((row, index) => <tr key={String(row.id ?? index)}><td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td><td>{String(row.title ?? row.subject ?? row.description ?? "—")}</td><td>{String(row.raised_by ?? "—")}</td><td>{String(row.priority ?? "—")}</td><td><span className="status-pill">{String(row.status ?? "open")}</span></td><td>{formatDate(row.updated_at ?? row.created_at)}</td><td><Link className="btn ghost sm" href={String(row.source_url ?? "/tickets")}>Open</Link></td></tr>)}
         </tbody></table></div>
       )}
     </section>

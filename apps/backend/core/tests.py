@@ -109,6 +109,31 @@ class CalendarFeedTests(TestCase):
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class TicketsFeedTests(TestCase):
+    def test_facility_feed_includes_public_qr_helpdesk_threads_for_selected_property(self):
+        from companion.models import TeamFeedbackThread, TeamFeedbackMessage
+        user = get_user_model().objects.create_user(username='ticket-admin', password='test')
+        organization = Organization.objects.create(name='Ticket Client', slug='ticket-client')
+        Membership.objects.create(user=user, organization=organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE)
+        property_record = Property.objects.create(organization=organization, code='TK-1', name='Ticket Plaza')
+        thread = TeamFeedbackThread.objects.create(
+            organization=organization, property=property_record, title='Lift issue',
+            issue_category='Lift', module='facility', requester_name='Public visitor',
+        )
+        TeamFeedbackMessage.objects.create(
+            organization=organization, thread=thread, sender_name='Public visitor', message='Lift is stuck.'
+        )
+        client = APIClient(); client.force_authenticate(user)
+        response = client.get('/api/v1/tickets-feed/', HTTP_X_ORGANIZATION_ID=str(organization.id), HTTP_X_PROPERTY_ID=str(property_record.id))
+        self.assertEqual(response.status_code, 200, response.data)
+        row = next(item for item in response.data['results'] if item['id'] == f'feedback:{thread.id}')
+        self.assertEqual(row['reference'], thread.ticket_no)
+        self.assertEqual(row['module'], 'facility')
+        self.assertEqual(row['raised_by'], 'Public visitor')
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class AuthenticationApiTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username='api-user', password='correct-password')
