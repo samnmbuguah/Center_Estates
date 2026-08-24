@@ -95,6 +95,7 @@ tar -czf "$BACKEND_ARCHIVE" \
   passenger_wsgi.py apps/backend apps/web/public/center-estates-logo.png
 
 scp "$BACKEND_ARCHIVE" "${REMOTE_HOST}:${API_PATH}/deploy-api.tar.gz"
+scp "scripts/cpanel-api.htaccess" "${REMOTE_HOST}:${API_PATH}/.htaccess"
 
 ssh "$REMOTE_HOST" "
   set -e
@@ -102,20 +103,6 @@ ssh "$REMOTE_HOST" "
   cd '${API_PATH}'
   tar -xzf deploy-api.tar.gz
   rm -f deploy-api.tar.gz
-  # Django/corsheaders must echo the actual allowed browser origin when
-  # credentials are used. Remove the obsolete gateway block that hardcoded
-  # the apex domain and broke login from https://www.centerestates.com.
-  if grep -q '^# ALWAYS-ON CORS HEADERS' .htaccess 2>/dev/null; then
-    cp -p .htaccess .htaccess.before-cors-cleanup
-    sed -i '/^# ALWAYS-ON CORS HEADERS/,/^<\/IfModule>\$/d' .htaccess
-  fi
-  # Keep this low-traffic API from spawning excessive Python children when
-  # LiteSpeed creates more than one application master during host recovery.
-  # Six children per master is the account limit and prevents short request
-  # bursts (login + session + notifications + workspace data) from queueing.
-  if grep -q 'SetEnv LSAPI_CHILDREN' .htaccess 2>/dev/null; then
-    sed -i 's/SetEnv LSAPI_CHILDREN [0-9][0-9]*/SetEnv LSAPI_CHILDREN 24/' .htaccess
-  fi
   find apps/backend -type f -name '*.py[co]' -delete
   find apps/backend -type d -name '__pycache__' -empty -delete
   requirements_hash=\$(sha256sum apps/backend/requirements.txt | awk '{print \$1}')

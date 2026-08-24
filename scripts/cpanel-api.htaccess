@@ -1,0 +1,21 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home2/monitori/api.centerestates.com"
+PassengerBaseURI "/"
+PassengerPython "/home2/monitori/virtualenv/api.centerestates.com/3.9/bin/python"
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# CORS HEADERS (SERVER-LEVEL MULTI-ORIGIN FALLBACK)
+<IfModule mod_headers.c>
+    SetEnvIfNoCase Origin "^https?://(www\.)?centerestates\.com(:[0-9]+)?$" CORS_ALLOW_ORIGIN=$0
+    Header always set Access-Control-Allow-Origin "%{CORS_ALLOW_ORIGIN}e" env=CORS_ALLOW_ORIGIN
+    Header always set Access-Control-Allow-Credentials "true"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-CSRFToken, X-Organization-Id, X-Property-Id, X-Property-Scope, X-Requested-With, X-Tenant-Id, X-Impersonate-User, X-CeEst-Signature"
+</IfModule>
+
+# LITESPEED / CONCURRENCY SETTINGS
+<IfModule Litespeed>
+   SetEnv LSAPI_CHILDREN 24
+   SetEnv LSAPI_AVOID_FORK 0
+   SetEnv LSAPI_MAX_REQS 5000
+</IfModule>

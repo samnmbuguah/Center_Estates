@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     clearApiCache();
-    await apiFetch("/auth/csrf/");
+    await apiFetch("/auth/csrf/").catch(() => undefined);
     const response = await apiFetch("/auth/login/", {
       method: "POST",
       headers: { "X-CSRFToken": csrfFromCookie() },
