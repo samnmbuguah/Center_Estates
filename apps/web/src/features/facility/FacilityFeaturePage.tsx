@@ -69,10 +69,11 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
           <WorkOrdersView
             rows={logic.rows}
             kpis={logic.dashboard?.kpis ?? {}}
-            permissions={{ canWork: logic.canWork }}
+            permissions={{ canWork: logic.canWork, canApprove: logic.canApprove }}
             setShowCreate={logic.setShowCreate}
             organizationId={logic.organizationId}
             onTransition={(row, target, notes) => void logic.runWorkTransition(row, target, notes)}
+            onVerify={(row) => void logic.verifyWorkOrder(row)}
           />
         ) : logic.tab === "planned-maintenance" ? (
           <PlannedMaintenanceView

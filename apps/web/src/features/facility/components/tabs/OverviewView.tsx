@@ -113,9 +113,12 @@ export function OverviewView({
   const openWO = Number(kpi.openWorkOrders ?? 0);
   const overdueWO = Number(kpi.overdueWorkOrders ?? 0);
   const inProgressWO = Math.max(openWO - overdueWO, 0);
-  const compliance = Number(kpi.maintenanceCompliance ?? 96.0);
-  const slaAchievement = Number(kpi.slaAchievement ?? 94.0);
-  const weightedIndex = Number(kpi.weightedFMIndex ?? 91.5);
+  const compliance = Number(kpi.maintenanceCompliance ?? 0);
+  const slaAchievement = Number(kpi.slaAchievement ?? 0);
+  const weightedIndex = Number(kpi.weightedFMIndex ?? 0);
+  const budgetAllocated = Number(kpi.budgetAllocated ?? 0);
+  const budgetSpent = Number(kpi.budgetSpent ?? 0);
+  const budgetUtilization = budgetAllocated > 0 ? Math.min(100, (budgetSpent / budgetAllocated) * 100) : 0;
   const assetCategories = dashboard.assetCategories ?? [];
   const totalAssets = assetCategories.reduce((s, i) => s + i.count, 0) || Number(kpi.activeAssets ?? 0);
 
@@ -386,11 +389,11 @@ export function OverviewView({
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>Statutory Compliance: 100%</span>
-                    <strong style={{ color: "#16a34a", fontSize: "0.95rem" }}>100% ✓</strong>
+                    <strong style={{ color: compliance >= 100 ? "#16a34a" : "var(--text-primary)", fontSize: "0.95rem" }}>{Number(kpi.statutoryCompliance ?? 0)}%</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>Budget Variance Utilization</span>
-                    <strong style={{ color: "#2563eb", fontSize: "0.95rem" }}>84.2% (On Budget)</strong>
+                    <strong style={{ color: "#2563eb", fontSize: "0.95rem" }}>{budgetUtilization.toFixed(1)}%{budgetAllocated ? " utilized" : " · no budget"}</strong>
                   </div>
                 </div>
               </article>
@@ -435,7 +438,7 @@ export function OverviewView({
           <div className="fc-dash-right">
             {/* Rule-Based Operational Flags */}
             <article className="data-panel">
-              <PanelHeader title="Operational Flags & Risks" action={() => setTab("compliance")} badge={Number(kpi.activeFlagsCount ?? 2)} />
+              <PanelHeader title="Operational Flags & Risks" action={() => setTab("compliance")} badge={Number(kpi.activeFlagsCount ?? 0)} />
               <div className="fc-alert-list">
                 <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "flex-start" }}>
                   <span style={{ color: "#d97706", fontSize: "1.1rem" }}>⚠️</span>
@@ -565,22 +568,24 @@ export function OverviewView({
                 <div>
                   <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Allocated Budget</small>
                   <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
-                    {money.format(Number(kpi.budgetAllocated ?? 12500000))}
+                    {money.format(budgetAllocated)}
                   </div>
                 </div>
                 <div>
                   <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Actual + Committed Spend</small>
                   <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#2563eb" }}>
-                    {money.format(Number(kpi.budgetSpent ?? 10525000))}
+                    {money.format(budgetSpent)}
                   </div>
                 </div>
               </div>
               <div style={{ marginTop: 12, background: "var(--surface-sunken)", height: 8, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{ width: "84.2%", background: "#2563eb", height: "100%" }} />
+                <div style={{ width: `${budgetUtilization}%`, background: "#2563eb", height: "100%" }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                <span>Budget Utilization: 84.2%</span>
-                <span style={{ color: "#16a34a", fontWeight: 700 }}>Under Budget by KES 1,975,000</span>
+                <span>Budget Utilization: {budgetUtilization.toFixed(1)}%</span>
+                <span style={{ color: budgetSpent <= budgetAllocated ? "#16a34a" : "#dc2626", fontWeight: 700 }}>
+                  {budgetAllocated ? money.format(Math.abs(budgetAllocated - budgetSpent)) : "No approved allocation"}
+                </span>
               </div>
             </article>
           </div>

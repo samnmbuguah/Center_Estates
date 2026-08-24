@@ -72,28 +72,35 @@ type FloorPlanTag = {
 };
 
 export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, string | number> }) {
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string | number>((rows[0]?.id as string | number) ?? "bld-1");
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | number>((rows[0]?.id as string | number) ?? "");
   const [selectedFloor, setSelectedFloor] = useState("Floor 2");
   const [selectedAreaType, setSelectedAreaType] = useState<"all" | "lettable" | "common" | "core">("all");
   const [zoom, setZoom] = useState(1.0);
   const [hoveredTag, setHoveredTag] = useState<FloorPlanTag | null>(null);
 
-  const buildings = rows.length > 0 ? rows : [
-    { id: "bld-1", name: "Finance House", code: "BLD-001", lr_number: "LR 209/10842", year_built: 2018, floors: 12, gfa: 25000, common_area: 5000, lettable: 20000, occupied: 19600, location: "Nairobi CBD", operating_hours: "06:00 - 20:00 Mon-Sat", emergency_contact: "+254 700 123 456" },
-    { id: "bld-2", name: "Utalii Plaza", code: "BLD-002", lr_number: "LR 209/4512", year_built: 2020, floors: 8, gfa: 18500, common_area: 3700, lettable: 14800, occupied: 13912, location: "Upper Hill, Nairobi", operating_hours: "24/7 Access", emergency_contact: "+254 711 987 654" },
-    { id: "bld-3", name: "Center Heights", code: "BLD-003", lr_number: "LR 336/902", year_built: 2022, floors: 15, gfa: 32000, common_area: 6400, lettable: 25600, occupied: 24320, location: "Westlands, Nairobi", operating_hours: "24/7 Access", emergency_contact: "+254 722 555 888" },
-  ];
+  const buildings = rows;
+
+  if (buildings.length === 0) {
+    return (
+      <article className="data-panel" style={{ padding: 32, textAlign: "center" }}>
+        <h2 style={{ color: "var(--text-primary)", margin: "0 0 8px" }}>No buildings registered</h2>
+        <p style={{ color: "var(--text-secondary)", margin: 0 }}>
+          Add a building to this property before recording floor areas, infrastructure zones and floor plans.
+        </p>
+      </article>
+    );
+  }
 
   const currentBuilding = buildings.find((b) => String(b.id) === String(selectedBuildingId)) ?? buildings[0];
 
-  const gfa = Number(currentBuilding.gfa ?? 25000);
-  const commonArea = Number(currentBuilding.common_area ?? 5000);
+  const gfa = Number(currentBuilding.gfa ?? 0);
+  const commonArea = Number(currentBuilding.common_area ?? 0);
   const lettableArea = Number(currentBuilding.lettable ?? (gfa - commonArea));
-  const occupiedArea = Number(currentBuilding.occupied ?? Math.round(lettableArea * 0.95));
+  const occupiedArea = Number(currentBuilding.occupied ?? 0);
 
-  const commonAreaPct = gfa ? ((commonArea / gfa) * 100).toFixed(1) : "20.0";
-  const lettableAreaPct = gfa ? ((lettableArea / gfa) * 100).toFixed(1) : "80.0";
-  const occupancyPct = lettableArea ? ((occupiedArea / lettableArea) * 100).toFixed(1) : "98.0";
+  const commonAreaPct = gfa ? ((commonArea / gfa) * 100).toFixed(1) : "0.0";
+  const lettableAreaPct = gfa ? ((lettableArea / gfa) * 100).toFixed(1) : "0.0";
+  const occupancyPct = lettableArea ? ((occupiedArea / lettableArea) * 100).toFixed(1) : "0.0";
 
   // Floor-by-floor breakdown data
   const floorBreakdown = [
@@ -149,7 +156,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
               <h2 style={{ margin: "6px 0 2px", fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
                 {String(currentBuilding.name)}
               </h2>
-              <small style={{ color: "var(--text-secondary)" }}>{String(currentBuilding.location ?? "Nairobi CBD")} · {String(currentBuilding.floors ?? 12)} Floors</small>
+              <small style={{ color: "var(--text-secondary)" }}>{String(currentBuilding.location ?? "Location not recorded")} · {String(currentBuilding.floors ?? 0)} Floors</small>
             </div>
 
             <select
@@ -176,19 +183,19 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: "0.82rem" }}>
             <div>
               <span style={{ color: "var(--text-secondary)", display: "block" }}>Land Reference (LR) Number</span>
-              <strong style={{ color: "var(--text-primary)" }}>{String(currentBuilding.lr_number ?? "LR 209/10842")}</strong>
+              <strong style={{ color: "var(--text-primary)" }}>{String(currentBuilding.lr_number ?? "Not recorded")}</strong>
             </div>
             <div>
               <span style={{ color: "var(--text-secondary)", display: "block" }}>Year Commissioned</span>
-              <strong style={{ color: "var(--text-primary)" }}>{String(currentBuilding.year_built ?? 2018)}</strong>
+              <strong style={{ color: "var(--text-primary)" }}>{String(currentBuilding.year_built ?? "Not recorded")}</strong>
             </div>
             <div>
               <span style={{ color: "var(--text-secondary)", display: "block" }}>Operating Access Hours</span>
-              <strong style={{ color: "var(--text-primary)" }}>{String(currentBuilding.operating_hours ?? "24/7 Access")}</strong>
+              <strong style={{ color: "var(--text-primary)" }}>{String(currentBuilding.operating_hours ?? "Not recorded")}</strong>
             </div>
             <div>
               <span style={{ color: "var(--text-secondary)", display: "block" }}>Emergency Contact Desk</span>
-              <strong style={{ color: "#dc2626" }}>{String(currentBuilding.emergency_contact ?? "+254 700 123 456")}</strong>
+              <strong style={{ color: "#dc2626" }}>{String(currentBuilding.emergency_contact ?? "Not recorded")}</strong>
             </div>
           </div>
 

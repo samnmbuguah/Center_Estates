@@ -312,6 +312,22 @@ class FacilityApiTests(TestCase):
         self.assertEqual(schedule.last_completed_on, timezone.localdate())
         self.assertGreater(schedule.next_due_on, schedule.last_completed_on)
 
+    def test_completed_work_requires_manager_verification_gate(self):
+        self.work_order.status = WorkOrder.Status.COMPLETED
+        self.work_order.completed_at = timezone.now()
+        self.work_order.resolution_notes = 'Repair complete and tested.'
+        self.work_order.save()
+        response = self.client.post(
+            f'/api/v1/facility/work-orders/{self.work_order.id}/verify/',
+            {'notes': 'Evidence reviewed and asset returned to service.'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.work_order.refresh_from_db()
+        self.assertTrue(self.work_order.supervisor_verified)
+        self.assertEqual(self.work_order.supervisor_verified_by, self.user)
+        self.assertTrue(WorkOrderEvent.objects.filter(work_order=self.work_order, event_type='manager_verified').exists())
+
     def test_failed_inspection_creates_audited_corrective_work_order(self):
         inspection = Inspection.objects.create(
             organization=self.organization, reference='INS-01', title='Lift safety inspection',

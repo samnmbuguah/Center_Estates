@@ -56,18 +56,19 @@ export function ReportsView({
   const [activeReportPreview, setActiveReportPreview] = useState<string | null>(null);
 
   const currentOrg = session?.organizations.find((o) => o.id === (organizationId || session?.activeOrganizationId)) || session?.organizations[0];
-  const orgName = currentOrg?.company_name || currentOrg?.name || "Legend Management Limited";
+  const orgName = currentOrg?.company_name || currentOrg?.name || "Your organization";
   const isLegend = orgName.toLowerCase().includes("legend") || currentOrg?.slug?.includes("legend");
   const orgLogoUrl = currentOrg?.logo_url || (isLegend ? "/legend-site-logo.png" : "/center-estates-logo.png");
 
   const kpi = dashboard.kpis;
-  const openWO = Number(kpi?.openWorkOrders ?? 12);
-  const completedWO = Number(kpi?.completedToday ?? 18);
-  const overdueWO = Number(kpi?.overdueWorkOrders ?? 2);
-  const compliance = Number(kpi?.maintenanceCompliance ?? 96.2);
-  const weightedIndex = Number(kpi?.weightedFMIndex ?? 91.5);
-  const budgetAllocated = Number(kpi?.budgetAllocated ?? 12500000);
-  const budgetSpent = Number(kpi?.budgetSpent ?? 10525000);
+  const openWO = Number(kpi?.openWorkOrders ?? 0);
+  const completedWO = Number(kpi?.completedToday ?? 0);
+  const overdueWO = Number(kpi?.overdueWorkOrders ?? 0);
+  const compliance = Number(kpi?.maintenanceCompliance ?? 0);
+  const weightedIndex = Number(kpi?.weightedFMIndex ?? 0);
+  const budgetAllocated = Number(kpi?.budgetAllocated ?? 0);
+  const budgetSpent = Number(kpi?.budgetSpent ?? 0);
+  const budgetUtilization = budgetAllocated > 0 ? Math.min(100, (budgetSpent / budgetAllocated) * 100) : 0;
 
   const pdfReportPacks = [
     {
@@ -75,7 +76,7 @@ export function ReportsView({
       title: "Executive FM Performance Report (Landlord Pack)",
       category: "Executive & Board",
       badge: "Comprehensive PDF",
-      desc: "Holistic monthly facilities scorecard: Weighted FM index (91.5/100), SLA resolution targets, PM compliance, energy efficiency & CeEst strategic recommendations.",
+      desc: "Holistic monthly facilities scorecard generated from live work orders, SLA results, maintenance compliance, budgets and statutory records.",
       icon: "📊",
       color: "#2563eb",
     },
@@ -158,8 +159,8 @@ export function ReportsView({
         <FcKpiCard icon="🎖️" iconBg="#e0e7ff" iconColor="#4f46e5" label="Weighted FM Index" value={`${weightedIndex} / 100`} sub="Grade A Performance" />
         <FcKpiCard icon="📋" iconBg="#dcfce7" iconColor="#16a34a" label="PPM Compliance" value={`${compliance}%`} sub="Target: 95.0%" />
         <FcKpiCard icon="🔧" iconBg="#dbeafe" iconColor="#2563eb" label="Active Work Orders" value={String(openWO)} sub={overdueWO > 0 ? `${overdueWO} SLA overdue` : "On target"} />
-        <FcKpiCard icon="💰" iconBg="#ffedd5" iconColor="#ea580c" label="Budget Utilization" value="84.2%" sub="Within allocated limit" />
-        <FcKpiCard icon="🛡️" iconBg="#fdf4ff" iconColor="#9333ea" label="Statutory Audits" value="100% Pass" sub="0 overdue certificates" />
+        <FcKpiCard icon="💰" iconBg="#ffedd5" iconColor="#ea580c" label="Budget Utilization" value={`${budgetUtilization.toFixed(1)}%`} sub={budgetAllocated ? "Actual against approved allocation" : "No approved budget"} />
+        <FcKpiCard icon="🛡️" iconBg="#fdf4ff" iconColor="#9333ea" label="Completed Today" value={String(completedWO)} sub="Verified work activity" />
       </div>
 
       {error && (
@@ -359,8 +360,8 @@ export function ReportsView({
                   </div>
                   <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
                     <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700 }}>BUDGET VARIANCE (YTD)</span>
-                    <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#0891b2" }}>84.2%</div>
-                    <small style={{ color: "#166534", fontWeight: 700 }}>Under Budget by KES 1.97M</small>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#0891b2" }}>{budgetUtilization.toFixed(1)}%</div>
+                    <small style={{ color: "#166534", fontWeight: 700 }}>{budgetAllocated ? `${money.format(Math.abs(budgetAllocated - budgetSpent))} variance` : "No approved budget"}</small>
                   </div>
                 </div>
 
@@ -379,24 +380,11 @@ export function ReportsView({
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { domain: "Vertical Transportation", contractor: "Schindler Lifts Kenya", resp: "30 mins", uptime: "99.8%", status: "Exceeding Target" },
-                        { domain: "HVAC & Mechanical", contractor: "CentAir Mechanical Eng", resp: "2 hrs", uptime: "98.5%", status: "On Target" },
-                        { domain: "Electrical & Standby Power", contractor: "PowerTech Energy", resp: "1 hr", uptime: "100.0%", status: "Exceeding Target" },
-                        { domain: "Life Safety & Fire Protection", contractor: "SecureGuard Safety", resp: "1 hr", uptime: "100.0%", status: "Compliant" },
-                      ].map((row, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                          <td style={{ padding: "8px", fontWeight: 700 }}>{row.domain}</td>
-                          <td style={{ padding: "8px" }}>{row.contractor}</td>
-                          <td style={{ padding: "8px", textAlign: "center" }}>{row.resp}</td>
-                          <td style={{ padding: "8px", textAlign: "center", fontWeight: 800, color: "#16a34a" }}>{row.uptime}</td>
-                          <td style={{ padding: "8px", textAlign: "center" }}>
-                            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
-                              {row.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      <tr>
+                        <td colSpan={5} style={{ padding: 18, textAlign: "center", color: "#4b5563" }}>
+                          Service-provider performance appears after contracts, SLA targets and completed work orders have been recorded.
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>

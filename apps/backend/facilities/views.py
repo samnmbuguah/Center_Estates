@@ -266,7 +266,7 @@ class StrategicFMPlanViewSet(FacilityModelViewSet):
         
         completed_wo = work_orders.filter(status=WorkOrder.Status.COMPLETED)
         on_time_wo = completed_wo.filter(sla_breached=False).count()
-        actual_sla = round(on_time_wo / completed_wo.count() * 100, 1) if completed_wo.exists() else 92.0
+        actual_sla = round(on_time_wo / completed_wo.count() * 100, 1) if completed_wo.exists() else 0.0
         target_sla = float(plan.maintenance_targets.get('sla_target', 90.0))
         sla_rag = 'green' if actual_sla >= target_sla else 'amber' if actual_sla >= 75 else 'red'
         
@@ -607,10 +607,10 @@ class ContractorViewSet(FacilityModelViewSet):
         completed_orders = work_orders.filter(status=WorkOrder.Status.COMPLETED)
         
         on_time_orders = completed_orders.filter(sla_breached=False)
-        sla_score = round(on_time_orders.count() / completed_orders.count() * 100, 1) if completed_orders.exists() else 95.0
+        sla_score = round(on_time_orders.count() / completed_orders.count() * 100, 1) if completed_orders.exists() else 0.0
         
         verified_orders = completed_orders.filter(supervisor_verified=True)
-        quality_score = round(verified_orders.count() / completed_orders.count() * 100, 1) if completed_orders.exists() else 90.0
+        quality_score = round(verified_orders.count() / completed_orders.count() * 100, 1) if completed_orders.exists() else 0.0
         response_score = 92.0
         cost_score = 90.0
         
@@ -729,7 +729,7 @@ class ContractorViewSet(FacilityModelViewSet):
 
 class WorkOrderViewSet(FacilityModelViewSet):
     write_permission = 'facility.work'
-    permission_map = {'transition': 'facility.work'}
+    permission_map = {'transition': 'facility.work', 'verify': 'facility.approve'}
     queryset = WorkOrder.objects.select_related('property', 'asset', 'contractor', 'assigned_to')
     serializer_class = WorkOrderSerializer
     search_fields = ('number', 'title', 'category', 'property__name', 'asset__name')
@@ -787,6 +787,34 @@ class WorkOrderViewSet(FacilityModelViewSet):
         WorkOrderEvent.objects.create(
             organization=organization, work_order=work_order, event_type='status_change',
             from_status=previous, to_status=target, notes=notes, actor=request.user,
+        )
+        return Response(WorkOrderSerializer(work_order).data)
+
+    @action(detail=True, methods=('post',))
+    @transaction.atomic
+    def verify(self, request, pk=None):
+        """Manager quality gate: completed work is not payment-ready until verified."""
+        work_order = self.get_queryset().select_for_update().filter(pk=pk).first()
+        if not work_order:
+            return Response({'detail': 'Work order not found.'}, status=404)
+        if work_order.status != WorkOrder.Status.COMPLETED:
+            raise ValidationError({'status': 'Only completed work can be manager verified.'})
+        if work_order.supervisor_verified:
+            return Response(WorkOrderSerializer(work_order).data)
+        notes = str(request.data.get('notes', '')).strip()
+        if not notes:
+            raise ValidationError({'notes': 'Verification notes are required.'})
+        work_order.supervisor_verified = True
+        work_order.supervisor_verified_by = request.user
+        work_order.sla_breached = bool(
+            work_order.resolution_due_at and work_order.completed_at
+            and work_order.completed_at > work_order.resolution_due_at
+        )
+        work_order.save(update_fields=('supervisor_verified', 'supervisor_verified_by', 'sla_breached', 'updated_at'))
+        WorkOrderEvent.objects.create(
+            organization=work_order.organization, work_order=work_order,
+            event_type='manager_verified', from_status=work_order.status,
+            to_status=work_order.status, notes=notes, actor=request.user,
         )
         return Response(WorkOrderSerializer(work_order).data)
 
@@ -1413,7 +1441,7 @@ class FacilityDashboardViewSet(ViewSet):
 
         completed_wo = work_orders.filter(status=WorkOrder.Status.COMPLETED)
         on_time_wo = completed_wo.filter(sla_breached=False).count()
-        sla_achievement = round(on_time_wo / completed_wo.count() * 100, 1) if completed_wo.exists() else 94.0
+        sla_achievement = round(on_time_wo / completed_wo.count() * 100, 1) if completed_wo.exists() else 0.0
         pm_compliance = round(compliant / schedule_count * 100, 1) if schedule_count else 100.0
 
         total_allocated_budget = float(budgets.aggregate(total=Sum('allocated_amount'))['total'] or 0)
@@ -1556,7 +1584,7 @@ class FacilityDashboardViewSet(ViewSet):
         
         completed_wo = work_orders.filter(status=WorkOrder.Status.COMPLETED)
         on_time_wo = completed_wo.filter(sla_breached=False).count()
-        sla_achievement = round(on_time_wo / completed_wo.count() * 100, 1) if completed_wo.exists() else 94.0
+        sla_achievement = round(on_time_wo / completed_wo.count() * 100, 1) if completed_wo.exists() else 0.0
         
         total_pm = schedules.filter(is_active=True).count()
         due_pm = schedules.filter(is_active=True, next_due_on__lte=today).count()

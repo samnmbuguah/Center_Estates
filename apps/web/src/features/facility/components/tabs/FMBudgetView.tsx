@@ -43,21 +43,14 @@ export function FMBudgetView({
 }) {
   const [selectedYear, setSelectedYear] = useState("2026");
 
-  const budgetCategories = rows.length > 0 ? rows : [
-    { id: "b1", category: "Vertical Transportation (Lifts)", allocated: 2500000, committed: 450000, actual: 1650000, property_name: "Finance House" },
-    { id: "b2", category: "HVAC & Air Handling Plants", allocated: 3800000, committed: 820000, actual: 2400000, property_name: "Finance House" },
-    { id: "b3", category: "Electrical Switchgear & Generator", allocated: 2200000, committed: 300000, actual: 1500000, property_name: "Finance House" },
-    { id: "b4", category: "Life Safety & Fire Protection", allocated: 1200000, committed: 150000, actual: 750000, property_name: "Finance House" },
-    { id: "b5", category: "Housekeeping, Waste & Landscaping", allocated: 1800000, committed: 200000, actual: 1200000, property_name: "Finance House" },
-    { id: "b6", category: "Plumbing, Water Treatment & Pumps", allocated: 1000000, committed: 120000, actual: 680000, property_name: "Finance House" },
-  ];
+  const budgetCategories = rows;
 
   const totalAllocated = budgetCategories.reduce((s, b) => s + Number(b.allocated || 0), 0);
   const totalCommitted = budgetCategories.reduce((s, b) => s + Number(b.committed || 0), 0);
   const totalActual = budgetCategories.reduce((s, b) => s + Number(b.actual || 0), 0);
   const totalSpentAndCommitted = totalActual + totalCommitted;
   const availableReserve = Math.max(0, totalAllocated - totalSpentAndCommitted);
-  const utilizationPct = totalAllocated ? ((totalSpentAndCommitted / totalAllocated) * 100).toFixed(1) : "84.2";
+  const utilizationPct = totalAllocated ? ((totalSpentAndCommitted / totalAllocated) * 100).toFixed(1) : "0.0";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -66,7 +59,7 @@ export function FMBudgetView({
         <FcKpiCard icon="💰" iconBg="#e0e7ff" iconColor="#4f46e5" label="Annual FM Budget" value={money.format(totalAllocated)} sub={`Financial Year ${selectedYear}`} />
         <FcKpiCard icon="💳" iconBg="#dcfce7" iconColor="#16a34a" label="Invoiced Actual Spend" value={money.format(totalActual)} sub="Approved invoices paid" />
         <FcKpiCard icon="🔒" iconBg="#fef3c7" iconColor="#b45309" label="Committed Spend (POs)" value={money.format(totalCommitted)} sub="Reserved on open work orders" />
-        <FcKpiCard icon="📊" iconBg="#dbeafe" iconColor="#2563eb" label="Budget Utilization" value={`${utilizationPct}%`} sub="84.2% within tolerance" />
+        <FcKpiCard icon="📊" iconBg="#dbeafe" iconColor="#2563eb" label="Budget Utilization" value={`${utilizationPct}%`} sub={totalAllocated ? "Actual plus committed spend" : "No approved budget yet"} />
         <FcKpiCard icon="🛡️" iconBg="#fdf4ff" iconColor="#9333ea" label="Available Reserve" value={money.format(availableReserve)} sub="Remaining uncommitted float" />
       </div>
 

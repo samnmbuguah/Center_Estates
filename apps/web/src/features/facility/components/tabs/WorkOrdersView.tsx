@@ -59,13 +59,15 @@ export function WorkOrdersView({
   setShowCreate,
   organizationId,
   onTransition,
+  onVerify,
 }: {
   rows: Row[];
   kpis: Record<string, string | number>;
-  permissions: { canWork: boolean };
+  permissions: { canWork: boolean; canApprove: boolean };
   setShowCreate: (b: boolean) => void;
   organizationId: string | null;
   onTransition: (row: Row, target: string, notes: string) => void;
+  onVerify: (row: Row) => void;
 }) {
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [search, setSearch] = useState("");
@@ -212,6 +214,15 @@ export function WorkOrdersView({
                                 Complete
                               </button>
                             )}
+                            {permissions.canApprove && String(row.status) === "completed" && !row.supervisor_verified && (
+                              <button
+                                onClick={(event) => { event.stopPropagation(); onVerify(row); }}
+                                style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, color: "#166534", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                              >
+                                Verify
+                              </button>
+                            )}
+                            {Boolean(row.supervisor_verified) && <span style={{ color: "#166534", fontSize: 11, fontWeight: 800 }}>✓ Verified</span>}
                           </div>
                         </td>
                       </tr>

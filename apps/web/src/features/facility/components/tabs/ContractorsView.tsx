@@ -311,7 +311,7 @@ export function ContractorsView({
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
                     <span style={{ background: "#fff7ed", color: "#ea580c", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
-                      ★ {Number(vendor.rating ?? 4.8).toFixed(1)}
+                      ★ {vendor.rating == null ? "Not rated" : Number(vendor.rating).toFixed(1)}
                     </span>
                   </td>
 

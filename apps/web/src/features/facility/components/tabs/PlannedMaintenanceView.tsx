@@ -483,13 +483,26 @@ export function PlannedMaintenanceView({
                       <td style={{ fontSize: 12 }}>{String(row.frequency ?? "Monthly")}</td>
                       <td style={{ fontSize: 12 }}>{String(row.next_due_on ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String(row.assigned_to_name ?? "—")}</td>
-                      <td><FcStatus value="scheduled" /></td>
+                      <td><FcStatus value={String(row.last_completed_on ? "completed" : (String(row.next_due_on ?? "") < todayKey ? "overdue" : "scheduled"))} /></td>
                       <td>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>👁</button>
-                          <button style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>✏</button>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {permissions.canAdminister && Boolean(row.is_active) && (
-                            <button onClick={() => onAction(row, "generate-work-order")} style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: 6, cursor: "pointer", fontSize: 13, padding: "3px 7px" }}>⋯</button>
+                            <>
+                              <button
+                                aria-label={`Complete ${String(row.name ?? "maintenance task")}`}
+                                onClick={() => onAction(row, "complete")}
+                                style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 6, color: "#166534", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                              >
+                                ✓ Complete
+                              </button>
+                              <button
+                                aria-label={`Generate work order for ${String(row.name ?? "maintenance task")}`}
+                                onClick={() => onAction(row, "generate-work-order")}
+                                style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                              >
+                                🔧 Generate WO
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

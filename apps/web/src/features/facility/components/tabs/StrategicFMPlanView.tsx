@@ -120,10 +120,10 @@ export function StrategicFMPlanView({
             </span>
           </div>
           <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "var(--text-primary)" }}>
-            {performanceData?.summary_kpis?.pm_compliance?.actual ?? 96.2}%
+            {performanceData?.summary_kpis?.pm_compliance?.actual ?? 0}%
           </div>
           <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
-            Target: {performanceData?.summary_kpis?.pm_compliance?.target ?? 95.0}% · Variance: +1.2%
+            Target: {performanceData?.summary_kpis?.pm_compliance?.target ?? 95.0}% · calculated from completed schedules
           </small>
         </div>
 
@@ -146,10 +146,10 @@ export function StrategicFMPlanView({
             </span>
           </div>
           <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "var(--text-primary)" }}>
-            {performanceData?.summary_kpis?.sla_achievement?.actual ?? 94.5}%
+            {performanceData?.summary_kpis?.sla_achievement?.actual ?? 0}%
           </div>
           <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
-            Target: {performanceData?.summary_kpis?.sla_achievement?.target ?? 90.0}% · Variance: +4.5%
+            Target: {performanceData?.summary_kpis?.sla_achievement?.target ?? 90.0}% · calculated from completed work orders
           </small>
         </div>
 
@@ -172,10 +172,10 @@ export function StrategicFMPlanView({
             </span>
           </div>
           <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "#2563eb" }}>
-            {performanceData?.summary_kpis?.budget_utilization?.utilization_percent ?? 84.2}%
+            {performanceData?.summary_kpis?.budget_utilization?.utilization_percent ?? 0}%
           </div>
           <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
-            Spent: KES 10.52M / Allocated: KES 12.50M
+            Live actual and committed spend against approved allocations
           </small>
         </div>
 
@@ -227,24 +227,11 @@ export function StrategicFMPlanView({
               </tr>
             </thead>
             <tbody>
-              {[
-                { domain: "Vertical Transportation", scope: "Passenger & Goods Lift Routine Service & Safety", freq: "Monthly", resp: "30 mins (Trap) / 2 hrs", resol: "4 hrs", kpi: "99.5% Uptime", vendor: "Schindler Lifts Kenya" },
-                { domain: "HVAC & Mechanical", scope: "Central Chiller, AHU & Split Unit Maintenance", freq: "Quarterly", resp: "2 hrs", resol: "8 hrs", kpi: "98.0% Uptime", vendor: "CentAir Engineering" },
-                { domain: "Electrical & Backup Power", scope: "500kVA Generator, Switchgear & ATS Testing", freq: "Monthly", resp: "1 hr", resol: "4 hrs", kpi: "100% Start Reliability", vendor: "PowerTech Solutions" },
-                { domain: "Life Safety & Fire Protection", scope: "Fire Alarm, Sprinklers, Hydrants & Extinguishers", freq: "Quarterly", resp: "1 hr", resol: "2 hrs", kpi: "100% Inspection Pass", vendor: "SecureGuard Safety" },
-                { domain: "Water & Plumbing", scope: "Booster Pumps, Borehole & Water Treatment", freq: "Monthly", resp: "2 hrs", resol: "6 hrs", kpi: "Zero Supply Interruption", vendor: "HydroFlow Services" },
-                { domain: "Housekeeping & Waste", scope: "Common Areas, Facades, High-Level Glass & Waste", freq: "Daily", resp: "15 mins", resol: "1 hr", kpi: "95% Quality Audit", vendor: "Prime Cleaners Ltd" },
-              ].map((item, idx) => (
-                <tr key={item.domain} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "12px 14px", fontWeight: 800, fontSize: 13, color: "var(--text-primary)" }}>{item.domain}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{item.scope}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 700 }}>{item.freq}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "#2563eb", fontWeight: 700 }}>{item.resp}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "#16a34a", fontWeight: 700 }}>{item.resol}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 800 }}>{item.kpi}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-primary)" }}>{item.vendor}</td>
-                </tr>
-              ))}
+              <tr>
+                <td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>
+                  Define service profiles and property allocations to populate the live SLA standards register.
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

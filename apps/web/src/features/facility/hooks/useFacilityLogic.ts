@@ -309,6 +309,26 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     await load();
   }
 
+  async function verifyWorkOrder(row: Row) {
+    if (!organizationId || !row.id) return;
+    setError("");
+    await apiFetch("/auth/csrf/");
+    const response = await apiFetch(
+      `/facility/work-orders/${row.id}/verify/`,
+      {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ notes: "Manager reviewed completion evidence and accepted the work." }),
+      },
+      organizationId,
+    );
+    if (!response.ok) {
+      setError("Manager verification could not be completed. Confirm the work order is completed and you have approval access.");
+      return;
+    }
+    await load();
+  }
+
   const selectTab = (id: string) => {
     if (id === tab) return;
     setSearch("");
@@ -361,5 +381,6 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     runAction,
     submitActionModal,
     runWorkTransition,
+    verifyWorkOrder,
   };
 }
