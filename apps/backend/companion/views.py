@@ -1048,6 +1048,68 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
         'closed': ('open', 'in_progress', 'resolved', 'closed'),
     }
 
+    @action(detail=True, methods=['post'], url_path='create-work-order')
+    @transaction.atomic
+    def create_work_order(self, request, pk=None):
+        """Promote an operational ticket into the audited Facility work-order lifecycle."""
+        import uuid
+        from facilities.models import WorkOrder, WorkOrderEvent
+
+        thread = self.get_object()
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        can_dispatch = bool(
+            request.user.is_superuser
+            or (membership and membership.is_organization_admin)
+            or (membership and membership.has_permission('facility.work'))
+        )
+        if not can_dispatch:
+            raise PermissionDenied('Your role does not grant permission to dispatch facility work.')
+        if not thread.property_id:
+            raise ValidationError({'property': 'Assign the ticket to a property before creating a work order.'})
+
+        existing_id = str((thread.metadata or {}).get('work_order_id') or '')
+        if existing_id:
+            existing = WorkOrder.objects.filter(organization=organization, pk=existing_id).first()
+            if existing:
+                return Response({'work_order_id': str(existing.id), 'number': existing.number, 'created': False})
+
+        number = f'WO-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+        while WorkOrder.objects.filter(organization=organization, number=number).exists():
+            number = f'WO-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+        first_message = thread.messages.order_by('created_at').values_list('message', flat=True).first() or ''
+        priority = {
+            TeamFeedbackThread.Priority.URGENT: WorkOrder.Priority.CRITICAL,
+            TeamFeedbackThread.Priority.HIGH: WorkOrder.Priority.HIGH,
+            TeamFeedbackThread.Priority.NORMAL: WorkOrder.Priority.MEDIUM,
+            TeamFeedbackThread.Priority.LOW: WorkOrder.Priority.LOW,
+        }[thread.priority]
+        work_order = WorkOrder.objects.create(
+            organization=organization, number=number, title=thread.title,
+            description=first_message, category=thread.issue_category or 'General',
+            source='helpdesk_ticket', property=thread.property, assigned_to=thread.assigned_to,
+            reported_by=request.user, priority=priority, status=WorkOrder.Status.OPEN,
+            reported_at=thread.created_at, response_due_at=thread.sla_due_at,
+            resolution_due_at=thread.sla_due_at,
+        )
+        WorkOrderEvent.objects.create(
+            organization=organization, work_order=work_order, event_type='ticket_conversion',
+            to_status=work_order.status, notes=f'Created from helpdesk ticket {thread.ticket_no}', actor=request.user,
+        )
+        thread.metadata = {**(thread.metadata or {}), 'work_order_id': str(work_order.id), 'work_order_number': work_order.number}
+        if thread.status == TeamFeedbackThread.Status.OPEN:
+            thread.status = TeamFeedbackThread.Status.IN_PROGRESS
+        if not thread.acknowledged_at:
+            thread.acknowledged_at = timezone.now()
+        thread.save(update_fields=('metadata', 'status', 'acknowledged_at', 'updated_at'))
+        TeamFeedbackMessage.objects.create(
+            organization=organization, thread=thread, sender=request.user,
+            sender_name=request.user.get_full_name() or request.user.username,
+            message=f'Work order {work_order.number} created and dispatched from this ticket.',
+            is_developer_response=True,
+        )
+        return Response({'work_order_id': str(work_order.id), 'number': work_order.number, 'created': True}, status=status.HTTP_201_CREATED)
+
     def get_queryset(self):
         organization = get_active_organization(self.request)
         queryset = scope_queryset_to_property(

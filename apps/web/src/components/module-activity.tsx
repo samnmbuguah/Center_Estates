@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CalendarDays, CircleAlert, RefreshCw } from "lucide-react";
-import { Box, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Typography } from "@mui/material";
-import { apiErrorMessage, apiFetch } from "@/lib/api";
+import { Alert, Box, Button, Chip, Divider, FormControl, InputLabel, MenuItem, Paper, Select, Stack, TextField, Typography } from "@mui/material";
+import { DetailDrawer, StatusPill } from "@/components/module-ui";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { usePropertyContext } from "@/lib/property-context";
 
 const CalendarWidget = dynamic(() => import("@/components/calendar-widget"), { ssr: false, loading: () => <ActivityState message="Loading calendar widget…" onRetry={() => window.location.reload()} /> });
@@ -28,10 +29,17 @@ function ActivityState({ message, onRetry }: { message: string; onRetry: () => v
 }
 
 export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleName: string; portfolio?: boolean }) {
+  const router = useRouter();
   const { activeProperty } = usePropertyContext();
   const [rows, setRows] = useState<ActivityRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState<ActivityRecord | null>(null);
+  const [detail, setDetail] = useState<ActivityRecord | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [reply, setReply] = useState("");
+  const [saving, setSaving] = useState(false);
   const load = useCallback(() => {
     setLoading(true); setError("");
     void apiFetch("/tickets-feed/", portfolio ? { headers: { "X-Property-Scope": "portfolio" } } : undefined)
@@ -47,8 +55,85 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
 
   const moduleKey = moduleName.toLowerCase() === "portfolio" ? "all" : moduleName.toLowerCase();
   const relevantRows = useMemo(() => rows.filter((row) => (
-    portfolio || moduleKey === "all" || String(row.module) === moduleKey
+    portfolio || moduleKey === "all" || moduleKey === "companion" || String(row.module) === moduleKey
   )), [rows, portfolio, moduleKey]);
+
+  const openTicket = useCallback(async (row: ActivityRecord) => {
+    const id = String(row.id ?? "");
+    if (!id.startsWith("feedback:")) {
+      const target = String(row.source_url ?? "");
+      if (target) router.push(target);
+      return;
+    }
+    setSelected(row);
+    setDetail(null);
+    setDetailError("");
+    setDetailLoading(true);
+    try {
+      const response = await apiFetch(`/companion/feedback/${id.slice("feedback:".length)}/`);
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "Ticket details could not be loaded."));
+      setDetail(await response.json());
+    } catch (reason) {
+      setDetailError(reason instanceof Error ? reason.message : "Ticket details could not be loaded.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [router]);
+
+  const refreshDetail = useCallback(async () => {
+    if (!selected) return;
+    await openTicket(selected);
+    load();
+  }, [load, openTicket, selected]);
+
+  const updateStatus = useCallback(async (status: string) => {
+    if (!selected) return;
+    setSaving(true); setDetailError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const id = String(selected.id).slice("feedback:".length);
+      const response = await apiFetch(`/companion/feedback/${id}/update-status/`, {
+        method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "Ticket status could not be updated."));
+      await refreshDetail();
+    } catch (reason) {
+      setDetailError(reason instanceof Error ? reason.message : "Ticket status could not be updated.");
+    } finally { setSaving(false); }
+  }, [refreshDetail, selected]);
+
+  const sendReply = useCallback(async () => {
+    if (!selected || !reply.trim()) return;
+    setSaving(true); setDetailError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const id = String(selected.id).slice("feedback:".length);
+      const response = await apiFetch(`/companion/feedback/${id}/messages/`, {
+        method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ message: reply.trim() }),
+      });
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "Your reply could not be sent."));
+      setReply("");
+      await refreshDetail();
+    } catch (reason) {
+      setDetailError(reason instanceof Error ? reason.message : "Your reply could not be sent.");
+    } finally { setSaving(false); }
+  }, [refreshDetail, reply, selected]);
+
+  const createWorkOrder = useCallback(async () => {
+    if (!selected) return;
+    setSaving(true); setDetailError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const id = String(selected.id).slice("feedback:".length);
+      const response = await apiFetch(`/companion/feedback/${id}/create-work-order/`, {
+        method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
+      });
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "A work order could not be created from this ticket."));
+      await refreshDetail();
+    } catch (reason) {
+      setDetailError(reason instanceof Error ? reason.message : "A work order could not be created from this ticket.");
+    } finally { setSaving(false); }
+  }, [refreshDetail, selected]);
 
   return (
     <section aria-labelledby="module-tickets-heading">
@@ -58,11 +143,68 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
       </div>
       {loading ? <ActivityState message="Loading tickets…" onRetry={load} /> : error ? <ActivityState message={error} onRetry={load} /> : relevantRows.length === 0 ? <ActivityState message={activeProperty ? "No open tickets or issues are recorded for this property." : "No open tickets or issues recorded in this organization."} onRetry={load} /> : (
         <div className="data-panel table-scroll"><table className="fc-data-table"><thead><tr><th>Reference</th><th>Title</th><th>Raised by</th><th>Priority</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody>
-          {relevantRows.map((row, index) => <tr key={String(row.id ?? index)}><td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td><td>{String(row.title ?? row.subject ?? row.description ?? "—")}</td><td>{String(row.raised_by ?? "—")}</td><td>{String(row.priority ?? "—")}</td><td><span className="status-pill">{String(row.status ?? "open")}</span></td><td>{formatDate(row.updated_at ?? row.created_at)}</td><td><Link className="btn ghost sm" href={String(row.source_url ?? "/tickets")}>Open</Link></td></tr>)}
+          {relevantRows.map((row, index) => <tr key={String(row.id ?? index)}><td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td><td>{String(row.title ?? row.subject ?? row.description ?? "—")}</td><td>{String(row.raised_by ?? "—")}</td><td>{String(row.priority ?? "—")}</td><td><StatusPill value={String(row.status ?? "open")} /></td><td>{formatDate(row.updated_at ?? row.created_at)}</td><td><button type="button" className="btn ghost sm" onClick={() => void openTicket(row)}>Open</button></td></tr>)}
         </tbody></table></div>
+      )}
+      {selected && (
+        <DetailDrawer title={`${String(selected.reference ?? "Ticket")} · ${String(selected.title ?? "Issue")}`} width={560} onClose={() => { setSelected(null); setDetail(null); setDetailError(""); }}>
+          {detailLoading ? <ActivityState message="Loading ticket details…" onRetry={() => void refreshDetail()} /> : (
+            <Stack spacing={2}>
+              {detailError && <Alert severity="error">{detailError}</Alert>}
+              {detail && <>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                  <StatusPill value={String(detail.status)} />
+                  <StatusPill value={String(detail.priority)} />
+                  {detail.issue_category ? <Chip size="small" label={String(detail.issue_category)} /> : null}
+                </Stack>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
+                  <TicketFact label="Property" value={detail.property_name} />
+                  <TicketFact label="Location" value={detail.location_detail} />
+                  <TicketFact label="Raised by" value={detail.requester_name || detail.created_by_name} />
+                  <TicketFact label="Assigned to" value={detail.assigned_to_name || detail.assigned_team} />
+                  <TicketFact label="Created" value={formatDate(detail.created_at)} />
+                  <TicketFact label="SLA due" value={formatDate(detail.sla_due_at)} />
+                </Box>
+                {detail.photo_url ? <Button component="a" href={String(detail.photo_url)} target="_blank" rel="noreferrer" variant="outlined">View attached evidence</Button> : null}
+                <Divider />
+                <Typography variant="subtitle2">Conversation and activity</Typography>
+                <Stack spacing={1}>
+                  {(Array.isArray(detail.messages) ? detail.messages : []).map((message: ActivityRecord, index: number) => (
+                    <Paper key={String(message.id ?? index)} variant="outlined" sx={{ p: 1.5 }}>
+                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{String(message.message ?? "")}</Typography>
+                      <Typography variant="caption" color="text.secondary">{String(message.sender_name ?? "System")} · {formatDate(message.created_at)}</Typography>
+                    </Paper>
+                  ))}
+                  {!Array.isArray(detail.messages) || detail.messages.length === 0 ? <Typography variant="body2" color="text.secondary">No messages have been recorded.</Typography> : null}
+                </Stack>
+                <TextField label="Add an update" value={reply} onChange={(event) => setReply(event.target.value)} multiline minRows={3} fullWidth />
+                <Button variant="contained" disabled={saving || !reply.trim()} onClick={() => void sendReply()}>Send update</Button>
+                <Divider />
+                <Typography variant="subtitle2">Workflow</Typography>
+                {detail.metadata && typeof detail.metadata === "object" && (detail.metadata as ActivityRecord).work_order_number ? (
+                  <Alert severity="success" action={<Button size="small" onClick={() => router.push("/facility?tab=work-orders")}>Open work orders</Button>}>
+                    Dispatched as work order {String((detail.metadata as ActivityRecord).work_order_number)}.
+                  </Alert>
+                ) : (
+                  <Button variant="contained" disabled={saving} onClick={() => void createWorkOrder()}>Create & dispatch work order</Button>
+                )}
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                  {String(detail.status) !== "in_progress" && <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("in_progress")}>Start work</Button>}
+                  {String(detail.status) !== "resolved" && <Button variant="outlined" color="success" disabled={saving} onClick={() => void updateStatus("resolved")}>Mark resolved</Button>}
+                  {String(detail.status) === "resolved" && <Button variant="contained" color="success" disabled={saving} onClick={() => void updateStatus("closed")}>Confirm & close</Button>}
+                  {["resolved", "closed"].includes(String(detail.status)) && <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("open")}>Reopen</Button>}
+                </Stack>
+              </>}
+            </Stack>
+          )}
+        </DetailDrawer>
       )}
     </section>
   );
+}
+
+function TicketFact({ label, value }: { label: string; value: unknown }) {
+  return <Box><Typography variant="caption" color="text.secondary">{label}</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{value ? String(value) : "—"}</Typography></Box>;
 }
 
 export function ModuleCalendarView({ moduleName, portfolio = false }: { moduleName: string; portfolio?: boolean }) {

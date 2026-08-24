@@ -364,6 +364,39 @@ class CompanionApiTests(TestCase):
         self.assertIsNone(thread.resolved_at)
         self.assertIsNone(thread.confirmed_at)
 
+    def test_feedback_ticket_converts_to_one_audited_work_order(self):
+        from companion.models import TeamFeedbackMessage
+        from facilities.models import WorkOrder, WorkOrderEvent
+
+        property_record = Property.objects.create(
+            organization=self.organization, code='HELP-1', name='Helpdesk Plaza'
+        )
+        thread = TeamFeedbackThread.objects.create(
+            organization=self.organization, property=property_record, created_by=self.admin,
+            title='Lift is stuck', issue_category='Lift', category='operational',
+            priority='urgent', module='facility', sla_due_at=timezone.now() + timedelta(hours=2),
+        )
+        TeamFeedbackMessage.objects.create(
+            organization=self.organization, thread=thread, sender_name='Occupant',
+            message='Lift stopped on the third floor.',
+        )
+        self.login(self.admin)
+        response = self.client.post(f'/api/v1/companion/feedback/{thread.id}/create-work-order/', {}, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        work_order = WorkOrder.objects.get(pk=response.data['work_order_id'])
+        self.assertEqual(work_order.property, property_record)
+        self.assertEqual(work_order.priority, WorkOrder.Priority.CRITICAL)
+        self.assertEqual(work_order.source, 'helpdesk_ticket')
+        self.assertTrue(WorkOrderEvent.objects.filter(work_order=work_order, event_type='ticket_conversion').exists())
+        thread.refresh_from_db()
+        self.assertEqual(thread.metadata['work_order_id'], str(work_order.id))
+        self.assertEqual(thread.status, TeamFeedbackThread.Status.IN_PROGRESS)
+
+        repeated = self.client.post(f'/api/v1/companion/feedback/{thread.id}/create-work-order/', {}, format='json')
+        self.assertEqual(repeated.status_code, 200, repeated.data)
+        self.assertFalse(repeated.data['created'])
+        self.assertEqual(WorkOrder.objects.filter(organization=self.organization).count(), 1)
+
     def test_feedback_auto_assigns_to_samuel(self):
         """New feedback thread auto-assigns to samuel if available."""
         from companion.models import TeamFeedbackThread
