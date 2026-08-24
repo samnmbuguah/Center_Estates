@@ -1368,6 +1368,8 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
 
 
 class PublicFeedbackQrCodeViewSet(CompanionModelViewSet):
+    permission_classes = (IsAuthenticated, HasOrganizationContext)
+    required_module = None
     queryset = PublicFeedbackQrCode.objects.select_related('property', 'building')
     serializer_class = PublicFeedbackQrCodeSerializer
     write_permission = None

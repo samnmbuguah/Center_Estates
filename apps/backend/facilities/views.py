@@ -612,7 +612,7 @@ class AssetViewSet(FacilityModelViewSet):
 
 
 class ContractorViewSet(FacilityModelViewSet):
-    write_permission = 'facility.administer'
+    write_permission = None
     queryset = Contractor.objects.all()
     serializer_class = ContractorSerializer
     search_fields = ('code', 'name', 'specialty', 'contact_name')

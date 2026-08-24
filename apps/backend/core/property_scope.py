@@ -137,6 +137,7 @@ def scope_queryset_to_property(queryset, request, organization):
     if queryset.model._meta.label == 'facilities.Contractor':
         return queryset.filter(
             Q(assigned_properties__id=property_record.pk)
+            | Q(assigned_properties__isnull=True)
             | Q(work_orders__property_id=property_record.pk)
             | Q(contracts__property_id=property_record.pk),
         ).distinct()

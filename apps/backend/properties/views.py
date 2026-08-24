@@ -746,6 +746,41 @@ class PropertyViewSet(OrganizationModelViewSet):
                     review_notes='Opening reading captured during property onboarding.',
                 )
 
+        # Service providers submitted during onboarding are registered as Contractors in Facility Management
+        providers_payload = property_record.metadata.get('service_providers') or []
+        from facilities.models import Contractor
+        import uuid
+        for prov in providers_payload:
+            if not isinstance(prov, dict):
+                continue
+            prov_name = str(prov.get('name') or prov.get('provider_name') or '').strip()
+            if not prov_name:
+                continue
+            specialty = str(prov.get('service') or 'General Maintenance').strip()
+            contact_name = str(prov.get('contact') or prov.get('contact_person') or '').strip()
+            email = str(prov.get('email') or '').strip()
+            phone = str(prov.get('phone') or '').strip()
+
+            contractor = Contractor.objects.filter(
+                organization=organization, name__iexact=prov_name
+            ).first()
+            if not contractor:
+                code = f'SP-{uuid.uuid4().hex[:8].upper()}'
+                while Contractor.objects.filter(organization=organization, code=code).exists():
+                    code = f'SP-{uuid.uuid4().hex[:8].upper()}'
+                contractor = Contractor.objects.create(
+                    organization=organization,
+                    code=code,
+                    name=prov_name,
+                    specialty=specialty,
+                    contact_name=contact_name,
+                    email=email,
+                    phone=phone,
+                    status=Contractor.Status.ACTIVE,
+                    approval_status=Contractor.ApprovalStatus.APPROVED,
+                )
+            contractor.assigned_properties.add(property_record)
+
         return Response({
             'property': self.get_serializer(property_record).data,
             'buildings': BuildingSerializer(buildings, many=True).data,
