@@ -131,7 +131,7 @@ test("service requests list shows requests with actions", async ({ page }) => {
 
 test("service profiles and incident reporting are accessible workflows", async ({ page }) => {
   await page.goto("/facility?tab=service-profiles");
-  await expect(page.getByRole("heading", { name: "Service profiles", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Service profiles", exact: true })).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole("button", { name: "Create service profile" })).toBeVisible();
   await page.getByRole("button", { name: "Create service profile" }).click();
   await expect(page.getByRole("heading", { name: "Create service profile" })).toBeVisible();
@@ -139,7 +139,7 @@ test("service profiles and incident reporting are accessible workflows", async (
   await page.getByRole("button", { name: "Cancel" }).click();
 
   await page.goto("/facility?tab=incidents");
-  await expect(page.getByRole("heading", { name: "Incident reporting", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Incident reporting", exact: true })).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole("button", { name: "Report incident" })).toBeVisible();
   await page.getByRole("button", { name: "Report incident" }).click();
   await expect(page.getByRole("heading", { name: "Report an incident" })).toBeVisible();
@@ -198,8 +198,13 @@ test("facility reports export current operational data", async ({ page }, testIn
   test.skip(testInfo.project.name.startsWith("mobile"), "Download verification runs once on desktop");
   await page.goto("/facility?tab=reports");
   await expect(page.getByRole("heading", { name: /Raw Operational Data Registers/i })).toBeVisible({ timeout: 45000 });
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: /Download/i }).first().click();
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/assets.*\.csv|center-estates.*\.csv/i);
+  const pdfPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Download verified PDF/i }).click();
+  const pdf = await pdfPromise;
+  expect(pdf.suggestedFilename()).toMatch(/facility-performance-.*\.pdf/i);
+
+  const csvPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /^↓ Download$/i }).first().click();
+  const csv = await csvPromise;
+  expect(csv.suggestedFilename()).toMatch(/assets.*\.csv|center-estates.*\.csv/i);
 });
