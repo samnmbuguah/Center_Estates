@@ -2016,6 +2016,9 @@ class InvoiceViewSet(OrganizationModelViewSet):
         channel = str(request.data.get('channel', InvoiceReminder.Channel.PORTAL))
         if channel not in InvoiceReminder.Channel.values:
             raise ValidationError({'channel': 'Select email, SMS or tenant portal.'})
+        notice_type = str(request.data.get('notice_type', InvoiceReminder.NoticeType.PAYMENT_REMINDER))
+        if notice_type not in InvoiceReminder.NoticeType.values:
+            raise ValidationError({'notice_type': 'Select payment reminder, formal demand or notice to vacate.'})
         tenant = invoice.lease.tenant
         recipient = tenant.email if channel == InvoiceReminder.Channel.EMAIL else tenant.phone if channel == InvoiceReminder.Channel.SMS else tenant.name
         if not recipient:
@@ -2023,7 +2026,8 @@ class InvoiceViewSet(OrganizationModelViewSet):
         message = str(request.data.get('message', '')).strip() or f'Invoice {invoice.number} has an outstanding balance of KES {invoice.balance:,.2f} due on {invoice.due_on}.'
         reminder = InvoiceReminder.objects.create(
             organization=invoice.organization, invoice=invoice, channel=channel,
-            recipient=recipient, message=message, sent_at=timezone.now(), sent_by=request.user,
+            notice_type=notice_type, recipient=recipient, message=message,
+            sent_at=timezone.now(), sent_by=request.user,
         )
         if channel == InvoiceReminder.Channel.PORTAL:
             access = TenantPortalAccess.objects.for_organization(invoice.organization).filter(

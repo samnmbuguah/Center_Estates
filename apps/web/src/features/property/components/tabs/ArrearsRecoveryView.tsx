@@ -71,7 +71,7 @@ export function ArrearsRecoveryView({
     await apiFetch("/auth/csrf/");
     const response = await apiFetch(`/property/invoices/${row.oldest_invoice_id}/send-reminder/`, {
       method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
-      body: JSON.stringify({ channel: "portal", message }),
+      body: JSON.stringify({ channel: "portal", notice_type: row.recommended_action, message }),
     }, session.activeOrganizationId);
     if (!response.ok) { setExposureError(await apiErrorMessage(response, "Notice could not be sent.")); return; }
     setNotice(`${action.charAt(0).toUpperCase()}${action.slice(1)} sent to ${row.tenant}.`);
@@ -176,12 +176,13 @@ export function ArrearsRecoveryView({
           <ListState loading={loading} empty={reminderList.length === 0} emptyTitle="No reminders sent" emptyDesc="Payment reminders sent from the arrears workflow appear here.">
             <div className="table-scroll">
               <table className="fc-data-table">
-                <thead><tr><th>Tenant</th><th>Invoice</th><th>Channel</th><th>Recipient</th><th>Sent</th><th>Status</th></tr></thead>
+                <thead><tr><th>Tenant</th><th>Invoice</th><th>Notice type</th><th>Channel</th><th>Recipient</th><th>Sent</th><th>Status</th></tr></thead>
                 <tbody>
                   {reminderList.map((r) => (
                     <tr key={String(r.id)}>
                       <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "—")}</strong></td>
                       <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(r.invoice_number ?? "—")}</td>
+                      <td style={{ fontSize: 12 }}>{String(r.notice_type ?? "payment reminder").replace(/_/g, " ")}</td>
                       <td style={{ fontSize: 12 }}>{String(r.channel ?? "—").replace(/_/g, " ")}</td>
                       <td style={{ fontSize: 12 }}>{String(r.recipient ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{fmtDate(r.sent_at)}</td>

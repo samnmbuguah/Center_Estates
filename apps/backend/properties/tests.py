@@ -1321,9 +1321,11 @@ class PropertyApiTests(TestCase):
         )
         response = self.client.post(f'/api/v1/property/invoices/{self.invoice.id}/send-reminder/', {
             'channel': InvoiceReminder.Channel.PORTAL,
+            'notice_type': InvoiceReminder.NoticeType.FORMAL_DEMAND,
         }, format='json', **self.headers)
         self.assertEqual(response.status_code, 201, response.data)
-        self.assertTrue(InvoiceReminder.objects.filter(invoice=self.invoice, sent_by=self.user).exists())
+        reminder = InvoiceReminder.objects.get(invoice=self.invoice, sent_by=self.user)
+        self.assertEqual(reminder.notice_type, InvoiceReminder.NoticeType.FORMAL_DEMAND)
         notice = Notification.objects.get(metadata__invoice_id=str(self.invoice.id))
         self.assertEqual(notice.recipient, self.user)
 

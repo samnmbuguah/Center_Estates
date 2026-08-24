@@ -724,7 +724,13 @@ class InvoiceReminder(OrganizationOwnedModel):
         SMS = 'sms', 'SMS'
         PORTAL = 'portal', 'Tenant portal'
 
+    class NoticeType(models.TextChoices):
+        PAYMENT_REMINDER = 'payment_reminder', 'Payment reminder'
+        FORMAL_DEMAND = 'formal_demand', 'Formal demand'
+        NOTICE_TO_VACATE = 'notice_to_vacate', 'Notice to vacate'
+
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='reminders')
+    notice_type = models.CharField(max_length=24, choices=NoticeType.choices, default=NoticeType.PAYMENT_REMINDER)
     channel = models.CharField(max_length=12, choices=Channel.choices)
     recipient = models.CharField(max_length=200)
     message = models.TextField()
