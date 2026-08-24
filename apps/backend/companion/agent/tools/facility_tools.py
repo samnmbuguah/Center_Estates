@@ -14,11 +14,11 @@ def inspect_facility_work_orders(organization_id: str) -> Dict[str, Any]:
     try:
         open_orders = WorkOrder.objects.filter(
             organization_id=organization_id,
-            status__in=['pending', 'in_progress', 'scheduled', 'reported', 'assigned', 'draft'],
+            status__in=['open', 'in_progress', 'assigned', 'on_hold'],
         ).select_related('property', 'asset', 'contractor', 'assigned_to')
 
         total_open = open_orders.count()
-        urgent_orders = open_orders.filter(priority='urgent')
+        urgent_orders = open_orders.filter(priority='critical')
         urgent_count = urgent_orders.count()
 
         critical_items = []
@@ -42,7 +42,7 @@ def inspect_facility_work_orders(organization_id: str) -> Dict[str, Any]:
             })
 
             # Propose Actionable Dispatch / Escalation Intervention
-            if wo.priority == 'urgent' or not wo.assigned_to:
+            if wo.priority == 'critical' or not wo.assigned_to:
                 actions.append(AgentAction(
                     id=f"act_wo_{wo.id}",
                     action_type="dispatch_work_order",
@@ -51,8 +51,8 @@ def inspect_facility_work_orders(organization_id: str) -> Dict[str, Any]:
                     target_module="facility",
                     target_id=str(wo.id),
                     target_name=prop_name,
-                    payload={"work_order_id": str(wo.id), "priority": "urgent"},
-                    urgency="critical" if wo.priority == 'urgent' else "high",
+                    payload={"work_order_id": str(wo.id), "priority": "critical"},
+                    urgency="critical" if wo.priority == 'critical' else "high",
                 ).model_dump())
 
         return {

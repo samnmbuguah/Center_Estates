@@ -73,10 +73,16 @@ export function WorkOrderDetail({
     event.preventDefault();
     if (!organizationId) return;
     const form = new FormData(event.currentTarget);
+    form.set("work_order", String(row.id));
+    const file = form.get("uploaded_file");
+    if (file instanceof File && file.size > 0) {
+      form.set("file_name", file.name);
+      form.set("media_type", file.type || "application/octet-stream");
+    }
     await apiFetch("/auth/csrf/");
     const response = await apiFetch("/facility/work-order-attachments/", {
       method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
-      body: JSON.stringify({ work_order: row.id, ...Object.fromEntries(form.entries()) }),
+      body: form,
     }, organizationId);
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -358,11 +364,8 @@ export function WorkOrderDetail({
       {showMediaForm && (
         <Modal title={`Attach Work Evidence · ${String(row.number ?? "Work order")}`} onClose={() => setShowMediaForm(false)}>
           <form onSubmit={submitAttachment} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Field label="File URL" required><input name="file_url" type="url" required placeholder="https://… or an uploaded media URL" /></Field>
-            <div className="grid-2">
-              <Field label="File name" required><input name="file_name" required placeholder="repair-after.jpg" /></Field>
-              <Field label="Media type"><input name="media_type" placeholder="image/jpeg" /></Field>
-            </div>
+            <Field label="Evidence file" required><input name="uploaded_file" type="file" accept="image/*,video/*,application/pdf" required /></Field>
+            <small style={{ color: "var(--text-secondary)" }}>Photos, short videos and PDFs up to 15 MB. File name and media type are captured automatically.</small>
             <Field label="Caption"><textarea name="caption" rows={3} placeholder="Describe the condition or completed work" /></Field>
             <div className="modal-actions"><button type="button" className="btn ghost" onClick={() => setShowMediaForm(false)}>Cancel</button><button className="btn primary">Attach Evidence</button></div>
           </form>

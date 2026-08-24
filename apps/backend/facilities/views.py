@@ -1,4 +1,5 @@
 import csv
+from io import BytesIO
 from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
 import uuid
 
@@ -14,6 +15,12 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_RIGHT
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from core.models import Module
 from core.permissions import HasModuleActionPermission
@@ -26,13 +33,13 @@ from notifications.services import notify_permission, notify_user
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
-    FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
+    FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
     MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 from .serializers import (
     AssetConditionAssessmentSerializer, ComplianceObligationSerializer, ContractorContractSerializer,
-    ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityIncidentEventSerializer, FacilityIncidentSerializer, FacilityRiskSerializer,
+    ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityIncidentAttachmentSerializer, FacilityIncidentEventSerializer, FacilityIncidentSerializer, FacilityRiskSerializer,
     FloorPlanSerializer, FMBudgetSerializer, InspectionSerializer, MeterReadingSerializer,
     MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer,
     ServiceProfileAllocationSerializer, ServiceProfileSerializer, ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
@@ -107,7 +114,7 @@ class FacilityIncidentViewSet(FacilityModelViewSet):
     permission_map = {'review': 'facility.approve', 'resolve': 'facility.work', 'close': 'facility.approve', 'create_work_order': 'facility.work'}
     queryset = FacilityIncident.objects.select_related(
         'property', 'unit', 'asset', 'service_provider', 'reported_by', 'reviewed_by', 'work_order',
-    ).prefetch_related('events__actor')
+    ).prefetch_related('events__actor', 'attachments__uploaded_by')
     serializer_class = FacilityIncidentSerializer
     search_fields = ('reference', 'location', 'category', 'narrative', 'property__name')
 
@@ -207,6 +214,24 @@ class FacilityIncidentViewSet(FacilityModelViewSet):
         WorkOrderEvent.objects.create(organization=incident.organization, work_order=order, event_type='created', to_status=order.status, notes=f'Created from {incident.reference}', actor=request.user)
         FacilityIncidentEvent.objects.create(organization=incident.organization, incident=incident, event_type='work_order_created', from_status=FacilityIncident.Status.UNDER_REVIEW, to_status=incident.status, notes=order.number, actor=request.user)
         return Response(self.get_serializer(incident).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=('post',), url_path='attachments')
+    @transaction.atomic
+    def upload_attachment(self, request, pk=None):
+        incident = self.get_object()
+        serializer = FacilityIncidentAttachmentSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        uploaded = request.FILES.get('file')
+        attachment = serializer.save(
+            organization=incident.organization, incident=incident, uploaded_by=request.user,
+            name=(request.data.get('name') or getattr(uploaded, 'name', 'Incident evidence'))[:180],
+            content_type=(request.data.get('content_type') or getattr(uploaded, 'content_type', ''))[:100],
+        )
+        FacilityIncidentEvent.objects.create(
+            organization=incident.organization, incident=incident, event_type='evidence_uploaded',
+            from_status=incident.status, to_status=incident.status, notes=attachment.name, actor=request.user,
+        )
+        return Response(FacilityIncidentAttachmentSerializer(attachment, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
 class FloorPlanViewSet(FacilityModelViewSet):
@@ -859,6 +884,9 @@ class WorkOrderAttachmentViewSet(FacilityModelViewSet):
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
         attachment = serializer.save(organization=organization, uploaded_by=self.request.user)
+        if attachment.uploaded_file and not attachment.file_url:
+            attachment.file_url = attachment.uploaded_file.url
+            attachment.save(update_fields=('file_url', 'updated_at'))
         WorkOrderEvent.objects.create(
             organization=organization, work_order=attachment.work_order,
             event_type='attachment_added', notes=attachment.file_name, actor=self.request.user,
@@ -1739,4 +1767,111 @@ class FacilityAnalyticsViewSet(ViewSet):
         writer.writerow(header)
         for row in rows:
             writer.writerow(row)
+        return response
+
+    @action(detail=False, methods=('get',), url_path='landlord-report')
+    def landlord_report(self, request):
+        """Return a property-scoped, audit-friendly FM performance pack.
+
+        The document deliberately reports only values supported by persisted
+        facility records. Forecast savings and named signatories are excluded
+        until an approved assessment or sign-off record exists.
+        """
+        organization = get_active_organization(request)
+        assets = scope_model_queryset(FacilityAsset, request, organization)
+        work_orders = scope_model_queryset(WorkOrder, request, organization)
+        inspections = scope_model_queryset(Inspection, request, organization)
+        schedules = scope_model_queryset(PreventiveSchedule, request, organization)
+        incidents = scope_model_queryset(FacilityIncident, request, organization)
+        budgets = scope_model_queryset(FMBudget, request, organization)
+        expenses = scope_model_queryset(FacilityExpense, request, organization)
+
+        property_record = assets.values_list('property__name', flat=True).first()
+        if not property_record:
+            property_record = work_orders.values_list('property__name', flat=True).first()
+        property_name = property_record or 'Accessible property portfolio'
+
+        today = timezone.localdate()
+        open_orders = work_orders.exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
+        overdue_orders = open_orders.filter(resolution_due_at__lt=timezone.now())
+        completed_schedules = schedules.filter(is_active=True, last_completed_on__isnull=False).count()
+        due_schedules = schedules.filter(is_active=True).count()
+        ppm_rate = round((completed_schedules / due_schedules) * 100, 1) if due_schedules else 0
+        allocated = budgets.aggregate(total=Sum('allocated_amount'))['total'] or Decimal('0')
+        spent = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+        branding = (organization.settings or {}).get('branding', {})
+        company_name = branding.get('company_name') or organization.name
+        address = branding.get('address') or branding.get('management_address') or ''
+        contact = ' | '.join(filter(None, (branding.get('phone'), branding.get('email'))))
+
+        stream = BytesIO()
+        document = SimpleDocTemplate(
+            stream, pagesize=landscape(A4), rightMargin=14 * mm, leftMargin=14 * mm,
+            topMargin=12 * mm, bottomMargin=12 * mm,
+            title=f'Facilities Management Performance Report - {property_name}',
+            author=company_name,
+        )
+        styles = getSampleStyleSheet()
+        navy = colors.HexColor('#10233F')
+        red = colors.HexColor('#D62828')
+        muted = colors.HexColor('#475569')
+        title_style = ParagraphStyle('FacilityTitle', parent=styles['Heading1'], fontSize=17, leading=20, textColor=navy, spaceAfter=3)
+        right_style = ParagraphStyle('FacilityHeaderRight', parent=styles['Normal'], alignment=TA_RIGHT, textColor=navy, leading=14)
+        small_style = ParagraphStyle('FacilitySmall', parent=styles['Normal'], fontSize=8.5, leading=11, textColor=muted)
+        section_style = ParagraphStyle('FacilitySection', parent=styles['Heading2'], fontSize=11, leading=14, textColor=navy, spaceBefore=8, spaceAfter=6)
+
+        header = Table([
+            [Paragraph(f'<b>{company_name}</b><br/><font size="8">{address}<br/>{contact}</font>', title_style),
+             Paragraph(f'<b>FACILITIES MANAGEMENT PERFORMANCE REPORT</b><br/>{property_name}<br/><font size="8">Reporting date: {today:%d %b %Y}</font>', right_style)],
+        ], colWidths=[135 * mm, 125 * mm])
+        header.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+
+        def styled_table(data, widths=None):
+            table = Table(data, colWidths=widths, repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), navy), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 1), (-1, -1), 8), ('TEXTCOLOR', (0, 1), (-1, -1), navy),
+                ('GRID', (0, 0), (-1, -1), .35, colors.HexColor('#CBD5E1')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F1F5F9')]),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            return table
+
+        kpis = [
+            ['Active assets', 'Open work orders', 'SLA overdue', 'PPM compliance', 'Open incidents', 'Budget / actual'],
+            [str(assets.filter(is_active=True).count()), str(open_orders.count()), str(overdue_orders.count()),
+             f'{ppm_rate:.1f}%', str(incidents.exclude(status=FacilityIncident.Status.CLOSED).count()),
+             f'KES {allocated:,.0f} / {spent:,.0f}'],
+        ]
+        order_rows = [['Work order', 'Description', 'Priority', 'Status', 'Reported', 'Resolution due']]
+        for order in work_orders.order_by('-reported_at')[:12]:
+            order_rows.append([
+                order.number, order.title, order.get_priority_display(), order.get_status_display(),
+                timezone.localtime(order.reported_at).strftime('%d %b %Y'),
+                timezone.localtime(order.resolution_due_at).strftime('%d %b %Y %H:%M') if order.resolution_due_at else 'Not set',
+            ])
+        if len(order_rows) == 1:
+            order_rows.append(['—', 'No work orders recorded for this scope.', '—', '—', '—', '—'])
+
+        incident_rows = [['Reference', 'Category', 'Severity', 'Status', 'Location', 'Occurred']]
+        for incident in incidents.order_by('-occurred_at')[:10]:
+            incident_rows.append([
+                incident.reference, incident.category, incident.get_severity_display(), incident.get_status_display(),
+                incident.location, timezone.localtime(incident.occurred_at).strftime('%d %b %Y %H:%M'),
+            ])
+        if len(incident_rows) == 1:
+            incident_rows.append(['—', 'No incidents recorded for this scope.', '—', '—', '—', '—'])
+
+        story = [header, Spacer(1, 4 * mm), Table([['']], colWidths=[260 * mm], rowHeights=[1.5 * mm], style=[('BACKGROUND', (0, 0), (-1, -1), red)]),
+                 Spacer(1, 5 * mm), styled_table(kpis), Paragraph('Work order performance', section_style), styled_table(order_rows),
+                 Paragraph('Incident and risk register', section_style), styled_table(incident_rows), Spacer(1, 5 * mm),
+                 Paragraph(f'Record basis: {assets.count()} assets, {work_orders.count()} work orders, {inspections.count()} inspections, '
+                           f'{schedules.count()} preventive schedules and {incidents.count()} incidents. Values reflect the selected organization and property access scope.', small_style),
+                 Spacer(1, 7 * mm), styled_table([['Prepared by', 'Reviewed by', 'Approved by'], ['____________________________', '____________________________', '____________________________'], ['Name / Date', 'Name / Date', 'Name / Date']])]
+        document.build(story)
+        response = HttpResponse(stream.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="facility-performance-{today:%Y-%m-%d}.pdf"'
         return response

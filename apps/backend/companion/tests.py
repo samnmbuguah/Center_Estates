@@ -9,7 +9,9 @@ import os
 from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
 from subscriptions.models import Subscription
-from companion.models import TaskEvent
+from companion.models import Task, TaskEvent
+from django.utils import timezone
+from datetime import timedelta
 from companion.qm_agent import QMAgentOrchestrator
 from properties.models import Property
 
@@ -155,6 +157,20 @@ class CompanionApiTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertIn('operational briefing', response.data['response'])
         self.assertEqual(response.data['suggestedActions'][0]['label'], 'View My Tasks')
+
+    def test_daily_briefing_is_deterministic_and_uses_live_due_tasks(self):
+        Task.objects.create(
+            organization=self.organization, reference='CPN-DUE', title='Inspect fire panel',
+            assignee=self.staff, assigned_by=self.admin, priority=Task.Priority.HIGH,
+            due_at=timezone.now() - timedelta(hours=2),
+        )
+        self.login(self.staff)
+        response = self.client.get('/api/v1/companion/dashboard/daily-briefing/')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.data['key_metrics']['tasks_due'], 1)
+        self.assertIn('1 personal task(s)', ' '.join(response.data['critical_alerts']))
+        self.assertIn('live records', response.data['briefing_narrative'])
+        self.assertNotEqual(response.data['portfolio_health_score'], 95)
 
     def test_ai_chat_rejects_oversized_prompts(self):
         self.login(self.admin)

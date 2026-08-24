@@ -6,7 +6,7 @@ from core.tenancy import get_active_organization
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
-    FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
+    FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
     MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
@@ -48,6 +48,25 @@ class FacilityIncidentEventSerializer(serializers.ModelSerializer):
         exclude = ('organization', 'actor')
 
 
+class FacilityIncidentAttachmentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = FacilityIncidentAttachment
+        exclude = ('organization', 'uploaded_by')
+        read_only_fields = ('incident', 'name', 'content_type')
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+
+    def validate_file(self, value):
+        if value.size > 15 * 1024 * 1024:
+            raise serializers.ValidationError('Incident evidence must be 15 MB or smaller.')
+        return value
+
+
 class FacilityIncidentSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
     unit_code = serializers.CharField(source='unit.code', read_only=True, default='')
@@ -56,6 +75,7 @@ class FacilityIncidentSerializer(serializers.ModelSerializer):
     reported_by_name = serializers.CharField(source='reported_by.get_full_name', read_only=True)
     reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True, default='')
     events = FacilityIncidentEventSerializer(many=True, read_only=True)
+    attachments = FacilityIncidentAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = FacilityIncident
@@ -284,6 +304,14 @@ class WorkOrderAttachmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkOrderAttachment
         exclude = ('organization', 'uploaded_by')
+
+    def validate(self, attrs):
+        if not attrs.get('uploaded_file') and not str(attrs.get('file_url', '')).strip():
+            raise serializers.ValidationError({'uploaded_file': 'Choose a file to upload.'})
+        uploaded = attrs.get('uploaded_file')
+        if uploaded and uploaded.size > 15 * 1024 * 1024:
+            raise serializers.ValidationError({'uploaded_file': 'Files must be 15 MB or smaller.'})
+        return attrs
 
 
 class FloorPlanSerializer(serializers.ModelSerializer):

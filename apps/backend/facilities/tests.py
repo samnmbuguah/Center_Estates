@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -11,7 +12,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import Contractor, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentEvent, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import Contractor, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ServiceProfile, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -53,6 +54,16 @@ class FacilityApiTests(TestCase):
         response = self.client.get('/api/v1/facility/assets/', **self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row['code'] for row in response.data], ['A1'])
+
+    def test_landlord_report_is_a_real_property_scoped_pdf(self):
+        response = self.client.get('/api/v1/facility/analytics/landlord-report/', **{
+            **self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id),
+        })
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('facility-performance-', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+        self.assertGreater(len(response.content), 2500)
 
     def test_asset_onboarding_generates_code_and_keeps_digital_passport(self):
         response = self.client.post('/api/v1/facility/assets/', {
@@ -127,6 +138,14 @@ class FacilityApiTests(TestCase):
         self.assertEqual(created.status_code, 201, created.data)
         incident = FacilityIncident.objects.get(pk=created.data['id'])
         self.assertEqual(incident.status, FacilityIncident.Status.DRAFT)
+
+        evidence = self.client.post(f'/api/v1/facility/incidents/{incident.id}/attachments/', {
+            'file': SimpleUploadedFile('incident-photo.jpg', b'incident-evidence', content_type='image/jpeg'),
+            'name': 'Plant room condition',
+        }, format='multipart', **self.headers)
+        self.assertEqual(evidence.status_code, 201, evidence.data)
+        self.assertEqual(FacilityIncidentAttachment.objects.filter(incident=incident).count(), 1)
+        self.assertTrue(FacilityIncidentEvent.objects.filter(incident=incident, event_type='evidence_uploaded').exists())
         submitted = self.client.post(f'/api/v1/facility/incidents/{incident.id}/submit/', {}, format='json', **self.headers)
         self.assertEqual(submitted.status_code, 200, submitted.data)
         reviewed = self.client.post(f'/api/v1/facility/incidents/{incident.id}/review/', {'notes': 'Escalated to lift vendor.'}, format='json', **self.headers)
@@ -294,6 +313,17 @@ class FacilityApiTests(TestCase):
             'file_name': 'lift-after.jpg', 'media_type': 'image/jpeg', 'caption': 'Lift returned to service',
         }, format='json', **self.headers)
         self.assertEqual(attachment.status_code, 201, attachment.data)
+        self.assertTrue(WorkOrderEvent.objects.filter(work_order=self.work_order, event_type='attachment_added').exists())
+
+    def test_work_order_evidence_accepts_direct_file_upload(self):
+        image = SimpleUploadedFile('repair-after.jpg', b'fake-jpeg-content', content_type='image/jpeg')
+        response = self.client.post('/api/v1/facility/work-order-attachments/', {
+            'work_order': str(self.work_order.id), 'uploaded_file': image,
+            'file_name': 'repair-after.jpg', 'media_type': 'image/jpeg',
+            'caption': 'Lift tested after repair.',
+        }, format='multipart', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertIn('/media/facility/work-orders/', response.data['file_url'])
         self.assertTrue(WorkOrderEvent.objects.filter(work_order=self.work_order, event_type='attachment_added').exists())
 
     def test_preventive_schedule_generates_idempotent_work_order_and_advances_recurrence(self):

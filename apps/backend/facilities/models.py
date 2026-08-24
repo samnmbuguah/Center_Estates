@@ -214,6 +214,17 @@ class FacilityIncidentEvent(OrganizationOwnedModel):
         ordering = ('-created_at',)
 
 
+class FacilityIncidentAttachment(OrganizationOwnedModel):
+    incident = models.ForeignKey(FacilityIncident, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='facility/incidents/%Y/%m/')
+    name = models.CharField(max_length=180)
+    content_type = models.CharField(max_length=100, blank=True)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='facility_incident_attachments')
+
+    class Meta:
+        ordering = ('-created_at',)
+
+
 class WorkOrder(OrganizationOwnedModel):
     class Status(models.TextChoices):
         OPEN = 'open', 'Open'
@@ -315,7 +326,8 @@ class WorkOrderCostItem(OrganizationOwnedModel):
 
 class WorkOrderAttachment(OrganizationOwnedModel):
     work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='attachments')
-    file_url = models.CharField(max_length=500)
+    file_url = models.CharField(max_length=500, blank=True)
+    uploaded_file = models.FileField(upload_to='facility/work-orders/%Y/%m/', null=True, blank=True)
     file_name = models.CharField(max_length=200)
     media_type = models.CharField(max_length=80, blank=True)
     caption = models.CharField(max_length=250, blank=True)

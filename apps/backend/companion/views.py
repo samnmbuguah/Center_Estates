@@ -509,6 +509,76 @@ class CompanionDashboardViewSet(ViewSet):
     def daily_briefing(self, request):
         organization = get_active_organization(request)
         user_name = request.user.get_full_name() or request.user.username or "Operator"
+        from datetime import timedelta
+        from facilities.models import FacilityIncident, PreventiveSchedule, WorkOrder
+        from properties.models import Invoice, Lease
+
+        now = timezone.now()
+        today = timezone.localdate()
+        active_work = scope_model_queryset(
+            WorkOrder, request, organization,
+        ).exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
+        overdue_work = active_work.filter(resolution_due_at__lt=now)
+        critical_work = active_work.filter(priority=WorkOrder.Priority.CRITICAL)
+        unassigned_work = active_work.filter(assigned_to__isnull=True, contractor__isnull=True)
+        active_incidents = scope_model_queryset(
+            FacilityIncident, request, organization,
+        ).exclude(status__in=(FacilityIncident.Status.RESOLVED, FacilityIncident.Status.CLOSED))
+        critical_incidents = active_incidents.filter(severity__in=(FacilityIncident.Severity.HIGH, FacilityIncident.Severity.CRITICAL))
+        overdue_ppm = scope_model_queryset(
+            PreventiveSchedule, request, organization,
+        ).filter(is_active=True, next_due_on__lt=today)
+        overdue_invoices = scope_model_queryset(
+            Invoice, request, organization,
+        ).filter(status__in=('issued', 'partial', 'overdue'), due_on__lt=today)
+        total_arrears = overdue_invoices.aggregate(total=Sum('balance'))['total'] or 0
+        expiring_leases = scope_model_queryset(
+            Lease, request, organization,
+        ).filter(status='active', ends_on__range=(today, today + timedelta(days=60)))
+        due_tasks = scope_model_queryset(Task, request, organization).filter(
+            assignee=request.user,
+        ).exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED)).filter(due_at__date__lte=today)
+
+        penalty = min(35, overdue_work.count() * 5 + critical_work.count() * 8)
+        penalty += min(25, critical_incidents.count() * 8 + overdue_ppm.count() * 3)
+        penalty += min(20, overdue_invoices.count() * 2)
+        health_score = max(0, 100 - penalty)
+        health_status = 'Optimal' if health_score >= 85 else 'Action required' if health_score >= 65 else 'Critical attention needed'
+        alerts = []
+        if critical_incidents.exists(): alerts.append(f'{critical_incidents.count()} high or critical incident(s) require manager review.')
+        if overdue_work.exists(): alerts.append(f'{overdue_work.count()} work order(s) are past their resolution SLA.')
+        if overdue_ppm.exists(): alerts.append(f'{overdue_ppm.count()} preventive-maintenance task(s) are overdue.')
+        if overdue_invoices.exists(): alerts.append(f'{overdue_invoices.count()} invoice(s) are overdue with KES {total_arrears:,.0f} outstanding.')
+        if unassigned_work.exists(): alerts.append(f'{unassigned_work.count()} active work order(s) still need an assignee or provider.')
+        if due_tasks.exists(): alerts.append(f'{due_tasks.count()} personal task(s) are due or overdue.')
+        if not alerts: alerts.append('No overdue operational exceptions were found in the records you can access.')
+
+        deterministic = {
+            'date': now.strftime('%A, %d %B %Y'),
+            'headline': f'{health_status} — {len(alerts)} briefing item(s)',
+            'portfolio_health_score': health_score,
+            'health_status': health_status,
+            'key_metrics': {
+                'total_arrears': total_arrears,
+                'overdue_invoices': overdue_invoices.count(),
+                'urgent_work_orders': critical_work.count(),
+                'open_work_orders': active_work.count(),
+                'overdue_work_orders': overdue_work.count(),
+                'overdue_ppm': overdue_ppm.count(),
+                'open_incidents': active_incidents.count(),
+                'critical_incidents': critical_incidents.count(),
+                'unassigned_work_orders': unassigned_work.count(),
+                'expiring_leases_60d': expiring_leases.count(),
+                'tasks_due': due_tasks.count(),
+            },
+            'critical_alerts': alerts,
+            'briefing_narrative': f'Good day, {user_name}. This briefing is calculated from live records within your organization and property access.',
+            'recommended_focus': alerts[:3],
+            'proposed_actions': [],
+            'grounded_at': now.isoformat(),
+        }
+        if request.method == 'GET' or not request.data.get('include_ai'):
+            return Response(deterministic)
         initial_state = {
             'organization_id': str(organization.id),
             'user_name': user_name,
@@ -524,32 +594,12 @@ class CompanionDashboardViewSet(ViewSet):
             from .agent import agent_orchestrator
             result = agent_orchestrator.invoke(initial_state)
             briefing = result.get('daily_briefing', {})
-            briefing['health_score'] = result.get('health_score', 100)
+            briefing['health_score'] = result.get('health_score', health_score)
             briefing['proposed_actions'] = result.get('proposed_actions', [])
+            briefing['grounded_at'] = now.isoformat()
             return Response(briefing)
-        except Exception as e:
-            return Response({
-                "date": timezone.now().strftime("%A, %d %B %Y"),
-                "headline": "Portfolio operating smoothly",
-                "portfolio_health_score": 95,
-                "health_status": "Optimal",
-                "key_metrics": {
-                    "total_arrears": 0,
-                    "overdue_invoices": 0,
-                    "urgent_work_orders": 0,
-                    "open_work_orders": 0,
-                    "expiring_leases_60d": 0,
-                    "pending_leave_requests": 0,
-                },
-                "critical_alerts": ["Rent collections on schedule.", "No emergency facility breaches."],
-                "briefing_narrative": f"Welcome {user_name}. Real-time monitoring is active for your portfolio.",
-                "recommended_focus": [
-                    "Review tenant leases and scheduled tasks.",
-                    "Verify facility maintenance tickets.",
-                ],
-                "health_score": 95,
-                "proposed_actions": [],
-            })
+        except Exception:
+            return Response(deterministic)
 
     @action(detail=False, methods=('post',), url_path='execute-actions')
     def execute_actions(self, request):

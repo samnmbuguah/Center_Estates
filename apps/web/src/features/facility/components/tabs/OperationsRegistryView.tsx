@@ -20,6 +20,7 @@ export function OperationsRegistryView({ mode, rows, organizationId, propertyId,
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<Row | null>(null);
   const filtered = useMemo(() => rows.filter((row) => JSON.stringify(row).toLowerCase().includes(search.toLowerCase())), [rows, search]);
   const active = rows.filter((row) => row.status === "active" || row.status === "under_review").length;
   const urgent = rows.filter((row) => row.severity === "high" || row.severity === "critical").length;
@@ -57,6 +58,21 @@ export function OperationsRegistryView({ mode, rows, organizationId, propertyId,
     await reload();
   }
 
+  async function uploadEvidence(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const file = data.get("file");
+    if (!(file instanceof File) || !file.size) { setError("Choose an image, video or PDF evidence file first."); return; }
+    setSaving(true); setError("");
+    const response = await apiFetch(`/facility/incidents/${selected.id}/attachments/`, { method: "POST", body: data }, organizationId);
+    if (!response.ok) { setError(await apiErrorMessage(response, "The incident evidence could not be uploaded.")); setSaving(false); return; }
+    form.reset(); setSaving(false); await reload();
+    const refreshed = await apiFetch(`/facility/incidents/${selected.id}/`, {}, organizationId);
+    if (refreshed.ok) setSelected(await refreshed.json());
+  }
+
   return <Stack spacing={2.25}>
     <ViewToolbar
       title={mode === "service-profiles" ? "Service profiles" : "Incident reporting"}
@@ -81,6 +97,7 @@ export function OperationsRegistryView({ mode, rows, organizationId, propertyId,
             <td className="mono">{String(row.code)}</td><td><strong>{String(row.name)}</strong><small className="muted" style={{ display: "block" }}>{String(row.description || "")}</small></td><td>{String(row.category)}</td><td><StatusPill value={String(row.service_type)} /></td><td><StatusPill value={String(row.criticality)} /></td><td>{String(row.default_frequency || "On demand")}</td><td><StatusPill value={String(row.status)} /></td><td>{Array.isArray(row.allocations) ? row.allocations.length : 0}</td>
           </tr> : <tr key={String(row.id)}>
             <td className="mono">{String(row.reference)}</td><td>{new Date(String(row.occurred_at)).toLocaleString()}</td><td>{String(row.location)}</td><td>{String(row.category)}</td><td><StatusPill value={String(row.severity)} /></td><td><StatusPill value={String(row.status)} /></td><td>{String(row.reported_by_name || "—")}</td><td><Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+              <Button size="small" onClick={() => setSelected(row)}>View</Button>
               {row.status === "draft" && <Button size="small" onClick={() => action(row, "submit")}>Submit</Button>}
               {row.status === "submitted" && canApprove && <Button size="small" onClick={() => action(row, "review")}>Review</Button>}
               {row.status === "under_review" && <Button size="small" onClick={() => action(row, "create-work-order")}>Work order</Button>}
@@ -114,6 +131,47 @@ export function OperationsRegistryView({ mode, rows, organizationId, propertyId,
       </Box></DialogContent>
       <DialogActions sx={{ p: 2 }}><Button onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" variant="contained" disabled={saving}>{saving ? "Saving…" : mode === "incidents" ? "Save draft" : "Create profile"}</Button></DialogActions>
       </Box>
+    </Dialog>
+
+    <Dialog open={Boolean(selected)} onClose={() => !saving && setSelected(null)} fullWidth maxWidth="md">
+      <DialogTitle sx={{ fontWeight: 900 }}>{String(selected?.reference || "Incident details")}</DialogTitle>
+      <DialogContent dividers>
+        {selected && <Stack spacing={2}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
+            <Box><small className="muted">Status</small><div><StatusPill value={String(selected.status)} /></div></Box>
+            <Box><small className="muted">Severity</small><div><StatusPill value={String(selected.severity)} /></div></Box>
+            <Box><small className="muted">Location</small><strong style={{ display: "block" }}>{String(selected.location)}</strong></Box>
+          </Box>
+          <Box><small className="muted">Incident narrative</small><p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{String(selected.narrative)}</p></Box>
+          {Boolean(selected.immediate_action) && <Box><small className="muted">Immediate action</small><p style={{ margin: "4px 0 0" }}>{String(selected.immediate_action)}</p></Box>}
+          <Box component="form" onSubmit={uploadEvidence} sx={{ p: 2, border: "1px solid var(--border)", borderRadius: 2, bgcolor: "var(--surface-sunken)" }}>
+            <strong>Evidence</strong>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} sx={{ mt: 1.25, alignItems: { sm: "center" } }}>
+              <Button component="label" variant="outlined">Choose file<input hidden type="file" name="file" accept="image/*,video/*,application/pdf" /></Button>
+              <TextField name="name" size="small" label="Evidence label (optional)" sx={{ flex: 1 }} />
+              <Button type="submit" variant="contained" disabled={saving}>{saving ? "Uploading…" : "Upload"}</Button>
+            </Stack>
+            <small className="muted">Images, video or PDF up to 15 MB. Uploads are retained with the incident audit trail.</small>
+            <Stack spacing={0.75} sx={{ mt: 1.5 }}>
+              {(Array.isArray(selected.attachments) ? selected.attachments : []).map((item) => {
+                const attachment = item as Row;
+                return <Button key={String(attachment.id)} component="a" href={String(attachment.file_url)} target="_blank" rel="noreferrer" variant="text" sx={{ justifyContent: "flex-start" }}>📎 {String(attachment.name)}</Button>;
+              })}
+              {(!Array.isArray(selected.attachments) || selected.attachments.length === 0) && <span className="muted">No evidence uploaded yet.</span>}
+            </Stack>
+          </Box>
+          <Box><strong>Audit trail</strong><Stack spacing={0.75} sx={{ mt: 1 }}>
+            {(Array.isArray(selected.events) ? selected.events : []).map((item) => {
+              const audit = item as Row;
+              return <Box key={String(audit.id)} sx={{ p: 1.25, borderLeft: "3px solid var(--accent)", bgcolor: "var(--surface-sunken)" }}>
+                <strong>{String(audit.event_type).replaceAll("_", " ")}</strong> <span className="muted">· {new Date(String(audit.created_at)).toLocaleString()}</span>
+                {Boolean(audit.notes) && <div>{String(audit.notes)}</div>}
+              </Box>;
+            })}
+          </Stack></Box>
+        </Stack>}
+      </DialogContent>
+      <DialogActions><Button onClick={() => setSelected(null)}>Close</Button></DialogActions>
     </Dialog>
   </Stack>;
 }

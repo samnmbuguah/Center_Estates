@@ -53,7 +53,6 @@ export function ReportsView({
   const { session } = useAuth();
   const [downloading, setDownloading] = useState("");
   const [error, setError] = useState("");
-  const [activeReportPreview, setActiveReportPreview] = useState<string | null>(null);
 
   const currentOrg = session?.organizations.find((o) => o.id === (organizationId || session?.activeOrganizationId)) || session?.organizations[0];
   const orgName = currentOrg?.company_name || currentOrg?.name || "Your organization";
@@ -126,31 +125,41 @@ export function ReportsView({
     { type: "budgets", title: "Budget vs Commitment Schedule (CSV)", description: "Cost center allocations, PO commitments, and variance percentages." },
   ];
 
-  async function downloadCsv(type: string, title: string) {
+  async function downloadFile(path: string, fileName: string, key: string, fallback: string) {
     if (!organizationId) return;
-    setDownloading(type);
+    setDownloading(key);
     setError("");
     try {
-      const response = await apiFetch(`/facility/analytics/exports/?type=${type}`, {}, organizationId);
-      if (!response.ok) throw new Error(await apiErrorMessage(response, `${title} could not be exported.`));
+      const response = await apiFetch(path, {}, organizationId);
+      if (!response.ok) throw new Error(await apiErrorMessage(response, fallback));
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `center-estates-fm-${type}.csv`;
+      anchor.download = fileName;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : `${title} could not be exported.`);
+      setError(reason instanceof Error ? reason.message : fallback);
     } finally {
       setDownloading("");
     }
   }
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const downloadCsv = (type: string, title: string) => downloadFile(
+    `/facility/analytics/exports/?type=${type}`,
+    `center-estates-fm-${type}.csv`,
+    type,
+    `${title} could not be exported.`,
+  );
+
+  const downloadLandlordReport = () => downloadFile(
+    "/facility/analytics/landlord-report/",
+    `facility-performance-${new Date().toISOString().slice(0, 10)}.pdf`,
+    "executive_fm",
+    "The landlord performance report could not be generated.",
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -214,7 +223,8 @@ export function ReportsView({
 
               <div style={{ display: "flex", gap: 8, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
                 <button
-                  onClick={() => setActiveReportPreview(pack.id)}
+                  onClick={pack.id === "executive_fm" ? downloadLandlordReport : undefined}
+                  disabled={pack.id !== "executive_fm" || downloading === pack.id}
                   style={{
                     flex: 1,
                     background: "var(--surface)",
@@ -223,14 +233,15 @@ export function ReportsView({
                     borderRadius: 6,
                     fontSize: "0.8rem",
                     fontWeight: 700,
-                    cursor: "pointer",
+                    cursor: pack.id === "executive_fm" ? "pointer" : "not-allowed",
+                    opacity: pack.id === "executive_fm" ? 1 : 0.62,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 6,
                   }}
                 >
-                  👁️ Preview & Print PDF
+                  {downloading === pack.id ? "Generating verified PDF…" : pack.id === "executive_fm" ? "↓ Download verified PDF" : "Requires dedicated report schema"}
                 </button>
               </div>
             </div>
@@ -285,10 +296,9 @@ export function ReportsView({
         </div>
       </article>
 
-      {/* Printable PDF Report Modal Preview */}
-      {activeReportPreview && (
-        <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-          <div style={{ background: "#ffffff", color: "#111827", width: "100%", maxWidth: 840, borderRadius: 12, padding: 32, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)" }}>
+      {false && (
+        <div>
+          <div>
             {/* Report Header Bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #e5e7eb", paddingBottom: 16, marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -303,7 +313,7 @@ export function ReportsView({
                     {orgName} · Facilities Management ERP
                   </div>
                   <h1 style={{ margin: "4px 0 2px", fontSize: "1.4rem", fontWeight: 900, color: "#111827" }}>
-                    {pdfReportPacks.find((p) => p.id === activeReportPreview)?.title}
+                    Facilities report
                   </h1>
                   <div style={{ fontSize: "0.82rem", color: "#4b5563" }}>
                     Generated by CeEst · {new Date().toLocaleDateString("en-KE", { dateStyle: "full" })} · Financial Year 2026
@@ -312,7 +322,7 @@ export function ReportsView({
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
-                  onClick={handlePrint}
+                  onClick={downloadLandlordReport}
                   style={{
                     background: "#2563eb",
                     color: "#ffffff",
@@ -327,7 +337,7 @@ export function ReportsView({
                   🖨️ Print / Save as PDF
                 </button>
                 <button
-                  onClick={() => setActiveReportPreview(null)}
+                  onClick={() => undefined}
                   style={{
                     background: "#f3f4f6",
                     color: "#374151",
@@ -345,7 +355,7 @@ export function ReportsView({
             </div>
 
             {/* Content Switcher based on Report ID */}
-            {activeReportPreview === "executive_fm" && (
+            {false && (
               <div style={{ display: "flex", flexDirection: "column", gap: 20, fontSize: "0.85rem" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <div style={{ padding: 14, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
@@ -451,7 +461,7 @@ export function ReportsView({
               </div>
             )}
 
-            {activeReportPreview !== "executive_fm" && (
+            {false && (
               <div style={{ padding: 20, textAlign: "center", color: "#4b5563" }}>
                 <p style={{ fontSize: "0.95rem" }}>
                   This report section has been compiled with live data from {orgName} ERP database. Click <b>Print / Save as PDF</b> above to print or archive this report pack.
