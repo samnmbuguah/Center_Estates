@@ -26,6 +26,61 @@ const TEMPLATE_HEADERS = [
   "service_charge_rate_per_sqft","vat_rate","billing_day",
 ];
 
+export function normalizeDateString(raw: string | number | null | undefined): string {
+  if (!raw) return "";
+  const str = String(raw).trim();
+  if (!str) return "";
+
+  // 1. ISO YYYY-MM-DD (or YYYY/MM/DD, YYYY.MM.DD)
+  const isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = isoMatch[2].padStart(2, "0");
+    const d = isoMatch[3].padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  // 2. Day-first: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY (or D/M/YYYY)
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmyMatch) {
+    const d = dmyMatch[1].padStart(2, "0");
+    const m = dmyMatch[2].padStart(2, "0");
+    const y = dmyMatch[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  // 3. Short year: DD/MM/YY, DD-MM-YY
+  const dmyShortMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})$/);
+  if (dmyShortMatch) {
+    const d = dmyShortMatch[1].padStart(2, "0");
+    const m = dmyShortMatch[2].padStart(2, "0");
+    const y = Number(dmyShortMatch[3]) > 50 ? `19${dmyShortMatch[3]}` : `20${dmyShortMatch[3]}`;
+    return `${y}-${m}-${d}`;
+  }
+
+  // 4. Excel integer serial date numbers (e.g. 45321)
+  if (/^\d{5}$/.test(str)) {
+    const serial = Number(str);
+    const utcDays = serial - 25569;
+    const utcValue = utcDays * 86400;
+    const dateInfo = new Date(utcValue * 1000);
+    if (!isNaN(dateInfo.getTime())) {
+      return dateInfo.toISOString().split("T")[0];
+    }
+  }
+
+  // 5. JavaScript natural language date parser (e.g., "1 Jan 2026", "August 1, 2026")
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  return str;
+}
+
 function csvToRows(text: string): ParsedRow[] {
   const all = parseCsv(text);
   if (all.length < 2) return [];
@@ -51,7 +106,7 @@ function csvToRows(text: string): ParsedRow[] {
     tax_id: get(row,cTax), registration_number: get(row,cReg),
     unit_code: get(row,cUnit),
     area: get(row,cArea),
-    lease_start: get(row,cStart),
+    lease_start: normalizeDateString(get(row,cStart)),
     lease_term_months: get(row,cTerm)||'12',
     monthly_rent: get(row,cMonthlyRent),
     rent_rate_per_sqft: get(row,cRent),
@@ -66,15 +121,15 @@ function downloadTemplate() {
     TEMPLATE_HEADERS,
     [
       'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL1-UNIT-A', '2500', '2026-01-01', '24', '100000', '', '15', '16', '1',
+      'FL1-UNIT-A', '2500', '2026-08-01', '24', '100000', '', '15', '16', '1',
     ],
     [
       'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL2-UNIT-B', '3000', '2026-03-01', '12', '', '120', '35', '16', '1',
+      'FL2-UNIT-B', '3000', '01/08/2026', '12', '', '120', '35', '16', '1',
     ],
     [
       'Kilima Tech Ventures', 'individual', 'info@kilimatech.co.ke', '0722000111', 'A009876543Z', 'BN-2023-887',
-      'FL3-SUITE-1', '1200', '2026-02-01', '12', '45000', '', '10', '16', '5',
+      'FL3-SUITE-1', '1200', '2026-09-01', '12', '45000', '', '10', '16', '5',
     ],
   ];
   const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\r\n');
@@ -252,10 +307,20 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           ⬇ Download CSV template
         </button>
       </div>
-      <div style={{background:'var(--surface-2,#f8fafc)',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',fontSize:12}}>
-        <strong>Required:</strong> <span style={{color:'var(--muted)'}}>name, unit_code, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
-        <span style={{margin:'0 8px',color:'var(--border)'}}>|</span>
-        <strong>Optional:</strong> <span style={{color:'var(--muted)'}}>tenant_type, email, phone, tax_id, registration_number, lease_term_months, service_charge_rate_per_sqft, vat_rate, billing_day. Deposits and utilities come from the unit billing schedule.</span>
+      <div style={{background:'var(--surface-2,#f8fafc)',border:'1px solid var(--border)',borderRadius:8,padding:'12px 14px',fontSize:12,display:'flex',flexDirection:'column',gap:8}}>
+        <div>
+          <strong>Required Columns:</strong> <span style={{color:'var(--muted)'}}>name, unit_code, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
+          <span style={{margin:'0 8px',color:'var(--border)'}}>|</span>
+          <strong>Optional:</strong> <span style={{color:'var(--muted)'}}>tenant_type, email, phone, tax_id, registration_number, lease_term_months, service_charge_rate_per_sqft, vat_rate, billing_day.</span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',color:'var(--text-primary)',background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)',borderRadius:6,padding:'6px 10px'}}>
+          <span style={{color:'#15803d',fontWeight:800,fontSize:11}}>
+            📅 Supported Date Formats:
+          </span>
+          <span style={{fontSize:11,color:'var(--text-secondary)'}}>
+            <strong>YYYY-MM-DD</strong> (e.g. <code>2026-08-01</code>) or <strong>DD/MM/YYYY</strong> (e.g. <code>01/08/2026</code>) or <strong>DD-MM-YYYY</strong> — both are automatically recognized and normalized.
+          </span>
+        </div>
       </div>
       <div style={{background:'rgba(59, 130, 246, 0.08)',border:'1px solid rgba(59, 130, 246, 0.25)',borderRadius:8,padding:'10px 14px',fontSize:12,color:'var(--text-primary)'}}>
         💡 <strong>Unit Code Matching:</strong> Each <code>unit_code</code> must match a registered unit in <strong>Property &rarr; Units</strong> (e.g. <code>GR-101</code>, <code>FL3-3A</code>, <code>FL5-5C</code>). If a unit is not yet registered or already has an active lease, the system will flag the exact row.
@@ -293,7 +358,11 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           const issues: string[] = [];
           if (!r.name) issues.push("Missing name");
           if (!r.unit_code) issues.push("Missing unit code");
-          if (!r.lease_start || !/^\d{4}-\d{2}-\d{2}$/.test(r.lease_start)) issues.push("Invalid date (YYYY-MM-DD)");
+          if (!r.lease_start) {
+            issues.push("Missing lease start date");
+          } else if (!/^\d{4}-\d{2}-\d{2}$/.test(r.lease_start)) {
+            issues.push("Invalid date format (use YYYY-MM-DD or DD/MM/YYYY)");
+          }
           if (!r.monthly_rent && !r.rent_rate_per_sqft) issues.push("Missing rent or rate");
           return { row: i + 1, issues };
         });

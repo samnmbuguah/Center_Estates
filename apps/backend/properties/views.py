@@ -1445,7 +1445,28 @@ class TenantViewSet(OrganizationModelViewSet):
                         raw_date = str(lease_data.get('starts_on', '')).strip()
                         if not raw_date:
                             raise ValueError('Missing lease start date.')
-                        starts_on = date.fromisoformat(raw_date)
+                        
+                        # Flexible date parsing supporting ISO, DD/MM/YYYY, DD-MM-YYYY, Excel serial, etc.
+                        starts_on = None
+                        try:
+                            starts_on = date.fromisoformat(raw_date)
+                        except Exception:
+                            for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y/%m/%d', '%d/%m/%y', '%d-%m-%y', '%Y.%m.%d', '%B %d, %Y', '%d %b %Y', '%d %B %Y'):
+                                try:
+                                    starts_on = datetime.strptime(raw_date, fmt).date()
+                                    break
+                                except Exception:
+                                    pass
+                        if starts_on is None and raw_date.isdigit() and len(raw_date) == 5:
+                            from datetime import timedelta
+                            try:
+                                starts_on = date(1899, 12, 30) + timedelta(days=int(raw_date))
+                            except Exception:
+                                pass
+                        
+                        if starts_on is None:
+                            raise ValueError('Invalid date format.')
+
                         term_months = int(lease_data.get('term_months', 12))
                         if term_months < 1 or term_months > 240:
                             raise ValueError('Term months must be between 1 and 240.')
@@ -1457,7 +1478,7 @@ class TenantViewSet(OrganizationModelViewSet):
                             day=min(starts_on.day, calendar.monthrange(end_year, end_month)[1]),
                         )
                     except Exception:
-                        raise ValidationError({'lease.starts_on': f'Invalid lease start date ("{lease_data.get("starts_on")}") or term ({lease_data.get("term_months")} months). Use format YYYY-MM-DD (e.g. 2026-01-01).'})
+                        raise ValidationError({'lease.starts_on': f'Invalid lease start date ("{lease_data.get("starts_on")}") or term ({lease_data.get("term_months")} months). Accepted formats: YYYY-MM-DD or DD/MM/YYYY (e.g. 2026-01-01 or 01/01/2026).'})
 
                     def _amount(name, default='0'):
                         try:
