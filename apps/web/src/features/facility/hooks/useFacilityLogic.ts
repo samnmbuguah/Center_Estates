@@ -62,6 +62,8 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
       path = `/facility/assets/?search=${encodeURIComponent(search)}`;
     } else if (tab === "expenditure") {
       path = `/facility/expenses/?search=${encodeURIComponent(search)}`;
+    } else if (tab === "service-providers") {
+      path = `/facility/contractors/?search=${encodeURIComponent(search)}`;
     } else {
       path = `/facility/${tab}/?search=${encodeURIComponent(search)}`;
     }

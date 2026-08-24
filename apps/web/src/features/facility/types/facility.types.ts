@@ -9,6 +9,7 @@ export type FacilityTab =
   | "work-order-cost-items"
   | "work-order-attachments"
   | "contractors"
+  | "service-providers"
   | "budgets"
   | "compliance"
   | "risks"
@@ -133,6 +134,7 @@ export const facilityLabels: Record<FacilityTab, string> = {
   "work-order-cost-items": "Labor & Parts",
   "work-order-attachments": "Work Media",
   contractors: "Service Providers & Scorecards",
+  "service-providers": "Service Providers",
   budgets: "FM Budget & Commitments",
   compliance: "Statutory Compliance Register",
   risks: "Risk Register & Mitigations",

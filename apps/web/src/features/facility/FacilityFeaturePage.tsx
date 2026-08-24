@@ -121,6 +121,14 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             canAdminister={logic.canAdminister}
             reload={logic.load}
           />
+        ) : logic.tab === "service-providers" ? (
+          <ContractorsView
+            rows={logic.rows}
+            organizationId={logic.organizationId}
+            onAdd={() => logic.setCreateModal("contractor")}
+            canAdminister={logic.canAdminister}
+            reload={logic.load}
+          />
         ) : logic.tab === "contractors" ? (
           <ContractorsView
             rows={logic.rows}
