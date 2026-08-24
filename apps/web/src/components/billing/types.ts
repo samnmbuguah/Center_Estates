@@ -27,8 +27,21 @@ export const statusToneMap: Record<string, "green" | "red" | "yellow" | "blue" |
 };
 
 export function issueResolution(code: string): { label: string; href: string } | null {
-  if (code.includes("water") || code.includes("meter")) return { label: "Inspect Water Meters", href: "/facility?tab=meters" };
-  if (code.includes("lease") || code.includes("rent")) return { label: "Review Lease Terms", href: "/property?tab=leases" };
-  if (code.includes("duplicate") || code.includes("invoice")) return { label: "Check Invoice Register", href: "/property?tab=rent" };
-  return null;
+  const c = (code || "").toLowerCase();
+  if (c.includes("water") || c.includes("meter") || c.includes("reading") || c.includes("utility")) {
+    return { label: "Inspect & Capture Meter Readings", href: "/companion?tab=readings" };
+  }
+  if (c.includes("lease") || c.includes("rent") || c.includes("charge_rule") || c.includes("escalation")) {
+    return { label: "Configure Lease & Charges", href: "/property?tab=leases" };
+  }
+  if (c.includes("duplicate") || c.includes("invoice") || c.includes("already_billed")) {
+    return { label: "View Invoice Register", href: "/property?tab=rent" };
+  }
+  if (c.includes("tenant") || c.includes("contact") || c.includes("pin")) {
+    return { label: "Update Tenant Details", href: "/property?tab=tenants" };
+  }
+  if (c.includes("bank") || c.includes("paybill") || c.includes("property")) {
+    return { label: "Update Property Banking Details", href: "/property?tab=properties" };
+  }
+  return { label: "Review Property Setup", href: "/property?tab=properties" };
 }
