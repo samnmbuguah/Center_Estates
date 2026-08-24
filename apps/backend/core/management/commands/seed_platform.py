@@ -32,9 +32,17 @@ from construction.models import Project as ConstructionProject
 class Command(BaseCommand):
     help = 'Create idempotent platform demo/admin data for development and acceptance testing.'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--preserve-admin-password',
+            action='store_true',
+            help='Refresh Center Estates demo records without requiring or changing the super-admin password.',
+        )
+
     def handle(self, *args, **options):
         password = os.environ.get('SEED_ADMIN_PASSWORD')
-        if not password:
+        preserve_admin_password = bool(options.get('preserve_admin_password'))
+        if not password and not preserve_admin_password:
             raise CommandError('SEED_ADMIN_PASSWORD is required.')
         username = os.environ.get('SEED_ADMIN_USERNAME', 'admin')
         user, _ = get_user_model().objects.get_or_create(username=username)
@@ -43,7 +51,8 @@ class Command(BaseCommand):
         user.first_name = user.first_name or 'Super'
         user.last_name = user.last_name or 'Administrator'
         user.email = user.email or 'admin@centerestates.demo'
-        user.set_password(password)
+        if not preserve_admin_password:
+            user.set_password(password)
         user.save()
 
         organization, _ = Organization.objects.update_or_create(
@@ -105,8 +114,6 @@ class Command(BaseCommand):
             membership=Membership.objects.get(organization=organization, user=user),
             role=role,
         )
-
-        role_password = os.environ.get('SEED_ROLE_PASSWORD', password)
 
         def seed_role_user(username, first_name, last_name, role_obj, *, is_org_admin=False):
             # Roles exist with their permissions, but dummy user accounts are not created.
