@@ -6,6 +6,7 @@ import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
 import { apiFetch } from "@/lib/api";
 import { BulkContractorUploaderModal } from "../modals/BulkContractorUploaderModal";
+import { EditContractorModal } from "../modals/EditContractorModal";
 
 function PanelHeader({
   title,
@@ -197,6 +198,8 @@ export function ContractorsView({
   reload?: () => void;
 }) {
   const [selectedContractor, setSelectedContractor] = useState<Row | null>(null);
+  const [editingContractor, setEditingContractor] = useState<Row | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [scorecardData, setScorecardData] = useState<any>(null);
   const [showScorecardModal, setShowScorecardModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -263,7 +266,7 @@ export function ContractorsView({
               ⬆ Upload Providers (CSV)
             </button>
             <button
-              onClick={onAdd}
+              onClick={() => setShowAddModal(true)}
               className="fc-toolbar-btn primary"
               style={{ fontWeight: 800 }}
             >
@@ -320,21 +323,42 @@ export function ContractorsView({
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <button
-                      onClick={() => viewScorecard(vendor)}
-                      style={{
-                        background: "var(--surface-sunken)",
-                        border: "1px solid var(--border)",
-                        padding: "6px 12px",
-                        borderRadius: 6,
-                        fontSize: "0.8rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        color: "var(--primary)",
-                      }}
-                    >
-                      🏆 7-Pillar Scorecard →
-                    </button>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "center", alignItems: "center" }}>
+                      <button
+                        onClick={() => setEditingContractor(vendor)}
+                        style={{
+                          background: "var(--surface)",
+                          border: "1.5px solid var(--border)",
+                          padding: "6px 10px",
+                          borderRadius: 6,
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          color: "var(--text-primary)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                        title="Edit provider information, contacts, compliance & property assignment"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => viewScorecard(vendor)}
+                        style={{
+                          background: "var(--surface-sunken)",
+                          border: "1px solid var(--border)",
+                          padding: "6px 10px",
+                          borderRadius: 6,
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          color: "var(--primary)",
+                        }}
+                      >
+                        🏆 Scorecard
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -430,6 +454,20 @@ export function ContractorsView({
           onSuccess={() => {
             setShowBulkModal(false);
             if (reload) reload();
+          }}
+        />
+      )}
+      {/* Create / Edit Provider Modal */}
+      {(showAddModal || editingContractor) && (
+        <EditContractorModal
+          contractor={editingContractor}
+          organizationId={organizationId}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingContractor(null);
+          }}
+          onSaved={() => {
+            reload?.();
           }}
         />
       )}
