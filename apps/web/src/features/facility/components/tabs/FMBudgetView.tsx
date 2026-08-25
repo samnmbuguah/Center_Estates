@@ -45,9 +45,10 @@ export function FMBudgetView({
 
   const budgetCategories = rows;
 
-  const totalAllocated = budgetCategories.reduce((s, b) => s + Number(b.allocated || 0), 0);
-  const totalCommitted = budgetCategories.reduce((s, b) => s + Number(b.committed || 0), 0);
-  const totalActual = budgetCategories.reduce((s, b) => s + Number(b.actual || 0), 0);
+  const fld = (b: Record<string, unknown>, base: string) => Number(b[`${base}_amount`] ?? b[base] ?? 0);
+  const totalAllocated = budgetCategories.reduce((s, b) => s + fld(b as Record<string, unknown>, "allocated"), 0);
+  const totalCommitted = budgetCategories.reduce((s, b) => s + fld(b as Record<string, unknown>, "committed"), 0);
+  const totalActual = budgetCategories.reduce((s, b) => s + fld(b as Record<string, unknown>, "actual"), 0);
   const totalSpentAndCommitted = totalActual + totalCommitted;
   const availableReserve = Math.max(0, totalAllocated - totalSpentAndCommitted);
   const utilizationPct = totalAllocated ? ((totalSpentAndCommitted / totalAllocated) * 100).toFixed(1) : "0.0";
@@ -96,9 +97,10 @@ export function FMBudgetView({
             </thead>
             <tbody>
               {budgetCategories.map((b) => {
-                const encumbered = Number(b.actual || 0) + Number(b.committed || 0);
-                const remaining = Number(b.allocated || 0) - encumbered;
-                const allocatedNum = Number(b.allocated || 0);
+                const brow = b as Record<string, unknown>;
+                const encumbered = fld(brow, "actual") + fld(brow, "committed");
+                const remaining = fld(brow, "allocated") - encumbered;
+                const allocatedNum = fld(brow, "allocated");
                 const pct = allocatedNum ? Math.round((encumbered / allocatedNum) * 100) : 0;
                 return (
                   <tr key={String(b.id)} style={{ borderBottom: "1px solid var(--border)" }}>
@@ -106,13 +108,13 @@ export function FMBudgetView({
                       {String(b.category)}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 700 }}>
-                      {money.format(Number(b.allocated || 0))}
+                      {money.format(fld(b as Record<string, unknown>, "allocated"))}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#b45309" }}>
-                      {money.format(Number(b.committed || 0))}
+                      {money.format(fld(b as Record<string, unknown>, "committed"))}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#2563eb" }}>
-                      {money.format(Number(b.actual || 0))}
+                      {money.format(fld(b as Record<string, unknown>, "actual"))}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 800 }}>
                       {money.format(encumbered)}

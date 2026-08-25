@@ -70,10 +70,18 @@ export function usePropertyLogic({
 
   // Selecting a property row sets the global property context (visible across
   // Property / Facility / Companion modules via PropertyContextBar) and opens
-  // the property dashboard.
+  // the property dashboard. Only genuine property rows may set the scope —
+  // tenants/units/leases also carry a `code`, so we require a property marker.
   const handleSelectRow = (row: Row) => {
     setSelectedRow(row);
-    if (row && (row.property_type !== undefined || row.code || row.occupied !== undefined)) {
+    const isPropertyRow = Boolean(
+      row && (
+        row.property_type !== undefined
+        || row.occupied !== undefined
+        || row.units_count !== undefined
+      ),
+    );
+    if (isPropertyRow) {
       selectProperty({
         id: String(row.id),
         name: String(row.name ?? row.property_name ?? "Property"),
@@ -394,6 +402,7 @@ export function usePropertyLogic({
         const scData = await scRes.json();
         if (version !== loadVersion.current) return;
         setRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
+        setLeasesRows(Array.isArray(leasesData) ? leasesData as Row[] : []);
         setCriticalServiceCharges(Array.isArray(scData) ? scData as Row[] : []);
       } else {
         const ep = endpointFor(tab);
@@ -1371,6 +1380,7 @@ export function usePropertyLogic({
     submitVoidCreditNote,
     handleQuickReceipt,
     handleInvoiceAction,
+    runLeaseAction,
     downloadInvoicePdf,
     downloadReceiptPdf,
     downloadTenantStatement,

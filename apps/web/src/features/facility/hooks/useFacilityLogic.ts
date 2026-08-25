@@ -37,7 +37,7 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
   const [actionModal, setActionModal] = useState<ActionModal>(null);
 
   const load = useCallback(async () => {
-    if (!organizationId) return;
+    if (!organizationId) { setLoading(false); return; }
     setLoading(true);
     setError("");
     if (tab === "tickets" || tab === "calendar") {
@@ -67,16 +67,21 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     } else {
       path = `/facility/${tab}/?search=${encodeURIComponent(search)}`;
     }
-    const response = await apiFetch(path, {}, organizationId);
-    if (!response.ok) {
-      setError("Facility data could not be loaded. Please retry.");
+    try {
+      const response = await apiFetch(path, {}, organizationId);
+      if (!response.ok) {
+        setError("Facility data could not be loaded. Please retry.");
+        setLoading(false);
+        return;
+      }
+      const data = await response.json().catch(() => (tab === "overview" || tab === "reports" ? {} : []));
+      if (tab === "overview" || tab === "reports") setDashboard(data as FacilityDashboard);
+      else setRows(Array.isArray(data) ? (data as Row[]) : []);
       setLoading(false);
-      return;
+    } catch {
+      setError("Unable to reach the facility service. Check your connection and retry.");
+      setLoading(false);
     }
-    const data = await response.json().catch(() => (tab === "overview" || tab === "reports" ? {} : []));
-    if (tab === "overview" || tab === "reports") setDashboard(data as FacilityDashboard);
-    else setRows(Array.isArray(data) ? (data as Row[]) : []);
-    setLoading(false);
   }, [organizationId, activeProperty?.id, search, tab]);
 
   useEffect(() => {

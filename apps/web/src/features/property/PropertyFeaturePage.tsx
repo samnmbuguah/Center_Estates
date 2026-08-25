@@ -77,7 +77,7 @@ export function PropertyFeaturePage({
       case "tenant-documents":
         return <TenantDocumentsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onUpload={() => logic.setShowUploadDoc(true)} onDownload={logic.handleDownloadDoc} onVerify={logic.handleVerifyDoc} onReject={logic.handleRejectDocPrompt} />;
       case "leases":
-        return <LeasesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddLease(true)} setTab={logic.setTab} canLease={logic.canLease} onRenew={logic.setRenewalTarget} onTerminate={logic.setTerminationTarget} onRefresh={logic.fetchData} />;
+        return <LeasesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddLease(true)} setTab={logic.setTab} canLease={logic.canLease} onLeaseAction={logic.runLeaseAction} onRenew={logic.setRenewalTarget} onTerminate={logic.setTerminationTarget} onRefresh={logic.fetchData} />;
       case "financials":
         return <ReceiptsView rows={logic.rows} receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
       case "billing":
@@ -91,9 +91,9 @@ export function PropertyFeaturePage({
       case "reminders":
         return <RemindersView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSendReminder={logic.handleSendReminder} setTab={logic.setTab} />;
       case "receipts":
-        return <ReceiptsView receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
+        return <ReceiptsView receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} onDownloadPdf={logic.downloadReceiptPdf} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
       case "payments":
-        return <ReceiptsView receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
+        return <ReceiptsView receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} onDownloadPdf={logic.downloadReceiptPdf} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
       case "receipt-allocations":
         return <ReceiptAllocationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
       case "bank-reconciliation":

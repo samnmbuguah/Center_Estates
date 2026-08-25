@@ -392,7 +392,6 @@ export const companionNav: ModuleNavGroup[] = [
       { id: "hr-requests", label: "Leave & HR Portal", icon: "🌴" },
       { id: "performance", label: "Performance dashboard" },
       { id: "staff", label: "Staff history" },
-      { id: "audit-events", label: "Audit trail" },
     ],
   },
   { label: "Workspace", icon: "◌", items: [{ id: "tickets", label: "Tickets & Issues" }, { id: "calendar", label: "Calendar" }] },

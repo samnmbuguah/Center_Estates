@@ -141,7 +141,7 @@ export function ArrearsRecoveryView({
                         <td className="mono" style={{ color: "var(--danger)" }}>{kM(t.outstanding)}</td>
                         <td><Badge tone={Number(t.oldest_days ?? 0) > 90 ? "red" : Number(t.oldest_days ?? 0) > 60 ? "yellow" : "blue"}>{kN(t.oldest_days)}d</Badge></td>
                         <td>
-                          <button className="btn primary sm" onClick={() => onSendReminder?.({ id: "", tenant_name: String(t.tenant ?? ""), invoice_number: "", channel: "email", recipient: "", sent_at: "", message: "" } as ReminderRow)}>Send Reminder</button>
+                          <button className="btn primary sm" onClick={() => setTab("rent")}>Remind via Invoices</button>
                         </td>
                       </tr>
                     ))}

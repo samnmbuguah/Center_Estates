@@ -40,6 +40,7 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState("");
   const [actionError, setActionError] = useState("");
+  const [localPropertyOptions, setLocalPropertyOptions] = useState<Row[]>(propertyOptions);
   const [form, setForm] = useState({
     title: "", property: "", location: "", issue_description: "", required_repair: "",
     quotation_specification: "", estimated_cost: "", priority: "medium", required_by: "",
@@ -60,6 +61,14 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
       setRejectTarget(null); setRejectReason("");
       reload();
     } finally { setBusy(""); }
+  }
+
+  async function openCreate() {
+    setCreateOpen(true);
+    if (localPropertyOptions.length === 0 && organizationId) {
+      const res = await apiFetch("/property/properties/", {}, organizationId);
+      if (res.ok) { const d = await res.json(); setLocalPropertyOptions(Array.isArray(d) ? d : d.results ?? []); }
+    }
   }
 
   async function createRequisition() {
@@ -108,7 +117,7 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
         </Box>
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
           <TextField size="small" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: 200 }} />
-          {canWork && <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>New Requisition</Button>}
+          {canWork && <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => void openCreate()}>New Requisition</Button>}
           <Button variant="outlined" onClick={() => setTab("work-orders")}>Work Orders →</Button>
         </Stack>
       </Paper>
@@ -186,7 +195,7 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
             <TextField required label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField select required label="Property" value={form.property} onChange={(e) => setForm({ ...form, property: e.target.value })} sx={inputStyle}>
-                {propertyOptions.map((p) => <MenuItem key={String(p.id)} value={String(p.id)}>{String(p.name)}</MenuItem>)}
+                {localPropertyOptions.map((p) => <MenuItem key={String(p.id)} value={String(p.id)}>{String(p.name)}</MenuItem>)}
               </TextField>
               <TextField label="Location" placeholder="e.g. Block A, 3rd floor" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} sx={inputStyle} />
             </Stack>

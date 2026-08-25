@@ -123,7 +123,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         const data = await res.json();
         setMembers(Array.isArray(data) ? data : data.results || []);
       } else if (res.status === 403) {
-        console.debug("User lacks permission for members endpoint");
+        setError("You do not have permission to view team members.");
       }
     } catch {
       /* ignore */
@@ -164,12 +164,12 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         const data = await lRes.json();
         setLeaveRequests(Array.isArray(data) ? data : data.results || []);
       } else if (lRes.status === 403) {
-        console.debug("User lacks permission for leave requests endpoint");
+        setError("You do not have permission to view leave requests.");
       }
       if (bRes.ok) {
         setLeaveBalance(await bRes.json());
       } else if (bRes.status === 403) {
-        console.debug("User lacks permission for leave balance endpoint");
+        setError("You do not have permission to view your leave balance.");
       }
     } catch {
       /* ignore */
@@ -184,7 +184,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         const data = await res.json();
         setHrRequests(Array.isArray(data) ? data : data.results || []);
       } else if (res.status === 403) {
-        console.debug("User lacks permission for HR requests endpoint");
+        setError("You do not have permission to view HR requests.");
       }
     } catch {
       /* ignore */
@@ -201,7 +201,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         const res = await apiFetch(`/companion/dashboard/${propQuery ? `?${propQuery}` : ""}`, {}, org);
         if (res.ok) setDash(await res.json());
         else if (res.status === 403) {
-          console.debug("User lacks permission for dashboard endpoint");
+          setError("You do not have permission to view the companion dashboard.");
         } else setError("Failed to load companion dashboard.");
       } else if (tab === "tasks" || tab === "my-tasks" || tab === "delegations") {
         let q = propQuery ? `?${propQuery}` : "";
@@ -212,7 +212,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
           const data = await res.json();
           setRows(Array.isArray(data) ? data : data.results || []);
         } else if (res.status === 403) {
-          console.debug("User lacks permission for tasks endpoint");
+          setError("You do not have permission to view tasks.");
         } else {
           setError("Failed to load tasks.");
         }
@@ -222,7 +222,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
           const data = await res.json();
           setTemplates(Array.isArray(data) ? data : data.results || []);
         } else if (res.status === 403) {
-          console.debug("User lacks permission for templates endpoint");
+          setError("You do not have permission to view task templates.");
         }
       } else if (tab === "meter-readings") {
         const res = await apiFetch(`/facility/meters/${propQuery ? `?${propQuery}` : ""}`, {}, org);
@@ -230,7 +230,7 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
           const data = await res.json();
           setRows(Array.isArray(data) ? data : data.results || []);
         } else if (res.status === 403) {
-          console.debug("User lacks permission for meters endpoint");
+          setError("You do not have permission to view meter readings.");
         } else {
           setError("Failed to load meters.");
         }
@@ -301,9 +301,12 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
         setShowNewThread(false);
         setMsg("Feedback / bug report logged to team dialogue.");
         await loadThreads();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setMsg(Object.values(body as Record<string, unknown>).flat().join(" ") || "Failed to log feedback thread.");
       }
     } catch {
-      setMsg("Failed to log feedback thread.");
+      setMsg("Failed to log feedback thread. Check your connection and retry.");
     } finally {
       setBusy(false);
     }
@@ -360,12 +363,13 @@ export function useCompanionLogic(initialTab: CompanionTab = "overview") {
       if (res.ok) {
         await loadThreads();
       } else {
-        // Revert on error
         setThreads(previousThreads);
+        const body = await res.json().catch(() => ({}));
+        setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Your reply could not be sent. Please retry.");
       }
     } catch {
-      // Revert on error
       setThreads(previousThreads);
+      setError("Your reply could not be sent. Check your connection and retry.");
     }
   }
 

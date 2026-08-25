@@ -53,6 +53,8 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
   const [busy, setBusy] = useState("");
   const [actionError, setActionError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [exitForm, setExitForm] = useState({ lease: "", move_out_date: "", move_out_conditions: "", deposit_amount: "" });
   const [form, setForm] = useState(EMPTY_HANDOVER);
 
   const hList = handovers as unknown as Handover[];
@@ -88,6 +90,18 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
     };
     const ok = await run("/property/handovers/", payload);
     if (ok) { setCreateOpen(false); setForm(EMPTY_HANDOVER); }
+  }
+
+  async function createExitClearance() {
+    if (!exitForm.lease) return;
+    const payload: Record<string, unknown> = {
+      lease: exitForm.lease,
+      move_out_date: exitForm.move_out_date || null,
+      move_out_conditions: exitForm.move_out_conditions,
+      deposit_amount: exitForm.deposit_amount || null,
+    };
+    const ok = await run("/property/exit-clearances/", payload);
+    if (ok) { setExitOpen(false); setExitForm({ lease: "", move_out_date: "", move_out_conditions: "", deposit_amount: "" }); }
   }
 
   const inputStyle = { width: "100%" } as const;
@@ -169,6 +183,7 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
         <>
           <ViewToolbar title="Exit Clearance" subtitle="Utilities, inspection, balances, deposit reconciliation, approvals and gate pass" search={search} onSearch={setSearch} placeholder="Search tenant or lease…">
             <button className="btn ghost sm" onClick={() => setTab("leases")}>Leases →</button>
+            {canLease && <button className="btn primary sm" onClick={() => setExitOpen(true)}>+ New Exit Clearance</button>}
           </ViewToolbar>
 
           <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
@@ -248,6 +263,27 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
           </Paper>
         </>
       )}
+
+      {/* New exit clearance dialog */}
+      <Dialog open={exitOpen} onClose={() => setExitOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>New Exit Clearance</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField select required label="Lease" value={exitForm.lease} onChange={(e) => setExitForm({ ...exitForm, lease: e.target.value })} sx={inputStyle}>
+              {leaseOptions.map((l) => <MenuItem key={String(l.id)} value={String(l.id)}>{String(l.reference)} — {String((l as Record<string, unknown>).tenant_name ?? "")}</MenuItem>)}
+            </TextField>
+            <TextField type="date" slotProps={{ inputLabel: { shrink: true } }} label="Move-out date" value={exitForm.move_out_date} onChange={(e) => setExitForm({ ...exitForm, move_out_date: e.target.value })} sx={inputStyle} />
+            <TextField fullWidth multiline minRows={2} label="Move-out conditions" value={exitForm.move_out_conditions} onChange={(e) => setExitForm({ ...exitForm, move_out_conditions: e.target.value })} placeholder="e.g. Vacate by noon, remove all belongings…" />
+            <TextField type="number" label="Security deposit (KES)" value={exitForm.deposit_amount} onChange={(e) => setExitForm({ ...exitForm, deposit_amount: e.target.value })} sx={inputStyle} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExitOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!exitForm.lease || Boolean(busy)} onClick={() => void createExitClearance()}>
+            {busy ? "Saving…" : "Start clearance"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* New handover dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>

@@ -44,22 +44,26 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
   const [propertyOptions, setPropertyOptions] = useState<Row[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<Row[]>([]);
   const [workOrderOptions, setWorkOrderOptions] = useState<Row[]>([]);
+  const [profileOptions, setProfileOptions] = useState<Row[]>([]);
   const [form, setForm] = useState({
     property: "", supplier: "", supplier_invoice_number: "", classification: "repair",
-    work_order: "", description: "", subtotal: "", vat_rate: "16", cost_centre: "",
+    work_order: "", service_profile: "", service_period_start: "", service_period_end: "",
+    description: "", subtotal: "", vat_rate: "16", cost_centre: "",
   });
 
   async function openCreate() {
     setCreateOpen(true);
     if (propertyOptions.length === 0 && organizationId) {
-      const [propRes, supRes, woRes] = await Promise.all([
+      const [propRes, supRes, woRes, spRes] = await Promise.all([
         apiFetch("/property/properties/", {}, organizationId),
         apiFetch("/facility/contractors/", {}, organizationId),
         apiFetch("/facility/work-orders/", {}, organizationId),
+        apiFetch("/facility/service-profiles/", {}, organizationId),
       ]);
       if (propRes.ok) { const d = await propRes.json(); setPropertyOptions(Array.isArray(d) ? d : d.results ?? []); }
       if (supRes.ok) { const d = await supRes.json(); setSupplierOptions(Array.isArray(d) ? d : d.results ?? []); }
       if (woRes.ok) { const d = await woRes.json(); setWorkOrderOptions(Array.isArray(d) ? d : d.results ?? []); }
+      if (spRes.ok) { const d = await spRes.json(); setProfileOptions(Array.isArray(d) ? d : d.results ?? []); }
     }
   }
 
@@ -102,10 +106,15 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
         total: (subtotal + vat).toFixed(2), cost_centre: form.cost_centre,
       };
       if (form.work_order) payload.work_order = form.work_order;
+      if (form.service_profile) {
+        payload.service_profile = form.service_profile;
+        payload.service_period_start = form.service_period_start || null;
+        payload.service_period_end = form.service_period_end || null;
+      }
       const res = await post("/facility/supplier-invoices/", payload, organizationId);
       if (!res.ok) { setActionError(await apiErrorMessage(res, "Could not create the invoice.")); return; }
       setCreateOpen(false);
-      setForm({ property: "", supplier: "", supplier_invoice_number: "", classification: "repair", work_order: "", description: "", subtotal: "", vat_rate: "16", cost_centre: "" });
+      setForm({ property: "", supplier: "", supplier_invoice_number: "", classification: "repair", work_order: "", service_profile: "", service_period_start: "", service_period_end: "", description: "", subtotal: "", vat_rate: "16", cost_centre: "" });
       reload();
     } finally { setBusy(""); }
   }
@@ -384,7 +393,7 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField required label="Supplier invoice number" value={form.supplier_invoice_number} onChange={(e) => setForm({ ...form, supplier_invoice_number: e.target.value })} sx={inputStyle} />
-              <TextField select label="Classification" value={form.classification} onChange={(e) => setForm({ ...form, classification: e.target.value, work_order: e.target.value === "recurring" ? "" : form.work_order })} sx={inputStyle}>
+              <TextField select label="Classification" value={form.classification} onChange={(e) => setForm({ ...form, classification: e.target.value, work_order: e.target.value === "recurring" ? "" : form.work_order, service_profile: e.target.value === "repair" ? "" : form.service_profile })} sx={inputStyle}>
                 <MenuItem value="repair">One-off repair</MenuItem>
                 <MenuItem value="recurring">Recurring service</MenuItem>
               </TextField>
