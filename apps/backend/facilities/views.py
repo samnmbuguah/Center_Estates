@@ -34,14 +34,14 @@ from notifications.services import notify_permission, notify_user
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
+    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 from .serializers import (
     AssetConditionAssessmentSerializer, ComplianceObligationSerializer, ContractorContractSerializer,
     ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityIncidentAttachmentSerializer, FacilityIncidentEventSerializer, FacilityIncidentSerializer, FacilityRiskSerializer,
     FloorPlanSerializer, FMBudgetSerializer, InspectionSerializer, MeterReadingSerializer,
-    MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer, RepairRequisitionSerializer,
+    MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer, RepairRequisitionSerializer, SupplierInvoiceSerializer,
     ServiceProfileAllocationSerializer, ServiceProfileSerializer, ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
     WorkOrderAttachmentSerializer, WorkOrderCostItemSerializer, WorkOrderEventSerializer,
     WorkOrderSerializer,
@@ -220,6 +220,151 @@ class RepairRequisitionViewSet(FacilityModelViewSet):
             action_url='/facility?tab=work-orders', metadata={'category': 'workflow', 'work_order_id': str(work_order.id)},
         )
         return Response(RepairRequisitionSerializer(requisition).data)
+
+
+class SupplierInvoiceViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {
+        'verify': 'facility.approve', 'approve': 'facility.approve', 'reject': 'facility.approve',
+        'mark_paid': 'facility.approve', 'place_on_hold': 'facility.approve',
+    }
+    queryset = SupplierInvoice.objects.select_related(
+        'property', 'supplier', 'work_order', 'service_profile', 'budget',
+        'submitted_by', 'verified_by', 'approved_by',
+    )
+    serializer_class = SupplierInvoiceSerializer
+    search_fields = ('code', 'supplier_invoice_number', 'supplier__name', 'description', 'property__name')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        code = f'SIN-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
+        while SupplierInvoice.objects.filter(organization=organization, code=code).exists():
+            code = f'SIN-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
+        serializer.save(organization=organization, code=code)
+
+    def perform_update(self, serializer):
+        if 'status' in serializer.validated_data:
+            raise ValidationError({'status': 'Use the workflow actions so every status change is controlled and audited.'})
+        if self.instance and self.instance.status not in (SupplierInvoice.Status.DRAFT, SupplierInvoice.Status.REJECTED):
+            raise ValidationError({'detail': 'Only draft or rejected invoices can be edited.'})
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        if instance.status != SupplierInvoice.Status.DRAFT:
+            raise ValidationError({'detail': 'Only draft invoices can be deleted.'})
+        super().perform_destroy(instance)
+
+    def _transition(self, invoice, target, **fields):
+        invoice.status = target
+        for key, value in fields.items():
+            setattr(invoice, key, value)
+        invoice.save(update_fields=(*fields.keys(), 'status', 'updated_at'))
+        return invoice
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='submit')
+    def submit(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status not in (SupplierInvoice.Status.DRAFT, SupplierInvoice.Status.REJECTED):
+            raise ValidationError({'status': 'Only draft or rejected invoices can be submitted.'})
+        if invoice.classification == SupplierInvoice.Classification.REPAIR and not invoice.work_order_id:
+            raise ValidationError({'work_order': 'Repair invoices must be linked to a work order.'})
+        if invoice.classification == SupplierInvoice.Classification.RECURRING and not invoice.service_profile_id:
+            raise ValidationError({'service_profile': 'Recurring-service invoices must be linked to a service profile.'})
+        self._transition(invoice, SupplierInvoice.Status.SUBMITTED, submitted_by=request.user, submitted_at=timezone.now())
+        return Response(SupplierInvoiceSerializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='verify')
+    def verify(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status != SupplierInvoice.Status.SUBMITTED:
+            raise ValidationError({'status': 'Only submitted invoices can be verified.'})
+        warnings = []
+        if invoice.classification == SupplierInvoice.Classification.REPAIR and invoice.work_order_id:
+            work_order = invoice.work_order
+            if work_order.status != WorkOrder.Status.COMPLETED or not work_order.supervisor_verified:
+                warnings.append('Source work order is not completed and supervisor-verified; an authorised exception will be required at approval.')
+        if invoice.budget_id:
+            budget = invoice.budget
+            committed = budget.supplier_invoices.exclude(pk=invoice.pk).filter(
+                status__in=(SupplierInvoice.Status.VERIFIED, SupplierInvoice.Status.APPROVED,
+                            SupplierInvoice.Status.PAYMENT_PROCESSING, SupplierInvoice.Status.PAID),
+            ).aggregate(total=Sum('total'))['total'] or Decimal('0')
+            if (budget.allocated_amount or Decimal('0')) - committed < invoice.total:
+                warnings.append('Invoice total exceeds the remaining budget allocation; exception approval will be required.')
+        self._transition(invoice, SupplierInvoice.Status.VERIFIED, verified_by=request.user, verified_at=timezone.now(),
+                         verified_notes=str(request.data.get('notes', '')).strip())
+        return Response({**SupplierInvoiceSerializer(invoice).data, 'warnings': warnings})
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='approve')
+    def approve(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status != SupplierInvoice.Status.VERIFIED:
+            raise ValidationError({'status': 'Only verified invoices can be approved.'})
+        exception = bool(request.data.get('exception'))
+        exception_notes = str(request.data.get('exception_notes', '')).strip()
+        blocking = []
+        if invoice.classification == SupplierInvoice.Classification.REPAIR and invoice.work_order_id:
+            work_order = invoice.work_order
+            if work_order.status != WorkOrder.Status.COMPLETED or not work_order.supervisor_verified:
+                blocking.append('work-not-verified')
+        if invoice.budget_id:
+            budget = invoice.budget
+            committed = budget.supplier_invoices.exclude(pk=invoice.pk).filter(
+                status__in=(SupplierInvoice.Status.APPROVED, SupplierInvoice.Status.PAYMENT_PROCESSING, SupplierInvoice.Status.PAID),
+            ).aggregate(total=Sum('total'))['total'] or Decimal('0')
+            if (budget.allocated_amount or Decimal('0')) - committed < invoice.total:
+                blocking.append('budget-exceeded')
+        if blocking and not (exception and exception_notes):
+            raise ValidationError({'exception': 'This invoice cannot be approved without an authorised exception. Provide exception notes to override: ' + ', '.join(blocking) + '.'})
+        self._transition(invoice, SupplierInvoice.Status.APPROVED, approved_by=request.user, approved_at=timezone.now(),
+                         approved_notes=str(request.data.get('notes', '')).strip(),
+                         exception_approved=exception, exception_notes=exception_notes if exception else '')
+        return Response(SupplierInvoiceSerializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='reject')
+    def reject(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status not in (SupplierInvoice.Status.SUBMITTED, SupplierInvoice.Status.VERIFIED):
+            raise ValidationError({'status': 'Only submitted or verified invoices can be rejected.'})
+        reason = str(request.data.get('reason', '')).strip()
+        if not reason:
+            raise ValidationError({'reason': 'A rejection reason is required.'})
+        self._transition(invoice, SupplierInvoice.Status.REJECTED, rejected_reason=reason)
+        return Response(SupplierInvoiceSerializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='place-on-hold')
+    def place_on_hold(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status not in (SupplierInvoice.Status.SUBMITTED, SupplierInvoice.Status.VERIFIED, SupplierInvoice.Status.APPROVED):
+            raise ValidationError({'status': 'Only invoices awaiting payment can be put on hold.'})
+        self._transition(invoice, SupplierInvoice.Status.ON_HOLD, verified_notes=str(request.data.get('notes', '')).strip())
+        return Response(SupplierInvoiceSerializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='start-payment')
+    def start_payment(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status != SupplierInvoice.Status.APPROVED:
+            raise ValidationError({'status': 'Only approved invoices can enter payment processing.'})
+        self._transition(invoice, SupplierInvoice.Status.PAYMENT_PROCESSING)
+        return Response(SupplierInvoiceSerializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='mark-paid')
+    def mark_paid(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status != SupplierInvoice.Status.PAYMENT_PROCESSING:
+            raise ValidationError({'status': 'Only invoices in payment processing can be marked as paid.'})
+        reference = str(request.data.get('payment_reference', '')).strip()
+        if not reference:
+            raise ValidationError({'payment_reference': 'A payment reference is required.'})
+        self._transition(invoice, SupplierInvoice.Status.PAID, paid_at=timezone.now(), payment_reference=reference)
+        return Response(SupplierInvoiceSerializer(invoice).data)
 
 
 class FacilityIncidentViewSet(FacilityModelViewSet):

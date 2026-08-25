@@ -21,6 +21,7 @@ export type FacilityTab =
   | "meters"
   | "reports"
   | "expenditure"
+  | "supplier-invoices"
   | "spare-parts"
   | "consumables"
   | "tickets"
@@ -147,6 +148,7 @@ export const facilityLabels: Record<FacilityTab, string> = {
   meters: "Utility Management",
   reports: "Reports & BI",
   expenditure: "Expenditure & Floats",
+  "supplier-invoices": "Supplier Invoices",
   "spare-parts": "Spare Parts",
   consumables: "Consumables",
   tickets: "Tickets & Issues",

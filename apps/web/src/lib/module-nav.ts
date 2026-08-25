@@ -119,6 +119,7 @@ export const facilityNav: ModuleNavGroup[] = [
   {
     label: "FINANCE & INSIGHTS",
     items: [
+      { id: "supplier-invoices", label: "Supplier Invoices", icon: "🧾" },
       { id: "expenditure",       label: "Expenditure & Floats", icon: "💰" },
       { id: "reports",           label: "Reports & BI",        icon: "📈" },
     ],

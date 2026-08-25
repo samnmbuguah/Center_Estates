@@ -7,7 +7,7 @@ from core.tenancy import get_active_organization
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, UtilityMeter, WorkOrder,
+    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 
@@ -134,6 +134,59 @@ class RepairRequisitionSerializer(serializers.ModelSerializer):
         asset = attrs.get('asset')
         if asset and asset.organization_id != organization.id:
             raise serializers.ValidationError({'asset': 'Asset must belong to the active organization.'})
+        return attrs
+
+
+class SupplierInvoiceSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True)
+    work_order_number = serializers.CharField(source='work_order.number', read_only=True, default='')
+    service_profile_name = serializers.CharField(source='service_profile.name', read_only=True, default='')
+    budget_name = serializers.CharField(source='budget.name', read_only=True, default='')
+    work_order_value = serializers.SerializerMethodField()
+    variance = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SupplierInvoice
+        exclude = ('organization',)
+        read_only_fields = ('code', 'status', 'submitted_by', 'submitted_at', 'verified_by', 'verified_at',
+                            'approved_by', 'approved_at', 'rejected_reason', 'paid_at', 'exception_approved')
+        ref_name = 'FacilitySupplierInvoice'
+
+    @extend_schema_field(serializers.DecimalField(max_digits=14, decimal_places=2))
+    def get_work_order_value(self, obj):
+        if not obj.work_order_id:
+            return None
+        return obj.work_order.labor_cost + obj.work_order.parts_cost + obj.work_order.other_cost
+
+    @extend_schema_field(serializers.DecimalField(max_digits=14, decimal_places=2))
+    def get_variance(self, obj):
+        if not obj.work_order_id:
+            return None
+        approved = obj.work_order.labor_cost + obj.work_order.parts_cost + obj.work_order.other_cost
+        return obj.total - approved
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        supplier = attrs.get('supplier')
+        number = attrs.get('supplier_invoice_number')
+        if supplier and number:
+            queryset = SupplierInvoice.objects.filter(
+                organization=organization, supplier=supplier, supplier_invoice_number__iexact=number,
+            )
+            if self.instance is not None:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {'supplier_invoice_number': 'This supplier has already submitted an invoice with this number (duplicate detection).'},
+                )
+        work_order = attrs.get('work_order')
+        if work_order and work_order.organization_id != organization.id:
+            raise serializers.ValidationError({'work_order': 'Work order must belong to the active organization.'})
+        if attrs.get('service_profile') and attrs['service_profile'].organization_id != organization.id:
+            raise serializers.ValidationError({'service_profile': 'Service profile must belong to the active organization.'})
+        if attrs.get('budget') and attrs['budget'].organization_id != organization.id:
+            raise serializers.ValidationError({'budget': 'Budget must belong to the active organization.'})
         return attrs
 
 

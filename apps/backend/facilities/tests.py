@@ -976,3 +976,103 @@ class IncidentMemoApiTests(TestCase):
         self.assertIn('incident-memo-INC-TEST-001', response['Content-Disposition'])
         self.assertTrue(response.content.startswith(b'%PDF-'))
         self.assertGreater(len(response.content), 2000)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class SupplierInvoiceApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='sin-user', password='test')
+        self.organization = Organization.objects.create(name='SIN Client', slug='sin-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='P1', name='SIN Building')
+        self.supplier = Contractor.objects.create(
+            organization=self.organization, code='SUP-1', name='Acme Repairs', specialty='Plumbing',
+        )
+        self.work_order = WorkOrder.objects.create(
+            organization=self.organization, number='WO-SIN-1', title='Pump replacement', category='Plumbing',
+            property=self.property, reported_by=self.user, status=WorkOrder.Status.COMPLETED,
+            supervisor_verified=True, reported_at=timezone.now(),
+            labor_cost=Decimal('10000'), parts_cost=Decimal('20000'),
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def _create(self, **overrides):
+        payload = {
+            'property': str(self.property.id),
+            'supplier': str(self.supplier.id),
+            'supplier_invoice_number': 'INV-ACME-001',
+            'classification': 'repair',
+            'work_order': str(self.work_order.id),
+            'description': 'Pump replacement as per WO-SIN-1.',
+            'subtotal': '30000.00',
+            'vat_rate': '16.00',
+            'vat_amount': '4800.00',
+            'total': '34800.00',
+            'cost_centre': 'FM-MAINT',
+        }
+        payload.update(overrides)
+        return self.client.post('/api/v1/facility/supplier-invoices/', payload, format='json', **self.headers)
+
+    def test_duplicate_supplier_invoice_number_is_rejected(self):
+        first = self._create()
+        self.assertEqual(first.status_code, 201, first.data)
+        duplicate = self._create()
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertIn('supplier_invoice_number', duplicate.data)
+
+    def test_full_invoice_lifecycle_to_paid(self):
+        created = self._create()
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertTrue(created.data['code'].startswith('SIN-'))
+        invoice_id = created.data['id']
+
+        submitted = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/submit/', {}, format='json', **self.headers)
+        self.assertEqual(submitted.status_code, 200, submitted.data)
+        self.assertEqual(submitted.data['status'], 'submitted')
+
+        verified = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/verify/', {}, format='json', **self.headers)
+        self.assertEqual(verified.status_code, 200, verified.data)
+        self.assertEqual(verified.data['status'], 'verified')
+        # Verified WO value 30000 vs invoice total 34800 → variance 4800
+        self.assertEqual(verified.data['work_order_value'], Decimal('30000.00'))
+        self.assertEqual(verified.data['variance'], Decimal('4800.00'))
+
+        approved = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/approve/', {}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], 'approved')
+
+        processing = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/start-payment/', {}, format='json', **self.headers)
+        self.assertEqual(processing.status_code, 200, processing.data)
+
+        missing_ref = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/mark-paid/', {}, format='json', **self.headers)
+        self.assertEqual(missing_ref.status_code, 400)
+        paid = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/mark-paid/', {'payment_reference': 'RTGS-8891'}, format='json', **self.headers)
+        self.assertEqual(paid.status_code, 200, paid.data)
+        self.assertEqual(paid.data['status'], 'paid')
+        self.assertEqual(paid.data['payment_reference'], 'RTGS-8891')
+
+    def test_repair_invoice_requires_work_order_on_submit(self):
+        created = self._create(work_order=None)
+        self.assertEqual(created.status_code, 201, created.data)
+        submitted = self.client.post(f"/api/v1/facility/supplier-invoices/{created.data['id']}/submit/", {}, format='json', **self.headers)
+        self.assertEqual(submitted.status_code, 400)
+        self.assertIn('work_order', submitted.data)
+
+    def test_unverified_work_order_requires_exception_to_approve(self):
+        self.work_order.supervisor_verified = False
+        self.work_order.save(update_fields=('supervisor_verified', 'updated_at'))
+        created = self._create()
+        invoice_id = created.data['id']
+        self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/submit/', {}, format='json', **self.headers)
+        self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/verify/', {}, format='json', **self.headers)
+        blocked = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/approve/', {}, format='json', **self.headers)
+        self.assertEqual(blocked.status_code, 400)
+        self.assertIn('exception', blocked.data)
+        approved = self.client.post(f'/api/v1/facility/supplier-invoices/{invoice_id}/approve/', {
+            'exception': True, 'exception_notes': 'Emergency repair; verified on site by manager.',
+        }, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertTrue(approved.data['exception_approved'])

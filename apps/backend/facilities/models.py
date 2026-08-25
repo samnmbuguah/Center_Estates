@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -822,3 +824,84 @@ class RepairRequisition(OrganizationOwnedModel):
             raise ValidationError('Requisition provider must belong to the same organization.')
         if self.work_order_id and self.work_order.organization_id != self.organization_id:
             raise ValidationError('Requisition work order must belong to the same organization.')
+
+
+class SupplierInvoice(OrganizationOwnedModel):
+    """Supplier invoice register with controlled verification, approval and payment flow.
+
+    Repair invoices only become payable once the source work order is completed and
+    supervisor-verified, unless an authorised exception is recorded on approval.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SUBMITTED = 'submitted', 'Submitted'
+        VERIFIED = 'verified', 'Verified'
+        APPROVED = 'approved', 'Approved'
+        PAYMENT_PROCESSING = 'payment_processing', 'Payment processing'
+        PAID = 'paid', 'Paid'
+        REJECTED = 'rejected', 'Rejected'
+        ON_HOLD = 'on_hold', 'On hold'
+
+    class Classification(models.TextChoices):
+        REPAIR = 'repair', 'One-off repair'
+        RECURRING = 'recurring', 'Recurring service'
+
+    code = models.CharField(max_length=60)
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='supplier_invoices')
+    supplier = models.ForeignKey(Contractor, on_delete=models.PROTECT, related_name='supplier_invoices')
+    supplier_invoice_number = models.CharField(max_length=80)
+    classification = models.CharField(max_length=16, choices=Classification.choices, default=Classification.REPAIR)
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, related_name='supplier_invoices', null=True, blank=True)
+    service_profile = models.ForeignKey(ServiceProfile, on_delete=models.SET_NULL, related_name='supplier_invoices', null=True, blank=True)
+    service_period_start = models.DateField(null=True, blank=True)
+    service_period_end = models.DateField(null=True, blank=True)
+    description = models.TextField()
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
+    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('16.00'))
+    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    tax_code = models.CharField(max_length=40, blank=True)
+    cost_centre = models.CharField(max_length=80, blank=True)
+    budget = models.ForeignKey(FMBudget, on_delete=models.SET_NULL, related_name='supplier_invoices', null=True, blank=True)
+    invoice_document_url = models.CharField(max_length=500, blank=True)
+    variance_notes = models.TextField(blank=True)
+    exception_approved = models.BooleanField(default=False)
+    exception_notes = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='submitted_supplier_invoices')
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_supplier_invoices')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verified_notes = models.TextField(blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_supplier_invoices')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_notes = models.TextField(blank=True)
+    rejected_reason = models.TextField(blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_supplier_invoice_code'),
+            models.UniqueConstraint(fields=('organization', 'supplier', 'supplier_invoice_number'), name='unique_organization_supplier_invoice_number'),
+        ]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Invoice property must belong to the same organization.')
+        if self.supplier_id and self.supplier.organization_id != self.organization_id:
+            raise ValidationError('Invoice supplier must belong to the same organization.')
+        if self.work_order_id and self.work_order.organization_id != self.organization_id:
+            raise ValidationError('Invoice work order must belong to the same organization.')
+        if self.service_profile_id and self.service_profile.organization_id != self.organization_id:
+            raise ValidationError('Invoice service profile must belong to the same organization.')
+        if self.budget_id and self.budget.organization_id != self.organization_id:
+            raise ValidationError('Invoice budget must belong to the same organization.')
+        if self.total is not None and self.total <= 0:
+            raise ValidationError({'total': 'Invoice total must be greater than zero.'})
+        if self.classification == self.Classification.RECURRING and self.service_period_start and self.service_period_end:
+            if self.service_period_end < self.service_period_start:
+                raise ValidationError({'service_period_end': 'Service period end cannot be before its start.'})

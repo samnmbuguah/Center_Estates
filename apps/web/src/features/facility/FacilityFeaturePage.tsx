@@ -17,6 +17,7 @@ import { InventoryView } from "./components/tabs/InventoryView";
 import { GenericListView } from "./components/tabs/GenericListView";
 import { OperationsRegistryView } from "./components/tabs/OperationsRegistryView";
 import { RequisitionsView } from "./components/tabs/RequisitionsView";
+import { SupplierInvoicesView } from "./components/tabs/SupplierInvoicesView";
 import { FacilityModals } from "./components/modals/FacilityModals";
 import { ErrorBanner, LoadingState } from "@/components/module-ui";
 
@@ -154,6 +155,17 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
           />
         ) : logic.tab === "reports" ? (
           logic.dashboard ? <ReportsView dashboard={logic.dashboard} organizationId={logic.organizationId} /> : null
+        ) : logic.tab === "supplier-invoices" ? (
+          <SupplierInvoicesView
+            rows={logic.rows}
+            loading={logic.loading}
+            error={logic.error}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            organizationId={logic.organizationId}
+            reload={() => void logic.load()}
+            setTab={logic.selectTab}
+          />
         ) : logic.tab === "expenditure" ? (
           <ExpenditureView
             rows={logic.rows}
