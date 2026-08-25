@@ -118,11 +118,20 @@ export const facilityNav: ModuleNavGroup[] = [
     ],
   },
   {
-    label: "FINANCE & INSIGHTS",
+    label: "FINANCE",
     items: [
       { id: "supplier-invoices", label: "Supplier Invoices", icon: "🧾" },
       { id: "expenditure",       label: "Expenditure & Floats", icon: "💰" },
-      { id: "reports",           label: "Reports & BI",        icon: "📈" },
+    ],
+  },
+  {
+    label: "REPORTS & BI",
+    items: [
+      { id: "reports",            label: "Executive FM Reports",   icon: "📊" },
+      { id: "operations-reports", label: "Work Orders & SLA",      icon: "🔧" },
+      { id: "asset-reports",      label: "Asset Lifecycle & CAPEX",icon: "📈" },
+      { id: "compliance-reports", label: "Statutory & Compliance", icon: "🛡️" },
+      { id: "energy-reports",     label: "Energy & Utilities",     icon: "⚡" },
     ],
   },
   {

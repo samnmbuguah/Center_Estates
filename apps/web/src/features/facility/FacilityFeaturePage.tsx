@@ -153,8 +153,24 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             canAdminister={logic.canAdminister}
             reload={logic.load}
           />
-        ) : logic.tab === "reports" ? (
-          logic.dashboard ? <ReportsView dashboard={logic.dashboard} organizationId={logic.organizationId} /> : null
+        ) : logic.tab === "reports" || logic.tab === "operations-reports" || logic.tab === "asset-reports" || logic.tab === "compliance-reports" || logic.tab === "energy-reports" ? (
+          logic.dashboard ? (
+            <ReportsView
+              dashboard={logic.dashboard}
+              organizationId={logic.organizationId}
+              initialCategory={
+                logic.tab === "operations-reports"
+                  ? "Work Orders & Maintenance"
+                  : logic.tab === "asset-reports"
+                  ? "Asset & Lifecycle"
+                  : logic.tab === "compliance-reports"
+                  ? "Statutory & Compliance"
+                  : logic.tab === "energy-reports"
+                  ? "Energy & Utilities"
+                  : "All reports"
+              }
+            />
+          ) : null
         ) : logic.tab === "supplier-invoices" ? (
           <SupplierInvoicesView
             rows={logic.rows}

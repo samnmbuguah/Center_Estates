@@ -20,6 +20,10 @@ export type FacilityTab =
   | "incidents"
   | "meters"
   | "reports"
+  | "operations-reports"
+  | "asset-reports"
+  | "compliance-reports"
+  | "energy-reports"
   | "expenditure"
   | "supplier-invoices"
   | "spare-parts"
@@ -145,8 +149,12 @@ export const facilityLabels: Record<FacilityTab, string> = {
   "service-requests": "Service Requests",
   "service-profiles": "Service Profiles",
   incidents: "Incident Reporting",
-  meters: "Utility Management",
-  reports: "Reports & BI",
+  meters: "Energy & Utilities",
+  reports: "Executive FM Reports",
+  "operations-reports": "Work Orders & SLA",
+  "asset-reports": "Asset Lifecycle & CAPEX",
+  "compliance-reports": "Statutory & Compliance",
+  "energy-reports": "Energy & Utilities",
   expenditure: "Expenditure & Floats",
   "supplier-invoices": "Supplier Invoices",
   "spare-parts": "Spare Parts",

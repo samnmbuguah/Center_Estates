@@ -2129,9 +2129,33 @@ class FacilityAnalyticsViewSet(ViewSet):
             header = ['Reference', 'Title', 'Status', 'Completed']
         elif export_type == 'contractors':
             rows = scope_model_queryset(Contractor, request, organization).values_list('name', 'specialty', 'status', 'rating')
-            header = ['Name', 'Category', 'Status', 'Rating']
+            header = ['Name', 'Specialty', 'Status', 'Rating']
+        elif export_type == 'budgets':
+            rows = scope_model_queryset(FMBudget, request, organization).values_list('cost_center', 'allocated_amount', 'fiscal_year', 'status')
+            header = ['Cost Center', 'Allocated Amount (KES)', 'Fiscal Year', 'Status']
+        elif export_type == 'expenses':
+            rows = scope_model_queryset(FacilityExpense, request, organization).values_list('reference', 'description', 'amount', 'incurred_on', 'status')
+            header = ['Reference', 'Description', 'Amount (KES)', 'Incurred On', 'Status']
+        elif export_type == 'meters':
+            rows = scope_model_queryset(MeterReading, request, organization).values_list('meter_identifier', 'utility_type', 'previous_reading', 'current_reading', 'consumption', 'cost', 'reading_date')
+            header = ['Meter ID', 'Utility Type', 'Previous', 'Current', 'Consumption', 'Cost (KES)', 'Reading Date']
+        elif export_type == 'ppm':
+            rows = scope_model_queryset(PreventiveSchedule, request, organization).values_list('code', 'title', 'frequency', 'next_due_on', 'is_active')
+            header = ['Code', 'Task Title', 'Frequency', 'Next Due', 'Active']
+        elif export_type == 'incidents':
+            rows = scope_model_queryset(FacilityIncident, request, organization).values_list('reference', 'title', 'severity', 'status', 'occurred_at')
+            header = ['Reference', 'Title', 'Severity', 'Status', 'Occurred At']
+        elif export_type == 'requisitions':
+            rows = scope_model_queryset(RepairRequisition, request, organization).values_list('requisition_number', 'title', 'urgency', 'status', 'estimated_cost')
+            header = ['Requisition #', 'Title', 'Urgency', 'Status', 'Est. Cost (KES)']
+        elif export_type == 'invoices':
+            rows = scope_model_queryset(SupplierInvoice, request, organization).values_list('invoice_number', 'vendor_name', 'total_amount', 'status', 'issued_date')
+            header = ['Invoice #', 'Vendor Name', 'Total Amount (KES)', 'Status', 'Issued Date']
+        elif export_type == 'risks':
+            rows = scope_model_queryset(FMRisk, request, organization).values_list('title', 'category', 'likelihood', 'impact', 'status')
+            header = ['Risk Title', 'Category', 'Likelihood', 'Impact', 'Status']
         else:
-            return Response({'error': 'Unknown export type. Use: assets, work-orders, inspections, contractors'}, status=400)
+            return Response({'error': f'Unknown export type "{export_type}". Supported types: assets, work-orders, inspections, contractors, budgets, expenses, meters, ppm, incidents, requisitions, invoices, risks'}, status=400)
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="facility-{export_type}.csv"'
