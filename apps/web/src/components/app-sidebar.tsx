@@ -528,6 +528,35 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             </Tooltip>
           ) : null}
 
+          {/* Tenant Portal Link */}
+          {!activeModuleSlug && (
+            <Tooltip title={collapsed ? "Tenant Portal" : ""} placement="right" disableHoverListener={!collapsed}>
+              <Link
+                className={`nav-link ${pathname === "/tenant-portal" ? "active" : ""}`}
+                href="/tenant-portal"
+                onClick={onCloseMobile}
+                title={collapsed ? "" : "Tenant Portal"}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  borderRadius: 6,
+                  background: pathname === "/tenant-portal" ? "var(--brand-primary, #e23b3b)" : "transparent",
+                  color: pathname === "/tenant-portal" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                  fontWeight: pathname === "/tenant-portal" ? 700 : 500,
+                  textDecoration: "none",
+                  fontSize: isMobile ? 15 : 13,
+                  transition: "background 0.15s ease, color 0.15s ease",
+                }}
+              >
+                <span style={{ fontSize: isMobile ? 18 : 15 }}>🔑</span>
+                {!collapsed && <span>Tenant Portal</span>}
+              </Link>
+            </Tooltip>
+          )}
+
           {/* Settings & Administration Links with Retractable Suboptions */}
           <div style={{ marginTop: "12px", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 6 }}>
             {/* SETTINGS SECTION */}

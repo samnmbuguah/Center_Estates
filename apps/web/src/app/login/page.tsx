@@ -143,6 +143,7 @@ export default function LoginPage() {
                 { label: "Portfolio Manager", user: "role-portfolio-manager" },
                 { label: "Operations Staff", user: "role-operations-staff" },
                 { label: "Finance Officer", user: "role-finance-officer" },
+                { label: "Tenant Occupant", user: "role-facility-occupant" },
               ].map((p) => (
                 <button
                   key={p.user}

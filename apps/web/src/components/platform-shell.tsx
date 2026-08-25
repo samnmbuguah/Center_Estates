@@ -52,6 +52,7 @@ const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; ico
   { name: "New work order", href: "/facility?tab=work-orders", module: "facility", icon: "🔧", detail: "Create a maintenance work order", permission: "facility.operations" },
   { name: "Caretaker meter portal", href: "/caretaker-portal", module: "facility", icon: "💧", detail: "Capture property meter readings for approval", permission: "facility.work" },
   { name: "Register buyer", href: "/sales?tab=buyers", module: "sales", icon: "💰", detail: "Create a buyer profile", permission: "sales.sell" },
+  { name: "Tenant portal", href: "/tenant-portal", module: "property", icon: "🔑", detail: "Self-service tenant billing, payments and service requests" },
   { name: "New valuation instruction", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Create a valuation instruction", permission: "valuation.instructions" },
 ];
 

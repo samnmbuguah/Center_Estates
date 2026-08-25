@@ -72,20 +72,30 @@ export default function TenantPortalPage() {
     if (!organizationId) return;
     setLoading(true);
     setError("");
-    const tenantParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenant") : null;
-    const endpoint = tenantParam ? `/property/portal/${tenantParam}/` : "/property/portal/";
-    const response = await apiFetch(endpoint, {}, organizationId);
-    if (!response.ok) {
-      setError(
-        response.status === 403
+    try {
+      const tenantParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenant") : null;
+      const endpoint = tenantParam ? `/property/portal/${tenantParam}/` : "/property/portal/";
+      const response = await apiFetch(endpoint, {}, organizationId);
+      if (!response.ok) {
+        let errMessage = response.status === 403
           ? "This account is not linked to a tenant portal profile."
-          : "Your tenant account could not be loaded.",
-      );
+          : "Your tenant account could not be loaded.";
+        try {
+          const body = await response.json();
+          if (body?.detail) errMessage = String(body.detail);
+        } catch { /* ignore non-JSON */ }
+        setError(errMessage);
+        setLoading(false);
+        return;
+      }
+      const json = await response.json();
+      setData(json);
+    } catch (err) {
+      console.error("Tenant portal load error:", err);
+      setError("Unable to load tenant portal data. Please retry.");
+    } finally {
       setLoading(false);
-      return;
     }
-    setData(await response.json());
-    setLoading(false);
   }, [organizationId]);
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);

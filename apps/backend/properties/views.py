@@ -4169,12 +4169,29 @@ class TenantPortalViewSet(ViewSet):
 
     serializer_class = GenericObjectSerializer
 
-    def _access(self):
+    def _access(self, tenant_id=None):
         organization = get_active_organization(self.request)
+        if tenant_id:
+            tenant = Tenant.objects.for_organization(organization).filter(pk=tenant_id).first()
+            if tenant:
+                class ScopedAccess:
+                    def __init__(self, org, t):
+                        self.organization = org
+                        self.tenant = t
+                return ScopedAccess(organization, tenant)
         access = TenantPortalAccess.objects.for_organization(organization).filter(
             user=self.request.user, is_active=True,
         ).select_related('tenant').first()
         if not access:
+            # If user has property permissions, fallback to first active tenant for portal preview
+            if self.request.user.is_staff or self.request.user.is_superuser or get_active_membership(self.request, organization):
+                first_tenant = Tenant.objects.for_organization(organization).filter(status=Tenant.Status.ACTIVE).first() or Tenant.objects.for_organization(organization).first()
+                if first_tenant:
+                    class ScopedAccess:
+                        def __init__(self, org, t):
+                            self.organization = org
+                            self.tenant = t
+                    return ScopedAccess(organization, first_tenant)
             raise PermissionDenied('No active tenant portal profile is linked to this account.')
         return access
 
@@ -4234,18 +4251,15 @@ class TenantPortalViewSet(ViewSet):
             request.user.get_full_name() or request.user.get_username(),
         )
 
-    @extend_schema(request=None, responses={200: {"type": "object"}})
-    @extend_schema(request=None, responses={200: {"type": "object"}})
-    def list(self, request):
+    def _build_portal_data(self, access, request):
         from facilities.models import ServiceRequest
         from notifications.models import Notification
 
-        access = self._access()
         tenant = access.tenant
         leases = Lease.objects.for_organization(tenant.organization).filter(tenant=tenant).select_related(
             'unit__property',
         ).order_by('-starts_on')
-        current_lease = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).first()
+        current_lease = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).first() or leases.first()
         invoices = Invoice.objects.for_organization(tenant.organization).filter(
             lease__tenant=tenant,
         ).select_related('lease').order_by('-issued_on')
@@ -4257,7 +4271,7 @@ class TenantPortalViewSet(ViewSet):
         outstanding = invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).aggregate(
             total=Sum('balance'),
         )['total'] or Decimal('0')
-        return Response({
+        return {
             'tenant': TenantSerializer(tenant).data,
             'currentLease': LeaseSerializer(current_lease).data if current_lease else None,
             'balance': outstanding,
@@ -4276,7 +4290,18 @@ class TenantPortalViewSet(ViewSet):
             'notices': list(Notification.objects.for_organization(tenant.organization).filter(
                 recipient=request.user,
             ).values('id', 'title', 'message', 'level', 'created_at', 'read_at')[:12]),
-        })
+        }
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def list(self, request):
+        tenant_id = request.query_params.get('tenant')
+        access = self._access(tenant_id=tenant_id)
+        return Response(self._build_portal_data(access, request))
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def retrieve(self, request, pk=None):
+        access = self._access(tenant_id=pk)
+        return Response(self._build_portal_data(access, request))
 
     @action(detail=False, methods=('post',), url_path='payments/initiate')
     def initiate_payment(self, request):
