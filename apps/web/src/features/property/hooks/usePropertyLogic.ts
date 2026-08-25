@@ -366,6 +366,12 @@ export function usePropertyLogic({
         } else if (version === loadVersion.current) {
           setRows(list);
         }
+      } else if (tab === "service-profiles") {
+        const res = await apiFetch(`/facility/service-profiles/?search=${q}`, {}, organizationId);
+        if (!res.ok) { fail(); return; }
+        const data = await res.json();
+        if (version !== loadVersion.current) return;
+        setRows(Array.isArray(data) ? (data as Row[]) : ((data as { results?: Row[] }).results ?? []));
       } else if (tab === "service-charges") {
         const res = await apiFetch(`/property/service-charges/?search=${q}`, {}, organizationId);
         if (!res.ok) { fail(); return; }
