@@ -197,6 +197,7 @@ export function Users() {
                           <KeyRound size={16} className="muted" />
                           <input
                             type="password"
+                            autoComplete="new-password"
                             placeholder="New password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}

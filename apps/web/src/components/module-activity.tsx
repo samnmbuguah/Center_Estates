@@ -54,9 +54,14 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
   useEffect(() => { queueMicrotask(load); }, [activeProperty?.id, load]);
 
   const moduleKey = moduleName.toLowerCase() === "portfolio" ? "all" : moduleName.toLowerCase();
-  const relevantRows = useMemo(() => rows.filter((row) => (
-    portfolio || moduleKey === "all" || moduleKey === "companion" || String(row.module) === moduleKey
-  )), [rows, portfolio, moduleKey]);
+  const relevantRows = useMemo(() => rows.filter((row) => {
+    if (portfolio || moduleKey === "all" || moduleKey === "companion") return true;
+    if (moduleKey === "property") {
+      // Property operations should include tenant service requests, occupant feedback, and facility work orders scoped to the property
+      return String(row.module) === "property" || String(row.module) === "facility";
+    }
+    return String(row.module) === moduleKey;
+  }), [rows, portfolio, moduleKey]);
 
   const openTicket = useCallback(async (row: ActivityRecord) => {
     setSelected(row);

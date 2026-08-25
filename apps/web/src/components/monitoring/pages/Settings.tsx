@@ -164,7 +164,7 @@ export function Settings() {
         </div>
         <div className="field">
           <label>Auth Token {wa.has_auth_token && <span className="muted">(set — leave blank to keep)</span>}</label>
-          <input type="password" value={waToken} placeholder={wa.has_auth_token ? "••••••••" : ""} onChange={(e) => setWaToken(e.target.value)} />
+          <input type="password" autoComplete="new-password" value={waToken} placeholder={wa.has_auth_token ? "••••••••" : ""} onChange={(e) => setWaToken(e.target.value)} />
         </div>
         <div className="field">
           <label>From (WhatsApp number)</label>

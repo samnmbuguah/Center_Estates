@@ -1368,6 +1368,7 @@ function AdministrationContent() {
                     <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Consumer Secret:</label>
                     <input
                       type="password"
+                      autoComplete="new-password"
                       value={consumerSecret}
                       onChange={(e) => setConsumerSecret(e.target.value)}
                       placeholder="Daraja app consumer secret"

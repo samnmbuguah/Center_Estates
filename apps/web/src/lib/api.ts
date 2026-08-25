@@ -95,9 +95,14 @@ export async function apiErrorMessage(response: Response, fallback = "The reques
     const messages = flattenError(body).filter(Boolean);
     if (messages.length) return [...new Set(messages)].join(" ");
   } catch { /* non-JSON response */ }
+  if (response.status === 400) return "The submitted data is invalid. Please verify all required fields and try again.";
   if (response.status === 401) return "Your session has expired. Sign in again to continue.";
   if (response.status === 403) return "You do not have permission to perform this action.";
-  if (response.status >= 500) return "The service encountered an error. Your entered data has been retained; please retry.";
+  if (response.status === 404) return "The requested record or service endpoint was not found.";
+  if (response.status === 409) return "A conflict occurred with this record. Please refresh the page and retry.";
+  if (response.status === 502 || response.status === 503) return "The backend service is temporarily restarting or updating. Please wait a moment and retry.";
+  if (response.status === 504) return "The request timed out while processing on the server. Please retry in a moment.";
+  if (response.status >= 500) return "The server encountered an unexpected error. Your entered data has been retained; please retry.";
   return fallback;
 }
 
