@@ -562,7 +562,24 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             {/* SETTINGS SECTION */}
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <div
-                onClick={() => setSettingsExpanded((prev) => !prev)}
+                role="button"
+                tabIndex={0}
+                aria-expanded={settingsExpanded}
+                onClick={() => {
+                  if (collapsed) {
+                    setCollapsed(false);
+                    setSettingsExpanded(true);
+                  } else {
+                    setSettingsExpanded((prev) => !prev);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSettingsExpanded((prev) => !prev);
+                  }
+                }}
+                title={collapsed ? "Settings" : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -572,45 +589,34 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   color: pathname.startsWith("/settings") ? "#ffffff" : "#cbd5e1",
                   transition: "all 0.15s ease",
                   cursor: "pointer",
-                  paddingRight: collapsed ? 0 : 4,
+                  padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
+                  userSelect: "none",
                 }}
               >
                 <Tooltip title={collapsed ? "Settings" : ""} placement="right" disableHoverListener={!collapsed}>
-                  <Link
-                    className={`nav-link ${pathname.startsWith("/settings") ? "active" : ""}`}
-                    href="/settings"
-                    onClick={(e) => {
-                      // Clicking anywhere on Settings row toggles the subnav accordion
-                      e.preventDefault();
-                      setSettingsExpanded((prev) => !prev);
-                    }}
-                    title={collapsed ? "" : "Settings"}
+                  <div
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
-                      padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
                       justifyContent: collapsed ? "center" : "flex-start",
                       flex: 1,
-                      borderRadius: 6,
-                      color: pathname.startsWith("/settings") ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
                       fontWeight: pathname.startsWith("/settings") ? 700 : 500,
-                      textDecoration: "none",
                       fontSize: isMobile ? 15 : 13,
                     }}
                   >
                     <span style={{ fontSize: isMobile ? 18 : 15 }}>⚙️</span>
                     {!collapsed && <span>Settings</span>}
-                  </Link>
+                  </div>
                 </Tooltip>
                 
                 {!collapsed && (
                   <div
                     style={{
                       color: "#94a3b8",
-                      padding: "8px 8px",
                       display: "flex",
                       alignItems: "center",
+                      paddingLeft: 4,
                     }}
                   >
                     {settingsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -665,7 +671,24 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             {showAdministration && (
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <div
-                  onClick={() => setAdminExpanded((prev) => !prev)}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={adminExpanded}
+                  onClick={() => {
+                    if (collapsed) {
+                      setCollapsed(false);
+                      setAdminExpanded(true);
+                    } else {
+                      setAdminExpanded((prev) => !prev);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setAdminExpanded((prev) => !prev);
+                    }
+                  }}
+                  title={collapsed ? "Administration" : undefined}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -675,45 +698,34 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                     color: pathname.startsWith("/administration") ? "#ffffff" : "#cbd5e1",
                     transition: "all 0.15s ease",
                     cursor: "pointer",
-                    paddingRight: collapsed ? 0 : 4,
+                    padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
+                    userSelect: "none",
                   }}
                 >
                   <Tooltip title={collapsed ? "Administration" : ""} placement="right" disableHoverListener={!collapsed}>
-                    <Link
-                      className={`nav-link ${pathname.startsWith("/administration") ? "active" : ""}`}
-                      href={isAdministrator ? "/administration" : "/administration?tab=mpesa"}
-                      onClick={(e) => {
-                        // Clicking anywhere on Administration row toggles the subnav accordion
-                        e.preventDefault();
-                        setAdminExpanded((prev) => !prev);
-                      }}
-                      title={collapsed ? "" : "Administration"}
+                    <div
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
-                        padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
                         justifyContent: collapsed ? "center" : "flex-start",
                         flex: 1,
-                        borderRadius: 6,
-                        color: pathname.startsWith("/administration") ? "#ffffff" : "#cbd5e1",
                         fontWeight: pathname.startsWith("/administration") ? 700 : 500,
-                        textDecoration: "none",
                         fontSize: isMobile ? 15 : 13,
                       }}
                     >
                       <span style={{ fontSize: isMobile ? 18 : 15 }}>🛡️</span>
                       {!collapsed && <span>Administration</span>}
-                    </Link>
+                    </div>
                   </Tooltip>
                   
                   {!collapsed && (
                     <div
                       style={{
                         color: "#94a3b8",
-                        padding: "8px 8px",
                         display: "flex",
                         alignItems: "center",
+                        paddingLeft: 4,
                       }}
                     >
                       {adminExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
