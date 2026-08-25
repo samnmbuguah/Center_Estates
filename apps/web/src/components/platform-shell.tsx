@@ -45,7 +45,7 @@ import {
 
 const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string; permission?: string }> = [
   { name: "Property overview", href: "/overview", module: "property", icon: "◉", detail: "View accessible property portfolio" },
-  { name: "Onboard property", href: "/property-onboarding", module: "property", icon: "🏗️", detail: "Create a property; code generated automatically", permission: "property.operations" },
+  { name: "Onboard property", href: "/property-onboarding", module: "property", icon: "🏛️", detail: "Create a property; code generated automatically", permission: "property.operations" },
   { name: "Add tenant", href: "/property?tab=tenants", module: "property", icon: "👥", detail: "Create a tenant profile", permission: "property.leasing" },
   { name: "Tickets", href: "/tickets", module: "monitoring", icon: "🎫", detail: "View portfolio tickets" },
   { name: "Calendar", href: "/calendar", module: "monitoring", icon: "📅", detail: "View portfolio calendar" },

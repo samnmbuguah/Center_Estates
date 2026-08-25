@@ -1,16 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { usePermissions } from "@/hooks/usePermissions";
 import { BrandLogo } from "@/components/brand-logo";
-import { LayoutDashboard, ClipboardCheck, Menu, X, ChartNoAxesCombined, CalendarDays, CircleAlert, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  LayoutDashboard,
+  ClipboardCheck,
+  Menu,
+  X,
+  ChartNoAxesCombined,
+  CalendarDays,
+  CircleAlert,
+  ChevronDown,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Building2,
+  Sparkles,
+} from "lucide-react";
 import {
   Box,
   Typography,
   IconButton,
+  Tooltip,
 } from "@mui/material";
 
 const modules = [
@@ -54,9 +69,32 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   const { session, can } = useAuth();
   const permissions = usePermissions();
   const [isMobile, setIsMobile] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const [settingsExpanded, setSettingsExpanded] = useState(pathname.startsWith("/settings"));
   const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/administration"));
+
+  // Hydrate collapsed state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("ce_sidebar_collapsed");
+      if (stored === "1") setCollapsed(true);
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("ce_sidebar_collapsed", next ? "1" : "0");
+      } catch {
+        // Ignore
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (pathname.startsWith("/settings")) setSettingsExpanded(true);
@@ -71,13 +109,11 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) {
-      }
     };
     
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   const isAdministrator = permissions.isSuperAdmin;
@@ -87,6 +123,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   );
   const showAdministration = isAdministrator || canFinance;
   const activeOrganization = session?.organizations.find((organization) => organization.id === session.activeOrganizationId);
+
+  const sidebarWidth = isMobile ? "min(85vw, 320px)" : collapsed ? 74 : 280;
 
   return (
     <>
@@ -126,36 +164,53 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             <span>Dashboard</span>
           </Link>
 
-          {!activeModuleSlug && <Link className="nav-link" href="/overview" onClick={onCloseMobile} title="Overview" style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "16px" : "9px 12px", justifyContent: "flex-start", borderRadius: 6, color: "#b8c8d7", textDecoration: "none", fontSize: isMobile ? 16 : 13 }}><span>◉</span><span>Overview</span></Link>}
-          
-          {/* Companion is the daily task hub; facility operations remain in its module. */}
           {!activeModuleSlug && (
-            <>
-              <Link
-                href="/companion"
-                onClick={onCloseMobile}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4,
-                  color: pathname.startsWith("/companion") ? "#e23b3b" : "#ffffff",
-                  textDecoration: "none",
-                  fontSize: 12,
-                  fontWeight: pathname.startsWith("/companion") ? 700 : 600,
-                }}
-              >
-                <ClipboardCheck size={20} />
-                <span>Tasks</span>
-              </Link>
-            </>
+            <Link
+              className="nav-link"
+              href="/overview"
+              onClick={onCloseMobile}
+              title="Overview"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "16px",
+                justifyContent: "flex-start",
+                borderRadius: 6,
+                color: "#b8c8d7",
+                textDecoration: "none",
+                fontSize: 16,
+              }}
+            >
+              <span>◉</span>
+              <span>Overview</span>
+            </Link>
+          )}
+          
+          {!activeModuleSlug && (
+            <Link
+              href="/companion"
+              onClick={onCloseMobile}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 4,
+                color: pathname.startsWith("/companion") ? "#e23b3b" : "#ffffff",
+                textDecoration: "none",
+                fontSize: 12,
+                fontWeight: pathname.startsWith("/companion") ? 700 : 600,
+              }}
+            >
+              <ClipboardCheck size={20} />
+              <span>Tasks</span>
+            </Link>
           )}
           
           <button
             onClick={() => {
-              // Trigger mobile menu open by calling the parent's menu open handler
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('open-mobile-menu'));
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("open-mobile-menu"));
               }
             }}
             style={{
@@ -194,12 +249,12 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
       )}
 
       <aside
-        className={`platform-sidebar ${menuOpen ? "mobile-open" : ""}`}
+        className={`platform-sidebar ${menuOpen ? "mobile-open" : ""} ${collapsed ? "sidebar-collapsed" : ""}`}
         role="navigation"
         aria-label="Main navigation"
         style={{
-          width: isMobile ? "min(85vw, 320px)" : 260,
-          minWidth: isMobile ? "min(85vw, 320px)" : 260,
+          width: sidebarWidth,
+          minWidth: sidebarWidth,
           height: "100vh",
           position: isMobile ? "fixed" : "sticky",
           alignSelf: "flex-start",
@@ -210,36 +265,40 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
           display: "flex",
           flexDirection: "column",
           zIndex: isMobile ? 1000 : 100,
-          transition: isMobile ? "transform 0.3s ease" : undefined,
+          transition: isMobile
+            ? "transform 0.3s ease"
+            : "width 0.22s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
           userSelect: "none",
           flexShrink: 0,
+          overflow: "hidden",
         }}
       >
         {/* Brand Header */}
         <Box
           className="platform-brand-header"
           sx={{
-            padding: isMobile ? 2 : "14px 16px",
+            padding: isMobile ? 2 : (collapsed ? "14px 10px" : "14px 16px"),
             minHeight: 64,
             borderBottom: "1px solid rgba(255,255,255,0.08)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: collapsed ? "center" : "space-between",
             gap: 1,
             boxSizing: "border-box",
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, overflow: "hidden" }}>
             <BrandLogo
               size="sm"
-              showWordmark
+              showWordmark={!collapsed}
               dark
               brandName={activeOrganization?.company_name || activeOrganization?.name}
               logoUrl={activeOrganization?.logo_url}
               primaryColor={activeOrganization?.primary_color}
             />
           </Box>
-          {isMobile && (
+          
+          {isMobile ? (
             <IconButton
               onClick={onCloseMobile}
               aria-label="Close navigation"
@@ -247,23 +306,43 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             >
               <X size={24} />
             </IconButton>
+          ) : (
+            <Tooltip title={collapsed ? "Expand sidebar" : "Collapse sidebar"} placement="right">
+              <IconButton
+                onClick={toggleCollapsed}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                sx={{
+                  color: "rgba(255,255,255,0.6)",
+                  padding: "6px",
+                  borderRadius: 1.5,
+                  "&:hover": { color: "#ffffff", bgcolor: "rgba(255,255,255,0.1)" },
+                }}
+              >
+                {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
 
-        {/* Scrollable Nav Items */}
+        {/* Scrollable Nav Items — Clean custom invisible scrollbar */}
         <Box
           className="platform-sidebar-scroll"
           sx={{
             flex: 1,
             overflowY: "auto",
-            padding: isMobile ? 2 : "12px 10px",
+            overflowX: "hidden",
+            padding: isMobile ? 2 : (collapsed ? "12px 6px" : "12px 10px"),
             display: "flex",
             flexDirection: "column",
             gap: 0.5,
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            "&::-webkit-scrollbar": { display: "none" },
+            WebkitOverflowScrolling: "touch",
           }}
         >
-          {/* WORKPLACE SECTION - Only show on dashboard/workspaces */}
-          {!isMobile && !activeModuleSlug && (
+          {/* WORKPLACE SECTION - Only show on dashboard/workspaces when expanded */}
+          {!isMobile && !activeModuleSlug && !collapsed && (
             <Typography
               sx={{
                 padding: "6px 10px 4px",
@@ -280,148 +359,173 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
           )}
 
           {/* Dashboard link - always visible */}
-          <Link
-            className={`nav-link ${(pathname === "/workspaces" || pathname === "/") ? "active" : ""}`}
-            href="/workspaces"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: isMobile ? "14px 16px" : "9px 12px",
-              justifyContent: "flex-start",
-              borderRadius: 6,
-              background: (pathname === "/workspaces" || pathname === "/") ? "var(--brand-primary, #e23b3b)" : "transparent",
-              color: (pathname === "/workspaces" || pathname === "/") ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-              fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
-              textDecoration: "none",
-              fontSize: isMobile ? 15 : 13,
-            }}
-            onClick={onCloseMobile}
-            title="Dashboard"
-          >
-            <span style={{ fontSize: isMobile ? 20 : 15, display: "flex" }}><LayoutDashboard size={isMobile ? 22 : 18} /></span>
-            <span>Dashboard</span>
-          </Link>
+          <Tooltip title={collapsed ? "Dashboard" : ""} placement="right" disableHoverListener={!collapsed}>
+            <Link
+              className={`nav-link ${(pathname === "/workspaces" || pathname === "/") ? "active" : ""}`}
+              href="/workspaces"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                justifyContent: collapsed ? "center" : "flex-start",
+                borderRadius: 6,
+                background: (pathname === "/workspaces" || pathname === "/") ? "var(--brand-primary, #e23b3b)" : "transparent",
+                color: (pathname === "/workspaces" || pathname === "/") ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
+                textDecoration: "none",
+                fontSize: isMobile ? 15 : 13,
+                transition: "background 0.15s ease, color 0.15s ease",
+              }}
+              onClick={onCloseMobile}
+              title={collapsed ? "" : "Dashboard"}
+            >
+              <span style={{ fontSize: isMobile ? 20 : 15, display: "flex" }}><LayoutDashboard size={isMobile ? 22 : 18} /></span>
+              {!collapsed && <span>Dashboard</span>}
+            </Link>
+          </Tooltip>
 
-          {/* Portfolio Overview link — Displays property register, statistics, and edit details */}
-          <Link
-            className={`nav-link ${pathname === "/overview" ? "active" : ""}`}
-            href="/overview"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: isMobile ? "14px 16px" : "9px 12px",
-              justifyContent: "flex-start",
-              borderRadius: 6,
-              background: pathname === "/overview" ? "var(--brand-primary, #e23b3b)" : "transparent",
-              color: pathname === "/overview" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-              fontWeight: pathname === "/overview" ? 700 : 500,
-              textDecoration: "none",
-              fontSize: isMobile ? 15 : 13,
-            }}
-            onClick={onCloseMobile}
-            title="Portfolio Overview"
-          >
-            <span style={{ fontSize: isMobile ? 18 : 15 }}>🏢</span>
-            <span>Portfolio Overview</span>
-          </Link>
+          {/* Portfolio Overview link */}
+          <Tooltip title={collapsed ? "Portfolio Overview" : ""} placement="right" disableHoverListener={!collapsed}>
+            <Link
+              className={`nav-link ${pathname === "/overview" ? "active" : ""}`}
+              href="/overview"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                justifyContent: collapsed ? "center" : "flex-start",
+                borderRadius: 6,
+                background: pathname === "/overview" ? "var(--brand-primary, #e23b3b)" : "transparent",
+                color: pathname === "/overview" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                fontWeight: pathname === "/overview" ? 700 : 500,
+                textDecoration: "none",
+                fontSize: isMobile ? 15 : 13,
+                transition: "background 0.15s ease, color 0.15s ease",
+              }}
+              onClick={onCloseMobile}
+              title={collapsed ? "" : "Portfolio Overview"}
+            >
+              <span style={{ fontSize: isMobile ? 18 : 15 }}>🏢</span>
+              {!collapsed && <span>Portfolio Overview</span>}
+            </Link>
+          </Tooltip>
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>
-              <Link
-                className={`nav-link ${pathname === "/tickets" ? "active" : ""}`}
-                href="/tickets"
-                onClick={onCloseMobile}
-                title="Tickets"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: isMobile ? "14px 16px" : "9px 12px",
-                  justifyContent: "flex-start",
-                  borderRadius: 6,
-                  background: pathname === "/tickets" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                  color: pathname === "/tickets" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-                  fontWeight: pathname === "/tickets" ? 700 : 500,
-                  textDecoration: "none",
-                  fontSize: isMobile ? 15 : 13,
-                }}
-              >
-                <CircleAlert size={isMobile ? 22 : 18} /><span>Tickets</span>
-              </Link>
+              <Tooltip title={collapsed ? "Tickets" : ""} placement="right" disableHoverListener={!collapsed}>
+                <Link
+                  className={`nav-link ${pathname === "/tickets" ? "active" : ""}`}
+                  href="/tickets"
+                  onClick={onCloseMobile}
+                  title={collapsed ? "" : "Tickets"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    borderRadius: 6,
+                    background: pathname === "/tickets" ? "var(--brand-primary, #e23b3b)" : "transparent",
+                    color: pathname === "/tickets" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                    fontWeight: pathname === "/tickets" ? 700 : 500,
+                    textDecoration: "none",
+                    fontSize: isMobile ? 15 : 13,
+                    transition: "background 0.15s ease, color 0.15s ease",
+                  }}
+                >
+                  <CircleAlert size={isMobile ? 22 : 18} />
+                  {!collapsed && <span>Tickets</span>}
+                </Link>
+              </Tooltip>
 
-              <Link
-                className={`nav-link ${pathname === "/calendar" ? "active" : ""}`}
-                href="/calendar"
-                onClick={onCloseMobile}
-                title="Calendar"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: isMobile ? "14px 16px" : "9px 12px",
-                  justifyContent: "flex-start",
-                  borderRadius: 6,
-                  background: pathname === "/calendar" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                  color: pathname === "/calendar" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-                  fontWeight: pathname === "/calendar" ? 700 : 500,
-                  textDecoration: "none",
-                  fontSize: isMobile ? 15 : 13,
-                }}
-              >
-                <CalendarDays size={isMobile ? 22 : 18} /><span>Calendar</span>
-              </Link>
+              <Tooltip title={collapsed ? "Calendar" : ""} placement="right" disableHoverListener={!collapsed}>
+                <Link
+                  className={`nav-link ${pathname === "/calendar" ? "active" : ""}`}
+                  href="/calendar"
+                  onClick={onCloseMobile}
+                  title={collapsed ? "" : "Calendar"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    borderRadius: 6,
+                    background: pathname === "/calendar" ? "var(--brand-primary, #e23b3b)" : "transparent",
+                    color: pathname === "/calendar" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                    fontWeight: pathname === "/calendar" ? 700 : 500,
+                    textDecoration: "none",
+                    fontSize: isMobile ? 15 : 13,
+                    transition: "background 0.15s ease, color 0.15s ease",
+                  }}
+                >
+                  <CalendarDays size={isMobile ? 22 : 18} />
+                  {!collapsed && <span>Calendar</span>}
+                </Link>
+              </Tooltip>
             </>
           )}
 
+          {/* Property Onboarding — Using a distinct Real Estate onboarding icon ✨🏡 instead of Construction Crane 🏗️ */}
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "property")) && (
-            <Link
-              className={`nav-link ${pathname === "/property-onboarding" ? "active" : ""}`}
-              data-testid="property-onboarding-link"
-              href="/property-onboarding"
-              onClick={onCloseMobile}
-              title="Property onboarding"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: isMobile ? "14px 16px" : "9px 12px",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                background: pathname === "/property-onboarding" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                color: pathname === "/property-onboarding" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-                fontWeight: pathname === "/property-onboarding" ? 700 : 500,
-                textDecoration: "none",
-                fontSize: isMobile ? 15 : 13,
-              }}
-            >
-              <span style={{ fontSize: isMobile ? 18 : 15 }}>🏗️</span><span>Property onboarding</span>
-            </Link>
+            <Tooltip title={collapsed ? "Property Onboarding" : ""} placement="right" disableHoverListener={!collapsed}>
+              <Link
+                className={`nav-link ${pathname === "/property-onboarding" ? "active" : ""}`}
+                data-testid="property-onboarding-link"
+                href="/property-onboarding"
+                onClick={onCloseMobile}
+                title={collapsed ? "" : "Property onboarding"}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  borderRadius: 6,
+                  background: pathname === "/property-onboarding" ? "var(--brand-primary, #e23b3b)" : "transparent",
+                  color: pathname === "/property-onboarding" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                  fontWeight: pathname === "/property-onboarding" ? 700 : 500,
+                  textDecoration: "none",
+                  fontSize: isMobile ? 15 : 13,
+                  transition: "background 0.15s ease, color 0.15s ease",
+                }}
+              >
+                <span style={{ fontSize: isMobile ? 18 : 15, display: "flex", alignItems: "center" }}>
+                  <Building2 size={isMobile ? 20 : 17} color="#f59e0b" />
+                </span>
+                {!collapsed && <span>Property onboarding</span>}
+              </Link>
+            </Tooltip>
           )}
 
           {isAdministrator && !activeModuleSlug ? (
-            <Link
-              className={`nav-link ${pathname === "/analytics" ? "active" : ""}`}
-              href="/analytics"
-              onClick={onCloseMobile}
-              title="Usage Analytics"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: isMobile ? "14px 16px" : "9px 12px",
-                justifyContent: "flex-start",
-                borderRadius: 6,
-                background: pathname === "/analytics" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                color: pathname === "/analytics" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-                fontWeight: pathname === "/analytics" ? 700 : 500,
-                textDecoration: "none",
-                fontSize: isMobile ? 15 : 13,
-              }}
-            >
-              <ChartNoAxesCombined size={isMobile ? 22 : 18} /><span>Usage Analytics</span>
-            </Link>
+            <Tooltip title={collapsed ? "Usage Analytics" : ""} placement="right" disableHoverListener={!collapsed}>
+              <Link
+                className={`nav-link ${pathname === "/analytics" ? "active" : ""}`}
+                href="/analytics"
+                onClick={onCloseMobile}
+                title={collapsed ? "" : "Usage Analytics"}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  borderRadius: 6,
+                  background: pathname === "/analytics" ? "var(--brand-primary, #e23b3b)" : "transparent",
+                  color: pathname === "/analytics" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                  fontWeight: pathname === "/analytics" ? 700 : 500,
+                  textDecoration: "none",
+                  fontSize: isMobile ? 15 : 13,
+                  transition: "background 0.15s ease, color 0.15s ease",
+                }}
+              >
+                <ChartNoAxesCombined size={isMobile ? 22 : 18} />
+                {!collapsed && <span>Usage Analytics</span>}
+              </Link>
+            </Tooltip>
           ) : null}
 
           {/* Settings & Administration Links with Retractable Suboptions */}
@@ -429,63 +533,63 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             {/* SETTINGS SECTION */}
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <div
+                onClick={() => setSettingsExpanded((prev) => !prev)}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
+                  justifyContent: collapsed ? "center" : "space-between",
                   borderRadius: 6,
-                  background: pathname === "/settings" ? "rgba(226, 59, 59, 0.15)" : "transparent",
-                  color: pathname === "/settings" ? "#ffffff" : "#cbd5e1",
+                  background: pathname.startsWith("/settings") ? "rgba(226, 59, 59, 0.15)" : "transparent",
+                  color: pathname.startsWith("/settings") ? "#ffffff" : "#cbd5e1",
                   transition: "all 0.15s ease",
+                  cursor: "pointer",
+                  paddingRight: collapsed ? 0 : 4,
                 }}
               >
-                <Link
-                  className={`nav-link ${pathname === "/settings" ? "active" : ""}`}
-                  href="/settings"
-                  onClick={() => {
-                    setSettingsExpanded(true);
-                    onCloseMobile();
-                  }}
-                  title="Settings"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: isMobile ? "12px 14px" : "8px 10px",
-                    flex: 1,
-                    borderRadius: 6,
-                    color: pathname === "/settings" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-                    fontWeight: pathname === "/settings" ? 700 : 500,
-                    textDecoration: "none",
-                    fontSize: isMobile ? 15 : 13,
-                  }}
-                >
-                  <span style={{ fontSize: isMobile ? 18 : 15 }}>⚙️</span>
-                  <span>Settings</span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setSettingsExpanded(!settingsExpanded);
-                  }}
-                  aria-label="Toggle settings sub-options"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#94a3b8",
-                    padding: "8px 10px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {settingsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
+                <Tooltip title={collapsed ? "Settings" : ""} placement="right" disableHoverListener={!collapsed}>
+                  <Link
+                    className={`nav-link ${pathname.startsWith("/settings") ? "active" : ""}`}
+                    href="/settings"
+                    onClick={(e) => {
+                      // Clicking anywhere on Settings row toggles the subnav accordion
+                      e.preventDefault();
+                      setSettingsExpanded((prev) => !prev);
+                    }}
+                    title={collapsed ? "" : "Settings"}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      flex: 1,
+                      borderRadius: 6,
+                      color: pathname.startsWith("/settings") ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                      fontWeight: pathname.startsWith("/settings") ? 700 : 500,
+                      textDecoration: "none",
+                      fontSize: isMobile ? 15 : 13,
+                    }}
+                  >
+                    <span style={{ fontSize: isMobile ? 18 : 15 }}>⚙️</span>
+                    {!collapsed && <span>Settings</span>}
+                  </Link>
+                </Tooltip>
+                
+                {!collapsed && (
+                  <div
+                    style={{
+                      color: "#94a3b8",
+                      padding: "8px 8px",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {settingsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </div>
+                )}
               </div>
 
-              {settingsExpanded && (
+              {settingsExpanded && !collapsed && (
                 <div
                   style={{
                     display: "flex",
@@ -532,63 +636,63 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             {showAdministration && (
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <div
+                  onClick={() => setAdminExpanded((prev) => !prev)}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    justifyContent: collapsed ? "center" : "space-between",
                     borderRadius: 6,
-                    background: pathname === "/administration" ? "rgba(226, 59, 59, 0.15)" : "transparent",
-                    color: pathname === "/administration" ? "#ffffff" : "#cbd5e1",
+                    background: pathname.startsWith("/administration") ? "rgba(226, 59, 59, 0.15)" : "transparent",
+                    color: pathname.startsWith("/administration") ? "#ffffff" : "#cbd5e1",
                     transition: "all 0.15s ease",
+                    cursor: "pointer",
+                    paddingRight: collapsed ? 0 : 4,
                   }}
                 >
-                  <Link
-                    className={`nav-link ${pathname === "/administration" ? "active" : ""}`}
-                    href={isAdministrator ? "/administration" : "/administration?tab=mpesa"}
-                    onClick={() => {
-                      setAdminExpanded(true);
-                      onCloseMobile();
-                    }}
-                    title="Administration"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: isMobile ? "12px 14px" : "8px 10px",
-                      flex: 1,
-                      borderRadius: 6,
-                      color: pathname === "/administration" ? "#ffffff" : "#cbd5e1",
-                      fontWeight: pathname === "/administration" ? 700 : 500,
-                      textDecoration: "none",
-                      fontSize: isMobile ? 15 : 13,
-                    }}
-                  >
-                    <span style={{ fontSize: isMobile ? 18 : 15 }}>🛡️</span>
-                    <span>Administration</span>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setAdminExpanded(!adminExpanded);
-                    }}
-                    aria-label="Toggle administration sub-options"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#94a3b8",
-                      padding: "8px 10px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    {adminExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  </button>
+                  <Tooltip title={collapsed ? "Administration" : ""} placement="right" disableHoverListener={!collapsed}>
+                    <Link
+                      className={`nav-link ${pathname.startsWith("/administration") ? "active" : ""}`}
+                      href={isAdministrator ? "/administration" : "/administration?tab=mpesa"}
+                      onClick={(e) => {
+                        // Clicking anywhere on Administration row toggles the subnav accordion
+                        e.preventDefault();
+                        setAdminExpanded((prev) => !prev);
+                      }}
+                      title={collapsed ? "" : "Administration"}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
+                        justifyContent: collapsed ? "center" : "flex-start",
+                        flex: 1,
+                        borderRadius: 6,
+                        color: pathname.startsWith("/administration") ? "#ffffff" : "#cbd5e1",
+                        fontWeight: pathname.startsWith("/administration") ? 700 : 500,
+                        textDecoration: "none",
+                        fontSize: isMobile ? 15 : 13,
+                      }}
+                    >
+                      <span style={{ fontSize: isMobile ? 18 : 15 }}>🛡️</span>
+                      {!collapsed && <span>Administration</span>}
+                    </Link>
+                  </Tooltip>
+                  
+                  {!collapsed && (
+                    <div
+                      style={{
+                        color: "#94a3b8",
+                        padding: "8px 8px",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      {adminExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </div>
+                  )}
                 </div>
 
-                {adminExpanded && (
+                {adminExpanded && !collapsed && (
                   <div
                     style={{
                       display: "flex",
