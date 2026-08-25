@@ -179,6 +179,11 @@ function normalizePath(rawPath: string): string {
 
   if (nestedMatch) {
     const [, projectId, subresource, rawQuery] = nestedMatch;
+    if (!projectId || projectId === "undefined" || projectId === "null") {
+      // No project selected: fail fast with a friendly message instead of a
+      // confusing project-detail 404.
+      throw new Error("Select a project first.");
+    }
     let targetEndpoint = subresource;
     if (subresource === "cost-dashboard" || subresource === "anomalies" || subresource === "ingest/status") {
       targetEndpoint = "dashboard";
