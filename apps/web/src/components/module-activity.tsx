@@ -59,26 +59,42 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
   )), [rows, portfolio, moduleKey]);
 
   const openTicket = useCallback(async (row: ActivityRecord) => {
-    const id = String(row.id ?? "");
-    if (!id.startsWith("feedback:")) {
-      const target = String(row.source_url ?? "");
-      if (target) router.push(target);
-      return;
-    }
     setSelected(row);
-    setDetail(null);
+    setDetail(row); // Prepopulate immediately with existing row fields
     setDetailError("");
     setDetailLoading(true);
+
+    const id = String(row.id ?? "");
+    let endpoint = "";
+    if (id.startsWith("feedback:")) {
+      endpoint = `/companion/feedback/${id.slice("feedback:".length)}/`;
+    } else if (id.startsWith("service-request:")) {
+      endpoint = `/facility/service-requests/${id.slice("service-request:".length)}/`;
+    } else if (id.startsWith("work-order:")) {
+      endpoint = `/facility/work-orders/${id.slice("work-order:".length)}/`;
+    } else if (id.startsWith("task:")) {
+      endpoint = `/companion/tasks/${id.slice("task:".length)}/`;
+    } else if (id.startsWith("site-ticket:")) {
+      endpoint = `/construction/tickets/${id.slice("site-ticket:".length)}/`;
+    }
+
+    if (!endpoint) {
+      setDetailLoading(false);
+      return;
+    }
+
     try {
-      const response = await apiFetch(`/companion/feedback/${id.slice("feedback:".length)}/`);
-      if (!response.ok) throw new Error(await apiErrorMessage(response, "Ticket details could not be loaded."));
-      setDetail(await response.json());
+      const response = await apiFetch(endpoint);
+      if (response.ok) {
+        const data = await response.json();
+        setDetail((prev) => ({ ...prev, ...data }));
+      }
     } catch (reason) {
       setDetailError(reason instanceof Error ? reason.message : "Ticket details could not be loaded.");
     } finally {
       setDetailLoading(false);
     }
-  }, [router]);
+  }, []);
 
   const refreshDetail = useCallback(async () => {
     if (!selected) return;
@@ -89,29 +105,59 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
   const updateStatus = useCallback(async (status: string) => {
     if (!selected) return;
     setSaving(true); setDetailError("");
+    const id = String(selected.id ?? "");
     try {
       await apiFetch("/auth/csrf/");
-      const id = String(selected.id).slice("feedback:".length);
-      const response = await apiFetch(`/companion/feedback/${id}/update-status/`, {
-        method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ status }),
-      });
-      if (!response.ok) throw new Error(await apiErrorMessage(response, "Ticket status could not be updated."));
+      let path = "";
+      let method = "POST";
+      let body: Record<string, unknown> = { status };
+
+      if (id.startsWith("feedback:")) {
+        path = `/companion/feedback/${id.slice("feedback:".length)}/update-status/`;
+      } else if (id.startsWith("task:")) {
+        path = `/companion/tasks/${id.slice("task:".length)}/`;
+        method = "PATCH";
+        body = { status };
+      } else if (id.startsWith("service-request:")) {
+        const rawId = id.slice("service-request:".length);
+        if (status === "resolved") {
+          path = `/facility/service-requests/${rawId}/resolve/`;
+          body = { resolution_notes: "Resolved via operational workspace." };
+        } else if (status === "approved") {
+          path = `/facility/service-requests/${rawId}/approve/`;
+          body = { notes: "Approved in workspace." };
+        } else if (status === "rejected") {
+          path = `/facility/service-requests/${rawId}/reject/`;
+          body = { notes: "Rejected in workspace." };
+        }
+      }
+
+      if (path) {
+        const response = await apiFetch(path, {
+          method,
+          headers: { "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "Status could not be updated."));
+      }
       await refreshDetail();
     } catch (reason) {
-      setDetailError(reason instanceof Error ? reason.message : "Ticket status could not be updated.");
+      setDetailError(reason instanceof Error ? reason.message : "Status could not be updated.");
     } finally { setSaving(false); }
   }, [refreshDetail, selected]);
 
   const sendReply = useCallback(async () => {
     if (!selected || !reply.trim()) return;
     setSaving(true); setDetailError("");
+    const id = String(selected.id ?? "");
     try {
       await apiFetch("/auth/csrf/");
-      const id = String(selected.id).slice("feedback:".length);
-      const response = await apiFetch(`/companion/feedback/${id}/messages/`, {
-        method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ message: reply.trim() }),
-      });
-      if (!response.ok) throw new Error(await apiErrorMessage(response, "Your reply could not be sent."));
+      if (id.startsWith("feedback:")) {
+        const response = await apiFetch(`/companion/feedback/${id.slice("feedback:".length)}/messages/`, {
+          method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ message: reply.trim() }),
+        });
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "Your reply could not be sent."));
+      }
       setReply("");
       await refreshDetail();
     } catch (reason) {
@@ -122,18 +168,35 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
   const createWorkOrder = useCallback(async () => {
     if (!selected) return;
     setSaving(true); setDetailError("");
+    const id = String(selected.id ?? "");
     try {
       await apiFetch("/auth/csrf/");
-      const id = String(selected.id).slice("feedback:".length);
-      const response = await apiFetch(`/companion/feedback/${id}/create-work-order/`, {
-        method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
-      });
-      if (!response.ok) throw new Error(await apiErrorMessage(response, "A work order could not be created from this ticket."));
+      if (id.startsWith("feedback:")) {
+        const response = await apiFetch(`/companion/feedback/${id.slice("feedback:".length)}/create-work-order/`, {
+          method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
+        });
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "A work order could not be created."));
+      } else if (id.startsWith("service-request:")) {
+        const response = await apiFetch(`/facility/service-requests/${id.slice("service-request:".length)}/convert/`, {
+          method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({}),
+        });
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "A work order could not be created."));
+      }
       await refreshDetail();
     } catch (reason) {
-      setDetailError(reason instanceof Error ? reason.message : "A work order could not be created from this ticket.");
+      setDetailError(reason instanceof Error ? reason.message : "A work order could not be created.");
     } finally { setSaving(false); }
   }, [refreshDetail, selected]);
+
+  const ticketType = useMemo(() => {
+    const id = String(selected?.id ?? "");
+    if (id.startsWith("service-request:")) return "service-request";
+    if (id.startsWith("work-order:")) return "work-order";
+    if (id.startsWith("task:")) return "task";
+    if (id.startsWith("feedback:")) return "feedback";
+    if (id.startsWith("site-ticket:")) return "site-ticket";
+    return "ticket";
+  }, [selected]);
 
   return (
     <section aria-labelledby="module-tickets-heading">
@@ -143,56 +206,165 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
       </div>
       {loading ? <ActivityState message="Loading tickets…" onRetry={load} /> : error ? <ActivityState message={error} onRetry={load} /> : relevantRows.length === 0 ? <ActivityState message={activeProperty ? "No open tickets or issues are recorded for this property." : "No open tickets or issues recorded in this organization."} onRetry={load} /> : (
         <div className="data-panel table-scroll"><table className="fc-data-table"><thead><tr><th>Reference</th><th>Title</th><th>Raised by</th><th>Priority</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody>
-          {relevantRows.map((row, index) => <tr key={String(row.id ?? index)}><td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td><td>{String(row.title ?? row.subject ?? row.description ?? "—")}</td><td>{String(row.raised_by ?? "—")}</td><td>{String(row.priority ?? "—")}</td><td><StatusPill value={String(row.status ?? "open")} /></td><td>{formatDate(row.updated_at ?? row.created_at)}</td><td><button type="button" className="btn ghost sm" onClick={() => void openTicket(row)}>Open</button></td></tr>)}
+          {relevantRows.map((row, index) => (
+            <tr key={String(row.id ?? index)} style={{ cursor: "pointer" }} onClick={() => void openTicket(row)}>
+              <td className="mono">{String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}</td>
+              <td><strong>{String(row.title ?? row.subject ?? row.description ?? "—")}</strong></td>
+              <td>{String(row.raised_by ?? "—")}</td>
+              <td><span style={{ textTransform: "capitalize", fontWeight: 600 }}>{String(row.priority ?? "—")}</span></td>
+              <td><StatusPill value={String(row.status ?? "open")} /></td>
+              <td>{formatDate(row.updated_at ?? row.created_at)}</td>
+              <td><button type="button" className="btn ghost sm" onClick={(e) => { e.stopPropagation(); void openTicket(row); }}>Open</button></td>
+            </tr>
+          ))}
         </tbody></table></div>
       )}
       {selected && (
-        <DetailDrawer title={`${String(selected.reference ?? "Ticket")} · ${String(selected.title ?? "Issue")}`} width={560} onClose={() => { setSelected(null); setDetail(null); setDetailError(""); }}>
-          {detailLoading ? <ActivityState message="Loading ticket details…" onRetry={() => void refreshDetail()} /> : (
-            <Stack spacing={2}>
+        <DetailDrawer title={`${String(detail?.reference ?? selected.reference ?? "Ticket")} · ${String(detail?.title ?? detail?.subject ?? selected.title ?? "Issue")}`} width={580} onClose={() => { setSelected(null); setDetail(null); setDetailError(""); }}>
+          {detailLoading && !detail ? <ActivityState message="Loading ticket details…" onRetry={() => void refreshDetail()} /> : (
+            <Stack spacing={2.5}>
               {detailError && <Alert severity="error">{detailError}</Alert>}
               {detail && <>
-                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                  <StatusPill value={String(detail.status)} />
-                  <StatusPill value={String(detail.priority)} />
-                  {detail.issue_category ? <Chip size="small" label={String(detail.issue_category)} /> : null}
+                {/* Header Status & Tags */}
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                  <StatusPill value={String(detail.status ?? selected.status ?? "open")} />
+                  <StatusPill value={String(detail.priority ?? selected.priority ?? "normal")} />
+                  {detail.module || selected.module ? <Chip size="small" label={String(detail.module ?? selected.module).toUpperCase()} sx={{ fontWeight: 700 }} /> : null}
+                  {detail.category || detail.issue_category ? <Chip size="small" variant="outlined" label={String(detail.category || detail.issue_category)} /> : null}
                 </Stack>
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
-                  <TicketFact label="Property" value={detail.property_name} />
-                  <TicketFact label="Location" value={detail.location_detail} />
-                  <TicketFact label="Raised by" value={detail.requester_name || detail.created_by_name} />
-                  <TicketFact label="Assigned to" value={detail.assigned_to_name || detail.assigned_team} />
-                  <TicketFact label="Created" value={formatDate(detail.created_at)} />
-                  <TicketFact label="SLA due" value={formatDate(detail.sla_due_at)} />
-                </Box>
-                {detail.photo_url ? <Button component="a" href={String(detail.photo_url)} target="_blank" rel="noreferrer" variant="outlined">View attached evidence</Button> : null}
-                <Divider />
-                <Typography variant="subtitle2">Conversation and activity</Typography>
-                <Stack spacing={1}>
-                  {(Array.isArray(detail.messages) ? detail.messages : []).map((message: ActivityRecord, index: number) => (
-                    <Paper key={String(message.id ?? index)} variant="outlined" sx={{ p: 1.5 }}>
-                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{String(message.message ?? "")}</Typography>
-                      <Typography variant="caption" color="text.secondary">{String(message.sender_name ?? "System")} · {formatDate(message.created_at)}</Typography>
-                    </Paper>
-                  ))}
-                  {!Array.isArray(detail.messages) || detail.messages.length === 0 ? <Typography variant="body2" color="text.secondary">No messages have been recorded.</Typography> : null}
-                </Stack>
-                <TextField label="Add an update" value={reply} onChange={(event) => setReply(event.target.value)} multiline minRows={3} fullWidth />
-                <Button variant="contained" disabled={saving || !reply.trim()} onClick={() => void sendReply()}>Send update</Button>
-                <Divider />
-                <Typography variant="subtitle2">Workflow</Typography>
-                {detail.metadata && typeof detail.metadata === "object" && (detail.metadata as ActivityRecord).work_order_number ? (
-                  <Alert severity="success" action={<Button size="small" onClick={() => router.push("/facility?tab=work-orders")}>Open work orders</Button>}>
-                    Dispatched as work order {String((detail.metadata as ActivityRecord).work_order_number)}.
-                  </Alert>
-                ) : (
-                  <Button variant="contained" disabled={saving} onClick={() => void createWorkOrder()}>Create & dispatch work order</Button>
+
+                {/* Description Box */}
+                {(detail.description || detail.subject || detail.title || detail.body) && (
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "var(--surface-sunken)", borderColor: "var(--border)" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase" }}>Issue Description</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
+                      {String(detail.description || detail.body || detail.title || detail.subject || "")}
+                    </Typography>
+                  </Paper>
                 )}
-                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                  {String(detail.status) !== "in_progress" && <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("in_progress")}>Start work</Button>}
-                  {String(detail.status) !== "resolved" && <Button variant="outlined" color="success" disabled={saving} onClick={() => void updateStatus("resolved")}>Mark resolved</Button>}
-                  {String(detail.status) === "resolved" && <Button variant="contained" color="success" disabled={saving} onClick={() => void updateStatus("closed")}>Confirm & close</Button>}
-                  {["resolved", "closed"].includes(String(detail.status)) && <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("open")}>Reopen</Button>}
+
+                {/* Key Facts Grid */}
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5, p: 2, bgcolor: "var(--surface-2)", borderRadius: 2, border: "1px solid var(--border)" }}>
+                  <TicketFact label="Property" value={detail.property_name || selected.property_name} />
+                  <TicketFact label="Location / Unit" value={detail.location_detail || detail.location || detail.unit_code} />
+                  <TicketFact label="Raised by" value={detail.raised_by || detail.requester_name || detail.tenant_name || detail.created_by_name || selected.raised_by} />
+                  <TicketFact label="Assigned to" value={detail.assigned_to || detail.assigned_to_name || detail.assigned_team || selected.assigned_to} />
+                  <TicketFact label="Created" value={formatDate(detail.created_at || detail.submitted_at || selected.created_at)} />
+                  <TicketFact label="Due / SLA" value={formatDate(detail.sla_due_at || detail.response_due_at || detail.due_date)} />
+                </Box>
+
+                {/* Evidence / Attachments */}
+                {(Boolean(detail.photo_url) || (Array.isArray(detail.photos) && detail.photos.length > 0)) && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>ATTACHED EVIDENCE</Typography>
+                    <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
+                      {detail.photo_url ? (
+                        <Button component="a" href={String(detail.photo_url)} target="_blank" rel="noreferrer" variant="outlined" size="small">
+                          View evidence photo ↗
+                        </Button>
+                      ) : null}
+                      {Array.isArray(detail.photos) && detail.photos.map((ph: any, i: number) => (
+                        <Button key={i} component="a" href={String(ph.url || ph.file || ph)} target="_blank" rel="noreferrer" variant="outlined" size="small">
+                          Attachment #{i + 1} ↗
+                        </Button>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Threaded Conversations (for feedback or messages) */}
+                {Array.isArray(detail.messages) && (
+                  <>
+                    <Divider />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Conversation & Activity</Typography>
+                    <Stack spacing={1}>
+                      {detail.messages.map((message: ActivityRecord, index: number) => (
+                        <Paper key={String(message.id ?? index)} variant="outlined" sx={{ p: 1.5 }}>
+                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{String(message.message ?? "")}</Typography>
+                          <Typography variant="caption" color="text.secondary">{String(message.sender_name ?? "System")} · {formatDate(message.created_at)}</Typography>
+                        </Paper>
+                      ))}
+                      {detail.messages.length === 0 && (
+                        <Typography variant="body2" color="text.secondary">No messages have been recorded.</Typography>
+                      )}
+                    </Stack>
+                    <TextField label="Add an update or response" value={reply} onChange={(event) => setReply(event.target.value)} multiline minRows={2} fullWidth />
+                    <Button variant="contained" disabled={saving || !reply.trim()} onClick={() => void sendReply()}>Send Update</Button>
+                  </>
+                )}
+
+                {/* Direct Jump & Workflow Action Center */}
+                <Divider />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Workflow & Actions</Typography>
+
+                {/* Dispatched WO Alert */}
+                {Boolean((detail.metadata && typeof detail.metadata === "object" && (detail.metadata as ActivityRecord).work_order_number) || detail.work_order) && (
+                  <Alert severity="success" action={<Button size="small" onClick={() => router.push("/facility?tab=work-orders")}>Open Work Orders</Button>}>
+                    Dispatched as Work Order {String((detail.metadata as ActivityRecord)?.work_order_number || (detail.work_order as any)?.number || detail.work_order || "")}.
+                  </Alert>
+                )}
+
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+                  {/* Service Request Actions */}
+                  {ticketType === "service-request" && (
+                    <>
+                      {String(detail.status) === "new" && (
+                        <>
+                          <Button variant="contained" color="success" disabled={saving} onClick={() => void updateStatus("approved")}>Approve Request</Button>
+                          <Button variant="outlined" color="error" disabled={saving} onClick={() => void updateStatus("rejected")}>Reject</Button>
+                        </>
+                      )}
+                      {!detail.work_order && ["new", "approved"].includes(String(detail.status)) && (
+                        <Button variant="contained" disabled={saving} onClick={() => void createWorkOrder()}>Convert to Work Order</Button>
+                      )}
+                      {["assigned", "in_progress"].includes(String(detail.status)) && (
+                        <Button variant="contained" color="success" disabled={saving} onClick={() => void updateStatus("resolved")}>Mark Resolved</Button>
+                      )}
+                      <Button variant="outlined" onClick={() => router.push("/facility?tab=service-requests")}>
+                        View in Facility Helpdesk ↗
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Work Order Actions */}
+                  {ticketType === "work-order" && (
+                    <>
+                      <Button variant="contained" onClick={() => router.push("/facility?tab=work-orders")}>
+                        Open in Work Orders ↗
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Task Actions */}
+                  {ticketType === "task" && (
+                    <>
+                      {String(detail.status) !== "in_progress" && String(detail.status) !== "completed" && (
+                        <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("in_progress")}>Start Task</Button>
+                      )}
+                      {String(detail.status) !== "completed" && (
+                        <Button variant="contained" color="success" disabled={saving} onClick={() => void updateStatus("completed")}>Mark Completed</Button>
+                      )}
+                      {String(detail.status) === "completed" && (
+                        <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("pending")}>Reopen Task</Button>
+                      )}
+                      <Button variant="outlined" onClick={() => router.push("/companion")}>
+                        Open in Companion ↗
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Feedback Thread Actions */}
+                  {ticketType === "feedback" && (
+                    <>
+                      {String(detail.status) !== "in_progress" && <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("in_progress")}>Start Work</Button>}
+                      {String(detail.status) !== "resolved" && <Button variant="outlined" color="success" disabled={saving} onClick={() => void updateStatus("resolved")}>Mark Resolved</Button>}
+                      {String(detail.status) === "resolved" && <Button variant="contained" color="success" disabled={saving} onClick={() => void updateStatus("closed")}>Confirm & Close</Button>}
+                      {["resolved", "closed"].includes(String(detail.status)) && <Button variant="outlined" disabled={saving} onClick={() => void updateStatus("open")}>Reopen</Button>}
+                      {!((detail.metadata as ActivityRecord)?.work_order_number) && (
+                        <Button variant="contained" disabled={saving} onClick={() => void createWorkOrder()}>Create & Dispatch Work Order</Button>
+                      )}
+                    </>
+                  )}
                 </Stack>
               </>}
             </Stack>

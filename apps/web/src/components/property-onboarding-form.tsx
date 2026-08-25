@@ -14,15 +14,16 @@ import { useFormDraft } from "@/lib/form-drafts";
 import { usePropertyContext } from "@/lib/property-context";
 import { useToast } from "@/components/monitoring/hooks/useToast";
 import { DraftBanner } from "@/components/draft-banner";
-import { csvCell as cell, csvColumn as headerIndex, normalizeCsvHeader, parseCsv } from "@/lib/csv";
+import { csvCell as cell, csvColumn as headerIndex, normalizeCsvHeader, normalizeDateString, parseCsv } from "@/lib/csv";
+import { UnitFloorPlanCanvas, type Point, type UnitLayout } from "@/features/property/components/floorplan/UnitFloorPlanCanvas";
 
 type Values = Record<string, string>;
-type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; service_charge_rate: string; description: string; building_index: string };
+type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; service_charge_rate: string; description: string; building_index: string; polygon?: Point[] };
 type UnitImportRow = UnitDraft & { sourceRow: number; errors: Partial<Record<keyof UnitDraft, string>> };
 type UtilityDraft = { type: string; account_no: string; provider: string; bill_cycle: string; status: string; meter_code: string; supply_mode: string; initial_reading: string; reading_date: string; tariff: string; unit: string; unit_code: string };
 type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
 type ContactDraft = { name: string; role: string; email: string; phone: string };
-type ProviderDraft = { name: string; service: string; contact: string; email: string; phone: string };
+type ProviderDraft = { name: string; category: string; service: string; frequency: string; criticality: string; monthly_cost: string; contact: string; email: string; phone: string };
 type DocumentDraft = { name: string; type: string; reference: string; expires_on: string; file: File | null };
 type BuildingDraft = { name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
 
@@ -30,7 +31,7 @@ const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", a
 const blankUtility: UtilityDraft = { type: "water", account_no: "", provider: "", bill_cycle: "monthly", status: "active", meter_code: "", supply_mode: "postpaid", initial_reading: "", reading_date: "", tariff: "0", unit: "m³", unit_code: "" };
 const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity: "1", status: "active" };
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
-const blankProvider: ProviderDraft = { name: "", service: "", contact: "", email: "", phone: "" };
+const blankProvider: ProviderDraft = { name: "", category: "Security & Guarding", service: "", frequency: "monthly", criticality: "medium", monthly_cost: "0", contact: "", email: "", phone: "" };
 const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "", file: null };
 const blankBuilding: BuildingDraft = { name: "", floors: "1", floor_numbers: "", use: "", access_points: "", parking_spaces: "0", amenities: "" };
 const initialValues: Values = { status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold" };
@@ -67,7 +68,7 @@ function downloadCsv(filename: string, rows: string[][]) {
 
 const sections = [
   ["general", "General"], ["location", "Location"], ["buildings", "Buildings"], ["units", "Units"], ["assets", "Assets"],
-  ["utilities", "Utilities"], ["contacts", "Contacts"], ["providers", "Service Providers"],
+  ["utilities", "Utilities"], ["contacts", "Contacts"], ["providers", "Service Profiles & Lines"],
   ["landlord", "Landlord Engagement & Terms"], ["documents", "Documents"], ["notes", "Notes"],
 ] as const;
 
@@ -139,6 +140,7 @@ export function PropertyOnboardingForm() {
       .then(async (res) => {
         if (active && res.ok) {
           const prop = await res.json();
+          const meta = prop.metadata || {};
           setValues((curr) => ({
             ...curr,
             name: prop.name || "",
@@ -148,11 +150,97 @@ export function PropertyOnboardingForm() {
             city: prop.city || "",
             country: prop.country || "KE",
             status: prop.status || "active",
-            landlord_name: prop.metadata?.landlord?.name || prop.landlord_name || "Landlord",
-            landlord_type: prop.metadata?.landlord?.type || "individual",
-            county: prop.metadata?.location?.county || prop.city || "Nairobi",
-            notes: prop.notes || prop.metadata?.notes || "",
+            category: meta.category || "",
+            lr_number: meta.lr_number || "",
+            pin_number: meta.pin_number || "",
+            year_built: meta.year_built ? String(meta.year_built) : "",
+            title_type: meta.title_type || "freehold",
+            land_size: meta.land_size_sqft ? String(meta.land_size_sqft) : "",
+            built_up_area: meta.built_up_area_sqft ? String(meta.built_up_area_sqft) : "",
+            description: meta.description || "",
+            currency: meta.currency || "KES",
+            landlord_name: meta.landlord?.name || prop.landlord_name || "Landlord",
+            landlord_type: meta.landlord?.type || "individual",
+            landlord_pin: meta.landlord?.pin || "",
+            landlord_registration: meta.landlord?.registration_number || "",
+            tax_status: meta.landlord?.tax_status || "resident",
+            vat_number: meta.landlord?.vat_number || "",
+            county: meta.location?.county || prop.city || "Nairobi",
+            postal_address: meta.location?.postal_address || "",
+            postal_code: meta.location?.postal_code || "",
+            floor_numbers: meta.building?.floor_numbers || "",
+            building_use: meta.building?.use || "",
+            access_points: meta.building?.access_points || "",
+            parking_spaces: String(meta.building?.parking_spaces ?? "0"),
+            amenities: meta.building?.amenities || "",
+            engagement_type: meta.landlord_engagement?.engagement_type || "management",
+            engagement_start: meta.landlord_engagement?.starts_on || "",
+            engagement_end: meta.landlord_engagement?.ends_on || "",
+            management_fee: meta.landlord_engagement?.management_fee_percent ? String(meta.landlord_engagement.management_fee_percent) : "",
+            payment_terms: meta.landlord_engagement?.payment_terms || "",
+            notes: prop.notes || meta.notes || "",
           }));
+          if (meta.landlord?.vat_registered) setVatRegistered(true);
+
+          // Populate Service Providers / Service Lines
+          const savedProviders = meta.service_providers || [];
+          if (Array.isArray(savedProviders) && savedProviders.length > 0) {
+            setProviders(savedProviders.map((p: any) => ({
+              name: p.name || p.provider_name || "",
+              category: p.category || "General Maintenance",
+              service: p.service || p.service_name || p.name || "",
+              frequency: p.frequency || "monthly",
+              criticality: p.criticality || "medium",
+              monthly_cost: String(p.monthly_cost || "0"),
+              contact: p.contact || p.contact_person || "",
+              email: p.email || "",
+              phone: p.phone || "",
+            })));
+          }
+
+          // Populate Utilities
+          const savedUtilities = meta.utilities || [];
+          if (Array.isArray(savedUtilities) && savedUtilities.length > 0) {
+            setUtilities(savedUtilities.map((u: any) => ({
+              type: u.type || "water",
+              supply_mode: u.supply_mode || "postpaid",
+              account_no: u.account_no || "",
+              provider: u.provider || "",
+              bill_cycle: u.bill_cycle || "monthly",
+              status: u.status || "active",
+              meter_code: u.meter_code || "",
+              initial_reading: String(u.initial_reading || ""),
+              reading_date: u.reading_date || "",
+              tariff: String(u.tariff || "0"),
+              unit: u.unit || (u.type === "electricity" ? "kWh" : "m³"),
+              unit_code: u.unit_code || "",
+            })));
+          }
+
+          // Populate Assets
+          const savedAssets = meta.assets || [];
+          if (Array.isArray(savedAssets) && savedAssets.length > 0) {
+            setAssets(savedAssets.map((a: any) => ({
+              name: a.name || "",
+              category: a.category || "",
+              location: a.location || "",
+              quantity: String(a.quantity || "1"),
+              status: a.status || "active",
+            })));
+          }
+
+          // Populate Contacts
+          const savedContacts = meta.contacts || [];
+          if (Array.isArray(savedContacts) && savedContacts.length > 0) {
+            setContacts(savedContacts.map((c: any) => ({
+              name: c.name || "",
+              role: c.role || "",
+              email: c.email || "",
+              phone: c.phone || "",
+            })));
+          }
+
+          // Populate Units
           if (Array.isArray(prop.units) && prop.units.length > 0) {
             setUnits(prop.units.map((u: any) => ({
               unit_no: u.unit_no || u.code || "",
@@ -170,7 +258,7 @@ export function PropertyOnboardingForm() {
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [editId, organizationId, setValues, setUnits]);
+  }, [editId, organizationId, setValues, setUnits, setProviders, setUtilities, setAssets, setContacts]);
 
   const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => setValues(current => ({ ...current, [name]: event.target.value }));
   const totalArea = useMemo(() => units.reduce((sum, unit) => sum + Number(unit.area || 0), 0), [units]);
@@ -341,15 +429,22 @@ export function PropertyOnboardingForm() {
   const importProviders = async (file?: File) => {
     if (!file) return;
     const rows = parseCsv(await file.text());
-    const expected = ["provider_name", "service", "contact_person", "email", "phone"];
-    const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
-    if (expected.some((header, index) => headers[index] !== header)) { setError(`Service-provider CSV columns must be: ${expected.join(", ")}.`); jump("providers"); return; }
-    const imported = rows.map(row => ({ name: row[0] ?? "", service: row[1] ?? "", contact: row[2] ?? "", email: row[3] ?? "", phone: row[4] ?? "" }));
-    const noName = imported.filter(p => !p.name);
-    const noService = imported.filter(p => !p.service);
+    if (rows.length < 2) { setError("The service provider CSV file contains no data rows."); jump("providers"); return; }
+    rows.shift(); // skip header
+    const imported: ProviderDraft[] = rows.map(row => ({
+      service: row[0] ?? "",
+      category: row[1] || "General Maintenance",
+      frequency: row[2] || "monthly",
+      criticality: row[3] || "medium",
+      monthly_cost: row[4] || "0",
+      name: row[5] || row[0] || "",
+      contact: row[6] || row[2] || "",
+      email: row[7] || row[3] || "",
+      phone: row[8] || row[4] || "",
+    }));
+    const noService = imported.filter(p => !p.service && !p.name);
     if (!imported.length) { setError("The service provider CSV file contains no data rows."); jump("providers"); return; }
-    if (noName.length) { setError(`${noName.length} provider(s) are missing a provider name.`); jump("providers"); return; }
-    if (noService.length) { setError(`Provider "${noService[0].name}" is missing a service description.`); jump("providers"); return; }
+    if (noService.length) { setError(`${noService.length} provider(s) are missing a service name.`); jump("providers"); return; }
     if (imported.length + providers.length > 500) { setError(`Importing ${imported.length} providers would exceed the 500-provider limit (currently ${providers.length}).`); jump("providers"); return; }
     setProviders(current => [...current, ...imported]); setError("");
   };
@@ -541,7 +636,7 @@ export function PropertyOnboardingForm() {
 
       <Section id="units" title="Create units">
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">Add units manually or import from CSV (max 500 rows). Required columns: unit_no, unit_type, floor, use, area.</Typography>
+          <Typography variant="body2" color="text.secondary">Add units manually or import from CSV (max 500 rows). Outline unit boundaries on architectural floor plans.</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [["unit_no","unit_type","floor","use","area","rateable_area","building_number","service_charge_rate","description"],["G-01","Shop","Ground","Commercial","850","820","1","35","Ground floor retail unit"]])}>Download template</Button>
             <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
@@ -562,8 +657,42 @@ export function PropertyOnboardingForm() {
           <Box sx={{ p: 1.5, display: "flex", justifyContent: "flex-end", gap: 1 }}><Button color="inherit" onClick={() => { setUnitImportRows([]); setUnitImportFile(""); setError(""); }}>Discard preview</Button><Button variant="contained" onClick={applyUnitImport}>Add validated units</Button></Box>
         </Paper>}
         <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Service charge / sq ft" value={unitDraft.service_charge_rate} onChange={e => setUnitDraft({ ...unitDraft, service_charge_rate: e.target.value })} helperText="Inherited by every tenancy" /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
-        <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button><Divider sx={{ my: 2 }} /><RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—"]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
+        <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button>
+        <Divider sx={{ my: 2 }} />
+        <RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area", "Layout Outline"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—", u.polygon && u.polygon.length > 0 ? <Chip size="small" color="success" label="✓ Outline Mapped" sx={{ fontSize: 10, fontWeight: 700 }} /> : <span style={{ color: "#94a3b8", fontSize: 11 }}>Not mapped</span>]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
         <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}><Chip label={`Total units: ${units.length}`} /><Chip label={`Lettable area: ${totalArea.toLocaleString()} sq ft`} /><Chip label={`Vacant units: ${units.length}`} color="success" variant="outlined" /></Box>
+        {units.length > 0 && (
+          <Box sx={{ mt: 3, pt: 2, borderTop: "1px dashed var(--border)" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>📐 Floor Layout &amp; Unit Outlines</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1.5 }}>
+              Use the interactive canvas below to sketch and outline unit boundaries. Click <strong>"Draw Unit Outline"</strong> and select a unit code.
+            </Typography>
+            <UnitFloorPlanCanvas
+              floorPlan={{
+                title: `${values.name || "Property"} Floor Layout`,
+                floor: units[0]?.floor || "1",
+                units: units.map(u => ({
+                  id: u.unit_no,
+                  code: u.unit_no,
+                  floor: u.floor,
+                  area: u.area,
+                  status: "available",
+                  polygon: u.polygon,
+                })),
+              }}
+              availableUnits={units.map(u => ({
+                id: u.unit_no,
+                code: u.unit_no,
+                status: "available",
+                area: u.area,
+              }))}
+              onSaveUnitPolygon={(unitId, polygon) => {
+                setUnits(prev => prev.map(u => (u.unit_no === unitId ? { ...u, polygon } : u)));
+              }}
+              height={450}
+            />
+          </Box>
+        )}
       </Section>
 
       <Section id="utilities" title="Utility accounts and meters"><Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Register the provider account and, for metered supplies, capture the opening reading. Future readings continue in Facility Management.</Typography><Grid columns={4}><TextField select label="Utility type" value={utilityDraft.type} onChange={e => { const type = e.target.value; setUtilityDraft({ ...utilityDraft, type, unit: type === "water" ? "m³" : type === "gas" ? "m³" : "kWh", supply_mode: type === "electricity" ? utilityDraft.supply_mode : "postpaid" }); }}>{["water","electricity","sewerage","gas","internet"].map(v => <MenuItem key={v} value={v}>{v[0].toUpperCase() + v.slice(1)}</MenuItem>)}</TextField>{utilityDraft.type === "electricity" && <TextField select label="Electricity billing" value={utilityDraft.supply_mode} onChange={e => setUtilityDraft({ ...utilityDraft, supply_mode: e.target.value })}><MenuItem value="prepaid">Prepaid / token</MenuItem><MenuItem value="postpaid">Postpaid / metered</MenuItem></TextField>}<TextField label="Account number" value={utilityDraft.account_no} onChange={e => setUtilityDraft({ ...utilityDraft, account_no: e.target.value })} /><TextField label="Provider" value={utilityDraft.provider} onChange={e => setUtilityDraft({ ...utilityDraft, provider: e.target.value })} /><TextField select label="Bill cycle" value={utilityDraft.bill_cycle} onChange={e => setUtilityDraft({ ...utilityDraft, bill_cycle: e.target.value })}><MenuItem value="monthly">Monthly</MenuItem><MenuItem value="bi_monthly">Every two months</MenuItem><MenuItem value="quarterly">Quarterly</MenuItem><MenuItem value="prepaid">Prepaid</MenuItem></TextField><TextField label="Meter number" value={utilityDraft.meter_code} onChange={e => setUtilityDraft({ ...utilityDraft, meter_code: e.target.value })} /><TextField select label="Assigned unit" value={utilityDraft.unit_code} onChange={e => setUtilityDraft({ ...utilityDraft, unit_code: e.target.value })}><MenuItem value="">Property bulk meter</MenuItem>{units.map(unit => <MenuItem key={unit.unit_no} value={unit.unit_no}>{unit.unit_no}</MenuItem>)}</TextField><TextField type="number" label="Opening reading" value={utilityDraft.initial_reading} onChange={e => setUtilityDraft({ ...utilityDraft, initial_reading: e.target.value })} /><TextField type="date" label="Reading date" value={utilityDraft.reading_date} onChange={e => setUtilityDraft({ ...utilityDraft, reading_date: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="number" label={`Tariff (KES / ${utilityDraft.unit})`} value={utilityDraft.tariff} onChange={e => setUtilityDraft({ ...utilityDraft, tariff: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!utilityDraft.account_no.trim() && !utilityDraft.meter_code.trim()} onClick={() => { setUtilities(rows => [...rows, utilityDraft]); setUtilityDraft(blankUtility); }}>Add utility account</Button></Grid><Box sx={{ mt: 2 }}><RowList rows={utilities} columns={["Type","Billing","Account","Provider","Meter","Opening reading","Bill cycle"]} render={u => [u.type,u.type === "electricity" ? u.supply_mode : "Metered",u.account_no || "—",u.provider || "—",u.meter_code || "—",u.initial_reading ? `${u.initial_reading} ${u.unit}` : "—",u.bill_cycle]} onRemove={i => setUtilities(rows => rows.filter((_, index) => index !== i))} empty="No utility accounts or meters added." /></Box></Section>
@@ -572,7 +701,81 @@ export function PropertyOnboardingForm() {
 
       <Section id="contacts" title="Property contacts"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Add contacts manually or import an existing directory.</Typography><Box sx={{ display: "flex", gap: 1 }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-contact-template.csv", [["name","role","email","phone"],["Jane Wanjiku","Caretaker","jane@example.com","+254700000000"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload contacts<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importContacts(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Name" value={contactDraft.name} onChange={e => setContactDraft({ ...contactDraft, name: e.target.value })} /><TextField label="Role" value={contactDraft.role} onChange={e => setContactDraft({ ...contactDraft, role: e.target.value })} /><TextField type="email" label="Email" value={contactDraft.email} onChange={e => setContactDraft({ ...contactDraft, email: e.target.value })} /><TextField label="Phone" value={contactDraft.phone} onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!contactDraft.name.trim()} onClick={() => { setContacts(rows => [...rows, contactDraft]); setContactDraft(blankContact); }}>Add contact</Button></Grid><RowList rows={contacts} columns={["Name","Role","Email","Phone"]} render={c => [c.name,c.role,c.email,c.phone]} onRemove={i => setContacts(rows => rows.filter((_, index) => index !== i))} empty="No contacts added." /></Section>
 
-      <Section id="providers" title="Service providers"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Import contractors and service companies or add them individually.</Typography><Box sx={{ display: "flex", gap: 1 }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-service-provider-template.csv", [["provider_name","service","contact_person","email","phone"],["Coast Lifts Ltd","Lift maintenance","John Doe","service@example.com","+254700000000"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload providers<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importProviders(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Provider name" value={providerDraft.name} onChange={e => setProviderDraft({ ...providerDraft, name: e.target.value })} /><TextField label="Service" value={providerDraft.service} onChange={e => setProviderDraft({ ...providerDraft, service: e.target.value })} /><TextField label="Contact person" value={providerDraft.contact} onChange={e => setProviderDraft({ ...providerDraft, contact: e.target.value })} /><TextField type="email" label="Email" value={providerDraft.email} onChange={e => setProviderDraft({ ...providerDraft, email: e.target.value })} /><TextField label="Phone" value={providerDraft.phone} onChange={e => setProviderDraft({ ...providerDraft, phone: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!providerDraft.name.trim() || !providerDraft.service.trim()} onClick={() => { setProviders(rows => [...rows, providerDraft]); setProviderDraft(blankProvider); }}>Add provider</Button></Grid><RowList rows={providers} columns={["Provider","Service","Contact","Email","Phone"]} render={p => [p.name,p.service,p.contact,p.email,p.phone]} onRemove={i => setProviders(rows => rows.filter((_, index) => index !== i))} empty="No service providers added." /></Section>
+      <Section id="providers" title="Service Profiles & Maintenance Service Lines">
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Define recurring facility service lines (e.g. Security, Cleaning, Lift Maintenance, Fire Safety) and assign approved service contractors.
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-service-line-template.csv", [["service_line_name","category","frequency","criticality","monthly_cost","provider_name","contact_person","email","phone"],["24/7 Security Guarding","Security & Guarding","monthly","critical","120000","Apex Security Ltd","John Doe","security@example.com","+254700000000"],["Lift Preventive Maintenance","Lift / Elevator Maintenance","monthly","critical","45000","Schindler Lifts","Jane Doe","service@example.com","+254711000000"]])}>Download template</Button>
+            <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importProviders(event.target.files?.[0]); event.target.value = ""; }} /></Button>
+          </Box>
+        </Box>
+        <Grid columns={5}>
+          <TextField
+            select
+            label="Service Category"
+            value={providerDraft.category}
+            onChange={e => setProviderDraft({ ...providerDraft, category: e.target.value, service: providerDraft.service || e.target.value })}
+          >
+            {[
+              "Security & Guarding", "Cleaning & Janitorial", "Lift / Elevator Maintenance",
+              "Landscaping & Gardening", "Waste & Refuse Disposal", "Pest Control & Fumigation",
+              "Backup Generator & Fuel", "HVAC & Air Conditioning", "Fire Safety & Extinguishers",
+              "Plumbing & Water Systems", "CCTV & Access Control", "General Maintenance",
+            ].map(cat => <MenuItem key={cat} value={cat}>{cat}</MenuItem>)}
+          </TextField>
+          <TextField label="Service Line Name" placeholder="e.g. 24/7 Gate & Compound Security" value={providerDraft.service} onChange={e => setProviderDraft({ ...providerDraft, service: e.target.value })} />
+          <TextField select label="Billing Frequency" value={providerDraft.frequency} onChange={e => setProviderDraft({ ...providerDraft, frequency: e.target.value })}>
+            <MenuItem value="monthly">Monthly</MenuItem>
+            <MenuItem value="quarterly">Quarterly</MenuItem>
+            <MenuItem value="bi_annual">Bi-Annual</MenuItem>
+            <MenuItem value="annual">Annual</MenuItem>
+            <MenuItem value="daily">Daily / As-Needed</MenuItem>
+          </TextField>
+          <TextField select label="Criticality" value={providerDraft.criticality} onChange={e => setProviderDraft({ ...providerDraft, criticality: e.target.value })}>
+            <MenuItem value="critical">Critical (24/7 SLA)</MenuItem>
+            <MenuItem value="high">High Priority</MenuItem>
+            <MenuItem value="medium">Medium</MenuItem>
+            <MenuItem value="low">Low / Routine</MenuItem>
+          </TextField>
+          <TextField type="number" label="Est. Monthly Budget (KES)" value={providerDraft.monthly_cost} onChange={e => setProviderDraft({ ...providerDraft, monthly_cost: e.target.value })} />
+        </Grid>
+        <Box sx={{ mt: 1.5 }}>
+          <Grid columns={5}>
+            <TextField label="Contractor / Provider Name" placeholder="e.g. Coast Lifts Ltd" value={providerDraft.name} onChange={e => setProviderDraft({ ...providerDraft, name: e.target.value })} />
+            <TextField label="Contact Person" value={providerDraft.contact} onChange={e => setProviderDraft({ ...providerDraft, contact: e.target.value })} />
+            <TextField type="email" label="Email" value={providerDraft.email} onChange={e => setProviderDraft({ ...providerDraft, email: e.target.value })} />
+            <TextField label="Phone" value={providerDraft.phone} onChange={e => setProviderDraft({ ...providerDraft, phone: e.target.value })} />
+            <Button
+              variant="outlined"
+              startIcon={<Plus size={16} />}
+              disabled={!providerDraft.service.trim()}
+              onClick={() => { setProviders(rows => [...rows, providerDraft]); setProviderDraft(blankProvider); }}
+            >
+              Add Service Line
+            </Button>
+          </Grid>
+        </Box>
+        <Box sx={{ mt: 2 }}>
+          <RowList
+            rows={providers}
+            columns={["Service Line", "Category", "Frequency", "Criticality", "Est. Budget", "Provider", "Contact", "Phone"]}
+            render={p => [
+              p.service || p.name,
+              p.category || "General Maintenance",
+              p.frequency || "Monthly",
+              p.criticality || "Medium",
+              Number(p.monthly_cost) > 0 ? `KES ${Number(p.monthly_cost).toLocaleString()}` : "—",
+              p.name || "Unassigned",
+              p.contact || "—",
+              p.phone || "—",
+            ]}
+            onRemove={i => setProviders(rows => rows.filter((_, index) => index !== i))}
+            empty="No service lines or maintenance profiles added."
+          />
+        </Box>
+      </Section>
 
       <Section id="landlord" title="Landlord engagement and terms"><Grid><TextField select label="Engagement type" value={values.engagement_type || "management"} onChange={set("engagement_type")}><MenuItem value="management">Property management</MenuItem><MenuItem value="letting">Letting only</MenuItem><MenuItem value="facility">Facility management</MenuItem><MenuItem value="full_service">Full service</MenuItem></TextField><TextField type="date" label="Agreement start" value={values.engagement_start || ""} onChange={set("engagement_start")} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="date" label="Agreement end" value={values.engagement_end || ""} onChange={set("engagement_end")} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="number" label="Management fee (%)" value={values.management_fee || ""} onChange={set("management_fee")} /><TextField sx={{ gridColumn: { md: "span 2" } }} label="Payment terms" value={values.payment_terms || ""} onChange={set("payment_terms")} /></Grid></Section>
 

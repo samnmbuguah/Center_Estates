@@ -37,6 +37,7 @@ from .models import (
     RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment, UnitStatusHistory, LeaseEscalation,
+    TenantHandover, ExitClearance,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -49,6 +50,7 @@ from .serializers import (
     ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer, ParkingSpaceSerializer, ParkingAssignmentSerializer,
     ServiceChargeSerializer, TaxConfigurationSerializer, TenantDocumentSerializer,
     TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
+    TenantHandoverSerializer, ExitClearanceSerializer,
     UnitSerializer, UnitChargeRuleSerializer, UnitStatusHistorySerializer,
 )
 
@@ -546,6 +548,100 @@ class PaymentWebhookViewSet(ViewSet):
         return Response({'status': 'processed', 'receipt': receipt.number})
 
 
+def _sync_property_service_providers(property_record, user=None):
+    """Synchronize service providers in property metadata to Contractor, ServiceProfile and Allocation records."""
+    providers_payload = property_record.metadata.get('service_providers') or []
+    if not isinstance(providers_payload, list):
+        return
+    from facilities.models import Contractor, ServiceProfile, ServiceProfileAllocation
+    import uuid
+    organization = property_record.organization
+    for prov in providers_payload:
+        if not isinstance(prov, dict):
+            continue
+        prov_name = str(prov.get('name') or prov.get('provider_name') or '').strip()
+        service_name = str(prov.get('service') or prov.get('service_name') or prov_name or 'Facility Service').strip()
+        category = str(prov.get('category') or 'General Maintenance').strip()
+        frequency = str(prov.get('frequency') or 'monthly').strip()
+        criticality = str(prov.get('criticality') or 'medium').strip().lower()
+        if criticality not in ('critical', 'high', 'medium', 'low'):
+            criticality = 'medium'
+        contact_name = str(prov.get('contact') or prov.get('contact_person') or '').strip()
+        email = str(prov.get('email') or '').strip()
+        phone = str(prov.get('phone') or '').strip()
+
+        contractor = None
+        if prov_name:
+            contractor = Contractor.objects.filter(
+                organization=organization, name__iexact=prov_name
+            ).first()
+            if not contractor:
+                code = f'SP-{uuid.uuid4().hex[:8].upper()}'
+                while Contractor.objects.filter(organization=organization, code=code).exists():
+                    code = f'SP-{uuid.uuid4().hex[:8].upper()}'
+                contractor = Contractor.objects.create(
+                    organization=organization,
+                    code=code,
+                    name=prov_name,
+                    specialty=category,
+                    contact_name=contact_name,
+                    email=email,
+                    phone=phone,
+                    status=Contractor.Status.ACTIVE,
+                    approval_status=Contractor.ApprovalStatus.APPROVED,
+                )
+            contractor.assigned_properties.add(property_record)
+
+        service_profile = ServiceProfile.objects.filter(
+            organization=organization,
+            name__iexact=service_name,
+            properties=property_record,
+        ).first()
+
+        if not service_profile:
+            service_profile = ServiceProfile.objects.filter(
+                organization=organization,
+                name__iexact=service_name,
+            ).first()
+
+        if not service_profile:
+            prof_code = f'SRV-{uuid.uuid4().hex[:8].upper()}'
+            while ServiceProfile.objects.filter(organization=organization, code=prof_code).exists():
+                prof_code = f'SRV-{uuid.uuid4().hex[:8].upper()}'
+
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            creator = user if (user and getattr(user, 'is_authenticated', False)) else None
+            if not creator:
+                first_member = organization.memberships.select_related('user').first()
+                creator = first_member.user if first_member else User.objects.filter(is_superuser=True).first()
+            if not creator:
+                creator = User.objects.first()
+
+            service_profile = ServiceProfile.objects.create(
+                organization=organization,
+                code=prof_code,
+                name=service_name,
+                category=category,
+                service_type=ServiceProfile.ServiceType.ROUTINE,
+                status=ServiceProfile.Status.ACTIVE,
+                criticality=criticality,
+                coverage=ServiceProfile.Coverage.PROPERTY,
+                default_frequency=frequency,
+                description=f'{category} service line for {property_record.name}',
+                created_by=creator,
+            )
+        service_profile.properties.add(property_record)
+        if contractor:
+            ServiceProfileAllocation.objects.get_or_create(
+                organization=organization,
+                service_profile=service_profile,
+                property=property_record,
+                provider=contractor,
+                defaults={'starts_on': timezone.localdate()},
+            )
+
+
 class PropertyViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
     queryset = Property.objects.annotate(buildings_count=Count('buildings'), units_count=Count('units'))
@@ -553,7 +649,31 @@ class PropertyViewSet(OrganizationModelViewSet):
     search_fields = ('name', 'code', 'city')
 
     @transaction.atomic
-    @action(detail=False, methods=('post',), url_path='onboard')
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        data = request.data
+        if isinstance(data.get('property'), dict):
+            prop_data = dict(data.get('property'))
+            metadata = prop_data.get('metadata')
+            if isinstance(metadata, dict):
+                current_meta = dict(instance.metadata or {})
+                current_meta.update(metadata)
+                prop_data['metadata'] = current_meta
+            data = prop_data
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        _sync_property_service_providers(instance, request.user)
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    @transaction.atomic
     def onboard(self, request):
         """Create a property and its initial buildings/units as one transaction."""
         organization = get_active_organization(request)
@@ -771,40 +891,8 @@ class PropertyViewSet(OrganizationModelViewSet):
                     review_notes='Opening reading captured during property onboarding.',
                 )
 
-        # Service providers submitted during onboarding are registered as Contractors in Facility Management
-        providers_payload = property_record.metadata.get('service_providers') or []
-        from facilities.models import Contractor
-        import uuid
-        for prov in providers_payload:
-            if not isinstance(prov, dict):
-                continue
-            prov_name = str(prov.get('name') or prov.get('provider_name') or '').strip()
-            if not prov_name:
-                continue
-            specialty = str(prov.get('service') or 'General Maintenance').strip()
-            contact_name = str(prov.get('contact') or prov.get('contact_person') or '').strip()
-            email = str(prov.get('email') or '').strip()
-            phone = str(prov.get('phone') or '').strip()
-
-            contractor = Contractor.objects.filter(
-                organization=organization, name__iexact=prov_name
-            ).first()
-            if not contractor:
-                code = f'SP-{uuid.uuid4().hex[:8].upper()}'
-                while Contractor.objects.filter(organization=organization, code=code).exists():
-                    code = f'SP-{uuid.uuid4().hex[:8].upper()}'
-                contractor = Contractor.objects.create(
-                    organization=organization,
-                    code=code,
-                    name=prov_name,
-                    specialty=specialty,
-                    contact_name=contact_name,
-                    email=email,
-                    phone=phone,
-                    status=Contractor.Status.ACTIVE,
-                    approval_status=Contractor.ApprovalStatus.APPROVED,
-                )
-            contractor.assigned_properties.add(property_record)
+        # Service profiles and service lines submitted during onboarding are registered as ServiceProfiles & Contractors in Facility Management
+        _sync_property_service_providers(property_record, request.user)
 
         return Response({
             'property': self.get_serializer(property_record).data,
@@ -1690,7 +1778,13 @@ class LeaseViewSet(OrganizationModelViewSet):
                     raise ValueError
             except Exception:
                 escalation_percent, escalation_interval = Decimal('0.00'), 12
-                errors['escalation'] = 'Use a non-negative percentage and interval from 1 to 120 months.'
+            try:
+                service_charge = Decimal(str(row.get('service_charge') or 0)).quantize(Decimal('0.01'))
+                if service_charge < 0:
+                    raise ValueError
+            except Exception:
+                service_charge = Decimal('0.00')
+                errors['service_charge'] = 'Service charge must be zero or positive.'
             if unit and Lease.objects.for_organization(organization).filter(
                 unit=unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
             ).exists():
@@ -1700,7 +1794,7 @@ class LeaseViewSet(OrganizationModelViewSet):
                 'tenant': tenant.name if tenant else tenant_key, 'tenant_code': tenant.code if tenant else '',
                 'unit_code': unit.code if unit else unit_code,
                 'starts_on': starts_on.isoformat() if starts_on else '', 'ends_on': ends_on.isoformat() if ends_on else '',
-                'monthly_rent': str(monthly_rent), 'billing_day': billing_day,
+                'monthly_rent': str(monthly_rent), 'service_charge': str(service_charge), 'billing_day': billing_day,
                 'escalation_percent': str(escalation_percent),
                 'escalation_interval_months': escalation_interval,
                 'deposit': str(_unit_deposit_amount(unit)) if unit else '0.00',
@@ -1712,9 +1806,21 @@ class LeaseViewSet(OrganizationModelViewSet):
                     starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
                     deposit=_unit_deposit_amount(unit), billing_day=billing_day,
                     escalation_percent=escalation_percent, escalation_interval_months=escalation_interval,
-                    status=Lease.Status.DRAFT, metadata={'source': 'lease_import', 'imported_by': request.user.get_username()},
+                    status=Lease.Status.DRAFT, metadata={'source': 'lease_import', 'imported_by': request.user.get_username(), 'service_charge': str(service_charge)},
                 )
                 _inherit_unit_charge_profiles(lease)
+                if service_charge > 0:
+                    sc_item, _ = BillingItem.objects.get_or_create(
+                        organization=organization, code='SERVICE_CHARGE',
+                        defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.FIXED, 'income_category': 'service_charge', 'is_recurring': True},
+                    )
+                    BillingProfile.objects.update_or_create(
+                        organization=organization, lease=lease, billing_item=sc_item, effective_from=starts_on,
+                        defaults={
+                            'amount': service_charge, 'effective_to': ends_on, 'frequency': BillingProfile.Frequency.MONTHLY,
+                            'calculation': BillingItem.Calculation.FIXED, 'billing_day': billing_day, 'is_active': True,
+                        },
+                    )
                 created.append(str(lease.id))
             results.append({'row': index, 'data': normalized, 'errors': errors})
         return Response({

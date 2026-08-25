@@ -230,6 +230,107 @@ export function RowDetailPanel({
         </div>
       )}
 
+      {/* Property Service Providers & Service Lines */}
+      {Array.isArray((row as any).metadata?.service_providers) && (row as any).metadata.service_providers.length > 0 && (
+        <div style={{ padding: "12px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>🛠️ Service Providers &amp; Service Lines</span>
+            <span style={{ fontSize: 11, background: "rgba(37, 99, 235, 0.1)", color: "#2563eb", padding: "1px 6px", borderRadius: 4 }}>
+              {(row as any).metadata.service_providers.length} registered
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(row as any).metadata.service_providers.map((sp: any, idx: number) => (
+              <div key={idx} style={{ padding: "8px 10px", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 800, fontSize: 12 }}>{sp.service || sp.name || "Service Line"}</span>
+                    <span style={{ fontSize: 10, background: "#e0e7ff", color: "#4338ca", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                      {sp.category || "General Maintenance"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                    <strong>{sp.name || "Unassigned"}</strong> {sp.contact ? `· ${sp.contact}` : ""} {sp.phone ? `· ${sp.phone}` : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  {Number(sp.monthly_cost) > 0 && (
+                    <div style={{ fontSize: 12, fontWeight: 800 }}>
+                      KES {Number(sp.monthly_cost).toLocaleString()}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, color: "var(--muted)", textTransform: "capitalize" }}>
+                    {sp.frequency || "Monthly"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Property Utilities & Meters */}
+      {Array.isArray((row as any).metadata?.utilities) && (row as any).metadata.utilities.length > 0 && (
+        <div style={{ padding: "12px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>⚡ Utility Accounts &amp; Meters</span>
+            <span style={{ fontSize: 11, background: "rgba(22, 163, 74, 0.1)", color: "#16a34a", padding: "1px 6px", borderRadius: 4 }}>
+              {(row as any).metadata.utilities.length} accounts
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(row as any).metadata.utilities.map((u: any, idx: number) => (
+              <div key={idx} style={{ padding: "8px 10px", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 800, fontSize: 12, textTransform: "capitalize" }}>{u.type || "Utility"}</span>
+                    {u.meter_code && (
+                      <span className="mono" style={{ fontSize: 10, background: "#fef3c7", color: "#92400e", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                        Meter: {u.meter_code}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                    {u.provider ? `${u.provider} · ` : ""}{u.account_no ? `Acc: ${u.account_no}` : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700 }}>
+                    {u.tariff && Number(u.tariff) > 0 ? `KES ${u.tariff} / ${u.unit || 'unit'}` : (u.supply_mode || "Active")}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--muted)" }}>
+                    {u.bill_cycle || "Monthly"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Property Contacts */}
+      {Array.isArray((row as any).metadata?.contacts) && (row as any).metadata.contacts.length > 0 && (
+        <div style={{ padding: "12px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8 }}>
+            👥 Property Directory &amp; Contacts
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(row as any).metadata.contacts.map((c: any, idx: number) => (
+              <div key={idx} style={{ padding: "8px 10px", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 12 }}>{c.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{c.role || "Contact"}</div>
+                </div>
+                <div style={{ textAlign: "right", fontSize: 11 }}>
+                  {c.phone && <div><a href={`tel:${c.phone}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>{c.phone}</a></div>}
+                  {c.email && <div><a href={`mailto:${c.email}`} style={{ color: "var(--muted)", textDecoration: "none", fontSize: 10 }}>{c.email}</a></div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Property Details Grid */}
       <div style={{ display: "grid", gap: 8 }}>
         {Object.entries(row)
