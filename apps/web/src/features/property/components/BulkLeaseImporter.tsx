@@ -9,13 +9,13 @@ import { useAuth } from "@/components/auth-provider";
 type SourceRow = Record<string, string>;
 type PreviewRow = { row: number; data: SourceRow; errors: Record<string, string> };
 
-const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "billing_day", "escalation_percent", "escalation_interval_months"];
+const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "service_charge", "billing_day", "escalation_percent", "escalation_interval_months"];
 
 function downloadTemplate() {
   const csv = [
     headers,
-    ["TNT-0001", "G-01", "2026-09-01", "2027-08-31", "145000", "1", "10", "12"],
-    ["TNT-0002", "F1-02", "01/09/2026", "31/08/2027", "85000", "1", "10", "12"],
+    ["TNT-0001", "G-01", "2026-09-01", "2027-08-31", "145000", "25000", "1", "10", "12"],
+    ["TNT-0002", "F1-02", "01/09/2026", "31/08/2027", "85000", "15000", "1", "10", "12"],
   ]
     .map((row) => row.map((value) => `"${value}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -69,7 +69,7 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
     {busy && <LinearProgress />}
     <DialogContent>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Match existing tenants and units. Deposits and recurring charges are inherited from each unit billing schedule; imported leases remain drafts for review.
+        Match existing tenants and units. Set base rent and optional recurring service charge; imported leases remain drafts for review.
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
@@ -86,10 +86,12 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
         <Alert severity={validCount === preview.length ? "success" : "warning"}>
           {validCount} ready; {preview.length - validCount} need correction. Nothing has been saved yet.
         </Alert>
-        <Table size="small"><TableHead><TableRow><TableCell>Row</TableCell><TableCell>Tenant</TableCell><TableCell>Unit</TableCell><TableCell>Term</TableCell><TableCell>Rent</TableCell><TableCell>Inherited deposit</TableCell><TableCell>Validation</TableCell></TableRow></TableHead>
+        <Table size="small"><TableHead><TableRow><TableCell>Row</TableCell><TableCell>Tenant</TableCell><TableCell>Unit</TableCell><TableCell>Term</TableCell><TableCell>Rent</TableCell><TableCell>Service Charge</TableCell><TableCell>Inherited deposit</TableCell><TableCell>Validation</TableCell></TableRow></TableHead>
           <TableBody>{preview.map((row) => <TableRow key={row.row} sx={Object.keys(row.errors).length ? { bgcolor: "error.lighter" } : undefined}>
             <TableCell>{row.row}</TableCell><TableCell>{row.data.tenant}</TableCell><TableCell>{row.data.unit_code}</TableCell>
-            <TableCell>{row.data.starts_on} – {row.data.ends_on}</TableCell><TableCell>{row.data.monthly_rent}</TableCell><TableCell>{row.data.deposit}</TableCell>
+            <TableCell>{row.data.starts_on} – {row.data.ends_on}</TableCell><TableCell>{row.data.monthly_rent}</TableCell>
+            <TableCell>{row.data.service_charge ? `KES ${Number(row.data.service_charge).toLocaleString()}` : "—"}</TableCell>
+            <TableCell>{row.data.deposit}</TableCell>
             <TableCell>{Object.values(row.errors).join(" ") || "Ready"}</TableCell>
           </TableRow>)}</TableBody>
         </Table>

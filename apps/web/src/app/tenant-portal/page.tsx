@@ -266,8 +266,28 @@ export default function TenantPortalPage() {
       </div>
     );
   const lease = data.currentLease;
+  const isImpersonating = typeof window !== "undefined" && Boolean(new URLSearchParams(window.location.search).get("tenant"));
+
   return (
     <div className="page-wrap property-app">
+      {isImpersonating && (
+        <div style={{ background: "linear-gradient(90deg, #1e3a8a, #2563eb)", color: "#fff", padding: "12px 18px", borderRadius: 10, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 12px rgba(37, 99, 235, 0.2)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 22 }}>🛡️</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Support Mode: Viewing Portal as {data.tenant.name} ({data.tenant.code})</div>
+              <div style={{ fontSize: 12, opacity: 0.9 }}>Administrative preview active. All invoices, receipts, and service requests reflect this tenant's live view.</div>
+            </div>
+          </div>
+          <button
+            className="btn sm"
+            style={{ background: "rgba(255, 255, 255, 0.2)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.4)", borderRadius: 6, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}
+            onClick={() => window.close()}
+          >
+            Close Support View ✕
+          </button>
+        </div>
+      )}
       <section className="property-heading">
         <div>
           <p className="eyebrow">Tenant self-service</p>

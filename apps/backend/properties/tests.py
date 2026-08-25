@@ -1921,3 +1921,135 @@ class PropertyRolePermissionApiTests(TestCase):
         ).status_code, 403)
 
     # ─── P0: CREDIT NOTE VOID ───
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class TenantHandoverApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='hnd-user', password='test')
+        self.organization = Organization.objects.create(name='HND Client', slug='hnd-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='P1', name='HND Building')
+        self.unit = Unit.objects.create(organization=self.organization, property=self.property, code='101')
+        self.tenant = Tenant.objects.create(organization=self.organization, code='TEN-1', name='Handover Tenant')
+        self.lease = Lease.objects.create(
+            organization=self.organization, reference='LSE-HND-1', unit=self.unit, tenant=self.tenant,
+            starts_on='2026-09-01', ends_on='2027-09-01', monthly_rent=Decimal('25000'),
+            status=Lease.Status.ACTIVE,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def _create(self):
+        return self.client.post('/api/v1/property/handovers/', {
+            'lease': str(self.lease.id), 'handover_date': '2026-09-01',
+            'condition_lines': [
+                {'item': 'Flooring', 'condition': 'Good', 'notes': 'Tiles intact'},
+                {'item': 'Walls', 'condition': 'Fair', 'notes': 'Minor scuffing'},
+            ],
+            'keys_items': [{'item': 'Main door key', 'quantity': 2}],
+            'electricity_meter_number': 'KPLC-9911', 'electricity_opening_reading': '120.50',
+            'notes': 'Handover completed at premises.',
+        }, format='json', **self.headers)
+
+    def test_full_handover_lifecycle(self):
+        created = self._create()
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertTrue(created.data['code'].startswith('HND-'))
+        self.assertEqual(created.data['unit_code'], '101')
+        hid = created.data['id']
+        blocked = self.client.post(f'/api/v1/property/handovers/{hid}/sign-tenant/', {}, format='json', **self.headers)
+        self.assertEqual(blocked.status_code, 400)
+        caretaker = self.client.post(f'/api/v1/property/handovers/{hid}/sign-caretaker/', {'caretaker_name': 'Joe Caretaker'}, format='json', **self.headers)
+        self.assertEqual(caretaker.status_code, 200, caretaker.data)
+        self.assertEqual(caretaker.data['status'], 'in_progress')
+        tenant_sign = self.client.post(f'/api/v1/property/handovers/{hid}/sign-tenant/', {}, format='json', **self.headers)
+        self.assertEqual(tenant_sign.status_code, 200, tenant_sign.data)
+        self.assertEqual(tenant_sign.data['status'], 'completed')
+        ack = self.client.post(f'/api/v1/property/handovers/{hid}/acknowledge/', {}, format='json', **self.headers)
+        self.assertEqual(ack.status_code, 200, ack.data)
+        self.assertEqual(ack.data['status'], 'acknowledged')
+
+    def test_caretaker_signature_requires_condition_lines(self):
+        created = self.client.post('/api/v1/property/handovers/', {'lease': str(self.lease.id)}, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        signed = self.client.post(f"/api/v1/property/handovers/{created.data['id']}/sign-caretaker/", {'caretaker_name': 'Joe'}, format='json', **self.headers)
+        self.assertEqual(signed.status_code, 400)
+        self.assertIn('condition_lines', signed.data)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class ExitClearanceApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='exc-user', password='test')
+        self.organization = Organization.objects.create(name='EXC Client', slug='exc-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='P1', name='EXC Building')
+        self.unit = Unit.objects.create(organization=self.organization, property=self.property, code='201')
+        self.tenant = Tenant.objects.create(organization=self.organization, code='TEN-2', name='Exiting Tenant')
+        self.lease = Lease.objects.create(
+            organization=self.organization, reference='LSE-EXC-1', unit=self.unit, tenant=self.tenant,
+            starts_on='2025-09-01', ends_on='2026-09-01', monthly_rent=Decimal('25000'),
+            status=Lease.Status.ACTIVE,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def _create(self):
+        return self.client.post('/api/v1/property/exit-clearances/', {
+            'lease': str(self.lease.id), 'move_out_date': '2026-09-01',
+            'move_out_conditions': 'Tenant must vacate by noon.',
+            'deposit_amount': '50000.00',
+        }, format='json', **self.headers)
+
+    def _complete_sections(self, clearance_id):
+        return self.client.patch(f'/api/v1/property/exit-clearances/{clearance_id}/', {
+            'utilities_cleared': True, 'electricity_final_reading': '310.00',
+            'inspection_passed': True, 'inspection_notes': 'Unit in good condition.',
+            'rent_cleared': True, 'service_charge_cleared': True,
+            'deductions': [{'item': 'Repainting', 'amount': '8000', 'notes': 'Scuffed walls'}],
+        }, format='json', **self.headers)
+
+    def test_full_exit_clearance_to_gate_pass(self):
+        created = self._create()
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertTrue(created.data['code'].startswith('EXC-'))
+        cid = created.data['id']
+        early = self.client.post(f'/api/v1/property/exit-clearances/{cid}/mark-cleared/', {}, format='json', **self.headers)
+        self.assertEqual(early.status_code, 400)
+        patched = self._complete_sections(cid)
+        self.assertEqual(patched.status_code, 200, patched.data)
+        cleared = self.client.post(f'/api/v1/property/exit-clearances/{cid}/mark-cleared/', {}, format='json', **self.headers)
+        self.assertEqual(cleared.status_code, 200, cleared.data)
+        self.assertEqual(cleared.data['status'], 'cleared')
+        self.assertEqual(cleared.data['refund_amount'], '42000.00')
+        mgr = self.client.post(f'/api/v1/property/exit-clearances/{cid}/approve-manager/', {}, format='json', **self.headers)
+        self.assertEqual(mgr.status_code, 200, mgr.data)
+        fin = self.client.post(f'/api/v1/property/exit-clearances/{cid}/approve-finance/', {}, format='json', **self.headers)
+        self.assertEqual(fin.status_code, 200, fin.data)
+        self.assertEqual(fin.data['status'], 'approved')
+        gp = self.client.post(f'/api/v1/property/exit-clearances/{cid}/issue-gate-pass/', {}, format='json', **self.headers)
+        self.assertEqual(gp.status_code, 200, gp.data)
+        self.assertEqual(gp.data['status'], 'gate_pass_issued')
+        self.assertTrue(gp.data['gate_pass_number'].startswith('GP-'))
+
+    def test_deductions_cannot_exceed_deposit(self):
+        created = self._create()
+        cid = created.data['id']
+        over = self.client.patch(f'/api/v1/property/exit-clearances/{cid}/', {
+            'deductions': [{'item': 'Damaged floor', 'amount': '60000'}],
+        }, format='json', **self.headers)
+        self.assertEqual(over.status_code, 400)
+        self.assertIn('deductions', over.data)
+
+    def test_gate_pass_requires_full_approval_chain(self):
+        created = self._create()
+        cid = created.data['id']
+        self._complete_sections(cid)
+        self.client.post(f'/api/v1/property/exit-clearances/{cid}/mark-cleared/', {}, format='json', **self.headers)
+        skip = self.client.post(f'/api/v1/property/exit-clearances/{cid}/issue-gate-pass/', {}, format='json', **self.headers)
+        self.assertEqual(skip.status_code, 400)

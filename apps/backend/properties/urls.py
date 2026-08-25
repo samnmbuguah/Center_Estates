@@ -15,6 +15,7 @@ from .views import (
     TaxConfigurationViewSet, TenantMovementViewSet, TenantViewSet,
     UnitChargeRuleViewSet, UnitStatusHistoryViewSet, UnitViewSet,
 )
+from .handover_views import ExitClearanceViewSet, TenantHandoverViewSet
 
 router = DefaultRouter()
 router.register('dashboard', PropertyDashboardViewSet, basename='property-dashboard')
@@ -32,6 +33,8 @@ router.register('leases', LeaseViewSet)
 router.register('lease-escalations', LeaseEscalationViewSet)
 router.register('unit-status-history', UnitStatusHistoryViewSet)
 router.register('tenant-movements', TenantMovementViewSet)
+router.register('handovers', TenantHandoverViewSet)
+router.register('exit-clearances', ExitClearanceViewSet)
 router.register('tax-configurations', TaxConfigurationViewSet)
 router.register('billing-items', BillingItemViewSet)
 router.register('billing-profiles', BillingProfileViewSet)

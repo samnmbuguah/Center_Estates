@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from rest_framework import serializers
+from core.tenancy import get_active_organization
 
 from .models import (
     BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
@@ -8,6 +11,7 @@ from .models import (
     ServiceCharge, TaxConfiguration, TenantMovement, UnitStatusHistory, LeaseEscalation,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment,
+    TenantHandover, ExitClearance,
 )
 
 
@@ -233,6 +237,55 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         exclude = ('organization',)
         ref_name = 'PropertyProject'
+
+
+class TenantHandoverSerializer(serializers.ModelSerializer):
+    lease_reference = serializers.CharField(source='lease.reference', read_only=True)
+    tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+    unit_code = serializers.CharField(source='unit.code', read_only=True, default='')
+
+    class Meta:
+        model = TenantHandover
+        exclude = ('organization',)
+        read_only_fields = ('code', 'status', 'caretaker_signed_at', 'tenant_signed_at', 'acknowledged_at')
+        extra_kwargs = {'tenant': {'required': False}, 'unit': {'required': False}}
+        ref_name = 'TenantHandover'
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        for field in ('lease', 'tenant', 'unit'):
+            record = attrs.get(field)
+            if record and record.organization_id != organization.id:
+                raise serializers.ValidationError({field: 'Record must belong to the active organization.'})
+        return attrs
+
+
+class ExitClearanceSerializer(serializers.ModelSerializer):
+    lease_reference = serializers.CharField(source='lease.reference', read_only=True)
+    tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+
+    class Meta:
+        model = ExitClearance
+        exclude = ('organization',)
+        read_only_fields = ('code', 'status', 'manager_approved_by', 'manager_approved_at',
+                            'finance_approved_by', 'finance_approved_at', 'landlord_approved_at',
+                            'rejected_reason', 'gate_pass_number', 'gate_pass_issued_at')
+        extra_kwargs = {'tenant': {'required': False}}
+        ref_name = 'ExitClearance'
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        for field in ('lease', 'tenant'):
+            record = attrs.get(field)
+            if record and record.organization_id != organization.id:
+                raise serializers.ValidationError({field: 'Record must belong to the active organization.'})
+        deductions = attrs.get('deductions')
+        if deductions:
+            total_deductions = sum(Decimal(str(d.get('amount', 0))) for d in deductions if isinstance(d, dict))
+            deposit = attrs.get('deposit_amount', self.instance.deposit_amount if self.instance else None)
+            if deposit is not None and total_deductions > deposit:
+                raise serializers.ValidationError({'deductions': 'Total deductions cannot exceed the deposit amount.'})
+        return attrs
 
 
 class TenantSerializer(serializers.ModelSerializer):

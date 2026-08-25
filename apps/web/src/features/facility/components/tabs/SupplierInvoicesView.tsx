@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  LinearProgress, MenuItem, Paper, Stack, TextField, Typography,
+  Divider, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, Switch,
+  TextField, Typography,
 } from "@mui/material";
-import { Plus, Send } from "lucide-react";
+import { Eye, Plus, Send, Upload } from "lucide-react";
 import { EmptyState, StatusPill, money } from "@/components/module-ui";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import type { FacilityTab, Row } from "../../types/facility.types";
@@ -30,6 +31,10 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
 }) {
   const invoices = rows as unknown as Invoice[];
   const [createOpen, setCreateOpen] = useState(false);
+  const [inspectTarget, setInspectTarget] = useState<Invoice | null>(null);
+  const [isException, setIsException] = useState(false);
+  const [exceptionNotes, setExceptionNotes] = useState("");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Invoice | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [payTarget, setPayTarget] = useState<Invoice | null>(null);
@@ -192,6 +197,7 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right" }}>
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        <Button size="small" variant="text" startIcon={<Eye size={12} />} onClick={() => { setInspectTarget(inv); setIsException(Boolean(inv.exception_approved)); setExceptionNotes(""); }}>Review</Button>
                         {inv.status === "draft" && <Button size="small" variant="outlined" startIcon={<Send size={12} />} disabled={Boolean(busy)} onClick={() => void runAction(inv, "submit")}>Submit</Button>}
                         {inv.status === "submitted" && <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void runAction(inv, "verify")}>Verify</Button>}
                         {inv.status === "verified" && (
@@ -213,11 +219,161 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
         )}
       </Paper>
 
+      {/* Side-by-side Review & Verification Dialog */}
+      <Dialog open={Boolean(inspectTarget)} onClose={() => setInspectTarget(null)} maxWidth="lg" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Invoice Review &amp; Verification — {inspectTarget?.code}</span>
+          <StatusPill value={inspectTarget?.status || ""} />
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2.5, mt: 1 }}>
+            {/* Left Pane: Invoice Details & Source Linkage */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, background: "var(--surface-sunken)" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>🧾 Invoice Document &amp; Vendor Data</Typography>
+              <Stack spacing={1.5}>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="caption" color="text.secondary">Supplier:</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{inspectTarget?.supplier_name}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="caption" color="text.secondary">Supplier Invoice #:</Typography>
+                  <Typography variant="body2" className="mono" sx={{ fontWeight: 700 }}>{inspectTarget?.supplier_invoice_number}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="caption" color="text.secondary">Property:</Typography>
+                  <Typography variant="body2">{inspectTarget?.property_name}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="caption" color="text.secondary">Classification:</Typography>
+                  <Chip size="small" label={inspectTarget?.classification === "repair" ? "Repair (WO Linked)" : "Recurring Service"} sx={{ fontSize: 11 }} />
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="caption" color="text.secondary">Description:</Typography>
+                  <Typography variant="body2" sx={{ maxWidth: "60%", textAlign: "right" }}>{inspectTarget?.description}</Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="caption" color="text.secondary">Subtotal:</Typography>
+                  <Typography variant="body2" className="mono">{inspectTarget ? money.format(Number(inspectTarget.subtotal)) : ""}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="caption" color="text.secondary">VAT Amount:</Typography>
+                  <Typography variant="body2" className="mono">{inspectTarget ? money.format(Number(inspectTarget.vat_amount)) : ""}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Total Payable:</Typography>
+                  <Typography variant="h6" className="mono" sx={{ fontWeight: 900, color: "var(--primary)" }}>
+                    {inspectTarget ? money.format(Number(inspectTarget.total)) : ""}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+
+            {/* Right Pane: Operational Verification & Exception Controls */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>🔍 Operational Verification Checklist</Typography>
+              <Stack spacing={2}>
+                <Box sx={{ p: 1.5, borderRadius: 1.5, background: inspectTarget?.work_order_number ? "rgba(22, 163, 74, 0.08)" : "rgba(245, 158, 11, 0.08)", border: "1px solid", borderColor: inspectTarget?.work_order_number ? "rgba(22, 163, 74, 0.3)" : "rgba(245, 158, 11, 0.3)" }}>
+                  <Typography variant="caption" sx={{ fontWeight: 800, display: "block" }}>Source Work Order:</Typography>
+                  <Typography variant="body2">
+                    {inspectTarget?.work_order_number ? `WO #${inspectTarget.work_order_number} · Linked & Approved` : "No Work Order linked"}
+                  </Typography>
+                  {inspectTarget?.work_order_value && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                      Approved WO Value: {money.format(Number(inspectTarget.work_order_value))}
+                    </Typography>
+                  )}
+                </Box>
+
+                {inspectTarget?.variance !== null && inspectTarget?.variance !== undefined && Number(inspectTarget.variance) !== 0 && (
+                  <Alert severity={Number(inspectTarget.variance) > 0 ? "warning" : "info"}>
+                    Cost Variance: <strong>{Number(inspectTarget.variance) > 0 ? "+" : ""}{money.format(Number(inspectTarget.variance))}</strong> vs approved estimate.
+                  </Alert>
+                )}
+
+                {inspectTarget?.exception_approved && (
+                  <Alert severity="warning">
+                    Authorized with exception override.
+                  </Alert>
+                )}
+
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  label="Verification / Approval Notes"
+                  placeholder="Enter audit notes or exception justification..."
+                  value={exceptionNotes}
+                  onChange={(e) => setExceptionNotes(e.target.value)}
+                />
+
+                {inspectTarget?.status === "verified" && (
+                  <FormControlLabel
+                    control={<Switch checked={isException} onChange={(e) => setIsException(e.target.checked)} color="warning" />}
+                    label={<Typography variant="body2" sx={{ fontWeight: 700 }}>Authorize Exception Approval (Override Budget / WO Gate)</Typography>}
+                  />
+                )}
+              </Stack>
+            </Paper>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setInspectTarget(null)}>Close</Button>
+          {inspectTarget?.status === "submitted" && (
+            <Button variant="contained" disabled={Boolean(busy)} onClick={() => inspectTarget && void runAction(inspectTarget, "verify", { notes: exceptionNotes })}>
+              Verify Invoice
+            </Button>
+          )}
+          {inspectTarget?.status === "verified" && (
+            <>
+              <Button color="error" onClick={() => { setRejectTarget(inspectTarget); setInspectTarget(null); }}>
+                Reject
+              </Button>
+              <Button
+                variant="contained"
+                color={isException ? "warning" : "primary"}
+                disabled={Boolean(busy)}
+                onClick={() => inspectTarget && void runAction(inspectTarget, "approve", { exception: isException, exception_notes: exceptionNotes, notes: exceptionNotes })}
+              >
+                {isException ? "Approve with Exception" : "Approve for Payment"}
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Create dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Record Supplier Invoice</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {/* OCR / Document Attachment Upload */}
+            <Paper variant="outlined" sx={{ p: 1.5, background: "var(--surface-sunken)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Attach Invoice PDF or Photo</Typography>
+                <Typography variant="caption" color="text.secondary">Upload vendor bill for permanent audit trail &amp; autofill</Typography>
+              </Box>
+              <Button variant="outlined" size="small" component="label" startIcon={<Upload size={14} />}>
+                {invoiceFile ? invoiceFile.name : "Choose Invoice File"}
+                <input
+                  hidden
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setInvoiceFile(f);
+                      // Auto-extract invoice number from filename if applicable
+                      const match = f.name.match(/(?:INV|BILL|SIN)[-_]?\d+/i);
+                      if (match && !form.supplier_invoice_number) {
+                        setForm((prev) => ({ ...prev, supplier_invoice_number: match[0].toUpperCase() }));
+                      }
+                    }
+                  }}
+                />
+              </Button>
+            </Paper>
+
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField select required label="Property" value={form.property} onChange={(e) => setForm({ ...form, property: e.target.value })} sx={inputStyle}>
                 {propertyOptions.map((p) => <MenuItem key={String(p.id)} value={String(p.id)}>{String(p.name)}</MenuItem>)}
@@ -234,7 +390,23 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
               </TextField>
             </Stack>
             {form.classification === "repair" && (
-              <TextField select label="Work order" value={form.work_order} onChange={(e) => setForm({ ...form, work_order: e.target.value })} sx={inputStyle} helperText="Required at submission for repairs — variance is checked against the approved work-order value.">
+              <TextField
+                select
+                label="Work order"
+                value={form.work_order}
+                onChange={(e) => {
+                  const woId = e.target.value;
+                  const targetWo = workOrderOptions.find((w) => String(w.id) === woId);
+                  setForm((prev) => ({
+                    ...prev,
+                    work_order: woId,
+                    description: prev.description || (targetWo ? String(targetWo.title) : ""),
+                    subtotal: prev.subtotal || (targetWo && (targetWo as any).approved_amount ? String((targetWo as any).approved_amount) : prev.subtotal),
+                  }));
+                }}
+                sx={inputStyle}
+                helperText="Required at submission for repairs — auto-populates approved value and description."
+              >
                 {workOrderOptions.map((w) => <MenuItem key={String(w.id)} value={String(w.id)}>{String(w.number)} — {String(w.title)}</MenuItem>)}
               </TextField>
             )}

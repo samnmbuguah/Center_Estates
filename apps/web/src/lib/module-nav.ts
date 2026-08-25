@@ -25,6 +25,7 @@ export const propertyNav: ModuleNavGroup[] = [
       { id: "units", label: "Units & Occupancy", icon: "🏢" },
       { id: "leases", label: "Lease Agreements", icon: "📄" },
       { id: "tenant-documents", label: "Compliance & Docs", icon: "📎" },
+      { id: "handover-exit", label: "Handover & Exit", icon: "🔑" },
     ],
   },
   {

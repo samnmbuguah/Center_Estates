@@ -114,6 +114,7 @@ export function usePropertyLogic({
   const [receiptOptions, setReceiptOptions] = useState<Row[]>([]);
   const [propertyOptions, setPropertyOptions] = useState<Row[]>([]);
   const [leaseOptions, setLeaseOptions] = useState<LeaseRow[]>([]);
+  const [handovers, setHandovers] = useState<Row[]>([]);
   const [billingContext, setBillingContext] = useState<BillingContext | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<InvoicePreview | null>(null);
   const [invoiceDraft, setInvoiceDraft] = useState({ number: "", lease: "", invoice_type: "rent", issued_on: "", due_on: "", subtotal: "", tax_rate: "0" });
@@ -331,6 +332,22 @@ export function usePropertyLogic({
           if (version === loadVersion.current) setRows(merged);
         } else if (version === loadVersion.current) {
           setRows(list);
+        }
+      } else if (tab === "handover-exit") {
+        const [hRes, cRes, lRes] = await Promise.all([
+          apiFetch("/property/handovers/?search=", {}, organizationId),
+          apiFetch("/property/exit-clearances/?search=", {}, organizationId),
+          apiFetch("/property/leases/?search=", {}, organizationId),
+        ]);
+        if (!hRes.ok || !cRes.ok) { fail(); return; }
+        const hData = await hRes.json();
+        const cData = await cRes.json();
+        if (version !== loadVersion.current) return;
+        setRows(Array.isArray(hData) ? hData as Row[] : []);
+        setHandovers(Array.isArray(cData) ? cData as Row[] : []);
+        if (lRes.ok) {
+          const lData = await lRes.json();
+          setLeaseOptions(Array.isArray(lData) ? (lData as unknown as LeaseRow[]) : []);
         }
       } else if (tab === "tenants" || tab === "leases") {
         const [listRes, ageRes] = await Promise.all([
@@ -1296,6 +1313,7 @@ export function usePropertyLogic({
     receiptOptions,
     propertyOptions,
     leaseOptions,
+    handovers,
     billingContext,
     setBillingContext,
     openInvoiceComposer,

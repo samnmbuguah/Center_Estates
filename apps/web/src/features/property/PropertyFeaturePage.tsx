@@ -5,7 +5,7 @@ import { ModuleShell } from "@/components/module-shell";
 import { propertyNav } from "@/lib/module-nav";
 import { DetailDrawer, ErrorBanner, LoadingState } from "@/components/module-ui";
 
-import { PropertyTab, TenantRow, BankTransactionRow, labels } from "./types/property.types";
+import { PropertyTab, TenantRow, BankTransactionRow, Row, labels } from "./types/property.types";
 import { usePropertyLogic } from "./hooks/usePropertyLogic";
 import { RowDetailPanel } from "./components/RowDetailPanel";
 import { TenantPortalDrawer } from "./components/TenantPortalDrawer";
@@ -32,6 +32,7 @@ import { ServiceChargesView } from "./components/tabs/ServiceChargesView";
 import { ServiceChargeAllocationsView } from "./components/tabs/ServiceChargeAllocationsView";
 import { ServiceChargeReconciliationsView } from "./components/tabs/ServiceChargeReconciliationsView";
 import { ServiceProfilesView } from "./components/tabs/ServiceProfilesView";
+import { HandoverExitView } from "./components/tabs/HandoverExitView";
 import { BudgetsView } from "./components/tabs/BudgetsView";
 import { ExpensesView } from "./components/tabs/ExpensesView";
 import { FeesView } from "./components/tabs/FeesView";
@@ -101,6 +102,8 @@ export function PropertyFeaturePage({
         return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} onVoid={logic.handleVoidCreditNote} />;
       case "service-profiles":
         return <ServiceProfilesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} organizationId={logic.organizationId} reload={logic.fetchData} />;
+      case "handover-exit":
+        return <HandoverExitView handovers={logic.rows} clearances={logic.handovers} loading={logic.loading} error={logic.error} search={logic.search} setSearch={logic.setSearch} organizationId={logic.organizationId} leaseOptions={logic.leaseOptions as Row[]} canLease={logic.canLease} canApprove={logic.canApprove} reload={logic.fetchData} setTab={logic.setTab} />;
       case "service-charges":
         return <ServiceChargesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.setShowAddServiceCharge(true)} onAllocate={logic.generateServiceChargeAllocations} onReconcile={logic.setReconciliationTarget} />;
       case "service-charge-allocations":

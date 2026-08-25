@@ -698,6 +698,80 @@ class FacilityExpense(OrganizationOwnedModel):
             raise ValidationError({'amount': 'Expense amount must be greater than zero.'})
 
 
+class SupplierInvoice(OrganizationOwnedModel):
+    class Classification(models.TextChoices):
+        REPAIR = 'repair', 'One-off repair'
+        RECURRING = 'recurring', 'Recurring service'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SUBMITTED = 'submitted', 'Submitted'
+        VERIFIED = 'verified', 'Verified'
+        APPROVED = 'approved', 'Approved'
+        PAYMENT_PROCESSING = 'payment_processing', 'Payment processing'
+        PAID = 'paid', 'Paid'
+        REJECTED = 'rejected', 'Rejected'
+        ON_HOLD = 'on_hold', 'On hold'
+
+    code = models.CharField(max_length=60)
+    supplier = models.ForeignKey(Contractor, on_delete=models.PROTECT, related_name='supplier_invoices')
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='supplier_invoices')
+    supplier_invoice_number = models.CharField(max_length=80)
+    classification = models.CharField(max_length=16, choices=Classification.choices, default=Classification.REPAIR)
+
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='supplier_invoices')
+    service_profile = models.ForeignKey('facilities.ServiceProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='supplier_invoices')
+    service_period_start = models.DateField(null=True, blank=True)
+    service_period_end = models.DateField(null=True, blank=True)
+
+    description = models.TextField()
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
+    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('16.00'))
+    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    tax_code = models.CharField(max_length=40, blank=True)
+    cost_centre = models.CharField(max_length=80, blank=True)
+    budget = models.ForeignKey(FMBudget, on_delete=models.SET_NULL, null=True, blank=True, related_name='supplier_invoices')
+
+    invoice_document_url = models.CharField(max_length=500, blank=True)
+    variance_notes = models.TextField(blank=True)
+    exception_approved = models.BooleanField(default=False)
+    exception_notes = models.TextField(blank=True)
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='submitted_supplier_invoices')
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_supplier_invoices')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verified_notes = models.TextField(blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_supplier_invoices')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_notes = models.TextField(blank=True)
+    rejected_reason = models.TextField(blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_supplier_invoice_code'),
+            models.UniqueConstraint(fields=('organization', 'supplier', 'supplier_invoice_number'), name='unique_organization_supplier_invoice_number'),
+        ]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Supplier invoice property must belong to the active organization.')
+        if self.supplier_id and self.supplier.organization_id != self.organization_id:
+            raise ValidationError('Supplier must belong to the active organization.')
+        if self.work_order_id and self.work_order.property_id != self.property_id:
+            raise ValidationError({'work_order': 'The linked work order must belong to the selected property.'})
+        if self.total <= 0:
+            raise ValidationError({'total': 'Invoice total amount must be greater than zero.'})
+        if self.classification == self.Classification.REPAIR and not self.work_order_id and not self.exception_approved:
+            raise ValidationError({'work_order': 'One-off reactive repair invoices must link to a valid Work Order.'})
+
+
 class ComplianceObligation(OrganizationOwnedModel):
     property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='compliance_obligations')
     building = models.ForeignKey('properties.Building', on_delete=models.SET_NULL, null=True, blank=True, related_name='compliance_obligations')

@@ -1,0 +1,295 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  LinearProgress, MenuItem, Paper, Stack, TextField, Typography,
+} from "@mui/material";
+import { CheckCircle, KeyRound, Plus } from "lucide-react";
+import { EmptyState, KpiCard, KpiStrip, StatusPill, money } from "@/components/module-ui";
+import { ViewToolbar, SubTabs } from "../PropertyToolbar";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
+import type { PropertyTab, Row } from "../../types/property.types";
+
+type Handover = {
+  id: string; code: string; lease_reference: string; tenant_name: string; unit_code: string;
+  status: string; handover_date: string | null; caretaker_name: string;
+  condition_lines: Array<Record<string, string>>; keys_items: Array<Record<string, unknown>>;
+  electricity_meter_number: string; electricity_opening_reading: string | null;
+};
+
+type Clearance = {
+  id: string; code: string; lease_reference: string; tenant_name: string;
+  status: string; move_out_date: string | null; deposit_amount: string | null;
+  refund_amount: string | null; utilities_cleared: boolean; inspection_passed: boolean;
+  rent_cleared: boolean; service_charge_cleared: boolean; gate_pass_number: string;
+  manager_approved_at: string | null; rejected_reason: string;
+};
+
+const EMPTY_HANDOVER = {
+  lease: "", handover_date: "", notes: "",
+  condition_lines: [
+    { item: "Flooring", condition: "Good", notes: "" }, { item: "Walls", condition: "Good", notes: "" },
+    { item: "Ceiling", condition: "Good", notes: "" }, { item: "Lights", condition: "Good", notes: "" },
+    { item: "Power outlets", condition: "Good", notes: "" }, { item: "Doors & locks", condition: "Good", notes: "" },
+    { item: "Plumbing", condition: "Good", notes: "" },
+  ],
+  keys_items: [{ item: "Main door key", quantity: "1" }],
+  electricity_meter_number: "", electricity_opening_reading: "",
+  water_meter_number: "", water_opening_reading: "",
+};
+
+async function post(path: string, payload: unknown, organizationId: string | null, method = "POST") {
+  await apiFetch("/auth/csrf/");
+  return apiFetch(path, { method, headers: { "X-CSRFToken": csrfFromCookie(), "Content-Type": "application/json" }, body: JSON.stringify(payload) }, organizationId);
+}
+
+export function HandoverExitView({ handovers, clearances, loading, error, search, setSearch, organizationId, leaseOptions, canLease, canApprove, reload, setTab }: {
+  handovers: Row[]; clearances: Row[]; loading: boolean; error: string; search: string;
+  setSearch: (v: string) => void; organizationId: string | null; leaseOptions: Row[];
+  canLease: boolean; canApprove: boolean; reload: () => void; setTab: (t: PropertyTab) => void;
+}) {
+  const [subTab, setSubTab] = useState<"handover" | "exit">("handover");
+  const [busy, setBusy] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_HANDOVER);
+
+  const hList = handovers as unknown as Handover[];
+  const cList = clearances as unknown as Clearance[];
+
+  const kpis = useMemo(() => ({
+    openHandovers: hList.filter(h => h.status !== "acknowledged" && h.status !== "cancelled").length,
+    acknowledged: hList.filter(h => h.status === "acknowledged").length,
+    activeClearances: cList.filter(c => !["gate_pass_issued", "rejected"].includes(c.status)).length,
+    gatePasses: cList.filter(c => c.status === "gate_pass_issued").length,
+  }), [hList, cList]);
+
+  async function run(path: string, payload: Record<string, unknown>, method = "POST") {
+    setBusy(path); setActionError("");
+    try {
+      const res = await post(path, payload, organizationId, method);
+      if (!res.ok) { setActionError(await apiErrorMessage(res, "The action could not be completed.")); return false; }
+      reload();
+      return true;
+    } finally { setBusy(""); }
+  }
+
+  async function createHandover() {
+    if (!form.lease) return;
+    const payload: Record<string, unknown> = {
+      lease: form.lease, handover_date: form.handover_date || null, notes: form.notes,
+      condition_lines: form.condition_lines.filter(l => l.item),
+      keys_items: form.keys_items.filter(k => k.item),
+      electricity_meter_number: form.electricity_meter_number,
+      electricity_opening_reading: form.electricity_opening_reading || null,
+      water_meter_number: form.water_meter_number,
+      water_opening_reading: form.water_opening_reading || null,
+    };
+    const ok = await run("/property/handovers/", payload);
+    if (ok) { setCreateOpen(false); setForm(EMPTY_HANDOVER); }
+  }
+
+  const inputStyle = { width: "100%" } as const;
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
+      <KpiStrip>
+        <KpiCard icon="🔑" iconBg="rgba(79,70,229,0.12)" iconColor="#4f46e5" label="Open Handovers" value={String(kpis.openHandovers)} sub="Awaiting sign-off" />
+        <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="#16a34a" label="Acknowledged" value={String(kpis.acknowledged)} sub="Move-ins complete" />
+        <KpiCard icon="🚪" iconBg="rgba(217,119,6,0.12)" iconColor="#d97706" label="Active Clearances" value={String(kpis.activeClearances)} sub="In progress" />
+        <KpiCard icon="🎫" iconBg="rgba(22,163,74,0.12)" iconColor="#16a34a" label="Gate Passes" value={String(kpis.gatePasses)} sub="Exits complete" />
+      </KpiStrip>
+
+      <SubTabs tabs={[{ id: "handover", label: `Move-in Handover (${hList.length})` }, { id: "exit", label: `Exit Clearance (${cList.length})` }]} active={subTab} onChange={(id) => setSubTab(id as "handover" | "exit")} />
+
+      {(error || actionError) && <Alert severity="error" onClose={() => setActionError("")}>{actionError || error}</Alert>}
+      {loading && <LinearProgress />}
+
+      {subTab === "handover" && (
+        <>
+          <ViewToolbar title="Move-in Handover" subtitle="Premises condition, keys, opening meter readings and dual sign-off" search={search} onSearch={setSearch} placeholder="Search tenant, unit or lease…">
+            <button className="btn ghost sm" onClick={() => setTab("leases")}>Leases →</button>
+            {canLease && <button className="btn primary sm" onClick={() => setCreateOpen(true)}>+ New Handover</button>}
+          </ViewToolbar>
+
+          <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+            {hList.length === 0 && !loading ? (
+              <EmptyState title="No handovers" description="Record a move-in handover to capture condition, keys and opening meter readings." />
+            ) : (
+              <Box sx={{ overflowX: "auto" }}>
+                <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
+                      <th style={{ padding: "10px 14px" }}>Code</th>
+                      <th style={{ padding: "10px 14px" }}>Tenant / Unit</th>
+                      <th style={{ padding: "10px 14px" }}>Lease</th>
+                      <th style={{ padding: "10px 14px" }}>Condition lines</th>
+                      <th style={{ padding: "10px 14px" }}>Caretaker</th>
+                      <th style={{ padding: "10px 14px" }}>Status</th>
+                      <th style={{ padding: "10px 14px", textAlign: "right" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hList.map((h) => (
+                      <tr key={h.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #dc2626)" }}>{h.code}</span></td>
+                        <td style={{ padding: "12px 14px" }}>
+                          <div style={{ fontWeight: 700 }}>{h.tenant_name}</div>
+                          <div style={{ fontSize: 11, color: "text.secondary" }}>Unit {h.unit_code || "—"}</div>
+                        </td>
+                        <td className="mono" style={{ padding: "12px 14px", fontSize: 12 }}>{h.lease_reference}</td>
+                        <td style={{ padding: "12px 14px", fontSize: 12 }}>{h.condition_lines?.length ?? 0} lines · {h.keys_items?.length ?? 0} keys</td>
+                        <td style={{ padding: "12px 14px", fontSize: 12 }}>{h.caretaker_name || "—"}</td>
+                        <td style={{ padding: "12px 14px" }}><StatusPill value={h.status} /></td>
+                        <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                          <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                            {["draft", "in_progress"].includes(h.status) && canLease && !h.caretaker_name && (
+                              <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/sign-caretaker/`, { caretaker_name: "Caretaker on duty" })}>Sign caretaker</Button>
+                            )}
+                            {["draft", "in_progress"].includes(h.status) && h.caretaker_name && (
+                              <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/sign-tenant/`, {})}>Sign tenant</Button>
+                            )}
+                            {h.status === "completed" && canApprove && (
+                              <Button size="small" variant="contained" startIcon={<CheckCircle size={13} />} disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/acknowledge/`, {})}>Acknowledge</Button>
+                            )}
+                          </Stack>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            )}
+          </Paper>
+        </>
+      )}
+
+      {subTab === "exit" && (
+        <>
+          <ViewToolbar title="Exit Clearance" subtitle="Utilities, inspection, balances, deposit reconciliation, approvals and gate pass" search={search} onSearch={setSearch} placeholder="Search tenant or lease…">
+            <button className="btn ghost sm" onClick={() => setTab("leases")}>Leases →</button>
+          </ViewToolbar>
+
+          <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+            {cList.length === 0 && !loading ? (
+              <EmptyState title="No exit clearances" description="Start an exit clearance when a tenant gives notice to vacate." />
+            ) : (
+              <Box sx={{ overflowX: "auto" }}>
+                <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
+                      <th style={{ padding: "10px 14px" }}>Code</th>
+                      <th style={{ padding: "10px 14px" }}>Tenant / Lease</th>
+                      <th style={{ padding: "10px 14px" }}>Clearances</th>
+                      <th style={{ padding: "10px 14px" }}>Deposit → Refund</th>
+                      <th style={{ padding: "10px 14px" }}>Status</th>
+                      <th style={{ padding: "10px 14px", textAlign: "right" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cList.map((c) => {
+                      const sections = [
+                        { label: "Utilities", ok: c.utilities_cleared }, { label: "Inspection", ok: c.inspection_passed },
+                        { label: "Rent", ok: c.rent_cleared }, { label: "S/C", ok: c.service_charge_cleared },
+                      ];
+                      return (
+                        <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                          <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #dc2626)" }}>{c.code}</span></td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ fontWeight: 700 }}>{c.tenant_name}</div>
+                            <div className="mono" style={{ fontSize: 11, color: "text.secondary" }}>{c.lease_reference}</div>
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+                              {sections.map(s => (
+                                <Chip key={s.label} size="small" label={s.label} color={s.ok ? "success" : "default"} variant={s.ok ? "filled" : "outlined"} sx={{ fontSize: 10, height: 18 }} />
+                              ))}
+                            </Stack>
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <div className="mono" style={{ fontSize: 12 }}>{c.deposit_amount ? money.format(Number(c.deposit_amount)) : "—"}</div>
+                            {c.refund_amount !== null && <div className="mono" style={{ fontSize: 12, color: "#16a34a" }}>→ {money.format(Number(c.refund_amount))}</div>}
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <StatusPill value={c.status} />
+                            {c.gate_pass_number && <div className="mono" style={{ fontSize: 11, marginTop: 2 }}>{c.gate_pass_number}</div>}
+                            {c.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, #dc2626)", marginTop: 2 }}>{c.rejected_reason}</div>}
+                          </td>
+                          <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                            <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                              {["draft", "in_progress"].includes(c.status) && !(c.utilities_cleared && c.inspection_passed && c.rent_cleared && c.service_charge_cleared) && canLease && (
+                                <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/`, {
+                                  utilities_cleared: true, inspection_passed: true, rent_cleared: true, service_charge_cleared: true,
+                                  inspection_notes: "Cleared via workspace quick action.",
+                                }, "PATCH")}>Mark sections cleared</Button>
+                              )}
+                              {["draft", "in_progress"].includes(c.status) && canLease && (
+                                <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/mark-cleared/`, {})}>Complete</Button>
+                              )}
+                              {c.status === "cleared" && canApprove && (
+                                <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/approve-manager/`, {})}>Approve (mgr)</Button>
+                              )}
+                              {c.status === "cleared" && c.manager_approved_at && canApprove && (
+                                <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/approve-finance/`, {})}>Approve (fin)</Button>
+                              )}
+                              {c.status === "approved" && canApprove && (
+                                <Button size="small" variant="contained" color="success" startIcon={<KeyRound size={13} />} disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/issue-gate-pass/`, {})}>Gate pass</Button>
+                              )}
+                            </Stack>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </Box>
+            )}
+          </Paper>
+        </>
+      )}
+
+      {/* New handover dialog */}
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>New Move-in Handover</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField select required label="Lease" value={form.lease} onChange={(e) => setForm({ ...form, lease: e.target.value })} sx={inputStyle}>
+                {leaseOptions.map((l) => <MenuItem key={String(l.id)} value={String(l.id)}>{String(l.reference)} — {String((l as Record<string, unknown>).tenant_name ?? "")}</MenuItem>)}
+              </TextField>
+              <TextField type="date" slotProps={{ inputLabel: { shrink: true } }} label="Handover date" value={form.handover_date} onChange={(e) => setForm({ ...form, handover_date: e.target.value })} sx={inputStyle} />
+            </Stack>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Premises condition (pre-filled — edit conditions/notes)</Typography>
+            <Stack spacing={1}>
+              {form.condition_lines.map((line, i) => (
+                <Stack key={i} direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <TextField size="small" label="Item" value={line.item} onChange={(e) => setForm({ ...form, condition_lines: form.condition_lines.map((l, j) => j === i ? { ...l, item: e.target.value } : l) })} sx={{ flex: 1 }} />
+                  <TextField select size="small" label="Condition" value={line.condition} onChange={(e) => setForm({ ...form, condition_lines: form.condition_lines.map((l, j) => j === i ? { ...l, condition: e.target.value } : l) })} sx={{ width: 140 }}>
+                    {["Excellent", "Good", "Fair", "Poor", "Damaged"].map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField size="small" label="Notes" value={line.notes} onChange={(e) => setForm({ ...form, condition_lines: form.condition_lines.map((l, j) => j === i ? { ...l, notes: e.target.value } : l) })} sx={{ flex: 1 }} />
+                </Stack>
+              ))}
+            </Stack>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField label="Electricity meter no." value={form.electricity_meter_number} onChange={(e) => setForm({ ...form, electricity_meter_number: e.target.value })} sx={inputStyle} />
+              <TextField type="number" label="Opening reading" value={form.electricity_opening_reading} onChange={(e) => setForm({ ...form, electricity_opening_reading: e.target.value })} sx={inputStyle} />
+            </Stack>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField label="Water meter no." value={form.water_meter_number} onChange={(e) => setForm({ ...form, water_meter_number: e.target.value })} sx={inputStyle} />
+              <TextField type="number" label="Opening reading" value={form.water_opening_reading} onChange={(e) => setForm({ ...form, water_opening_reading: e.target.value })} sx={inputStyle} />
+            </Stack>
+            <TextField fullWidth multiline minRows={2} label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button variant="contained" startIcon={<Plus size={15} />} disabled={!form.lease || Boolean(busy)} onClick={() => void createHandover()}>
+            {busy ? "Saving…" : "Create handover"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}

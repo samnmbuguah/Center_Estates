@@ -1188,3 +1188,97 @@ class ScheduledReport(OrganizationOwnedModel):
             raise ValidationError('Scheduled report property must belong to the organization.')
         if not isinstance(self.recipients, list) or not all(isinstance(value, str) for value in self.recipients):
             raise ValidationError({'recipients': 'Recipients must be a list of email addresses.'})
+
+
+class TenantHandover(OrganizationOwnedModel):
+    """Move-in handover record: premises condition, keys, opening meter readings and sign-off."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        COMPLETED = 'completed', 'Completed'
+        ACKNOWLEDGED = 'acknowledged', 'Acknowledged'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    code = models.CharField(max_length=60)
+    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name='handovers')
+    unit = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name='handovers', null=True, blank=True)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='handovers')
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    handover_date = models.DateField(null=True, blank=True)
+    condition_lines = models.JSONField(default=list, blank=True)
+    keys_items = models.JSONField(default=list, blank=True)
+    electricity_meter_number = models.CharField(max_length=80, blank=True)
+    electricity_opening_reading = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    water_meter_number = models.CharField(max_length=80, blank=True)
+    water_opening_reading = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    caretaker_name = models.CharField(max_length=160, blank=True)
+    caretaker_signed_at = models.DateTimeField(null=True, blank=True)
+    tenant_signed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    attachments = models.JSONField(default=list, blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_handover_code')]
+
+    def clean(self):
+        if self.lease_id and self.lease.organization_id != self.organization_id:
+            raise ValidationError('Handover lease must belong to the same organization.')
+        if self.tenant_id and self.tenant.organization_id != self.organization_id:
+            raise ValidationError('Handover tenant must belong to the same organization.')
+        if self.unit_id and self.unit.organization_id != self.organization_id:
+            raise ValidationError('Handover unit must belong to the same organization.')
+
+
+class ExitClearance(OrganizationOwnedModel):
+    """Move-out clearance: utilities, inspection, balances, deposit reconciliation, approvals and gate pass."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        CLEARED = 'cleared', 'Departments cleared'
+        APPROVED = 'approved', 'Approved'
+        GATE_PASS_ISSUED = 'gate_pass_issued', 'Gate pass issued'
+        REJECTED = 'rejected', 'Rejected'
+
+    code = models.CharField(max_length=60)
+    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name='exit_clearances')
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='exit_clearances')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    move_out_date = models.DateField(null=True, blank=True)
+    move_out_conditions = models.TextField(blank=True)
+    utilities_cleared = models.BooleanField(default=False)
+    electricity_final_reading = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    water_final_reading = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    inspection_passed = models.BooleanField(default=False)
+    inspection_notes = models.TextField(blank=True)
+    rent_cleared = models.BooleanField(default=False)
+    service_charge_cleared = models.BooleanField(default=False)
+    deposit_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    deductions = models.JSONField(default=list, blank=True)
+    refund_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    manager_approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='manager_cleared_exits')
+    manager_approved_at = models.DateTimeField(null=True, blank=True)
+    finance_approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='finance_cleared_exits')
+    finance_approved_at = models.DateTimeField(null=True, blank=True)
+    landlord_approved_at = models.DateTimeField(null=True, blank=True)
+    rejected_reason = models.TextField(blank=True)
+    gate_pass_number = models.CharField(max_length=60, blank=True)
+    gate_pass_issued_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_exit_clearance_code')]
+
+    def clean(self):
+        if self.lease_id and self.lease.organization_id != self.organization_id:
+            raise ValidationError('Exit clearance lease must belong to the same organization.')
+        if self.tenant_id and self.tenant.organization_id != self.organization_id:
+            raise ValidationError('Exit clearance tenant must belong to the same organization.')
+        if self.deductions and not isinstance(self.deductions, list):
+            raise ValidationError({'deductions': 'Deductions must be a list of {item, amount, notes} records.'})

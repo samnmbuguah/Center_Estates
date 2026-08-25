@@ -17,6 +17,8 @@ PROPERTY_LOOKUPS = {
     'properties.LeaseEscalation': 'lease__unit__property_id',
     'properties.UnitStatusHistory': 'unit__property_id',
     'properties.TenantMovement': 'unit__property_id',
+    'properties.TenantHandover': 'unit__property_id',
+    'properties.ExitClearance': 'lease__unit__property_id',
     'properties.BillingProfile': 'lease__unit__property_id',
     'properties.BillingRun': 'property_id',
     'properties.BillingCandidate': 'lease__unit__property_id',

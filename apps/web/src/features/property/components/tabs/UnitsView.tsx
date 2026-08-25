@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import { useState, useMemo, useEffect, type ReactNode } from "react";
+import { Box, Button, Chip, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -22,11 +22,15 @@ import {
   criticalFormatDate, criticalDaysUntil,
 } from "../../utils/property.utils";
 import { UnitBillingScheduleDrawer } from "../UnitBillingScheduleDrawer";
+import { UnitFloorPlanCanvas, type Point, type UnitLayout } from "../floorplan/UnitFloorPlanCanvas";
+import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { Upload } from "lucide-react";
 
 export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRow }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onSelectRow?: (r: Row) => void;
 }) {
-  const [view, setView] = useState<"commercial" | "residential" | "stacking">("residential");
+  const [view, setView] = useState<"commercial" | "residential" | "stacking" | "floorplan">("residential");
+  const [selectedFloor, setSelectedFloor] = useState<string>("1");
   const [billingUnit, setBillingUnit] = useState<UnitRow | null>(null);
   const units = rows as UnitRow[];
   const occupied = units.filter((u) => u.status === "occupied").length;
@@ -41,7 +45,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const typologyTotal = Object.values(typologyCounts).reduce((s, c) => s + c, 0);
   const areaCount = units.filter((u) => u.area !== undefined && u.area !== null).length;
 
-  // Group units by floor for Stacking Plan
+  // Group units by floor for Stacking Plan & Floor Plan
   const floorGroups = useMemo(() => {
     const map = new Map<string, UnitRow[]>();
     for (const u of units) {
@@ -58,6 +62,60 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     });
   }, [units]);
 
+  const [floorImages, setFloorImages] = useState<Record<string, string>>({});
+  const floorPlanImage = floorImages[selectedFloor] || "";
+
+  // Available floors list
+  const availableFloors = useMemo(() => {
+    return Array.from(new Set(units.map(u => String(u.floor ?? "1").trim() || "1"))).sort();
+  }, [units]);
+
+  // Set default selected floor if needed
+  useEffect(() => {
+    if (availableFloors.length > 0 && !availableFloors.includes(selectedFloor)) {
+      setSelectedFloor(availableFloors[0]);
+    }
+  }, [availableFloors, selectedFloor]);
+
+  // Current floor units formatted for UnitFloorPlanCanvas
+  const currentFloorUnits = useMemo<UnitLayout[]>(() => {
+    return units
+      .filter((u) => (String(u.floor ?? "1").trim() || "1") === selectedFloor)
+      .map((u) => {
+        const meta = (u.metadata || {}) as Record<string, any>;
+        return {
+          id: String(u.id),
+          code: String(u.code),
+          unit_type: String(u.unit_type || ""),
+          floor: String(u.floor || selectedFloor),
+          area: u.area,
+          status: String(u.status || "available"),
+          tenant_name: meta.tenant ? String(meta.tenant) : undefined,
+          monthly_rent: meta.rent,
+          polygon: Array.isArray(meta.polygon) ? (meta.polygon as Point[]) : undefined,
+        };
+      });
+  }, [units, selectedFloor]);
+
+  const handleSaveUnitPolygon = async (unitId: string, polygon: Point[]) => {
+    try {
+      const target = units.find((u) => String(u.id) === unitId || String(u.code) === unitId);
+      if (!target) return;
+      const currentMeta = (target.metadata || {}) as Record<string, any>;
+      const updatedMeta = { ...currentMeta, polygon };
+      await apiFetch("/auth/csrf/");
+      await apiFetch(`/property/units/${target.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ metadata: updatedMeta }),
+      });
+      // update local object
+      target.metadata = updatedMeta;
+    } catch (e) {
+      console.error("Failed to save unit polygon", e);
+    }
+  };
+
   return (
     <>
       <KpiStrip cols={4}>
@@ -72,14 +130,92 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
       </KpiStrip>
 
       <ViewToolbar title="Occupancy Register" subtitle="Lettable and non-lettable units at the selected property" search={search} onSearch={setSearch} placeholder="Search by unit code, type or building…">
-        <div className="row" style={{ gap: 8 }}>
-          <button type="button" className={`btn sm ${view === "residential" ? "primary" : "ghost"}`} data-testid="occupancy-residential-btn" onClick={() => setView("residential")}>Residential View</button>
-          <button type="button" className={`btn sm ${view === "commercial" ? "primary" : "ghost"}`} data-testid="occupancy-commercial-btn" onClick={() => setView("commercial")}>Commercial View</button>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <button type="button" className={`btn sm ${view === "residential" ? "primary" : "ghost"}`} data-testid="occupancy-residential-btn" onClick={() => setView("residential")}>Residential</button>
+          <button type="button" className={`btn sm ${view === "commercial" ? "primary" : "ghost"}`} data-testid="occupancy-commercial-btn" onClick={() => setView("commercial")}>Commercial</button>
           <button type="button" className={`btn sm ${view === "stacking" ? "primary" : "ghost"}`} data-testid="occupancy-stacking-btn" onClick={() => setView("stacking")}>🏢 Stacking Plan</button>
+          <button type="button" className={`btn sm ${view === "floorplan" ? "primary" : "ghost"}`} data-testid="occupancy-floorplan-btn" onClick={() => setView("floorplan")}>📐 Floor Plan Outline</button>
         </div>
       </ViewToolbar>
 
-      {view === "stacking" ? (
+      {view === "floorplan" ? (
+        <Panel title="Interactive Unit Drawing Outline & Floor Plan">
+          <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 800 }}>Select Floor Level:</Typography>
+                  <Select
+                    size="small"
+                    value={selectedFloor}
+                    onChange={(e) => setSelectedFloor(String(e.target.value))}
+                    sx={{ minWidth: 140, fontSize: 13, height: 36, background: "var(--surface)" }}
+                  >
+                    {availableFloors.map((fl) => (
+                      <MenuItem key={fl} value={fl}>Floor {fl}</MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  component="label"
+                  startIcon={<Upload size={14} />}
+                  sx={{ height: 36, fontSize: 12 }}
+                >
+                  {floorPlanImage ? "Change Floor Plan Image" : "Upload Floor Plan Blueprint"}
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === "string") {
+                            setFloorImages((prev) => ({ ...prev, [selectedFloor]: reader.result as string }));
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </Button>
+                {floorPlanImage && (
+                  <Button
+                    size="small"
+                    color="inherit"
+                    onClick={() => setFloorImages((prev) => ({ ...prev, [selectedFloor]: "" }))}
+                    sx={{ height: 36, fontSize: 11, textTransform: "none" }}
+                  >
+                    Clear Image
+                  </Button>
+                )}
+              </Box>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                💡 Click <strong>"Draw Unit Outline"</strong> to draw boundary corners over each unit space. Click any unit to view details.
+              </Typography>
+            </Box>
+
+            <UnitFloorPlanCanvas
+              floorPlan={{
+                title: `Level ${selectedFloor} Layout`,
+                floor: selectedFloor,
+                image_url: floorPlanImage,
+                units: currentFloorUnits,
+              }}
+              availableUnits={currentFloorUnits}
+              onSaveUnitPolygon={handleSaveUnitPolygon}
+              onSelectUnit={(u) => {
+                const target = units.find((row) => String(row.id) === u.id || String(row.code) === u.code);
+                if (target && onSelectRow) onSelectRow(target);
+              }}
+              height={580}
+            />
+          </Box>
+        </Panel>
+      ) : view === "stacking" ? (
         <Panel title="Building Floor Elevation &amp; Stacking Plan">
           <ListState loading={loading} empty={units.length === 0} emptyTitle="No units available" emptyDesc="Register units with floor numbers to view the building stacking elevation.">
             <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 20px" }}>

@@ -21,6 +21,7 @@ export type PropertyTab =
   | "credit-notes"
   | "payments"
   | "service-profiles"
+  | "handover-exit"
   | "service-charges"
   | "service-charge-allocations"
   | "service-charge-reconciliations"
@@ -62,6 +63,7 @@ export const labels: Record<PropertyTab, string> = {
   "credit-notes": "Credit Notes",
   payments: "Payments & Credits",
   "service-profiles": "Service Profiles",
+  "handover-exit": "Handover & Exit",
   "service-charges": "Service Charge Setup",
   "service-charge-allocations": "Charge Allocations",
   "service-charge-reconciliations": "Reconciliations",
