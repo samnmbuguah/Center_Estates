@@ -2,8 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { apiFetch, csrfFromCookie } from "@/lib/api";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Rating, TextField } from "@mui/material";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Rating, TextField, Typography } from "@mui/material";
 
 type Row = Record<string, string | number | boolean | null>;
 type Portal = {
@@ -61,6 +61,9 @@ export default function TenantPortalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(false);
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const [requestSuccess, setRequestSuccess] = useState("");
   const [paymentBusy, setPaymentBusy] = useState<string | null>(null);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [confirmationRequest, setConfirmationRequest] = useState<Row | null>(null);
@@ -103,26 +106,37 @@ export default function TenantPortalPage() {
   }, [load]);
   async function submitRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (requestBusy) return;
+    setRequestBusy(true);
+    setRequestError("");
     const payload = Object.fromEntries(
       new FormData(event.currentTarget).entries(),
     );
-    await apiFetch("/auth/csrf/");
-    const response = await apiFetch(
-      "/property/portal/service-requests/",
-      {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify(payload),
-      },
-      organizationId,
-    );
-    if (!response.ok) {
-      setError("The maintenance request could not be submitted.");
-      return;
+    try {
+      await apiFetch("/auth/csrf/");
+      const response = await apiFetch(
+        "/property/portal/service-requests/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify(payload),
+        },
+        organizationId,
+      );
+      if (!response.ok) {
+        setRequestError(await apiErrorMessage(response, "The maintenance request could not be submitted."));
+        return;
+      }
+      const created = await response.json().catch(() => ({}));
+      setModal(false);
+      setRequestSuccess(`Request ${created.reference || ""} was submitted successfully. The maintenance team can now track it.`);
+      setTab("maintenance");
+      await load();
+    } catch {
+      setRequestError("The maintenance request could not be submitted. Check your connection and try again.");
+    } finally {
+      setRequestBusy(false);
     }
-    setModal(false);
-    setTab("maintenance");
-    await load();
   }
   async function submitResolutionDecision() {
     if (!confirmationRequest) return;
@@ -286,7 +300,7 @@ export default function TenantPortalPage() {
             <span style={{ fontSize: 22 }}>🛡️</span>
             <div>
               <div style={{ fontWeight: 800, fontSize: 14 }}>Support Mode: Viewing Portal as {data.tenant.name} ({data.tenant.code})</div>
-              <div style={{ fontSize: 12, opacity: 0.9 }}>Administrative preview active. All invoices, receipts, and service requests reflect this tenant's live view.</div>
+              <div style={{ fontSize: 12, opacity: 0.9 }}>Administrative preview active. All invoices, receipts, and service requests reflect this tenant&apos;s live view.</div>
             </div>
           </div>
           <button
@@ -307,7 +321,7 @@ export default function TenantPortalPage() {
             one secure account.
           </p>
         </div>
-        <button className="primary-action" onClick={() => setModal(true)}>
+        <button className="primary-action" onClick={() => { setRequestError(""); setModal(true); }}>
           Report an issue
         </button>
       </section>
@@ -323,6 +337,7 @@ export default function TenantPortalPage() {
         ))}
       </nav>
       {error && <div className="form-error">{error}</div>}
+      {requestSuccess && <Alert severity="success" onClose={() => setRequestSuccess("")} sx={{ mb: 2 }}>{requestSuccess}</Alert>}
       {pendingPayInvoices && (
         <div style={{ background: "#eff6ff", color: "#1e40af", padding: "16px", borderRadius: 8, marginBottom: 16, border: "1px solid #bfdbfe" }}>
           <strong style={{ display: "block", marginBottom: 8 }}>📲 Enter your M-Pesa phone number to pay {pendingPayInvoices.length} invoice{pendingPayInvoices.length === 1 ? "" : "s"}</strong>
@@ -623,51 +638,35 @@ export default function TenantPortalPage() {
           </div>
         </Panel>
       )}
-      {modal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>Report Maintenance Issue</h2>
-              <button onClick={() => setModal(false)}>x</button>
-            </div>
-            <form onSubmit={(e) => void submitRequest(e as any)}>
-              <div className="form-group">
-                <label>Subject</label>
-                <input
-                  name="subject"
-                  required
-                  placeholder="e.g. Leaking kitchen tap"
-                />
-              </div>
-              <div className="form-group">
-                <label>Priority</label>
-                <select name="priority" defaultValue="normal">
-                  <option value="low">Low</option>
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  name="description"
-                  rows={4}
-                  placeholder="Provide additional details..."
-                />
-              </div>
-              <div className="form-actions">
-                <button type="button" onClick={() => setModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="primary-action">
-                  Submit request
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Dialog open={modal} onClose={requestBusy ? undefined : () => setModal(false)} fullWidth maxWidth="sm">
+        <form onSubmit={submitRequest}>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="overline" color="error.main" sx={{ fontWeight: 800, letterSpacing: 1.5 }}>Tenant maintenance</Typography>
+          <Typography variant="h5" component="div" sx={{ fontWeight: 800 }}>Report an issue</Typography>
+          <Typography variant="body2" color="text.secondary">Tell the property team what happened and how urgently it needs attention.</Typography>
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: "grid", gap: 2, pt: 2.5 }}>
+          {requestError && <Alert severity="error">{requestError}</Alert>}
+          <TextField autoFocus required fullWidth name="subject" label="Issue summary" placeholder="e.g. Leaking kitchen tap" slotProps={{ htmlInput: { maxLength: 160 } }} />
+          <TextField select required fullWidth name="category" label="Category" defaultValue="">
+            <MenuItem value="" disabled>Select the closest category</MenuItem>
+            {['Plumbing', 'Electrical', 'Air conditioning', 'Lift / elevator', 'Access & security', 'Cleaning', 'Fire & safety', 'Building fabric', 'Pest control', 'Other'].map((category) => <MenuItem key={category} value={category}>{category}</MenuItem>)}
+          </TextField>
+          <TextField select required fullWidth name="priority" label="Priority" defaultValue="medium" helperText="Choose critical only where there is immediate danger or major service loss.">
+            <MenuItem value="low">Low — can be scheduled</MenuItem>
+            <MenuItem value="medium">Medium — normal response</MenuItem>
+            <MenuItem value="high">High — significantly disruptive</MenuItem>
+            <MenuItem value="critical">Critical — safety or major service failure</MenuItem>
+          </TextField>
+          <TextField required fullWidth multiline minRows={4} name="description" label="Description" placeholder="Describe where the issue is, when it started and how it affects the unit…" slotProps={{ htmlInput: { maxLength: 2000 } }} />
+          <Alert severity="info">This request will be linked automatically to {data.currentLease?.property_name || "your property"}, Unit {data.currentLease?.unit_code || "—"}.</Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setModal(false)} disabled={requestBusy}>Cancel</Button>
+          <Button type="submit" variant="contained" color="error" disabled={requestBusy}>{requestBusy ? "Submitting…" : "Submit maintenance request"}</Button>
+        </DialogActions>
+        </form>
+      </Dialog>
     </div>
   );
 }
@@ -720,13 +719,6 @@ function Panel({
       </header>
       {children}
     </article>
-  );
-}
-function Status({ value }: { value: string }) {
-  return (
-    <span className={`data-status status-${value}`}>
-      {value.replaceAll("_", " ")}
-    </span>
   );
 }
 function Empty() {

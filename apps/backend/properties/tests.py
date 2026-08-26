@@ -1287,6 +1287,9 @@ class PropertyApiTests(TestCase):
         self.assertEqual(portal.data['tenant']['id'], str(self.tenant.id))
         self.assertEqual(portal.data['currentLease']['id'], str(self.lease.id))
         self.assertEqual(len(portal.data['invoices']), 1)
+        support_view = self.client.get(f'/api/v1/property/portal/{self.tenant.id}/', **self.headers)
+        self.assertEqual(support_view.status_code, 200, support_view.data)
+        self.assertEqual(support_view.data['tenant']['id'], str(self.tenant.id))
         created = self.client.post('/api/v1/property/portal/service-requests/', {
             'subject': 'Leaking tap', 'category': 'Plumbing',
             'description': 'Kitchen tap is leaking.', 'priority': 'high',

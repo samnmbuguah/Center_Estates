@@ -26,7 +26,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 from core.models import Module
 from core.permissions import HasModuleActionPermission
 from core.serializers import GenericObjectSerializer
-from core.tenancy import get_active_organization
+from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
 
 from .models import (
@@ -4172,6 +4172,13 @@ class TenantPortalViewSet(ViewSet):
     def _access(self, tenant_id=None):
         organization = get_active_organization(self.request)
         if tenant_id:
+            membership = get_active_membership(self.request, organization)
+            can_support = (
+                self.request.user.is_staff or self.request.user.is_superuser
+                or bool(membership and membership.has_permission('property.leasing'))
+            )
+            if not can_support:
+                raise PermissionDenied('Tenant portal support view requires property leasing permission.')
             tenant = Tenant.objects.for_organization(organization).filter(pk=tenant_id).first()
             if tenant:
                 class ScopedAccess:
@@ -4183,15 +4190,6 @@ class TenantPortalViewSet(ViewSet):
             user=self.request.user, is_active=True,
         ).select_related('tenant').first()
         if not access:
-            # If user has property permissions, fallback to first active tenant for portal preview
-            if self.request.user.is_staff or self.request.user.is_superuser or get_active_membership(self.request, organization):
-                first_tenant = Tenant.objects.for_organization(organization).filter(status=Tenant.Status.ACTIVE).first() or Tenant.objects.for_organization(organization).first()
-                if first_tenant:
-                    class ScopedAccess:
-                        def __init__(self, org, t):
-                            self.organization = org
-                            self.tenant = t
-                    return ScopedAccess(organization, first_tenant)
             raise PermissionDenied('No active tenant portal profile is linked to this account.')
         return access
 
