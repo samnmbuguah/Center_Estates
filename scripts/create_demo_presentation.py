@@ -20,20 +20,24 @@ TEAL = RGBColor(0, 145, 138)
 GREEN = RGBColor(22, 163, 74)
 AMBER = RGBColor(234, 134, 20)
 INK = RGBColor(18, 32, 52)
-MUTED = RGBColor(85, 105, 130)
+# Secondary copy must remain comfortably legible on projectors and exported
+# PDFs. This slate is intentionally darker than the web UI's tertiary text.
+MUTED = RGBColor(55, 73, 94)
 PALE = RGBColor(242, 247, 251)
 WHITE = RGBColor(255, 255, 255)
 LINE = RGBColor(211, 222, 233)
 
 
 def add_text(slide, text, x, y, w, h, size=20, color=INK, bold=False,
-             align=PP_ALIGN.LEFT, font="Aptos", margin=0.04):
+             align=PP_ALIGN.LEFT, font="Liberation Sans", margin=0.04,
+             valign=MSO_ANCHOR.MIDDLE):
     box = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
     tf = box.text_frame
     tf.clear()
     tf.margin_left = tf.margin_right = Inches(margin)
     tf.margin_top = tf.margin_bottom = Inches(margin)
-    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.vertical_anchor = valign
+    tf.word_wrap = True
     p = tf.paragraphs[0]
     p.text = text
     p.alignment = align
@@ -80,7 +84,7 @@ def bullets(slide, items, x, y, w, h, size=17, color=INK):
     for i, item in enumerate(items):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.text = item; p.level = 0; p.space_after = Pt(11)
-        p.font.name = "Aptos"; p.font.size = Pt(size); p.font.color.rgb = color
+        p.font.name = "Liberation Sans"; p.font.size = Pt(size); p.font.color.rgb = color
         p.text = "•  " + p.text
     return box
 
@@ -100,7 +104,8 @@ def card(slide, x, y, w, h, title, body, accent=RED, icon=None):
     else:
         tx = x+0.25
     add_text(slide, title, tx, y+0.16, w-(tx-x)-0.2, 0.34, 15, INK, True)
-    add_text(slide, body, x+0.25, y+0.62, w-0.5, h-0.76, 11, MUTED)
+    add_text(slide, body, x+0.25, y+0.62, w-0.5, h-0.82, 11.5, MUTED,
+             valign=MSO_ANCHOR.TOP, margin=0.02)
 
 
 def build():
@@ -109,21 +114,23 @@ def build():
 
     # Cover
     s = prs.slides.add_slide(prs.slide_layouts[6])
-    s.background.fill.solid(); s.background.fill.fore_color.rgb = NAVY
+    s.background.fill.solid(); s.background.fill.fore_color.rgb = WHITE
     if HERO.exists():
         s.shapes.add_picture(str(HERO), 0, 0, width=prs.slide_width, height=prs.slide_height)
-        overlay = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-        overlay.fill.solid(); overlay.fill.fore_color.rgb = NAVY; overlay.fill.transparency = 16
-        overlay.line.fill.background()
-    rect(s, 0, 0, 5.25, 7.5, NAVY, NAVY, False)
-    if LOGO.exists(): s.shapes.add_picture(str(LOGO), Inches(0.65), Inches(0.58), height=Inches(0.85))
-    add_text(s, "CeEst ERP", 1.62, 0.67, 2.8, 0.4, 24, WHITE, True)
-    add_text(s, "LIVE DEMONSTRATION", 0.72, 2.05, 3.7, 0.3, 12, RGBColor(255, 156, 160), True)
-    add_text(s, "One operating record.\nComplete estate control.", 0.68, 2.48, 4.15, 1.25, 31, WHITE, True)
-    add_text(s, "Property management, facilities operations and staff performance—connected from transaction to report.", 0.72, 4.0, 3.95, 1.0, 15, RGBColor(221, 231, 242))
-    rect(s, 0.72, 5.38, 3.85, 0.6, RED, RED)
-    add_text(s, "RECORD → ACT → VERIFY → REPORT", 0.9, 5.54, 3.5, 0.24, 11, WHITE, True, PP_ALIGN.CENTER)
-    add_text(s, "Live demonstration • August 2026", 0.72, 6.75, 3.8, 0.25, 10, RGBColor(185, 201, 220))
+    # A bright editorial cover with a narrow red signature bar; the image is
+    # allowed to carry the atmosphere instead of being buried under navy.
+    rect(s, 0, 0, 5.45, 7.5, WHITE, WHITE, False)
+    rect(s, 5.33, 0, 0.12, 7.5, RED, RED, False)
+    if LOGO.exists(): s.shapes.add_picture(str(LOGO), Inches(0.68), Inches(0.55), height=Inches(0.82))
+    add_text(s, "CeEst ERP", 1.62, 0.66, 2.8, 0.4, 23, NAVY, True)
+    add_text(s, "LIVE DEMONSTRATION", 0.72, 2.0, 3.7, 0.3, 11, RED, True)
+    add_text(s, "One operating record.\nComplete estate control.", 0.68, 2.42, 4.15, 1.35, 29, NAVY, True,
+             valign=MSO_ANCHOR.TOP)
+    add_text(s, "Property management, facilities operations and staff performance—connected from transaction to report.", 0.72, 4.02, 3.95, 0.9, 14, MUTED,
+             valign=MSO_ANCHOR.TOP)
+    rect(s, 0.72, 5.28, 3.95, 0.58, RED, RED)
+    add_text(s, "RECORD  →  ACT  →  VERIFY  →  REPORT", 0.86, 5.44, 3.67, 0.24, 10, WHITE, True, PP_ALIGN.CENTER)
+    add_text(s, "Live demonstration  •  August 2026", 0.72, 6.72, 3.8, 0.25, 10, MUTED)
 
     s = base_slide(prs, "Demo story", "From property record to management evidence", "A focused 25–30 minute journey—not a tour of every menu.", 1)
     steps = [("01", "RECORD", "Property, tenant, asset and service masters"), ("02", "PLAN", "Billing schedules, PPM and compliance calendars"), ("03", "EXECUTE", "Tasks, tickets, work orders and collections"), ("04", "VERIFY", "Approvals, evidence, SLA and audit trail"), ("05", "MEASURE", "KPIs, trends, ageing and performance"), ("06", "REPORT", "Tenant, manager and landlord outputs")]
@@ -171,7 +178,7 @@ def build():
     proof_bar(s,"Service charge planning is linked to real operational requirements and actual expenditure.")
 
     s = base_slide(prs,"Tenant self-service","A tenant can act—not only view","Invoices, receipts, lease information, notices and maintenance requests in one secure portal.",7)
-    card(s,0.65,2.5,3.8,2.75,"Financial self-service","View invoices, balances, receipts and payment history.",NAVY_2,"KES")
+    card(s,0.65,2.5,3.8,2.75,"Financial self-service","View invoices, balances, receipts and payment history.",NAVY_2,"₭")
     card(s,4.77,2.5,3.8,2.75,"Report an issue","Capture category, priority, description and unit context; receive a traceable reference.",RED,"!")
     card(s,8.89,2.5,3.8,2.75,"Track progress","See open requests, updates, documents and closure evidence.",TEAL,"✓")
     add_text(s,"Live proof: submit a low-risk issue, note the reference, then continue the same record in Facility Management.",0.85,5.6,11.6,0.5,15,INK,True,PP_ALIGN.CENTER)
@@ -201,9 +208,9 @@ def build():
     proof_bar(s,"Provider selection is separated from the enduring service standard used for SLA and KPI measurement.")
 
     s = base_slide(prs,"Performance","Transactions become management insight","Use trends and exceptions to answer: What happened? Why? What needs action next?",11)
-    card(s,0.65,2.5,2.95,2.75,"PPM compliance","Completed on time, overdue and upcoming preventive work.",GREEN,"95%")
-    card(s,3.83,2.5,2.95,2.75,"SLA performance","Response and resolution time by priority, team and provider.",RED,"SLA")
-    card(s,7.01,2.5,2.95,2.75,"Financial control","Expected vs actual collections, arrears ageing and budget variance.",AMBER,"KES")
+    card(s,0.65,2.5,2.95,2.75,"PPM compliance","Completed on time, overdue and upcoming preventive work.",GREEN,"✓")
+    card(s,3.83,2.5,2.95,2.75,"SLA performance","Response and resolution time by priority, team and provider.",RED,"◷")
+    card(s,7.01,2.5,2.95,2.75,"Financial control","Expected vs actual collections, arrears ageing and budget variance.",AMBER,"↗")
     card(s,10.19,2.5,2.5,2.75,"Risk & compliance","Expiries, incidents, recurring defects and approvals.",NAVY_2,"!")
     add_text(s,"Drill from every metric to the source record during the demo.",0.8,5.67,11.8,0.42,15,INK,True,PP_ALIGN.CENTER)
     proof_bar(s,"The system measures performance objectively using the same records created during daily work.")
