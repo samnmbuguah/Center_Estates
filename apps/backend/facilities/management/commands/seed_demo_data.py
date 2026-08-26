@@ -454,7 +454,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         slug = options.get('org')
         orgs = Organization.objects.filter(slug=slug) if slug else Organization.objects.filter(
-            slug__in=['center-estates-demo', 'legend-management-limited'],
+            slug__in=['center-estates-demo'],
         )
         if not orgs.exists():
             self.stderr.write(f'No matching organization for "{slug}".')
