@@ -139,11 +139,25 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     const body = action === "create"
       ? { period_start, period_end }
       : action === "generate" ? { candidate_ids: selected } : {};
-    const res = action === "create"
+    let res = action === "create"
       ? await apiFetch("/property/billing-runs/", { method: "POST", body: JSON.stringify(body) }, organizationId)
       : await apiFetch(`/property/billing-runs/${run?.id}/${action}/`, { method: "POST", body: JSON.stringify(body) }, organizationId);
+
+    // Starting a billing run means both creating its durable queue and scanning
+    // the active leases. Previously only the empty queue was created, leaving
+    // the run permanently in "preparing" with no candidates and no visible
+    // way to continue.
+    if (action === "create" && res.ok) {
+      const createdRun = (await res.json()) as BillingRun;
+      res = await apiFetch(
+        `/property/billing-runs/${createdRun.id}/prepare/`,
+        { method: "POST", body: JSON.stringify({}) },
+        organizationId,
+      );
+    }
+
     if (!res.ok) { setError(await apiErrorMessage(res, `Billing ${action} failed.`)); }
-    else { setNotice({ create: `Queue for ${formattedPeriod} created.`, prepare: "Readiness check complete.", approve: "Run approved — ready to generate.", generate: `${selected.length} invoices generated.` }[action] ?? "Done."); }
+    else { setNotice({ create: `Readiness scan for ${formattedPeriod} is complete.`, prepare: "Readiness check complete.", approve: "Run approved — ready to generate.", generate: `${selected.length} invoices generated.` }[action] ?? "Done."); }
     await load(); setBusy("");
   }
 
@@ -197,6 +211,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
 
       <BillingActionBanner
         hasRun={Boolean(run)}
+        isPreparing={run?.status === "preparing"}
         isReview={run?.status === "review"}
         isApproved={run?.status === "approved"}
         formattedMonth={formattedPeriod}

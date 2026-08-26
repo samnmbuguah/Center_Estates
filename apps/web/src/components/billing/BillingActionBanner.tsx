@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { Box, Button, Paper, Stack, Typography, Chip, Checkbox, FormControlLabel } from "@mui/material";
-import { FilePlus2, RotateCcw, Send, Zap, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { FilePlus2, RotateCcw, Send, Zap, CheckCircle2, ArrowRight } from "lucide-react";
 
 export function BillingActionBanner({
   hasRun,
+  isPreparing,
   isReview,
   isApproved,
   formattedMonth,
@@ -23,6 +24,7 @@ export function BillingActionBanner({
   onSingleInvoice,
 }: {
   hasRun: boolean;
+  isPreparing: boolean;
   isReview: boolean;
   isApproved: boolean;
   formattedMonth: string;
@@ -44,7 +46,7 @@ export function BillingActionBanner({
   const [includeUtilities, setIncludeUtilities] = useState(true);
 
   // Stepper Header
-  const stepIndex = !hasRun ? 1 : isReview ? 2 : isApproved ? 3 : 3;
+  const stepIndex = !hasRun || isPreparing ? 1 : isReview ? 2 : isApproved ? 3 : 3;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -162,6 +164,44 @@ export function BillingActionBanner({
               Single Invoice
             </Button>
           </Stack>
+        </Paper>
+      )}
+
+      {/* A durable run may already exist if the browser closed between queue
+          creation and readiness scanning. Keep that workflow recoverable. */}
+      {hasRun && isPreparing && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 2.5 },
+            borderRadius: 3,
+            background: "linear-gradient(135deg, rgba(2, 132, 199, 0.06) 0%, rgba(14, 165, 233, 0.06) 100%)",
+            border: "1.5px solid rgba(2, 132, 199, 0.2)",
+            display: "flex",
+            alignItems: { xs: "stretch", md: "center" },
+            justifyContent: "space-between",
+            gap: 2,
+            flexDirection: { xs: "column", md: "row" },
+          }}
+        >
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "info.main" }}>
+              Complete the readiness scan for {formattedMonth}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5 }}>
+              The queue is saved. Scan the active leases now to calculate rent and recurring charges and identify anything that needs attention.
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<Zap size={18} />}
+            disabled={!canFinance || Boolean(busy)}
+            onClick={onRecheck}
+            sx={{ fontWeight: 800, px: 3, flexShrink: 0 }}
+          >
+            {busy === "prepare" ? "Scanning leases…" : "Scan leases & prepare invoices"}
+          </Button>
         </Paper>
       )}
 
