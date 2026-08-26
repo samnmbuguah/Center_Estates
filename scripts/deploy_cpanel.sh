@@ -153,6 +153,13 @@ ssh "$REMOTE_HOST" "
 fi
 
 if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
+  # NEXT_PUBLIC_* values are compiled into the browser bundle. Refuse to ship
+  # an artifact built without the production API origin, which would otherwise
+  # send authenticated requests to centerestates.com/api and return 404.
+  if ! grep -Rqs "https://${API_DOMAIN}/api/v1" apps/web/.next/static/chunks; then
+    echo "Frontend artifact does not contain the production API base URL; rebuild with NEXT_PUBLIC_API_BASE_URL=https://${API_DOMAIN}/api/v1." >&2
+    exit 1
+  fi
   tar -czf "$FRONTEND_ARCHIVE" \
     app.js apps/web/.next/standalone apps/web/.next/static apps/web/public
   scp "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
