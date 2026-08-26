@@ -623,13 +623,15 @@ export function PropertyModals(props: PropertyModalsProps) {
                 </div>
               </div>
               <div>
-                <Field label={`Billable Amount / Rent (Excl. VAT)${billingContext && billingContext.months_count > 1 ? ` — ${billingContext.months_count} Months Total` : ""}`} required>
+                <Field label={`Billable Amount / ${{ rent: "Rent", service_charge: "Service charge", utility: "Utility", move_in: "Move-in charges", other: "Other charge" }[invoiceDraft.invoice_type] || "Charge"} (Excl. VAT)${billingContext && billingContext.months_count > 1 ? ` — ${billingContext.months_count} Months Total` : ""}`} required>
                   <input type="number" min="0.01" step="0.01" required placeholder="e.g. 100000" value={invoiceDraft.subtotal} onChange={(e) => updateInvoiceDraft("subtotal", e.target.value)} data-testid="invoice-subtotal" />
                 </Field>
                 <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>
                   {billingContext && billingContext.months_count > 1
                     ? `Total amount in Ksh across ${billingContext.months_count} months before VAT (approx. ${kM(Number(invoiceDraft.subtotal || 0) / billingContext.months_count)} / month)`
-                    : "Base amount in Ksh before VAT is calculated"}
+                    : invoiceDraft.invoice_type === "rent"
+                      ? "Monthly rent is filled from the selected lease; you can adjust it for this manual invoice."
+                      : "Enter the one-off amount for this manual invoice. Configure recurring charges on the unit billing schedule."}
                 </span>
               </div>
 

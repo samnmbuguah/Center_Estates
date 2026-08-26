@@ -15,6 +15,10 @@ import {
   labels,
 } from "../types/property.types";
 
+export function defaultManualInvoiceSubtotal(invoiceType: string, monthlyRent: number, months = 1) {
+  return invoiceType === "rent" && monthlyRent > 0 ? String(monthlyRent * months) : "";
+}
+
 export function usePropertyLogic({
   initialTab = "properties",
   standaloneOnboarding = false,
@@ -462,7 +466,7 @@ export function usePropertyLogic({
               return {
                 ...prev,
                 lease: String(first.id),
-                subtotal: rentVal ? String(rentVal * months) : prev.subtotal,
+                subtotal: defaultManualInvoiceSubtotal(prev.invoice_type, rentVal, months) || prev.subtotal,
               };
             });
           }
@@ -493,7 +497,7 @@ export function usePropertyLogic({
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setReceiptOptions(Array.isArray(d) ? d : []));
     }
-  }, [showAddLease, showUploadDoc, showRecordReceipt, showInvoiceComposer, showAddServiceCharge, financialIntake, matchTarget, organizationId, activeProperty?.id]);
+  }, [showAddLease, showUploadDoc, showRecordReceipt, showInvoiceComposer, showAddServiceCharge, financialIntake, matchTarget, organizationId, activeProperty?.id, billingContext?.months_count]);
 
   const openInvoiceComposer = (ctx?: BillingContext | null) => {
     setBillingContext(ctx ?? null);
@@ -519,13 +523,22 @@ export function usePropertyLogic({
           // Always overwrite subtotal when user explicitly picks a lease
           const rentVal = Number(selectedLease.monthly_rent ?? 0);
           const months = billingContext?.months_count || 1;
-          if (rentVal) updated.subtotal = String(rentVal * months);
+          updated.subtotal = defaultManualInvoiceSubtotal(current.invoice_type, rentVal, months);
           // Always ensure due_on is set relative to issued_on
           const issued = new Date(current.issued_on || new Date());
           const due = new Date(issued);
           due.setDate(due.getDate() + 5);
           updated.due_on = due.toISOString().slice(0, 10);
         }
+      }
+      if (field === "invoice_type") {
+        const selectedLease = leaseOptions.find((lease) => String(lease.id) === current.lease);
+        const months = billingContext?.months_count || 1;
+        const rentVal = Number(selectedLease?.monthly_rent ?? 0);
+        // Rent is the only amount carried directly by the lease. Other manual
+        // invoice categories must not silently reuse it; their recurring
+        // values come from unit billing schedules in the bulk pipeline.
+        updated.subtotal = defaultManualInvoiceSubtotal(value, rentVal, months);
       }
       return updated;
     });
