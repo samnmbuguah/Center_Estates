@@ -1,36 +1,28 @@
 "use client";
 
 import React, { useState } from "react";
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import { Download, FileUp, Pencil, Plus, RotateCcw, Trophy, X } from "lucide-react";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
 import { apiFetch } from "@/lib/api";
 import { BulkContractorUploaderModal } from "../modals/BulkContractorUploaderModal";
 import { EditContractorModal } from "../modals/EditContractorModal";
-
-function PanelHeader({
-  title,
-  count,
-  action,
-}: {
-  title: string;
-  count?: number;
-  action?: React.ReactNode;
-}) {
-  return (
-    <header className="panel-title" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>{title}</h2>
-        {count !== undefined && (
-          <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-            {count}
-          </span>
-        )}
-      </div>
-      {action}
-    </header>
-  );
-}
 
 function FcKpiCard({
   icon,
@@ -182,6 +174,13 @@ function SpiderRadarChart({ pillars }: { pillars: { name: string; weight: number
   );
 }
 
+type ScorecardPillar = { name: string; weight: number; score: number; metric?: string };
+type ScorecardData = {
+  weighted_score: number;
+  completed_jobs: number;
+  pillars?: ScorecardPillar[];
+};
+
 export function ContractorsView({
   rows,
   kpis,
@@ -200,18 +199,24 @@ export function ContractorsView({
   const [selectedContractor, setSelectedContractor] = useState<Row | null>(null);
   const [editingContractor, setEditingContractor] = useState<Row | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [scorecardData, setScorecardData] = useState<any>(null);
+  const [scorecardData, setScorecardData] = useState<ScorecardData | null>(null);
   const [showScorecardModal, setShowScorecardModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scorecardError, setScorecardError] = useState("");
+  const [referenceDate] = useState(() => new Date());
+
+  // Retained for API compatibility with the shared tab renderer while this
+  // view derives its richer metrics from provider rows.
+  void kpis;
+  void onAdd;
 
   const displayRows = rows;
 
   const activeCount = displayRows.filter((r) => r.status === "active" || r.approval_status === "approved").length;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const in60Days = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+  const today = referenceDate.toISOString().slice(0, 10);
+  const in60Days = new Date(referenceDate.getTime() + 60 * 86400000).toISOString().slice(0, 10);
   const expiringDocs = displayRows.flatMap((r) => {
     const items: { contractor: string; doc: string; date: string }[] = [];
     for (const [field, label] of [["insurance_expires_on", "Insurance"], ["license_expires_on", "License"], ["tax_compliance_expires_on", "Tax compliance"]] as const) {
@@ -235,7 +240,7 @@ export function ContractorsView({
       const res = await apiFetch(`/facility/contractors/${contractor.id}/scorecard/`);
       if (res.ok) {
         const data = await res.json();
-        setScorecardData(data);
+        setScorecardData(data as ScorecardData);
       } else {
         setScorecardError("The live performance scorecard could not be loaded. Retry after contractor activity has been recorded.");
       }
@@ -258,68 +263,80 @@ export function ContractorsView({
       </div>
 
       {expiringDocs.length > 0 && (
-        <article className="data-panel" style={{ borderColor: expiredCount > 0 ? "var(--error, #dc2626)" : "var(--warning, #d97706)" }}>
-          <header className="panel-title" style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: expiredCount > 0 ? "var(--error, #dc2626)" : "var(--warning, #d97706)" }}>
-                {expiredCount > 0 ? `${expiredCount} expired document(s) — action required` : `${expiringDocs.length} document(s) expiring within 60 days`}
-              </h2>
-            </div>
-          </header>
-          <div style={{ padding: "8px 20px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {expiringDocs.slice(0, 8).map((d, i) => (
-              <span key={i} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 8, background: d.date <= today ? "var(--error-bg, #fee2e2)" : "var(--warning-bg, #fef3c7)", color: "var(--text-primary)" }}>
-                <strong>{d.contractor}</strong> · {d.doc} · {d.date <= today ? `expired ${d.date}` : `due ${d.date}`}
-              </span>
-            ))}
-            {expiringDocs.length > 8 && <span style={{ fontSize: 12, alignSelf: "center", color: "var(--text-secondary)" }}>+{expiringDocs.length - 8} more</span>}
-          </div>
-        </article>
+        <Alert
+          severity={expiredCount > 0 ? "error" : "warning"}
+          variant="outlined"
+          sx={{ borderRadius: 2.5, alignItems: "flex-start", bgcolor: "background.paper", "& .MuiAlert-message": { width: "100%" } }}
+        >
+          <AlertTitle sx={{ fontWeight: 800, mb: 1 }}>
+            {expiredCount > 0
+              ? `${expiredCount} expired compliance document${expiredCount === 1 ? "" : "s"} require action`
+              : `${expiringDocs.length} compliance document${expiringDocs.length === 1 ? "" : "s"} expire within 60 days`}
+          </AlertTitle>
+          <Stack direction="row" useFlexGap sx={{ flexWrap: "wrap", gap: 1 }}>
+            {expiringDocs.slice(0, 8).map((d, i) => {
+              const expired = d.date <= today;
+              return (
+                <Chip
+                  key={`${d.contractor}-${d.doc}-${i}`}
+                  size="small"
+                  color={expired ? "error" : "warning"}
+                  variant="outlined"
+                  label={`${d.contractor} · ${d.doc} · ${expired ? "Expired" : "Due"} ${d.date}`}
+                  sx={{ fontWeight: 700, bgcolor: "background.paper" }}
+                />
+              );
+            })}
+            {expiringDocs.length > 8 && <Chip size="small" label={`+${expiringDocs.length - 8} more`} />}
+          </Stack>
+        </Alert>
       )}
 
       {/* Main Vendor Master Table */}
       <article className="data-panel">
-        <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
-              Service Provider Master, SLA Contracts & 7-Pillar Scorecard
-            </h2>
-            <small style={{ color: "var(--text-secondary)", fontSize: "0.78rem" }}>
-              Automated performance score: Σ(KPI Score × Weight) across SLA, Quality, Response, Cost & Compliance
-            </small>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "contractor-master.csv")} title="Export service providers to CSV">
-              ↓ Export CSV
-            </button>
-            <button
-              onClick={() => setShowBulkModal(true)}
-              className="fc-toolbar-btn"
-              style={{ fontWeight: 700 }}
-              title="Upload multiple service providers at once using a CSV file"
-            >
-              ⬆ Upload Providers (CSV)
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="fc-toolbar-btn primary"
-              style={{ fontWeight: 800 }}
-            >
-              + Add Provider
-            </button>
-          </div>
-        </header>
+        <Box
+          sx={{
+            p: { xs: 2, md: 2.5 },
+            borderBottom: 1,
+            borderColor: "divider",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: { xs: "stretch", md: "center" },
+            flexDirection: { xs: "column", md: "row" },
+            gap: 2,
+          }}
+        >
+          <Box>
+            <Typography component="h2" variant="h6" sx={{ fontSize: 17, fontWeight: 850 }}>
+              Service providers and SLA performance
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+              Manage provider contacts, compliance, contracts and weighted performance scorecards.
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            <Button variant="outlined" size="small" startIcon={<Download size={16} />} onClick={() => exportCsv(displayRows, "contractor-master.csv")}>
+              Export CSV
+            </Button>
+            <Button variant="outlined" size="small" startIcon={<FileUp size={16} />} onClick={() => setShowBulkModal(true)} disabled={!canAdminister}>
+              Bulk upload
+            </Button>
+            <Button variant="contained" size="small" startIcon={<Plus size={16} />} onClick={() => setShowAddModal(true)} disabled={!canAdminister}>
+              Add provider
+            </Button>
+          </Stack>
+        </Box>
 
         <div style={{ overflowX: "auto" }}>
           <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>PROVIDER NAME & SPECIALTY</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>CONTACT DETAILS</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>EMERGENCY 24/7 DESK</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>RATING</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>STATUS</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>EVALUATION & SCORECARD</th>
+                <th style={{ padding: "12px 16px", textAlign: "left" }}>Provider</th>
+                <th style={{ padding: "12px 16px", textAlign: "left" }}>Primary contact</th>
+                <th style={{ padding: "12px 16px", textAlign: "left" }}>Emergency and compliance</th>
+                <th style={{ padding: "12px 16px", textAlign: "center" }}>Rating</th>
+                <th style={{ padding: "12px 16px", textAlign: "center" }}>Approval status</th>
+                <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -357,46 +374,25 @@ export function ContractorsView({
                     <FcStatus value={String(vendor.approval_status ?? vendor.status ?? "review")} />
                   </td>
 
-                  <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center", alignItems: "center" }}>
-                      <button
-                        onClick={() => setEditingContractor(vendor)}
-                        style={{
-                          background: "var(--surface)",
-                          border: "1.5px solid var(--border)",
-                          padding: "6px 10px",
-                          borderRadius: 6,
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          color: "var(--text-primary)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                        title="Edit provider information, contacts, compliance & property assignment"
-                      >
-                        ✏️ Edit
-                      </button>
-                      <button
-                        onClick={() => viewScorecard(vendor)}
-                        style={{
-                          background: "var(--surface-sunken)",
-                          border: "1px solid var(--border)",
-                          padding: "6px 10px",
-                          borderRadius: 6,
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          color: "var(--primary)",
-                        }}
-                      >
-                        🏆 Scorecard
-                      </button>
-                    </div>
+                  <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                    <Stack direction="row" spacing={0.75} justifyContent="flex-end">
+                      <Tooltip title="Edit provider information, contacts and compliance">
+                        <span>
+                          <Button size="small" variant="outlined" startIcon={<Pencil size={14} />} onClick={() => setEditingContractor(vendor)} disabled={!canAdminister}>
+                            Edit
+                          </Button>
+                        </span>
+                      </Tooltip>
+                      <Button size="small" variant="text" startIcon={<Trophy size={15} />} onClick={() => viewScorecard(vendor)}>
+                        Scorecard
+                      </Button>
+                    </Stack>
                   </td>
                 </tr>
               ))}
+              {displayRows.length === 0 && (
+                <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>No service providers have been added for this property.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -404,29 +400,18 @@ export function ContractorsView({
 
       {/* 7-Pillar Scorecard Modal */}
       {showScorecardModal && selectedContractor && (
-        <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-          <div style={{ background: "var(--surface)", width: "100%", maxWidth: 840, borderRadius: 12, border: "1px solid var(--border)", padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
-                  Automated Service Provider Evaluation Scorecard
-                </h2>
-                <small style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
-                  {String(selectedContractor.name)} ({String(selectedContractor.specialty)})
-                </small>
-              </div>
-              <button onClick={() => setShowScorecardModal(false)} style={{ background: "none", border: 0, fontSize: 18, cursor: "pointer", color: "var(--text-secondary)" }}>
-                ✕
-              </button>
-            </div>
+        <Dialog open fullWidth maxWidth="md" onClose={() => setShowScorecardModal(false)}>
+          <DialogTitle sx={{ pr: 7 }}>
+            <Typography component="span" sx={{ display: "block", fontWeight: 850, fontSize: 19 }}>Provider performance scorecard</Typography>
+            <Typography component="span" variant="body2" color="text.secondary">{String(selectedContractor.name)} · {String(selectedContractor.specialty)}</Typography>
+            <IconButton aria-label="Close scorecard" onClick={() => setShowScorecardModal(false)} sx={{ position: "absolute", right: 12, top: 12 }}><X size={19} /></IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
 
             {loading ? (
               <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>Calculating weighted KPI scorecard...</div>
             ) : scorecardError ? (
-              <div className="form-error" role="alert" style={{ padding: 16 }}>
-                {scorecardError}
-                <button className="btn ghost" style={{ marginLeft: 12 }} onClick={() => void viewScorecard(selectedContractor)}>Retry</button>
-              </div>
+              <Alert severity="error" action={<Button color="inherit" size="small" startIcon={<RotateCcw size={14} />} onClick={() => void viewScorecard(selectedContractor)}>Retry</Button>}>{scorecardError}</Alert>
             ) : scorecardData ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* Overall Score Meter */}
@@ -456,7 +441,7 @@ export function ContractorsView({
 
                   {/* Right: Pillars List */}
                   <div style={{ display: "grid", gap: 8 }}>
-                    {scorecardData.pillars?.map((p: any) => (
+                    {scorecardData.pillars?.map((p) => (
                       <div key={p.name} style={{ padding: "8px 12px", background: "var(--surface-sunken)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div>
                           <strong style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>{p.name}</strong>
@@ -471,15 +456,11 @@ export function ContractorsView({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button onClick={() => setShowScorecardModal(false)} style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "8px 16px", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>
-                    Close Scorecard
-                  </button>
-                </div>
               </div>
             ) : null}
-          </div>
-        </div>
+          </DialogContent>
+          <DialogActions><Button onClick={() => setShowScorecardModal(false)}>Close</Button></DialogActions>
+        </Dialog>
       )}
 
       {showBulkModal && (
