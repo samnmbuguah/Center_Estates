@@ -1507,6 +1507,14 @@ def public_feedback(request, token):
         if manager_membership:
             assigned_user = manager_membership.user
 
+    # Public submissions also notify the platform developer when that account
+    # exists. Resolve it explicitly here; previously this branch referenced an
+    # undefined ``developer`` variable after the ticket had already been saved,
+    # causing an otherwise successful submission to return HTTP 500.
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    developer = User.objects.filter(username='samuel', is_active=True).first()
+
     import datetime
     now = timezone.now()
     sla_due_at = now + datetime.timedelta(hours=sla_hours)
