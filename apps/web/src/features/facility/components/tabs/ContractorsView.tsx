@@ -375,7 +375,7 @@ export function ContractorsView({
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "right" }}>
-                    <Stack direction="row" spacing={0.75} justifyContent="flex-end">
+                    <Stack direction="row" spacing={0.75} sx={{ justifyContent: "flex-end" }}>
                       <Tooltip title="Edit provider information, contacts and compliance">
                         <span>
                           <Button size="small" variant="outlined" startIcon={<Pencil size={14} />} onClick={() => setEditingContractor(vendor)} disabled={!canAdminister}>
