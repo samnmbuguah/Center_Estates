@@ -18,6 +18,7 @@ type Invoice = {
   total: string; status: string; cost_centre: string; variance: string | null;
   work_order_value: string | null; rejected_reason: string; exception_approved: boolean;
   payment_reference: string;
+  requisition_code: string; lpo_number: string; job_card_number: string; ticket_reference: string;
 };
 
 async function post(path: string, payload: unknown, organizationId: string | null) {
@@ -186,6 +187,8 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
                     <td style={{ padding: "12px 14px", fontSize: 12 }}>
                       <Chip size="small" label={inv.classification === "repair" ? "Repair" : "Recurring"} sx={{ fontSize: 10, height: 18 }} />
                       {inv.work_order_number && <div className="mono" style={{ fontSize: 11, marginTop: 2 }}>WO {inv.work_order_number}</div>}
+                      {inv.job_card_number && <div className="mono" style={{ fontSize: 11 }}>Job {inv.job_card_number} · LPO {inv.lpo_number}</div>}
+                      {inv.requisition_code && <div className="mono" style={{ fontSize: 11 }}>{inv.requisition_code}{inv.ticket_reference ? ` · ${inv.ticket_reference}` : ""}</div>}
                       {inv.service_profile_name && <div style={{ fontSize: 11, marginTop: 2 }}>{inv.service_profile_name}</div>}
                     </td>
                     <td style={{ padding: "12px 14px" }}>
@@ -244,6 +247,14 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
                   <Typography variant="caption" color="text.secondary">Supplier:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700 }}>{inspectTarget?.supplier_name}</Typography>
                 </Box>
+                {inspectTarget?.job_card_number && (
+                  <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "action.hover" }}>
+                    <Typography variant="caption" color="text.secondary">Audit chain</Typography>
+                    <Typography variant="body2" className="mono" sx={{ fontWeight: 700 }}>
+                      {inspectTarget.ticket_reference || "Ticket —"} → {inspectTarget.requisition_code} → {inspectTarget.lpo_number} → {inspectTarget.job_card_number} → {inspectTarget.work_order_number}
+                    </Typography>
+                  </Box>
+                )}
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="caption" color="text.secondary">Supplier Invoice #:</Typography>
                   <Typography variant="body2" className="mono" sx={{ fontWeight: 700 }}>{inspectTarget?.supplier_invoice_number}</Typography>

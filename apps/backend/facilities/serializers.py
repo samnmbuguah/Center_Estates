@@ -7,7 +7,9 @@ from core.tenancy import get_active_organization
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
+    ContractInvoiceAppraisal, FacilityJobCard, FacilityPaymentRecord, FinancePaymentRequest,
+    LocalPurchaseOrder, MeterResetEvent, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
+    RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 
@@ -116,6 +118,7 @@ class RepairRequisitionSerializer(serializers.ModelSerializer):
     requester_name = serializers.CharField(source='requester.get_full_name', read_only=True, default='')
     service_request_reference = serializers.CharField(source='service_request.reference', read_only=True, default='')
     work_order_number = serializers.CharField(source='work_order.number', read_only=True, default='')
+    procurement_code = serializers.CharField(source='procurement.code', read_only=True, default='')
 
     class Meta:
         model = RepairRequisition
@@ -145,6 +148,10 @@ class SupplierInvoiceSerializer(serializers.ModelSerializer):
     budget_name = serializers.CharField(source='budget.name', read_only=True, default='')
     work_order_value = serializers.SerializerMethodField()
     variance = serializers.SerializerMethodField()
+    requisition_code = serializers.SerializerMethodField()
+    lpo_number = serializers.SerializerMethodField()
+    job_card_number = serializers.SerializerMethodField()
+    ticket_reference = serializers.SerializerMethodField()
 
     class Meta:
         model = SupplierInvoice
@@ -165,6 +172,28 @@ class SupplierInvoiceSerializer(serializers.ModelSerializer):
             return None
         approved = obj.work_order.labor_cost + obj.work_order.parts_cost + obj.work_order.other_cost
         return obj.total - approved
+
+    def _job_card(self, obj):
+        if not obj.work_order_id:
+            return None
+        return getattr(obj.work_order, 'job_card', None)
+
+    def get_requisition_code(self, obj):
+        card = self._job_card(obj)
+        return card.lpo.procurement.requisition.code if card else ''
+
+    def get_lpo_number(self, obj):
+        card = self._job_card(obj)
+        return card.lpo.number if card else ''
+
+    def get_job_card_number(self, obj):
+        card = self._job_card(obj)
+        return card.number if card else ''
+
+    def get_ticket_reference(self, obj):
+        card = self._job_card(obj)
+        request = card.lpo.procurement.requisition.service_request if card else None
+        return request.reference if request else ''
 
     def validate(self, attrs):
         organization = get_active_organization(self.context['request'])
@@ -188,6 +217,101 @@ class SupplierInvoiceSerializer(serializers.ModelSerializer):
         if attrs.get('budget') and attrs['budget'].organization_id != organization.id:
             raise serializers.ValidationError({'budget': 'Budget must belong to the active organization.'})
         return attrs
+
+
+class ProcurementQuotationSerializer(serializers.ModelSerializer):
+    bidder_name = serializers.CharField(source='bidder.name', read_only=True)
+
+    class Meta:
+        model = ProcurementQuotation
+        exclude = ('organization', 'recorded_by')
+        read_only_fields = ('procurement', 'is_awarded')
+
+
+class ProcurementRecordSerializer(serializers.ModelSerializer):
+    requisition_code = serializers.CharField(source='requisition.code', read_only=True)
+    requisition_title = serializers.CharField(source='requisition.title', read_only=True)
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    quotations = ProcurementQuotationSerializer(many=True, read_only=True)
+    lpo_number = serializers.CharField(source='lpo.number', read_only=True, default='')
+    job_card_number = serializers.CharField(source='lpo.job_card.number', read_only=True, default='')
+
+    class Meta:
+        model = ProcurementRecord
+        exclude = ('organization',)
+        read_only_fields = ('code', 'property', 'status', 'created_by', 'evaluated_by', 'evaluated_at', 'awarded_by', 'awarded_at')
+
+
+class LocalPurchaseOrderSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True)
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    procurement_code = serializers.CharField(source='procurement.code', read_only=True)
+    requisition_code = serializers.CharField(source='procurement.requisition.code', read_only=True)
+
+    class Meta:
+        model = LocalPurchaseOrder
+        exclude = ('organization',)
+        read_only_fields = ('number', 'procurement', 'quotation', 'supplier', 'property', 'subtotal', 'vat_amount', 'total', 'scope', 'status', 'issued_by', 'issued_at')
+
+
+class FacilityJobCardSerializer(serializers.ModelSerializer):
+    lpo_number = serializers.CharField(source='lpo.number', read_only=True)
+    procurement_code = serializers.CharField(source='lpo.procurement.code', read_only=True)
+    requisition_code = serializers.CharField(source='lpo.procurement.requisition.code', read_only=True)
+    ticket_reference = serializers.CharField(source='lpo.procurement.requisition.service_request.reference', read_only=True, default='')
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    work_order_number = serializers.CharField(source='work_order.number', read_only=True, default='')
+    ticket_closure_eligible = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FacilityJobCard
+        exclude = ('organization',)
+        read_only_fields = ('number', 'lpo', 'property', 'work_order', 'status', 'contractor_signed_at',
+                            'caretaker_signed_by', 'caretaker_signed_at', 'verified_by', 'verified_at')
+
+    def get_ticket_closure_eligible(self, obj):
+        return obj.status == FacilityJobCard.Status.VERIFIED
+
+
+class ContractInvoiceAppraisalSerializer(serializers.ModelSerializer):
+    invoice_code = serializers.CharField(source='invoice.code', read_only=True)
+    supplier_name = serializers.CharField(source='invoice.supplier.name', read_only=True)
+    contract_number = serializers.CharField(source='contract.contract_number', read_only=True)
+    average_score = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContractInvoiceAppraisal
+        exclude = ('organization',)
+        read_only_fields = ('invoice', 'contract', 'contract_valid', 'service_mapping_valid', 'status', 'caretaker',
+                            'caretaker_signed_at', 'manager', 'manager_decided_at')
+
+    def get_average_score(self, obj):
+        return round((obj.quality_score + obj.timeliness_score + obj.responsiveness_score) / 3, 1)
+
+
+class FinancePaymentRequestSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True, default='')
+    requested_by_name = serializers.CharField(source='requested_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = FinancePaymentRequest
+        exclude = ('organization',)
+        read_only_fields = ('number', 'status', 'requested_by', 'approved_by', 'approved_at', 'payment_reference', 'paid_at')
+
+
+class FacilityPaymentRecordSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True, default='')
+    source_reference = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FacilityPaymentRecord
+        exclude = ('organization', 'processed_by')
+        read_only_fields = ('number', 'expense')
+
+    def get_source_reference(self, obj):
+        if obj.supplier_invoice_id:
+            return obj.supplier_invoice.code
+        return obj.payment_request.number if obj.payment_request_id else ''
 
 
 class ContractorSerializer(serializers.ModelSerializer):

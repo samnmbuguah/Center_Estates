@@ -4,9 +4,11 @@ from .views import (
     AssetConditionAssessmentViewSet, AssetViewSet, ComplianceObligationViewSet,
     ContractorContractViewSet, ContractorViewSet, FacilityAnalyticsViewSet,
     FacilityDashboardViewSet, FacilityFlagViewSet, FacilityPortalViewSet,
-    FacilityIncidentViewSet, FacilityRiskViewSet, FloorPlanViewSet, FMBudgetViewSet, FacilityExpenseViewSet, InspectionViewSet,
+    ContractInvoiceAppraisalViewSet, FacilityIncidentViewSet, FacilityJobCardViewSet,
+    FacilityPaymentRecordViewSet, FacilityRiskViewSet, FinancePaymentRequestViewSet,
+    FloorPlanViewSet, FMBudgetViewSet, FacilityExpenseViewSet, InspectionViewSet, LocalPurchaseOrderViewSet,
     MeterReadingViewSet, MeterReconciliationViewSet, MeterResetEventViewSet,
-    PreventiveScheduleViewSet, RepairRequisitionViewSet, ServiceProfileAllocationViewSet, ServiceProfileViewSet, ServiceRequestViewSet, StrategicFMPlanViewSet,
+    PreventiveScheduleViewSet, ProcurementRecordViewSet, RepairRequisitionViewSet, ServiceProfileAllocationViewSet, ServiceProfileViewSet, ServiceRequestViewSet, StrategicFMPlanViewSet,
     SupplierInvoiceViewSet, UtilityMeterViewSet, WorkOrderAttachmentViewSet, WorkOrderCostItemViewSet,
     WorkOrderEventViewSet, WorkOrderViewSet,
 )
@@ -21,7 +23,13 @@ router.register('strategic-plans', StrategicFMPlanViewSet)
 router.register('work-orders', WorkOrderViewSet)
 router.register('planned-maintenance', PreventiveScheduleViewSet)
 router.register('requisitions', RepairRequisitionViewSet)
+router.register('procurements', ProcurementRecordViewSet)
+router.register('lpos', LocalPurchaseOrderViewSet)
+router.register('job-cards', FacilityJobCardViewSet)
 router.register('supplier-invoices', SupplierInvoiceViewSet)
+router.register('contract-invoice-appraisals', ContractInvoiceAppraisalViewSet)
+router.register('payment-requests', FinancePaymentRequestViewSet)
+router.register('payments', FacilityPaymentRecordViewSet)
 router.register('inspections', InspectionViewSet)
 router.register('service-requests', ServiceRequestViewSet)
 router.register('service-profiles', ServiceProfileViewSet)

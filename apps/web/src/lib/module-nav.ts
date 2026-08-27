@@ -101,6 +101,7 @@ export const facilityNav: ModuleNavGroup[] = [
     items: [
       { id: "work-orders",       label: "Maintenance",         icon: "🔧" },
       { id: "requisitions",      label: "Repair Requisitions", icon: "📝" },
+      { id: "procurement",       label: "Procurement & LPOs",  icon: "🛒" },
       { id: "work-order-events", label: "Work History",        icon: "🕘" },
       { id: "work-order-cost-items", label: "Labor & Parts",   icon: "🧾" },
       { id: "work-order-attachments", label: "Work Media",     icon: "📎" },
@@ -121,6 +122,7 @@ export const facilityNav: ModuleNavGroup[] = [
     label: "FINANCE",
     items: [
       { id: "supplier-invoices", label: "Supplier Invoices", icon: "🧾" },
+      { id: "finance-control",   label: "Finance Control", icon: "🏦" },
       { id: "expenditure",       label: "Expenditure & Floats", icon: "💰" },
     ],
   },

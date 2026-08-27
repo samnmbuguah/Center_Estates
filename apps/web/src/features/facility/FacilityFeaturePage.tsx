@@ -18,6 +18,8 @@ import { GenericListView } from "./components/tabs/GenericListView";
 import { OperationsRegistryView } from "./components/tabs/OperationsRegistryView";
 import { RequisitionsView } from "./components/tabs/RequisitionsView";
 import { SupplierInvoicesView } from "./components/tabs/SupplierInvoicesView";
+import { ProcurementView } from "./components/tabs/ProcurementView";
+import { FinanceControlView } from "./components/tabs/FinanceControlView";
 import { FacilityModals } from "./components/modals/FacilityModals";
 import { ErrorBanner, LoadingState } from "@/components/module-ui";
 
@@ -90,6 +92,13 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             canApprove={logic.canApprove}
             reload={() => void logic.load()}
             setTab={logic.selectTab}
+          />
+        ) : logic.tab === "procurement" ? (
+          <ProcurementView
+            rows={logic.rows}
+            organizationId={logic.organizationId}
+            reload={() => void logic.load()}
+            canApprove={logic.canApprove}
           />
         ) : logic.tab === "planned-maintenance" ? (
           <PlannedMaintenanceView
@@ -180,6 +189,14 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             setSearch={logic.setSearch}
             organizationId={logic.organizationId}
             reload={() => void logic.load()}
+            setTab={logic.selectTab}
+          />
+        ) : logic.tab === "finance-control" ? (
+          <FinanceControlView
+            rows={logic.rows}
+            organizationId={logic.organizationId}
+            reload={() => void logic.load()}
+            canApprove={logic.canApprove}
             setTab={logic.selectTab}
           />
         ) : logic.tab === "expenditure" ? (

@@ -698,80 +698,6 @@ class FacilityExpense(OrganizationOwnedModel):
             raise ValidationError({'amount': 'Expense amount must be greater than zero.'})
 
 
-class SupplierInvoice(OrganizationOwnedModel):
-    class Classification(models.TextChoices):
-        REPAIR = 'repair', 'One-off repair'
-        RECURRING = 'recurring', 'Recurring service'
-
-    class Status(models.TextChoices):
-        DRAFT = 'draft', 'Draft'
-        SUBMITTED = 'submitted', 'Submitted'
-        VERIFIED = 'verified', 'Verified'
-        APPROVED = 'approved', 'Approved'
-        PAYMENT_PROCESSING = 'payment_processing', 'Payment processing'
-        PAID = 'paid', 'Paid'
-        REJECTED = 'rejected', 'Rejected'
-        ON_HOLD = 'on_hold', 'On hold'
-
-    code = models.CharField(max_length=60)
-    supplier = models.ForeignKey(Contractor, on_delete=models.PROTECT, related_name='supplier_invoices')
-    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='supplier_invoices')
-    supplier_invoice_number = models.CharField(max_length=80)
-    classification = models.CharField(max_length=16, choices=Classification.choices, default=Classification.REPAIR)
-
-    work_order = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='supplier_invoices')
-    service_profile = models.ForeignKey('facilities.ServiceProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='supplier_invoices')
-    service_period_start = models.DateField(null=True, blank=True)
-    service_period_end = models.DateField(null=True, blank=True)
-
-    description = models.TextField()
-    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
-    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('16.00'))
-    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
-    total = models.DecimalField(max_digits=14, decimal_places=2)
-    tax_code = models.CharField(max_length=40, blank=True)
-    cost_centre = models.CharField(max_length=80, blank=True)
-    budget = models.ForeignKey(FMBudget, on_delete=models.SET_NULL, null=True, blank=True, related_name='supplier_invoices')
-
-    invoice_document_url = models.CharField(max_length=500, blank=True)
-    variance_notes = models.TextField(blank=True)
-    exception_approved = models.BooleanField(default=False)
-    exception_notes = models.TextField(blank=True)
-
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
-    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='submitted_supplier_invoices')
-    submitted_at = models.DateTimeField(null=True, blank=True)
-    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_supplier_invoices')
-    verified_at = models.DateTimeField(null=True, blank=True)
-    verified_notes = models.TextField(blank=True)
-    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_supplier_invoices')
-    approved_at = models.DateTimeField(null=True, blank=True)
-    approved_notes = models.TextField(blank=True)
-    rejected_reason = models.TextField(blank=True)
-    paid_at = models.DateTimeField(null=True, blank=True)
-    payment_reference = models.CharField(max_length=120, blank=True)
-    metadata = models.JSONField(default=dict, blank=True)
-
-    class Meta:
-        ordering = ('-created_at',)
-        constraints = [
-            models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_supplier_invoice_code'),
-            models.UniqueConstraint(fields=('organization', 'supplier', 'supplier_invoice_number'), name='unique_organization_supplier_invoice_number'),
-        ]
-
-    def clean(self):
-        if self.property_id and self.property.organization_id != self.organization_id:
-            raise ValidationError('Supplier invoice property must belong to the active organization.')
-        if self.supplier_id and self.supplier.organization_id != self.organization_id:
-            raise ValidationError('Supplier must belong to the active organization.')
-        if self.work_order_id and self.work_order.property_id != self.property_id:
-            raise ValidationError({'work_order': 'The linked work order must belong to the selected property.'})
-        if self.total <= 0:
-            raise ValidationError({'total': 'Invoice total amount must be greater than zero.'})
-        if self.classification == self.Classification.REPAIR and not self.work_order_id and not self.exception_approved:
-            raise ValidationError({'work_order': 'One-off reactive repair invoices must link to a valid Work Order.'})
-
-
 class ComplianceObligation(OrganizationOwnedModel):
     property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='compliance_obligations')
     building = models.ForeignKey('properties.Building', on_delete=models.SET_NULL, null=True, blank=True, related_name='compliance_obligations')
@@ -979,3 +905,192 @@ class SupplierInvoice(OrganizationOwnedModel):
         if self.classification == self.Classification.RECURRING and self.service_period_start and self.service_period_end:
             if self.service_period_end < self.service_period_start:
                 raise ValidationError({'service_period_end': 'Service period end cannot be before its start.'})
+
+
+class ProcurementRecord(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        SOURCING = 'sourcing', 'Sourcing quotations'
+        EVALUATION = 'evaluation', 'Evaluation'
+        AWARDED = 'awarded', 'Awarded'
+        LPO_ISSUED = 'lpo_issued', 'LPO issued'
+        IN_EXECUTION = 'in_execution', 'Work in progress'
+        VERIFIED = 'verified', 'Work verified'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    code = models.CharField(max_length=60)
+    requisition = models.OneToOneField(RepairRequisition, on_delete=models.PROTECT, related_name='procurement')
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_procurements')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SOURCING)
+    evaluation_notes = models.TextField(blank=True)
+    award_reason = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_facility_procurements')
+    evaluated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='evaluated_facility_procurements')
+    evaluated_at = models.DateTimeField(null=True, blank=True)
+    awarded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='awarded_facility_procurements')
+    awarded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'code'), name='unique_org_procurement_code')]
+
+
+class ProcurementQuotation(OrganizationOwnedModel):
+    procurement = models.ForeignKey(ProcurementRecord, on_delete=models.CASCADE, related_name='quotations')
+    bidder = models.ForeignKey(Contractor, on_delete=models.PROTECT, related_name='procurement_quotations')
+    quotation_number = models.CharField(max_length=80)
+    quoted_on = models.DateField()
+    valid_until = models.DateField(null=True, blank=True)
+    lead_time_days = models.PositiveIntegerField(default=0)
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
+    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    document_url = models.CharField(max_length=500, blank=True)
+    compliance_notes = models.TextField(blank=True)
+    evaluation_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    is_recommended = models.BooleanField(default=False)
+    is_awarded = models.BooleanField(default=False)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='recorded_procurement_quotations')
+
+    class Meta:
+        ordering = ('total', 'created_at')
+        constraints = [models.UniqueConstraint(fields=('procurement', 'bidder', 'quotation_number'), name='unique_procurement_bidder_quote')]
+
+
+class LocalPurchaseOrder(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        ISSUED = 'issued', 'Issued'
+        ACCEPTED = 'accepted', 'Accepted'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    number = models.CharField(max_length=60)
+    procurement = models.OneToOneField(ProcurementRecord, on_delete=models.PROTECT, related_name='lpo')
+    quotation = models.OneToOneField(ProcurementQuotation, on_delete=models.PROTECT, related_name='lpo')
+    supplier = models.ForeignKey(Contractor, on_delete=models.PROTECT, related_name='local_purchase_orders')
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_lpos')
+    issue_date = models.DateField(null=True, blank=True)
+    delivery_date = models.DateField(null=True, blank=True)
+    scope = models.TextField()
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
+    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    payment_terms = models.CharField(max_length=160, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='issued_facility_lpos')
+    issued_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_org_lpo_number')]
+
+
+class FacilityJobCard(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        CONTRACTOR_SIGNED = 'contractor_signed', 'Contractor signed'
+        CARETAKER_SIGNED = 'caretaker_signed', 'Caretaker signed'
+        VERIFIED = 'verified', 'Verified'
+
+    number = models.CharField(max_length=60)
+    lpo = models.OneToOneField(LocalPurchaseOrder, on_delete=models.PROTECT, related_name='job_card')
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_job_cards')
+    work_order = models.OneToOneField(WorkOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_card')
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.OPEN)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completion_notes = models.TextField(blank=True)
+    evidence_urls = models.JSONField(default=list, blank=True)
+    contractor_signatory = models.CharField(max_length=160, blank=True)
+    contractor_signed_at = models.DateTimeField(null=True, blank=True)
+    caretaker_signatory = models.CharField(max_length=160, blank=True)
+    caretaker_signed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='caretaker_signed_job_cards')
+    caretaker_signed_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_job_cards')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verification_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_org_job_card_number')]
+
+
+class ContractInvoiceAppraisal(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        PENDING_CARETAKER = 'pending_caretaker', 'Awaiting caretaker'
+        PENDING_MANAGER = 'pending_manager', 'Awaiting manager'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    invoice = models.OneToOneField(SupplierInvoice, on_delete=models.CASCADE, related_name='performance_appraisal')
+    contract = models.ForeignKey(ContractorContract, on_delete=models.PROTECT, related_name='invoice_appraisals')
+    contract_valid = models.BooleanField(default=False)
+    service_mapping_valid = models.BooleanField(default=False)
+    quality_score = models.PositiveSmallIntegerField(default=0)
+    timeliness_score = models.PositiveSmallIntegerField(default=0)
+    responsiveness_score = models.PositiveSmallIntegerField(default=0)
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.PENDING_CARETAKER)
+    caretaker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_contract_invoice_appraisals')
+    caretaker_signed_at = models.DateTimeField(null=True, blank=True)
+    manager = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_contract_invoice_appraisals')
+    manager_decided_at = models.DateTimeField(null=True, blank=True)
+    manager_notes = models.TextField(blank=True)
+
+
+class FinancePaymentRequest(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SUBMITTED = 'submitted', 'Submitted'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        PROCESSING = 'processing', 'Processing'
+        PAID = 'paid', 'Paid'
+
+    class Category(models.TextChoices):
+        STATUTORY = 'statutory', 'Statutory payment'
+        TAX = 'tax', 'Tax'
+        LICENCE = 'licence', 'Licence'
+        UTILITY = 'utility', 'Utility'
+        FEE = 'fee', 'Fee'
+        REFUND = 'refund', 'Refund'
+        OTHER = 'other', 'Other obligation'
+
+    number = models.CharField(max_length=60)
+    property = models.ForeignKey('properties.Property', on_delete=models.SET_NULL, null=True, blank=True, related_name='finance_payment_requests')
+    category = models.CharField(max_length=20, choices=Category.choices)
+    payee = models.CharField(max_length=200)
+    description = models.TextField()
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    due_date = models.DateField()
+    statutory_reference = models.CharField(max_length=120, blank=True)
+    cost_centre = models.CharField(max_length=80, blank=True)
+    supporting_documents = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='requested_finance_payments')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_finance_payments')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    decision_notes = models.TextField(blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('status', 'due_date')
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_org_finance_payment_request')]
+
+
+class FacilityPaymentRecord(OrganizationOwnedModel):
+    number = models.CharField(max_length=60)
+    supplier_invoice = models.OneToOneField(SupplierInvoice, on_delete=models.PROTECT, null=True, blank=True, related_name='payment_record')
+    payment_request = models.OneToOneField(FinancePaymentRequest, on_delete=models.PROTECT, null=True, blank=True, related_name='payment_record')
+    property = models.ForeignKey('properties.Property', on_delete=models.SET_NULL, null=True, blank=True, related_name='facility_payment_records')
+    payee = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    paid_on = models.DateField()
+    reference = models.CharField(max_length=120)
+    expense = models.OneToOneField(FacilityExpense, on_delete=models.SET_NULL, null=True, blank=True, related_name='payment_record')
+    processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='processed_facility_payments')
+
+    class Meta:
+        ordering = ('-paid_on', '-created_at')
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_org_facility_payment_number')]

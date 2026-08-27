@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Typography,
+  LinearProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from "@mui/material";
 import { Plus, CheckCircle, X, Send } from "lucide-react";
 import { EmptyState, StatusPill, money } from "@/components/module-ui";
@@ -17,11 +17,6 @@ type Requisition = {
   status: string; required_by: string | null; requester_name: string;
   manager_notes: string; rejected_reason: string; provider_name: string;
   service_request_reference: string; work_order_number: string;
-};
-
-const STATUS_TONE: Record<string, string> = {
-  draft: "gray", submitted: "yellow", approved: "blue", rejected: "red",
-  converted: "green", cancelled: "gray",
 };
 
 async function post(path: string, payload: unknown, organizationId: string | null) {
@@ -175,7 +170,7 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
                           </>
                         )}
                         {r.status === "approved" && canWork && (
-                          <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void runAction(r, "convert-to-work-order", {})}>Convert to WO</Button>
+                          <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => setTab("procurement")}>Open procurement</Button>
                         )}
                       </Stack>
                     </td>

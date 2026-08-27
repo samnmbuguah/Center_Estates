@@ -12,7 +12,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import Contractor, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, Inspection, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceRequest, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import Contractor, ContractorContract, ContractInvoiceAppraisal, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityJobCard, FacilityPaymentRecord, FinancePaymentRequest, Inspection, LocalPurchaseOrder, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ProcurementRecord, RepairRequisition, ServiceProfile, ServiceRequest, SupplierInvoice, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -1076,3 +1076,106 @@ class SupplierInvoiceApiTests(TestCase):
         }, format='json', **self.headers)
         self.assertEqual(approved.status_code, 200, approved.data)
         self.assertTrue(approved.data['exception_approved'])
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class ProcurementFinanceWorkflowApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='procurement-manager', password='test')
+        self.organization = Organization.objects.create(name='Procurement Client', slug='procurement-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='PROC-1', name='Procurement House')
+        self.bidder = Contractor.objects.create(organization=self.organization, code='BID-1', name='Reliable Engineering', specialty='Mechanical')
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def _approved_requisition(self):
+        requisition = RepairRequisition.objects.create(
+            organization=self.organization, code='RQR-PROC-1', property=self.property,
+            title='Replace booster pump', issue_description='Pump failed', required_repair='Supply and install booster pump',
+            estimated_cost=Decimal('100000'), requester=self.user, status=RepairRequisition.Status.APPROVED,
+        )
+        return requisition
+
+    def test_approved_requisition_flows_through_award_lpo_and_verified_job_card(self):
+        requisition = self._approved_requisition()
+        created = self.client.post('/api/v1/facility/procurements/', {'requisition': str(requisition.id)}, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        procurement_id = created.data['id']
+        quote = self.client.post(f'/api/v1/facility/procurements/{procurement_id}/add-quotation/', {
+            'bidder': str(self.bidder.id), 'quotation_number': 'Q-001', 'quoted_on': '2026-08-27',
+            'lead_time_days': 3, 'subtotal': '100000.00', 'vat_amount': '16000.00', 'total': '116000.00',
+        }, format='json', **self.headers)
+        self.assertEqual(quote.status_code, 201, quote.data)
+        award = self.client.post(f'/api/v1/facility/procurements/{procurement_id}/award/', {
+            'quotation': quote.data['id'], 'reason': 'Best evaluated compliant bid',
+        }, format='json', **self.headers)
+        self.assertEqual(award.status_code, 200, award.data)
+        lpo = self.client.post(f'/api/v1/facility/procurements/{procurement_id}/issue-lpo/', {
+            'delivery_date': '2026-09-05', 'payment_terms': '30 days after verified completion',
+        }, format='json', **self.headers)
+        self.assertEqual(lpo.status_code, 201, lpo.data)
+        card = self.client.post(f"/api/v1/facility/lpos/{lpo.data['id']}/generate-job-card/", {}, format='json', **self.headers)
+        self.assertEqual(card.status_code, 201, card.data)
+        card_url = f"/api/v1/facility/job-cards/{card.data['id']}/"
+        self.assertEqual(self.client.post(f'{card_url}start/', {}, format='json', **self.headers).status_code, 200)
+        signed = self.client.post(f'{card_url}contractor-sign/', {
+            'signatory': 'Site Engineer', 'completion_notes': 'Installed and pressure tested', 'evidence_urls': ['https://example.test/proof.jpg'],
+        }, format='json', **self.headers)
+        self.assertEqual(signed.status_code, 200, signed.data)
+        caretaker = self.client.post(f'{card_url}caretaker-sign/', {'signatory': 'Caretaker'}, format='json', **self.headers)
+        self.assertEqual(caretaker.status_code, 200, caretaker.data)
+        verified = self.client.post(f'{card_url}verify/', {'notes': 'Work accepted'}, format='json', **self.headers)
+        self.assertEqual(verified.status_code, 200, verified.data)
+        self.assertTrue(verified.data['ticket_closure_eligible'])
+        job_card = FacilityJobCard.objects.get(pk=card.data['id'])
+        self.assertTrue(job_card.work_order.supervisor_verified)
+        self.assertEqual(ProcurementRecord.objects.get(pk=procurement_id).status, ProcurementRecord.Status.VERIFIED)
+
+    def test_independent_payment_request_posts_payment_and_expense(self):
+        created = self.client.post('/api/v1/facility/payment-requests/', {
+            'property': str(self.property.id), 'category': 'licence', 'payee': 'County Government',
+            'description': 'Annual business permit', 'amount': '25000.00', 'due_date': '2026-09-01',
+            'statutory_reference': 'LIC-2026', 'supporting_documents': ['https://example.test/licence.pdf'],
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        base = f"/api/v1/facility/payment-requests/{created.data['id']}/"
+        for action in ('submit', 'approve', 'start-processing'):
+            response = self.client.post(f'{base}{action}/', {}, format='json', **self.headers)
+            self.assertEqual(response.status_code, 200, response.data)
+        paid = self.client.post(f'{base}mark-paid/', {'payment_reference': 'BANK-001'}, format='json', **self.headers)
+        self.assertEqual(paid.status_code, 200, paid.data)
+        self.assertEqual(paid.data['status'], FinancePaymentRequest.Status.PAID)
+        record = FacilityPaymentRecord.objects.get(payment_request_id=created.data['id'])
+        self.assertEqual(record.reference, 'BANK-001')
+        self.assertIsNotNone(record.expense_id)
+
+    def test_recurring_invoice_requires_caretaker_and_manager_appraisal(self):
+        profile = ServiceProfile.objects.create(
+            organization=self.organization, code='SVC-CLEAN', name='Cleaning', category='Cleaning',
+            service_type=ServiceProfile.ServiceType.ROUTINE, description='Daily cleaning', created_by=self.user,
+        )
+        profile.properties.add(self.property)
+        ContractorContract.objects.create(
+            organization=self.organization, contractor=self.bidder, property=self.property,
+            contract_number='CTR-001', scope_of_work='Cleaning', contract_value=Decimal('120000'),
+            start_date='2026-01-01', end_date='2026-12-31', status='active',
+        )
+        invoice = self.client.post('/api/v1/facility/supplier-invoices/', {
+            'property': str(self.property.id), 'supplier': str(self.bidder.id),
+            'supplier_invoice_number': 'CLEAN-AUG', 'classification': 'recurring',
+            'service_profile': str(profile.id), 'service_period_start': '2026-08-01', 'service_period_end': '2026-08-31',
+            'description': 'August cleaning', 'subtotal': '10000.00', 'vat_rate': '16.00',
+            'vat_amount': '1600.00', 'total': '11600.00',
+        }, format='json', **self.headers)
+        self.assertEqual(invoice.status_code, 201, invoice.data)
+        appraisal = ContractInvoiceAppraisal.objects.get(invoice_id=invoice.data['id'])
+        signed = self.client.post(f'/api/v1/facility/contract-invoice-appraisals/{appraisal.id}/caretaker-sign/', {
+            'quality_score': 5, 'timeliness_score': 4, 'responsiveness_score': 5, 'notes': 'Service delivered',
+        }, format='json', **self.headers)
+        self.assertEqual(signed.status_code, 200, signed.data)
+        approved = self.client.post(f'/api/v1/facility/contract-invoice-appraisals/{appraisal.id}/manager-approve/', {}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.data['status'], ContractInvoiceAppraisal.Status.APPROVED)

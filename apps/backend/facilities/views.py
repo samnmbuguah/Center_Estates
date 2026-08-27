@@ -34,14 +34,19 @@ from notifications.services import notify_permission, notify_user
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
-    MeterResetEvent, PreventiveSchedule, RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
+    ContractInvoiceAppraisal, FacilityJobCard, FacilityPaymentRecord, FinancePaymentRequest,
+    LocalPurchaseOrder, MeterResetEvent, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
+    RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
 from .serializers import (
     AssetConditionAssessmentSerializer, ComplianceObligationSerializer, ContractorContractSerializer,
     ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityIncidentAttachmentSerializer, FacilityIncidentEventSerializer, FacilityIncidentSerializer, FacilityRiskSerializer,
     FloorPlanSerializer, FMBudgetSerializer, InspectionSerializer, MeterReadingSerializer,
-    MeterReconciliationSerializer, MeterResetEventSerializer, PreventiveScheduleSerializer, RepairRequisitionSerializer, SupplierInvoiceSerializer,
+    ContractInvoiceAppraisalSerializer, FacilityJobCardSerializer, FacilityPaymentRecordSerializer,
+    FinancePaymentRequestSerializer, LocalPurchaseOrderSerializer, MeterReconciliationSerializer,
+    MeterResetEventSerializer, PreventiveScheduleSerializer, ProcurementQuotationSerializer, ProcurementRecordSerializer,
+    RepairRequisitionSerializer, SupplierInvoiceSerializer,
     ServiceProfileAllocationSerializer, ServiceProfileSerializer, ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
     WorkOrderAttachmentSerializer, WorkOrderCostItemSerializer, WorkOrderEventSerializer,
     WorkOrderSerializer,
@@ -226,10 +231,11 @@ class SupplierInvoiceViewSet(FacilityModelViewSet):
     write_permission = 'facility.work'
     permission_map = {
         'verify': 'facility.approve', 'approve': 'facility.approve', 'reject': 'facility.approve',
-        'mark_paid': 'facility.approve', 'place_on_hold': 'facility.approve',
+        'start_payment': 'facility.approve', 'mark_paid': 'facility.approve', 'place_on_hold': 'facility.approve',
     }
     queryset = SupplierInvoice.objects.select_related(
-        'property', 'supplier', 'work_order', 'service_profile', 'budget',
+        'property', 'supplier', 'work_order__job_card__lpo__procurement__requisition__service_request',
+        'service_profile', 'budget',
         'submitted_by', 'verified_by', 'approved_by',
     )
     serializer_class = SupplierInvoiceSerializer
@@ -240,7 +246,18 @@ class SupplierInvoiceViewSet(FacilityModelViewSet):
         code = f'SIN-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
         while SupplierInvoice.objects.filter(organization=organization, code=code).exists():
             code = f'SIN-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
-        serializer.save(organization=organization, code=code)
+        invoice = serializer.save(organization=organization, code=code)
+        if invoice.classification == SupplierInvoice.Classification.RECURRING and invoice.service_profile_id:
+            contract = ContractorContract.objects.filter(
+                organization=organization, contractor=invoice.supplier, status='active',
+                start_date__lte=timezone.localdate(), end_date__gte=timezone.localdate(),
+            ).filter(property__in=(invoice.property, None)).order_by('-property_id').first()
+            if contract:
+                ContractInvoiceAppraisal.objects.create(
+                    organization=organization, invoice=invoice, contract=contract,
+                    contract_valid=True,
+                    service_mapping_valid=invoice.service_profile.properties.filter(pk=invoice.property_id).exists(),
+                )
 
     def perform_update(self, serializer):
         if 'status' in serializer.validated_data:
@@ -303,6 +320,10 @@ class SupplierInvoiceViewSet(FacilityModelViewSet):
         invoice = self.get_object()
         if invoice.status != SupplierInvoice.Status.VERIFIED:
             raise ValidationError({'status': 'Only verified invoices can be approved.'})
+        if invoice.classification == SupplierInvoice.Classification.RECURRING:
+            appraisal = getattr(invoice, 'performance_appraisal', None)
+            if not appraisal or appraisal.status != ContractInvoiceAppraisal.Status.APPROVED:
+                raise ValidationError({'appraisal': 'Caretaker and manager must approve the performance appraisal before payment approval.'})
         exception = bool(request.data.get('exception'))
         exception_notes = str(request.data.get('exception_notes', '')).strip()
         blocking = []
@@ -363,8 +384,331 @@ class SupplierInvoiceViewSet(FacilityModelViewSet):
         reference = str(request.data.get('payment_reference', '')).strip()
         if not reference:
             raise ValidationError({'payment_reference': 'A payment reference is required.'})
-        self._transition(invoice, SupplierInvoice.Status.PAID, paid_at=timezone.now(), payment_reference=reference)
+        paid_at = timezone.now()
+        self._transition(invoice, SupplierInvoice.Status.PAID, paid_at=paid_at, payment_reference=reference)
+        expense = FacilityExpense.objects.create(
+            organization=invoice.organization, property=invoice.property, work_order=invoice.work_order,
+            spent_on=paid_at.date(), category=invoice.cost_centre or 'Supplier invoice',
+            description=f'{invoice.code} · {invoice.description}', amount=invoice.total,
+            supplier=invoice.supplier.name, receipt_reference=reference,
+            status=FacilityExpense.Status.APPROVED, recorded_by=request.user,
+            approved_by=request.user, approved_at=paid_at,
+        )
+        FacilityPaymentRecord.objects.create(
+            organization=invoice.organization, number=f'PAY-{paid_at:%Y%m%d}-{uuid.uuid4().hex[:6].upper()}',
+            supplier_invoice=invoice, property=invoice.property, payee=invoice.supplier.name,
+            amount=invoice.total, paid_on=paid_at.date(), reference=reference,
+            expense=expense, processed_by=request.user,
+        )
         return Response(SupplierInvoiceSerializer(invoice).data)
+
+
+class ProcurementRecordViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'award': 'facility.approve', 'issue_lpo': 'facility.approve'}
+    queryset = ProcurementRecord.objects.select_related('requisition', 'property', 'created_by').prefetch_related('quotations__bidder')
+    serializer_class = ProcurementRecordSerializer
+    search_fields = ('code', 'requisition__code', 'requisition__title', 'property__name')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        requisition = serializer.validated_data['requisition']
+        if requisition.organization_id != organization.id or requisition.status != RepairRequisition.Status.APPROVED:
+            raise ValidationError({'requisition': 'Select an approved requisition in the active organization.'})
+        code = f'PROC-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+        serializer.save(organization=organization, code=code, property=requisition.property, created_by=self.request.user)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='add-quotation')
+    def add_quotation(self, request, pk=None):
+        procurement = self.get_object()
+        if procurement.status not in (ProcurementRecord.Status.SOURCING, ProcurementRecord.Status.EVALUATION):
+            raise ValidationError({'status': 'Quotations can only be added during sourcing or evaluation.'})
+        serializer = ProcurementQuotationSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        bidder = serializer.validated_data['bidder']
+        if bidder.organization_id != procurement.organization_id:
+            raise ValidationError({'bidder': 'Select a bidder in the active organization.'})
+        quotation = serializer.save(organization=procurement.organization, procurement=procurement, recorded_by=request.user)
+        if procurement.status == ProcurementRecord.Status.SOURCING:
+            procurement.status = ProcurementRecord.Status.EVALUATION
+            procurement.save(update_fields=('status', 'updated_at'))
+        return Response(ProcurementQuotationSerializer(quotation).data, status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='award')
+    def award(self, request, pk=None):
+        procurement = self.get_object()
+        quotation = procurement.quotations.select_for_update().filter(pk=request.data.get('quotation')).first()
+        reason = str(request.data.get('reason', '')).strip()
+        if not quotation:
+            raise ValidationError({'quotation': 'Select a quotation from this procurement.'})
+        if not reason:
+            raise ValidationError({'reason': 'Document the award recommendation and value-for-money decision.'})
+        procurement.quotations.update(is_awarded=False, is_recommended=False)
+        quotation.is_awarded = True
+        quotation.is_recommended = True
+        quotation.save(update_fields=('is_awarded', 'is_recommended', 'updated_at'))
+        procurement.status = ProcurementRecord.Status.AWARDED
+        procurement.award_reason = reason
+        procurement.evaluation_notes = str(request.data.get('evaluation_notes', '')).strip()
+        procurement.evaluated_by = request.user
+        procurement.evaluated_at = timezone.now()
+        procurement.awarded_by = request.user
+        procurement.awarded_at = timezone.now()
+        procurement.save(update_fields=('status', 'award_reason', 'evaluation_notes', 'evaluated_by', 'evaluated_at', 'awarded_by', 'awarded_at', 'updated_at'))
+        return Response(self.get_serializer(procurement).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='issue-lpo')
+    def issue_lpo(self, request, pk=None):
+        procurement = self.get_object()
+        if procurement.status != ProcurementRecord.Status.AWARDED:
+            raise ValidationError({'status': 'Award the procurement before issuing an LPO.'})
+        quotation = procurement.quotations.filter(is_awarded=True).select_related('bidder').first()
+        if not quotation:
+            raise ValidationError({'quotation': 'The awarded quotation is missing.'})
+        now = timezone.now()
+        lpo = LocalPurchaseOrder.objects.create(
+            organization=procurement.organization, number=f'LPO-{now:%Y}-{uuid.uuid4().hex[:6].upper()}',
+            procurement=procurement, quotation=quotation, supplier=quotation.bidder,
+            property=procurement.property, issue_date=now.date(),
+            delivery_date=request.data.get('delivery_date') or None,
+            scope=procurement.requisition.required_repair, subtotal=quotation.subtotal,
+            vat_amount=quotation.vat_amount, total=quotation.total,
+            payment_terms=str(request.data.get('payment_terms', '')).strip(),
+            status=LocalPurchaseOrder.Status.ISSUED, issued_by=request.user, issued_at=now,
+        )
+        procurement.status = ProcurementRecord.Status.LPO_ISSUED
+        procurement.save(update_fields=('status', 'updated_at'))
+        return Response(LocalPurchaseOrderSerializer(lpo).data, status=status.HTTP_201_CREATED)
+
+
+class LocalPurchaseOrderViewSet(FacilityModelViewSet):
+    write_permission = 'facility.approve'
+    queryset = LocalPurchaseOrder.objects.select_related('procurement__requisition', 'quotation', 'supplier', 'property')
+    serializer_class = LocalPurchaseOrderSerializer
+    search_fields = ('number', 'procurement__code', 'procurement__requisition__code', 'supplier__name')
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='generate-job-card')
+    def generate_job_card(self, request, pk=None):
+        lpo = self.get_object()
+        if lpo.status not in (LocalPurchaseOrder.Status.ISSUED, LocalPurchaseOrder.Status.ACCEPTED):
+            raise ValidationError({'status': 'Only an issued LPO can generate a Job Card.'})
+        if hasattr(lpo, 'job_card'):
+            return Response(FacilityJobCardSerializer(lpo.job_card).data)
+        requisition = lpo.procurement.requisition
+        number = f'WO-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
+        priority = {
+            RepairRequisition.Priority.LOW: WorkOrder.Priority.LOW,
+            RepairRequisition.Priority.MEDIUM: WorkOrder.Priority.MEDIUM,
+            RepairRequisition.Priority.HIGH: WorkOrder.Priority.HIGH,
+            RepairRequisition.Priority.EMERGENCY: WorkOrder.Priority.CRITICAL,
+        }.get(requisition.priority, WorkOrder.Priority.MEDIUM)
+        work_order = WorkOrder.objects.create(
+            organization=lpo.organization, number=number, title=requisition.title,
+            description=requisition.required_repair, category='corrective', source='requisition',
+            property=lpo.property, asset=requisition.asset, contractor=lpo.supplier,
+            reported_by=request.user, priority=priority, status=WorkOrder.Status.OPEN,
+            reported_at=timezone.now(), other_cost=lpo.total,
+        )
+        card = FacilityJobCard.objects.create(
+            organization=lpo.organization, number=f'JC-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}',
+            lpo=lpo, property=lpo.property, work_order=work_order,
+        )
+        requisition.provider = lpo.supplier
+        requisition.work_order = work_order
+        requisition.status = RepairRequisition.Status.CONVERTED
+        requisition.converted_at = timezone.now()
+        requisition.save(update_fields=('provider', 'work_order', 'status', 'converted_at', 'updated_at'))
+        if requisition.service_request_id:
+            requisition.service_request.work_order = work_order
+            requisition.service_request.status = ServiceRequest.Status.ASSIGNED
+            requisition.service_request.save(update_fields=('work_order', 'status', 'updated_at'))
+        lpo.procurement.status = ProcurementRecord.Status.IN_EXECUTION
+        lpo.procurement.save(update_fields=('status', 'updated_at'))
+        return Response(FacilityJobCardSerializer(card).data, status=status.HTTP_201_CREATED)
+
+
+class FacilityJobCardViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'caretaker_sign': 'facility.work', 'verify': 'facility.approve'}
+    queryset = FacilityJobCard.objects.select_related('lpo__procurement__requisition__service_request', 'property', 'work_order')
+    serializer_class = FacilityJobCardSerializer
+    search_fields = ('number', 'lpo__number', 'lpo__procurement__requisition__code', 'property__name')
+
+    @action(detail=True, methods=('post',), url_path='start')
+    def start(self, request, pk=None):
+        card = self.get_object()
+        if card.status != FacilityJobCard.Status.OPEN:
+            raise ValidationError({'status': 'Only an open Job Card can be started.'})
+        card.status = FacilityJobCard.Status.IN_PROGRESS
+        card.started_at = timezone.now()
+        card.save(update_fields=('status', 'started_at', 'updated_at'))
+        return Response(self.get_serializer(card).data)
+
+    @action(detail=True, methods=('post',), url_path='contractor-sign')
+    def contractor_sign(self, request, pk=None):
+        card = self.get_object()
+        signatory = str(request.data.get('signatory', '')).strip()
+        if card.status not in (FacilityJobCard.Status.OPEN, FacilityJobCard.Status.IN_PROGRESS) or not signatory:
+            raise ValidationError({'signatory': 'Provide the contractor signatory after work has started.'})
+        card.status = FacilityJobCard.Status.CONTRACTOR_SIGNED
+        card.contractor_signatory = signatory
+        card.completion_notes = str(request.data.get('completion_notes', '')).strip()
+        card.evidence_urls = request.data.get('evidence_urls') or []
+        card.completed_at = timezone.now()
+        card.contractor_signed_at = timezone.now()
+        card.save(update_fields=('status', 'contractor_signatory', 'completion_notes', 'evidence_urls', 'completed_at', 'contractor_signed_at', 'updated_at'))
+        return Response(self.get_serializer(card).data)
+
+    @action(detail=True, methods=('post',), url_path='caretaker-sign')
+    def caretaker_sign(self, request, pk=None):
+        card = self.get_object()
+        if card.status != FacilityJobCard.Status.CONTRACTOR_SIGNED:
+            raise ValidationError({'status': 'Contractor sign-off is required before caretaker verification.'})
+        card.status = FacilityJobCard.Status.CARETAKER_SIGNED
+        card.caretaker_signatory = str(request.data.get('signatory') or request.user.get_full_name() or request.user.username)
+        card.caretaker_signed_by = request.user
+        card.caretaker_signed_at = timezone.now()
+        card.save(update_fields=('status', 'caretaker_signatory', 'caretaker_signed_by', 'caretaker_signed_at', 'updated_at'))
+        return Response(self.get_serializer(card).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='verify')
+    def verify(self, request, pk=None):
+        card = self.get_object()
+        if card.status != FacilityJobCard.Status.CARETAKER_SIGNED:
+            raise ValidationError({'status': 'Caretaker sign-off is required before final verification.'})
+        card.status = FacilityJobCard.Status.VERIFIED
+        card.verified_by = request.user
+        card.verified_at = timezone.now()
+        card.verification_notes = str(request.data.get('notes', '')).strip()
+        card.save(update_fields=('status', 'verified_by', 'verified_at', 'verification_notes', 'updated_at'))
+        if card.work_order_id:
+            card.work_order.status = WorkOrder.Status.COMPLETED
+            card.work_order.completed_at = card.completed_at or timezone.now()
+            card.work_order.progress = 100
+            card.work_order.supervisor_verified = True
+            card.work_order.supervisor_verified_by = request.user
+            card.work_order.save(update_fields=('status', 'completed_at', 'progress', 'supervisor_verified', 'supervisor_verified_by', 'updated_at'))
+        card.lpo.procurement.status = ProcurementRecord.Status.VERIFIED
+        card.lpo.procurement.save(update_fields=('status', 'updated_at'))
+        return Response(self.get_serializer(card).data)
+
+
+class ContractInvoiceAppraisalViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'manager_approve': 'facility.approve', 'reject': 'facility.approve'}
+    queryset = ContractInvoiceAppraisal.objects.select_related('invoice__supplier', 'contract', 'caretaker', 'manager')
+    serializer_class = ContractInvoiceAppraisalSerializer
+    search_fields = ('invoice__code', 'invoice__supplier__name', 'contract__contract_number')
+
+    @action(detail=True, methods=('post',), url_path='caretaker-sign')
+    def caretaker_sign(self, request, pk=None):
+        appraisal = self.get_object()
+        if appraisal.status != ContractInvoiceAppraisal.Status.PENDING_CARETAKER:
+            raise ValidationError({'status': 'This appraisal is not awaiting caretaker review.'})
+        for field in ('quality_score', 'timeliness_score', 'responsiveness_score'):
+            score = int(request.data.get(field, 0))
+            if not 1 <= score <= 5:
+                raise ValidationError({field: 'Enter a score from 1 to 5.'})
+            setattr(appraisal, field, score)
+        appraisal.notes = str(request.data.get('notes', '')).strip()
+        appraisal.caretaker = request.user
+        appraisal.caretaker_signed_at = timezone.now()
+        appraisal.status = ContractInvoiceAppraisal.Status.PENDING_MANAGER
+        appraisal.save()
+        return Response(self.get_serializer(appraisal).data)
+
+    @action(detail=True, methods=('post',), url_path='manager-approve')
+    def manager_approve(self, request, pk=None):
+        appraisal = self.get_object()
+        if appraisal.status != ContractInvoiceAppraisal.Status.PENDING_MANAGER:
+            raise ValidationError({'status': 'Caretaker review is required before manager approval.'})
+        if not appraisal.contract_valid or not appraisal.service_mapping_valid:
+            raise ValidationError({'contract': 'The contract and property/service mapping must be valid.'})
+        appraisal.status = ContractInvoiceAppraisal.Status.APPROVED
+        appraisal.manager = request.user
+        appraisal.manager_decided_at = timezone.now()
+        appraisal.manager_notes = str(request.data.get('notes', '')).strip()
+        appraisal.save(update_fields=('status', 'manager', 'manager_decided_at', 'manager_notes', 'updated_at'))
+        return Response(self.get_serializer(appraisal).data)
+
+
+class FinancePaymentRequestViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'approve': 'facility.approve', 'reject': 'facility.approve', 'start_processing': 'facility.approve', 'mark_paid': 'facility.approve'}
+    queryset = FinancePaymentRequest.objects.select_related('property', 'requested_by', 'approved_by')
+    serializer_class = FinancePaymentRequestSerializer
+    search_fields = ('number', 'payee', 'description', 'statutory_reference', 'property__name')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(organization=organization, number=f'PR-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}', requested_by=self.request.user)
+
+    def _transition(self, payment, target, **fields):
+        payment.status = target
+        for key, value in fields.items():
+            setattr(payment, key, value)
+        payment.save(update_fields=('status', *fields.keys(), 'updated_at'))
+
+    @action(detail=True, methods=('post',), url_path='submit')
+    def submit(self, request, pk=None):
+        payment = self.get_object()
+        if payment.status != FinancePaymentRequest.Status.DRAFT or not payment.supporting_documents:
+            raise ValidationError({'documents': 'A draft request needs at least one supporting document before submission.'})
+        self._transition(payment, FinancePaymentRequest.Status.SUBMITTED)
+        return Response(self.get_serializer(payment).data)
+
+    @action(detail=True, methods=('post',), url_path='approve')
+    def approve(self, request, pk=None):
+        payment = self.get_object()
+        if payment.status != FinancePaymentRequest.Status.SUBMITTED:
+            raise ValidationError({'status': 'Only submitted payment requests can be approved.'})
+        self._transition(payment, FinancePaymentRequest.Status.APPROVED, approved_by=request.user, approved_at=timezone.now(), decision_notes=str(request.data.get('notes', '')).strip())
+        return Response(self.get_serializer(payment).data)
+
+    @action(detail=True, methods=('post',), url_path='start-processing')
+    def start_processing(self, request, pk=None):
+        payment = self.get_object()
+        if payment.status != FinancePaymentRequest.Status.APPROVED:
+            raise ValidationError({'status': 'Only approved requests can enter Finance processing.'})
+        self._transition(payment, FinancePaymentRequest.Status.PROCESSING)
+        return Response(self.get_serializer(payment).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='mark-paid')
+    def mark_paid(self, request, pk=None):
+        payment = self.get_object()
+        reference = str(request.data.get('payment_reference', '')).strip()
+        if payment.status != FinancePaymentRequest.Status.PROCESSING or not reference:
+            raise ValidationError({'payment_reference': 'A processing request and payment reference are required.'})
+        now = timezone.now()
+        self._transition(payment, FinancePaymentRequest.Status.PAID, payment_reference=reference, paid_at=now)
+        expense = None
+        if payment.property_id:
+            expense = FacilityExpense.objects.create(
+                organization=payment.organization, property=payment.property, spent_on=now.date(),
+                category=payment.category, description=payment.description, amount=payment.amount,
+                supplier=payment.payee, receipt_reference=reference, status=FacilityExpense.Status.APPROVED,
+                recorded_by=request.user, approved_by=request.user, approved_at=now,
+            )
+        FacilityPaymentRecord.objects.create(
+            organization=payment.organization, number=f'PAY-{now:%Y%m%d}-{uuid.uuid4().hex[:6].upper()}',
+            payment_request=payment, property=payment.property, payee=payment.payee, amount=payment.amount,
+            paid_on=now.date(), reference=reference, expense=expense, processed_by=request.user,
+        )
+        return Response(self.get_serializer(payment).data)
+
+
+class FacilityPaymentRecordViewSet(FacilityModelViewSet):
+    write_permission = 'facility.approve'
+    http_method_names = ('get', 'head', 'options')
+    queryset = FacilityPaymentRecord.objects.select_related('property', 'supplier_invoice', 'payment_request', 'expense', 'processed_by')
+    serializer_class = FacilityPaymentRecordSerializer
+    search_fields = ('number', 'reference', 'payee')
 
 
 class FacilityIncidentViewSet(FacilityModelViewSet):

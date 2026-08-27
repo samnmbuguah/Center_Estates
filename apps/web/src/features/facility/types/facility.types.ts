@@ -6,6 +6,7 @@ export type FacilityTab =
   | "planned-maintenance"
   | "work-orders"
   | "requisitions"
+  | "procurement"
   | "work-order-events"
   | "work-order-cost-items"
   | "work-order-attachments"
@@ -26,6 +27,7 @@ export type FacilityTab =
   | "energy-reports"
   | "expenditure"
   | "supplier-invoices"
+  | "finance-control"
   | "spare-parts"
   | "consumables"
   | "tickets"
@@ -137,6 +139,7 @@ export const facilityLabels: Record<FacilityTab, string> = {
   "planned-maintenance": "Planned Maintenance",
   "work-orders": "Work Orders & Helpdesk",
   requisitions: "Repair Requisitions",
+  procurement: "Procurement & LPOs",
   "work-order-events": "Work History",
   "work-order-cost-items": "Labor & Parts",
   "work-order-attachments": "Work Media",
@@ -157,6 +160,7 @@ export const facilityLabels: Record<FacilityTab, string> = {
   "energy-reports": "Energy & Utilities",
   expenditure: "Expenditure & Floats",
   "supplier-invoices": "Supplier Invoices",
+  "finance-control": "Finance Control",
   "spare-parts": "Spare Parts",
   consumables: "Consumables",
   tickets: "Tickets & Issues",
