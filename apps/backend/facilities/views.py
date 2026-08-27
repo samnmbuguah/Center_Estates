@@ -159,6 +159,23 @@ class RepairRequisitionViewSet(FacilityModelViewSet):
     serializer_class = RepairRequisitionSerializer
     search_fields = ('code', 'title', 'location', 'issue_description', 'property__name')
 
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        requisition = self.get_object()
+        content = _facility_document_pdf(
+            title='REPAIR REQUISITION REPORT', reference=requisition.code,
+            organization=requisition.organization, property_name=requisition.property.name,
+            qr_text=request.build_absolute_uri(),
+            details=(('Requested by', requisition.requester.get_full_name() or requisition.requester.username),
+                     ('Location', requisition.location), ('Priority', requisition.get_priority_display()),
+                     ('Required by', requisition.required_by), ('Issue', requisition.issue_description),
+                     ('Required repair', requisition.required_repair), ('Quotation specification', requisition.quotation_specification),
+                     ('Estimated cost (KES)', f'{requisition.estimated_cost:,.2f}' if requisition.estimated_cost is not None else '—'),
+                     ('Approval status', requisition.get_status_display()),
+                     ('Approved by', requisition.manager.get_full_name() if requisition.manager_id else '—')),
+        )
+        return _pdf_response(content, f'{requisition.code}.pdf')
+
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
         code = f'RQR-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}'
@@ -446,6 +463,26 @@ class ProcurementRecordViewSet(FacilityModelViewSet):
     serializer_class = ProcurementRecordSerializer
     search_fields = ('code', 'requisition__code', 'requisition__title', 'property__name')
 
+    @action(detail=True, methods=('get',), url_path='evaluation-pdf')
+    def evaluation_pdf(self, request, pk=None):
+        procurement = self.get_object()
+        quotations = procurement.quotations.select_related('bidder').all()
+        content = _facility_document_pdf(
+            title='QUOTATION EVALUATION REPORT', reference=procurement.code,
+            organization=procurement.organization, property_name=procurement.property.name,
+            qr_text=request.build_absolute_uri(),
+            details=(('Requisition', procurement.requisition.code), ('Scope', procurement.requisition.required_repair),
+                     ('Status', procurement.get_status_display()), ('Evaluation notes', procurement.evaluation_notes),
+                     ('Award recommendation', procurement.award_reason),
+                     ('Evaluated by', procurement.evaluated_by.get_full_name() if procurement.evaluated_by_id else '—')),
+            table_headers=('Supplier', 'Quotation', 'Lead time', 'Score', 'Total (KES)', 'Recommendation'),
+            table_rows=tuple((quote.bidder.name, quote.quotation_number, f'{quote.lead_time_days} days',
+                              quote.evaluation_score or '—', f'{quote.total:,.2f}',
+                              'AWARDED' if quote.is_awarded else ('Recommended' if quote.is_recommended else ''))
+                             for quote in quotations),
+        )
+        return _pdf_response(content, f'{procurement.code}-quotation-evaluation.pdf')
+
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
         requisition = serializer.validated_data['requisition']
@@ -668,6 +705,25 @@ class ContractInvoiceAppraisalViewSet(FacilityModelViewSet):
     queryset = ContractInvoiceAppraisal.objects.select_related('invoice__supplier', 'contract', 'caretaker', 'manager')
     serializer_class = ContractInvoiceAppraisalSerializer
     search_fields = ('invoice__code', 'invoice__supplier__name', 'contract__contract_number')
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        appraisal = self.get_object()
+        scores = (appraisal.quality_score, appraisal.timeliness_score, appraisal.responsiveness_score)
+        average = sum(scores) / len(scores) if all(scores) else 0
+        content = _facility_document_pdf(
+            title='SERVICE PROVIDER PERFORMANCE APPRAISAL REPORT', reference=appraisal.invoice.code,
+            organization=appraisal.organization, property_name=appraisal.invoice.property.name,
+            qr_text=request.build_absolute_uri(),
+            details=(('Service provider', appraisal.invoice.supplier.name), ('Contract', appraisal.contract.contract_number),
+                     ('Invoice amount (KES)', f'{appraisal.invoice.total:,.2f}'), ('Contract valid', 'Yes' if appraisal.contract_valid else 'No'),
+                     ('Service mapping valid', 'Yes' if appraisal.service_mapping_valid else 'No'),
+                     ('Status', appraisal.get_status_display()), ('Caretaker', appraisal.caretaker.get_full_name() if appraisal.caretaker_id else '—'),
+                     ('Manager', appraisal.manager.get_full_name() if appraisal.manager_id else '—'), ('Notes', appraisal.notes)),
+            table_headers=('Quality / 5', 'Timeliness / 5', 'Responsiveness / 5', 'Average / 5'),
+            table_rows=((appraisal.quality_score, appraisal.timeliness_score, appraisal.responsiveness_score, f'{average:.1f}'),),
+        )
+        return _pdf_response(content, f'{appraisal.invoice.code}-performance-appraisal.pdf')
 
     @action(detail=True, methods=('post',), url_path='caretaker-sign')
     def caretaker_sign(self, request, pk=None):

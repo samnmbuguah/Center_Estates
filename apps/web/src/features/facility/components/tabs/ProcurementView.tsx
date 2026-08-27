@@ -118,6 +118,7 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
             <Typography variant="body2" color="text.secondary">{p.requisition_code} · {p.property_name}{p.lpo_number ? ` · ${p.lpo_number}` : ""}{p.job_card_number ? ` · ${p.job_card_number}` : ""}</Typography>
           </Box>
           <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
+            {p.quotations.length > 0 && <Button size="small" variant="outlined" onClick={() => void downloadPdf(`/facility/procurements/${p.id}/evaluation-pdf/`, `${p.code}-quotation-evaluation.pdf`, organizationId).catch((e) => setError(e.message))}>Evaluation PDF</Button>}
             {["sourcing", "evaluation"].includes(p.status) && <Button size="small" variant="outlined" onClick={() => { setTarget(p); setDialog("quote"); setForm({}); }}>Add quotation</Button>}
             {p.status === "evaluation" && p.quotations.length > 0 && canApprove && <Button size="small" variant="contained" color="warning" onClick={() => { setTarget(p); setDialog("award"); setForm({ quotation: String(p.quotations[0].id) }); }}>Evaluate & award</Button>}
             {p.status === "awarded" && canApprove && <Button size="small" variant="contained" onClick={() => void act(`/facility/procurements/${p.id}/issue-lpo/`, { payment_terms: "30 days after verified completion" })}>Issue LPO</Button>}

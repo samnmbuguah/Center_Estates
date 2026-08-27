@@ -1103,6 +1103,9 @@ class ProcurementFinanceWorkflowApiTests(TestCase):
 
     def test_approved_requisition_flows_through_award_lpo_and_verified_job_card(self):
         requisition = self._approved_requisition()
+        requisition_pdf = self.client.get(f'/api/v1/facility/requisitions/{requisition.id}/pdf/', **self.headers)
+        self.assertEqual(requisition_pdf.status_code, 200)
+        self.assertTrue(requisition_pdf.content.startswith(b'%PDF-'))
         created = self.client.post('/api/v1/facility/procurements/', {'requisition': str(requisition.id)}, format='json', **self.headers)
         self.assertEqual(created.status_code, 201, created.data)
         procurement_id = created.data['id']
@@ -1115,6 +1118,9 @@ class ProcurementFinanceWorkflowApiTests(TestCase):
             'quotation': quote.data['id'], 'reason': 'Best evaluated compliant bid',
         }, format='json', **self.headers)
         self.assertEqual(award.status_code, 200, award.data)
+        evaluation_pdf = self.client.get(f'/api/v1/facility/procurements/{procurement_id}/evaluation-pdf/', **self.headers)
+        self.assertEqual(evaluation_pdf.status_code, 200)
+        self.assertTrue(evaluation_pdf.content.startswith(b'%PDF-'))
         lpo = self.client.post(f'/api/v1/facility/procurements/{procurement_id}/issue-lpo/', {
             'delivery_date': '2026-09-05', 'payment_terms': '30 days after verified completion',
         }, format='json', **self.headers)
@@ -1209,3 +1215,6 @@ class ProcurementFinanceWorkflowApiTests(TestCase):
         approved = self.client.post(f'/api/v1/facility/contract-invoice-appraisals/{appraisal.id}/manager-approve/', {}, format='json', **self.headers)
         self.assertEqual(approved.status_code, 200, approved.data)
         self.assertEqual(approved.data['status'], ContractInvoiceAppraisal.Status.APPROVED)
+        appraisal_pdf = self.client.get(f'/api/v1/facility/contract-invoice-appraisals/{appraisal.id}/pdf/', **self.headers)
+        self.assertEqual(appraisal_pdf.status_code, 200)
+        self.assertTrue(appraisal_pdf.content.startswith(b'%PDF-'))
