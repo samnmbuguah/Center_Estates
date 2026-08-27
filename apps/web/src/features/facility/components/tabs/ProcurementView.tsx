@@ -76,7 +76,7 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
 
   return <Box sx={{ display: "grid", gap: 2.25 }}>
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3, background: "linear-gradient(135deg, rgba(37,99,235,.08), rgba(14,165,233,.04))" }}>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2}>
+      <Stack direction={{ xs: "column", md: "row" }} sx={{ justifyContent: "space-between", gap: 2 }}>
         <Box>
           <Typography variant="overline" color="primary" fontWeight={900}>Approved requisition onward</Typography>
           <Typography variant="h5" fontWeight={900}>Procurement control centre</Typography>
@@ -93,7 +93,7 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
         ["Work in progress", kpis.active, Wrench, "info.main"],
         ["Verified completion", kpis.verified, CheckCircle2, "success.main"],
       ].map(([label, value, Icon, color]) => <Paper key={String(label)} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-        <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary" fontWeight={800}>{String(label).toUpperCase()}</Typography><Icon size={19} /></Stack>
+        <Stack direction="row" sx={{ justifyContent: "space-between" }}><Typography variant="caption" color="text.secondary" fontWeight={800}>{String(label).toUpperCase()}</Typography><Icon size={19} /></Stack>
         <Typography variant="h4" fontWeight={900} color={String(color)}>{String(value)}</Typography>
       </Paper>)}
     </Box>
@@ -103,13 +103,13 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
       <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}><Typography fontWeight={900}>Live procurement pipeline</Typography><Typography variant="body2" color="text.secondary">Every row retains the requisition, property, quotation, LPO and Job Card chain.</Typography></Box>
       {procurements.length === 0 ? <EmptyState title="No procurement records" description="Open an approved requisition to begin controlled sourcing." /> : procurements.map((p) => <Box key={p.id} sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" gap={2}>
+        <Stack direction={{ xs: "column", md: "row" }} sx={{ justifyContent: "space-between", gap: 2 }}>
           <Box sx={{ minWidth: 0 }}>
-            <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"><Typography fontWeight={900}>{p.code}</Typography><StatusPill value={p.status} /><Chip size="small" label={`${p.quotations.length} quote${p.quotations.length === 1 ? "" : "s"}`} /></Stack>
+            <Stack direction="row" sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}><Typography fontWeight={900}>{p.code}</Typography><StatusPill value={p.status} /><Chip size="small" label={`${p.quotations.length} quote${p.quotations.length === 1 ? "" : "s"}`} /></Stack>
             <Typography fontWeight={800}>{p.requisition_title}</Typography>
             <Typography variant="body2" color="text.secondary">{p.requisition_code} · {p.property_name}{p.lpo_number ? ` · ${p.lpo_number}` : ""}{p.job_card_number ? ` · ${p.job_card_number}` : ""}</Typography>
           </Box>
-          <Stack direction="row" gap={1} flexWrap="wrap">
+          <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
             {["sourcing", "evaluation"].includes(p.status) && <Button size="small" variant="outlined" onClick={() => { setTarget(p); setDialog("quote"); setForm({}); }}>Add quotation</Button>}
             {p.status === "evaluation" && p.quotations.length > 0 && canApprove && <Button size="small" variant="contained" color="warning" onClick={() => { setTarget(p); setDialog("award"); setForm({ quotation: String(p.quotations[0].id) }); }}>Evaluate & award</Button>}
             {p.status === "awarded" && canApprove && <Button size="small" variant="contained" onClick={() => void act(`/facility/procurements/${p.id}/issue-lpo/`, { payment_terms: "30 days after verified completion" })}>Issue LPO</Button>}
@@ -117,7 +117,7 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
             {p.status === "in_execution" && jobCards.find((card) => card.procurement_code === p.code) && <Button size="small" variant="contained" color="success" onClick={() => { const card = jobCards.find((item) => item.procurement_code === p.code); setTarget(p); setDialog("sign"); setForm({ card: String(card?.id), stage: String(card?.status) }); }}>Continue Job Card</Button>}
           </Stack>
         </Stack>
-        {p.quotations.length > 0 && <Stack direction="row" gap={1} mt={1.5} flexWrap="wrap">{p.quotations.map((q) => <Chip key={q.id} size="small" color={q.is_awarded ? "success" : "default"} label={`${q.bidder_name} · ${money.format(Number(q.total))}`} />)}</Stack>}
+        {p.quotations.length > 0 && <Stack direction="row" sx={{ gap: 1, mt: 1.5, flexWrap: "wrap" }}>{p.quotations.map((q) => <Chip key={q.id} size="small" color={q.is_awarded ? "success" : "default"} label={`${q.bidder_name} · ${money.format(Number(q.total))}`} />)}</Stack>}
       </Box>)}
     </Paper>
 
