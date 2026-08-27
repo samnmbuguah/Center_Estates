@@ -1,4 +1,5 @@
 import csv
+import io
 from io import BytesIO
 from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
 import uuid
@@ -2659,54 +2660,154 @@ class FacilityAnalyticsViewSet(ViewSet):
 
     @action(detail=False, methods=('get',))
     def exports(self, request):
+        from properties.pdf_documents import tabular_report_pdf
         organization = get_active_organization(request)
-        export_type = request.query_params.get('type', '')
+        export_type = request.query_params.get('type', '').lower()
+        export_format = request.query_params.get('format', 'csv').lower()
+        start = request.query_params.get('start', '')
+        end = request.query_params.get('end', '')
 
-        if export_type == 'assets':
-            rows = scope_model_queryset(FacilityAsset, request, organization).values_list('code', 'name', 'category', 'condition', 'is_active')
-            header = ['Code', 'Name', 'Category', 'Condition', 'Active']
-        elif export_type == 'work-orders':
-            rows = scope_model_queryset(WorkOrder, request, organization).values_list('number', 'title', 'priority', 'status', 'reported_at')
-            header = ['Number', 'Title', 'Priority', 'Status', 'Reported']
-        elif export_type == 'inspections':
-            rows = scope_model_queryset(Inspection, request, organization).values_list('reference', 'title', 'status', 'completed_on')
-            header = ['Reference', 'Title', 'Status', 'Completed']
-        elif export_type == 'contractors':
-            rows = scope_model_queryset(Contractor, request, organization).values_list('name', 'specialty', 'status', 'rating')
-            header = ['Name', 'Specialty', 'Status', 'Rating']
-        elif export_type == 'budgets':
-            rows = scope_model_queryset(FMBudget, request, organization).values_list('cost_center', 'allocated_amount', 'fiscal_year', 'status')
-            header = ['Cost Center', 'Allocated Amount (KES)', 'Fiscal Year', 'Status']
+        # Executive Dossier routes directly to dedicated multi-section PDF generator
+        if export_type in ('landlord-report', 'executive_fm', 'executive') and export_format == 'pdf':
+            return self.landlord_report(request)
+
+        title = "Facilities Management Ledger Extract"
+
+        if export_type in ('assets', 'asset_master_register'):
+            title = "Plant, Machinery & M&E Equipment Register"
+            rows = scope_model_queryset(FacilityAsset, request, organization).values_list(
+                'code', 'name', 'category', 'condition', 'manufacturer', 'serial_number', 'is_active'
+            )
+            header = ['Asset Code', 'Equipment Name', 'Category', 'Condition', 'Manufacturer', 'Serial #', 'Active']
+        elif export_type in ('capex', 'capex_lifecycle'):
+            title = "Asset Lifecycle & 5-Year Capital Renewal (CAPEX) Plan"
+            assets_qs = scope_model_queryset(FacilityAsset, request, organization).select_related('property')
+            rows = []
+            header = ['Asset Code', 'Equipment Name', 'Category', 'Condition Score', 'Install Date', 'Purchase Cost (KES)', 'Est. Replacement (KES)', 'Priority']
+            for a in assets_qs:
+                score = str(getattr(a, 'condition_score', a.condition or '3'))
+                cost = getattr(a, 'purchase_cost', None) or 0
+                repl = getattr(a, 'replacement_cost', None) or (cost * Decimal('1.25') if cost else Decimal('0'))
+                priority = "High" if str(score) in ('1', '2', 'poor', 'critical') else "Medium"
+                rows.append((
+                    a.code, a.name, a.category, score,
+                    str(getattr(a, 'installed_on', '—') or '—'),
+                    f"{cost:,.0f}" if cost else "—",
+                    f"{repl:,.0f}" if repl else "—",
+                    priority
+                ))
+        elif export_type in ('work-orders', 'work_order_ledger'):
+            title = "Work Orders & Reactive Helpdesk Ledger"
+            rows = scope_model_queryset(WorkOrder, request, organization).values_list(
+                'number', 'title', 'trade', 'priority', 'status', 'reported_at', 'resolution_due_at'
+            )
+            header = ['WO Number', 'Issue Summary', 'Trade / Discipline', 'Priority', 'Status', 'Reported On', 'SLA Due Date']
+        elif export_type in ('inspections', 'site_inspection_findings'):
+            title = "Site & Safety Inspection Findings Register"
+            rows = scope_model_queryset(Inspection, request, organization).values_list(
+                'reference', 'title', 'scope_type', 'status', 'scheduled_on', 'completed_on'
+            )
+            header = ['Reference #', 'Inspection Title', 'Scope / Discipline', 'Status', 'Scheduled', 'Completed']
+        elif export_type in ('statutory', 'compliance_audit'):
+            title = "Statutory Compliance & Mandatory Building Certificates"
+            rows = scope_model_queryset(ComplianceObligation, request, organization).values_list(
+                'obligation_type', 'authority', 'status', 'effective_from', 'expires_on', 'responsible_party'
+            )
+            header = ['Statutory Requirement', 'Authority / Agency', 'Status', 'Effective Date', 'Expiry Date', 'Responsible Party']
+        elif export_type in ('contractors', 'vendor_scorecard', 'contractor_master_contracts'):
+            title = "Service Provider SLA & 7-Pillar Scorecard Register"
+            rows = scope_model_queryset(Contractor, request, organization).values_list(
+                'code', 'name', 'specialty', 'status', 'rating', 'contact_name', 'phone', 'email'
+            )
+            header = ['Vendor Code', 'Company / Contractor', 'Specialty', 'Status', 'Scorecard Rating', 'Contact Person', 'Phone', 'Email']
+        elif export_type in ('budgets', 'cost_variance'):
+            title = "Facility Operating Cost & Budget Commitment Statement"
+            rows = scope_model_queryset(FMBudget, request, organization).values_list(
+                'cost_center', 'allocated_amount', 'fiscal_year', 'status'
+            )
+            header = ['Cost Center / Department', 'Allocated Budget (KES)', 'Fiscal Year', 'Approval Status']
         elif export_type == 'expenses':
-            rows = scope_model_queryset(FacilityExpense, request, organization).values_list('reference', 'description', 'amount', 'incurred_on', 'status')
-            header = ['Reference', 'Description', 'Amount (KES)', 'Incurred On', 'Status']
-        elif export_type == 'meters':
-            rows = scope_model_queryset(MeterReading, request, organization).values_list('meter_identifier', 'utility_type', 'previous_reading', 'current_reading', 'consumption', 'cost', 'reading_date')
-            header = ['Meter ID', 'Utility Type', 'Previous', 'Current', 'Consumption', 'Cost (KES)', 'Reading Date']
-        elif export_type == 'ppm':
-            rows = scope_model_queryset(PreventiveSchedule, request, organization).values_list('code', 'title', 'frequency', 'next_due_on', 'is_active')
-            header = ['Code', 'Task Title', 'Frequency', 'Next Due', 'Active']
-        elif export_type == 'incidents':
-            rows = scope_model_queryset(FacilityIncident, request, organization).values_list('reference', 'title', 'severity', 'status', 'occurred_at')
-            header = ['Reference', 'Title', 'Severity', 'Status', 'Occurred At']
-        elif export_type == 'requisitions':
-            rows = scope_model_queryset(RepairRequisition, request, organization).values_list('requisition_number', 'title', 'urgency', 'status', 'estimated_cost')
-            header = ['Requisition #', 'Title', 'Urgency', 'Status', 'Est. Cost (KES)']
-        elif export_type == 'invoices':
-            rows = scope_model_queryset(SupplierInvoice, request, organization).values_list('invoice_number', 'vendor_name', 'total_amount', 'status', 'issued_date')
-            header = ['Invoice #', 'Vendor Name', 'Total Amount (KES)', 'Status', 'Issued Date']
-        elif export_type == 'risks':
-            rows = scope_model_queryset(FMRisk, request, organization).values_list('title', 'category', 'likelihood', 'impact', 'status')
-            header = ['Risk Title', 'Category', 'Likelihood', 'Impact', 'Status']
+            title = "Facility Direct Operational Expenses Ledger"
+            rows = scope_model_queryset(FacilityExpense, request, organization).values_list(
+                'reference', 'supplier_name', 'category', 'amount', 'incurred_on', 'status'
+            )
+            header = ['Voucher Ref', 'Supplier / Payee', 'Category', 'Amount (KES)', 'Incurred On', 'Payment Status']
+        elif export_type in ('meters', 'energy', 'energy_utilities_bi', 'meter_readings_extract'):
+            title = "Energy & Utilities Consumption Intelligence Register"
+            rows = scope_model_queryset(MeterReading, request, organization).values_list(
+                'meter_identifier', 'utility_type', 'previous_reading', 'current_reading', 'consumption', 'cost', 'reading_date'
+            )
+            header = ['Meter ID', 'Utility Type', 'Opening Index', 'Closing Index', 'Consumption (Units)', 'Total Cost (KES)', 'Reading Date']
+        elif export_type in ('ppm', 'ppm_compliance_schedule'):
+            title = "Preventive Maintenance (PPM) Schedule & Compliance"
+            rows = scope_model_queryset(PreventiveSchedule, request, organization).values_list(
+                'code', 'title', 'frequency', 'next_due_on', 'last_completed_on', 'is_active'
+            )
+            header = ['Schedule Code', 'Task Title', 'Frequency', 'Next Due Date', 'Last Completed', 'Active']
+        elif export_type in ('incidents', 'incidents_summary'):
+            title = "Facility Incidents & Critical Defect Log"
+            rows = scope_model_queryset(FacilityIncident, request, organization).values_list(
+                'reference', 'title', 'category', 'severity', 'status', 'occurred_at'
+            )
+            header = ['Incident Ref', 'Incident Title', 'Category', 'Severity', 'Status', 'Occurred At']
+        elif export_type in ('requisitions', 'requisitions_pipeline'):
+            title = "Repair Requisitions & Procurement Pipeline"
+            rows = scope_model_queryset(RepairRequisition, request, organization).values_list(
+                'requisition_number', 'title', 'urgency', 'status', 'estimated_cost'
+            )
+            header = ['Requisition #', 'Title / Description', 'Urgency', 'Approval Status', 'Est. Cost (KES)']
+        elif export_type in ('invoices', 'supplier_invoices_ledger'):
+            title = "Supplier Invoices & Expenditure Audit Ledger"
+            rows = scope_model_queryset(SupplierInvoice, request, organization).values_list(
+                'invoice_number', 'vendor_name', 'total_amount', 'status', 'issued_date'
+            )
+            header = ['Invoice #', 'Vendor / Supplier', 'Total Amount (KES)', 'Payment Status', 'Issued Date']
+        elif export_type in ('risks', 'risk_register_report'):
+            title = "Facility Risk Register & Hazard Matrix"
+            rows = scope_model_queryset(FacilityRisk, request, organization).values_list(
+                'risk_id', 'title', 'category', 'likelihood', 'impact', 'status'
+            )
+            header = ['Risk ID', 'Risk Title / Hazard', 'Category', 'Likelihood', 'Impact Severity', 'Risk Status']
         else:
-            return Response({'error': f'Unknown export type "{export_type}". Supported types: assets, work-orders, inspections, contractors, budgets, expenses, meters, ppm, incidents, requisitions, invoices, risks'}, status=400)
+            return Response({'error': f'Unknown export type "{export_type}".'}, status=400)
 
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="facility-{export_type}.csv"'
-        writer = csv.writer(response)
+        # JSON response for in-browser interactive preview table
+        if export_format == 'json':
+            row_list = list(rows)
+            return Response({
+                'title': title,
+                'headers': header,
+                'rows': [list(r) for r in row_list[:100]],
+                'total_count': len(row_list),
+            })
+
+        # Build CSV string
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer)
         writer.writerow(header)
         for row in rows:
             writer.writerow(row)
+        csv_text = csv_buffer.getvalue()
+        csv_bytes = csv_text.encode('utf-8')
+
+        # PDF generation using established tabular_report_pdf engine
+        if export_format == 'pdf':
+            property_record = scope_model_queryset(Property, request, organization).first()
+            prop_name = property_record.name if property_record else "Accessible facility portfolio"
+            period_str = f"{start} to {end}" if start and end else f"As of {timezone.localdate():%d %b %Y}"
+            return tabular_report_pdf(
+                organization,
+                title,
+                f"facility-{export_type}-{timezone.localdate():%Y-%m-%d}.pdf",
+                csv_bytes,
+                property_name=prop_name,
+                period=period_str,
+                generated_by=request.user.get_full_name() or request.user.username,
+                subtitle="Authoritative Facilities Ledger Extract",
+            )
+
+        response = HttpResponse(csv_bytes, content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="facility-{export_type}.csv"'
         return response
 
     @action(detail=False, methods=('get',), url_path='landlord-report')

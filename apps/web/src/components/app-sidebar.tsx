@@ -40,7 +40,6 @@ const modules = [
 
 const SETTINGS_SUBITEMS = [
   { id: "profile", label: "Profile & Account", icon: "👤", href: "/settings?tab=profile" },
-  { id: "mpesa-test", label: "M-Pesa STK Test", icon: "📱", href: "/settings?tab=mpesa-test" },
   { id: "notifications", label: "Notifications & Alerts", icon: "🔔", href: "/settings?tab=notifications" },
   { id: "appearance", label: "Display & Regional", icon: "🎨", href: "/settings?tab=appearance" },
 ];
@@ -48,7 +47,7 @@ const SETTINGS_SUBITEMS = [
 const ADMIN_SUBITEMS = [
   { id: "users", label: "Users & Staff Accounts", icon: "👥", href: "/administration?tab=users" },
   { id: "roles", label: "Roles & Permissions", icon: "🔐", href: "/administration?tab=roles" },
-  { id: "mpesa", label: "M-Pesa STK Push Gateway", icon: "💳", href: "/administration?tab=mpesa" },
+  { id: "mpesa", label: "M-Pesa & Payment Hub", icon: "💳", href: "/administration?tab=mpesa" },
   { id: "smtp", label: "Email SMTP Gateway", icon: "✉️", href: "/administration?tab=smtp" },
   { id: "orgs", label: "Organization & Modules", icon: "🏢", href: "/administration?tab=orgs" },
   { id: "tax", label: "KRA Tax & E-TIMS", icon: "📜", href: "/administration?tab=tax" },
