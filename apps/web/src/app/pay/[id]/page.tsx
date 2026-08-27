@@ -211,7 +211,7 @@ export default function GuestInvoicePayPage() {
   if (loading) {
     return (
       <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "#f8fafc", p: 3 }}>
-        <Stack spacing={2} alignItems="center">
+        <Stack spacing={2} sx={{ alignItems: "center" }}>
           <CircularProgress size={42} sx={{ color: "#00a651" }} />
           <Typography variant="body2" sx={{ fontWeight: 700, color: "#64748b" }}>
             Loading secure payment gateway…
