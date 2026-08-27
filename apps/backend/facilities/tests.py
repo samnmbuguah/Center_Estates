@@ -159,7 +159,9 @@ class FacilityApiTests(TestCase):
         incident.refresh_from_db()
         self.assertEqual(incident.status, FacilityIncident.Status.CLOSED)
         self.assertIsNotNone(incident.work_order_id)
-        self.assertEqual(FacilityIncidentEvent.objects.filter(incident=incident).count(), 6)
+        # Draft creation, evidence, submission, review, work-order creation,
+        # resolution and closure are all retained as distinct audit events.
+        self.assertEqual(FacilityIncidentEvent.objects.filter(incident=incident).count(), 7)
 
     def test_dashboard_is_calculated_from_live_data(self):
         response = self.client.get('/api/v1/facility/dashboard/', **self.headers)
