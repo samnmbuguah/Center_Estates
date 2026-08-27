@@ -99,6 +99,20 @@ export function CompanionNudgeModal() {
     } catch {}
   }, [isAuthed, org]);
 
+  // Expose a window helper for demos: window.triggerCompanionNudge() to show instantly
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).triggerCompanionNudge = () => {
+      localStorage.removeItem(STORAGE_KEY);
+      fetchNudge();
+      setTimeout(fetchNudge, 400);
+    };
+    (window as unknown as Record<string, unknown>).clearCompanionNudgeCooldown = () => localStorage.removeItem(STORAGE_KEY);
+    return () => {
+      delete (window as unknown as Record<string, unknown>).triggerCompanionNudge;
+      delete (window as unknown as Record<string, unknown>).clearCompanionNudgeCooldown;
+    };
+  }, [fetchNudge]);
+
   // Initial delay + periodic poll
   useEffect(() => {
     if (!isAuthed) return;
@@ -151,23 +165,22 @@ export function CompanionNudgeModal() {
     <Dialog
       open={open}
       onClose={() => {}} // Block backdrop/escape — must acknowledge
-      disableEscapeKeyDown
       maxWidth="xs"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 4,
-          overflow: "hidden",
-          p: 0,
-          m: 2,
-          maxWidth: 460,
-          boxShadow: "0 24px 64px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.12)",
-          transform: animateIn ? "scale(1) translateY(0)" : "scale(0.94) translateY(12px)",
-          opacity: animateIn ? 1 : 0,
-          transition: "transform 420ms cubic-bezier(0.34,1.56,0.64,1), opacity 280ms ease",
-        },
-      }}
       slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 4,
+            overflow: "hidden",
+            p: 0,
+            m: 2,
+            maxWidth: 460,
+            boxShadow: "0 24px 64px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.12)",
+            transform: animateIn ? "scale(1) translateY(0)" : "scale(0.94) translateY(12px)",
+            opacity: animateIn ? 1 : 0,
+            transition: "transform 420ms cubic-bezier(0.34,1.56,0.64,1), opacity 280ms ease",
+          },
+        },
         backdrop: {
           sx: {
             backdropFilter: "blur(10px)",

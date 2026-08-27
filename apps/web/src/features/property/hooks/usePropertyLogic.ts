@@ -565,6 +565,26 @@ export function usePropertyLogic({
           }
         }
       }
+      // Fallback to lease metadata (onboarding stores 25/sqft × area).
+      // Blueshield case: no billing profile, but lease.metadata has 47900 directly.
+      if (!found && lease && invoiceType === "service_charge") {
+        const meta = (lease as unknown as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+        const monthly = meta?.monthly_service_charge_excl_vat ?? meta?.service_charge ?? meta?.serviceCharge;
+        if (monthly != null && String(monthly).trim() !== "") {
+          const v = Number(monthly);
+          if (!Number.isNaN(v) && v > 0) {
+            total = v * months;
+            found = true;
+          }
+        } else {
+          const rate = Number(meta?.service_charge_rate_per_sqft ?? 0);
+          const area = Number((lease as Record<string, unknown>).area ?? 0);
+          if (rate > 0 && area > 0) {
+            total = rate * area * months;
+            found = true;
+          }
+        }
+      }
       if (found && total > 0) {
         setInvoiceDraft((prev) => (prev.invoice_type === invoiceType && prev.lease === leaseId ? { ...prev, subtotal: String(Math.round(total)) } : prev));
         setInvoicePreview(null);
@@ -580,10 +600,12 @@ export function usePropertyLogic({
       if (field === "lease" && value) {
         const selectedLease = leaseOptions.find((l) => String(l.id) === value);
         if (selectedLease) {
-          // Always overwrite subtotal when user explicitly picks a lease
           const rentVal = Number(selectedLease.monthly_rent ?? 0);
           const months = billingContext?.months_count || 1;
           updated.subtotal = defaultManualInvoiceSubtotal(current.invoice_type, rentVal, months);
+          if (current.invoice_type !== "rent") {
+            void fetchSuggestedSubtotalForType(current.invoice_type, value, months);
+          }
           // Always ensure due_on is set relative to issued_on
           const issued = new Date(current.issued_on || new Date());
           const due = new Date(issued);
