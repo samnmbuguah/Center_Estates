@@ -15,6 +15,7 @@ describe("BillingActionBanner", () => {
         ready={0}
         issues={0}
         selectedCount={0}
+        chargeTypeFilter="all"
         blockingOpen={false}
         busy=""
         canFinance
@@ -45,6 +46,7 @@ describe("BillingActionBanner", () => {
         ready={3}
         issues={0}
         selectedCount={3}
+        chargeTypeFilter="all"
         blockingOpen={false}
         busy=""
         canFinance
