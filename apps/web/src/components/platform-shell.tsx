@@ -19,6 +19,7 @@ import { BrandedLoader } from "@/components/branded-loader";
 import { NotificationCenter } from "@/components/notification-center";
 import { EmailUpdateBanner } from "@/components/email-update-banner";
 import { QmChatLauncher } from "@/components/qm-chat-launcher";
+import { CompanionNudgeModal } from "@/components/companion-nudge-modal";
 import { DeveloperReportDialog } from "@/components/developer-report-dialog";
 import { useTheme } from "@/theme/theme-provider";
 import {
@@ -627,6 +628,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
       organizationId={session.activeOrganizationId}
       offsetForSidebar={!moduleWorkspaceActive}
     />
+    <CompanionNudgeModal />
   </TelemetryProvider>
   );
 }

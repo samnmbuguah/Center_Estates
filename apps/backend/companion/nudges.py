@@ -15,8 +15,50 @@ from django.utils import timezone
 from django.db.models import Count, Q
 from typing import Dict, Any, Optional, List
 
+import random
+import hashlib
 
-def evaluate_employee_nudge(user, organization, session_active_minutes: int = 110) -> Optional[Dict[str, Any]]:
+JOKE_POOL = [
+    "Why don't property managers ever get lost? They always follow the floor plan!",
+    "Why did the tenant bring a ladder to the viewing? They heard the rent was through the roof!",
+    "Why don't scientists trust atoms? Because they make up everything — like our quarterly reports!",
+    "What did the lift say to the staircase? You crack me up, but I lift everyone up!",
+    "Why did the lease go to therapy? It had too many outstanding issues!",
+    "I told my computer a joke about plumbing — it had a leak in its memory!",
+    "Why is the property manager so calm? They've mastered work-life BALANCE — like trial balance!",
+    "What do you call a well-maintained building? A-work-of-art-itecture!",
+    "Why did the task cross the road? To get to the done column!",
+    "Estate tip: Hydrate like a borehole — consistently and deeply!",
+]
+
+THOUGHTFUL_CLOSERS = [
+    "You've got this — one thoughtful step at a time.",
+    "Small pauses make big performance.",
+    "Your consistency is building something lasting.",
+    "Remember: progress, not perfection.",
+    "Take a breath — you deserve it.",
+]
+
+def _pick_joke(nudge_id: str, user_id: int) -> str:
+    h = int(hashlib.md5(f"{nudge_id}-{user_id}".encode()).hexdigest(), 16)
+    return JOKE_POOL[h % len(JOKE_POOL)]
+
+def _pick_closer(nudge_id: str) -> str:
+    h = int(hashlib.md5(nudge_id.encode()).hexdigest(), 16)
+    return THOUGHTFUL_CLOSERS[h % len(THOUGHTFUL_CLOSERS)]
+
+def _attach_delight(nudge, user):
+    if not nudge:
+        return nudge
+    uid = getattr(user, 'id', 0) or 0
+    nudge['joke'] = _pick_joke(nudge.get('id','ambient'), uid)
+    nudge['thought'] = _pick_closer(nudge.get('id','ambient'))
+    nudge['animation'] = {'wellness': 'breathe', 'productivity': 'confetti', 'workload': 'pulse', 'planning': 'float'}.get(nudge.get('category','wellness'), 'breathe')
+    nudge['requires_acknowledgment'] = True
+    return nudge
+
+
+def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110) -> Optional[Dict[str, Any]]:
     """
     Evaluates the user's workload, task state, calendar, and time of day
     to generate an empathetic, actionable, ambient nudge.
@@ -198,3 +240,7 @@ def evaluate_employee_nudge(user, organization, session_active_minutes: int = 11
         "action_href": "/companion?tab=my-tasks",
         "urgency": "low"
     }
+
+def evaluate_employee_nudge(user, organization, session_active_minutes: int = 110):
+    nudge = _evaluate_raw_nudge(user, organization, session_active_minutes)
+    return _attach_delight(nudge, user) if nudge else nudge
