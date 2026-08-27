@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Box, Button, Paper, Stack, Typography, Chip, Checkbox, FormControlLabel } from "@mui/material";
+import { Box, Button, Paper, Stack, Typography, Chip } from "@mui/material";
 import { FilePlus2, RotateCcw, Send, Zap, CheckCircle2, ArrowRight } from "lucide-react";
+
+import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 
 export function BillingActionBanner({
   hasRun,
@@ -13,6 +14,7 @@ export function BillingActionBanner({
   ready,
   issues,
   selectedCount,
+  chargeTypeFilter,
   blockingOpen,
   busy,
   canFinance,
@@ -31,6 +33,7 @@ export function BillingActionBanner({
   ready: number;
   issues: number;
   selectedCount: number;
+  chargeTypeFilter: InvoiceChargeType | "all";
   blockingOpen: boolean;
   busy: string;
   canFinance: boolean;
@@ -41,9 +44,12 @@ export function BillingActionBanner({
   onGenerate: () => void;
   onSingleInvoice: () => void;
 }) {
-  const [includeRent, setIncludeRent] = useState(true);
-  const [includeServiceCharge, setIncludeServiceCharge] = useState(true);
-  const [includeUtilities, setIncludeUtilities] = useState(true);
+  const typeLabel = chargeTypeFilter === "all" ? "" : CHARGE_TYPE_LABEL[chargeTypeFilter];
+  const generateLabel = busy === "generate"
+    ? "Generating Invoices…"
+    : chargeTypeFilter === "all"
+      ? `Generate & Issue ${selectedCount} Invoices`
+      : `Generate ${selectedCount} ${typeLabel} Invoice${selectedCount === 1 ? "" : "s"}`;
 
   // Stepper Header
   const stepIndex = !hasRun || isPreparing ? 1 : isReview ? 2 : isApproved ? 3 : 3;
@@ -115,23 +121,21 @@ export function BillingActionBanner({
               Scans all active leases for this property, applies base rent + escalation, calculates monthly service charges, and incorporates latest unbilled utility meter readings into a unified invoice draft.
             </Typography>
 
-            {/* Combined Invoicing 3-Way Selector */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mt: 1 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)" }}>
-                Include in this run:
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  bgcolor: "var(--surface-2, #f1f5f9)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 99,
+                  px: 1.25,
+                  py: 0.35,
+                }}
+              >
+                Prepares rent, service charge & utility drafts in one scan — choose what to bill at the review step below.
               </Typography>
-              <FormControlLabel
-                control={<Checkbox size="small" checked={includeRent} onChange={(e) => setIncludeRent(e.target.checked)} />}
-                label={<Typography variant="caption" sx={{ fontWeight: 600 }}>Rent & Escalation</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox size="small" checked={includeServiceCharge} onChange={(e) => setIncludeServiceCharge(e.target.checked)} />}
-                label={<Typography variant="caption" sx={{ fontWeight: 600 }}>Service Charge</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox size="small" checked={includeUtilities} onChange={(e) => setIncludeUtilities(e.target.checked)} />}
-                label={<Typography variant="caption" sx={{ fontWeight: 600 }}>Metered Utilities</Typography>}
-              />
             </Box>
           </Box>
 
@@ -289,8 +293,15 @@ export function BillingActionBanner({
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5 }}>
-              Click below to generate official invoices. Invoices will be numbered, generated into PDF statements, and synchronized with tenant portals.
+              {chargeTypeFilter === "all"
+                ? "Click below to generate official invoices. Invoices will be numbered, generated into PDF statements, and synchronized with tenant portals."
+                : `Only ${typeLabel.toLowerCase()} invoices will be generated for the selected candidates. Other charges stay pending and can be billed separately. Already-billed types are automatically skipped — no duplicates.`}
             </Typography>
+            {chargeTypeFilter !== "all" && (
+              <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block", mt: 0.5 }}>
+                Tip: Generate rent first, then service charge — each type is tracked separately per tenancy and period.
+              </Typography>
+            )}
           </Box>
           <Button
             variant="contained"
@@ -310,7 +321,7 @@ export function BillingActionBanner({
               boxShadow: "0 4px 12px rgba(22, 163, 74, 0.3)",
             }}
           >
-            {busy === "generate" ? "Generating Invoices…" : `Generate & Issue ${selectedCount} Invoices`}
+            {generateLabel}
           </Button>
         </Paper>
       )}

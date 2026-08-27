@@ -21,6 +21,30 @@ export type Invoice = {
   id: string; number: string; tenant_name: string; unit_code: string; amount: string; status: string; issued_on: string;
 };
 
+export type InvoiceChargeType = "rent" | "service_charge" | "utility" | "other";
+export const CHARGE_TYPE_LABEL: Record<InvoiceChargeType, string> = {
+  rent: "Rent",
+  service_charge: "Service charge",
+  utility: "Utility",
+  other: "Other",
+};
+
+export function invoiceChargeType(code: string): InvoiceChargeType {
+  const c = String(code || "").trim().toLowerCase();
+  if (c === "rent") return "rent";
+  if (c === "sc" || c === "service_charge" || c.includes("service")) return "service_charge";
+  if (c === "water" || c === "electricity" || c === "utility" || c.includes("utility") || c.includes("meter")) return "utility";
+  return "other";
+}
+
+export function candidateHasChargeType(candidate: Candidate, type: InvoiceChargeType): boolean {
+  return candidate.billing_items.some((it) => invoiceChargeType(it.code) === type);
+}
+
+export function candidateChargeTypes(candidate: Candidate): InvoiceChargeType[] {
+  return Array.from(new Set(candidate.billing_items.map((it) => invoiceChargeType(it.code))));
+}
+
 export const statusToneMap: Record<string, "green" | "red" | "yellow" | "blue" | "gray"> = {
   ready: "green", generated: "green", issued: "green", approved: "blue", paid: "green",
   issue: "red", overdue: "red", blocking: "red", review: "yellow", preparing: "yellow", warning: "yellow", excluded: "gray",

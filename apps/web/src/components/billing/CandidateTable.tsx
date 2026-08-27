@@ -3,12 +3,12 @@
 import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import { FilePlus2, Search, User } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
-import { Candidate, statusToneMap } from "./types";
+import { Candidate, statusToneMap, InvoiceChargeType, CHARGE_TYPE_LABEL, invoiceChargeType, candidateHasChargeType } from "./types";
 
-export function CandidateTable({ candidates, run, search, statusFilter, selected, allReadySelected, readyCount, busy, formattedMonth, onSearch, onStatusFilter, onSelectAll, onSelect, onPreview, onOverride, onSingleInvoice, onNavigate }: {
-  candidates: Candidate[]; run: boolean; search: string; statusFilter: string;
+export function CandidateTable({ candidates, run, search, statusFilter, chargeTypeFilter, typeCounts, selected, allReadySelected, readyCount, busy, formattedMonth, runPeriodStart, onSearch, onStatusFilter, onChargeTypeFilter, onSelectAll, onSelect, onPreview, onOverride, onSingleInvoice, onNavigate }: {
+  candidates: Candidate[]; run: boolean; search: string; statusFilter: string; chargeTypeFilter: InvoiceChargeType | "all"; typeCounts: Record<string, number>;
   selected: string[]; allReadySelected: boolean; readyCount: number; busy: string;
-  formattedMonth: string; onSearch: (v: string) => void; onStatusFilter: (v: string) => void;
+  formattedMonth: string; runPeriodStart: string; onSearch: (v: string) => void; onStatusFilter: (v: string) => void; onChargeTypeFilter: (t: InvoiceChargeType | "all") => void;
   onSelectAll: () => void; onSelect: (id: string) => void; onPreview: (c: Candidate) => void;
   onOverride: (c: Candidate) => void; onSingleInvoice: () => void; onNavigate: (tab: string) => void;
 }) {
@@ -25,6 +25,29 @@ export function CandidateTable({ candidates, run, search, statusFilter, selected
           <Button size="small" variant="outlined" onClick={() => onNavigate("payments")}>Payments →</Button>
         </Stack>
       </Box>
+
+      {run && (
+        <Box sx={{ px: 2, py: 1, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", background: "var(--surface)" }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)", mr: 0.5 }}>Invoice type:</Typography>
+          {([{ key: "all", label: "All types" }, { key: "rent", label: `Rent${typeCounts.rent ? ` (${typeCounts.rent})` : ""}` }, { key: "service_charge", label: `Service charge${typeCounts.service_charge ? ` (${typeCounts.service_charge})` : ""}` }, { key: "utility", label: `Utilities${typeCounts.utility ? ` (${typeCounts.utility})` : ""}` }] as const).map((t) => (
+            <Chip
+              key={t.key}
+              size="small"
+              label={t.label}
+              clickable
+              onClick={() => onChargeTypeFilter(t.key)}
+              color={chargeTypeFilter === t.key ? "primary" : "default"}
+              variant={chargeTypeFilter === t.key ? "filled" : "outlined"}
+              sx={{ fontWeight: chargeTypeFilter === t.key ? 700 : 500, fontSize: 12 }}
+            />
+          ))}
+          {chargeTypeFilter !== "all" && (
+            <Typography variant="caption" sx={{ color: "var(--text-secondary)", ml: 1 }}>
+              Only {CHARGE_TYPE_LABEL[chargeTypeFilter]} invoices will be generated; other charges are hidden and skipped.
+            </Typography>
+          )}
+        </Box>
+      )}
 
       {run && (
         <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1.5, background: "var(--bg-app)" }}>
@@ -49,7 +72,19 @@ export function CandidateTable({ candidates, run, search, statusFilter, selected
       {!run ? (
         <EmptyState title="No Billing Run" description={`Click "Initialize ${formattedMonth}" above to start the billing pipeline.`} />
       ) : candidates.length === 0 ? (
-        <EmptyState title="No Matching Candidates" description="Try clearing your search or adjusting filters." />
+        chargeTypeFilter !== "all" ? (
+          <Box sx={{ p: 3, textAlign: "center" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>No {CHARGE_TYPE_LABEL[chargeTypeFilter]} invoices in this view</Typography>
+            <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5 }}>
+              {Object.entries(typeCounts).filter(([k, v]) => k !== chargeTypeFilter && v > 0).length
+                ? `Try: ${Object.entries(typeCounts).filter(([k, v]) => k !== chargeTypeFilter && v > 0).map(([k, v]) => `${CHARGE_TYPE_LABEL[k as keyof typeof CHARGE_TYPE_LABEL]} (${v})`).join(" · ")} — or switch back to All types.`
+                : "Try clearing your search or switching back to All types."}
+            </Typography>
+            <Button size="small" variant="outlined" sx={{ mt: 1.5 }} onClick={() => onChargeTypeFilter("all")}>Show all types</Button>
+          </Box>
+        ) : (
+          <EmptyState title="No Matching Candidates" description="Try clearing your search or adjusting filters." />
+        )
       ) : (
         <Box sx={{ overflowX: "auto" }}>
           <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -81,11 +116,63 @@ export function CandidateTable({ candidates, run, search, statusFilter, selected
                     </td>
                     <td style={{ padding: "12px 14px" }}><div style={{ fontWeight: 600, fontSize: 12 }}>{c.unit_code}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{c.property_name}</div></td>
                     <td style={{ padding: "12px 14px" }}>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{c.billing_items.map((item, i) => <Chip key={i} size="small" label={item.code.replace(/_/g, " ")} sx={{ fontSize: 10, height: 20 }} />)}</div>
-                      {c.issue_summary?.length > 0 && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{c.issue_summary[0].message}</div>}
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {c.billing_items.map((item, i) => {
+                          const t = invoiceChargeType(item.code);
+                          const isMatch = chargeTypeFilter === "all" || t === chargeTypeFilter || (chargeTypeFilter === "utility" && (t === "utility"));
+                          const isUtilityMatch = chargeTypeFilter === "utility" && (String(item.code).toLowerCase() === "water" || String(item.code).toLowerCase() === "electricity");
+                          const show = chargeTypeFilter === "all" || isMatch || isUtilityMatch;
+                          return (
+                            <Chip
+                              key={i}
+                              size="small"
+                              label={item.code.replace(/_/g, " ")}
+                              variant={show ? "filled" : "outlined"}
+                              color={show ? "primary" : "default"}
+                              sx={{ fontSize: 10, height: 20, opacity: show ? 1 : 0.45, fontWeight: show ? 600 : 400 }}
+                            />
+                          );
+                        })}
+                      </div>
+                      {(() => {
+                        const dup = c.issue_summary?.find((x) => String(x.code).toLowerCase().includes("duplicate"));
+                        if (!dup) return c.issue_summary?.length ? <div style={{ fontSize: 11, color: dup ? "#d97706" : "#ef4444", marginTop: 4 }}>{c.issue_summary[0].message}</div> : null;
+                        // Duplicate is now a warning: show as amber and note already-billed types will be skipped.
+                        const willSkip = chargeTypeFilter !== "all";
+                        return <div style={{ fontSize: 11, color: "#d97706", marginTop: 4 }}>{dup.message}{willSkip ? " — already-billed types will be skipped." : ""}</div>;
+                      })()}
+                      {chargeTypeFilter !== "all" && c.billing_items.filter((it) => {
+                        const t = invoiceChargeType(it.code);
+                        return chargeTypeFilter === "utility" ? t === "utility" : t === chargeTypeFilter;
+                      }).length === 0 && (
+                        <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>No {CHARGE_TYPE_LABEL[chargeTypeFilter]} charges in this candidate — hidden by filter.</div>
+                      )}
                     </td>
-                    <td style={{ padding: "12px 14px" }}><div style={{ fontWeight: 800 }}>{money.format(Number(c.total))}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Due: {c.due_date}</div></td>
-                    <td style={{ padding: "12px 14px" }}><StatusPill tone={statusToneMap[c.status] || "gray"}>{c.status}</StatusPill></td>
+                    <td style={{ padding: "12px 14px" }}>
+                      {(() => {
+                        if (chargeTypeFilter === "all") return <div style={{ fontWeight: 800 }}>{money.format(Number(c.total))}</div>;
+                        const matching = c.billing_items.filter((it) => {
+                          const t = invoiceChargeType(it.code);
+                          return chargeTypeFilter === "utility" ? t === "utility" : t === chargeTypeFilter;
+                        });
+                        if (!matching.length) return <div style={{ fontWeight: 800, color: "var(--text-secondary)" }}>{money.format(Number(c.total))}</div>;
+                        const filteredTotal = matching.reduce((s, it) => s + Number(it.total ?? it.amount ?? 0), 0);
+                        return (
+                          <>
+                            <div style={{ fontWeight: 800 }}>{money.format(filteredTotal)}</div>
+                            {matching.length !== c.billing_items.length && <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>of {money.format(Number(c.total))} total</div>}
+                          </>
+                        );
+                      })()}
+                      <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Due: {c.due_date}</div>
+                    </td>
+                    <td style={{ padding: "12px 14px" }}>
+                      {(() => {
+                        const dup = c.issue_summary?.find((x) => String(x.code).toLowerCase().includes("duplicate"));
+                        if (dup && c.status === "ready") return <StatusPill tone="yellow">ready · already billed</StatusPill>;
+                        return <StatusPill tone={statusToneMap[c.status] || "gray"}>{c.status}</StatusPill>;
+                      })()}
+                    </td>
                     <td style={{ padding: "12px 14px", textAlign: "right" }}>
                       <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                         <Button size="small" onClick={() => onPreview(c)}>Preview</Button>

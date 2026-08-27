@@ -640,9 +640,17 @@ export function PropertyModals(props: PropertyModalsProps) {
                           : "No service-charge profile found for this lease. Enter the amount manually, or set up a recurring billing profile in Billing Pipeline for automated bulk invoicing."
                         : invoiceDraft.invoice_type === "utility"
                           ? invoiceDraft.subtotal
-                            ? `Utility amount auto-filled from the billing profile for this lease (Ksh ${invoiceDraft.subtotal}).`
-                            : "No utility billing profile found. Enter the amount manually."
-                          : "Enter the one-off amount for this invoice. For recurring charges, configure the unit billing schedule and use Billing Pipeline for bulk generation."}
+                            ? `Utility — estimated from billing profile rate (Ksh ${invoiceDraft.subtotal}). Confirm meter consumption and adjust before saving. Bulk pipeline will use the latest approved reading.`
+                            : "No utility profile found. Enter the meter-based amount manually. Bulk pipeline auto-calculates from readings when available."
+                          : invoiceDraft.invoice_type === "move_in"
+                            ? (() => {
+                                const sel = leaseOptions.find((l) => String(l.id) === invoiceDraft.lease) as unknown as Record<string, unknown> | undefined;
+                                const dep = Number(sel?.deposit ?? 0);
+                                const rent = Number(sel?.monthly_rent ?? 0);
+                                const hint = dep > 0 && rent > 0 ? `Suggested: deposit Ksh ${dep.toLocaleString()} + first rent Ksh ${rent.toLocaleString()} = Ksh ${(dep + rent).toLocaleString()}. ` : dep > 0 ? `Deposit on file: Ksh ${dep.toLocaleString()}. ` : "";
+                                return `${hint}Enter the move-in total (deposit, fees, pro-rata rent). Leave empty to type manually.`;
+                              })()
+                            : "Enter the one-off amount for this invoice. For recurring charges, configure the unit billing schedule and use Billing Pipeline for bulk generation."}
                 </span>
               </div>
 

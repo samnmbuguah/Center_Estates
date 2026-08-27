@@ -5,7 +5,7 @@ import { Alert, Box } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { LoadingState } from "@/components/module-ui";
-import { BillingRun, BillingIssue, Candidate } from "./billing/types";
+import { BillingRun, BillingIssue, Candidate, InvoiceChargeType, candidateHasChargeType } from "./billing/types";
 import { BillingHeader, BillingMode } from "./billing/BillingHeader";
 import { BillingActionBanner } from "./billing/BillingActionBanner";
 import { BillingKpis } from "./billing/BillingKpis";
@@ -44,6 +44,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [chargeTypeFilter, setChargeTypeFilter] = useState<InvoiceChargeType | "all">("all");
   const [search, setSearch] = useState("");
   const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
   const [overrideIssue, setOverrideIssue] = useState<BillingIssue | null>(null);
@@ -136,9 +137,14 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   async function mutate(action: "create" | "prepare" | "approve" | "generate") {
     if (!organizationId) return;
     setBusy(action); setError(""); setNotice("");
-    const body = action === "create"
+    const body: Record<string, unknown> = action === "create"
       ? { period_start, period_end }
-      : action === "generate" ? { candidate_ids: selected } : {};
+      : action === "generate"
+        ? {
+            candidate_ids: selected,
+            ...(chargeTypeFilter !== "all" ? { invoice_types: chargeTypeFilter === "utility" ? ["water", "electricity", "utility"] : [chargeTypeFilter] } : {}),
+          }
+        : {};
     let res = action === "create"
       ? await apiFetch("/property/billing-runs/", { method: "POST", body: JSON.stringify(body) }, organizationId)
       : await apiFetch(`/property/billing-runs/${run?.id}/${action}/`, { method: "POST", body: JSON.stringify(body) }, organizationId);
@@ -157,7 +163,12 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     }
 
     if (!res.ok) { setError(await apiErrorMessage(res, `Billing ${action} failed.`)); }
-    else { setNotice({ create: `Readiness scan for ${formattedPeriod} is complete.`, prepare: "Readiness check complete.", approve: "Run confirmed — ready to generate.", generate: `${selected.length} invoices generated.` }[action] ?? "Done."); }
+    else if (action === "generate") {
+      const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const g = Number(json.generated_count ?? 0);
+      const s = Number(json.skipped_duplicate ?? 0);
+      setNotice(s > 0 ? `${g} invoice(s) generated, ${s} already billed for this period — skipped (no duplicates created).` : `${g} invoice(s) generated for ${formattedPeriod}.`);
+    } else { setNotice({ create: `Readiness scan for ${formattedPeriod} is complete.`, prepare: "Readiness check complete.", approve: "Run confirmed — ready to generate." }[action] ?? "Done."); }
     await load(); setBusy("");
   }
 
@@ -175,16 +186,36 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const issues = Number(totals.with_issues ?? run?.candidates.filter(c => c.status === "issue").length ?? 0);
   const blockingOpen = Boolean(run?.issues.some(i => i.severity === "blocking" && i.status === "open"));
   const generatedThisPeriod = invoices.filter(i => i.issued_on >= period_start && i.issued_on <= period_end);
+  const filteredReadyForBanner = useMemo(() => {
+    if (chargeTypeFilter === "all" || !run) return ready;
+    return (run.candidates ?? []).filter((c) => candidateHasChargeType(c, chargeTypeFilter) && c.status === "ready").length;
+  }, [run, chargeTypeFilter, ready]);
+
+  const typeCounts = useMemo(() => {
+    const rows = run?.candidates ?? [];
+    const counts: Record<string, number> = { rent: 0, service_charge: 0, utility: 0, other: 0 };
+    for (const c of rows) {
+      for (const t of new Set(c.billing_items.map((it) => {
+        const code = String(it.code || "").trim().toLowerCase();
+        if (code === "rent") return "rent";
+        if (code === "sc" || code === "service_charge") return "service_charge";
+        if (code === "water" || code === "electricity" || code === "utility") return "utility";
+        return "other";
+      }))) counts[t] = (counts[t] ?? 0) + 1;
+    }
+    return counts;
+  }, [run]);
 
   const visibleCandidates = useMemo(() => {
     const rows = run?.candidates ?? [];
     const q = search.trim().toLowerCase();
     return rows.filter(c => {
+      if (chargeTypeFilter !== "all" && !candidateHasChargeType(c, chargeTypeFilter)) return false;
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (!q) return true;
       return [c.tenant_name, c.lease_reference, c.unit_code, c.property_name].join(" ").toLowerCase().includes(q);
     });
-  }, [run, search, statusFilter]);
+  }, [run, search, statusFilter, chargeTypeFilter]);
 
   const readyVisibleIds = visibleCandidates.filter(c => c.status === "ready").map(c => c.id);
   const allReadySelected = readyVisibleIds.length > 0 && readyVisibleIds.every(id => selected.includes(id));
@@ -215,9 +246,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         isReview={run?.status === "review"}
         isApproved={run?.status === "approved"}
         formattedMonth={formattedPeriod}
-        ready={ready}
+        ready={chargeTypeFilter === "all" ? ready : filteredReadyForBanner}
         issues={issues}
         selectedCount={selected.length}
+        chargeTypeFilter={chargeTypeFilter}
         blockingOpen={blockingOpen}
         busy={busy}
         canFinance={canFinance}
@@ -246,13 +278,26 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         run={Boolean(run)}
         search={search}
         statusFilter={statusFilter}
+        chargeTypeFilter={chargeTypeFilter}
+        typeCounts={typeCounts}
         selected={selected}
         allReadySelected={allReadySelected}
         readyCount={readyVisibleIds.length}
         busy={busy}
         formattedMonth={formattedPeriod}
+        runPeriodStart={run?.period_start ?? period_start}
         onSearch={setSearch}
         onStatusFilter={setStatusFilter}
+        onChargeTypeFilter={(t) => {
+          setChargeTypeFilter(t);
+          // Prune selection to candidates that still match the new filter
+          if (t !== "all") {
+            setSelected((prev) => prev.filter((id) => {
+              const c = run?.candidates.find((x) => x.id === id);
+              return c ? candidateHasChargeType(c, t) : true;
+            }));
+          }
+        }}
         onSelectAll={() => setSelected(allReadySelected ? selected.filter(id => !readyVisibleIds.includes(id)) : Array.from(new Set([...selected, ...readyVisibleIds])))}
         onSelect={(id) => setSelected(curr => curr.includes(id) ? curr.filter(x => x !== id) : [...curr, id])}
         onPreview={setPreviewCandidate}

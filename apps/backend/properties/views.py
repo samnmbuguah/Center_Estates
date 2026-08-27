@@ -2799,7 +2799,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 lease=lease, metadata__billing_period=period_key,
             ).exclude(status=Invoice.Status.VOID).exists()
             if duplicate:
-                issue_rows.append(('duplicate_invoice', 'An invoice already exists for this tenancy and billing period.', None))
+                issue_rows.append(('duplicate_invoice', 'An invoice already exists for this tenancy and billing period — already-billed types will be skipped on generate.', None, BillingReadinessIssue.Severity.WARNING))
             if lease.ends_on <= run.period_end + timedelta(days=90):
                 issue_rows.append(('lease_expiring', f'Lease expires on {lease.ends_on:%d %b %Y}.', None, BillingReadinessIssue.Severity.WARNING))
             subtotal = sum((Decimal(item['subtotal']) for item in items), Decimal('0'))
@@ -2916,25 +2916,63 @@ class BillingRunViewSet(OrganizationModelViewSet):
             })
         if run.status != BillingRun.Status.APPROVED:
             raise ValidationError({'status': 'The billing run must be confirmed before invoices are generated.'})
-        candidates = run.candidates.select_for_update().filter(status=BillingCandidate.Status.READY, invoice__isnull=True).select_related('lease')
+        candidates = run.candidates.select_for_update().filter(status=BillingCandidate.Status.READY).select_related('lease')
+        # Allow re-generation of READY candidates even if invoice is set (covers
+        # per-type workflows where only a subset of types were generated).
+        # We filter on invoice__isnull at the per-item level below instead.
         if isinstance(requested, list):
             candidates = candidates.filter(pk__in=requested)
         candidates = list(candidates)
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
         year = run.period_start.year
-        generated = []
+        # Optional per-type filter — e.g. ["rent", "service_charge", "utility"].
+        # "utility" expands to water + electricity.
+        raw_types = request.data.get('invoice_types')
+        selected_types: set[str] | None = None
+        if isinstance(raw_types, list) and raw_types:
+            normalized: set[str] = set()
+            for t in raw_types:
+                key = str(t).strip().lower().replace("-", "_")
+                if key == "utility":
+                    normalized.update({"water", "electricity", "utility"})
+                elif key in {"servicecharge", "service_charge", "sc"}:
+                    normalized.add("service_charge")
+                elif key:
+                    normalized.add(key)
+            selected_types = normalized or None
+
+        def _item_type(item: dict) -> str:
+            c = str(item.get('code') or 'charge').strip().lower()
+            return {'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge', 'water': 'water', 'electricity': 'electricity'}.get(c, c[:40])
+
+        generated: list[Invoice] = []
+        skipped_duplicate = 0
         for candidate in candidates:
             period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if (run.period_end.year - run.period_start.year)*12 + (run.period_end.month - run.period_start.month) >= 1 else run.period_start.strftime('%Y-%m')
             # A charge dispute must not hold up unrelated rent or utilities. Each
             # recurring charge therefore receives its own auditable invoice.
-            candidate_invoices = []
-            for item in candidate.billing_items:
+            # When a type filter is supplied, only matching line items are billed.
+            items_for_candidate = candidate.billing_items
+            if selected_types is not None:
+                items_for_candidate = [it for it in items_for_candidate if _item_type(it) in selected_types or (it.get('code','').lower() == 'sc' and 'service_charge' in selected_types)]
+            if not items_for_candidate:
+                continue
+            candidate_invoices: list[Invoice] = []
+            for item in items_for_candidate:
                 code = str(item.get('code') or 'charge').strip().lower()
                 invoice_type = {
                     'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge',
                     'water': 'water', 'electricity': 'electricity',
                 }.get(code, code[:40])
+                # Per-type idempotency: skip if this lease already has this
+                # invoice type for the same billing period.
+                if Invoice.objects.for_organization(run.organization).filter(
+                    lease=candidate.lease, invoice_type=invoice_type,
+                    metadata__billing_period=period_key,
+                ).exclude(status=Invoice.Status.VOID).exists():
+                    skipped_duplicate += 1
+                    continue
                 line_subtotal = Decimal(item['subtotal'])
                 line_tax = Decimal(item['tax_amount'])
                 line_total = Decimal(item['total'])
@@ -2961,6 +2999,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 )
                 candidate_invoices.append(invoice)
                 generated.append(invoice)
+            if not candidate_invoices:
+                continue
             primary = next((row for row in candidate_invoices if row.invoice_type == 'rent'), candidate_invoices[0])
             candidate.invoice = primary
             candidate.status = BillingCandidate.Status.GENERATED
@@ -2983,9 +3023,14 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         'billing_period': run.period_start.strftime('%Y-%m'),
                     },
                 )
-        if not run.candidates.filter(status=BillingCandidate.Status.READY, invoice__isnull=True).exists():
+        if not generated and skipped_duplicate:
+            return Response({'generated_count': 0, 'skipped_duplicate': skipped_duplicate, 'detail': 'Selected invoice types were already billed for this period.', 'invoices': []}, status=200)
+        if not run.candidates.filter(status=BillingCandidate.Status.READY).exists():
             run.status = BillingRun.Status.GENERATED; run.generated_at = timezone.now(); run.save(update_fields=('status', 'generated_at', 'updated_at'))
-        return Response({'generated_count': len(generated), 'invoices': InvoiceSerializer(generated, many=True).data}, status=201)
+        resp: dict = {'generated_count': len(generated), 'invoices': InvoiceSerializer(generated, many=True).data}
+        if skipped_duplicate:
+            resp['skipped_duplicate'] = skipped_duplicate
+        return Response(resp, status=201)
 
     @action(detail=True, methods=('post',), url_path='resolve-issue')
     def resolve_issue(self, request, pk=None):
