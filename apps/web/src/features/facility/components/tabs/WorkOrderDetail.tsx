@@ -150,8 +150,8 @@ export function WorkOrderDetail({
             <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Order Details</strong>
             {[
               { label: "Priority", value: <span className="fc-priority-chip"><i style={{ background: priorityColors[priority] ?? "#9ca3af" }} /><span style={{ color: priorityColors[priority] ?? "#9ca3af", textTransform: "capitalize" }}>{priority}</span></span> },
-              { label: "SLA Response Time", value: "Within 4 hours" },
-              { label: "SLA Resolution Time", value: "Within 48 hours" },
+              { label: "SLA Response Due", value: row.response_due_at ? String(row.response_due_at) : "Not set" },
+              { label: "SLA Resolution Due", value: row.resolution_due_at ? String(row.resolution_due_at) : "Not set" },
               { label: "Assigned To", value: String(row.assigned_to_name ?? "Unassigned") },
               { label: "Reported At", value: String(row.reported_at ?? "—") },
               { label: "Scheduled For", value: String(row.scheduled_for ?? "—") },

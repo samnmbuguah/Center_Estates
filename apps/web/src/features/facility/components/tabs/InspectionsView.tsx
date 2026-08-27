@@ -196,20 +196,14 @@ export function InspectionsView({
               </div>
               <button onClick={() => setSelectedRow(null)} style={{ background: "none", border: 0, color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
-            <div className="fc-detail-tabs">
-              {["Overview", "Checklist", "Findings (2)", "Photos (6)", "Documents"].map((t, i) => (
-                <button key={t} className={i === 0 ? "active" : ""}>{t}</button>
-              ))}
-            </div>
             <div style={{ padding: "16px 18px" }}>
               {[
-                { label: "Inspection Type", value: "Statutory" },
-                { label: "Duration", value: "1h 25m" },
+                { label: "Inspection Type", value: String(selectedRow.inspection_type ?? "—") },
                 { label: "Inspection Date", value: String(selectedRow.scheduled_on ?? "—") },
-                { label: "Template", value: "Lift Safety Inspection" },
-                { label: "Inspector", value: "James Kariuki" },
-                { label: "Compliance Standard", value: "KEBS / EAC 81-1" },
-                { label: "Next Inspection", value: "18 Jun 2026" },
+                { label: "Completed", value: selectedRow.completed_on ? String(selectedRow.completed_on) : "Not yet" },
+                { label: "Inspector", value: String(selectedRow.inspector_name ?? "—") },
+                { label: "Property", value: String(selectedRow.property_name ?? "—") },
+                { label: "Violations", value: String(selectedRow.violations ?? "0") },
               ].map((f) => (
                 <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "9px 0" }}>
                   <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{f.label}</span>
@@ -225,38 +219,14 @@ export function InspectionsView({
                 </div>
               )}
 
-              <div style={{ background: "#f8fafc", borderRadius: 10, display: "grid", gap: 12, gridTemplateColumns: "repeat(4, 1fr)", marginTop: 16, padding: 14 }}>
-                {[
-                  { label: "Inspected", value: 12 },
-                  { label: "Passed", value: 12 },
-                  { label: "Failed", value: 0 },
-                  { label: "N/A", value: 0 },
-                ].map((stat) => (
-                  <div key={stat.label} style={{ textAlign: "center" }}>
-                    <strong style={{ display: "block", fontSize: 18 }}>{stat.value}</strong>
-                    <small style={{ color: "var(--text-secondary)", fontSize: 10 }}>{stat.label}</small>
+              {Boolean(selectedRow.findings) && (
+                <div style={{ marginTop: 14 }}>
+                  <strong style={{ display: "block", fontSize: 12, marginBottom: 8 }}>Findings</strong>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                    {String(selectedRow.findings)}
                   </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ padding: "0 18px" }}>
-              <strong style={{ display: "block", fontSize: 12, marginBottom: 8 }}>Recent Findings</strong>
-              {[
-                { item: "Car Door Interlock", note: "All doors closing and locking properly.", status: "Passed", color: "#22c55e" },
-                { item: "Emergency Light", note: "Battery backup below recommended level.", status: "Minor", color: "#f59e0b" },
-              ].map((f) => (
-                <div key={f.item} style={{ alignItems: "flex-start", borderBottom: "1px solid #f0f2f6", display: "flex", gap: 10, justifyContent: "space-between", padding: "10px 0" }}>
-                  <div>
-                    <strong style={{ display: "block", fontSize: 12 }}>{f.item}</strong>
-                    <small style={{ color: "var(--text-secondary)", fontSize: 10 }}>{f.note}</small>
-                  </div>
-                  <span className="fc-status" style={{ background: f.color + "22", color: f.color }}>{f.status}</span>
                 </div>
-              ))}
-            </div>
-            <div style={{ display: "grid", gap: 8, padding: 18, gridTemplateColumns: "1fr 1fr" }}>
-              <button className="fc-detail-cta outline">↓ View Full Report</button>
-              <button className="fc-detail-cta">Create Work Order</button>
+              )}
             </div>
           </div>
         )}

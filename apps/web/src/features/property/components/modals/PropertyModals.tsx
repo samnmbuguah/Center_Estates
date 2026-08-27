@@ -153,6 +153,7 @@ export interface PropertyModalsProps {
   onVoidInvoiceConfirm: () => any;
   onRejectBudgetConfirm: () => any;
   onInvoiceLeaseChange: (leaseId: string) => any;
+  onInvoiceTypeChange: (invoiceType: string) => any;
   canOperate: boolean;
   canLease: boolean;
   canFinance: boolean;
@@ -198,7 +199,7 @@ export function PropertyModals(props: PropertyModalsProps) {
     onAddPropertySubmit, onAddTenantSubmit, onAddLeaseSubmit, onRecordReceiptSubmit,
     onComposeInvoiceSubmit, onUploadDocSubmit, onAddServiceChargeSubmit, onFinancialIntakeSubmit,
     onMatchSubmit, onRenewLeaseSubmit, onTerminateLeaseSubmit, onReconcileSubmit,
-    onRejectDocumentSubmit, onVoidInvoiceConfirm, onRejectBudgetConfirm, onInvoiceLeaseChange,
+    onRejectDocumentSubmit, onVoidInvoiceConfirm, onRejectBudgetConfirm,     onInvoiceLeaseChange, onInvoiceTypeChange,
     canOperate, canLease, canFinance, canApprove, activeProperty, setTab,
     standaloneOnboarding = false,
     fetchData = () => {},
@@ -224,6 +225,8 @@ export function PropertyModals(props: PropertyModalsProps) {
   const updateInvoiceDraft = (key: string, value: string) => {
     if (key === "lease") {
       onInvoiceLeaseChange(value);
+    } else if (key === "invoice_type") {
+      onInvoiceTypeChange(value);
     } else {
       setInvoiceDraft((prev: any) => ({ ...prev, [key]: value }));
     }
@@ -630,8 +633,16 @@ export function PropertyModals(props: PropertyModalsProps) {
                   {billingContext && billingContext.months_count > 1
                     ? `Total amount in Ksh across ${billingContext.months_count} months before VAT (approx. ${kM(Number(invoiceDraft.subtotal || 0) / billingContext.months_count)} / month)`
                     : invoiceDraft.invoice_type === "rent"
-                      ? "Monthly rent is filled from the selected lease; you can adjust it for this manual invoice."
-                      : "Enter the one-off amount for this manual invoice. Configure recurring charges on the unit billing schedule."}
+                      ? `Monthly rent is filled from the selected lease${invoiceDraft.subtotal ? ` (Ksh ${invoiceDraft.subtotal})` : ""}; you can adjust it. For recurring billing across all units, use Billing Pipeline instead.`
+                      : invoiceDraft.invoice_type === "service_charge"
+                        ? invoiceDraft.subtotal
+                          ? `Service charge auto-filled from the billing profile for this lease (Ksh ${invoiceDraft.subtotal}). Adjust if needed, or configure recurring charges in Billing Pipeline.`
+                          : "No service-charge profile found for this lease. Enter the amount manually, or set up a recurring billing profile in Billing Pipeline for automated bulk invoicing."
+                        : invoiceDraft.invoice_type === "utility"
+                          ? invoiceDraft.subtotal
+                            ? `Utility amount auto-filled from the billing profile for this lease (Ksh ${invoiceDraft.subtotal}).`
+                            : "No utility billing profile found. Enter the amount manually."
+                          : "Enter the one-off amount for this invoice. For recurring charges, configure the unit billing schedule and use Billing Pipeline for bulk generation."}
                 </span>
               </div>
 

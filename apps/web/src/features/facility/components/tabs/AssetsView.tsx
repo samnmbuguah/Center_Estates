@@ -149,8 +149,8 @@ export function AssetsView({
         <FcKpiCard icon="📦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Registered Assets" value={String(displayRows.length)} sub="Unique tagged assets" />
         <FcKpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Asset Portfolio Value" value={money.format(totalValue)} sub="Cumulative purchase value" />
         <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Critical Life Safety/M&E" value={String(criticalCount)} sub="Highest priority assets" />
-        <FcKpiCard icon="📅" iconBg="#ffedd5" iconColor="#ea580c" label="5-Year CAPEX Forecast" value="KES 42.5M" sub="Capital renewal reserve" />
-        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="#9333ea" label="Avg Condition Grade" value="4.2 / 5.0" sub="Good operational standard" />
+        <FcKpiCard icon="📅" iconBg="#ffedd5" iconColor="#ea580c" label="Warranty Expiring" value={String(displayRows.filter(a => { const d = a.warranty_expires_on ? new Date(String(a.warranty_expires_on)) : null; return d && d.getTime() - Date.now() < 90 * 86400000 && d.getTime() > Date.now(); }).length)} sub="Within 90 days" />
+        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="#9333ea" label="Active Assets" value={String(displayRows.filter(a => a.is_active !== false).length)} sub="Currently in service" />
       </div>
 
       {/* Main Asset Master Table */}

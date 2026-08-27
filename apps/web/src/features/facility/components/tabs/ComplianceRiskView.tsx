@@ -98,10 +98,10 @@ export function ComplianceRiskView({
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Top Strip */}
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="🛡️" iconBg="#dcfce7" iconColor="#16a34a" label="Statutory Compliance" value="100%" sub="0 overdue certificates" />
-        <FcKpiCard icon="📅" iconBg="#fef3c7" iconColor="#b45309" label="Certificates Expiring < 30d" value="1 Due Soon" sub="DOSH Lift renewal" />
-        <FcKpiCard icon="⚡" iconBg="#e0e7ff" iconColor="#4f46e5" label="Monitored Obligations" value={String(obligations.length)} sub="Fire, Lifts, OHS, Insurance" />
-        <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Open Risk Items" value={String(risks.length)} sub="1 High Priority mitigating" />
+        <FcKpiCard icon="🛡️" iconBg="#dcfce7" iconColor="#16a34a" label="Statutory Compliance" value={`${obligations.filter(o => o.status === 'active').length} active`} sub={`${obligations.filter(o => o.status === 'expired').length} expired`} />
+        <FcKpiCard icon="📅" iconBg="#fef3c7" iconColor="#b45309" label="Certificates Expiring < 30d" value={String(obligations.filter(o => { const d = o.expiry_date ? new Date(String(o.expiry_date)) : null; return d && d.getTime() - Date.now() < 30 * 86400000 && d.getTime() > Date.now(); }).length)} sub="Within 30 days" />
+        <FcKpiCard icon="⚡" iconBg="#e0e7ff" iconColor="#4f46e5" label="Monitored Obligations" value={String(obligations.length)} sub="All tracked certificates" />
+        <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Open Risk Items" value={String(risks.filter(r => r.status === 'open' || r.status === 'mitigating').length)} sub={`${risks.filter(r => Number((r as Record<string, unknown>).inherent_score ?? 0) >= 12).length} high priority`} />
         <FcKpiCard icon="🔔" iconBg="#fdf4ff" iconColor="#9333ea" label="Active Automated Flags" value={String(flags.length)} sub="Rule-based operational triggers" />
       </div>
 

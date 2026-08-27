@@ -75,8 +75,8 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
   useEffect(() => {
     if (subTab === "reconciliation") void loadReconciliations();
   }, [loadReconciliations, subTab]);
-  const sparkData = [30, 45, 38, 55, 48, 62, 50, 70, 58, 75, 65, 80];
-  const maxSpark = Math.max(...sparkData);
+  const sparkData: number[] = [];
+  const maxSpark = sparkData.length ? Math.max(...sparkData) : 1;
   const utilityConsumption = Number(kpis?.utilityConsumption ?? 0);
   const utilityCostValue = Number(kpis?.utilityCost ?? 0);
   const energyKwh = utilityConsumption.toLocaleString();

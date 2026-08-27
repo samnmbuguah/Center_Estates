@@ -102,28 +102,11 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
   const lettableAreaPct = gfa ? ((lettableArea / gfa) * 100).toFixed(1) : "0.0";
   const occupancyPct = lettableArea ? ((occupiedArea / lettableArea) * 100).toFixed(1) : "0.0";
 
-  // Floor-by-floor breakdown data
-  const floorBreakdown = [
-    { floor: "Basement 2", gfa: 2200, common: 2200, lettable: 0, occupied: 0, use: "Parking & Pump Room", units: 0 },
-    { floor: "Basement 1", gfa: 2200, common: 1400, lettable: 800, occupied: 800, use: "Storage & Chiller Plant", units: 4 },
-    { floor: "Ground Floor", gfa: 2100, common: 600, lettable: 1500, occupied: 1500, use: "Banking Hall & Retail", units: 5 },
-    { floor: "Floor 1", gfa: 2050, common: 410, lettable: 1640, occupied: 1640, use: "Commercial Office", units: 6 },
-    { floor: "Floor 2", gfa: 2050, common: 410, lettable: 1640, occupied: 1640, use: "Commercial Office", units: 6 },
-    { floor: "Floor 3", gfa: 2050, common: 410, lettable: 1640, occupied: 1640, use: "Commercial Office", units: 6 },
-    { floor: "Floor 4", gfa: 2050, common: 410, lettable: 1640, occupied: 1500, use: "Commercial Office", units: 6 },
-  ];
+  // Floor-by-floor breakdown data — derived from building metadata when available
+  const floorBreakdown: Array<{ floor: string; gfa: number; common: number; lettable: number; occupied: number; use: string; units: number }> = [];
 
-  // Scaled polygon tags for Floor 2
-  const floorPlanTags: FloorPlanTag[] = [
-    { id: "t1", room: "Unit 201 (Anchor Tenant)", type: "lettable", area: 420.5, x: 20, y: 30, w: 220, h: 120, status: "Occupied", tenant: "Safaricom PLC", color: "#3b82f6" },
-    { id: "t2", room: "Unit 202 (Executive Suite)", type: "lettable", area: 380.0, x: 260, y: 30, w: 200, h: 120, status: "Occupied", tenant: "PwC Kenya", color: "#3b82f6" },
-    { id: "t3", room: "Unit 203 (Office Suite)", type: "lettable", area: 410.0, x: 480, y: 30, w: 210, h: 120, status: "Occupied", tenant: "KCB Bank", color: "#3b82f6" },
-    { id: "t4", room: "Central Lift Lobby & Atrium", type: "common", area: 180.0, x: 260, y: 170, w: 200, h: 80, status: "Common Area", tenant: "Common Core", color: "#10b981" },
-    { id: "t5", room: "Restrooms & Service Shafts", type: "core", area: 90.0, x: 120, y: 170, w: 120, h: 80, status: "Service Core", tenant: "M&E Risers", color: "#f59e0b" },
-    { id: "t6", room: "Emergency Fire Staircase A", type: "core", area: 50.0, x: 20, y: 170, w: 80, h: 80, status: "Fire Escape", tenant: "Safety Core", color: "#ef4444" },
-    { id: "t7", room: "Unit 204 (East Wing)", type: "lettable", area: 429.5, x: 20, y: 270, w: 340, h: 130, status: "Occupied", tenant: "Standard Chartered", color: "#3b82f6" },
-    { id: "t8", room: "Unit 205 (West Wing)", type: "lettable", area: 420.0, x: 380, y: 270, w: 310, h: 130, status: "Available", tenant: "Vacant (Available)", color: "#8b5cf6" },
-  ];
+  // Floor plan tags — empty until floor plan data is configured
+  const floorPlanTags: FloorPlanTag[] = [];
 
   const filteredTags = selectedAreaType === "all"
     ? floorPlanTags
@@ -142,7 +125,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
         <FcKpiCard icon="🚪" iconBg="#dcfce7" iconColor="#16a34a" label="Lettable / Net Area" value={`${lettableArea.toLocaleString()} m²`} sub={`${lettableAreaPct}% of Gross Area`} />
         <FcKpiCard icon="👥" iconBg="#fef3c7" iconColor="#d97706" label="Common Area %" value={`${commonAreaPct}%`} sub={`${commonArea.toLocaleString()} m² Circulation`} />
         <FcKpiCard icon="📊" iconBg="#dbeafe" iconColor="#2563eb" label="Occupancy Rate" value={`${occupancyPct}%`} sub={`${occupiedArea.toLocaleString()} m² Leased`} />
-        <FcKpiCard icon="⚡" iconBg="#fdf4ff" iconColor="#9333ea" label="Building Efficiency" value="80.0%" sub="Lettable / GFA ratio" />
+        <FcKpiCard icon="⚡" iconBg="#fdf4ff" iconColor="#9333ea" label="Building Efficiency" value={gfa ? `${lettableAreaPct}%` : "—"} sub="Lettable / GFA ratio" />
       </div>
 
       {/* Building Header Card & Specifications */}

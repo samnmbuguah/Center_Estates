@@ -115,8 +115,8 @@ export function StrategicFMPlanView({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700 }}>Preventive Maintenance</span>
-            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
-              GREEN
+            <span style={{ background: (performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "#dcfce7" : "#fef3c7", color: (performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "#166534" : "#92400e", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+              {(performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "GREEN" : "AMBER"}
             </span>
           </div>
           <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "var(--text-primary)" }}>

@@ -267,7 +267,7 @@ export function OverviewView({
           sub="Live transaction score"
           link="View strategic plan"
           onClick={() => setTab("strategic-plans")}
-          badge="Grade A"
+          badge={weightedIndex >= 80 ? "Grade A" : weightedIndex >= 60 ? "Grade B" : weightedIndex >= 40 ? "Grade C" : "Grade D"}
         />
       </div>
 
@@ -331,8 +331,6 @@ export function OverviewView({
                     {[
                       { color: "#ef4444", label: "SLA Overdue", count: overdueWO },
                       { color: "#3b82f6", label: "In Progress / Assigned", count: inProgressWO },
-                      { color: "#f59e0b", label: "Pending Approval", count: Math.round(openWO * 0.25) },
-                      { color: "#22c55e", label: "Resolved This Week", count: 18 },
                     ].map((item) => (
                       <span key={item.label} style={{ alignItems: "center", color: "var(--text-primary)", display: "flex", fontSize: 12, fontWeight: 700, gap: 8 }}>
                         <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
@@ -547,8 +545,8 @@ export function OverviewView({
                 <small>Out of 100</small>
               </div>
               <div>
-                <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
-                  Grade A · Excellent Performance
+                <span style={{ background: weightedIndex >= 60 ? "#dcfce7" : "#fef3c7", color: weightedIndex >= 60 ? "#166534" : "#92400e", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                  {weightedIndex >= 80 ? "Grade A · Excellent" : weightedIndex >= 60 ? "Grade B · Good" : weightedIndex >= 40 ? "Grade C · Fair" : "Grade D · Needs Improvement"}
                 </span>
                 <h3 style={{ margin: "8px 0 4px", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary)" }}>
                   Overall FM Performance Index
@@ -590,64 +588,21 @@ export function OverviewView({
             </article>
           </div>
 
-          {/* Strategic CeEst Recommendations & Advisory */}
+          {/* Key Facility Metrics */}
           <article className="data-panel">
-            <PanelHeader title="CeEst Strategic Facilities Advisory & Optimization Plan" actionText="Full Report →" action={() => setTab("reports")} />
-            <div style={{ padding: "16px 20px", display: "grid", gap: 12 }}>
+            <PanelHeader title="Key Facility Metrics" actionText="Reports →" action={() => setTab("reports")} />
+            <div style={{ padding: "16px 20px", display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
               {[
-                {
-                  priority: "High Impact",
-                  title: "HVAC & Chiller Plant Energy Optimization",
-                  impact: "Estimated 14.5% electricity cost reduction (approx. KES 180,000 / month savings).",
-                  action: "Schedule automated BMS sensor calibration and replace worn air damper actuators.",
-                  capex: "KES 350,000 (Payback period: 2.1 months)",
-                  badgeBg: "#fee2e2",
-                  badgeColor: "#991b1b",
-                },
-                {
-                  priority: "Asset Renewal",
-                  title: "Vertical Lift 5-Year Major Overhaul & Wire Rope Renewal",
-                  impact: "Mitigate unplanned downtime risk on Passenger Lift #2 prior to statutory audit.",
-                  action: "Commission OEM certified contractor under approved annual maintenance schedule.",
-                  capex: "KES 820,000 (Allocated from Reserve Float)",
-                  badgeBg: "#fef3c7",
-                  badgeColor: "#92400e",
-                },
-                {
-                  priority: "Revenue Assurance",
-                  title: "Water Sub-Metering Check Verification for Commercial Tenants",
-                  impact: "Eliminates unbilled water consumption variance currently measured at 6.8%.",
-                  action: "Deploy smart ultrasonic check meters on Floors 3 to 6.",
-                  capex: "KES 195,000",
-                  badgeBg: "#dbeafe",
-                  badgeColor: "#1e40af",
-                },
-              ].map((rec) => (
-                <div
-                  key={rec.title}
-                  style={{
-                    padding: "14px 16px",
-                    background: "var(--surface-sunken)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)" }}>{rec.title}</strong>
-                    <span style={{ background: rec.badgeBg, color: rec.badgeColor, fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 4 }}>
-                      {rec.priority}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                    <b>Impact:</b> {rec.impact}
-                  </p>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 4 }}>
-                    <span><b>Action:</b> {rec.action}</span>
-                    <span style={{ color: "var(--primary)", fontWeight: 700 }}><b>CAPEX:</b> {rec.capex}</span>
-                  </div>
+                { label: "Active Work Orders", value: String(openWO), color: "#3b82f6" },
+                { label: "SLA Overdue", value: String(overdueWO), color: overdueWO > 0 ? "#ef4444" : "#22c55e" },
+                { label: "Active Assets", value: String(kpi.activeAssets ?? 0), color: "#6366f1" },
+                { label: "Open Service Requests", value: String(kpi.openRequests ?? 0), color: "#d97706" },
+                { label: "High Risks", value: String(kpi.highRisksCount ?? 0), color: Number(kpi.highRisksCount ?? 0) > 0 ? "#ef4444" : "#22c55e" },
+                { label: "Active Contractors", value: String(kpi.contractors ?? 0), color: "#0ea5e9" },
+              ].map((metric) => (
+                <div key={metric.label} style={{ padding: "12px 14px", background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{metric.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: metric.color }}>{metric.value}</div>
                 </div>
               ))}
             </div>

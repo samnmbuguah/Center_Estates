@@ -514,6 +514,66 @@ export function usePropertyLogic({
     setShowInvoiceComposer(true);
   };
 
+  /** Fetch the suggested billable amount for a non-rent category from billing
+   *  profiles / service-charge allocations — the same sources the bulk pipeline
+   *  uses. Keeps single and bulk invoicing aligned. */
+  const fetchSuggestedSubtotalForType = async (invoiceType: string, leaseId: string, months: number) => {
+    if (!organizationId || !leaseId || invoiceType === "rent") return;
+    try {
+      const lease = leaseOptions.find((l) => String(l.id) === leaseId) as Record<string, unknown> | undefined;
+      const unitId = lease?.unit as string | undefined;
+      let total = 0;
+      let found = false;
+      // Try billing profiles first (recurring service charges, utilities, etc.).
+      const profileRes = await apiFetch(`/property/billing-profiles/?lease=${leaseId}`, {}, organizationId);
+      if (profileRes.ok) {
+        const profiles = (await profileRes.json()) as Array<Record<string, unknown>>;
+        const typeKey = invoiceType.replace(/-/g, "_");
+        const matched = profiles.filter((p) => {
+          const code = String((p.billing_item as Record<string, unknown>)?.code ?? p.billing_item ?? "").toLowerCase();
+          const cat = String(p.income_category ?? (p.billing_item as Record<string, unknown>)?.income_category ?? "").toLowerCase();
+          return code.includes(typeKey) || cat.includes(typeKey) || (code.includes("service_charge") && typeKey === "service_charge") || (code.includes("utility") && typeKey === "utility");
+        });
+        if (matched.length) {
+          total = matched.reduce((sum, p) => sum + Number(p.amount ?? p.rate ?? 0), 0) * months;
+          found = true;
+        }
+      }
+      // Fallback to service-charge allocations for the unit.
+      if (!found && invoiceType === "service_charge" && unitId) {
+        const scRes = await apiFetch(`/property/service-charge-allocations/?unit=${unitId}`, {}, organizationId);
+        if (scRes.ok) {
+          const allocs = (await scRes.json()) as Array<Record<string, unknown>>;
+          if (allocs.length) {
+            total = allocs.reduce((sum, a) => sum + Number(a.monthly_amount ?? a.annual_amount ?? 0) / (a.annual_amount ? 12 : 1), 0) * months;
+            found = true;
+          }
+        }
+      }
+      // Fallback to unit charge rules.
+      if (!found && unitId) {
+        const ruleRes = await apiFetch(`/property/unit-charge-rules/?unit=${unitId}`, {}, organizationId);
+        if (ruleRes.ok) {
+          const rules = (await ruleRes.json()) as Array<Record<string, unknown>>;
+          const matched = rules.filter((r) => {
+            const code = String((r.billing_item as Record<string, unknown>)?.code ?? "").toLowerCase();
+            return code === invoiceType.replace(/-/g, "_") || code.includes(invoiceType.replace(/-/g, "_"));
+          });
+          if (matched.length) {
+            total = matched.reduce((sum, r) => sum + Number((r as Record<string, unknown>).rate ?? (r as Record<string, unknown>).amount ?? 0), 0) * months;
+            found = true;
+          }
+        }
+      }
+      if (found && total > 0) {
+        setInvoiceDraft((prev) => (prev.invoice_type === invoiceType && prev.lease === leaseId ? { ...prev, subtotal: String(Math.round(total)) } : prev));
+        setInvoicePreview(null);
+      }
+    } catch {
+      // Leave subtotal as-is (empty/cleared) on fetch failure; user enters manually.
+    }
+  };
+
   const updateInvoiceDraft = (field: keyof typeof invoiceDraft, value: string) => {
     setInvoiceDraft((current) => {
       const updated = { ...current, [field]: value };
@@ -535,10 +595,13 @@ export function usePropertyLogic({
         const selectedLease = leaseOptions.find((lease) => String(lease.id) === current.lease);
         const months = billingContext?.months_count || 1;
         const rentVal = Number(selectedLease?.monthly_rent ?? 0);
-        // Rent is the only amount carried directly by the lease. Other manual
-        // invoice categories must not silently reuse it; their recurring
-        // values come from unit billing schedules in the bulk pipeline.
+        // Rent is the only amount carried directly by the lease.
         updated.subtotal = defaultManualInvoiceSubtotal(value, rentVal, months);
+        // For non-rent categories, fetch the correct billable amount from the
+        // same sources the bulk pipeline uses so both flows stay aligned.
+        if (value !== "rent" && selectedLease) {
+          void fetchSuggestedSubtotalForType(value, String(selectedLease.id), months);
+        }
       }
       return updated;
     });
@@ -1251,6 +1314,9 @@ export function usePropertyLogic({
   const handleInvoiceLeaseChange = (leaseId: string) => {
     updateInvoiceDraft("lease", leaseId);
   };
+  const handleInvoiceTypeChange = (invoiceType: string) => {
+    updateInvoiceDraft("invoice_type", invoiceType);
+  };
 
   return {
     organizationId,
@@ -1375,6 +1441,7 @@ export function usePropertyLogic({
       if (row) void runPropertyAction("budgets", row.id, "reject", "Budget rejection failed.");
     },
     onInvoiceLeaseChange: handleInvoiceLeaseChange,
+    onInvoiceTypeChange: handleInvoiceTypeChange,
     handleDownloadDoc,
     handleVerifyDoc,
     handleRejectDocPrompt,
