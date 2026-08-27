@@ -67,3 +67,17 @@ test("dedicated caretaker portal provides a property-scoped meter entry surface"
   await expect(dialog.getByLabel(/Current reading/)).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
 });
+
+test("facility managers can preview the restricted caretaker surface", async ({ page }) => {
+  await page.goto("/facility");
+  const preview = page.getByRole("link", { name: /Preview caretaker portal/i });
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveAttribute("href", /caretaker-portal\?preview=1/);
+
+  await page.goto("/caretaker-portal?preview=1");
+  await expect(page.getByText("Caretaker field portal", { exact: true })).toBeVisible();
+  await expect(page.getByText("Meter readings", { exact: true })).toBeVisible();
+  await expect(page.getByText("Quartermaster AI", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Team Dialogue & Feedback", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Verify & Approve All/i })).toHaveCount(0);
+});
