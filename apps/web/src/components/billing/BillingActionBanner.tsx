@@ -229,11 +229,11 @@ export function BillingActionBanner({
               {blockingOpen ? (
                 <Chip size="small" label="Blocking Issues Open" color="error" sx={{ fontWeight: 700 }} />
               ) : (
-                <Chip size="small" label="Ready for Approval" color="success" sx={{ fontWeight: 700 }} />
+                <Chip size="small" label="Ready to Confirm" color="success" sx={{ fontWeight: 700 }} />
               )}
             </Box>
             <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5 }}>
-              Review the candidate invoice list below. If everything is correct, click <strong>&quot;Approve Billing Run&quot;</strong> to enable final invoice generation.
+              Review the candidate invoice list below. If everything is correct, click <strong>&quot;Confirm Billing Run&quot;</strong> to enable final invoice generation.
             </Typography>
           </Box>
           <Stack direction="row" sx={{ gap: 1, flexShrink: 0, flexWrap: "wrap" }}>
@@ -258,14 +258,14 @@ export function BillingActionBanner({
                   "&:hover": { bgcolor: "#b45309" },
                 }}
               >
-                Approve Billing Run
+                Confirm Billing Run
               </Button>
             )}
           </Stack>
         </Paper>
       )}
 
-      {/* Action Banner State 3: Approved & Ready to Generate */}
+      {/* Action Banner State 3: Confirmed & Ready to Generate */}
       {isApproved && (
         <Paper
           elevation={0}
@@ -285,7 +285,7 @@ export function BillingActionBanner({
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <CheckCircle2 size={20} style={{ color: "var(--success, #16a34a)" }} />
               <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "success.dark" }}>
-                Step 3: Approved · {selectedCount} Invoice(s) Selected
+                Step 3: Confirmed · {selectedCount} Invoice(s) Selected
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5 }}>

@@ -157,7 +157,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     }
 
     if (!res.ok) { setError(await apiErrorMessage(res, `Billing ${action} failed.`)); }
-    else { setNotice({ create: `Readiness scan for ${formattedPeriod} is complete.`, prepare: "Readiness check complete.", approve: "Run approved — ready to generate.", generate: `${selected.length} invoices generated.` }[action] ?? "Done."); }
+    else { setNotice({ create: `Readiness scan for ${formattedPeriod} is complete.`, prepare: "Readiness check complete.", approve: "Run confirmed — ready to generate.", generate: `${selected.length} invoices generated.` }[action] ?? "Done."); }
     await load(); setBusy("");
   }
 

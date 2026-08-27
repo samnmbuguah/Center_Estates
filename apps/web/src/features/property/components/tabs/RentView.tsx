@@ -38,7 +38,7 @@ function renderInvoiceRows(
             <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onRemind(inv); }}>Remind</button>
           )}
           {inv.status === "draft" && canFinance && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "submit-review"); }}>Submit</button>}
-          {inv.status === "review" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "approve"); }}>Approve</button>}
+          {inv.status === "review" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "approve"); }}>Confirm</button>}
           {inv.status === "approved" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "issue"); }}>Issue</button>}
           {["draft", "issued", "overdue"].includes(String(inv.status)) && (
             <button className="btn ghost sm" style={{ color: "var(--danger)" }} onClick={(e) => { e.stopPropagation(); onAction(inv, "void"); }}>Void</button>

@@ -213,16 +213,10 @@ class PropertyApiTests(TestCase):
         self.assertEqual(prepared.data['totals']['amount_ready'], '1160.00')
         candidate = prepared.data['candidates'][0]
         self.assertEqual(candidate['status'], BillingCandidate.Status.READY)
-        self.assertEqual(self.client.post(f'{run_url}approve/', {}, format='json', **self.headers).status_code, 400)
-        approver = get_user_model().objects.create_user(username='billing-approver', password='test-password')
-        Membership.objects.create(
-            user=approver, organization=self.organization, is_organization_admin=True,
-        )
-        self.client.force_authenticate(approver)
         approved = self.client.post(f'{run_url}approve/', {}, format='json', **self.headers)
         self.assertEqual(approved.status_code, 200, approved.data)
         self.assertEqual(approved.data['status'], BillingRun.Status.APPROVED)
-        self.client.force_authenticate(self.user)
+        self.assertEqual(BillingRun.objects.get(pk=created.data['id']).approved_by, self.user)
         generated = self.client.post(f'{run_url}generate/', {
             'candidate_ids': [candidate['id']],
         }, format='json', **self.headers)

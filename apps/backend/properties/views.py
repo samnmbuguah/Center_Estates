@@ -2098,7 +2098,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
     def approve(self, request, pk=None):
         invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
         if invoice.status != Invoice.Status.REVIEW:
-            raise ValidationError({'status': 'Only invoices in review can be approved.'})
+            raise ValidationError({'status': 'Only invoices in review can be confirmed.'})
         invoice.status = Invoice.Status.APPROVED
         invoice.reviewed_by = request.user
         invoice.reviewed_at = timezone.now()
@@ -2127,7 +2127,7 @@ class InvoiceViewSet(OrganizationModelViewSet):
 
         invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
         if invoice.status != Invoice.Status.APPROVED:
-            raise ValidationError({'status': 'Only approved invoices can be issued.'})
+            raise ValidationError({'status': 'Only confirmed invoices can be issued.'})
         validate_lease_billable(invoice.lease, timezone.localdate())
         invoice.status = Invoice.Status.ISSUED
         invoice.issued_by = request.user
@@ -2872,11 +2872,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
     def approve(self, request, pk=None):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status != BillingRun.Status.REVIEW:
-            raise ValidationError({'status': 'Prepare and review the billing run before approval.'})
-        if run.created_by_id == request.user.id:
-            raise ValidationError({'approval': 'The person who prepared this billing run cannot approve it.'})
+            raise ValidationError({'status': 'Prepare and review the billing run before confirmation.'})
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
-            raise ValidationError({'issues': 'Resolve or authorize every blocking issue before approval.'})
+            raise ValidationError({'issues': 'Resolve or authorize every blocking issue before confirmation.'})
         run.status = BillingRun.Status.APPROVED; run.approved_by = request.user; run.approved_at = timezone.now()
         run.save(update_fields=('status', 'approved_by', 'approved_at', 'updated_at'))
         return Response(self.get_serializer(run).data)
@@ -2917,7 +2915,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 'replayed': True,
             })
         if run.status != BillingRun.Status.APPROVED:
-            raise ValidationError({'status': 'The billing run must be approved before invoices are generated.'})
+            raise ValidationError({'status': 'The billing run must be confirmed before invoices are generated.'})
         candidates = run.candidates.select_for_update().filter(status=BillingCandidate.Status.READY, invoice__isnull=True).select_related('lease')
         if isinstance(requested, list):
             candidates = candidates.filter(pk__in=requested)

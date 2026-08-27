@@ -31,4 +31,34 @@ describe("BillingActionBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Scan leases & prepare invoices" }));
     expect(onRecheck).toHaveBeenCalledTimes(1);
   });
+
+  it("lets an authorized manager confirm a reviewed billing run", () => {
+    const onApprove = jest.fn();
+
+    render(
+      <BillingActionBanner
+        hasRun
+        isPreparing={false}
+        isReview
+        isApproved={false}
+        formattedMonth="July 2026"
+        ready={3}
+        issues={0}
+        selectedCount={3}
+        blockingOpen={false}
+        busy=""
+        canFinance
+        canApprove
+        onInitialize={jest.fn()}
+        onRecheck={jest.fn()}
+        onApprove={onApprove}
+        onGenerate={jest.fn()}
+        onSingleInvoice={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Billing Run" }));
+    expect(onApprove).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Approve Billing Run")).not.toBeInTheDocument();
+  });
 });
