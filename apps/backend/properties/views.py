@@ -2793,6 +2793,40 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
                     'source_type': 'service_charge_allocation', 'source_id': str(allocation.id)
                 })
+            # Fallback to lease metadata (onboarding stores 25/sqft × area there for Blueshield-type leases).
+            if not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
+                meta = lease.metadata or {}
+                monthly_sc_meta = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
+                if monthly_sc_meta is not None:
+                    try:
+                        monthly_sc = Decimal(str(monthly_sc_meta))
+                    except Exception:
+                        monthly_sc = Decimal('0')
+                    if monthly_sc > 0:
+                        line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
+                        desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
+                        items.append({
+                            'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
+                            'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                            'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
+                            'source_type': 'lease_metadata', 'source_id': str(lease.id)
+                        })
+                else:
+                    try:
+                        rate = Decimal(str(meta.get('service_charge_rate_per_sqft') or '0'))
+                        area = Decimal(str(lease.unit.area or '0')) if lease.unit and lease.unit.area else Decimal('0')
+                        if rate > 0 and area > 0:
+                            monthly_sc = (rate * area).quantize(Decimal('0.01'))
+                            line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
+                            desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
+                            items.append({
+                                'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
+                                'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                                'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
+                                'source_type': 'lease_metadata', 'source_id': str(lease.id)
+                            })
+                    except Exception:
+                        pass
 
             period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if months_count > 1 else run.period_start.strftime('%Y-%m')
             duplicate = Invoice.objects.for_organization(run.organization).filter(
