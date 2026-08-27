@@ -78,8 +78,8 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3, background: "linear-gradient(135deg, rgba(37,99,235,.08), rgba(14,165,233,.04))" }}>
       <Stack direction={{ xs: "column", md: "row" }} sx={{ justifyContent: "space-between", gap: 2 }}>
         <Box>
-          <Typography variant="overline" color="primary" fontWeight={900}>Approved requisition onward</Typography>
-          <Typography variant="h5" fontWeight={900}>Procurement control centre</Typography>
+          <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 900 }}>Approved requisition onward</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 900 }}>Procurement control centre</Typography>
           <Typography color="text.secondary">Compare quotations, document the award, issue the LPO and verify physical completion without recreating the ticket.</Typography>
         </Box>
         <Button variant="contained" startIcon={<Plus size={17} />} onClick={() => { setDialog("start"); setForm({}); }}>Open approved requisition</Button>
@@ -93,20 +93,20 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
         ["Work in progress", kpis.active, Wrench, "info.main"],
         ["Verified completion", kpis.verified, CheckCircle2, "success.main"],
       ].map(([label, value, Icon, color]) => <Paper key={String(label)} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-        <Stack direction="row" sx={{ justifyContent: "space-between" }}><Typography variant="caption" color="text.secondary" fontWeight={800}>{String(label).toUpperCase()}</Typography><Icon size={19} /></Stack>
-        <Typography variant="h4" fontWeight={900} color={String(color)}>{String(value)}</Typography>
+        <Stack direction="row" sx={{ justifyContent: "space-between" }}><Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800 }}>{String(label).toUpperCase()}</Typography><Icon size={19} /></Stack>
+        <Typography variant="h4" sx={{ fontWeight: 900, color: String(color) }}>{String(value)}</Typography>
       </Paper>)}
     </Box>
 
     {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
 
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
-      <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}><Typography fontWeight={900}>Live procurement pipeline</Typography><Typography variant="body2" color="text.secondary">Every row retains the requisition, property, quotation, LPO and Job Card chain.</Typography></Box>
+      <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}><Typography sx={{ fontWeight: 900 }}>Live procurement pipeline</Typography><Typography variant="body2" color="text.secondary">Every row retains the requisition, property, quotation, LPO and Job Card chain.</Typography></Box>
       {procurements.length === 0 ? <EmptyState title="No procurement records" description="Open an approved requisition to begin controlled sourcing." /> : procurements.map((p) => <Box key={p.id} sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
         <Stack direction={{ xs: "column", md: "row" }} sx={{ justifyContent: "space-between", gap: 2 }}>
           <Box sx={{ minWidth: 0 }}>
-            <Stack direction="row" sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}><Typography fontWeight={900}>{p.code}</Typography><StatusPill value={p.status} /><Chip size="small" label={`${p.quotations.length} quote${p.quotations.length === 1 ? "" : "s"}`} /></Stack>
-            <Typography fontWeight={800}>{p.requisition_title}</Typography>
+            <Stack direction="row" sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}><Typography sx={{ fontWeight: 900 }}>{p.code}</Typography><StatusPill value={p.status} /><Chip size="small" label={`${p.quotations.length} quote${p.quotations.length === 1 ? "" : "s"}`} /></Stack>
+            <Typography sx={{ fontWeight: 800 }}>{p.requisition_title}</Typography>
             <Typography variant="body2" color="text.secondary">{p.requisition_code} · {p.property_name}{p.lpo_number ? ` · ${p.lpo_number}` : ""}{p.job_card_number ? ` · ${p.job_card_number}` : ""}</Typography>
           </Box>
           <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
