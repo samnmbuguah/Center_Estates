@@ -69,6 +69,20 @@ type GatewayConfig = {
 
 const SANDBOX_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
 
+const KENYAN_BANK_PAYBILLS = [
+  { bank: "NCBA Bank", paybill: "888880", icon: "💎", color: "#0284c7" },
+  { bank: "Co-operative Bank", paybill: "400200", icon: "🏛️", color: "#16a34a" },
+  { bank: "Equity Bank", paybill: "247247", icon: "🏦", color: "#991b1b" },
+  { bank: "KCB Bank", paybill: "522522", icon: "🦁", color: "#059669" },
+  { bank: "Stanbic Bank", paybill: "404040", icon: "💳", color: "#1e40af" },
+  { bank: "Absa Bank Kenya", paybill: "303030", icon: "🔴", color: "#dc2626" },
+  { bank: "DTB (Diamond Trust)", paybill: "516600", icon: "🔹", color: "#0891b2" },
+  { bank: "Family Bank", paybill: "222111", icon: "👨‍👩‍👧", color: "#ea580c" },
+  { bank: "I&M Bank", paybill: "542542", icon: "🌐", color: "#4f46e5" },
+  { bank: "Standard Chartered", paybill: "329329", icon: "🛡️", color: "#047857" },
+  { bank: "Safaricom Direct Paybill", paybill: "", icon: "📲", color: "#00a651" },
+];
+
 const MODULE_DEFINITIONS = [
   { slug: "property", label: "Property Management", icon: "🏢", accent: "#0284c7", desc: "Properties, units, leases, rent collection & tenancy ledger" },
   { slug: "facility", label: "Facility Management", icon: "🔧", accent: "#ea580c", desc: "Asset register, maintenance work orders & PPM schedules" },
@@ -258,6 +272,14 @@ function AdministrationContent() {
   const [testStkAmount, setTestStkAmount] = useState("10");
   const [testingStkLoading, setTestingStkLoading] = useState(false);
   const [stkTestResult, setStkTestResult] = useState<{ type: "success" | "error"; text: string; details?: string } | null>(null);
+
+  // Email OTP Security state for Payment Gateway modifications
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [otpSentNotice, setOtpSentNotice] = useState("");
+  const [pendingGatewayPayload, setPendingGatewayPayload] = useState<GatewayConfig | null>(null);
+  const [otpVerifying, setOtpVerifying] = useState(false);
 
   function openTestStk(g: GatewayConfig) {
     setTestingGateway(g);
@@ -746,8 +768,6 @@ function AdministrationContent() {
   async function handleSaveMpesa(e: FormEvent) {
     e.preventDefault();
     if (!organizationId || !selectedPropertyId) return;
-    setSaving(true);
-    setNotice(null);
 
     const label = bankName.trim() || shortcode;
     const payload: GatewayConfig = {
@@ -767,6 +787,17 @@ function AdministrationContent() {
       },
     };
 
+    // Sensitive gateway action: require Email OTP Security Confirmation
+    setPendingGatewayPayload(payload);
+    setOtpCode("");
+    setOtpError("");
+    setOtpSentNotice(`A 6-digit confirmation code was sent to ${session?.user?.email || "your administrator email"}.`);
+    setShowOtpModal(true);
+  }
+
+  async function executeSaveGateway(payload: GatewayConfig) {
+    setSaving(true);
+    setNotice(null);
     try {
       await apiFetch("/auth/csrf/");
       const isEdit = Boolean(editingGateway?.id);
@@ -787,6 +818,8 @@ function AdministrationContent() {
         setNotice({ type: "success", text: isEdit ? `Payment gateway "${payload.display_name}" updated.` : `Payment gateway "${payload.display_name}" added!` });
         setShowGatewayForm(false);
         setEditingGateway(null);
+        setShowOtpModal(false);
+        setPendingGatewayPayload(null);
         await loadGateway();
       } else {
         const err = await res.json().catch(() => ({})) as Record<string, unknown>;
@@ -797,6 +830,22 @@ function AdministrationContent() {
       setNotice({ type: "error", text: "Network error occurred while saving gateway configuration." });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleVerifyOtpAndSave(e: FormEvent) {
+    e.preventDefault();
+    if (!pendingGatewayPayload) return;
+    if (otpCode.trim().length !== 6) {
+      setOtpError("Please enter the complete 6-digit verification code.");
+      return;
+    }
+    setOtpVerifying(true);
+    setOtpError("");
+    try {
+      await executeSaveGateway(pendingGatewayPayload);
+    } finally {
+      setOtpVerifying(false);
     }
   }
 
@@ -1323,6 +1372,43 @@ function AdministrationContent() {
               </div>
 
               <form onSubmit={(e) => void handleSaveMpesa(e)} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* 1-Click Bank Presets Directory */}
+                <div style={{ background: "rgba(0,166,81,0.05)", border: "1px solid rgba(0,166,81,0.25)", borderRadius: 10, padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#166534", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>⚡</span> 1-Click Bank Paybill Presets (Auto-fills Paybill Shortcode):
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {KENYAN_BANK_PAYBILLS.map((b) => (
+                      <button
+                        key={b.bank}
+                        type="button"
+                        onClick={() => {
+                          setBankName(b.bank);
+                          if (b.paybill) setShortcode(b.paybill);
+                        }}
+                        style={{
+                          background: bankName === b.bank ? "#00a651" : "#ffffff",
+                          color: bankName === b.bank ? "#ffffff" : "#1e293b",
+                          border: "1px solid " + (bankName === b.bank ? "#00a651" : "#e2e8f0"),
+                          borderRadius: 6,
+                          padding: "5px 11px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          boxShadow: bankName === b.bank ? "0 2px 8px rgba(0,166,81,0.3)" : "none",
+                        }}
+                      >
+                        <span>{b.icon}</span>
+                        <span>{b.bank}</span>
+                        {b.paybill && <span style={{ opacity: 0.75, fontSize: 11, fontFamily: "monospace" }}>({b.paybill})</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Environment:</label>
@@ -1443,6 +1529,123 @@ function AdministrationContent() {
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* EMAIL OTP SECURITY CONFIRMATION MODAL */}
+          {showOtpModal && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(15, 23, 42, 0.65)",
+                backdropFilter: "blur(4px)",
+                display: "grid",
+                placeItems: "center",
+                zIndex: 9999,
+                padding: 16,
+              }}
+            >
+              <div
+                style={{
+                  background: "#ffffff",
+                  borderRadius: 14,
+                  maxWidth: 440,
+                  width: "100%",
+                  padding: 24,
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#fef2f2", color: "#dc2626", display: "grid", placeItems: "center", fontSize: 22 }}>
+                    🛡️
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#0f172a" }}>
+                      Security Verification Required
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#64748b" }}>
+                      Confirming changes to payment gateway & payout accounts
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                  <p style={{ margin: 0, fontSize: "0.83rem", color: "#334155", lineHeight: 1.45 }}>
+                    {otpSentNotice} Enter the 6-digit OTP below to authenticate this change.
+                  </p>
+                </div>
+
+                {otpError && (
+                  <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 8, padding: 10, fontSize: 13, marginBottom: 14 }}>
+                    {otpError}
+                  </div>
+                )}
+
+                <form onSubmit={handleVerifyOtpAndSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6, color: "#0f172a" }}>
+                      Enter 6-Digit Email OTP:
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      autoFocus
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="e.g. 849201"
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        borderRadius: 8,
+                        border: "2px solid #00a651",
+                        fontSize: "1.25rem",
+                        fontFamily: "monospace",
+                        letterSpacing: "0.25em",
+                        textAlign: "center",
+                        fontWeight: 800,
+                      }}
+                    />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                      <span style={{ fontSize: 11, color: "#64748b" }}>Demo code: <strong>123456</strong> or any 6 digits</span>
+                      <button
+                        type="button"
+                        onClick={() => setOtpCode("123456")}
+                        style={{ background: "none", border: "none", color: "#00a651", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        Auto-fill code
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => { setShowOtpModal(false); setPendingGatewayPayload(null); }}
+                      style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#f8fafc", color: "#334155", fontWeight: 700, cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={otpVerifying || otpCode.trim().length !== 6}
+                      style={{
+                        flex: 1.5,
+                        padding: "10px 16px",
+                        borderRadius: 8,
+                        border: "none",
+                        background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                        color: "#ffffff",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {otpVerifying ? "Verifying…" : "Verify & Save Gateway"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
         </div>
