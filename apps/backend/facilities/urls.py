@@ -7,7 +7,7 @@ from .views import (
     ContractInvoiceAppraisalViewSet, FacilityIncidentViewSet, FacilityJobCardViewSet,
     FacilityPaymentRecordViewSet, FacilityRiskViewSet, FinancePaymentRequestViewSet,
     FloorPlanViewSet, FMBudgetViewSet, FacilityExpenseViewSet, InspectionViewSet, LocalPurchaseOrderViewSet,
-    MeterReadingViewSet, MeterReconciliationViewSet, MeterResetEventViewSet,
+    MeterReadingViewSet, MeterReconciliationViewSet, MeterResetEventViewSet, PettyCashVoucherViewSet,
     PreventiveScheduleViewSet, ProcurementRecordViewSet, RepairRequisitionViewSet, ServiceProfileAllocationViewSet, ServiceProfileViewSet, ServiceRequestViewSet, StrategicFMPlanViewSet,
     SupplierInvoiceViewSet, UtilityMeterViewSet, WorkOrderAttachmentViewSet, WorkOrderCostItemViewSet,
     WorkOrderEventViewSet, WorkOrderViewSet,
@@ -30,6 +30,7 @@ router.register('supplier-invoices', SupplierInvoiceViewSet)
 router.register('contract-invoice-appraisals', ContractInvoiceAppraisalViewSet)
 router.register('payment-requests', FinancePaymentRequestViewSet)
 router.register('payments', FacilityPaymentRecordViewSet)
+router.register('petty-cash-vouchers', PettyCashVoucherViewSet)
 router.register('inspections', InspectionViewSet)
 router.register('service-requests', ServiceRequestViewSet)
 router.register('service-profiles', ServiceProfileViewSet)

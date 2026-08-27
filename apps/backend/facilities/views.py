@@ -21,6 +21,8 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
 
 from core.models import Module
 from core.permissions import HasModuleActionPermission
@@ -35,7 +37,7 @@ from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
     ContractInvoiceAppraisal, FacilityJobCard, FacilityPaymentRecord, FinancePaymentRequest,
-    LocalPurchaseOrder, MeterResetEvent, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
+    LocalPurchaseOrder, MeterResetEvent, PettyCashVoucher, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
     RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
@@ -44,7 +46,7 @@ from .serializers import (
     ContractorSerializer, FacilityAssetSerializer, FacilityExpenseSerializer, FacilityFlagSerializer, FacilityIncidentAttachmentSerializer, FacilityIncidentEventSerializer, FacilityIncidentSerializer, FacilityRiskSerializer,
     FloorPlanSerializer, FMBudgetSerializer, InspectionSerializer, MeterReadingSerializer,
     ContractInvoiceAppraisalSerializer, FacilityJobCardSerializer, FacilityPaymentRecordSerializer,
-    FinancePaymentRequestSerializer, LocalPurchaseOrderSerializer, MeterReconciliationSerializer,
+    FinancePaymentRequestSerializer, LocalPurchaseOrderSerializer, MeterReconciliationSerializer, PettyCashVoucherSerializer,
     MeterResetEventSerializer, PreventiveScheduleSerializer, ProcurementQuotationSerializer, ProcurementRecordSerializer,
     RepairRequisitionSerializer, SupplierInvoiceSerializer,
     ServiceProfileAllocationSerializer, ServiceProfileSerializer, ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
@@ -86,6 +88,40 @@ class FacilityModelViewSet(ModelViewSet):
     def perform_update(self, serializer):
         self._validate_organization(serializer)
         serializer.save()
+
+
+def _facility_document_pdf(*, title, reference, organization, property_name, details, table_headers=(), table_rows=(), qr_text=''):
+    buffer = BytesIO()
+    document = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=14 * mm, rightMargin=14 * mm,
+                                 topMargin=12 * mm, bottomMargin=12 * mm)
+    styles = getSampleStyleSheet()
+    story = [Paragraph(str(organization.name), ParagraphStyle('Org', parent=styles['Heading2'], textColor=colors.HexColor('#991b1b'))),
+             Paragraph(title, ParagraphStyle('DocTitle', parent=styles['Title'], textColor=colors.HexColor('#0f172a'))),
+             Paragraph(f'<b>{reference}</b> · {property_name}', styles['Normal']), Spacer(1, 4 * mm)]
+    if qr_text:
+        widget = qr.QrCodeWidget(qr_text); bounds = widget.getBounds(); size = 24 * mm
+        drawing = Drawing(size, size, transform=[size/(bounds[2]-bounds[0]), 0, 0, size/(bounds[3]-bounds[1]), 0, 0])
+        drawing.add(widget); story.append(drawing)
+    detail_table = Table([[Paragraph(f'<b>{label}</b>', styles['BodyText']), Paragraph(str(value or '—'), styles['BodyText'])]
+                          for label, value in details], colWidths=[48 * mm, 175 * mm])
+    detail_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), .35, colors.HexColor('#cbd5e1')),
+                                      ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#f1f5f9')), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
+    story.extend([detail_table, Spacer(1, 4 * mm)])
+    if table_headers:
+        table = Table([list(table_headers)] + [list(row) for row in table_rows], repeatRows=1)
+        table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#991b1b')), ('TEXTCOLOR',(0,0),(-1,0),colors.white),
+                                   ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'), ('GRID',(0,0),(-1,-1),.35,colors.HexColor('#cbd5e1')),
+                                   ('VALIGN',(0,0),(-1,-1),'MIDDLE'), ('FONTSIZE',(0,0),(-1,-1),8),
+                                   ('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f8fafc')])]))
+        story.append(table)
+    document.build(story)
+    return buffer.getvalue()
+
+
+def _pdf_response(content, filename):
+    response = HttpResponse(content, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 class ServiceProfileViewSet(FacilityModelViewSet):
@@ -486,9 +522,24 @@ class ProcurementRecordViewSet(FacilityModelViewSet):
 
 class LocalPurchaseOrderViewSet(FacilityModelViewSet):
     write_permission = 'facility.approve'
+    permission_map = {'generate_job_card': 'facility.work'}
     queryset = LocalPurchaseOrder.objects.select_related('procurement__requisition', 'quotation', 'supplier', 'property')
     serializer_class = LocalPurchaseOrderSerializer
     search_fields = ('number', 'procurement__code', 'procurement__requisition__code', 'supplier__name')
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        lpo = self.get_object(); quotation = lpo.quotation
+        content = _facility_document_pdf(
+            title='LOCAL PURCHASE ORDER (LPO)', reference=lpo.number, organization=lpo.organization,
+            property_name=lpo.property.name, qr_text=request.build_absolute_uri(),
+            details=(('Supplier', lpo.supplier.name), ('Requisition', lpo.procurement.requisition.code),
+                     ('Procurement', lpo.procurement.code), ('Issue date', lpo.issue_date), ('Delivery date', lpo.delivery_date),
+                     ('Scope', lpo.scope), ('Payment terms', lpo.payment_terms), ('Status', lpo.get_status_display())),
+            table_headers=('Quotation', 'Subtotal (KES)', 'VAT (KES)', 'Total (KES)'),
+            table_rows=((quotation.quotation_number, f'{lpo.subtotal:,.2f}', f'{lpo.vat_amount:,.2f}', f'{lpo.total:,.2f}'),),
+        )
+        return _pdf_response(content, f'{lpo.number}.pdf')
 
     @transaction.atomic
     @action(detail=True, methods=('post',), url_path='generate-job-card')
@@ -537,6 +588,19 @@ class FacilityJobCardViewSet(FacilityModelViewSet):
     queryset = FacilityJobCard.objects.select_related('lpo__procurement__requisition__service_request', 'property', 'work_order')
     serializer_class = FacilityJobCardSerializer
     search_fields = ('number', 'lpo__number', 'lpo__procurement__requisition__code', 'property__name')
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        card = self.get_object(); requisition = card.lpo.procurement.requisition
+        content = _facility_document_pdf(
+            title='JOB CARD', reference=card.number, organization=card.organization, property_name=card.property.name,
+            qr_text=request.build_absolute_uri(),
+            details=(('LPO', card.lpo.number), ('Requisition', requisition.code), ('Ticket', requisition.service_request.reference if requisition.service_request_id else ''),
+                     ('Contractor', card.lpo.supplier.name), ('Work description', requisition.required_repair), ('Status', card.get_status_display()),
+                     ('Contractor signatory', card.contractor_signatory), ('Caretaker signatory', card.caretaker_signatory),
+                     ('Verified by', card.verified_by.get_full_name() if card.verified_by_id else '')),
+        )
+        return _pdf_response(content, f'{card.number}.pdf')
 
     @action(detail=True, methods=('post',), url_path='start')
     def start(self, request, pk=None):
@@ -709,6 +773,86 @@ class FacilityPaymentRecordViewSet(FacilityModelViewSet):
     queryset = FacilityPaymentRecord.objects.select_related('property', 'supplier_invoice', 'payment_request', 'expense', 'processed_by')
     serializer_class = FacilityPaymentRecordSerializer
     search_fields = ('number', 'reference', 'payee')
+
+
+class PettyCashVoucherViewSet(FacilityModelViewSet):
+    write_permission = 'facility.work'
+    permission_map = {'approve': 'facility.approve', 'mark_paid': 'facility.approve', 'post_expense': 'facility.approve'}
+    queryset = PettyCashVoucher.objects.select_related('lpo__supplier', 'job_card', 'property', 'prepared_by', 'approved_by', 'expense')
+    serializer_class = PettyCashVoucherSerializer
+    search_fields = ('number', 'lpo__number', 'job_card__number', 'property__name', 'purpose')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        total = serializer.validated_data.pop('_calculated_total')
+        lpo = serializer.validated_data['lpo']
+        serializer.save(organization=organization, number=f'PV-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}',
+                        property=lpo.property, purpose=lpo.scope, total_amount=total, prepared_by=self.request.user)
+
+    def _transition(self, voucher, target, **fields):
+        voucher.status = target
+        for key, value in fields.items(): setattr(voucher, key, value)
+        voucher.save(update_fields=('status', *fields.keys(), 'updated_at'))
+
+    @action(detail=True, methods=('post',), url_path='submit')
+    def submit(self, request, pk=None):
+        voucher = self.get_object()
+        if voucher.status != PettyCashVoucher.Status.DRAFT:
+            raise ValidationError({'status': 'Only a draft voucher can be submitted.'})
+        self._transition(voucher, PettyCashVoucher.Status.SUBMITTED)
+        return Response(self.get_serializer(voucher).data)
+
+    @action(detail=True, methods=('post',), url_path='approve')
+    def approve(self, request, pk=None):
+        voucher = self.get_object()
+        if voucher.status != PettyCashVoucher.Status.SUBMITTED:
+            raise ValidationError({'status': 'Only a submitted voucher can be approved.'})
+        self._transition(voucher, PettyCashVoucher.Status.APPROVED, approved_by=request.user, approved_at=timezone.now())
+        return Response(self.get_serializer(voucher).data)
+
+    @action(detail=True, methods=('post',), url_path='mark-paid')
+    def mark_paid(self, request, pk=None):
+        voucher = self.get_object(); signed_url = str(request.data.get('signed_voucher_url', '')).strip()
+        reference = str(request.data.get('payment_reference', '')).strip()
+        if voucher.status != PettyCashVoucher.Status.APPROVED or not signed_url or not reference:
+            raise ValidationError({'detail': 'An approved voucher, payment reference and uploaded signed voucher are required.'})
+        self._transition(voucher, PettyCashVoucher.Status.PAID, signed_voucher_url=signed_url,
+                         payment_reference=reference, paid_at=timezone.now())
+        return Response(self.get_serializer(voucher).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='post-expense')
+    def post_expense(self, request, pk=None):
+        voucher = self.get_object()
+        if voucher.status != PettyCashVoucher.Status.PAID or voucher.expense_id:
+            raise ValidationError({'status': 'Only an unposted paid voucher can be posted to expenses.'})
+        expense = FacilityExpense.objects.create(
+            organization=voucher.organization, property=voucher.property, work_order=voucher.job_card.work_order,
+            spent_on=(voucher.paid_at or timezone.now()).date(), category='Petty cash',
+            description=f'{voucher.number} · {voucher.purpose}', amount=voucher.total_amount,
+            supplier='Multiple cash recipients', receipt_reference=voucher.payment_reference,
+            status=FacilityExpense.Status.APPROVED, recorded_by=request.user, approved_by=request.user, approved_at=timezone.now(),
+        )
+        voucher.expense = expense; voucher.status = PettyCashVoucher.Status.POSTED
+        voucher.save(update_fields=('expense', 'status', 'updated_at'))
+        return Response(self.get_serializer(voucher).data)
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        voucher = self.get_object(); recipients = list(voucher.recipients)
+        rows = [(str(index + 1), row.get('name',''), row.get('identity',''), row.get('role',''), f"{Decimal(str(row.get('amount', 0))):,.2f}", '________________') for index, row in enumerate(recipients)]
+        rows.extend([(str(index + 1), '', '', '', '', '________________') for index in range(len(rows), 4)])
+        content = _facility_document_pdf(
+            title='PAYMENT VOUCHER · PETTY CASH', reference=voucher.number, organization=voucher.organization,
+            property_name=voucher.property.name, qr_text=request.build_absolute_uri(),
+            details=(('Paid from', 'Petty Cash'), ('LPO No.', voucher.lpo.number), ('Job Card No.', voucher.job_card.number),
+                     ('Purpose / service delivered', voucher.purpose), ('Total amount (KES)', f'{voucher.total_amount:,.2f}'),
+                     ('Prepared by', voucher.prepared_by.get_full_name() or voucher.prepared_by.username),
+                     ('Approved by', (voucher.approved_by.get_full_name() or voucher.approved_by.username) if voucher.approved_by_id else 'Pending')),
+            table_headers=('No.', 'Name of Person Paid', 'ID / Phone No.', 'Service Delivered / Role', 'Amount Paid (KES)', 'Signature'),
+            table_rows=rows,
+        )
+        return _pdf_response(content, f'{voucher.number}.pdf')
 
 
 class FacilityIncidentViewSet(FacilityModelViewSet):

@@ -1094,3 +1094,32 @@ class FacilityPaymentRecord(OrganizationOwnedModel):
     class Meta:
         ordering = ('-paid_on', '-created_at')
         constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_org_facility_payment_number')]
+
+
+class PettyCashVoucher(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SUBMITTED = 'submitted', 'Submitted'
+        APPROVED = 'approved', 'Approved'
+        PAID = 'paid', 'Cash paid'
+        POSTED = 'posted', 'Expense posted'
+
+    number = models.CharField(max_length=60)
+    lpo = models.ForeignKey(LocalPurchaseOrder, on_delete=models.PROTECT, related_name='petty_cash_vouchers')
+    job_card = models.ForeignKey(FacilityJobCard, on_delete=models.PROTECT, related_name='petty_cash_vouchers')
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='petty_cash_vouchers')
+    purpose = models.TextField()
+    recipients = models.JSONField(default=list)
+    total_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    prepared_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='prepared_petty_cash_vouchers')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_petty_cash_vouchers')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    signed_voucher_url = models.CharField(max_length=500, blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
+    expense = models.OneToOneField(FacilityExpense, on_delete=models.SET_NULL, null=True, blank=True, related_name='petty_cash_voucher')
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_org_petty_cash_voucher')]

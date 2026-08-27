@@ -25,6 +25,14 @@ async function post(path: string, payload: unknown, organizationId: string | nul
   }, organizationId);
 }
 
+async function downloadPdf(path: string, filename: string, organizationId: string | null) {
+  const response = await apiFetch(path, {}, organizationId);
+  if (!response.ok) throw new Error(await apiErrorMessage(response, "The document could not be generated."));
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export function ProcurementView({ rows, organizationId, reload, canApprove }: {
   rows: Row[]; organizationId: string | null; reload: () => void; canApprove: boolean;
 }) {
@@ -114,6 +122,8 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
             {p.status === "evaluation" && p.quotations.length > 0 && canApprove && <Button size="small" variant="contained" color="warning" onClick={() => { setTarget(p); setDialog("award"); setForm({ quotation: String(p.quotations[0].id) }); }}>Evaluate & award</Button>}
             {p.status === "awarded" && canApprove && <Button size="small" variant="contained" onClick={() => void act(`/facility/procurements/${p.id}/issue-lpo/`, { payment_terms: "30 days after verified completion" })}>Issue LPO</Button>}
             {p.status === "lpo_issued" && lpos.find((lpo) => lpo.procurement_code === p.code) && <Button size="small" variant="contained" onClick={() => void act(`/facility/lpos/${String(lpos.find((lpo) => lpo.procurement_code === p.code)?.id)}/generate-job-card/`)}>Generate Job Card</Button>}
+            {p.lpo_number && <Button size="small" variant="outlined" onClick={() => { const lpo = lpos.find((item) => item.procurement_code === p.code); if (lpo) void downloadPdf(`/facility/lpos/${String(lpo.id)}/pdf/`, `${p.lpo_number}.pdf`, organizationId).catch((e) => setError(e.message)); }}>Download LPO</Button>}
+            {p.job_card_number && <Button size="small" variant="outlined" onClick={() => { const card = jobCards.find((item) => item.procurement_code === p.code); if (card) void downloadPdf(`/facility/job-cards/${String(card.id)}/pdf/`, `${p.job_card_number}.pdf`, organizationId).catch((e) => setError(e.message)); }}>Download Job Card</Button>}
             {p.status === "in_execution" && jobCards.find((card) => card.procurement_code === p.code) && <Button size="small" variant="contained" color="success" onClick={() => { const card = jobCards.find((item) => item.procurement_code === p.code); setTarget(p); setDialog("sign"); setForm({ card: String(card?.id), stage: String(card?.status) }); }}>Continue Job Card</Button>}
           </Stack>
         </Stack>

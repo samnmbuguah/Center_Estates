@@ -1135,6 +1135,34 @@ class ProcurementFinanceWorkflowApiTests(TestCase):
         job_card = FacilityJobCard.objects.get(pk=card.data['id'])
         self.assertTrue(job_card.work_order.supervisor_verified)
         self.assertEqual(ProcurementRecord.objects.get(pk=procurement_id).status, ProcurementRecord.Status.VERIFIED)
+        for document_url in (f"/api/v1/facility/lpos/{lpo.data['id']}/pdf/", f'{card_url}pdf/'):
+            document = self.client.get(document_url, **self.headers)
+            self.assertEqual(document.status_code, 200)
+            self.assertEqual(document['Content-Type'], 'application/pdf')
+            self.assertTrue(document.content.startswith(b'%PDF-'))
+
+        voucher = self.client.post('/api/v1/facility/petty-cash-vouchers/', {
+            'lpo': lpo.data['id'], 'job_card': card.data['id'],
+            'recipients': [
+                {'name': 'John Mwangi', 'identity': 'ID-123 / 0700000001', 'role': 'Technician', 'amount': '70000.00'},
+                {'name': 'Amina Ali', 'identity': 'ID-456 / 0700000002', 'role': 'Assistant', 'amount': '30000.00'},
+            ],
+        }, format='json', **self.headers)
+        self.assertEqual(voucher.status_code, 201, voucher.data)
+        self.assertEqual(Decimal(voucher.data['total_amount']), Decimal('100000.00'))
+        base = f"/api/v1/facility/petty-cash-vouchers/{voucher.data['id']}/"
+        self.assertEqual(self.client.post(f'{base}submit/', {}, format='json', **self.headers).status_code, 200)
+        self.assertEqual(self.client.post(f'{base}approve/', {}, format='json', **self.headers).status_code, 200)
+        voucher_pdf = self.client.get(f'{base}pdf/', **self.headers)
+        self.assertEqual(voucher_pdf.status_code, 200)
+        self.assertTrue(voucher_pdf.content.startswith(b'%PDF-'))
+        paid = self.client.post(f'{base}mark-paid/', {
+            'payment_reference': 'PC-001', 'signed_voucher_url': 'https://example.test/signed-voucher.pdf',
+        }, format='json', **self.headers)
+        self.assertEqual(paid.status_code, 200, paid.data)
+        posted = self.client.post(f'{base}post-expense/', {}, format='json', **self.headers)
+        self.assertEqual(posted.status_code, 200, posted.data)
+        self.assertEqual(posted.data['status'], 'posted')
 
     def test_independent_payment_request_posts_payment_and_expense(self):
         created = self.client.post('/api/v1/facility/payment-requests/', {

@@ -63,6 +63,7 @@ PROPERTY_LOOKUPS = {
     'facilities.ContractInvoiceAppraisal': 'invoice__property_id',
     'facilities.FinancePaymentRequest': 'property_id',
     'facilities.FacilityPaymentRecord': 'property_id',
+    'facilities.PettyCashVoucher': 'property_id',
     'facilities.FacilityIncident': 'property_id',
     'facilities.FacilityIncidentEvent': 'incident__property_id',
     'facilities.UtilityMeter': 'property_id',

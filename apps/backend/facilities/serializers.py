@@ -8,7 +8,7 @@ from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
     FacilityExpense, FacilityFlag, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityRisk, FloorPlan, FMBudget, Inspection, MeterReading, MeterReconciliation,
     ContractInvoiceAppraisal, FacilityJobCard, FacilityPaymentRecord, FinancePaymentRequest,
-    LocalPurchaseOrder, MeterResetEvent, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
+    LocalPurchaseOrder, MeterResetEvent, PettyCashVoucher, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
     RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
 )
@@ -312,6 +312,47 @@ class FacilityPaymentRecordSerializer(serializers.ModelSerializer):
         if obj.supplier_invoice_id:
             return obj.supplier_invoice.code
         return obj.payment_request.number if obj.payment_request_id else ''
+
+
+class PettyCashVoucherSerializer(serializers.ModelSerializer):
+    lpo_number = serializers.CharField(source='lpo.number', read_only=True)
+    job_card_number = serializers.CharField(source='job_card.number', read_only=True)
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    prepared_by_name = serializers.CharField(source='prepared_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = PettyCashVoucher
+        exclude = ('organization',)
+        read_only_fields = ('number', 'property', 'purpose', 'total_amount', 'status', 'prepared_by',
+                            'approved_by', 'approved_at', 'paid_at', 'expense')
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        lpo, card = attrs.get('lpo'), attrs.get('job_card')
+        if not lpo or lpo.organization_id != organization.id:
+            raise serializers.ValidationError({'lpo': 'Select an LPO in the active organization.'})
+        if not card or card.lpo_id != lpo.id:
+            raise serializers.ValidationError({'job_card': 'The Job Card must belong to the selected LPO.'})
+        if card.status != FacilityJobCard.Status.VERIFIED:
+            raise serializers.ValidationError({'job_card': 'Only a verified Job Card is eligible for petty-cash payment.'})
+        recipients = attrs.get('recipients') or []
+        if not 1 <= len(recipients) <= 4:
+            raise serializers.ValidationError({'recipients': 'Enter between one and four recipients.'})
+        total = Decimal('0')
+        for index, recipient in enumerate(recipients, 1):
+            if not all(str(recipient.get(key, '')).strip() for key in ('name', 'identity', 'role')):
+                raise serializers.ValidationError({'recipients': f'Recipient {index} needs a name, ID/phone and service role.'})
+            try:
+                amount = Decimal(str(recipient.get('amount', '0')))
+            except Exception:
+                raise serializers.ValidationError({'recipients': f'Recipient {index} amount is invalid.'})
+            if amount <= 0:
+                raise serializers.ValidationError({'recipients': f'Recipient {index} amount must be positive.'})
+            total += amount
+        if total > lpo.total:
+            raise serializers.ValidationError({'recipients': 'Voucher total cannot exceed the authorised LPO amount.'})
+        attrs['_calculated_total'] = total
+        return attrs
 
 
 class ContractorSerializer(serializers.ModelSerializer):
