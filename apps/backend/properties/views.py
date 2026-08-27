@@ -2710,7 +2710,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
             return month_delta == 0
         return False
 
-    def _execute_prepare(self, run):
+    def _execute_prepare(self, run, invoice_types: set[str] | None = None):
         run.candidates.filter(invoice__isnull=True).delete()
         run.issues.all().delete()
         leases = Lease.objects.for_organization(run.organization).filter(
@@ -2746,6 +2746,20 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 is_active=True, effective_from__lte=run.period_end,
             ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=run.period_start)).select_related('billing_item__tax_configuration')
             due_profiles = [profile for profile in profiles if self._profile_is_due(profile, run.period_start)]
+            if invoice_types is not None:
+                def _profile_matches(profile) -> bool:
+                    code = str(profile.billing_item.code or "").strip().lower()
+                    if code == "rent" and "rent" in invoice_types:
+                        return True
+                    if code in ("service_charge", "sc") and "service_charge" in invoice_types:
+                        return True
+                    if code in ("water", "electricity", "utility") and "utility" in invoice_types:
+                        return True
+                    if "other" in invoice_types and code not in ("rent", "service_charge", "sc", "water", "electricity", "utility"):
+                        return True
+                    # Exact code match for any other type
+                    return code in invoice_types
+                due_profiles = [p for p in due_profiles if _profile_matches(p)]
             for profile in due_profiles:
                 monthly_val = profile.amount
                 if profile.calculation == BillingItem.Calculation.AREA_RATE:
@@ -2784,7 +2798,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     'total': str(line_subtotal + tax_amount), 'source_type': 'billing_profile', 'source_id': str(profile.id)
                 })
 
-            if not any(item['code'].upper() == 'RENT' for item in items):
+            if (invoice_types is None or "rent" in invoice_types) and not any(item['code'].upper() == 'RENT' for item in items):
                 rent = lease.effective_rent(run.period_start)
                 if rent > 0:
                     line_subtotal = (rent * qty).quantize(Decimal('0.01'))
@@ -2795,13 +2809,13 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
                         'source_type': 'lease', 'source_id': str(lease.id)
                     })
-                else:
+                elif invoice_types is None or "rent" in invoice_types:
                     issue_rows.append(('missing_rent', 'The lease has no effective rent for this period.', None))
 
             allocation = ServiceChargeAllocation.objects.for_organization(run.organization).filter(
                 unit=lease.unit, service_charge__is_active=True, service_charge__starts_on__lte=run.period_end,
             ).select_related('service_charge').order_by('-service_charge__starts_on').first()
-            if allocation and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
+            if (invoice_types is None or "service_charge" in invoice_types) and allocation and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
                 monthly_sc = allocation.monthly_amount
                 line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
                 desc = f"{allocation.service_charge.name} ({period_suffix})" if months_count > 1 else allocation.service_charge.name
@@ -2812,7 +2826,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     'source_type': 'service_charge_allocation', 'source_id': str(allocation.id)
                 })
             # Fallback to lease metadata (onboarding stores 25/sqft × area there for Blueshield-type leases).
-            if not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
+            if (invoice_types is None or "service_charge" in invoice_types) and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
                 meta = lease.metadata or {}
                 monthly_sc_meta = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
                 if monthly_sc_meta is not None:
@@ -2845,6 +2859,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
                             })
                     except Exception:
                         pass
+
+            if not items:
+                continue
 
             period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if months_count > 1 else run.period_start.strftime('%Y-%m')
             duplicate = Invoice.objects.for_organization(run.organization).filter(
@@ -2916,7 +2933,20 @@ class BillingRunViewSet(OrganizationModelViewSet):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status == BillingRun.Status.GENERATED:
             raise ValidationError({'status': 'A generated billing run cannot be prepared again.'})
-        self._execute_prepare(run)
+        raw_types = request.data.get('invoice_types')
+        invoice_types: set[str] | None = None
+        if isinstance(raw_types, list) and raw_types:
+            normalized: set[str] = set()
+            for t in raw_types:
+                key = str(t).strip().lower().replace("-", "_")
+                if key == "utility":
+                    normalized.update({"water", "electricity", "utility"})
+                elif key in {"servicecharge", "service_charge", "sc"}:
+                    normalized.add("service_charge")
+                elif key:
+                    normalized.add(key)
+            invoice_types = normalized or None
+        self._execute_prepare(run, invoice_types=invoice_types)
         return Response(self.get_serializer(run).data)
 
     @transaction.atomic

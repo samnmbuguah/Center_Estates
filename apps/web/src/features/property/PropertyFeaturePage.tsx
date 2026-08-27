@@ -28,6 +28,8 @@ import { ReceiptsView } from "./components/tabs/ReceiptsView";
 import { ReceiptAllocationsView } from "./components/tabs/ReceiptAllocationsView";
 import { BankReconciliationView } from "./components/tabs/BankReconciliationView";
 import { CreditNotesView } from "./components/tabs/CreditNotesView";
+import { BillingInvoicesView } from "./components/tabs/BillingInvoicesView";
+import { ReceiptingView } from "./components/tabs/ReceiptingView";
 import { ServiceChargesView } from "./components/tabs/ServiceChargesView";
 import { ServiceChargeAllocationsView } from "./components/tabs/ServiceChargeAllocationsView";
 import { ServiceChargeReconciliationsView } from "./components/tabs/ServiceChargeReconciliationsView";
@@ -81,7 +83,51 @@ export function PropertyFeaturePage({
       case "financials":
         return <ReceiptsView rows={logic.rows} receipts={logic.rows} creditNotes={logic.creditNotes} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onAddCreditNote={() => logic.handleCreateCreditNote(null)} canFinance={logic.canFinance} onRefresh={logic.fetchData} />;
       case "billing":
-        return <PropertyBillingDashboard onNavigate={(t) => logic.setTab(t as PropertyTab)} onSingleInvoice={(ctx) => logic.openInvoiceComposer(ctx)} />;
+        return (
+          <BillingInvoicesView
+            billingSection={logic.billingSection}
+            setBillingSection={logic.setBillingSection}
+            onNavigateBilling={(t) => logic.setTab(t as PropertyTab)}
+            onSingleInvoice={(ctx) => logic.openInvoiceComposer(ctx)}
+            rows={logic.rows}
+            rentInvoices={logic.rentInvoices}
+            analytics={logic.analytics}
+            loading={logic.loading}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            setTab={logic.setTab}
+            canFinance={logic.canFinance}
+            canApprove={logic.canApprove}
+            onAddInvoice={() => logic.setShowInvoiceComposer(true)}
+            onRecordReceipt={(invoiceId) => { logic.setReceiptInvoice(invoiceId ?? ""); logic.setShowRecordReceipt(true); }}
+            onSendReminder={logic.handleSendReminder}
+            onInvoiceAction={logic.handleInvoiceAction}
+            onSelectRow={logic.setSelectedRow}
+            onDownloadPdf={logic.downloadInvoicePdf}
+            onRefresh={logic.fetchData}
+          />
+        );
+      case "receipting":
+        return (
+          <ReceiptingView
+            receiptingSection={logic.receiptingSection}
+            setReceiptingSection={logic.setReceiptingSection}
+            rows={logic.rows}
+            receipts={logic.rows}
+            creditNotes={logic.creditNotes}
+            loading={logic.loading}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            setTab={logic.setTab}
+            onRecordReceipt={() => logic.setShowRecordReceipt(true)}
+            onAddCreditNote={() => logic.handleCreateCreditNote(null)}
+            onDownloadPdf={logic.downloadReceiptPdf}
+            canFinance={logic.canFinance}
+            onRefresh={logic.fetchData}
+            onGenerateInvoice={logic.handleGenerateScheduleInvoice}
+            onVoidCreditNote={logic.handleVoidCreditNote}
+          />
+        );
       case "rent-schedules":
         return <RentSchedulesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onGenerateInvoice={logic.handleGenerateScheduleInvoice} onRefresh={logic.fetchData} canFinance={logic.canFinance} />;
       case "rent":

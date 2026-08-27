@@ -31,6 +31,34 @@ export function OverviewView({
         <CompanionNudgeCard nudge={dash.activeNudge} />
       )}
 
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>
+          Personal workspace & team operational briefings
+        </div>
+        <a
+          href="/caretaker-portal?preview=1"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minHeight: 34,
+            padding: "0 14px",
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            color: "var(--text-primary)",
+            background: "var(--surface)",
+            textDecoration: "none",
+            fontSize: "0.82rem",
+            fontWeight: 800,
+            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+          }}
+        >
+          📱 Preview caretaker portal ↗
+        </a>
+      </div>
+
       <DailyBriefingCard userName={userName} />
 
       <KpiStrip>

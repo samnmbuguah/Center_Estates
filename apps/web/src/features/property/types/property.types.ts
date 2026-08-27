@@ -11,6 +11,7 @@ export type PropertyTab =
   | "leases"
   | "financials"
   | "billing"
+  | "receipting"
   | "rent-schedules"
   | "rent"
   | "arrears"
@@ -52,7 +53,8 @@ export const labels: Record<PropertyTab, string> = {
   "tenant-documents": "Tenant Documents",
   leases: "Leases",
   financials: "Financials",
-  billing: "Billing Pipeline",
+  billing: "Billing & Invoices",
+  receipting: "Receipting",
   "rent-schedules": "Rent Schedules",
   rent: "Invoice Register",
   arrears: "Arrears & Recovery",
@@ -242,6 +244,8 @@ export type RentSection = "invoices" | "receipts" | "arrears" | "reminders" | "l
 export type ScSection = "setup" | "allocations" | "reconciliations" | "budget";
 export type TenancySection = "occupancy" | "tenants" | "leases" | "documents";
 export type FinancialsSection = "schedules" | "invoices" | "receipts" | "allocations" | "reconciliation" | "credit-notes";
+export type BillingSection = "pipeline" | "invoices";
+export type ReceiptingSection = "receipts" | "allocations" | "credit-notes" | "schedules";
 
 export interface BillingContext {
   mode: "monthly" | "quarterly" | "custom" | string;

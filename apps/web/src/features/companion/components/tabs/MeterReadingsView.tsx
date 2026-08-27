@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -15,6 +15,8 @@ import {
   Paper,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -25,6 +27,9 @@ import SendRounded from "@mui/icons-material/SendRounded";
 import RefreshRounded from "@mui/icons-material/RefreshRounded";
 import TuneRounded from "@mui/icons-material/TuneRounded";
 import CloseRounded from "@mui/icons-material/CloseRounded";
+import ViewListRounded from "@mui/icons-material/ViewListRounded";
+import ViewModuleRounded from "@mui/icons-material/ViewModuleRounded";
+import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
@@ -80,7 +85,9 @@ export function MeterReadingsView({
       can("facility.approve")
   );
 
-  // Walkthrough input states keyed by meter.id
+  const storageKey = `ce_meter_drafts_${activeProperty?.id || "default"}`;
+
+  // Walkthrough input states keyed by meter.id with LocalStorage persistence
   const [draftReadings, setDraftReadings] = useState<Record<string, { value: string; notes: string }>>({});
   const [readDate, setReadDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [utilityFilter, setUtilityFilter] = useState<string>("all");
@@ -88,6 +95,36 @@ export function MeterReadingsView({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [submittingBatch, setSubmittingBatch] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [layoutMode, setLayoutMode] = useState<"table" | "cards">("table");
+
+  // Auto-load draft readings from localStorage on mount/property switch
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          setDraftReadings(parsed);
+        }
+      }
+    } catch {
+      // Ignore localStorage read errors
+    }
+  }, [storageKey]);
+
+  // Persist draft readings to localStorage on change
+  const saveDraftsToStorage = (newDrafts: Record<string, { value: string; notes: string }>) => {
+    try {
+      const hasAny = Object.values(newDrafts).some((d) => d.value.trim() !== "" || d.notes.trim() !== "");
+      if (hasAny) {
+        localStorage.setItem(storageKey, JSON.stringify(newDrafts));
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  };
 
   // Single inspect modal
   const [inspectMeter, setInspectMeter] = useState<MeterRow | null>(null);
@@ -124,13 +161,25 @@ export function MeterReadingsView({
   const filledDraftCount = Object.keys(draftReadings).filter((k) => draftReadings[k]?.value?.trim() !== "").length;
 
   const updateDraft = (meterId: string, field: "value" | "notes", val: string) => {
-    setDraftReadings((prev) => ({
-      ...prev,
-      [meterId]: {
-        value: field === "value" ? val : prev[meterId]?.value ?? "",
-        notes: field === "notes" ? val : prev[meterId]?.notes ?? "",
-      },
-    }));
+    setDraftReadings((prev) => {
+      const updated = {
+        ...prev,
+        [meterId]: {
+          value: field === "value" ? val : prev[meterId]?.value ?? "",
+          notes: field === "notes" ? val : prev[meterId]?.notes ?? "",
+        },
+      };
+      saveDraftsToStorage(updated);
+      return updated;
+    });
+  };
+
+  const handleClearDrafts = () => {
+    setDraftReadings({});
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+    toast.info("Cleared all unsaved draft meter readings.");
   };
 
   // Submit all drafted readings in batch
@@ -414,225 +463,414 @@ export function MeterReadingsView({
             />
           </Stack>
 
-          <Button
-            variant="contained"
-            startIcon={<SendRounded />}
-            disabled={filledDraftCount === 0 || submittingBatch}
-            onClick={handleSubmitBatch}
-            sx={{
-              bgcolor: "#2563eb",
-              "&:hover": { bgcolor: "#1d4ed8" },
-              fontWeight: 800,
-              px: 3,
-              py: 1,
-            }}
-          >
-            {submittingBatch
-              ? "Submitting Batch…"
-              : `Submit ${filledDraftCount > 0 ? `(${filledDraftCount})` : ""} for Admin Verification`}
-          </Button>
+          <Stack direction="row" sx={{ gap: 1.5, flexWrap: "wrap", alignItems: "center" }}>
+            {filledDraftCount > 0 && (
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                startIcon={<DeleteOutlineRounded />}
+                onClick={handleClearDrafts}
+                sx={{ fontSize: 12, fontWeight: 700 }}
+              >
+                Clear Drafts ({filledDraftCount})
+              </Button>
+            )}
+
+            <ToggleButtonGroup
+              size="small"
+              value={layoutMode}
+              exclusive
+              onChange={(_, val) => val && setLayoutMode(val)}
+              sx={{ bgcolor: "var(--surface-sunken)" }}
+            >
+              <ToggleButton value="table" title="Table View">
+                <ViewListRounded fontSize="small" sx={{ mr: 0.5 }} /> Table
+              </ToggleButton>
+              <ToggleButton value="cards" title="Mobile Cards View">
+                <ViewModuleRounded fontSize="small" sx={{ mr: 0.5 }} /> Cards
+              </ToggleButton>
+            </ToggleButtonGroup>
+
+            <Button
+              variant="contained"
+              startIcon={<SendRounded />}
+              disabled={filledDraftCount === 0 || submittingBatch}
+              onClick={handleSubmitBatch}
+              sx={{
+                bgcolor: "#2563eb",
+                "&:hover": { bgcolor: "#1d4ed8" },
+                fontWeight: 800,
+                px: 3,
+                py: 1,
+              }}
+            >
+              {submittingBatch
+                ? "Submitting Batch…"
+                : `Submit ${filledDraftCount > 0 ? `(${filledDraftCount})` : ""} for Admin Verification`}
+            </Button>
+          </Stack>
         </Box>
       </Paper>
 
-      {/* 4. CARETAKER BULK WALK-THROUGH SHEET */}
-      <Paper variant="outlined" sx={{ borderRadius: 3, background: "var(--surface)", overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: "var(--surface-sunken)", borderBottom: "2px solid var(--border)", textAlign: "left" }}>
-              <th style={{ padding: "12px 16px" }}>Unit & Location</th>
-              <th style={{ padding: "12px 16px" }}>Meter Code & Type</th>
-              <th style={{ padding: "12px 16px" }}>Last Approved Value</th>
-              <th style={{ padding: "12px 16px", minWidth: 170 }}>New Reading Input</th>
-              <th style={{ padding: "12px 16px" }}>Calculated Delta</th>
-              <th style={{ padding: "12px 16px" }}>Notes / Observation</th>
-              <th style={{ padding: "12px 16px" }}>Verification Status</th>
-              <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={8} style={{ padding: 40, textAlign: "center" }}>
-                  <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
-                    Loading meter registers…
-                  </Typography>
-                </td>
-              </tr>
-            ) : filteredMeters.length === 0 ? (
-              <tr>
-                <td colSpan={8} style={{ padding: 40, textAlign: "center" }}>
-                  <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
-                    No matching meters found for the selected filter.
-                  </Typography>
-                </td>
-              </tr>
-            ) : (
-              filteredMeters.map((meter) => {
-                const prevVal = Number(meter.current_reading ?? 0);
-                const draft = draftReadings[meter.id] || { value: "", notes: "" };
-                const currentEntered = draft.value !== "" ? Number(draft.value) : null;
-                const delta = currentEntered !== null && !isNaN(currentEntered) ? currentEntered - prevVal : null;
-                const isSurge = delta !== null && prevVal > 0 && delta > prevVal * 1.5;
-                const isReverse = delta !== null && delta < 0;
+      {/* 4. CARETAKER BULK WALK-THROUGH: CARDS VIEW */}
+      {layoutMode === "cards" ? (
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }, gap: 2 }}>
+          {loading ? (
+            <Paper variant="outlined" sx={{ p: 5, textAlign: "center", gridColumn: "1 / -1", borderRadius: 3 }}>
+              <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
+                Loading meter registers…
+              </Typography>
+            </Paper>
+          ) : filteredMeters.length === 0 ? (
+            <Paper variant="outlined" sx={{ p: 5, textAlign: "center", gridColumn: "1 / -1", borderRadius: 3 }}>
+              <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
+                No matching meters found for the selected filter.
+              </Typography>
+            </Paper>
+          ) : (
+            filteredMeters.map((meter) => {
+              const prevVal = Number(meter.current_reading ?? 0);
+              const draft = draftReadings[meter.id] || { value: "", notes: "" };
+              const currentEntered = draft.value !== "" ? Number(draft.value) : null;
+              const delta = currentEntered !== null && !isNaN(currentEntered) ? currentEntered - prevVal : null;
+              const isSurge = delta !== null && prevVal > 0 && delta > prevVal * 1.5;
+              const isReverse = delta !== null && delta < 0;
+              const isPending = meter.reading_status === "pending";
+              const isApproved = meter.reading_status === "approved";
 
-                const isPending = meter.reading_status === "pending";
-                const isApproved = meter.reading_status === "approved";
-
-                return (
-                  <tr
-                    key={meter.id}
-                    style={{
-                      borderBottom: "1px solid var(--border)",
-                      background: isSurge || isReverse ? "rgba(239, 68, 68, 0.04)" : "transparent",
-                    }}
-                  >
-                    {/* Unit & Location */}
-                    <td style={{ padding: "12px 16px" }}>
-                      <strong style={{ fontSize: 13 }}>Unit {meter.unit_code || "Main"}</strong>
-                      <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block" }}>
-                        {meter.property_name || activeProperty?.name}
-                      </Typography>
-                    </td>
-
-                    {/* Meter Code & Type */}
-                    <td style={{ padding: "12px 16px" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <span style={{ fontSize: 16 }}>{meter.utility_type === "electricity" ? "⚡" : "💧"}</span>
-                        <div>
-                          <strong style={{ fontSize: 12 }}>{meter.name}</strong>
-                          <div className="mono" style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                            {meter.code || meter.id.slice(0, 8)} · {meter.unit || "units"}
-                          </div>
-                        </div>
+              return (
+                <Paper
+                  key={meter.id}
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 3,
+                    background: isSurge || isReverse ? "rgba(239, 68, 68, 0.03)" : "var(--surface)",
+                    borderColor: isReverse ? "#ef4444" : isSurge ? "#f59e0b" : draft.value ? "#3b82f6" : "var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1.5,
+                    position: "relative",
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <span style={{ fontSize: 20 }}>{meter.utility_type === "electricity" ? "⚡" : "💧"}</span>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                          Unit {meter.unit_code || "Main"} · {meter.name}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
+                          {meter.code || meter.id.slice(0, 8)} · {meter.property_name || activeProperty?.name}
+                        </Typography>
                       </Box>
-                    </td>
+                    </Box>
 
-                    {/* Last Approved Value */}
-                    <td style={{ padding: "12px 16px" }}>
-                      <strong className="mono" style={{ fontSize: 13 }}>
+                    {isPending ? (
+                      <Chip label="Pending" size="small" sx={{ bgcolor: "#fef3c7", color: "#b45309", fontWeight: 700, fontSize: 10 }} />
+                    ) : isApproved ? (
+                      <Chip label="Verified" size="small" sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 700, fontSize: 10 }} />
+                    ) : (
+                      <Chip label="Due" size="small" sx={{ bgcolor: "var(--surface-sunken)", color: "var(--text-secondary)", fontWeight: 600, fontSize: 10 }} />
+                    )}
+                  </Box>
+
+                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, p: 1.25, borderRadius: 2, bgcolor: "var(--surface-sunken)" }}>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block" }}>
+                        Previous Reading
+                      </Typography>
+                      <strong className="mono" style={{ fontSize: 14 }}>
                         {prevVal ? prevVal.toLocaleString() : "0.00"} {meter.unit}
                       </strong>
-                      <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>
-                        {meter.read_at ? new Date(meter.read_at).toLocaleDateString("en-KE") : "No prior reading"}
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block" }}>
+                        Consumption Delta
                       </Typography>
-                    </td>
-
-                    {/* New Reading Input */}
-                    <td style={{ padding: "8px 16px" }}>
-                      <TextField
-                        size="small"
-                        type="number"
-                        placeholder={`e.g. ${(prevVal + 5).toFixed(0)}`}
-                        value={draft.value}
-                        onChange={(e) => updateDraft(meter.id, "value", e.target.value)}
-                        sx={{
-                          width: 150,
-                          "& .MuiInputBase-root": {
-                            fontWeight: 800,
-                            fontFamily: "'IBM Plex Mono', monospace",
-                            bgcolor: draft.value ? "rgba(37, 99, 235, 0.05)" : "inherit",
-                          },
-                        }}
-                      />
-                    </td>
-
-                    {/* Calculated Delta */}
-                    <td style={{ padding: "12px 16px" }}>
                       {delta !== null ? (
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                           <span
                             className="mono"
                             style={{
                               fontWeight: 800,
-                              fontSize: 13,
+                              fontSize: 14,
                               color: isReverse ? "#dc2626" : isSurge ? "#d97706" : "#16a34a",
                             }}
                           >
                             {delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)} {meter.unit}
                           </span>
-                          {isReverse && (
-                            <Tooltip title="Reverse reading detected! Authorize a reset or check dial.">
-                              <ErrorOutlineRounded sx={{ color: "#dc2626", fontSize: 16 }} />
-                            </Tooltip>
-                          )}
-                          {isSurge && (
-                            <Tooltip title="Consumption is over 150% higher than last cycle!">
-                              <ErrorOutlineRounded sx={{ color: "#d97706", fontSize: 16 }} />
-                            </Tooltip>
-                          )}
                         </Box>
                       ) : (
-                        <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>—</span>
+                        <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>—</span>
                       )}
-                    </td>
+                    </Box>
+                  </Box>
 
-                    {/* Notes */}
-                    <td style={{ padding: "8px 16px" }}>
-                      <TextField
+                  {isReverse && (
+                    <Alert severity="error" sx={{ py: 0, px: 1, fontSize: 11 }}>
+                      Reverse reading detected! Check meter dial.
+                    </Alert>
+                  )}
+                  {isSurge && (
+                    <Alert severity="warning" sx={{ py: 0, px: 1, fontSize: 11 }}>
+                      High surge consumption (&gt;150% prior cycle).
+                    </Alert>
+                  )}
+
+                  <TextField
+                    size="small"
+                    type="number"
+                    label="Enter New Reading"
+                    placeholder={`e.g. ${(prevVal + 5).toFixed(0)}`}
+                    value={draft.value}
+                    onChange={(e) => updateDraft(meter.id, "value", e.target.value)}
+                    fullWidth
+                    slotProps={{
+                      input: {
+                        sx: {
+                          fontWeight: 800,
+                          fontSize: 15,
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          bgcolor: draft.value ? "rgba(37, 99, 235, 0.05)" : "inherit",
+                        },
+                      },
+                    }}
+                  />
+
+                  <TextField
+                    size="small"
+                    label="Observations / Field Notes"
+                    placeholder="e.g. Normal flow, dial clean"
+                    value={draft.notes}
+                    onChange={(e) => updateDraft(meter.id, "notes", e.target.value)}
+                    fullWidth
+                  />
+
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 0.5 }}>
+                    <Button size="small" variant="text" onClick={() => setInspectMeter(meter)} sx={{ fontSize: 11 }}>
+                      View History
+                    </Button>
+
+                    {isManager && isPending && meter.latest_reading?.id && (
+                      <Button
                         size="small"
-                        placeholder="e.g. Normal flow"
-                        value={draft.notes}
-                        onChange={(e) => updateDraft(meter.id, "notes", e.target.value)}
-                        sx={{ width: 140 }}
-                      />
-                    </td>
+                        variant="contained"
+                        disabled={approvingId === meter.latest_reading.id}
+                        onClick={() => handleApproveReading(meter.latest_reading!.id)}
+                        sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontSize: 11 }}
+                      >
+                        ✓ Approve
+                      </Button>
+                    )}
+                  </Box>
+                </Paper>
+              );
+            })
+          )}
+        </Box>
+      ) : (
+        /* 4. CARETAKER BULK WALK-THROUGH SHEET: TABLE VIEW */
+        <Paper variant="outlined" sx={{ borderRadius: 3, background: "var(--surface)", overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "var(--surface-sunken)", borderBottom: "2px solid var(--border)", textAlign: "left" }}>
+                <th style={{ padding: "12px 16px" }}>Unit & Location</th>
+                <th style={{ padding: "12px 16px" }}>Meter Code & Type</th>
+                <th style={{ padding: "12px 16px" }}>Last Approved Value</th>
+                <th style={{ padding: "12px 16px", minWidth: 170 }}>New Reading Input</th>
+                <th style={{ padding: "12px 16px" }}>Calculated Delta</th>
+                <th style={{ padding: "12px 16px" }}>Notes / Observation</th>
+                <th style={{ padding: "12px 16px" }}>Verification Status</th>
+                <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 40, textAlign: "center" }}>
+                    <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
+                      Loading meter registers…
+                    </Typography>
+                  </td>
+                </tr>
+              ) : filteredMeters.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 40, textAlign: "center" }}>
+                    <Typography variant="body2" sx={{ color: "var(--text-secondary)" }}>
+                      No matching meters found for the selected filter.
+                    </Typography>
+                  </td>
+                </tr>
+              ) : (
+                filteredMeters.map((meter) => {
+                  const prevVal = Number(meter.current_reading ?? 0);
+                  const draft = draftReadings[meter.id] || { value: "", notes: "" };
+                  const currentEntered = draft.value !== "" ? Number(draft.value) : null;
+                  const delta = currentEntered !== null && !isNaN(currentEntered) ? currentEntered - prevVal : null;
+                  const isSurge = delta !== null && prevVal > 0 && delta > prevVal * 1.5;
+                  const isReverse = delta !== null && delta < 0;
 
-                    {/* Verification Status */}
-                    <td style={{ padding: "12px 16px" }}>
-                      {isPending ? (
-                        <Chip
-                          icon={<PendingActionsRounded sx={{ fontSize: "14px !important" }} />}
-                          label="Pending Admin"
-                          size="small"
-                          sx={{ bgcolor: "#fef3c7", color: "#b45309", fontWeight: 700, fontSize: 11 }}
-                        />
-                      ) : isApproved ? (
-                        <Chip
-                          icon={<CheckCircleRounded sx={{ fontSize: "14px !important" }} />}
-                          label="Verified"
-                          size="small"
-                          sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 700, fontSize: 11 }}
-                        />
-                      ) : (
-                        <Chip
-                          label="Due for Read"
-                          size="small"
-                          sx={{ bgcolor: "var(--surface-sunken)", color: "var(--text-secondary)", fontWeight: 600, fontSize: 11 }}
-                        />
-                      )}
-                    </td>
+                  const isPending = meter.reading_status === "pending";
+                  const isApproved = meter.reading_status === "approved";
 
-                    {/* Actions */}
-                    <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                      <Stack direction="row" sx={{ gap: 1, justifyContent: "flex-end" }}>
-                        {isManager && isPending && meter.latest_reading?.id && (
+                  return (
+                    <tr
+                      key={meter.id}
+                      style={{
+                        borderBottom: "1px solid var(--border)",
+                        background: isSurge || isReverse ? "rgba(239, 68, 68, 0.04)" : "transparent",
+                      }}
+                    >
+                      {/* Unit & Location */}
+                      <td style={{ padding: "12px 16px" }}>
+                        <strong style={{ fontSize: 13 }}>Unit {meter.unit_code || "Main"}</strong>
+                        <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block" }}>
+                          {meter.property_name || activeProperty?.name}
+                        </Typography>
+                      </td>
+
+                      {/* Meter Code & Type */}
+                      <td style={{ padding: "12px 16px" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <span style={{ fontSize: 16 }}>{meter.utility_type === "electricity" ? "⚡" : "💧"}</span>
+                          <div>
+                            <strong style={{ fontSize: 12 }}>{meter.name}</strong>
+                            <div className="mono" style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                              {meter.code || meter.id.slice(0, 8)} · {meter.unit || "units"}
+                            </div>
+                          </div>
+                        </Box>
+                      </td>
+
+                      {/* Last Approved Value */}
+                      <td style={{ padding: "12px 16px" }}>
+                        <strong className="mono" style={{ fontSize: 13 }}>
+                          {prevVal ? prevVal.toLocaleString() : "0.00"} {meter.unit}
+                        </strong>
+                        <Typography variant="caption" sx={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>
+                          {meter.read_at ? new Date(meter.read_at).toLocaleDateString("en-KE") : "No prior reading"}
+                        </Typography>
+                      </td>
+
+                      {/* New Reading Input */}
+                      <td style={{ padding: "8px 16px" }}>
+                        <TextField
+                          size="small"
+                          type="number"
+                          placeholder={`e.g. ${(prevVal + 5).toFixed(0)}`}
+                          value={draft.value}
+                          onChange={(e) => updateDraft(meter.id, "value", e.target.value)}
+                          sx={{
+                            width: 150,
+                            "& .MuiInputBase-root": {
+                              fontWeight: 800,
+                              fontFamily: "'IBM Plex Mono', monospace",
+                              bgcolor: draft.value ? "rgba(37, 99, 235, 0.05)" : "inherit",
+                            },
+                          }}
+                        />
+                      </td>
+
+                      {/* Calculated Delta */}
+                      <td style={{ padding: "12px 16px" }}>
+                        {delta !== null ? (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                            <span
+                              className="mono"
+                              style={{
+                                fontWeight: 800,
+                                fontSize: 13,
+                                color: isReverse ? "#dc2626" : isSurge ? "#d97706" : "#16a34a",
+                              }}
+                            >
+                              {delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)} {meter.unit}
+                            </span>
+                            {isReverse && (
+                              <Tooltip title="Reverse reading detected! Authorize a reset or check dial.">
+                                <ErrorOutlineRounded sx={{ color: "#dc2626", fontSize: 16 }} />
+                              </Tooltip>
+                            )}
+                            {isSurge && (
+                              <Tooltip title="Consumption is over 150% higher than last cycle!">
+                                <ErrorOutlineRounded sx={{ color: "#d97706", fontSize: 16 }} />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        ) : (
+                          <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Notes */}
+                      <td style={{ padding: "8px 16px" }}>
+                        <TextField
+                          size="small"
+                          placeholder="e.g. Normal flow"
+                          value={draft.notes}
+                          onChange={(e) => updateDraft(meter.id, "notes", e.target.value)}
+                          sx={{ width: 140 }}
+                        />
+                      </td>
+
+                      {/* Verification Status */}
+                      <td style={{ padding: "12px 16px" }}>
+                        {isPending ? (
+                          <Chip
+                            icon={<PendingActionsRounded sx={{ fontSize: "14px !important" }} />}
+                            label="Pending Admin"
+                            size="small"
+                            sx={{ bgcolor: "#fef3c7", color: "#b45309", fontWeight: 700, fontSize: 11 }}
+                          />
+                        ) : isApproved ? (
+                          <Chip
+                            icon={<CheckCircleRounded sx={{ fontSize: "14px !important" }} />}
+                            label="Verified"
+                            size="small"
+                            sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 700, fontSize: 11 }}
+                          />
+                        ) : (
+                          <Chip
+                            label="Due for Read"
+                            size="small"
+                            sx={{ bgcolor: "var(--surface-sunken)", color: "var(--text-secondary)", fontWeight: 600, fontSize: 11 }}
+                          />
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                        <Stack direction="row" sx={{ gap: 1, justifyContent: "flex-end" }}>
+                          {isManager && isPending && meter.latest_reading?.id && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              disabled={approvingId === meter.latest_reading.id}
+                              onClick={() => handleApproveReading(meter.latest_reading!.id)}
+                              sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontSize: 11, py: 0.5 }}
+                            >
+                              ✓ Approve
+                            </Button>
+                          )}
                           <Button
                             size="small"
-                            variant="contained"
-                            disabled={approvingId === meter.latest_reading.id}
-                            onClick={() => handleApproveReading(meter.latest_reading!.id)}
-                            sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontSize: 11, py: 0.5 }}
+                            variant="outlined"
+                            onClick={() => setInspectMeter(meter)}
+                            sx={{ fontSize: 11, py: 0.5 }}
                           >
-                            ✓ Approve
+                            History
                           </Button>
-                        )}
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => setInspectMeter(meter)}
-                          sx={{ fontSize: 11, py: 0.5 }}
-                        >
-                          History
-                        </Button>
-                      </Stack>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </Paper>
+                        </Stack>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </Paper>
+      )}
 
       {/* 5. HISTORY & INSPECTION MODAL */}
       {inspectMeter && (

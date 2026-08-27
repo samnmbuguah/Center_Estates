@@ -126,6 +126,17 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
 
   useEffect(() => { void load(true); }, [load]);
 
+  // Deep-link: /property?tab=billing&billing_type=service_charge pre-selects the filter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const bt = params.get("billing_type") || params.get("invoice_type") || params.get("charge_type");
+    if (bt) {
+      const norm = bt.toLowerCase().replace("-", "_");
+      if (norm === "servicecharge") setChargeTypeFilter("service_charge");
+      else if (["rent", "service_charge", "utility", "other"].includes(norm)) setChargeTypeFilter(norm as InvoiceChargeType);
+    }
+  }, []);
+
   // Synchronously match run from allRuns when period or allRuns change — instant transition with zero flicker
   useEffect(() => {
     const matching = allRuns.find(r => r.period_start === period_start && r.period_end === period_end)
@@ -133,6 +144,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     setRun(matching ?? null);
     setSelected(matching?.candidates.filter(c => c.status === "ready").map(c => c.id) ?? []);
   }, [allRuns, period_start, period_end]);
+
+  const prepareTypesBody = chargeTypeFilter !== "all"
+    ? { invoice_types: chargeTypeFilter === "utility" ? ["water", "electricity", "utility"] : [chargeTypeFilter] }
+    : {};
 
   async function mutate(action: "create" | "prepare" | "approve" | "generate") {
     if (!organizationId) return;
@@ -142,9 +157,11 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       : action === "generate"
         ? {
             candidate_ids: selected,
-            ...(chargeTypeFilter !== "all" ? { invoice_types: chargeTypeFilter === "utility" ? ["water", "electricity", "utility"] : [chargeTypeFilter] } : {}),
+            ...prepareTypesBody,
           }
-        : {};
+        : action === "prepare"
+          ? prepareTypesBody
+          : {};
     let res = action === "create"
       ? await apiFetch("/property/billing-runs/", { method: "POST", body: JSON.stringify(body) }, organizationId)
       : await apiFetch(`/property/billing-runs/${run?.id}/${action}/`, { method: "POST", body: JSON.stringify(body) }, organizationId);
@@ -157,7 +174,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       const createdRun = (await res.json()) as BillingRun;
       res = await apiFetch(
         `/property/billing-runs/${createdRun.id}/prepare/`,
-        { method: "POST", body: JSON.stringify({}) },
+        { method: "POST", body: JSON.stringify(prepareTypesBody) },
         organizationId,
       );
     }
@@ -250,6 +267,16 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         issues={issues}
         selectedCount={selected.length}
         chargeTypeFilter={chargeTypeFilter}
+        typeCounts={typeCounts}
+        onChargeTypeFilter={(t: InvoiceChargeType | "all") => {
+          setChargeTypeFilter(t);
+          if (t !== "all") {
+            setSelected((prev) => prev.filter((id) => {
+              const c = run?.candidates.find((x) => x.id === id);
+              return c ? candidateHasChargeType(c, t) : true;
+            }));
+          }
+        }}
         blockingOpen={blockingOpen}
         busy={busy}
         canFinance={canFinance}

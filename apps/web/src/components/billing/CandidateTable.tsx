@@ -5,10 +5,10 @@ import { FilePlus2, Search, User } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
 import { Candidate, statusToneMap, InvoiceChargeType, CHARGE_TYPE_LABEL, invoiceChargeType, candidateHasChargeType } from "./types";
 
-export function CandidateTable({ candidates, run, search, statusFilter, chargeTypeFilter, typeCounts, selected, allReadySelected, readyCount, busy, formattedMonth, runPeriodStart, onSearch, onStatusFilter, onChargeTypeFilter, onSelectAll, onSelect, onPreview, onOverride, onSingleInvoice, onNavigate }: {
-  candidates: Candidate[]; run: boolean; search: string; statusFilter: string; chargeTypeFilter: InvoiceChargeType | "all"; typeCounts: Record<string, number>;
+export function CandidateTable({ candidates, run, search, statusFilter, chargeTypeFilter = "all", typeCounts = {}, selected, allReadySelected, readyCount, busy, formattedMonth, runPeriodStart = "", onSearch, onStatusFilter, onChargeTypeFilter = () => {}, onSelectAll, onSelect, onPreview, onOverride, onSingleInvoice, onNavigate }: {
+  candidates: Candidate[]; run: boolean; search: string; statusFilter: string; chargeTypeFilter?: InvoiceChargeType | "all"; typeCounts?: Record<string, number>;
   selected: string[]; allReadySelected: boolean; readyCount: number; busy: string;
-  formattedMonth: string; runPeriodStart: string; onSearch: (v: string) => void; onStatusFilter: (v: string) => void; onChargeTypeFilter: (t: InvoiceChargeType | "all") => void;
+  formattedMonth: string; runPeriodStart?: string; onSearch: (v: string) => void; onStatusFilter: (v: string) => void; onChargeTypeFilter?: (t: InvoiceChargeType | "all") => void;
   onSelectAll: () => void; onSelect: (id: string) => void; onPreview: (c: Candidate) => void;
   onOverride: (c: Candidate) => void; onSingleInvoice: () => void; onNavigate: (tab: string) => void;
 }) {

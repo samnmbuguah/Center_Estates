@@ -14,7 +14,9 @@ export function BillingActionBanner({
   ready,
   issues,
   selectedCount,
-  chargeTypeFilter,
+  chargeTypeFilter = "all",
+  typeCounts = {},
+  onChargeTypeFilter,
   blockingOpen,
   busy,
   canFinance,
@@ -33,7 +35,9 @@ export function BillingActionBanner({
   ready: number;
   issues: number;
   selectedCount: number;
-  chargeTypeFilter: InvoiceChargeType | "all";
+  chargeTypeFilter?: InvoiceChargeType | "all";
+  typeCounts?: Record<string, number>;
+  onChargeTypeFilter?: (t: InvoiceChargeType | "all") => void;
   blockingOpen: boolean;
   busy: string;
   canFinance: boolean;
@@ -44,7 +48,7 @@ export function BillingActionBanner({
   onGenerate: () => void;
   onSingleInvoice: () => void;
 }) {
-  const typeLabel = chargeTypeFilter === "all" ? "" : CHARGE_TYPE_LABEL[chargeTypeFilter];
+  const typeLabel = !chargeTypeFilter || chargeTypeFilter === "all" ? "" : CHARGE_TYPE_LABEL[chargeTypeFilter];
   const generateLabel = busy === "generate"
     ? "Generating Invoices…"
     : chargeTypeFilter === "all"
@@ -122,19 +126,23 @@ export function BillingActionBanner({
             </Typography>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 1 }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  color: "var(--text-secondary)",
-                  bgcolor: "var(--surface-2, #f1f5f9)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 99,
-                  px: 1.25,
-                  py: 0.35,
-                }}
-              >
-                Prepares rent, service charge & utility drafts in one scan — choose what to bill at the review step below.
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)" }}>
+                Bill:
+              </Typography>
+              {([{ key: "all", label: "All types" }, { key: "rent", label: "Rent" }, { key: "service_charge", label: "Service charge" }, { key: "utility", label: "Utilities" }] as const).map((t) => (
+                <Chip
+                  key={t.key}
+                  size="small"
+                  label={t.label}
+                  clickable
+                  onClick={() => onChargeTypeFilter?.(t.key)}
+                  color={chargeTypeFilter === t.key ? "primary" : "default"}
+                  variant={chargeTypeFilter === t.key ? "filled" : "outlined"}
+                  sx={{ fontWeight: chargeTypeFilter === t.key ? 700 : 500, fontSize: 12 }}
+                />
+              ))}
+              <Typography variant="caption" sx={{ color: "var(--text-secondary)", ml: 0.5 }}>
+                — chose types are prepared and later generated (others stay pending, never duplicated).
               </Typography>
             </Box>
           </Box>

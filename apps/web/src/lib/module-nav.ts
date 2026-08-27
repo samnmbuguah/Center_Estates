@@ -31,11 +31,8 @@ export const propertyNav: ModuleNavGroup[] = [
   {
     label: "INVOICING",
     items: [
-      { id: "billing", label: "Billing Pipeline", icon: "🧾" },
-      { id: "rent", label: "Invoice Register", icon: "📄" },
-      { id: "rent-schedules", label: "Payment Schedules", icon: "📅" },
-      { id: "payments", label: "Payments & Credits", icon: "💰" },
-      { id: "receipt-allocations", label: "Allocation Ledger", icon: "🔗" },
+      { id: "billing", label: "Billing & Invoices", icon: "🧾" },
+      { id: "receipting", label: "Receipting", icon: "💰" },
       { id: "bank-reconciliation", label: "Bank Reconciliation", icon: "🏦" },
       { id: "arrears", label: "Arrears & Recovery", icon: "⚠️" },
     ],

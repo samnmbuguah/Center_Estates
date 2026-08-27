@@ -81,13 +81,18 @@ export function EvidenceAttachmentUploader({
     attachment.type?.startsWith("image/")
   );
 
+  const isVideo = attachment?.url && (
+    /\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i.test(attachment.url) ||
+    attachment.type?.startsWith("video/")
+  );
+
   if (compact) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.pdf,.doc,.docx,.xlsx,.txt"
+          accept="image/*,video/*,.pdf,.doc,.docx,.xlsx,.txt"
           style={{ display: "none" }}
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -98,7 +103,7 @@ export function EvidenceAttachmentUploader({
 
         {uploading ? (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
-            <Loader2 size={14} className="spin" /> Uploading screenshot…
+            <Loader2 size={14} className="spin" /> Uploading media evidence…
           </div>
         ) : attachment ? (
           <div
@@ -113,7 +118,7 @@ export function EvidenceAttachmentUploader({
               fontSize: 12,
             }}
           >
-            {isImage ? <ImageIcon size={14} style={{ color: "#3b82f6" }} /> : <FileText size={14} style={{ color: "#64748b" }} />}
+            {isImage ? <ImageIcon size={14} style={{ color: "#3b82f6" }} /> : isVideo ? <span style={{ fontSize: 13 }}>📹</span> : <FileText size={14} style={{ color: "#64748b" }} />}
             <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>
               {attachment.name}
             </span>
@@ -134,9 +139,9 @@ export function EvidenceAttachmentUploader({
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
             style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 10px" }}
-            title="Attach screenshot or document evidence (or press Ctrl+V to paste)"
+            title="Attach photo, video or document evidence (or press Ctrl+V to paste)"
           >
-            <Paperclip size={14} /> Attach Screenshot / File
+            <Paperclip size={14} /> Attach Photo / Video / File
           </button>
         )}
       </div>
@@ -148,7 +153,7 @@ export function EvidenceAttachmentUploader({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,.pdf,.doc,.docx,.xlsx,.txt"
+        accept="image/*,video/*,.pdf,.doc,.docx,.xlsx,.txt"
         style={{ display: "none" }}
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -184,7 +189,7 @@ export function EvidenceAttachmentUploader({
                   border: "1px solid var(--border)",
                 }}
                 onClick={() => setPreviewOpen(true)}
-                title="Click to view full preview"
+                title="Click to view full image preview"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -192,6 +197,28 @@ export function EvidenceAttachmentUploader({
                   alt={attachment.name}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
+              </div>
+            ) : isVideo ? (
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 6,
+                  overflow: "hidden",
+                  background: "#0f172a",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#38bdf8",
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  border: "1px solid var(--border)",
+                  fontSize: 22,
+                }}
+                onClick={() => setPreviewOpen(true)}
+                title="Click to play video preview"
+              >
+                ▶️
               </div>
             ) : (
               <div
@@ -278,11 +305,11 @@ export function EvidenceAttachmentUploader({
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted)" }}>
                 <UploadCloud size={20} />
                 <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
-                  Click or drag & drop screenshot / evidence file here
+                  Click or drag & drop photo, video or document evidence here
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-                Supports PNG, JPG, WEBP, PDF, DOCX (up to 25 MB) · <strong style={{ color: "var(--primary)" }}>Tip: Press Ctrl+V anytime to paste screenshot directly</strong>
+                Supports PNG, JPG, WEBP, MP4, MOV, PDF, DOCX (up to 25 MB) · <strong style={{ color: "var(--primary)" }}>Tip: Press Ctrl+V anytime to paste screenshot directly</strong>
               </p>
             </div>
           )}
@@ -322,16 +349,26 @@ export function EvidenceAttachmentUploader({
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
+                zIndex: 10,
               }}
             >
               <X size={18} />
             </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={attachment.url}
-              alt={attachment.name}
-              style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}
-            />
+            {isVideo ? (
+              <video
+                src={attachment.url}
+                controls
+                autoPlay
+                style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, boxShadow: "0 20px 40px rgba(0,0,0,0.5)", background: "#000" }}
+              />
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={attachment.url}
+                alt={attachment.name}
+                style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}
+              />
+            )}
           </div>
         </div>
       )}

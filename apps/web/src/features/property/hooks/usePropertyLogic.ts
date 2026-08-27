@@ -11,7 +11,7 @@ import {
   ServiceChargeReconciliationRow, ReceiptAllocationRow, CreditNoteRow,
   AgingTenantRow, AgingAnalytics, FinancialAnalytics, ReportItem,
   DashboardData, RentSection, ScSection, TenancySection, FinancialsSection,
-  BillingContext,
+  BillingContext, BillingSection, ReceiptingSection,
   labels,
 } from "../types/property.types";
 
@@ -36,8 +36,11 @@ export function usePropertyLogic({
   const canApprove = can("property.approve");
   const searchParams = useSearchParams();
   const normalizeLegacyTab = (value: string): PropertyTab => {
-    if (value === "financials") return "payments";
+    if (value === "financials") return "receipting";
     if (value === "tenancy") return "tenants";
+    if (value === "rent") return "billing";
+    if (value === "rent-schedules") return "receipting";
+    if (value === "payments" || value === "receipts" || value === "receipt-allocations" || value === "credit-notes") return "receipting";
     return value as PropertyTab;
   };
 
@@ -64,6 +67,8 @@ export function usePropertyLogic({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rentSection, setRentSection] = useState<RentSection>("invoices");
+  const [billingSection, setBillingSection] = useState<BillingSection>("pipeline");
+  const [receiptingSection, setReceiptingSection] = useState<ReceiptingSection>("receipts");
   const [tenancySection, setTenancySection] = useState<TenancySection>("occupancy");
   const [tenantsRows, setTenantsRows] = useState<Row[]>([]);
   const [leasesRows, setLeasesRows] = useState<Row[]>([]);
@@ -144,6 +149,11 @@ export function usePropertyLogic({
       setSelectedRow(null);
       setRows([]);
       setTab(normalizeLegacyTab(requested));
+      if (requested === "rent") setBillingSection("invoices");
+      if (requested === "rent-schedules") setReceiptingSection("schedules");
+      if (requested === "receipt-allocations") setReceiptingSection("allocations");
+      if (requested === "credit-notes") setReceiptingSection("credit-notes");
+      if (requested === "payments" || requested === "receipts") setReceiptingSection("receipts");
     });
     return () => { cancelled = true; };
   }, [searchParams]);
@@ -199,7 +209,11 @@ export function usePropertyLogic({
 
   const loadData = useCallback(async () => {
     if (!organizationId || standaloneOnboarding) return;
-    if (tab === "billing" || tab === "tenancy-reports" || tab === "financial-reports" || tab === "tickets" || tab === "calendar" || tab === "feedback-qr") {
+    if (tab === "tenancy-reports" || tab === "financial-reports" || tab === "tickets" || tab === "calendar" || tab === "feedback-qr") {
+      setLoading(false);
+      return;
+    }
+    if (tab === "billing" && billingSection === "pipeline") {
       setLoading(false);
       return;
     }
@@ -237,6 +251,54 @@ export function usePropertyLogic({
         if (reminderRes.ok) {
           const reminderData = await reminderRes.json().catch(() => []);
           setReminders(Array.isArray(reminderData) ? reminderData as Row[] : []);
+        }
+      } else if (tab === "billing" && billingSection === "invoices") {
+        const [listRes, agingRes] = await Promise.all([
+          apiFetch(`/property/invoices/?search=${q}`, {}, organizationId),
+          apiFetch("/property/analytics/aging/?search=", {}, organizationId),
+        ]);
+        if (!listRes.ok) { fail(); return; }
+        const listData = await listRes.json();
+        if (version !== loadVersion.current) return;
+        const list = Array.isArray(listData) ? listData as Row[] : [];
+        setRows(list);
+        setRentInvoices(list as InvoiceRow[]);
+        if (agingRes.ok) {
+          const agingData = await agingRes.json().catch(() => null);
+          if (agingData) setAnalytics(agingData as AgingAnalytics);
+        }
+      } else if (tab === "receipting") {
+        if (receiptingSection === "schedules") {
+          const res = await apiFetch(`/property/rent-schedules/?search=${q}`, {}, organizationId);
+          if (!res.ok) { fail(); return; }
+          const data = await res.json();
+          if (version !== loadVersion.current) return;
+          setRows(Array.isArray(data) ? data as Row[] : []);
+        } else if (receiptingSection === "allocations") {
+          const res = await apiFetch(`/property/receipt-allocations/?search=${q}`, {}, organizationId);
+          if (!res.ok) { fail(); return; }
+          const data = await res.json();
+          if (version !== loadVersion.current) return;
+          setRows(Array.isArray(data) ? data as Row[] : []);
+        } else if (receiptingSection === "credit-notes") {
+          const res = await apiFetch(`/property/credit-notes/?search=${q}`, {}, organizationId);
+          if (!res.ok) { fail(); return; }
+          const data = await res.json();
+          if (version !== loadVersion.current) return;
+          setRows(Array.isArray(data) ? data as Row[] : []);
+        } else {
+          const [listRes, cnRes] = await Promise.all([
+            apiFetch(`/property/receipts/?search=${q}`, {}, organizationId),
+            apiFetch("/property/credit-notes/?search=", {}, organizationId),
+          ]);
+          if (!listRes.ok) { fail(); return; }
+          const listData = await listRes.json();
+          if (version !== loadVersion.current) return;
+          setRows(Array.isArray(listData) ? listData as Row[] : []);
+          if (cnRes.ok) {
+            const cnData = await cnRes.json().catch(() => []);
+            setCreditNotes(Array.isArray(cnData) ? cnData as Row[] : []);
+          }
         }
       } else if (tab === "reports") {
         const res = await apiFetch(`/property/analytics/?search=${q}`, {}, organizationId);
@@ -428,7 +490,7 @@ export function usePropertyLogic({
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, organizationId, activeProperty?.id, rentSection, standaloneOnboarding]);
+  }, [tab, search, organizationId, activeProperty?.id, rentSection, billingSection, receiptingSection, standaloneOnboarding]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);
@@ -1366,6 +1428,10 @@ export function usePropertyLogic({
     error,
     rentSection,
     setRentSection,
+    billingSection,
+    setBillingSection,
+    receiptingSection,
+    setReceiptingSection,
     tenancySection,
     setTenancySection,
     tenantsRows,
