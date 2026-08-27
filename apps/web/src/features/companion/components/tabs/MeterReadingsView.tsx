@@ -60,16 +60,19 @@ export function MeterReadingsView({
   rows = [],
   loading = false,
   onRefresh,
+  fieldMode = false,
 }: {
   rows: MeterRow[];
   loading?: boolean;
   onRefresh?: () => void;
+  /** Shows the exact field-user surface when a manager previews the caretaker portal. */
+  fieldMode?: boolean;
 }) {
   const { session, can } = useAuth();
   const { activeProperty } = usePropertyContext();
   const { toast } = useToast();
   const organizationId = session?.activeOrganizationId ?? null;
-  const isManager = Boolean(
+  const isManager = !fieldMode && Boolean(
     session?.user?.isSuperuser ||
       session?.roles?.includes("admin") ||
       session?.roles?.includes("facility_manager") ||

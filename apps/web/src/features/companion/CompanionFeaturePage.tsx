@@ -27,7 +27,7 @@ import { HrRequestsView } from "./components/tabs/HrRequestsView";
 import { ChecklistItem, CompanionTab, Row } from "./types/companion.types";
 import { fmtDate, fmtDateTime, STATUS_TONE, toMediaUrl } from "./utils/companion.utils";
 
-export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?: CompanionTab }) {
+export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = false }: { initialTab?: CompanionTab; caretakerMode?: boolean }) {
   const { session } = useAuth();
   const permissions = usePermissions();
   const {
@@ -117,6 +117,14 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
   const isFieldStaff = permissions.isFieldStaff || initialTab === "meter-readings";
 
   const filteredNavGroups = useMemo(() => {
+    if (caretakerMode) {
+      return companionNav
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => ["meter-readings", "my-tasks", "tickets", "calendar"].includes(item.id)),
+        }))
+        .filter((group) => group.items.length > 0);
+    }
     return companionNav
       .map((group) => {
         if (group.label.toLowerCase().includes("performance") && !permissions.isSuperAdmin) {
@@ -131,7 +139,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
         return group;
       })
       .filter(Boolean) as typeof companionNav;
-  }, [permissions.isSuperAdmin, isFieldStaff]);
+  }, [caretakerMode, permissions.isSuperAdmin, isFieldStaff]);
 
   const userName = session?.user?.firstName
     ? `${session.user.firstName}${session.user.lastName ? ` ${session.user.lastName}` : ""}`
@@ -171,10 +179,10 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
     <ErrorBoundary>
       <ModuleShell
       moduleKey="companion"
-      moduleName="Companion"
-      eyebrow="Personal command center"
-      title="Companion & Staff Performance"
-      subtitle="Daily work, team dialogue, staff assignment matrix, and operational productivity."
+      moduleName={caretakerMode ? "Caretaker portal" : "Companion"}
+      eyebrow={caretakerMode ? "Field operations" : "Personal command center"}
+      title={caretakerMode ? "Caretaker field portal" : "Companion & Staff Performance"}
+      subtitle={caretakerMode ? "Capture readings, complete assigned field work and report property issues for review." : "Daily work, team dialogue, staff assignment matrix, and operational productivity."}
       accent="#0d9488"
       groups={filteredNavGroups}
       activeId={tab}
@@ -305,6 +313,7 @@ export function CompanionFeaturePage({ initialTab = "overview" }: { initialTab?:
             rows={rows as any}
             loading={loading}
             onRefresh={load}
+            fieldMode={caretakerMode}
           />
         )}
 

@@ -1310,6 +1310,24 @@ class TenantViewSet(OrganizationModelViewSet):
         )
 
         _inherit_unit_charge_profiles(lease)
+        # Service charge is the canonical recurring billing source. Ensure a
+        # BillingProfile exists so both single and bulk invoicing read from the
+        # same place — no more lease.metadata drift.
+        if monthly_service > 0:
+            service_item, _ = BillingItem.objects.get_or_create(
+                organization=organization, code='SERVICE_CHARGE',
+                defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.AREA_RATE, 'income_category': 'service_charge'},
+            )
+            BillingProfile.objects.get_or_create(
+                organization=organization, lease=lease, billing_item=service_item,
+                effective_from=lease.starts_on,
+                defaults={
+                    'calculation': BillingItem.Calculation.AREA_RATE,
+                    'rate': service_rate, 'amount': monthly_service,
+                    'frequency': BillingProfile.Frequency.MONTHLY, 'billing_day': lease.billing_day,
+                    'effective_to': lease.ends_on, 'instructions': 'Recurring service charge from onboarding.',
+                },
+            )
 
         # Parking is a separately billed service, while allocation remains traceable by bay.
         parking_payload = request.data.get('parking_assignments') if isinstance(request.data.get('parking_assignments'), list) else []

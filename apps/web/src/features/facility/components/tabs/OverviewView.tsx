@@ -214,6 +214,27 @@ export function OverviewView({
             Client Executive View
           </button>
         </div>
+        <a
+          href="/caretaker-portal?preview=1"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minHeight: 36,
+            padding: "0 12px",
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            color: "var(--text-primary)",
+            background: "var(--surface)",
+            textDecoration: "none",
+            fontSize: "0.82rem",
+            fontWeight: 800,
+          }}
+        >
+          📱 Preview caretaker portal ↗
+        </a>
       </div>
 
       {/* KPI Strip */}
