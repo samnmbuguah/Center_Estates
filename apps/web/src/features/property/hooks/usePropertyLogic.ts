@@ -39,8 +39,9 @@ export function usePropertyLogic({
     if (value === "financials") return "receipting";
     if (value === "tenancy") return "tenants";
     if (value === "rent") return "billing";
+    if (value === "credit-notes") return "billing";
     if (value === "rent-schedules") return "receipting";
-    if (value === "payments" || value === "receipts" || value === "receipt-allocations" || value === "credit-notes") return "receipting";
+    if (value === "payments" || value === "receipts" || value === "receipt-allocations") return "receipting";
     return value as PropertyTab;
   };
 
@@ -150,9 +151,9 @@ export function usePropertyLogic({
       setRows([]);
       setTab(normalizeLegacyTab(requested));
       if (requested === "rent") setBillingSection("invoices");
+      if (requested === "credit-notes") setBillingSection("credit-notes");
       if (requested === "rent-schedules") setReceiptingSection("schedules");
       if (requested === "receipt-allocations") setReceiptingSection("allocations");
-      if (requested === "credit-notes") setReceiptingSection("credit-notes");
       if (requested === "payments" || requested === "receipts") setReceiptingSection("receipts");
     });
     return () => { cancelled = true; };
@@ -252,20 +253,29 @@ export function usePropertyLogic({
           const reminderData = await reminderRes.json().catch(() => []);
           setReminders(Array.isArray(reminderData) ? reminderData as Row[] : []);
         }
-      } else if (tab === "billing" && billingSection === "invoices") {
-        const [listRes, agingRes] = await Promise.all([
-          apiFetch(`/property/invoices/?search=${q}`, {}, organizationId),
-          apiFetch("/property/analytics/aging/?search=", {}, organizationId),
-        ]);
-        if (!listRes.ok) { fail(); return; }
-        const listData = await listRes.json();
-        if (version !== loadVersion.current) return;
-        const list = Array.isArray(listData) ? listData as Row[] : [];
-        setRows(list);
-        setRentInvoices(list as InvoiceRow[]);
-        if (agingRes.ok) {
-          const agingData = await agingRes.json().catch(() => null);
-          if (agingData) setAnalytics(agingData as AgingAnalytics);
+      } else if (tab === "billing") {
+        if (billingSection === "invoices") {
+          const [listRes, agingRes] = await Promise.all([
+            apiFetch(`/property/invoices/?search=${q}`, {}, organizationId),
+            apiFetch("/property/analytics/aging/?search=", {}, organizationId),
+          ]);
+          if (!listRes.ok) { fail(); return; }
+          const listData = await listRes.json();
+          if (version !== loadVersion.current) return;
+          const list = Array.isArray(listData) ? listData as Row[] : [];
+          setRows(list);
+          setRentInvoices(list as InvoiceRow[]);
+          if (agingRes.ok) {
+            const agingData = await agingRes.json().catch(() => null);
+            if (agingData) setAnalytics(agingData as AgingAnalytics);
+          }
+        } else if (billingSection === "credit-notes") {
+          const res = await apiFetch(`/property/credit-notes/?search=${q}`, {}, organizationId);
+          if (!res.ok) { fail(); return; }
+          const data = await res.json();
+          if (version !== loadVersion.current) return;
+          setRows(Array.isArray(data) ? data as Row[] : []);
+          setCreditNotes(Array.isArray(data) ? data as Row[] : []);
         }
       } else if (tab === "receipting") {
         if (receiptingSection === "schedules") {
@@ -280,25 +290,12 @@ export function usePropertyLogic({
           const data = await res.json();
           if (version !== loadVersion.current) return;
           setRows(Array.isArray(data) ? data as Row[] : []);
-        } else if (receiptingSection === "credit-notes") {
-          const res = await apiFetch(`/property/credit-notes/?search=${q}`, {}, organizationId);
-          if (!res.ok) { fail(); return; }
-          const data = await res.json();
-          if (version !== loadVersion.current) return;
-          setRows(Array.isArray(data) ? data as Row[] : []);
         } else {
-          const [listRes, cnRes] = await Promise.all([
-            apiFetch(`/property/receipts/?search=${q}`, {}, organizationId),
-            apiFetch("/property/credit-notes/?search=", {}, organizationId),
-          ]);
+          const listRes = await apiFetch(`/property/receipts/?search=${q}`, {}, organizationId);
           if (!listRes.ok) { fail(); return; }
           const listData = await listRes.json();
           if (version !== loadVersion.current) return;
           setRows(Array.isArray(listData) ? listData as Row[] : []);
-          if (cnRes.ok) {
-            const cnData = await cnRes.json().catch(() => []);
-            setCreditNotes(Array.isArray(cnData) ? cnData as Row[] : []);
-          }
         }
       } else if (tab === "reports") {
         const res = await apiFetch(`/property/analytics/?search=${q}`, {}, organizationId);
@@ -963,8 +960,11 @@ export function usePropertyLogic({
     const endpoint = financialIntake === "credit-note" ? "credit-notes" : financialIntake === "expense" ? "expenses" : "budgets";
     const payload = financialIntake === "credit-note"
       ? {
-          number: String(raw.number ?? "").trim(), invoice: String(raw.invoice ?? ""),
-          issued_on: String(raw.issued_on ?? ""), amount: Number(raw.amount ?? 0), reason: String(raw.reason ?? "").trim(),
+          number: String(raw.number ?? "").trim() || undefined,
+          invoice: String(raw.invoice ?? ""),
+          issued_on: String(raw.issued_on ?? "") || new Date().toISOString().slice(0, 10),
+          amount: Number(raw.amount ?? 0),
+          reason: String(raw.reason ?? "").trim(),
         }
       : financialIntake === "expense"
         ? {

@@ -15,7 +15,6 @@ export const propertyNav: ModuleNavGroup[] = [
       { id: "properties", label: "Property Details", icon: "🏢" },
       { id: "buildings", label: "Buildings", icon: "🏗️" },
       { id: "feedback-qr", label: "Concierge QR Codes", icon: "▦" },
-      { id: "service-profiles", label: "Service Profiles", icon: "📋" },
     ],
   },
   {
@@ -90,25 +89,23 @@ export const facilityNav: ModuleNavGroup[] = [
       { id: "assets", label: "Assets & Inventory", icon: "📦" },
       { id: "spare-parts", label: "Spare Parts", icon: "🔩" },
       { id: "consumables", label: "Consumables", icon: "🧴" },
-      { id: "service-providers", label: "Service Providers", icon: "🤝" },
     ],
   },
   {
     label: "MAINTENANCE",
     items: [
-      { id: "work-orders",       label: "Maintenance",         icon: "🔧" },
+      { id: "work-orders",       label: "Work Orders",         icon: "🔧" },
       { id: "requisitions",      label: "Repair Requisitions", icon: "📝" },
-      { id: "procurement",       label: "Procurement & LPOs",  icon: "🛒" },
+      { id: "planned-maintenance",label: "Planned Maintenance",icon: "📅" },
       { id: "work-order-events", label: "Work History",        icon: "🕘" },
       { id: "work-order-cost-items", label: "Labor & Parts",   icon: "🧾" },
       { id: "work-order-attachments", label: "Work Media",     icon: "📎" },
-      { id: "planned-maintenance",label: "Planned Maintenance",icon: "📅" },
     ],
   },
   {
     label: "OPERATIONS",
     items: [
-      { id: "service-requests", label: "Service Requests", icon: "🎫" },
+      { id: "service-requests", label: "Service Requests & Helpdesk", icon: "🎫" },
       { id: "incidents", label: "Incident Reporting", icon: "🔍" },
       { id: "inspections", label: "Inspections", icon: "🔎" },
       { id: "meters", label: "Energy & Utilities", icon: "⚡" },
@@ -116,10 +113,11 @@ export const facilityNav: ModuleNavGroup[] = [
     ],
   },
   {
-    label: "FINANCE",
+    label: "FINANCE & PROCUREMENT",
     items: [
-      { id: "supplier-invoices", label: "Supplier Invoices", icon: "🧾" },
-      { id: "finance-control",   label: "Finance Control", icon: "🏦" },
+      { id: "procurement",       label: "Procurement & LPOs",  icon: "🛒" },
+      { id: "supplier-invoices", label: "Supplier Invoices",   icon: "🧾" },
+      { id: "finance-control",   label: "Finance Control & Petty Cash", icon: "🏦" },
       { id: "expenditure",       label: "Expenditure & Floats", icon: "💰" },
     ],
   },

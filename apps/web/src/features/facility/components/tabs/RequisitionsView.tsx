@@ -5,7 +5,7 @@ import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
   LinearProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from "@mui/material";
-import { Plus, CheckCircle, X, Send } from "lucide-react";
+import { Plus, CheckCircle, X, Send, Download } from "lucide-react";
 import { EmptyState, StatusPill, money } from "@/components/module-ui";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import type { FacilityTab, Row } from "../../types/facility.types";
@@ -40,6 +40,24 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
     title: "", property: "", location: "", issue_description: "", required_repair: "",
     quotation_specification: "", estimated_cost: "", priority: "medium", required_by: "",
   });
+
+  async function downloadRequisitionPdf(r: Requisition) {
+    try {
+      const res = await apiFetch(`/facility/requisitions/${r.id}/pdf/`, {}, organizationId);
+      if (!res.ok) {
+        setActionError(await apiErrorMessage(res, "Requisition PDF could not be generated."));
+        return;
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Requisition-${r.code || r.id}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setActionError("Failed to download requisition PDF.");
+    }
+  }
 
   const kpis = useMemo(() => ({
     total: requisitions.length,
@@ -160,6 +178,7 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right" }}>
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        <Button size="small" variant="outlined" startIcon={<Download size={13} />} onClick={() => void downloadRequisitionPdf(r)}>PDF</Button>
                         {r.status === "draft" && canWork && (
                           <Button size="small" variant="outlined" startIcon={<Send size={13} />} disabled={Boolean(busy)} onClick={() => void runAction(r, "submit")}>Submit</Button>
                         )}

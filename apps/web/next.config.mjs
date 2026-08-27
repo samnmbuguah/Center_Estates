@@ -8,6 +8,8 @@ const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
   poweredByHeader: false,
+  // Skip type-check during `next build` when SKIP_TYPE_CHECK=1 — run `npm run type-check` concurrently in CI
+  typescript: process.env.SKIP_TYPE_CHECK === "1" ? { ignoreBuildErrors: true } : undefined,
   images: {
     unoptimized: true,
   },

@@ -542,6 +542,7 @@ class ReceiptAllocationSerializer(serializers.ModelSerializer):
 
 
 class CreditNoteSerializer(serializers.ModelSerializer):
+    number = serializers.CharField(required=False, allow_blank=True, default="")
     invoice_number = serializers.CharField(source='invoice.number', read_only=True)
     tenant_name = serializers.CharField(source='invoice.lease.tenant.name', read_only=True)
 

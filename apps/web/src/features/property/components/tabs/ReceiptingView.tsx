@@ -5,7 +5,7 @@ import { ReceiptsView } from "./ReceiptsView";
 import { ReceiptAllocationsView } from "./ReceiptAllocationsView";
 import { CreditNotesView } from "./CreditNotesView";
 import { RentSchedulesView } from "./RentSchedulesView";
-import type { PropertyTab, Row, CreditNoteRow, ReceiptingSection } from "../../types/property.types";
+import type { PropertyTab, Row, ReceiptingSection, CreditNoteRow } from "../../types/property.types";
 
 export function ReceiptingView({
   receiptingSection = "receipts",
@@ -52,7 +52,7 @@ export function ReceiptingView({
           { id: "schedules", label: "Payment Schedules" },
         ]}
         active={receiptingSection}
-        onChange={(id) => setReceiptingSection(id as ReceiptingSection)}
+        onChange={(id) => { setReceiptingSection(id as ReceiptingSection); setSearch(""); }}
       />
 
       {receiptingSection === "receipts" && (
@@ -83,8 +83,8 @@ export function ReceiptingView({
           search={search}
           setSearch={setSearch}
           setTab={setTab}
-          onAdd={onAddCreditNote}
-          onVoid={onVoidCreditNote as any}
+          onAdd={onAddCreditNote!}
+          onVoid={onVoidCreditNote!}
         />
       )}
 

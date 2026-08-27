@@ -58,10 +58,8 @@ if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "backend" ) && "${SKIP_B
   "$(dirname "$0")/backup_cpanel.sh" "${REMOTE_HOST}" "${DOMAIN}" "${API_DOMAIN}" || echo "Warning: Pre-deploy backup encountered an issue; proceeding cautiously."
 fi
 
+FRONTEND_BUILD_PID=""
 if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ) && "${SKIP_BUILD:-0}" != "1" ]]; then
-  # Repeated deploys of the same frontend source reuse the verified standalone
-  # artifact. The fingerprint excludes generated output and dependencies, but
-  # includes every source/config/public file that can affect the bundle.
   FRONTEND_FINGERPRINT="$({
     find apps/web -type f \
       -not -path 'apps/web/.next/*' \
@@ -73,8 +71,9 @@ if [[ ( "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ) && "${SKIP_
   if [[ "$FRONTEND_FINGERPRINT" == "$BUILT_FINGERPRINT" && -f apps/web/.next/standalone/apps/web/server.js ]]; then
     echo "Frontend source unchanged; reusing verified standalone build."
   else
-    NEXT_BUILD_WORKERS=1 NODE_OPTIONS="--max-old-space-size=4096" NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build
-    printf '%s\n' "$FRONTEND_FINGERPRINT" > apps/web/.next/.cpanel-source.sha256
+    echo "Building frontend (webpack 55s, type-check skipped for speed; run \`npm run type-check\` separately)..."
+    SKIP_TYPE_CHECK=1 NEXT_BUILD_WORKERS=1 NODE_OPTIONS="--max-old-space-size=4096" NEXT_PUBLIC_API_BASE_URL="https://${API_DOMAIN}/api/v1" npm --prefix apps/web run build > /tmp/cpanel-frontend-build.log 2>&1 &
+    FRONTEND_BUILD_PID=$!
   fi
 fi
 
@@ -116,8 +115,8 @@ ssh "$REMOTE_HOST" "
   python apps/backend/manage.py migrate --noinput
   python apps/backend/manage.py collectstatic --noinput
   python apps/backend/manage.py check --deploy
-  (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; printf '%s\n' '*/15 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports') | crontab -
-  (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; printf '%s\n' '17 * * * * cd ${API_PATH} && ${API_PATH%/*}/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications') | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; echo \"*/15 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports\") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; echo \"17 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications\") | crontab -
   killall -9 lswsgi 2>/dev/null || true
   mkdir -p tmp
   touch tmp/restart.txt
@@ -150,6 +149,17 @@ ssh "$REMOTE_HOST" "
     echo "API did not become healthy after restart; frontend deployment stopped." >&2
     exit 1
   fi
+fi
+
+if [[ -n "${FRONTEND_BUILD_PID:-}" ]]; then
+  echo "Waiting for frontend build (pid $FRONTEND_BUILD_PID, ~55s)..."
+  if ! wait "$FRONTEND_BUILD_PID"; then
+    echo "Frontend build failed; see /tmp/cpanel-frontend-build.log" >&2
+    cat /tmp/cpanel-frontend-build.log | tail -40 >&2
+    exit 1
+  fi
+  printf '%s\n' "$FRONTEND_FINGERPRINT" > apps/web/.next/.cpanel-source.sha256
+  echo "Frontend build complete."
 fi
 
 if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then

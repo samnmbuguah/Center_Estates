@@ -91,6 +91,7 @@ export function PropertyFeaturePage({
             onSingleInvoice={(ctx) => logic.openInvoiceComposer(ctx)}
             rows={logic.rows}
             rentInvoices={logic.rentInvoices}
+            creditNotes={logic.creditNotes}
             analytics={logic.analytics}
             loading={logic.loading}
             search={logic.search}
@@ -99,6 +100,8 @@ export function PropertyFeaturePage({
             canFinance={logic.canFinance}
             canApprove={logic.canApprove}
             onAddInvoice={() => logic.setShowInvoiceComposer(true)}
+            onAddCreditNote={() => logic.handleCreateCreditNote(null)}
+            onVoidCreditNote={logic.handleVoidCreditNote}
             onRecordReceipt={(invoiceId) => { logic.setReceiptInvoice(invoiceId ?? ""); logic.setShowRecordReceipt(true); }}
             onSendReminder={logic.handleSendReminder}
             onInvoiceAction={logic.handleInvoiceAction}

@@ -5,49 +5,11 @@ import { Box } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
 } from "@/components/module-ui";
-import { ViewToolbar, ListState, SubTabs } from "../PropertyToolbar";
+import { ViewToolbar, ListState } from "../PropertyToolbar";
 import {
   PropertyTab, Row, ID, InvoiceRow, AgingTenantRow, AgingAnalytics,
 } from "../../types/property.types";
-import { kM, kN, fmtDate, pct } from "../../utils/property.utils";
-
-function renderInvoiceRows(
-  invoices: InvoiceRow[],
-  onPay: (id: ID) => void,
-  onRemind: (row: InvoiceRow) => void,
-  onAction: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void,
-  onSelect: (r: Row) => void,
-  onDownloadPdf: (row: InvoiceRow) => void,
-  canFinance: boolean,
-  canApprove: boolean,
-) {
-  return invoices.map((inv) => (
-    <tr key={String(inv.id)} onClick={() => onSelect(inv)}>
-      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(inv.number ?? "—")}</td>
-      <td><strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "—")}</strong></td>
-      <td style={{ fontSize: 12 }}>{String((inv.metadata as Record<string, unknown> | undefined)?.property_name ?? "—")}</td>
-      <td style={{ fontSize: 12 }}>{fmtDate(inv.due_on)}</td>
-      <td className="mono">{kM(inv.amount)}</td>
-      <td className="mono" style={{ color: Number(inv.balance ?? 0) > 0 ? "var(--danger)" : "#16a34a" }}>{kM(inv.balance)}</td>
-      <td><StatusPill value={String(inv.status ?? "—")} /></td>
-      <td>
-        <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
-          {Number(inv.balance ?? 0) > 0 && <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onPay(String(inv.id)); }}>Pay</button>}
-          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onDownloadPdf(inv); }}>PDF</button>
-          {Number(inv.balance ?? 0) > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && (
-            <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onRemind(inv); }}>Remind</button>
-          )}
-          {inv.status === "draft" && canFinance && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "submit-review"); }}>Submit</button>}
-          {inv.status === "review" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "approve"); }}>Confirm</button>}
-          {inv.status === "approved" && canApprove && <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onAction(inv, "issue"); }}>Issue</button>}
-          {["draft", "issued", "overdue"].includes(String(inv.status)) && (
-            <button className="btn ghost sm" style={{ color: "var(--danger)" }} onClick={(e) => { e.stopPropagation(); onAction(inv, "void"); }}>Void</button>
-          )}
-        </div>
-      </td>
-    </tr>
-  ));
-}
+import { kM, kN, fmtDate, pct, exportCsv, daysUntil } from "../../utils/property.utils";
 
 export function RentView({
   rows = [],
@@ -88,8 +50,12 @@ export function RentView({
   onDownloadPdf?: (row: InvoiceRow) => void;
   onRefresh?: () => void;
 }) {
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const currentInvoices = (invoices && invoices.length > 0 ? invoices : (rows && rows.length > 0 ? rows : rentInvoices)) as InvoiceRow[];
   const displayInvoices = (rows && rows.length > 0 ? rows : currentInvoices) as InvoiceRow[];
+  
   const totalBilled = currentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = currentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
   const collected = Math.max(totalBilled - outstanding, 0);
@@ -99,6 +65,50 @@ export function RentView({
     const now = new Date();
     return !Number.isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && Number(i.balance ?? 0) > 0;
   }).length;
+
+  const filteredInvoices = useMemo(() => {
+    return displayInvoices.filter((inv) => {
+      if (statusFilter !== "all" && String(inv.status).toLowerCase() !== statusFilter) return false;
+      return true;
+    });
+  }, [displayInvoices, statusFilter]);
+
+  const selectedInvoices = useMemo(() => {
+    return filteredInvoices.filter((i) => selectedIds.has(String(i.id)));
+  }, [filteredInvoices, selectedIds]);
+
+  const selectedTotalAmount = useMemo(() => {
+    return selectedInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
+  }, [selectedInvoices]);
+
+  const draftSelected = selectedInvoices.filter((i) => i.status === "draft");
+  const reviewSelected = selectedInvoices.filter((i) => i.status === "review");
+  const approvedSelected = selectedInvoices.filter((i) => i.status === "approved");
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredInvoices.map((i) => String(i.id))));
+    }
+  }
+
+  function toggleSelectOne(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  }
+
+  async function handleBatchAction(action: "submit-review" | "approve" | "issue") {
+    const targets = action === "submit-review" ? draftSelected : action === "approve" ? reviewSelected : approvedSelected;
+    for (const inv of targets) {
+      onInvoiceAction(inv, action);
+    }
+    setSelectedIds(new Set());
+  }
+
   const aging = analytics?.summary ?? {};
   const agingTotal = Object.values(aging).reduce((s, v) => s + Number(v ?? 0), 0);
   const agingBuckets = [
@@ -108,7 +118,6 @@ export function RentView({
     { label: "91-120 days", key: "91_120" },
     { label: "120+ days", key: "over_120" },
   ];
-  const topTenants = analytics?.tenants ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
@@ -121,44 +130,103 @@ export function RentView({
 
       <ViewToolbar
         title="Invoice Register"
-        subtitle="All invoices with lifecycle actions"
+        subtitle="Authoritative ledger of issued invoices and lifecycle status"
         search={search}
         onSearch={setSearch}
         placeholder="Search invoice number, tenant or property…"
       >
-        <button className="btn ghost sm" onClick={() => setTab("rent-schedules")}>Rent Schedules →</button>
-        <button className="btn ghost sm" onClick={() => setTab("payments")}>Payments →</button>
-        {canFinance && (
-          <button
-            className="btn primary sm"
-            style={{
-              background: "#0284c7",
-              color: "#ffffff",
-              fontWeight: 800,
-              padding: "6px 14px",
-              boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)",
-            }}
-            onClick={() => setTab("billing")}
-          >
-            ⚡ Bulk Invoice Property
-          </button>
-        )}
+        <button
+          className="btn ghost sm"
+          onClick={() =>
+            exportCsv(
+              selectedInvoices.length > 0 ? selectedInvoices : filteredInvoices,
+              [
+                { key: "number", label: "Invoice No" },
+                { key: "tenant_name", label: "Tenant" },
+                { key: "due_on", label: "Due Date" },
+                { key: "amount", label: "Amount" },
+                { key: "balance", label: "Balance" },
+                { key: "status", label: "Status" },
+              ],
+              "invoice-register.csv"
+            )
+          }
+        >
+          Export CSV {selectedInvoices.length > 0 ? `(${selectedInvoices.length})` : ""}
+        </button>
+        <button className="btn ghost sm" onClick={() => setTab("receipting")}>Receipts & Collections →</button>
         {canFinance && <button className="btn primary sm" onClick={onAddInvoice}>+ New Single Invoice</button>}
       </ViewToolbar>
 
-      <Panel
-        title="Invoices"
-        action={
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn primary sm" onClick={() => onRecordReceipt()}>+ Record Payment</button>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          {[
+            ["all", "All Invoices"],
+            ["draft", "Draft"],
+            ["review", "Under Review"],
+            ["approved", "Approved"],
+            ["issued", "Issued"],
+            ["overdue", "Overdue"],
+            ["paid", "Paid"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`btn sm ${statusFilter === id ? "primary" : "ghost"}`}
+              onClick={() => setStatusFilter(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {selectedIds.size > 0 && (
+          <div
+            className="row"
+            style={{
+              gap: 10,
+              padding: "6px 14px",
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              alignItems: "center",
+              fontSize: 13,
+            }}
+          >
+            <strong>{selectedIds.size} selected ({kM(selectedTotalAmount)})</strong>
+            {draftSelected.length > 0 && canFinance && (
+              <button className="btn primary sm" onClick={() => handleBatchAction("submit-review")}>
+                Submit ({draftSelected.length})
+              </button>
+            )}
+            {reviewSelected.length > 0 && canApprove && (
+              <button className="btn primary sm" onClick={() => handleBatchAction("approve")}>
+                Approve ({reviewSelected.length})
+              </button>
+            )}
+            {approvedSelected.length > 0 && canApprove && (
+              <button className="btn primary sm" onClick={() => handleBatchAction("issue")}>
+                Issue ({approvedSelected.length})
+              </button>
+            )}
+            <button className="btn ghost sm" onClick={() => setSelectedIds(new Set())}>Clear</button>
           </div>
-        }
-      >
-        <ListState loading={loading} empty={displayInvoices.length === 0} emptyTitle="No invoices found" emptyDesc="Generate invoices from rent schedules or create a single invoice.">
+        )}
+      </div>
+
+      <Panel title="Invoices">
+        <ListState loading={loading} empty={filteredInvoices.length === 0} emptyTitle="No invoices found" emptyDesc="Invoices created in the billing pipeline will appear here.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
                 <tr>
+                  <th style={{ width: 36 }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredInvoices.length > 0 && selectedIds.size === filteredInvoices.length}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th>Invoice No</th>
                   <th>Tenant</th>
                   <th>Property</th>
@@ -169,7 +237,140 @@ export function RentView({
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody>{renderInvoiceRows(displayInvoices, onRecordReceipt, onSendReminder, onInvoiceAction, onSelectRow, onDownloadPdf, canFinance, canApprove)}</tbody>
+              <tbody>
+                {filteredInvoices.map((inv) => {
+                  const isSelected = selectedIds.has(String(inv.id));
+                  const bal = Number(inv.balance ?? 0);
+                  const amt = Number(inv.amount ?? 0);
+                  const isPartial = bal > 0 && bal < amt;
+                  const isOverdue = bal > 0 && inv.due_on && new Date(String(inv.due_on)) < new Date();
+
+                  return (
+                    <tr
+                      key={String(inv.id)}
+                      onClick={() => onSelectRow(inv)}
+                      style={{ background: isSelected ? "rgba(79, 70, 229, 0.05)" : undefined }}
+                    >
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => toggleSelectOne(String(inv.id), e as any)}
+                        />
+                      </td>
+                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>
+                        {String(inv.number ?? "—")}
+                      </td>
+                      <td>
+                        <strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "—")}</strong>
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {String((inv.metadata as Record<string, unknown> | undefined)?.property_name ?? "—")}
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {fmtDate(inv.due_on)}
+                        {isOverdue && (
+                          <span style={{ color: "var(--danger)", fontSize: 10, display: "block", fontWeight: 700 }}>
+                            Overdue
+                          </span>
+                        )}
+                      </td>
+                      <td className="mono">{kM(inv.amount)}</td>
+                      <td className="mono" style={{ color: bal > 0 ? "var(--danger)" : "#16a34a", fontWeight: 700 }}>
+                        {kM(inv.balance)}
+                        {isPartial && (
+                          <span style={{ display: "block", fontSize: 10, color: "var(--muted)", fontWeight: 400 }}>
+                            Partial
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <StatusPill value={String(inv.status ?? "—")} />
+                      </td>
+                      <td>
+                        <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                          {bal > 0 && (
+                            <button
+                              className="btn ghost sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRecordReceipt(String(inv.id));
+                              }}
+                            >
+                              Pay
+                            </button>
+                          )}
+                          <button
+                            className="btn ghost sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDownloadPdf(inv);
+                            }}
+                          >
+                            PDF
+                          </button>
+                          {bal > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && (
+                            <button
+                              className="btn ghost sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSendReminder(inv);
+                              }}
+                            >
+                              Remind
+                            </button>
+                          )}
+                          {inv.status === "draft" && canFinance && (
+                            <button
+                              className="btn primary sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onInvoiceAction(inv, "submit-review");
+                              }}
+                            >
+                              Submit
+                            </button>
+                          )}
+                          {inv.status === "review" && canApprove && (
+                            <button
+                              className="btn primary sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onInvoiceAction(inv, "approve");
+                              }}
+                            >
+                              Confirm
+                            </button>
+                          )}
+                          {inv.status === "approved" && canApprove && (
+                            <button
+                              className="btn primary sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onInvoiceAction(inv, "issue");
+                              }}
+                            >
+                              Issue
+                            </button>
+                          )}
+                          {["draft", "issued", "overdue"].includes(String(inv.status)) && (
+                            <button
+                              className="btn ghost sm"
+                              style={{ color: "var(--danger)" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onInvoiceAction(inv, "void");
+                              }}
+                            >
+                              Void
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
           </div>
         </ListState>
@@ -198,58 +399,34 @@ export function RentView({
               </div>
             </div>
           ) : (
-            <EmptyState icon="🧾" title="No billing data" description="Generate invoices to see collection performance." />
+            <EmptyState title="No billing data" description="Generate invoices to view collection analytics." />
           )}
         </Panel>
 
-        <Panel title="Aging Summary" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>Full Report →</button>}>
+        <Panel title="Aging Summary">
           {agingTotal > 0 ? (
-            <div style={{ padding: "12px 16px" }}>
-              {agingBuckets.map((b) => {
-                const amount = Number(aging[b.key] ?? 0);
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px" }}>
+              {agingBuckets.map(({ label, key }) => {
+                const val = Number((aging as Record<string, unknown>)[key] ?? 0);
+                const p = pct(val, agingTotal);
                 return (
-                  <div key={b.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
-                    <span style={{ fontSize: 12, width: 110, color: "var(--muted)" }}>{b.label}</span>
-                    <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
-                      <div style={{ width: `${pct(amount, agingTotal)}%`, height: "100%", background: amount > 0 ? "#e23b3b" : "var(--border-strong)", transition: "width 0.3s" }} />
+                  <div key={key} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
+                      <span className="muted">{label}</span>
+                      <strong className="mono">{kM(val)} ({p}%)</strong>
                     </div>
-                    <span className="mono" style={{ fontSize: 12, width: 80, textAlign: "right", color: amount > 0 ? "var(--danger)" : "var(--muted)" }}>{kM(amount)}</span>
+                    <div style={{ height: 6, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${p}%`, background: key === "current" ? "var(--primary)" : key === "31_60" ? "#eab308" : "var(--danger)", borderRadius: 3 }} />
+                    </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <EmptyState icon="✓" title="No outstanding balances" description="All invoices have been collected." />
+            <EmptyState title="No aging data" description="Overdue balances will show aging bucket analytics." />
           )}
         </Panel>
       </Box>
-
-      {topTenants.length > 0 && (
-        <Panel title="Top Tenants by Outstanding" action={<button className="btn ghost sm" onClick={() => setTab("arrears")}>View All →</button>}>
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Tenant</th>
-                  <th>Property / Unit</th>
-                  <th>Outstanding</th>
-                  <th>Oldest Debt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topTenants.slice(0, 5).map((t, i) => (
-                  <tr key={i}>
-                    <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "—")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(t.property ?? "—")} · {String(t.unit ?? "—")}</td>
-                    <td className="mono" style={{ color: "var(--danger)" }}>{kM(t.outstanding)}</td>
-                    <td><Badge tone="red">{kN(t.oldest_days)}d</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-      )}
     </div>
   );
 }

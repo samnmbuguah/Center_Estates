@@ -61,6 +61,19 @@ export function ServiceChargesView({
         title="Cost Centres"
         action={(
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <button
+              className="btn primary sm"
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set("tab", "billing");
+                url.searchParams.set("billing_type", "service_charge");
+                window.history.pushState(null, "", url.toString());
+                setTab("billing");
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }}
+            >
+              Bulk Bill Service Charge →
+            </button>
             <button className="btn ghost sm" onClick={() => setTab("service-charge-allocations")}>View allocations →</button>
             <button className="btn ghost sm" onClick={() => setTab("service-charge-reconciliations")}>View reconciliations →</button>
           </div>

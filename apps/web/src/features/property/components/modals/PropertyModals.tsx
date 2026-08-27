@@ -822,8 +822,12 @@ export function PropertyModals(props: PropertyModalsProps) {
               {financialIntake === "credit-note" ? (
                 <>
                   <div className="grid-2">
-                    <Field label="Credit note number" required><input name="number" required placeholder="e.g. CN-2026-0001" /></Field>
-                    <Field label="Issued on" required><input name="issued_on" type="date" required /></Field>
+                    <Field label="Credit note number (auto-assigned if empty)">
+                      <input name="number" placeholder="Auto-assigned (e.g. CN-2026-0001)" />
+                    </Field>
+                    <Field label="Issued on" required>
+                      <input name="issued_on" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+                    </Field>
                   </div>
                   <Field label="Invoice" required>
                     <select name="invoice" required defaultValue="">

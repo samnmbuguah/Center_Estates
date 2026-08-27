@@ -244,8 +244,8 @@ export type RentSection = "invoices" | "receipts" | "arrears" | "reminders" | "l
 export type ScSection = "setup" | "allocations" | "reconciliations" | "budget";
 export type TenancySection = "occupancy" | "tenants" | "leases" | "documents";
 export type FinancialsSection = "schedules" | "invoices" | "receipts" | "allocations" | "reconciliation" | "credit-notes";
-export type BillingSection = "pipeline" | "invoices";
-export type ReceiptingSection = "receipts" | "allocations" | "credit-notes" | "schedules";
+export type BillingSection = "pipeline" | "invoices" | "credit-notes";
+export type ReceiptingSection = "receipts" | "allocations" | "schedules";
 
 export interface BillingContext {
   mode: "monthly" | "quarterly" | "custom" | string;

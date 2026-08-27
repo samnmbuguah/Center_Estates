@@ -204,6 +204,14 @@ def next_invoice_number(organization, year):
     return f'INV-{year}-{max(sequences, default=0) + 1:06d}'
 
 
+def next_credit_note_number(organization, year):
+    """Allocate a credit note number while holding the organization row lock."""
+    organization.__class__.objects.select_for_update().get(pk=organization.pk)
+    values = CreditNote.objects.for_organization(organization).filter(number__startswith=f'CN-{year}-').values_list('number', flat=True)
+    sequences = [int(value.rsplit('-', 1)[-1]) for value in values if value.rsplit('-', 1)[-1].isdigit()]
+    return f'CN-{year}-{max(sequences, default=0) + 1:04d}'
+
+
 def activate_lease_allocations(lease, user):
     """Promote reserved operational/financial records when a draft lease becomes active."""
     for allocation in lease.parking_assignments.filter(status=ParkingAssignment.Status.RESERVED).select_related('parking_space'):
@@ -3391,8 +3399,86 @@ class ReceiptAllocationViewSet(OrganizationModelViewSet):
     write_permission = 'property.finance'
     queryset = ReceiptAllocation.objects.select_related('receipt__tenant', 'invoice')
     serializer_class = ReceiptAllocationSerializer
-    http_method_names = ('get', 'head', 'options')
+    http_method_names = ('get', 'post', 'head', 'options')
     search_fields = ('receipt__number', 'invoice__number', 'receipt__tenant__name')
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='auto-allocate')
+    def auto_allocate(self, request):
+        organization = get_active_organization(request)
+        unapplied_receipts = Receipt.objects.select_for_update().filter(
+            organization=organization,
+            invoice__isnull=True
+        ).order_by('received_on', 'id')
+        
+        allocated_count = 0
+        total_allocated = Decimal('0.00')
+
+        for receipt in unapplied_receipts:
+            already_allocated = ReceiptAllocation.objects.filter(receipt=receipt).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            remaining_receipt_amount = receipt.amount - already_allocated
+            if remaining_receipt_amount <= Decimal('0.00'):
+                continue
+            
+            open_invoices = Invoice.objects.select_for_update().filter(
+                organization=organization,
+                lease__tenant=receipt.tenant,
+                status__in=(Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE),
+                balance__gt=0
+            ).order_by('due_on', 'id')
+
+            for invoice in open_invoices:
+                if remaining_receipt_amount <= Decimal('0.00'):
+                    break
+                alloc_amount = min(remaining_receipt_amount, invoice.balance)
+                if alloc_amount > Decimal('0.00'):
+                    ReceiptAllocation.objects.create(
+                        organization=organization,
+                        receipt=receipt,
+                        invoice=invoice,
+                        amount=alloc_amount,
+                        allocated_by=request.user
+                    )
+                    invoice.balance -= alloc_amount
+                    invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
+                    invoice.save(update_fields=('balance', 'status', 'updated_at'))
+                    remaining_receipt_amount -= alloc_amount
+                    total_allocated += alloc_amount
+                    allocated_count += 1
+            
+            if remaining_receipt_amount == Decimal('0.00'):
+                last_alloc = ReceiptAllocation.objects.filter(receipt=receipt).last()
+                if last_alloc:
+                    receipt.invoice = last_alloc.invoice
+                    receipt.save(update_fields=('invoice', 'updated_at'))
+
+        return Response({
+            'detail': f'Auto-allocated {allocated_count} receipt allocations totaling KES {total_allocated:,.2f}.',
+            'allocated_count': allocated_count,
+            'total_allocated': str(total_allocated)
+        }, status=status.HTTP_200_OK)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='reverse')
+    def reverse(self, request, pk=None):
+        allocation = self.get_object()
+        invoice = Invoice.objects.select_for_update().filter(pk=allocation.invoice_id, organization=allocation.organization).first()
+        receipt = Receipt.objects.select_for_update().filter(pk=allocation.receipt_id, organization=allocation.organization).first()
+        
+        if invoice:
+            invoice.balance += allocation.amount
+            if invoice.balance == invoice.amount:
+                invoice.status = Invoice.Status.ISSUED
+            elif invoice.balance > 0:
+                invoice.status = Invoice.Status.PARTIAL
+            invoice.save(update_fields=('balance', 'status', 'updated_at'))
+        
+        if receipt and receipt.invoice_id == allocation.invoice_id:
+            receipt.invoice = None
+            receipt.save(update_fields=('invoice', 'updated_at'))
+            
+        allocation.delete()
+        return Response({'detail': 'Allocation reversed successfully. Funds restored to unapplied receipt.'}, status=status.HTTP_200_OK)
 
 
 class CreditNoteViewSet(OrganizationModelViewSet):
@@ -3413,7 +3499,11 @@ class CreditNoteViewSet(OrganizationModelViewSet):
         amount = serializer.validated_data['amount']
         if amount > invoice.balance:
             raise ValidationError({'amount': 'Credit note exceeds the invoice balance.'})
-        serializer.save(organization=organization, invoice=invoice, issued_by=self.request.user)
+        issued_on = serializer.validated_data.get('issued_on', timezone.localdate())
+        number = serializer.validated_data.get('number')
+        if not number or not str(number).strip():
+            number = next_credit_note_number(organization, issued_on.year)
+        serializer.save(organization=organization, invoice=invoice, number=number, issued_on=issued_on, issued_by=self.request.user)
         invoice.balance -= amount
         invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
         invoice.save(update_fields=('balance', 'status', 'updated_at'))

@@ -2050,3 +2050,73 @@ class ExitClearanceApiTests(TestCase):
         self.client.post(f'/api/v1/property/exit-clearances/{cid}/mark-cleared/', {}, format='json', **self.headers)
         skip = self.client.post(f'/api/v1/property/exit-clearances/{cid}/issue-gate-pass/', {}, format='json', **self.headers)
         self.assertEqual(skip.status_code, 400)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class PropertyAccountingAuditFlowTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='fin-mgr', email='fin@example.com', password='test-password',
+        )
+        self.organization = Organization.objects.create(name='Fin Corp', slug='fin-corp')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE)
+        self.property = Property.objects.create(organization=self.organization, code='BLU-01', name='Blue Tower', status=Property.Status.ACTIVE)
+        self.unit = Unit.objects.create(organization=self.organization, property=self.property, code='B-101', status=Unit.Status.OCCUPIED)
+        self.tenant = Tenant.objects.create(organization=self.organization, code='TEN-01', name='Apex Logistics', status=Tenant.Status.ACTIVE)
+        self.lease = Lease.objects.create(
+            organization=self.organization, reference='LEASE-BLU-1', unit=self.unit, tenant=self.tenant,
+            starts_on='2026-01-01', ends_on='2027-01-01', monthly_rent=Decimal('50000'), status=Lease.Status.ACTIVE,
+        )
+        self.invoice1 = Invoice.objects.create(
+            organization=self.organization, number='INV-2026-000001', lease=self.lease,
+            issued_on='2026-01-01', due_on='2026-01-05', amount=Decimal('50000'), balance=Decimal('50000'),
+            status=Invoice.Status.ISSUED,
+        )
+        self.invoice2 = Invoice.objects.create(
+            organization=self.organization, number='INV-2026-000002', lease=self.lease,
+            issued_on='2026-02-01', due_on='2026-02-05', amount=Decimal('50000'), balance=Decimal('50000'),
+            status=Invoice.Status.ISSUED,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_credit_note_auto_generates_number(self):
+        res = self.client.post('/api/v1/property/credit-notes/', {
+            'invoice': self.invoice1.id,
+            'amount': '5000.00',
+            'issued_on': '2026-08-27',
+            'reason': 'Water charge billing correction',
+        }, format='json', **self.headers)
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertTrue(res.data['number'].startswith('CN-2026-'), res.data['number'])
+        self.invoice1.refresh_from_db()
+        self.assertEqual(self.invoice1.balance, Decimal('45000.00'))
+
+    def test_fifo_auto_allocation_and_reversal(self):
+        receipt = Receipt.objects.create(
+            organization=self.organization, number='RCT-2026-0001', tenant=self.tenant,
+            received_on='2026-08-01', amount=Decimal('70000.00'), payment_method='mpesa',
+            received_by=self.user,
+        )
+        auto_res = self.client.post('/api/v1/property/receipt-allocations/auto-allocate/', {}, format='json', **self.headers)
+        self.assertEqual(auto_res.status_code, 200, auto_res.data)
+        self.assertEqual(auto_res.data['allocated_count'], 2)
+
+        self.invoice1.refresh_from_db()
+        self.invoice2.refresh_from_db()
+        self.assertEqual(self.invoice1.balance, Decimal('0.00'))
+        self.assertEqual(self.invoice1.status, Invoice.Status.PAID)
+        self.assertEqual(self.invoice2.balance, Decimal('30000.00'))
+        self.assertEqual(self.invoice2.status, Invoice.Status.PARTIAL)
+
+        allocations = ReceiptAllocation.objects.filter(receipt=receipt).order_by('created_at')
+        self.assertEqual(allocations.count(), 2)
+
+        rev_res = self.client.post(f'/api/v1/property/receipt-allocations/{allocations.first().id}/reverse/', {}, format='json', **self.headers)
+        self.assertEqual(rev_res.status_code, 200, rev_res.data)
+        self.invoice1.refresh_from_db()
+        self.assertEqual(self.invoice1.balance, Decimal('50000.00'))
+        self.assertEqual(self.invoice1.status, Invoice.Status.ISSUED)
+

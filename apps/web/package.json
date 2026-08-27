@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "build:fast": "SKIP_TYPE_CHECK=1 next build --webpack",
+    "type-check": "tsc --noEmit --incremental",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
