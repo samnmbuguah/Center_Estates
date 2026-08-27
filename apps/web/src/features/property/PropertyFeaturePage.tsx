@@ -161,7 +161,7 @@ export function PropertyFeaturePage({
       case "expenses":
         return <ExpensesView rows={logic.rows} financial={logic.financial} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateExpense(null)} onAction={(e) => logic.setSelectedRow(e)} />;
       case "fees":
-        return <FeesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
+        return <FeesView rows={logic.rows} financial={logic.financial} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} organizationId={logic.organizationId} onExport={async (report: any, format: any) => { logic.handleExportReport(String(report?.key ?? report?.name ?? report ?? ""), format === "excel" ? "xlsx" : format); }} />;
       case "reports":
         return <ReportsView rows={logic.rows} loading={logic.loading} onExport={logic.handleExportReport} />;
       case "tenancy-reports":
