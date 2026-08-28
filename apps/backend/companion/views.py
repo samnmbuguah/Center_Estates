@@ -1141,12 +1141,19 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
             from organizations.models import Membership
             User = get_user_model()
             if thread.category in (TeamFeedbackThread.FeedbackType.BUG, TeamFeedbackThread.FeedbackType.FEATURE):
-                # Developer / Engineering feedback -> Route to Developer (samuel)
+                # Developer / Engineering feedback -> Route to developer role or superuser
                 developer = User.objects.filter(
-                    username='samuel', is_active=True,
+                    is_active=True, is_superuser=True,
                     erp_memberships__organization=organization,
                     erp_memberships__status='active',
                 ).first()
+                if not developer:
+                    developer = User.objects.filter(
+                        is_active=True,
+                        erp_memberships__organization=organization,
+                        erp_memberships__status='active',
+                        erp_memberships__roles__slug__in=['engineering', 'developer', 'platform-admin'],
+                    ).first()
                 if developer:
                     thread.assigned_to = developer
                     thread.assigned_team = 'Engineering & Platform Development'
@@ -1221,10 +1228,20 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
         system_metadata = request.data.get('metadata') if isinstance(request.data.get('metadata'), dict) else {}
 
         from django.contrib.auth import get_user_model
+        from organizations.models import Membership
         User = get_user_model()
         developer = User.objects.filter(
-            username='samuel', is_active=True,
+            is_active=True, is_superuser=True,
+            erp_memberships__organization=organization,
+            erp_memberships__status='active',
         ).first()
+        if not developer:
+            developer = User.objects.filter(
+                is_active=True,
+                erp_memberships__organization=organization,
+                erp_memberships__status='active',
+                erp_memberships__roles__slug__in=['engineering', 'developer', 'platform-admin'],
+            ).first()
 
         thread = TeamFeedbackThread.objects.create(
             organization=organization,
@@ -1513,8 +1530,20 @@ def public_feedback(request, token):
     # undefined ``developer`` variable after the ticket had already been saved,
     # causing an otherwise successful submission to return HTTP 500.
     from django.contrib.auth import get_user_model
+    from organizations.models import Membership
     User = get_user_model()
-    developer = User.objects.filter(username='samuel', is_active=True).first()
+    developer = User.objects.filter(
+        is_active=True, is_superuser=True,
+        erp_memberships__organization=qr.organization,
+        erp_memberships__status='active',
+    ).first()
+    if not developer:
+        developer = User.objects.filter(
+            is_active=True,
+            erp_memberships__organization=qr.organization,
+            erp_memberships__status='active',
+            erp_memberships__roles__slug__in=['engineering', 'developer', 'platform-admin'],
+        ).first()
 
     import datetime
     now = timezone.now()

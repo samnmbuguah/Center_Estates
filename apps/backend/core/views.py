@@ -189,6 +189,7 @@ class TicketsFeedView(APIView):
             return is_admin or (module in subscribed and any(key.startswith(f'{module}.') for key in permission_keys))
 
         active_property = get_active_property(request, organization)
+        module_filter = str(request.query_params.get('module', '')).strip().lower()
         tickets = []
 
         def add(*, id, reference, title, description, priority, status, module, source_url,
@@ -335,6 +336,13 @@ class TicketsFeedView(APIView):
                     )
             except Exception:
                 pass
+
+        # Apply module filter if requested
+        if module_filter:
+            # Map construction → monitoring alias
+            if module_filter == 'construction':
+                module_filter = 'monitoring'
+            tickets = [t for t in tickets if t.get('module') == module_filter]
 
         tickets.sort(key=lambda t: t.get('updated_at') or t.get('created_at') or '', reverse=True)
         return Response({'results': tickets, 'count': len(tickets)})
