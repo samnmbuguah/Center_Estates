@@ -60,6 +60,10 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
       // Property operations should include tenant service requests, occupant feedback, and facility work orders scoped to the property
       return String(row.module) === "property" || String(row.module) === "facility";
     }
+    if (moduleKey === "facility") {
+      // Facility includes all facility tickets including incidents
+      return String(row.module) === "facility";
+    }
     return String(row.module) === moduleKey;
   }), [rows, portfolio, moduleKey]);
 
@@ -81,6 +85,8 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
       endpoint = `/companion/tasks/${id.slice("task:".length)}/`;
     } else if (id.startsWith("site-ticket:")) {
       endpoint = `/construction/tickets/${id.slice("site-ticket:".length)}/`;
+    } else if (id.startsWith("incident:")) {
+      endpoint = `/facility/incidents/${id.slice("incident:".length)}/`;
     }
 
     if (!endpoint) {

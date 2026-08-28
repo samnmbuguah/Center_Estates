@@ -1150,7 +1150,8 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
                 if developer:
                     thread.assigned_to = developer
                     thread.assigned_team = 'Engineering & Platform Development'
-                    thread.save(update_fields=['assigned_to', 'assigned_team'])
+                    thread.module = 'platform'
+                    thread.save(update_fields=['assigned_to', 'assigned_team', 'module'])
             else:
                 # Operational / Facility feedback -> Route to Property Manager or Org Admin
                 manager_membership = Membership.objects.active().filter(

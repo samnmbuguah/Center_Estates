@@ -241,13 +241,15 @@ class TicketsFeedView(APIView):
 
         # Include module-specific tickets only if user has module access
         if can(Module.FACILITY) or can(Module.PROPERTY):
-            from facilities.models import WorkOrder, ServiceRequest
+            from facilities.models import FacilityIncident, WorkOrder, ServiceRequest
             from companion.models import TeamFeedbackThread
+            # Respect actual thread.module verbatim — don't hard-code 'facility'
             feedback_threads = scope_model_queryset(TeamFeedbackThread, request, organization).select_related(
                 'property', 'assigned_to', 'created_by'
-            ).filter(module='facility').order_by('-updated_at')[:100]
+            ).order_by('-updated_at')[:100]
             for thread in feedback_threads:
                 first_message = thread.messages.order_by('created_at').values_list('message', flat=True).first()
+                thread_module = thread.module or 'facility'
                 add(
                     id=f'feedback:{thread.pk}',
                     reference=thread.ticket_no or thread.reference,
@@ -255,7 +257,7 @@ class TicketsFeedView(APIView):
                     description=first_message or '',
                     priority=thread.priority,
                     status=thread.status,
-                    module='facility',
+                    module=thread_module,
                     source_url=f'/companion?tab=feedback&thread={thread.pk}',
                     property_record=thread.property,
                     assigned_to=thread.assigned_to.get_username() if thread.assigned_to else thread.assigned_team,
@@ -294,6 +296,22 @@ class TicketsFeedView(APIView):
                     raised_by=req.tenant.name if req.tenant else None,
                     created_at=req.submitted_at,
                     updated_at=getattr(req, 'updated_at', req.submitted_at),
+                )
+            for incident in scope_model_queryset(FacilityIncident, request, organization).select_related('property', 'reported_by', 'reviewed_by').exclude(status__in=(FacilityIncident.Status.RESOLVED, FacilityIncident.Status.CLOSED)).order_by('-occurred_at')[:30]:
+                add(
+                    id=f'incident:{incident.pk}',
+                    reference=incident.reference,
+                    title=f'{incident.category} — {incident.location}',
+                    description=incident.narrative[:200] if incident.narrative else '',
+                    priority=incident.severity,
+                    status=incident.status,
+                    module='facility',
+                    source_url='/facility?tab=incidents',
+                    property_record=incident.property,
+                    assigned_to=incident.reviewed_by.get_username() if incident.reviewed_by else None,
+                    raised_by=incident.reported_by.get_username() if incident.reported_by else None,
+                    created_at=incident.occurred_at,
+                    updated_at=getattr(incident, 'updated_at', incident.occurred_at),
                 )
 
         if can(Module.MONITORING):
