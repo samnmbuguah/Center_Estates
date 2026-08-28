@@ -1,50 +1,32 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControlLabel,
-  MenuItem,
-  Paper,
-  Stack,
-  Switch,
-  TextField,
-  Typography,
+  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  MenuItem, Paper, Stack, Switch, TextField, Typography,
 } from "@mui/material";
 import DownloadRounded from "@mui/icons-material/DownloadRounded";
 import ReceiptLongRounded from "@mui/icons-material/ReceiptLongRounded";
-import AccountBalanceWalletRounded from "@mui/icons-material/AccountBalanceWalletRounded";
 import SettingsSuggestRounded from "@mui/icons-material/SettingsSuggestRounded";
 import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
-import ArrowDownwardRounded from "@mui/icons-material/ArrowDownwardRounded";
 
-import {
-  KpiCard,
-  KpiStrip,
-  StatusPill,
-  Badge,
-  Panel,
-  EmptyState,
-  LoadingState,
-} from "@/components/module-ui";
+import { KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState } from "@/components/module-ui";
 import { ViewToolbar, ListState } from "../PropertyToolbar";
-import type {
-  PropertyTab,
-  Row,
-  FinancialAnalytics,
-  ReportItem,
-} from "../../types/property.types";
-import { kM, kN, pct, shortId, fmtDate } from "../../utils/property.utils";
+import type { PropertyTab, Row, FinancialAnalytics, ReportItem } from "../../types/property.types";
+import { kM, kN, fmtDate } from "../../utils/property.utils";
 import { usePropertyContext } from "@/lib/property-context";
 import { useToast } from "@/components/monitoring/hooks/useToast";
+import { apiFetch, csrfFromCookie } from "@/lib/api";
+
+type LandlordInvoice = {
+  id: string; number: string; property: string; property_name: string;
+  landlord_name: string; landlord_pin: string; fee_type: string;
+  billing_period: string; gross_collections: string; fee_rate: string;
+  fee_amount: string; vat_rate: string; vat_amount: string;
+  total_amount: string; deductions: string; net_payout: string;
+  status: string; issued_on: string | null; due_on: string | null;
+  paid_at: string | null; payment_reference: string; notes: string;
+};
 
 export function FeesView({
   rows = [],
@@ -68,332 +50,219 @@ export function FeesView({
   const { activeProperty } = usePropertyContext();
   const { toast } = useToast();
 
-  // Dialog states
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
+  const [invoices, setInvoices] = useState<LandlordInvoice[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState("");
 
   // Fee calculation parameters
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [feeModel, setFeeModel] = useState<"percent_collections" | "percent_billed" | "fixed_retainer" | "letting_fee">("percent_collections");
-  const [feeRate, setFeeRate] = useState<number>(8.0); // 8% default
+  const [feeRate, setFeeRate] = useState<number>(8.0);
   const [fixedAmount, setFixedAmount] = useState<number>(50000);
   const [applyVat, setApplyVat] = useState(true);
   const [disbursementNote, setDisbursementNote] = useState("");
 
-  // Base financial metrics from active property or analytics
+  // Fetch real landlord invoices from API
+  const loadInvoices = useCallback(async () => {
+    if (!organizationId) return;
+    setFetching(true);
+    setFetchError("");
+    try {
+      const res = await apiFetch("/property/landlord-invoices/", {}, organizationId);
+      if (res.ok) {
+        const data = await res.json();
+        setInvoices(Array.isArray(data) ? data : data.results ?? []);
+      } else {
+        setFetchError("Landlord invoices could not be loaded.");
+      }
+    } catch {
+      setFetchError("Unable to reach the server. Check your connection.");
+    } finally {
+      setFetching(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => { void loadInvoices(); }, [loadInvoices]);
+
+  // Compute KPIs from real invoices
   const kpis = financial?.kpis;
-  const grossCollections = Number(kpis?.income ?? 0) || 1850000;
-  const propertyExpenses = Number(kpis?.expenses ?? 0) || 320000;
-  
-  // Calculate agency commission
-  const calculatedFeeBase = feeModel === "fixed_retainer" 
-    ? fixedAmount 
-    : Math.round((grossCollections * feeRate) / 100);
-  
-  const calculatedVat = applyVat ? Math.round(calculatedFeeBase * 0.16) : 0;
-  const totalAgencyFee = calculatedFeeBase + calculatedVat;
-  const netLandlordRemittance = Math.max(grossCollections - propertyExpenses - totalAgencyFee, 0);
+  const grossCollections = invoices.reduce((s, inv) => s + Number(inv.gross_collections ?? 0), 0) || Number(kpis?.income ?? 0);
+  const totalFees = invoices.reduce((s, inv) => s + Number(inv.fee_amount ?? 0), 0);
+  const totalVat = invoices.reduce((s, inv) => s + Number(inv.vat_amount ?? 0), 0);
+  const totalNet = invoices.reduce((s, inv) => s + Number(inv.net_payout ?? 0), 0);
+  const unpaidInvoices = invoices.filter(inv => inv.status !== "paid");
 
-  // Generate historical fee ledger lines
-  const historicalLedger = useMemo(() => {
-    const months = [
-      { month: "2026-08", gross: grossCollections, opex: propertyExpenses, status: "pending_remittance" },
-      { month: "2026-07", gross: grossCollections * 0.96, opex: propertyExpenses * 1.05, status: "remitted" },
-      { month: "2026-06", gross: grossCollections * 0.98, opex: propertyExpenses * 0.92, status: "remitted" },
-      { month: "2026-05", gross: grossCollections * 0.94, opex: propertyExpenses * 0.88, status: "remitted" },
-    ];
+  // Generate invoice via real API
+  const handleConfirmGenerate = async () => {
+    if (!organizationId || !activeProperty) return;
+    const gross = grossCollections || 0;
+    const rate = feeModel === "fixed_retainer" ? 0 : feeRate;
+    const fee = feeModel === "fixed_retainer" ? fixedAmount : Math.round((gross * rate) / 100);
+    const vat = applyVat ? Math.round(fee * 0.16) : 0;
+    const total = fee + vat;
+    const deductions = 0;
+    const net = Math.max(gross - fee - vat - deductions, 0);
 
-    return months.map((m) => {
-      const fee = Math.round(m.gross * (feeRate / 100));
-      const vat = applyVat ? Math.round(fee * 0.16) : 0;
-      const totalFee = fee + vat;
-      const net = Math.max(m.gross - m.opex - totalFee, 0);
-      return {
-        ...m,
-        fee,
-        vat,
-        totalFee,
-        net,
-      };
-    });
-  }, [grossCollections, propertyExpenses, feeRate, applyVat]);
+    try {
+      const res = await apiFetch("/property/landlord-invoices/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({
+          property: activeProperty.id,
+          landlord_name: activeProperty.name || "Landlord",
+          fee_type: feeModel === "letting_fee" ? "letting" : "management",
+          billing_period: selectedMonth,
+          gross_collections: gross,
+          fee_rate: rate,
+          vat_rate: applyVat ? 16 : 0,
+          deductions: deductions,
+          notes: disbursementNote || `Generated for ${selectedMonth}`,
+        }),
+      }, organizationId);
+      if (res.ok) {
+        toast.success(`Management fee invoice generated for ${selectedMonth}.`);
+        setShowGenerateModal(false);
+        setDisbursementNote("");
+        void loadInvoices();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        const msg = Object.values(body as Record<string, unknown>).flat().join(" ");
+        toast.error(msg || "Invoice generation failed.");
+      }
+    } catch {
+      toast.error("Unable to reach the server. Check your connection.");
+    }
+  };
 
-  const agingBuckets = [
-    { label: "0–30 days", amount: Math.round(totalAgencyFee * 0.7) },
-    { label: "31–60 days", amount: Math.round(totalAgencyFee * 0.2) },
-    { label: "61–90 days", amount: Math.round(totalAgencyFee * 0.1) },
-    { label: "90+ days", amount: 0 },
-  ];
-  const agingTotal = agingBuckets.reduce((s, b) => s + b.amount, 0);
+  // Send invoice
+  const handleSend = async (inv: LandlordInvoice) => {
+    if (!organizationId) return;
+    try {
+      const res = await apiFetch(`/property/landlord-invoices/${inv.id}/send/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+      }, organizationId);
+      if (res.ok) {
+        toast.success(`Invoice ${inv.number} sent to landlord.`);
+        void loadInvoices();
+      } else {
+        toast.error("Could not send invoice.");
+      }
+    } catch {
+      toast.error("Unable to reach the server.");
+    }
+  };
+
+  // Mark paid
+  const handleMarkPaid = async (inv: LandlordInvoice) => {
+    if (!organizationId) return;
+    const ref = prompt("Enter payment reference (e.g. RTGS-12345):");
+    if (!ref) return;
+    try {
+      const res = await apiFetch(`/property/landlord-invoices/${inv.id}/mark-paid/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ payment_reference: ref }),
+      }, organizationId);
+      if (res.ok) {
+        toast.success(`Invoice ${inv.number} marked as paid.`);
+        void loadInvoices();
+      } else {
+        toast.error("Could not mark invoice as paid.");
+      }
+    } catch {
+      toast.error("Unable to reach the server.");
+    }
+  };
 
   const handleDownloadReport = (format: "pdf" | "excel" | "csv") => {
     if (onExport) {
-      void onExport(
-        {
-          key: "management-fee",
-          name: "Management Fee & Remittance Report",
-          description: "Agency management commission, VAT deductions, and net landlord disbursements",
-          category: "Financial",
-        } as any,
-        format
-      );
+      void onExport({ key: "management-fee", name: "Management Fee Report", description: "Agency management commission and landlord disbursements", category: "Financial" } as any, format);
     } else {
       toast.success(`Exporting management fee report as ${format.toUpperCase()}…`);
     }
   };
 
-  const handleConfirmGenerate = () => {
-    toast.success(`Successfully generated Management Tax Invoice & Remittance Statement for ${selectedMonth}!`);
-    setShowGenerateModal(false);
-  };
+  const filteredInvoices = invoices.filter(inv => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return inv.number?.toLowerCase().includes(q) || inv.landlord_name?.toLowerCase().includes(q) || inv.billing_period?.includes(q);
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* 1. TOP KPI STRIP */}
+      {/* KPI Strip */}
       <KpiStrip cols={4}>
-        <KpiCard
-          icon="💰"
-          iconBg="#dcfce7"
-          iconColor="#16a34a"
-          label="Gross Collections"
-          value={kM(grossCollections)}
-          sub="Collected rent & utilities YTD"
-          onClick={() => setTab("receipting")}
-        />
-        <KpiCard
-          icon="💼"
-          iconBg="#e0e7ff"
-          iconColor="#4f46e5"
-          label="Agency Fees Earned"
-          value={kM(calculatedFeeBase)}
-          sub={`${feeRate}% management commission`}
-        />
-        <KpiCard
-          icon="🏛️"
-          iconBg="#fef3c7"
-          iconColor="#d97706"
-          label="VAT on Commission"
-          value={kM(calculatedVat)}
-          sub="16% Output Tax"
-        />
-        <KpiCard
-          icon="🏦"
-          iconBg="#dbeafe"
-          iconColor="#2563eb"
-          label="Net Landlord Payout"
-          value={kM(netLandlordRemittance)}
-          sub="Disbursement after OPEX & fees"
-        />
+        <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Gross Collections" value={kM(grossCollections)} sub="From landlord invoices" onClick={() => setTab("receipting")} />
+        <KpiCard icon="💼" iconBg="#e0e7ff" iconColor="#4f46e5" label="Agency Fees Earned" value={kM(totalFees)} sub={`${invoices.length} invoice(s)`} />
+        <KpiCard icon="🏛️" iconBg="#fef3c7" iconColor="#d97706" label="VAT on Commission" value={kM(totalVat)} sub="16% Output Tax" />
+        <KpiCard icon="🏦" iconBg="#dbeafe" iconColor="#2563eb" label="Net Landlord Payout" value={kM(totalNet)} sub="After fees & deductions" />
       </KpiStrip>
 
-      {/* 2. VIEW TOOLBAR WITH 1-CLICK GENERATOR */}
+      {/* Toolbar */}
       <ViewToolbar
-        title="Agency Management Fees & Remittance"
-        subtitle={`Automated commission calculation and monthly landlord settlement for ${activeProperty?.name || "selected property"}`}
+        title="Management Fees & Landlord Invoicing"
+        subtitle={`Commission calculation and landlord settlement for ${activeProperty?.name || "selected property"}`}
         search={search}
         onSearch={setSearch}
-        placeholder="Search fee statement or month…"
+        placeholder="Search invoice number, landlord, or period…"
       >
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            className="btn secondary sm"
-            onClick={() => setShowSettingsDrawer(true)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-          >
-            <SettingsSuggestRounded sx={{ fontSize: 16 }} /> Commission Terms
+          <button className="btn secondary sm" onClick={() => handleDownloadReport("csv")} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <DownloadRounded sx={{ fontSize: 16 }} /> Export CSV
           </button>
-          <button
-            className="btn primary sm"
-            onClick={() => setShowGenerateModal(true)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800 }}
-          >
-            <ReceiptLongRounded sx={{ fontSize: 16 }} /> ⚡ Generate Monthly Invoice & Statement
+          <button className="btn primary sm" onClick={() => setShowGenerateModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800 }}>
+            <ReceiptLongRounded sx={{ fontSize: 16 }} /> Generate Fee Invoice
           </button>
         </div>
       </ViewToolbar>
 
-      {/* 3. LANDLORD FINANCIAL SETTLEMENT WATERFALL WIDGET */}
-      <Paper
-        variant="outlined"
-        sx={{
-          p: 3,
-          borderRadius: 3,
-          background: "var(--surface)",
-          borderColor: "var(--border)",
-        }}
-      >
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexWrap: "wrap", gap: 1 }}>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: "text.primary" }}>
-              Monthly Landlord Remittance Waterfall
-            </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Visual audit trail showing deductions from gross tenant receipts to final landlord wire transfer
-            </Typography>
-          </Box>
-          <Badge tone="green">Active Term: {feeRate}% + 16% VAT</Badge>
-        </Box>
+      {fetchError && <Alert severity="error">{fetchError}</Alert>}
 
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(5, 1fr)" },
-            gap: 2,
-            alignItems: "center",
-          }}
-        >
-          {/* Step 1: Gross Collections */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, bgcolor: "rgba(22, 163, 74, 0.06)", borderColor: "#16a34a" }}>
-            <Typography variant="caption" sx={{ color: "#16a34a", fontWeight: 800, textTransform: "uppercase" }}>
-              1. Gross Receipts
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5, color: "#15803d" }}>
-              {kM(grossCollections)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Collected from tenants
-            </Typography>
-          </Paper>
-
-          {/* Step 2: Less Direct Expenses */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, bgcolor: "rgba(239, 68, 68, 0.05)", borderColor: "#ef4444" }}>
-            <Typography variant="caption" sx={{ color: "#dc2626", fontWeight: 800, textTransform: "uppercase" }}>
-              2. Less Property OPEX
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5, color: "#b91c1c" }}>
-              - {kM(propertyExpenses)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Direct vendor invoices paid
-            </Typography>
-          </Paper>
-
-          {/* Step 3: Agency Management Fee */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, bgcolor: "rgba(79, 70, 229, 0.05)", borderColor: "#4f46e5" }}>
-            <Typography variant="caption" sx={{ color: "#4f46e5", fontWeight: 800, textTransform: "uppercase" }}>
-              3. Management Fee ({feeRate}%)
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5, color: "#4338ca" }}>
-              - {kM(calculatedFeeBase)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Agency professional charge
-            </Typography>
-          </Paper>
-
-          {/* Step 4: VAT on Fee */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, bgcolor: "rgba(217, 119, 6, 0.05)", borderColor: "#d97706" }}>
-            <Typography variant="caption" sx={{ color: "#d97706", fontWeight: 800, textTransform: "uppercase" }}>
-              4. 16% VAT on Fee
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5, color: "#b45309" }}>
-              - {kM(calculatedVat)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Statutory tax remittance
-            </Typography>
-          </Paper>
-
-          {/* Step 5: Net Payout */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, bgcolor: "rgba(37, 99, 235, 0.08)", borderColor: "#2563eb", borderLeft: "4px solid #2563eb" }}>
-            <Typography variant="caption" sx={{ color: "#2563eb", fontWeight: 800, textTransform: "uppercase" }}>
-              5. Net Wire to Owner
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5, color: "#1d4ed8" }}>
-              {kM(netLandlordRemittance)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Disbursed to landlord
-            </Typography>
-          </Paper>
-        </Box>
-      </Paper>
-
-      {/* 4. HISTORICAL SETTLEMENTS & MANAGEMENT FEE INVOICE LEDGER */}
-      <Panel
-        title="Monthly Landlord Statements & Fee Invoices"
-        action={
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn ghost sm" onClick={() => handleDownloadReport("csv")}>
-              Export CSV
-            </button>
-            <button className="btn ghost sm" onClick={() => handleDownloadReport("pdf")}>
-              Download PDF Report →
-            </button>
-          </div>
-        }
-      >
-        <ListState
-          loading={loading}
-          empty={historicalLedger.length === 0}
-          emptyTitle="No fee records"
-          emptyDesc="Management fee statements will appear here once collections are recorded."
-        >
+      {/* Invoice Register */}
+      <Panel title="Landlord Fee Invoices">
+        <ListState loading={fetching} empty={filteredInvoices.length === 0} emptyTitle="No fee invoices" emptyDesc="Generate a management fee invoice to start tracking landlord disbursements.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
                 <tr>
+                  <th>Invoice No</th>
                   <th>Period</th>
+                  <th>Landlord</th>
                   <th>Gross Collections</th>
-                  <th>Expenses Deducted</th>
-                  <th>Agency Fee ({feeRate}%)</th>
-                  <th>VAT (16%)</th>
-                  <th>Total Deductions</th>
-                  <th>Net Remittance</th>
-                  <th>Settlement Status</th>
+                  <th>Fee</th>
+                  <th>VAT</th>
+                  <th>Total</th>
+                  <th>Net Payout</th>
+                  <th>Status</th>
                   <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {historicalLedger.map((row) => (
-                  <tr key={row.month}>
+                {filteredInvoices.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="mono" style={{ fontWeight: 700, color: "var(--brand-primary, #dc2626)" }}>{inv.number}</td>
+                    <td style={{ fontSize: 12 }}>{inv.billing_period}</td>
+                    <td style={{ fontSize: 12 }}>{inv.landlord_name}</td>
+                    <td className="mono" style={{ color: "#16a34a", fontWeight: 600 }}>{kM(Number(inv.gross_collections))}</td>
+                    <td className="mono" style={{ color: "#4f46e5" }}>{kM(Number(inv.fee_amount))}</td>
+                    <td className="mono" style={{ color: "#d97706" }}>{kM(Number(inv.vat_amount))}</td>
+                    <td className="mono" style={{ fontWeight: 800 }}>{kM(Number(inv.total_amount))}</td>
+                    <td className="mono" style={{ color: "#2563eb", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
                     <td>
-                      <strong style={{ fontSize: 13 }}>{row.month}</strong>
-                    </td>
-                    <td className="mono" style={{ color: "#16a34a", fontWeight: 700 }}>
-                      {kM(row.gross)}
-                    </td>
-                    <td className="mono" style={{ color: "#dc2626" }}>
-                      - {kM(row.opex)}
-                    </td>
-                    <td className="mono" style={{ color: "#4f46e5", fontWeight: 600 }}>
-                      {kM(row.fee)}
-                    </td>
-                    <td className="mono" style={{ color: "#d97706" }}>
-                      {kM(row.vat)}
-                    </td>
-                    <td className="mono" style={{ color: "var(--text-secondary)" }}>
-                      {kM(row.opex + row.totalFee)}
-                    </td>
-                    <td className="mono" style={{ color: "#2563eb", fontWeight: 800, fontSize: 13 }}>
-                      {kM(row.net)}
-                    </td>
-                    <td>
-                      <StatusPill
-                        value={row.status === "remitted" ? "Remitted" : "Pending Remittance"}
-                        tone={row.status === "remitted" ? "green" : "yellow"}
-                      />
+                      <StatusPill value={inv.status} />
+                      {inv.payment_reference && <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{inv.payment_reference}</div>}
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: 6 }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<DownloadRounded sx={{ fontSize: 13 }} />}
-                          onClick={() => handleDownloadReport("pdf")}
-                          sx={{ fontSize: 11, py: 0.25 }}
-                        >
-                          Statement
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<ReceiptLongRounded sx={{ fontSize: 13 }} />}
-                          onClick={() => handleDownloadReport("pdf")}
-                          sx={{ fontSize: 11, py: 0.25 }}
-                        >
-                          Tax Invoice
-                        </Button>
+                      <div style={{ display: "inline-flex", gap: 4 }}>
+                        {inv.status === "draft" && (
+                          <Button size="small" variant="outlined" onClick={() => void handleSend(inv)} sx={{ fontSize: 11, py: 0.25 }}>Send</Button>
+                        )}
+                        {inv.status === "sent" && (
+                          <Button size="small" variant="contained" color="success" onClick={() => void handleMarkPaid(inv)} sx={{ fontSize: 11, py: 0.25 }}>Mark Paid</Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -404,258 +273,48 @@ export function FeesView({
         </ListState>
       </Panel>
 
-      {/* 5. AGING OF UNSETTLED DISBURSEMENTS */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, width: "100%" }}>
-        <Panel title="Fee & Remittance Aging">
-          {agingTotal > 0 ? (
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th>Aging Bucket</th>
-                    <th>Outstanding Amount</th>
-                    <th>% of Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agingBuckets.map((b) => (
-                    <tr key={b.label}>
-                      <td style={{ fontSize: 12 }}>{b.label}</td>
-                      <td className="mono" style={{ color: b.amount > 0 ? "#dc2626" : "var(--muted)" }}>
-                        {kM(b.amount)}
-                      </td>
-                      <td>
-                        <div className="row" style={{ gap: 8, alignItems: "center" }}>
-                          <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
-                            <div
-                              style={{
-                                width: `${pct(b.amount, agingTotal)}%`,
-                                height: "100%",
-                                background: b.amount > 0 ? "#dc2626" : "var(--border-strong)",
-                              }}
-                            />
-                          </div>
-                          <span className="mono" style={{ fontSize: 11, width: 40, textAlign: "right" }}>
-                            {pct(b.amount, agingTotal)}%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState icon="✓" title="No outstanding fee aging" description="All agency management commissions are current." />
-          )}
-        </Panel>
-
-        <Panel title="Landlord Remittance Bank Details">
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, p: 1 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", pb: 1 }}>
-              <span className="muted" style={{ fontSize: 12 }}>Account Name:</span>
-              <strong style={{ fontSize: 13 }}>{activeProperty?.name} Landlord Trust</strong>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", pb: 1 }}>
-              <span className="muted" style={{ fontSize: 12 }}>Bank / Branch:</span>
-              <strong style={{ fontSize: 13 }}>NCBA Bank · Upper Hill Branch</strong>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", pb: 1 }}>
-              <span className="muted" style={{ fontSize: 12 }}>Account Number:</span>
-              <strong className="mono" style={{ fontSize: 13 }}>7849201948201</strong>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", pb: 1 }}>
-              <span className="muted" style={{ fontSize: 12 }}>Disbursement Schedule:</span>
-              <Badge tone="blue">Monthly · 5th Working Day</Badge>
-            </Box>
-            <Button
-              size="small"
-              variant="text"
-              startIcon={<SettingsSuggestRounded sx={{ fontSize: 14 }} />}
-              onClick={() => setShowSettingsDrawer(true)}
-              sx={{ alignSelf: "flex-start", mt: 0.5, fontSize: 12 }}
-            >
-              Update Payout Settings
-            </Button>
-          </Box>
-        </Panel>
-      </div>
-
-      {/* 6. MODAL: 1-CLICK GENERATE MONTHLY INVOICE & STATEMENT */}
+      {/* Generate Invoice Modal */}
       <Dialog open={showGenerateModal} onClose={() => setShowGenerateModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 900, display: "flex", alignItems: "center", gap: 1 }}>
-          <ReceiptLongRounded color="primary" /> Generate Management Fee Tax Invoice & Statement
+          <ReceiptLongRounded color="primary" /> Generate Management Fee Invoice
         </DialogTitle>
         <DialogContent dividers sx={{ p: 2.5 }}>
           <Stack spacing={2}>
             <Alert severity="info" sx={{ borderRadius: 2 }}>
-              This automatically computes the agency commission on actual tenant receipts and generates a formal Tax Invoice and Landlord Remittance Statement.
+              This computes the agency commission and generates a formal landlord fee invoice.
             </Alert>
-
             <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
-              <TextField
-                label="Billing Month"
-                type="month"
-                size="small"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-              />
-
-              <TextField
-                select
-                label="Fee Structure"
-                size="small"
-                value={feeModel}
-                onChange={(e) => setFeeModel(e.target.value as any)}
-                fullWidth
-              >
+              <TextField label="Billing Month" type="month" size="small" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+              <TextField select label="Fee Structure" size="small" value={feeModel} onChange={(e) => setFeeModel(e.target.value as any)} fullWidth>
                 <MenuItem value="percent_collections">% of Actual Collections</MenuItem>
                 <MenuItem value="percent_billed">% of Billed Rent</MenuItem>
                 <MenuItem value="fixed_retainer">Fixed Monthly Retainer</MenuItem>
                 <MenuItem value="letting_fee">Tenant Placement / Letting Fee</MenuItem>
               </TextField>
             </Box>
-
             {feeModel === "fixed_retainer" ? (
-              <TextField
-                label="Fixed Retainer Fee (KES)"
-                type="number"
-                size="small"
-                value={fixedAmount}
-                onChange={(e) => setFixedAmount(Number(e.target.value))}
-                fullWidth
-              />
+              <TextField label="Fixed Retainer Fee (KES)" type="number" size="small" value={fixedAmount} onChange={(e) => setFixedAmount(Number(e.target.value))} fullWidth />
             ) : (
-              <TextField
-                label="Commission Rate (%)"
-                type="number"
-                size="small"
-                value={feeRate}
-                onChange={(e) => setFeeRate(Number(e.target.value))}
-                fullWidth
-              />
+              <TextField label="Commission Rate (%)" type="number" size="small" value={feeRate} onChange={(e) => setFeeRate(Number(e.target.value))} fullWidth />
             )}
-
-            <FormControlLabel
-              control={<Switch checked={applyVat} onChange={(e) => setApplyVat(e.target.checked)} color="primary" />}
-              label="Apply 16% Value Added Tax (VAT) on Agency Commission"
-            />
-
-            {/* Live Calculation Preview Card */}
+            <Switch checked={applyVat} onChange={(e) => setApplyVat(e.target.checked)} /> Apply 16% VAT on Commission
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "var(--surface-sunken)" }}>
-              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>
-                Statement Summary Preview ({selectedMonth})
-              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>Preview</Typography>
               <Stack spacing={1} sx={{ mt: 1.5, fontSize: 13 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Gross Collections:</span>
-                  <strong className="mono" style={{ color: "#16a34a" }}>KES {grossCollections.toLocaleString()}</strong>
-                </Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Direct Property OPEX:</span>
-                  <strong className="mono" style={{ color: "#dc2626" }}>- KES {propertyExpenses.toLocaleString()}</strong>
-                </Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Agency Management Fee ({feeRate}%):</span>
-                  <strong className="mono" style={{ color: "#4f46e5" }}>- KES {calculatedFeeBase.toLocaleString()}</strong>
-                </Box>
-                {applyVat && (
-                  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                    <span>16% VAT on Fee:</span>
-                    <strong className="mono" style={{ color: "#d97706" }}>- KES {calculatedVat.toLocaleString()}</strong>
-                  </Box>
-                )}
-                <Divider />
-                <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-                  <strong>Net Landlord Remittance:</strong>
-                  <strong className="mono" style={{ color: "#2563eb" }}>KES {netLandlordRemittance.toLocaleString()}</strong>
-                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>Gross Collections:</span><strong className="mono" style={{ color: "#16a34a" }}>{kM(grossCollections)}</strong></Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>Fee ({feeRate}%):</span><strong className="mono" style={{ color: "#4f46e5" }}>- {kM(feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100))}</strong></Box>
+                {applyVat && <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>VAT (16%):</span><strong className="mono" style={{ color: "#d97706" }}>- {kM(Math.round((feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) * 0.16))}</strong></Box>}
+                <Box sx={{ borderTop: "1px solid var(--border)", pt: 1, display: "flex", justifyContent: "space-between", fontSize: 14 }}><strong>Net Payout:</strong><strong className="mono" style={{ color: "#2563eb" }}>{kM(Math.max(grossCollections - (feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) - (applyVat ? Math.round((feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) * 0.16) : 0), 0))}</strong></Box>
               </Stack>
             </Paper>
-
-            <TextField
-              label="Disbursement Notes / Reference"
-              placeholder="e.g. Wire transfer ref / August rental settlement"
-              size="small"
-              value={disbursementNote}
-              onChange={(e) => setDisbursementNote(e.target.value)}
-              fullWidth
-            />
+            <TextField label="Notes / Reference" placeholder="e.g. Wire transfer ref / August rental settlement" size="small" value={disbursementNote} onChange={(e) => setDisbursementNote(e.target.value)} fullWidth />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setShowGenerateModal(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleConfirmGenerate}
-            startIcon={<CheckCircleRounded />}
-            sx={{ bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" }, fontWeight: 800 }}
-          >
-            Confirm & Generate Pack
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 7. MODAL: COMMISSION TERMS & LANDLORD SETTINGS */}
-      <Dialog open={showSettingsDrawer} onClose={() => setShowSettingsDrawer(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 900 }}>Landlord Engagement Terms</DialogTitle>
-        <DialogContent dividers sx={{ p: 2.5 }}>
-          <Stack spacing={2}>
-            <TextField select label="Engagement Type" size="small" defaultValue="management" fullWidth>
-              <MenuItem value="management">Property Management (Full Service)</MenuItem>
-              <MenuItem value="letting">Letting Only</MenuItem>
-              <MenuItem value="facility">Facility Supervision</MenuItem>
-            </TextField>
-
-            <TextField
-              label="Standard Management Fee (%)"
-              type="number"
-              size="small"
-              value={feeRate}
-              onChange={(e) => setFeeRate(Number(e.target.value))}
-              fullWidth
-            />
-
-            <TextField
-              label="New Letting Placement Fee (% of 1st Month Rent)"
-              type="number"
-              size="small"
-              defaultValue={100}
-              fullWidth
-            />
-
-            <TextField
-              label="Remittance Bank Name"
-              size="small"
-              defaultValue="NCBA Bank"
-              fullWidth
-            />
-
-            <TextField
-              label="Bank Account Number"
-              size="small"
-              defaultValue="7849201948201"
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setShowSettingsDrawer(false)}>Close</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              toast.success("Engagement terms and bank settings saved.");
-              setShowSettingsDrawer(false);
-            }}
-          >
-            Save Terms
-          </Button>
+          <Button variant="contained" onClick={() => void handleConfirmGenerate()} startIcon={<CheckCircleRounded />} sx={{ bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" }, fontWeight: 800 }}>Confirm & Generate</Button>
         </DialogActions>
       </Dialog>
     </div>
   );
 }
-
-/* ─── REPORTS ─── */
