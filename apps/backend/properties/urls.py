@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BankTransactionViewSet, BillingItemViewSet, BillingProfileViewSet, BillingRunViewSet,
     BuildingViewSet, BudgetViewSet, CreditNoteViewSet, ParkingSpaceViewSet, ParkingAssignmentViewSet,
-    ExpenseViewSet, InvoiceReminderViewSet, InvoiceViewSet, LeaseViewSet,
+    ExpenseViewSet, InvoiceReminderViewSet, InvoiceViewSet, LandlordInvoiceViewSet, LeaseViewSet,
     InvoiceLineViewSet, LeaseEscalationViewSet,
     PaymentGatewayConfigurationViewSet, PaymentIntentViewSet, PaymentWebhookViewSet,
     ProjectViewSet, PropertyAnalyticsViewSet, PropertyDashboardViewSet,
@@ -57,6 +57,7 @@ router.register('tenant-documents', TenantDocumentViewSet)
 router.register('rent-schedules', RentScheduleViewSet)
 router.register('receipt-allocations', ReceiptAllocationViewSet)
 router.register('credit-notes', CreditNoteViewSet)
+router.register('landlord-invoices', LandlordInvoiceViewSet)
 router.register('report-definitions', ReportDefinitionViewSet)
 router.register('report-executions', ReportExecutionViewSet, basename='report-execution')
 router.register('scheduled-reports', ScheduledReportViewSet)

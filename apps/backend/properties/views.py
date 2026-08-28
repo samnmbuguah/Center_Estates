@@ -26,7 +26,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
 from core.models import Module
-from core.permissions import HasModuleActionPermission
+from core.permissions import HasModuleActionPermission, HasModuleSubscription
 from core.serializers import GenericObjectSerializer
 from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
@@ -39,7 +39,7 @@ from .models import (
     RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment, UnitStatusHistory, LeaseEscalation,
-    TenantHandover, ExitClearance,
+    TenantHandover, ExitClearance, LandlordInvoice,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -52,7 +52,7 @@ from .serializers import (
     ServiceChargeAllocationSerializer, ServiceChargeReconciliationSerializer, ParkingSpaceSerializer, ParkingAssignmentSerializer,
     ServiceChargeSerializer, TaxConfigurationSerializer, TenantDocumentSerializer,
     TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
-    TenantHandoverSerializer, ExitClearanceSerializer,
+    TenantHandoverSerializer, ExitClearanceSerializer, LandlordInvoiceSerializer,
     UnitSerializer, UnitChargeRuleSerializer, UnitStatusHistorySerializer,
 )
 
@@ -128,8 +128,8 @@ def _allocate_payment_receipt(intent, receipt, user):
         invoice.save(update_fields=('balance', 'status', 'updated_at'))
     return [invoice for invoice, _amount in allocations]
 from .pdf_documents import (
-    arrears_aging_pdf, income_expenditure_pdf, invoice_pdf, receipt_pdf, tabular_report_pdf,
-    tenant_payment_status_pdf, tenant_payment_status_rows, tenant_statement_pdf,
+    arrears_aging_pdf, income_expenditure_pdf, invoice_pdf, receipt_pdf, service_charge_reconciliation_pdf,
+    tabular_report_pdf, tenant_payment_status_pdf, tenant_payment_status_rows, tenant_statement_pdf,
 )
 
 REPORT_TITLES = {
@@ -683,6 +683,7 @@ class PropertyViewSet(OrganizationModelViewSet):
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
+    @action(detail=False, methods=('post',))
     @transaction.atomic
     def onboard(self, request):
         """Create a property and its initial buildings/units as one transaction."""
@@ -2276,7 +2277,12 @@ class ReceiptViewSet(OrganizationModelViewSet):
                 raise ValidationError({'invoice': 'Only issued invoices can receive payments.'})
             if amount > invoice.balance:
                 raise ValidationError({'amount': 'Receipt exceeds the invoice balance.'})
-        receipt = serializer.save(organization=organization, received_by=self.request.user)
+        number = str(serializer.validated_data.get('number') or '').strip()
+        if not number:
+            prefix = f'RCPT-{timezone.localdate():%Y}-'
+            sequence = Receipt.objects.filter(organization=organization, number__startswith=prefix).count() + 1
+            number = f'{prefix}{sequence:05d}'
+        receipt = serializer.save(organization=organization, received_by=self.request.user, number=number)
         if invoice:
             ReceiptAllocation.objects.create(
                 organization=organization, receipt=receipt, invoice=invoice,
@@ -2321,6 +2327,72 @@ class BankTransactionViewSet(OrganizationModelViewSet):
         if serializer.instance.status != BankTransaction.Status.UNMATCHED:
             raise ValidationError({'transaction': 'Matched bank transactions are immutable.'})
         super().perform_update(serializer)
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='import-csv')
+    def import_csv(self, request):
+        """Import statement lines without ever creating or changing receipts.
+
+        The import is deliberately limited to the four portable columns used by
+        most bank exports: reference, date, description and amount. References
+        are idempotency keys; previously imported lines are reported as skipped.
+        """
+        upload = request.FILES.get('file')
+        if not upload:
+            raise ValidationError({'file': 'Choose a CSV bank statement first.'})
+        if upload.size > 5 * 1024 * 1024:
+            raise ValidationError({'file': 'Bank statement CSV must be 5 MB or smaller.'})
+        try:
+            decoded = upload.read().decode('utf-8-sig')
+        except UnicodeDecodeError:
+            raise ValidationError({'file': 'Use a UTF-8 encoded CSV file.'})
+        reader = csv.DictReader(StringIO(decoded))
+        if not reader.fieldnames:
+            raise ValidationError({'file': 'The CSV must include a header row.'})
+        field_map = {str(name).strip().lower().replace(' ', '_'): name for name in reader.fieldnames if name}
+        required = {
+            'reference': ('reference', 'bank_reference', 'transaction_reference'),
+            'transacted_on': ('date', 'transacted_on', 'transaction_date'),
+            'amount': ('amount',),
+        }
+        resolved = {key: next((field_map[name] for name in aliases if name in field_map), None) for key, aliases in required.items()}
+        missing = [key for key, value in resolved.items() if not value]
+        if missing:
+            raise ValidationError({'file': f"Missing required CSV column(s): {', '.join(missing)}. Use reference, date and amount."})
+        description_column = next((field_map[name] for name in ('description', 'narration', 'details') if name in field_map), None)
+        organization = get_active_organization(request)
+        parsed = []
+        seen = set()
+        for line_number, row in enumerate(reader, start=2):
+            reference = str(row.get(resolved['reference'], '')).strip()
+            if not reference:
+                raise ValidationError({'file': f'Row {line_number}: reference is required.'})
+            if reference in seen:
+                raise ValidationError({'file': f'Row {line_number}: duplicate reference {reference!r} in this file.'})
+            seen.add(reference)
+            transacted_on = _parse_flexible_date(row.get(resolved['transacted_on']))
+            if not transacted_on:
+                raise ValidationError({'file': f'Row {line_number}: date must be a valid date.'})
+            try:
+                amount = Decimal(str(row.get(resolved['amount'], '')).replace(',', '').strip())
+            except Exception:
+                raise ValidationError({'file': f'Row {line_number}: amount must be a positive number.'})
+            if amount <= 0:
+                raise ValidationError({'file': f'Row {line_number}: amount must be greater than zero.'})
+            parsed.append({
+                'reference': reference,
+                'transacted_on': transacted_on,
+                'amount': amount,
+                'description': str(row.get(description_column, '')).strip() if description_column else '',
+            })
+        if not parsed:
+            raise ValidationError({'file': 'No statement lines were found in the CSV.'})
+        existing = set(BankTransaction.objects.filter(organization=organization, reference__in=seen).values_list('reference', flat=True))
+        BankTransaction.objects.bulk_create([
+            BankTransaction(organization=organization, status=BankTransaction.Status.UNMATCHED, **line)
+            for line in parsed if line['reference'] not in existing
+        ])
+        return Response({'created': len(parsed) - len(existing), 'skipped': len(existing)}, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
     @action(detail=True, methods=('post',))
@@ -2509,6 +2581,34 @@ class ServiceChargeViewSet(OrganizationModelViewSet):
         )
         return Response(ServiceChargeReconciliationSerializer(reconciliation).data)
 
+    @action(detail=True, methods=('get',), url_path='export-allocations')
+    def export_allocations(self, request, pk=None):
+        charge = self.get_object()
+        allocations = ServiceChargeAllocation.objects.for_organization(charge.organization).filter(
+            service_charge=charge
+        ).select_related('unit__building', 'unit__property')
+
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            'Scheme Name', 'Property', 'Building', 'Unit Code', 'Floor Area (m2)',
+            'Share Ratio (%)', 'Annual Allocation (KES)', 'Monthly Allocation (KES)'
+        ])
+        for a in allocations:
+            writer.writerow([
+                charge.name,
+                charge.property.name,
+                a.unit.building.name if a.unit.building else '—',
+                a.unit.code,
+                f"{a.unit.area:.2f}" if a.unit.area else '0.00',
+                f"{(a.ratio * 100):.4f}%",
+                f"{a.annual_amount:.2f}",
+                f"{a.monthly_amount:.2f}",
+            ])
+        response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="service-charge-allocations-{charge.id}.csv"'
+        return response
+
 
 @extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
 class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
@@ -2518,7 +2618,6 @@ class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
 
     queryset = ServiceChargeAllocation.objects.all()
 
-
     def get_queryset(self):
         return ServiceChargeAllocation.objects.for_organization(
             get_active_organization(self.request),
@@ -2526,18 +2625,52 @@ class ServiceChargeAllocationViewSet(ReadOnlyModelViewSet):
 
 
 @extend_schema_view(retrieve=extend_schema(parameters=[OpenApiParameter("pk", OpenApiTypes.UUID, OpenApiParameter.PATH)]))
-class ServiceChargeReconciliationViewSet(ReadOnlyModelViewSet):
+class ServiceChargeReconciliationViewSet(OrganizationModelViewSet):
     permission_classes = (HasModuleActionPermission,)
     required_module = Module.PROPERTY
+    write_permission = 'property.finance'
+    permission_map = {
+        'review': 'property.finance',
+        'approve': 'property.finance',
+        'download_pdf': 'property.view',
+    }
     serializer_class = ServiceChargeReconciliationSerializer
 
     queryset = ServiceChargeReconciliation.objects.all()
 
-
     def get_queryset(self):
         return ServiceChargeReconciliation.objects.for_organization(
             get_active_organization(self.request),
-        ).select_related('service_charge__property')
+        ).select_related('service_charge__property', 'prepared_by', 'reviewed_by')
+
+    @action(detail=True, methods=('post',))
+    def review(self, request, pk=None):
+        rec = self.get_object()
+        if rec.status != ServiceChargeReconciliation.Status.DRAFT:
+            raise ValidationError({'status': 'Only draft reconciliations can be marked as reviewed.'})
+        rec.status = ServiceChargeReconciliation.Status.REVIEWED
+        rec.reviewed_by = request.user
+        rec.reviewed_at = timezone.now()
+        rec.save(update_fields=('status', 'reviewed_by', 'reviewed_at', 'updated_at'))
+        return Response(self.get_serializer(rec).data)
+
+    @action(detail=True, methods=('post',))
+    def approve(self, request, pk=None):
+        rec = self.get_object()
+        if rec.status == ServiceChargeReconciliation.Status.APPROVED:
+            raise ValidationError({'status': 'This reconciliation is already approved.'})
+        rec.status = ServiceChargeReconciliation.Status.APPROVED
+        if not rec.reviewed_by:
+            rec.reviewed_by = request.user
+            rec.reviewed_at = timezone.now()
+        rec.save(update_fields=('status', 'reviewed_by', 'reviewed_at', 'updated_at'))
+        return Response(self.get_serializer(rec).data)
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def download_pdf(self, request, pk=None):
+        rec = self.get_object()
+        user_name = request.user.get_full_name() or request.user.get_username()
+        return service_charge_reconciliation_pdf(rec, generated_by=user_name)
 
 
 class TenantDocumentViewSet(OrganizationModelViewSet):
@@ -2721,7 +2854,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
         return False
 
     def _execute_prepare(self, run, invoice_types: set[str] | None = None):
-        run.candidates.filter(invoice__isnull=True).delete()
         run.issues.all().delete()
         leases = Lease.objects.for_organization(run.organization).filter(
             status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
@@ -2730,7 +2862,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if run.property_id:
             leases = leases.filter(unit__property=run.property)
         created = 0; ready = 0; issue_count = 0
-        amount_ready = Decimal('0'); amount_issues = Decimal('0')
+        amount_ready = Decimal('0'); amount_issues = Decimal('0'); amount_generated = Decimal('0')
         from facilities.models import MeterReading, UtilityMeter
 
         # Calculate month multiplier for quarterly or multi-month periods
@@ -2748,8 +2880,26 @@ class BillingRunViewSet(OrganizationModelViewSet):
             period_suffix = f"{run.period_start:%B %Y}"
 
         qty = Decimal(str(months_count))
+        period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if months_count > 1 else run.period_start.strftime('%Y-%m')
+
+        # Prefetch existing non-void invoices for this billing period
+        existing_invoices = Invoice.objects.for_organization(run.organization).filter(
+            metadata__billing_period=period_key,
+        ).exclude(status=Invoice.Status.VOID).values('id', 'number', 'lease_id', 'invoice_type', 'amount')
+
+        lease_invoices_map: dict[str, dict[str, dict]] = {}
+        for inv in existing_invoices:
+            lid = str(inv['lease_id'])
+            if lid not in lease_invoices_map:
+                lease_invoices_map[lid] = {}
+            itype = str(inv['invoice_type']).lower()
+            lease_invoices_map[lid][itype] = inv
+
+        existing_candidate_map = {str(c.lease_id): c for c in run.candidates.all()}
+        current_lease_ids = set()
 
         for lease in leases:
+            current_lease_ids.add(str(lease.id))
             issue_rows = []
             items = []
             profiles = lease.billing_profiles.filter(
@@ -2767,7 +2917,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         return True
                     if "other" in invoice_types and code not in ("rent", "service_charge", "sc", "water", "electricity", "utility"):
                         return True
-                    # Exact code match for any other type
                     return code in invoice_types
                 due_profiles = [p for p in due_profiles if _profile_matches(p)]
             for profile in due_profiles:
@@ -2835,7 +2984,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
                     'source_type': 'service_charge_allocation', 'source_id': str(allocation.id)
                 })
-            # Fallback to lease metadata (onboarding stores 25/sqft × area there for Blueshield-type leases).
             if (invoice_types is None or "service_charge" in invoice_types) and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
                 meta = lease.metadata or {}
                 monthly_sc_meta = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
@@ -2873,24 +3021,60 @@ class BillingRunViewSet(OrganizationModelViewSet):
             if not items:
                 continue
 
-            period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if months_count > 1 else run.period_start.strftime('%Y-%m')
-            duplicate = Invoice.objects.for_organization(run.organization).filter(
-                lease=lease, metadata__billing_period=period_key,
-            ).exclude(status=Invoice.Status.VOID).exists()
-            if duplicate:
-                issue_rows.append(('duplicate_invoice', 'An invoice already exists for this tenancy and billing period — already-billed types will be skipped on generate.', None, BillingReadinessIssue.Severity.WARNING))
+            # Tag each item as billed or unbilled
+            lease_invs = lease_invoices_map.get(str(lease.id), {})
+            unbilled_items = []
+            unbilled_total = Decimal('0')
+            billed_total = Decimal('0')
+            for it in items:
+                c_code = str(it.get('code') or 'charge').strip().lower()
+                itype = {'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge', 'water': 'water', 'electricity': 'electricity'}.get(c_code, c_code)
+                existing_inv = lease_invs.get(itype)
+                if existing_inv:
+                    it['billed'] = True
+                    it['invoice_id'] = str(existing_inv['id'])
+                    it['invoice_number'] = str(existing_inv['number'])
+                    billed_total += Decimal(str(it['total']))
+                else:
+                    it['billed'] = False
+                    unbilled_items.append(it)
+                    unbilled_total += Decimal(str(it['total']))
+
             if lease.ends_on <= run.period_end + timedelta(days=90):
                 issue_rows.append(('lease_expiring', f'Lease expires on {lease.ends_on:%d %b %Y}.', None, BillingReadinessIssue.Severity.WARNING))
+
             subtotal = sum((Decimal(item['subtotal']) for item in items), Decimal('0'))
             tax_amount = sum((Decimal(item['tax_amount']) for item in items), Decimal('0'))
             blocking = any(len(row) < 4 or row[3] == BillingReadinessIssue.Severity.BLOCKING for row in issue_rows)
-            candidate = BillingCandidate.objects.create(
-                organization=run.organization, billing_run=run, lease=lease,
-                invoice_date=run.period_start, due_date=run.period_start.replace(day=min(lease.billing_day, 28)),
-                billing_items=items, subtotal=subtotal, tax_amount=tax_amount, total=subtotal + tax_amount,
-                status=BillingCandidate.Status.ISSUE if blocking else BillingCandidate.Status.READY,
-                issue_summary=[{'code': row[0], 'message': row[1], 'severity': row[3] if len(row) > 3 else BillingReadinessIssue.Severity.BLOCKING} for row in issue_rows],
-            )
+
+            if len(unbilled_items) == 0:
+                cand_status = BillingCandidate.Status.GENERATED
+            elif blocking:
+                cand_status = BillingCandidate.Status.ISSUE
+            else:
+                cand_status = BillingCandidate.Status.READY
+
+            issue_summary = [{'code': row[0], 'message': row[1], 'severity': row[3] if len(row) > 3 else BillingReadinessIssue.Severity.BLOCKING} for row in issue_rows]
+
+            candidate = existing_candidate_map.get(str(lease.id))
+            if candidate:
+                candidate.invoice_date = run.period_start
+                candidate.due_date = run.period_start.replace(day=min(lease.billing_day, 28))
+                candidate.billing_items = items
+                candidate.subtotal = subtotal
+                candidate.tax_amount = tax_amount
+                candidate.total = subtotal + tax_amount
+                candidate.status = cand_status
+                candidate.issue_summary = issue_summary
+                candidate.save()
+            else:
+                candidate = BillingCandidate.objects.create(
+                    organization=run.organization, billing_run=run, lease=lease,
+                    invoice_date=run.period_start, due_date=run.period_start.replace(day=min(lease.billing_day, 28)),
+                    billing_items=items, subtotal=subtotal, tax_amount=tax_amount, total=subtotal + tax_amount,
+                    status=cand_status,
+                    issue_summary=issue_summary,
+                )
             for row in issue_rows:
                 BillingReadinessIssue.objects.create(
                     organization=run.organization, billing_run=run, lease=lease,
@@ -2898,14 +3082,32 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     severity=row[3] if len(row) > 3 else BillingReadinessIssue.Severity.BLOCKING,
                 )
             created += 1
-            if candidate.status == BillingCandidate.Status.READY:
-                ready += 1; amount_ready += candidate.total
+            if cand_status == BillingCandidate.Status.READY:
+                ready += 1
+                amount_ready += unbilled_total
+            elif cand_status == BillingCandidate.Status.ISSUE:
+                issue_count += 1
+                amount_issues += unbilled_total
             else:
-                issue_count += 1; amount_issues += candidate.total
-        run.status = BillingRun.Status.REVIEW
+                amount_generated += billed_total
+
+        # Delete any dangling candidates that no longer belong to active leases
+        for lid, cand in existing_candidate_map.items():
+            if lid not in current_lease_ids and not cand.invoice_id:
+                cand.delete()
+
+        run.status = BillingRun.Status.REVIEW if (ready > 0 or issue_count > 0) else BillingRun.Status.GENERATED
         run.approved_by = None
         run.approved_at = None
-        run.totals = {'candidates': created, 'ready': ready, 'with_issues': issue_count, 'amount_ready': str(amount_ready), 'amount_with_issues': str(amount_issues), 'total_amount': str(amount_ready + amount_issues)}
+        run.totals = {
+            'candidates': created,
+            'ready': ready,
+            'with_issues': issue_count,
+            'amount_ready': str(amount_ready),
+            'amount_with_issues': str(amount_issues),
+            'amount_generated': str(amount_generated),
+            'total_amount': str(amount_ready + amount_issues + amount_generated),
+        }
         run.save(update_fields=('status', 'approved_by', 'approved_at', 'totals', 'updated_at'))
 
     @transaction.atomic
@@ -2941,8 +3143,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
     @action(detail=True, methods=('post',))
     def prepare(self, request, pk=None):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
-        if run.status == BillingRun.Status.GENERATED:
-            raise ValidationError({'status': 'A generated billing run cannot be prepared again.'})
         raw_types = request.data.get('invoice_types')
         invoice_types: set[str] | None = None
         if isinstance(raw_types, list) and raw_types:
@@ -2963,7 +3163,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
     @action(detail=True, methods=('post',))
     def approve(self, request, pk=None):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
-        if run.status != BillingRun.Status.REVIEW:
+        if run.status not in (BillingRun.Status.REVIEW, BillingRun.Status.PREPARING, BillingRun.Status.GENERATED):
             raise ValidationError({'status': 'Prepare and review the billing run before confirmation.'})
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
             raise ValidationError({'issues': 'Resolve or authorize every blocking issue before confirmation.'})
@@ -2995,31 +3195,15 @@ class BillingRunViewSet(OrganizationModelViewSet):
             raise ValidationError({'candidate_ids': 'Candidate IDs must be supplied as a list.'})
         if isinstance(requested, list) and run.candidates.filter(pk__in=requested).count() != len(set(requested)):
             raise ValidationError({'candidate_ids': 'Every selected candidate must belong to this billing run.'})
-        replay_candidates = run.candidates.filter(invoice__isnull=False).select_related('invoice')
-        if isinstance(requested, list):
-            replay_candidates = replay_candidates.filter(pk__in=requested)
-        if run.status == BillingRun.Status.GENERATED or (
-            isinstance(requested, list) and requested and replay_candidates.count() == len(set(requested))
-        ):
-            invoices = [candidate.invoice for candidate in replay_candidates if candidate.invoice_id]
-            return Response({
-                'generated_count': 0, 'invoices': InvoiceSerializer(invoices, many=True).data,
-                'replayed': True,
-            })
-        if run.status != BillingRun.Status.APPROVED:
-            raise ValidationError({'status': 'The billing run must be confirmed before invoices are generated.'})
-        candidates = run.candidates.select_for_update().filter(status=BillingCandidate.Status.READY).select_related('lease')
-        # Allow re-generation of READY candidates even if invoice is set (covers
-        # per-type workflows where only a subset of types were generated).
-        # We filter on invoice__isnull at the per-item level below instead.
+        
+        candidates = run.candidates.select_for_update().select_related('lease')
         if isinstance(requested, list):
             candidates = candidates.filter(pk__in=requested)
         candidates = list(candidates)
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
+
         year = run.period_start.year
-        # Optional per-type filter — e.g. ["rent", "service_charge", "utility"].
-        # "utility" expands to water + electricity.
         raw_types = request.data.get('invoice_types')
         selected_types: set[str] | None = None
         if isinstance(raw_types, list) and raw_types:
@@ -3038,13 +3222,11 @@ class BillingRunViewSet(OrganizationModelViewSet):
             c = str(item.get('code') or 'charge').strip().lower()
             return {'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge', 'water': 'water', 'electricity': 'electricity'}.get(c, c[:40])
 
+        period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if (run.period_end.year - run.period_start.year)*12 + (run.period_end.month - run.period_start.month) >= 1 else run.period_start.strftime('%Y-%m')
+
         generated: list[Invoice] = []
         skipped_duplicate = 0
         for candidate in candidates:
-            period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if (run.period_end.year - run.period_start.year)*12 + (run.period_end.month - run.period_start.month) >= 1 else run.period_start.strftime('%Y-%m')
-            # A charge dispute must not hold up unrelated rent or utilities. Each
-            # recurring charge therefore receives its own auditable invoice.
-            # When a type filter is supplied, only matching line items are billed.
             items_for_candidate = candidate.billing_items
             if selected_types is not None:
                 items_for_candidate = [it for it in items_for_candidate if _item_type(it) in selected_types or (it.get('code','').lower() == 'sc' and 'service_charge' in selected_types)]
@@ -3057,13 +3239,12 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge',
                     'water': 'water', 'electricity': 'electricity',
                 }.get(code, code[:40])
-                # Per-type idempotency: skip if this lease already has this
-                # invoice type for the same billing period.
                 if Invoice.objects.for_organization(run.organization).filter(
                     lease=candidate.lease, invoice_type=invoice_type,
                     metadata__billing_period=period_key,
                 ).exclude(status=Invoice.Status.VOID).exists():
                     skipped_duplicate += 1
+                    item['billed'] = True
                     continue
                 line_subtotal = Decimal(item['subtotal'])
                 line_tax = Decimal(item['tax_amount'])
@@ -3074,7 +3255,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     subtotal=line_subtotal, tax_amount=line_tax,
                     tax_rate=(line_tax / line_subtotal * Decimal('100')).quantize(Decimal('0.01')) if line_subtotal else 0,
                     amount=line_total, balance=line_total, status=Invoice.Status.ISSUED,
-                    prepared_by=run.created_by, reviewed_by=run.approved_by, reviewed_at=run.approved_at,
+                    prepared_by=run.created_by, reviewed_by=request.user, reviewed_at=timezone.now(),
                     issued_by=request.user, issued_at=timezone.now(), metadata={
                         'source': 'billing_run', 'billing_run_id': str(run.id),
                         'billing_candidate_id': str(candidate.id), 'billing_period': period_key,
@@ -3089,36 +3270,41 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     tax_code=item.get('tax_code', ''), tax_rate=Decimal(item['tax_rate']), tax_amount=line_tax, total=line_total,
                     source_type=item.get('source_type', ''), source_id=item.get('source_id', ''),
                 )
+                item['billed'] = True
+                item['invoice_id'] = str(invoice.id)
+                item['invoice_number'] = invoice.number
                 candidate_invoices.append(invoice)
                 generated.append(invoice)
-            if not candidate_invoices:
-                continue
-            primary = next((row for row in candidate_invoices if row.invoice_type == 'rent'), candidate_invoices[0])
-            candidate.invoice = primary
-            candidate.status = BillingCandidate.Status.GENERATED
-            candidate.save(update_fields=('invoice', 'status', 'updated_at'))
-            candidate.generated_invoices.add(*candidate_invoices)
-            portal_access = TenantPortalAccess.objects.for_organization(run.organization).filter(
-                tenant=candidate.lease.tenant, is_active=True,
-            ).select_related('user').first()
-            if portal_access:
-                Notification.objects.create(
-                    organization=run.organization,
-                    recipient=portal_access.user,
-                    title=f'{len(candidate_invoices)} new invoice(s) for {period_key}',
-                    message=f'Rent and recurring charges totalling KES {candidate.total:,.2f} are due on {candidate.due_date:%d %b %Y}. You may pay them together.',
-                    level=Notification.Level.INFO,
-                    action_url='/tenant-portal',
-                    metadata={
-                        'invoice_ids': [str(row.id) for row in candidate_invoices],
-                        'billing_run_id': str(run.id),
-                        'billing_period': run.period_start.strftime('%Y-%m'),
-                    },
-                )
-        if not generated and skipped_duplicate:
-            return Response({'generated_count': 0, 'skipped_duplicate': skipped_duplicate, 'detail': 'Selected invoice types were already billed for this period.', 'invoices': []}, status=200)
-        if not run.candidates.filter(status=BillingCandidate.Status.READY).exists():
-            run.status = BillingRun.Status.GENERATED; run.generated_at = timezone.now(); run.save(update_fields=('status', 'generated_at', 'updated_at'))
+            if candidate_invoices:
+                candidate.generated_invoices.add(*candidate_invoices)
+                primary = next((row for row in candidate_invoices if row.invoice_type == 'rent'), candidate_invoices[0])
+                if not candidate.invoice_id:
+                    candidate.invoice = primary
+                # Check if all billing items are now billed
+                if all(it.get('billed') for it in candidate.billing_items):
+                    candidate.status = BillingCandidate.Status.GENERATED
+                candidate.save(update_fields=('invoice', 'status', 'billing_items', 'updated_at'))
+                portal_access = TenantPortalAccess.objects.for_organization(run.organization).filter(
+                    tenant=candidate.lease.tenant, is_active=True,
+                ).select_related('user').first()
+                if portal_access:
+                    Notification.objects.create(
+                        organization=run.organization,
+                        recipient=portal_access.user,
+                        title=f'{len(candidate_invoices)} new invoice(s) for {period_key}',
+                        message=f'Rent and recurring charges totalling KES {candidate.total:,.2f} are due on {candidate.due_date:%d %b %Y}. You may pay them together.',
+                        level=Notification.Level.INFO,
+                        action_url='/tenant-portal',
+                        metadata={
+                            'invoice_ids': [str(row.id) for row in candidate_invoices],
+                            'billing_run_id': str(run.id),
+                            'billing_period': run.period_start.strftime('%Y-%m'),
+                        },
+                    )
+
+        # Recompute run totals and status
+        self._execute_prepare(run)
+
         resp: dict = {'generated_count': len(generated), 'invoices': InvoiceSerializer(generated, many=True).data}
         if skipped_duplicate:
             resp['skipped_duplicate'] = skipped_duplicate
@@ -3535,6 +3721,68 @@ class CreditNoteViewSet(OrganizationModelViewSet):
                 invoice.status = Invoice.Status.PARTIAL
             invoice.save(update_fields=('balance', 'status', 'updated_at'))
         return Response({'detail': 'Credit note voided successfully.'}, status=status.HTTP_200_OK)
+
+
+class LandlordInvoiceViewSet(OrganizationModelViewSet):
+    write_permission = 'property.finance'
+    queryset = LandlordInvoice.objects.select_related('property')
+    serializer_class = LandlordInvoiceSerializer
+    search_fields = ('number', 'landlord_name', 'property__name', 'billing_period')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        prop = serializer.validated_data.get('property')
+        billing_period = serializer.validated_data.get('billing_period', '')
+        fee_type = serializer.validated_data.get('fee_type', LandlordInvoice.FeeType.MANAGEMENT)
+        gross = serializer.validated_data.get('gross_collections', 0)
+        rate = serializer.validated_data.get('fee_rate', 0)
+        fee_amount = (gross * rate / 100).quantize(Decimal('0.01'))
+        vat_rate = serializer.validated_data.get('vat_rate', Decimal('16.00'))
+        vat_amount = (fee_amount * vat_rate / 100).quantize(Decimal('0.01'))
+        total = fee_amount + vat_amount
+        deductions = serializer.validated_data.get('deductions', 0)
+        net_payout = gross - fee_amount - vat_amount - deductions
+
+        # Auto-generate number
+        year = billing_period[:4] if billing_period else str(timezone.localdate().year)
+        existing = LandlordInvoice.objects.filter(
+            organization=organization, number__startswith=f'LB-{year}-'
+        ).values_list('number', flat=True)
+        numbers = [int(n.rsplit('-', 1)[-1]) for n in existing if n.rsplit('-', 1)[-1].isdigit()]
+        number = f'LB-{year}-{(max(numbers) + 1) if numbers else 1:06d}'
+
+        serializer.save(
+            organization=organization, number=number,
+            fee_amount=fee_amount, vat_amount=vat_amount,
+            total_amount=total, net_payout=net_payout,
+            issued_on=timezone.localdate(),
+            status=LandlordInvoice.Status.DRAFT,
+        )
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',))
+    def send(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status != LandlordInvoice.Status.DRAFT:
+            raise ValidationError({'status': 'Only draft invoices can be sent.'})
+        invoice.status = LandlordInvoice.Status.SENT
+        invoice.save(update_fields=('status', 'updated_at'))
+        return Response(LandlordInvoiceSerializer(invoice).data)
+
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='mark-paid')
+    def mark_paid(self, request, pk=None):
+        invoice = self.get_object()
+        if invoice.status not in (LandlordInvoice.Status.SENT, LandlordInvoice.Status.PARTIAL, LandlordInvoice.Status.OVERDUE):
+            raise ValidationError({'status': 'Only sent invoices can be marked as paid.'})
+        payment_ref = str(request.data.get('payment_reference', '')).strip()
+        if not payment_ref:
+            raise ValidationError({'payment_reference': 'Payment reference is required.'})
+        invoice.status = LandlordInvoice.Status.PAID
+        invoice.paid_at = timezone.now()
+        invoice.payment_reference = payment_ref
+        invoice.save(update_fields=('status', 'paid_at', 'payment_reference', 'updated_at'))
+        return Response(LandlordInvoiceSerializer(invoice).data)
 
 
 class PropertyDashboardViewSet(ViewSet):
@@ -4381,19 +4629,23 @@ class PropertyAnalyticsViewSet(ViewSet):
 
 
 class TenantPortalViewSet(ViewSet):
-    permission_classes = (HasModuleActionPermission,)
+    permission_classes = (HasModuleSubscription,)
     required_module = Module.PROPERTY
 
     serializer_class = GenericObjectSerializer
 
     def _access(self, tenant_id=None):
         organization = get_active_organization(self.request)
+        membership = get_active_membership(self.request, organization)
+        can_support = (
+            self.request.user.is_staff or self.request.user.is_superuser
+            or bool(membership and (
+                membership.is_organization_admin
+                or membership.has_permission('property.leasing')
+                or membership.has_permission('property.view')
+            ))
+        )
         if tenant_id:
-            membership = get_active_membership(self.request, organization)
-            can_support = (
-                self.request.user.is_staff or self.request.user.is_superuser
-                or bool(membership and membership.has_permission('property.leasing'))
-            )
             if not can_support:
                 raise PermissionDenied('Tenant portal support view requires property leasing permission.')
             tenant = Tenant.objects.for_organization(organization).filter(pk=tenant_id).first()
@@ -4403,6 +4655,7 @@ class TenantPortalViewSet(ViewSet):
                         self.organization = org
                         self.tenant = t
                 return ScopedAccess(organization, tenant)
+            raise PermissionDenied('Specified tenant was not found in active organization.')
         access = TenantPortalAccess.objects.for_organization(organization).filter(
             user=self.request.user, is_active=True,
         ).select_related('tenant').first()
