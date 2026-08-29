@@ -2149,3 +2149,73 @@ class PropertyAccountingAuditFlowTests(TestCase):
         self.invoice1.refresh_from_db()
         self.assertEqual(self.invoice1.balance, Decimal('50000.00'))
         self.assertEqual(self.invoice1.status, Invoice.Status.ISSUED)
+
+    def test_multi_format_bank_statement_import_auto_matching_and_unreceipted_flagging(self):
+        # Create an issued invoice and receipt for auto-matching
+        matched_receipt = Receipt.objects.create(
+            organization=self.organization, number='RCPT-2026-99001',
+            tenant=self.tenant, invoice=self.invoice1, amount=Decimal('35000.00'),
+            received_on=date(2026, 8, 15), payment_method='mpesa', external_reference='TCF6R8PBD2',
+            received_by=self.user,
+        )
+
+        # Multi-row CSV simulating NBK statement with M-Pesa sweep, direct transfer, bank fee, and unreceipted credit
+        csv_bytes = (
+            b"Transaction Date,Value Date,Reference,Transaction Details,Debit,Credit,Book Balance\n"
+            b"15/08/2026,15/08/2026,FT25074RP3BM,TCF6R8PBD2 From Acc.No. - KES1484877030077 625625 254714916329 KINGSLEY MPESA PAY BILL,0,35000.00,35000.00\n"
+            b"16/08/2026,16/08/2026,FT2507520N6J,TCG0UXK9OY From Acc.No. - KES1484877030077 106 NAIMA MPESA PAY BILL,0,2000.00,37000.00\n"
+            b"17/08/2026,17/08/2026,FT25076TAX01,Excise Duty Tax,100.00,0,36900.00\n"
+            b"18/08/2026,18/08/2026,FT25077CHQ01,Transfer CHQ BOOK THE LYNX AT NGONG ROAD,0,5000.00,41900.00\n"
+        )
+        csv_file = SimpleUploadedFile('nbk_statement.csv', csv_bytes, content_type='text/csv')
+
+        res = self.client.post('/api/v1/property/bank-transactions/import-statement/', {'file': csv_file}, format='multipart', **self.headers)
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['total_parsed'], 4)
+        self.assertEqual(res.data['created'], 4)
+        self.assertEqual(res.data['auto_matched'], 1)
+        self.assertEqual(res.data['unreceipted_credits'], 2)
+
+        # Verify matched transaction
+        tx1 = BankTransaction.objects.get(organization=self.organization, reference='FT25074RP3BM')
+        self.assertEqual(tx1.status, BankTransaction.Status.MATCHED)
+        self.assertEqual(tx1.receipt, matched_receipt)
+        self.assertEqual(tx1.extracted_mpesa_ref, 'TCF6R8PBD2')
+        self.assertEqual(tx1.transaction_type, BankTransaction.TransactionType.MPESA_SWEEP)
+
+        # Verify unreceipted transaction
+        tx2 = BankTransaction.objects.get(organization=self.organization, reference='FT2507520N6J')
+        self.assertEqual(tx2.status, BankTransaction.Status.UNMATCHED)
+        self.assertEqual(tx2.extracted_mpesa_ref, 'TCG0UXK9OY')
+        self.assertEqual(tx2.extracted_account, '106')
+        self.assertEqual(tx2.extracted_payer_name, 'NAIMA')
+
+        # Verify tax debit transaction
+        tx3 = BankTransaction.objects.get(organization=self.organization, reference='FT25076TAX01')
+        self.assertEqual(tx3.transaction_type, BankTransaction.TransactionType.TAX)
+        self.assertEqual(tx3.money_out, Decimal('100.00'))
+
+    def test_quick_receipt_creates_receipt_and_reconciles_bank_transaction(self):
+        tx = BankTransaction.objects.create(
+            organization=self.organization, reference='FT2599DIRECT01',
+            transacted_on=date(2026, 8, 20), amount=Decimal('10000.00'),
+            money_in=Decimal('10000.00'), transaction_type=BankTransaction.TransactionType.DIRECT_DEPOSIT,
+            extracted_payer_name='Direct Transfer Payer', status=BankTransaction.Status.UNMATCHED,
+        )
+
+        res = self.client.post(f'/api/v1/property/bank-transactions/{tx.id}/quick-receipt/', {
+            'invoice_id': str(self.invoice1.id),
+            'payer_name': 'Direct Transfer Payer',
+            'payment_channel': 'bank_transfer',
+        }, format='json', **self.headers)
+
+        self.assertEqual(res.status_code, 201, res.data)
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, BankTransaction.Status.MATCHED)
+        self.assertIsNotNone(tx.receipt)
+        self.assertEqual(tx.receipt.amount, Decimal('10000.00'))
+        self.assertEqual(tx.receipt.payment_method, 'bank_transfer')
+
+        self.invoice1.refresh_from_db()
+        self.assertEqual(self.invoice1.balance, Decimal('40000.00'))
+        self.assertEqual(self.invoice1.status, Invoice.Status.PARTIAL)

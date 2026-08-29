@@ -157,7 +157,11 @@ export interface ReminderRow extends Row {
 
 export interface BankTransactionRow extends Row {
   id: ID; reference?: string; transacted_on?: string; description?: string;
-  amount?: number; status?: string; receipt?: ID; receipt_number?: string;
+  amount?: number; money_in?: number; money_out?: number; transaction_type?: string;
+  extracted_mpesa_ref?: string; extracted_account?: string; extracted_payer_name?: string;
+  extracted_phone?: string; raw_details?: string; balance_after?: number;
+  status?: string; receipt?: ID; receipt_number?: string; receipt_payer?: string;
+  receipt_tenant?: string; receipt_unit?: string; receipt_invoice_number?: string;
 }
 
 export interface ExpenseRow extends Row {

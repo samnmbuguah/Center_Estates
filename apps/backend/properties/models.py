@@ -751,10 +751,27 @@ class BankTransaction(OrganizationOwnedModel):
         MATCHED = 'matched', 'Matched'
         IGNORED = 'ignored', 'Ignored'
 
+    class TransactionType(models.TextChoices):
+        MPESA_SWEEP = 'mpesa_sweep', 'M-Pesa Sweep'
+        DIRECT_DEPOSIT = 'direct_deposit', 'Direct Deposit / Transfer'
+        CHEQUE = 'cheque', 'Cheque Deposit'
+        BANK_FEE = 'bank_fee', 'Bank Charge'
+        TAX = 'tax', 'Excise / Tax'
+        OTHER = 'other', 'Other'
+
     reference = models.CharField(max_length=120)
     transacted_on = models.DateField()
     description = models.CharField(max_length=250, blank=True)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
+    money_in = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    money_out = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    transaction_type = models.CharField(max_length=24, choices=TransactionType.choices, default=TransactionType.OTHER)
+    extracted_mpesa_ref = models.CharField(max_length=40, blank=True, default='')
+    extracted_account = models.CharField(max_length=60, blank=True, default='')
+    extracted_payer_name = models.CharField(max_length=150, blank=True, default='')
+    extracted_phone = models.CharField(max_length=40, blank=True, default='')
+    raw_details = models.TextField(blank=True, default='')
+    balance_after = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.UNMATCHED)
     receipt = models.OneToOneField(Receipt, on_delete=models.PROTECT, null=True, blank=True, related_name='bank_transaction')
     matched_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='matched_property_bank_transactions')

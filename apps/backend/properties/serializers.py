@@ -455,6 +455,10 @@ class InvoiceReminderSerializer(serializers.ModelSerializer):
 
 class BankTransactionSerializer(serializers.ModelSerializer):
     receipt_number = serializers.CharField(source='receipt.number', read_only=True, default='')
+    receipt_payer = serializers.CharField(source='receipt.payer_name', read_only=True, default='')
+    receipt_tenant = serializers.CharField(source='receipt.invoice.lease.tenant.name', read_only=True, default='')
+    receipt_unit = serializers.CharField(source='receipt.invoice.lease.unit.code', read_only=True, default='')
+    receipt_invoice_number = serializers.CharField(source='receipt.invoice.number', read_only=True, default='')
 
     class Meta:
         model = BankTransaction

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Badge, ErrorBanner, Field, KpiCard, KpiStrip, Modal, Panel, StatusPill,
 } from "@/components/module-ui";
@@ -9,11 +9,17 @@ import { ViewToolbar, ListState } from "../PropertyToolbar";
 import type { BankTransactionRow, Row } from "../../types/property.types";
 import { fmtDate, kM, kN } from "../../utils/property.utils";
 
-/**
- * A bank transaction is an independently sourced statement line.  It is never
- * a payment by itself: users reconcile it to an already-posted receipt so the
- * ledger cannot double-count a tenant payment.
- */
+interface InvoiceOption {
+  id: string;
+  number: string;
+  amount: number;
+  balance: number;
+  status: string;
+  tenant_name?: string;
+  unit_code?: string;
+  property_name?: string;
+}
+
 export function BankReconciliationView({
   rows,
   loading,
@@ -36,22 +42,199 @@ export function BankReconciliationView({
   onRefresh?: () => void;
 }) {
   const transactions = rows as BankTransactionRow[];
+  const [activeTab, setActiveTab] = useState<"all" | "unreceipted" | "matched" | "charges">("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [importSummary, setImportSummary] = useState<{
+    total_parsed?: number;
+    created?: number;
+    skipped?: number;
+    auto_matched?: number;
+    unreceipted_credits?: number;
+  } | null>(null);
+
+  // Quick Receipt modal state
+  const [quickReceiptTarget, setQuickReceiptTarget] = useState<BankTransactionRow | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const [payerName, setPayerName] = useState("");
+  const [paymentChannel, setPaymentChannel] = useState<"mpesa" | "bank_transfer">("bank_transfer");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch available invoices for quick receipting
+  useEffect(() => {
+    if (quickReceiptTarget) {
+      setLoadingInvoices(true);
+      apiFetch("/property/invoices/", {}, organizationId ?? undefined)
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data: any[]) => {
+          const valid = (Array.isArray(data) ? data : [])
+            .filter((inv) => Number(inv.balance ?? 0) > 0 && inv.status !== "draft" && inv.status !== "voided")
+            .map((inv) => ({
+              id: String(inv.id),
+              number: String(inv.number ?? "INV"),
+              amount: Number(inv.amount ?? 0),
+              balance: Number(inv.balance ?? 0),
+              status: String(inv.status ?? ""),
+              tenant_name: String(inv.tenant_name || inv.lease?.tenant?.name || ""),
+              unit_code: String(inv.unit_code || inv.lease?.unit?.code || ""),
+              property_name: String(inv.property_name || inv.lease?.unit?.property_name || ""),
+            }));
+          setInvoices(valid);
+
+          // Auto-select candidate invoice if unit code or tenant matches extracted details
+          const targetUnit = (quickReceiptTarget.extracted_account || "").trim().toLowerCase();
+          const targetPayer = (quickReceiptTarget.extracted_payer_name || "").trim().toLowerCase();
+
+          const bestMatch = valid.find((inv) => {
+            if (targetUnit && inv.unit_code?.toLowerCase().includes(targetUnit)) return true;
+            if (targetPayer && inv.tenant_name?.toLowerCase().includes(targetPayer)) return true;
+            return false;
+          });
+
+          if (bestMatch) {
+            setSelectedInvoiceId(bestMatch.id);
+            setPayerName(quickReceiptTarget.extracted_payer_name || bestMatch.tenant_name || "");
+          } else if (valid.length > 0) {
+            setSelectedInvoiceId(valid[0].id);
+            setPayerName(quickReceiptTarget.extracted_payer_name || valid[0].tenant_name || "");
+          }
+
+          setPaymentChannel(quickReceiptTarget.transaction_type === "mpesa_sweep" ? "mpesa" : "bank_transfer");
+        })
+        .catch(() => setInvoices([]))
+        .finally(() => setLoadingInvoices(false));
+    }
+  }, [quickReceiptTarget, organizationId]);
 
   const summary = useMemo(() => {
-    const unmatched = transactions.filter((t) => t.status === "unmatched");
+    const unreceipted = transactions.filter((t) => {
+      if (t.status === "matched") return false;
+      const isCredit = Number(t.money_in ?? 0) > 0 || (!t.money_in && !t.money_out && Number(t.amount ?? 0) > 0);
+      const isFee = t.transaction_type === "bank_fee" || t.transaction_type === "tax";
+      return isCredit && !isFee;
+    });
+
     const matched = transactions.filter((t) => t.status === "matched");
+    const charges = transactions.filter((t) => t.transaction_type === "bank_fee" || t.transaction_type === "tax" || Number(t.money_out ?? 0) > 0);
+
+    const totalInflow = transactions.reduce((sum, t) => sum + Number(t.money_in || (t.status === "matched" ? t.amount : 0) || 0), 0);
+    const unreceiptedTotal = unreceipted.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
+    const matchedTotal = matched.reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
+    const chargesTotal = charges.reduce((sum, t) => sum + Number(t.money_out || t.amount || 0), 0);
+
     return {
-      unmatched,
+      unreceipted,
       matched,
-      unmatchedTotal: unmatched.reduce((sum, t) => sum + Number(t.amount ?? 0), 0),
-      matchedTotal: matched.reduce((sum, t) => sum + Number(t.amount ?? 0), 0),
+      charges,
+      totalInflow,
+      unreceiptedTotal,
+      matchedTotal,
+      chargesTotal,
     };
   }, [transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      if (activeTab === "unreceipted") {
+        return summary.unreceipted.some((u) => u.id === t.id);
+      }
+      if (activeTab === "matched") {
+        return t.status === "matched";
+      }
+      if (activeTab === "charges") {
+        return summary.charges.some((c) => c.id === t.id);
+      }
+      return true;
+    });
+  }, [transactions, activeTab, summary]);
+
+  async function handleImportStatement(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setImporting(true);
+    setFeedback(null);
+    setImportSummary(null);
+
+    try {
+      await apiFetch("/auth/csrf/", {}, organizationId ?? undefined);
+      const data = new FormData();
+      data.append("file", file);
+
+      const response = await apiFetch("/property/bank-transactions/import-statement/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: data,
+      }, organizationId ?? undefined);
+
+      if (!response.ok) {
+        throw new Error(await apiErrorMessage(response, "The bank statement could not be parsed."));
+      }
+
+      const result = await response.json().catch(() => ({}));
+      setImportSummary(result);
+      setShowImportModal(true);
+      setFeedback({
+        type: "success",
+        message: `Statement imported successfully! ${Number(result.created ?? 0)} lines created, ${Number(result.auto_matched ?? 0)} auto-matched, ${Number(result.unreceipted_credits ?? 0)} unreceipted deposits flagged.`,
+      });
+      onRefresh();
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "The bank statement could not be imported.",
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function submitQuickReceipt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!quickReceiptTarget || !selectedInvoiceId) return;
+
+    setSubmitting(true);
+    setFeedback(null);
+
+    try {
+      await apiFetch("/auth/csrf/", {}, organizationId ?? undefined);
+      const response = await apiFetch(`/property/bank-transactions/${quickReceiptTarget.id}/quick-receipt/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({
+          invoice_id: selectedInvoiceId,
+          payment_channel: paymentChannel,
+          payer_name: payerName.trim(),
+        }),
+      }, organizationId ?? undefined);
+
+      if (!response.ok) {
+        throw new Error(await apiErrorMessage(response, "Could not create and match receipt."));
+      }
+
+      const updatedTx = await response.json();
+      setQuickReceiptTarget(null);
+      setFeedback({
+        type: "success",
+        message: `Receipt created and bank transaction ${quickReceiptTarget.reference} reconciled successfully!`,
+      });
+      onRefresh();
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to create receipt.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function addStatementLine(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,11 +251,12 @@ export function BankReconciliationView({
           transacted_on: String(values.transacted_on ?? ""),
           description: String(values.description ?? "").trim(),
           amount: Number(values.amount ?? 0),
+          money_in: Number(values.amount ?? 0),
         }),
       }, organizationId ?? undefined);
       if (!response.ok) throw new Error(await apiErrorMessage(response, "The statement line could not be saved."));
       setShowAdd(false);
-      setFeedback({ type: "success", message: "Statement line added. Match it to the existing tenant receipt to complete reconciliation." });
+      setFeedback({ type: "success", message: "Statement line added." });
       onRefresh();
     } catch (error) {
       setFeedback({ type: "error", message: error instanceof Error ? error.message : "The statement line could not be saved." });
@@ -81,105 +265,419 @@ export function BankReconciliationView({
     }
   }
 
-  async function importStatement(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setImporting(true);
-    setFeedback(null);
-    try {
-      await apiFetch("/auth/csrf/", {}, organizationId ?? undefined);
-      const data = new FormData();
-      data.append("file", file);
-      const response = await apiFetch("/property/bank-transactions/import-csv/", {
-        method: "POST",
-        headers: { "X-CSRFToken": csrfFromCookie() },
-        body: data,
-      }, organizationId ?? undefined);
-      if (!response.ok) throw new Error(await apiErrorMessage(response, "The bank statement could not be imported."));
-      const result = await response.json().catch(() => ({}));
-      setFeedback({ type: "success", message: `${Number(result.created ?? 0)} statement line(s) imported. ${Number(result.skipped ?? 0)} duplicate line(s) were skipped.` });
-      onRefresh();
-    } catch (error) {
-      setFeedback({ type: "error", message: error instanceof Error ? error.message : "The bank statement could not be imported." });
-    } finally {
-      setImporting(false);
-    }
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {feedback?.type === "error" && <ErrorBanner message={feedback.message} onRetry={onRefresh} />}
-      {feedback?.type === "success" && <div role="status" className="card" style={{ padding: "11px 14px", borderColor: "rgba(22, 163, 74, 0.35)", background: "rgba(22, 163, 74, 0.09)", color: "var(--text-primary)", fontWeight: 650 }}>✓ {feedback.message}</div>}
+      {feedback?.type === "success" && (
+        <div role="status" className="card" style={{ padding: "12px 16px", borderColor: "rgba(22, 163, 74, 0.35)", background: "rgba(22, 163, 74, 0.09)", color: "var(--text-primary)", fontWeight: 650 }}>
+          ✓ {feedback.message}
+        </div>
+      )}
 
       <ViewToolbar
-        title="Bank reconciliation"
-        subtitle="Match external bank statement lines to receipts already posted in Center Estates."
+        title="Bank Reconciliation & Intelligence"
+        subtitle="Upload bank statements (NBK, Stanbic, KCB, Excel/CSV) to automatically flag unreceipted deposits and reconcile ledger proof of payments."
         search={search}
         onSearch={setSearch}
-        placeholder="Search bank reference, amount or description…"
+        placeholder="Search bank reference, M-PESA code, unit, payer or amount…"
       >
-        {canFinance && <>
-          <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={importStatement} />
-          <button type="button" className="btn ghost sm" disabled={importing} onClick={() => fileInput.current?.click()}>
-            {importing ? "Importing…" : "↑ Import statement CSV"}
-          </button>
-          <button type="button" className="btn primary sm" onClick={() => setShowAdd(true)}>+ Add statement line</button>
-        </>}
+        {canFinance && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              hidden
+              onChange={handleImportStatement}
+            />
+            <button
+              type="button"
+              className="btn ghost sm"
+              disabled={importing}
+              onClick={() => fileInputRef.current?.click()}
+              style={{ fontWeight: 600, border: "1px solid var(--border-color)", background: "var(--bg-surface)" }}
+            >
+              {importing ? "⏳ Parsing Statement…" : "↑ Upload Bank Statement (.xlsx, .csv)"}
+            </button>
+            <button type="button" className="btn primary sm" onClick={() => setShowAdd(true)}>
+              + Add Manual Line
+            </button>
+          </div>
+        )}
       </ViewToolbar>
 
-      <Panel title="How this works">
-        <div className="grid-3" style={{ padding: 2 }}>
-          <div><Badge tone="blue">1. Record</Badge><p style={{ margin: "8px 0 0", fontWeight: 700 }}>Post the tenant payment as a receipt.</p><p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>This updates the tenant and invoice balances.</p></div>
-          <div><Badge tone="yellow">2. Import</Badge><p style={{ margin: "8px 0 0", fontWeight: 700 }}>Add or import the bank statement line.</p><p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>One unique bank reference becomes one statement line.</p></div>
-          <div><Badge tone="green">3. Match</Badge><p style={{ margin: "8px 0 0", fontWeight: 700 }}>Match equal amounts and confirm.</p><p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>Reconciliation is proof of deposit; it never creates a second receipt.</p></div>
-        </div>
-      </Panel>
-
       <KpiStrip cols={4}>
-        <KpiCard icon="🏦" iconBg="#fef3c7" iconColor="#b45309" label="Awaiting match" value={kN(summary.unmatched.length)} sub={kM(summary.unmatchedTotal)} />
-        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#15803d" label="Reconciled" value={kN(summary.matched.length)} sub={kM(summary.matchedTotal)} />
-        <KpiCard icon="↔" iconBg="#dbeafe" iconColor="#1d4ed8" label="Statement lines" value={kN(transactions.length)} sub="Imported or entered" />
-        <KpiCard icon="🧾" iconBg="#f3e8ff" iconColor="#7e22ce" label="Next action" value={summary.unmatched.length ? "Match" : "Up to date"} sub={summary.unmatched.length ? "Review unmatched deposits" : "No outstanding bank lines"} />
+        <KpiCard
+          icon="🏦"
+          iconBg="#dbeafe"
+          iconColor="#1d4ed8"
+          label="Total Bank Inflow"
+          value={kM(summary.totalInflow)}
+          sub={`${kN(transactions.length)} statement lines`}
+        />
+        <KpiCard
+          icon="✓"
+          iconBg="#dcfce7"
+          iconColor="#15803d"
+          label="Reconciled Revenue"
+          value={kN(summary.matched.length)}
+          sub={kM(summary.matchedTotal)}
+        />
+        <KpiCard
+          icon="⚠️"
+          iconBg="#fef3c7"
+          iconColor="#b45309"
+          label="Unreceipted Deposits"
+          value={kN(summary.unreceipted.length)}
+          sub={`${kM(summary.unreceiptedTotal)} Action Required`}
+        />
+        <KpiCard
+          icon="🏛️"
+          iconBg="#f3e8ff"
+          iconColor="#7e22ce"
+          label="Bank Charges & Tax"
+          value={kN(summary.charges.length)}
+          sub={kM(summary.chargesTotal)}
+        />
       </KpiStrip>
 
-      <Panel title="Bank statement lines">
+      {/* Filter Tabs */}
+      <div style={{ display: "flex", gap: 8, borderBottom: "1px solid var(--border-color)", paddingBottom: 6 }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab("all")}
+          className={`btn ${activeTab === "all" ? "primary" : "ghost"} sm`}
+          style={{ borderRadius: 6 }}
+        >
+          All Transactions ({transactions.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("unreceipted")}
+          className={`btn ${activeTab === "unreceipted" ? "primary" : "ghost"} sm`}
+          style={{
+            borderRadius: 6,
+            background: activeTab === "unreceipted" ? "#b45309" : undefined,
+            color: activeTab === "unreceipted" ? "#ffffff" : summary.unreceipted.length ? "#b45309" : undefined,
+            fontWeight: summary.unreceipted.length ? 700 : undefined,
+          }}
+        >
+          ⚠️ Unreceipted Deposits ({summary.unreceipted.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("matched")}
+          className={`btn ${activeTab === "matched" ? "primary" : "ghost"} sm`}
+          style={{ borderRadius: 6 }}
+        >
+          ✓ Reconciled ({summary.matched.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("charges")}
+          className={`btn ${activeTab === "charges" ? "primary" : "ghost"} sm`}
+          style={{ borderRadius: 6 }}
+        >
+          🏛️ Bank Charges ({summary.charges.length})
+        </button>
+      </div>
+
+      <Panel title={`Bank Statement Lines (${filteredTransactions.length})`}>
         <ListState
           loading={loading}
-          empty={transactions.length === 0}
-          emptyTitle="No bank statement lines yet"
-          emptyDesc="Record a receipt when a tenant pays. Then import the bank statement or add its reference here to reconcile the deposit."
+          empty={filteredTransactions.length === 0}
+          emptyTitle="No statement lines found"
+          emptyDesc={
+            transactions.length === 0
+              ? "Upload an NBK or Stanbic bank statement file (.xlsx, .csv) to auto-extract deposits and match them to tenant receipts."
+              : "No transactions match the selected filter."
+          }
         >
           <div className="table-scroll">
             <table className="fc-data-table">
-              <thead><tr><th>Bank reference</th><th>Date</th><th>Description</th><th>Amount</th><th>Matched receipt</th><th>Status</th><th>Action</th></tr></thead>
-              <tbody>{transactions.map((transaction) => (
-                <tr key={String(transaction.id)}>
-                  <td className="mono" style={{ color: "var(--primary)", fontWeight: 700 }}>{String(transaction.reference ?? "—")}</td>
-                  <td>{fmtDate(transaction.transacted_on)}</td>
-                  <td>{String(transaction.description ?? "—")}</td>
-                  <td className="mono" style={{ fontWeight: 700 }}>{kM(transaction.amount)}</td>
-                  <td className="mono">{String(transaction.receipt_number ?? "—")}</td>
-                  <td><StatusPill value={String(transaction.status ?? "unmatched")} /></td>
-                  <td>{transaction.status === "unmatched" && (canFinance ? <button className="btn primary sm" onClick={() => onMatch(transaction)}>Match receipt</button> : <span className="muted">Finance access required</span>)}</td>
+              <thead>
+                <tr>
+                  <th>Date & Reference</th>
+                  <th>Type & Channel</th>
+                  <th>Extracted Details</th>
+                  <th>Narration</th>
+                  <th style={{ textAlign: "right" }}>Money In (KES)</th>
+                  <th>Reconciliation Status</th>
+                  <th style={{ textAlign: "right" }}>Action</th>
                 </tr>
-              ))}</tbody>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((tx) => {
+                  const isCredit = Number(tx.money_in ?? 0) > 0 || (!tx.money_in && !tx.money_out && Number(tx.amount ?? 0) > 0);
+                  const isMatched = tx.status === "matched";
+                  const isUnreceipted = !isMatched && isCredit && tx.transaction_type !== "bank_fee" && tx.transaction_type !== "tax";
+
+                  return (
+                    <tr
+                      key={String(tx.id)}
+                      style={{
+                        background: isUnreceipted ? "rgba(245, 158, 11, 0.05)" : undefined,
+                        borderLeft: isUnreceipted ? "3px solid #f59e0b" : undefined,
+                      }}
+                    >
+                      <td>
+                        <div style={{ fontWeight: 650, fontSize: 13 }}>{fmtDate(tx.transacted_on)}</div>
+                        <div className="mono" style={{ color: "var(--primary)", fontWeight: 700, fontSize: 12 }}>
+                          {String(tx.reference ?? "—")}
+                        </div>
+                      </td>
+                      <td>
+                        {tx.transaction_type === "mpesa_sweep" && <Badge tone="green">M-PESA Sweep</Badge>}
+                        {tx.transaction_type === "direct_deposit" && <Badge tone="blue">Direct Deposit</Badge>}
+                        {tx.transaction_type === "cheque" && <Badge tone="purple">Cheque</Badge>}
+                        {tx.transaction_type === "bank_fee" && <Badge tone="gray">Bank Fee</Badge>}
+                        {tx.transaction_type === "tax" && <Badge tone="gray">Excise / Tax</Badge>}
+                        {(!tx.transaction_type || tx.transaction_type === "other") && <Badge tone="gray">Other</Badge>}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {tx.extracted_mpesa_ref && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d" }}>
+                              📱 M-PESA: <span className="mono">{tx.extracted_mpesa_ref}</span>
+                            </span>
+                          )}
+                          {tx.extracted_account && (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>
+                              🏢 Unit/Acc: {tx.extracted_account}
+                            </span>
+                          )}
+                          {tx.extracted_payer_name && (
+                            <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                              👤 {tx.extracted_payer_name}
+                            </span>
+                          )}
+                          {!tx.extracted_mpesa_ref && !tx.extracted_account && !tx.extracted_payer_name && (
+                            <span className="muted" style={{ fontSize: 11 }}>—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ maxWidth: 280, fontSize: 12, lineHeight: 1.35, color: "var(--text-secondary)" }}>
+                        {String(tx.description || tx.raw_details || "—")}
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: 700 }} className="mono">
+                        {isCredit ? (
+                          <span style={{ color: "#16a34a" }}>+{kM(tx.money_in || tx.amount)}</span>
+                        ) : (
+                          <span style={{ color: "#dc2626" }}>-{kM(tx.money_out || tx.amount)}</span>
+                        )}
+                      </td>
+                      <td>
+                        {isMatched ? (
+                          <div>
+                            <StatusPill value="matched" />
+                            {tx.receipt_number && (
+                              <div className="mono" style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                                {tx.receipt_number} {tx.receipt_unit ? `(${tx.receipt_unit})` : ""}
+                              </div>
+                            )}
+                          </div>
+                        ) : isUnreceipted ? (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              padding: "2px 8px",
+                              borderRadius: 9999,
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              fontWeight: 700,
+                              fontSize: 11,
+                              border: "1px solid #fde68a",
+                            }}
+                          >
+                            ⚠️ Unreceipted
+                          </span>
+                        ) : (
+                          <StatusPill value="unmatched" />
+                        )}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {isUnreceipted && canFinance && (
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                            <button
+                              type="button"
+                              className="btn primary sm"
+                              style={{ background: "#16a34a", borderColor: "#16a34a", fontSize: 12, padding: "4px 8px" }}
+                              onClick={() => setQuickReceiptTarget(tx)}
+                            >
+                              + Create & Match Receipt
+                            </button>
+                            <button
+                              type="button"
+                              className="btn ghost sm"
+                              style={{ fontSize: 12, padding: "4px 8px" }}
+                              onClick={() => onMatch(tx)}
+                            >
+                              Link Existing
+                            </button>
+                          </div>
+                        )}
+                        {!isUnreceipted && !isMatched && canFinance && (
+                          <button
+                            type="button"
+                            className="btn ghost sm"
+                            style={{ fontSize: 12 }}
+                            onClick={() => onMatch(tx)}
+                          >
+                            Match Receipt
+                          </button>
+                        )}
+                        {isMatched && (
+                          <span style={{ color: "#16a34a", fontSize: 12, fontWeight: 600 }}>✓ Reconciled</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
           </div>
         </ListState>
-        {transactions.length === 0 && canFinance && <div className="row" style={{ justifyContent: "center", gap: 8, paddingBottom: 12 }}><button className="btn ghost sm" onClick={onRecordReceipt}>Record a receipt</button><button className="btn primary sm" onClick={() => setShowAdd(true)}>Add statement line</button></div>}
       </Panel>
 
-      {showAdd && <Modal title="Add bank statement line" onClose={() => setShowAdd(false)}>
-        <form onSubmit={addStatementLine} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>This is an external deposit record only. It will not change a tenant balance until you match it with an existing receipt.</p>
-          <Field label="Bank reference" required><input name="reference" required placeholder="e.g. KCB-TRX-123456" /></Field>
-          <Field label="Transaction date" required><input name="transacted_on" type="date" required /></Field>
-          <Field label="Amount (KES)" required><input name="amount" type="number" min="0.01" step="0.01" required /></Field>
-          <Field label="Description"><textarea name="description" rows={3} placeholder="Narration from the bank statement" /></Field>
-          <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}><button type="button" className="btn ghost" onClick={() => setShowAdd(false)}>Cancel</button><button type="submit" className="btn primary" disabled={submitting}>{submitting ? "Saving…" : "Save statement line"}</button></div>
-        </form>
-      </Modal>}
+      {/* Quick Receipt Modal */}
+      {quickReceiptTarget && (
+        <Modal
+          title={`1-Click Receipting: Bank Deposit KES ${Number(quickReceiptTarget.amount ?? 0).toLocaleString()}`}
+          onClose={() => setQuickReceiptTarget(null)}
+        >
+          <form onSubmit={submitQuickReceipt} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: 8,
+                background: "rgba(37, 99, 235, 0.06)",
+                border: "1px solid rgba(37, 99, 235, 0.2)",
+                fontSize: 13,
+              }}
+            >
+              <div><strong>Bank Reference:</strong> <span className="mono">{quickReceiptTarget.reference}</span></div>
+              <div><strong>Deposit Date:</strong> {fmtDate(quickReceiptTarget.transacted_on)}</div>
+              {quickReceiptTarget.extracted_mpesa_ref && (
+                <div><strong>Extracted M-PESA:</strong> <span className="mono">{quickReceiptTarget.extracted_mpesa_ref}</span></div>
+              )}
+              {quickReceiptTarget.extracted_account && (
+                <div><strong>Extracted Unit / Account:</strong> {quickReceiptTarget.extracted_account}</div>
+              )}
+              {quickReceiptTarget.description && (
+                <div style={{ marginTop: 4, color: "var(--text-secondary)", fontSize: 12 }}>
+                  <em>Narration: {quickReceiptTarget.description}</em>
+                </div>
+              )}
+            </div>
+
+            <Field label="Apply Payment to Invoice" required>
+              {loadingInvoices ? (
+                <p className="muted">Loading available invoices…</p>
+              ) : invoices.length === 0 ? (
+                <p className="muted" style={{ color: "#dc2626" }}>
+                  No open invoices with positive balances found. Please issue an invoice first or match an existing receipt.
+                </p>
+              ) : (
+                <select
+                  value={selectedInvoiceId}
+                  onChange={(e) => {
+                    setSelectedInvoiceId(e.target.value);
+                    const inv = invoices.find((i) => i.id === e.target.value);
+                    if (inv && !payerName) setPayerName(inv.tenant_name || "");
+                  }}
+                  required
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border-color)" }}
+                >
+                  {invoices.map((inv) => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.number} — {inv.tenant_name} ({inv.unit_code}) | Balance: KES {inv.balance.toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+
+            <Field label="Payer Name" required>
+              <input
+                type="text"
+                value={payerName}
+                onChange={(e) => setPayerName(e.target.value)}
+                placeholder="Name on receipt"
+                required
+              />
+            </Field>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Payment Channel">
+                <select
+                  value={paymentChannel}
+                  onChange={(e) => setPaymentChannel(e.target.value as any)}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border-color)" }}
+                >
+                  <option value="bank_transfer">Direct Bank Transfer</option>
+                  <option value="mpesa">M-PESA Paybill / Till</option>
+                </select>
+              </Field>
+
+              <Field label="Receipt Amount (KES)">
+                <input
+                  type="text"
+                  disabled
+                  value={`KES ${Number(quickReceiptTarget.amount ?? 0).toLocaleString()}`}
+                  style={{ background: "var(--bg-muted)", fontWeight: 700 }}
+                />
+              </Field>
+            </div>
+
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+              <button type="button" className="btn ghost" onClick={() => setQuickReceiptTarget(null)}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={submitting || !selectedInvoiceId || invoices.length === 0}
+                style={{ background: "#16a34a", borderColor: "#16a34a" }}
+              >
+                {submitting ? "Posting & Reconciling…" : "✓ Post Receipt & Reconcile"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Manual Statement Line Modal */}
+      {showAdd && (
+        <Modal title="Add Manual Bank Statement Line" onClose={() => setShowAdd(false)}>
+          <form onSubmit={addStatementLine} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+              Enter an external bank deposit or transfer line to reconcile against tenant receipts.
+            </p>
+            <Field label="Bank Reference" required>
+              <input name="reference" required placeholder="e.g. FT25074RP3BM or STAN-123456" />
+            </Field>
+            <Field label="Transaction Date" required>
+              <input name="transacted_on" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} />
+            </Field>
+            <Field label="Deposit Amount (KES)" required>
+              <input name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
+            </Field>
+            <Field label="Narration / Description">
+              <textarea name="description" rows={3} placeholder="Paste bank narration or payer notes" />
+            </Field>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+              <button type="button" className="btn ghost" onClick={() => setShowAdd(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn primary" disabled={submitting}>
+                {submitting ? "Saving…" : "Save Statement Line"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -2316,9 +2316,9 @@ class InvoiceReminderViewSet(ReadOnlyModelViewSet):
 
 class BankTransactionViewSet(OrganizationModelViewSet):
     write_permission = 'property.finance'
-    queryset = BankTransaction.objects.select_related('receipt')
+    queryset = BankTransaction.objects.select_related('receipt', 'receipt__invoice', 'receipt__invoice__lease', 'receipt__invoice__lease__tenant', 'receipt__invoice__lease__unit')
     serializer_class = BankTransactionSerializer
-    search_fields = ('reference', 'description', 'receipt__number')
+    search_fields = ('reference', 'description', 'receipt__number', 'extracted_mpesa_ref', 'extracted_payer_name', 'extracted_account')
 
     def perform_create(self, serializer):
         serializer.save(organization=self._validate_organization(serializer), status=BankTransaction.Status.UNMATCHED)
@@ -2328,71 +2328,225 @@ class BankTransactionViewSet(OrganizationModelViewSet):
             raise ValidationError({'transaction': 'Matched bank transactions are immutable.'})
         super().perform_update(serializer)
 
+    @action(detail=False, methods=('get',), url_path='summary')
+    def summary(self, request):
+        org = get_active_organization(request)
+        qs = BankTransaction.objects.for_organization(org)
+        matched_qs = qs.filter(status=BankTransaction.Status.MATCHED)
+        unmatched_qs = qs.filter(status=BankTransaction.Status.UNMATCHED)
+        unreceipted_qs = unmatched_qs.filter(Q(money_in__gt=0) | Q(transaction_type__in=(BankTransaction.TransactionType.MPESA_SWEEP, BankTransaction.TransactionType.DIRECT_DEPOSIT, BankTransaction.TransactionType.CHEQUE)))
+        charges_qs = qs.filter(transaction_type__in=(BankTransaction.TransactionType.BANK_FEE, BankTransaction.TransactionType.TAX))
+
+        total_in = qs.aggregate(s=Sum('money_in'))['s'] or Decimal('0')
+        total_out = qs.aggregate(s=Sum('money_out'))['s'] or Decimal('0')
+        matched_amt = matched_qs.aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        unreceipted_amt = unreceipted_qs.aggregate(s=Sum('amount'))['s'] or Decimal('0')
+        charges_amt = charges_qs.aggregate(s=Sum('amount'))['s'] or Decimal('0')
+
+        return Response({
+            'total_count': qs.count(),
+            'total_money_in': str(total_in),
+            'total_money_out': str(total_out),
+            'matched_count': matched_qs.count(),
+            'matched_amount': str(matched_amt),
+            'unreceipted_count': unreceipted_qs.count(),
+            'unreceipted_amount': str(unreceipted_amt),
+            'bank_charges_count': charges_qs.count(),
+            'bank_charges_amount': str(charges_amt),
+        })
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='import-statement')
+    def import_statement(self, request):
+        """Multi-format bank statement import engine (.xlsx, .xls, .csv).
+
+        Parses bank statement lines across all Kenyan commercial banks, extracts
+        embedded M-Pesa codes, account/unit numbers and payer names, auto-matches
+        against existing receipts, and flags unreceipted credits.
+        """
+        from properties.bank_parser import parse_bank_statement_file
+
+        upload = request.FILES.get('file')
+        if not upload:
+            raise ValidationError({'file': 'Please select a bank statement file (.xlsx, .xls, or .csv).'})
+        if upload.size > 15 * 1024 * 1024:
+            raise ValidationError({'file': 'Bank statement file must be 15 MB or smaller.'})
+
+        try:
+            content = upload.read()
+            parsed = parse_bank_statement_file(content, upload.name)
+        except Exception as exc:
+            raise ValidationError({'file': f'Could not parse bank statement: {str(exc)}'})
+
+        if not parsed:
+            raise ValidationError({'file': 'No valid transaction lines could be found in the uploaded statement.'})
+
+        organization = get_active_organization(request)
+        seen_refs = [line['reference'] for line in parsed]
+        existing_txs = {
+            tx.reference: tx
+            for tx in BankTransaction.objects.filter(organization=organization, reference__in=seen_refs)
+        }
+
+        # Prefetch available unlinked receipts for auto-matching
+        unlinked_receipts = list(
+            Receipt.objects.for_organization(organization).filter(bank_transaction__isnull=True).select_related('invoice')
+        )
+        receipts_by_ref = {r.external_reference.strip().upper(): r for r in unlinked_receipts if r.external_reference}
+        receipts_by_number = {r.number.strip().upper(): r for r in unlinked_receipts if r.number}
+
+        created_count = 0
+        skipped_count = 0
+        auto_matched_count = 0
+        unreceipted_count = 0
+
+        to_create = []
+
+        for line in parsed:
+            ref = line['reference']
+            if ref in existing_txs:
+                skipped_count += 1
+                continue
+
+            tx = BankTransaction(
+                organization=organization,
+                reference=ref,
+                transacted_on=line['transacted_on'],
+                description=line['description'],
+                amount=line['amount'],
+                money_in=line['money_in'],
+                money_out=line['money_out'],
+                transaction_type=line['transaction_type'],
+                extracted_mpesa_ref=line['extracted_mpesa_ref'],
+                extracted_account=line['extracted_account'],
+                extracted_payer_name=line['extracted_payer_name'],
+                extracted_phone=line['extracted_phone'],
+                raw_details=line['raw_details'],
+                balance_after=line['balance_after'],
+                status=BankTransaction.Status.UNMATCHED,
+            )
+
+            # Auto-Match Rule 1: M-Pesa Receipt Code Match
+            matched_rcpt = None
+            if tx.extracted_mpesa_ref and tx.extracted_mpesa_ref.upper() in receipts_by_ref:
+                cand = receipts_by_ref[tx.extracted_mpesa_ref.upper()]
+                if cand.amount == tx.amount:
+                    matched_rcpt = cand
+            # Auto-Match Rule 2: Bank Reference / Receipt Number Match
+            elif tx.reference.upper() in receipts_by_ref:
+                cand = receipts_by_ref[tx.reference.upper()]
+                if cand.amount == tx.amount:
+                    matched_rcpt = cand
+            elif tx.reference.upper() in receipts_by_number:
+                cand = receipts_by_number[tx.reference.upper()]
+                if cand.amount == tx.amount:
+                    matched_rcpt = cand
+
+            if matched_rcpt:
+                tx.receipt = matched_rcpt
+                tx.status = BankTransaction.Status.MATCHED
+                tx.matched_by = request.user
+                tx.matched_at = timezone.now()
+                auto_matched_count += 1
+                # Consume this receipt so it isn't matched twice
+                if matched_rcpt.external_reference:
+                    receipts_by_ref.pop(matched_rcpt.external_reference.strip().upper(), None)
+            else:
+                if tx.money_in > 0 or tx.transaction_type in (
+                    BankTransaction.TransactionType.MPESA_SWEEP,
+                    BankTransaction.TransactionType.DIRECT_DEPOSIT,
+                    BankTransaction.TransactionType.CHEQUE
+                ):
+                    unreceipted_count += 1
+
+            to_create.append(tx)
+            created_count += 1
+
+        if to_create:
+            BankTransaction.objects.bulk_create(to_create)
+
+        return Response({
+            'total_parsed': len(parsed),
+            'created': created_count,
+            'skipped': skipped_count,
+            'auto_matched': auto_matched_count,
+            'unreceipted_credits': unreceipted_count,
+        }, status=status.HTTP_201_CREATED)
+
     @transaction.atomic
     @action(detail=False, methods=('post',), url_path='import-csv')
     def import_csv(self, request):
-        """Import statement lines without ever creating or changing receipts.
+        """Backwards-compatible CSV alias forwarding to import_statement."""
+        res = self.import_statement(request)
+        return Response({'created': res.data['created'], 'skipped': res.data['skipped']}, status=res.status_code)
 
-        The import is deliberately limited to the four portable columns used by
-        most bank exports: reference, date, description and amount. References
-        are idempotency keys; previously imported lines are reported as skipped.
-        """
-        upload = request.FILES.get('file')
-        if not upload:
-            raise ValidationError({'file': 'Choose a CSV bank statement first.'})
-        if upload.size > 5 * 1024 * 1024:
-            raise ValidationError({'file': 'Bank statement CSV must be 5 MB or smaller.'})
-        try:
-            decoded = upload.read().decode('utf-8-sig')
-        except UnicodeDecodeError:
-            raise ValidationError({'file': 'Use a UTF-8 encoded CSV file.'})
-        reader = csv.DictReader(StringIO(decoded))
-        if not reader.fieldnames:
-            raise ValidationError({'file': 'The CSV must include a header row.'})
-        field_map = {str(name).strip().lower().replace(' ', '_'): name for name in reader.fieldnames if name}
-        required = {
-            'reference': ('reference', 'bank_reference', 'transaction_reference'),
-            'transacted_on': ('date', 'transacted_on', 'transaction_date'),
-            'amount': ('amount',),
-        }
-        resolved = {key: next((field_map[name] for name in aliases if name in field_map), None) for key, aliases in required.items()}
-        missing = [key for key, value in resolved.items() if not value]
-        if missing:
-            raise ValidationError({'file': f"Missing required CSV column(s): {', '.join(missing)}. Use reference, date and amount."})
-        description_column = next((field_map[name] for name in ('description', 'narration', 'details') if name in field_map), None)
-        organization = get_active_organization(request)
-        parsed = []
-        seen = set()
-        for line_number, row in enumerate(reader, start=2):
-            reference = str(row.get(resolved['reference'], '')).strip()
-            if not reference:
-                raise ValidationError({'file': f'Row {line_number}: reference is required.'})
-            if reference in seen:
-                raise ValidationError({'file': f'Row {line_number}: duplicate reference {reference!r} in this file.'})
-            seen.add(reference)
-            transacted_on = _parse_flexible_date(row.get(resolved['transacted_on']))
-            if not transacted_on:
-                raise ValidationError({'file': f'Row {line_number}: date must be a valid date.'})
-            try:
-                amount = Decimal(str(row.get(resolved['amount'], '')).replace(',', '').strip())
-            except Exception:
-                raise ValidationError({'file': f'Row {line_number}: amount must be a positive number.'})
-            if amount <= 0:
-                raise ValidationError({'file': f'Row {line_number}: amount must be greater than zero.'})
-            parsed.append({
-                'reference': reference,
-                'transacted_on': transacted_on,
-                'amount': amount,
-                'description': str(row.get(description_column, '')).strip() if description_column else '',
-            })
-        if not parsed:
-            raise ValidationError({'file': 'No statement lines were found in the CSV.'})
-        existing = set(BankTransaction.objects.filter(organization=organization, reference__in=seen).values_list('reference', flat=True))
-        BankTransaction.objects.bulk_create([
-            BankTransaction(organization=organization, status=BankTransaction.Status.UNMATCHED, **line)
-            for line in parsed if line['reference'] not in existing
-        ])
-        return Response({'created': len(parsed) - len(existing), 'skipped': len(existing)}, status=status.HTTP_201_CREATED)
+    @transaction.atomic
+    @action(detail=True, methods=('post',), url_path='quick-receipt')
+    def quick_receipt(self, request, pk=None):
+        """1-Click Receipting: Instantly posts a Receipt for an unreceipted bank transaction and reconciles it."""
+        transaction_record = BankTransaction.objects.select_for_update().get(pk=self.get_object().pk)
+        if transaction_record.status != BankTransaction.Status.UNMATCHED:
+            raise ValidationError({'status': 'Only unmatched bank transactions can be receipted.'})
+
+        organization = transaction_record.organization
+        invoice_id = request.data.get('invoice_id')
+        if not invoice_id:
+            raise ValidationError({'invoice_id': 'Select an invoice to apply this receipt to.'})
+
+        invoice = Invoice.objects.select_for_update().filter(pk=invoice_id, organization=organization).first()
+        if not invoice:
+            raise ValidationError({'invoice_id': 'Invoice was not found.'})
+
+        if invoice.status not in (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE):
+            raise ValidationError({'invoice_id': 'Only issued or overdue invoices can receive payment receipts.'})
+
+        amount = transaction_record.amount
+        if amount > invoice.balance:
+            raise ValidationError({'amount': f'Transaction amount (KES {amount:,.2f}) exceeds invoice balance (KES {invoice.balance:,.2f}).'})
+
+        # Generate receipt number
+        prefix = f'RCPT-{timezone.localdate():%Y}-'
+        sequence = Receipt.objects.filter(organization=organization, number__startswith=prefix).count() + 1
+        receipt_number = f'{prefix}{sequence:05d}'
+
+        payer_name = request.data.get('payer_name') or transaction_record.extracted_payer_name or invoice.lease.tenant.name
+        channel = request.data.get('payment_channel')
+        if not channel:
+            channel = 'mpesa' if transaction_record.transaction_type == BankTransaction.TransactionType.MPESA_SWEEP else 'bank_transfer'
+
+        ext_ref = transaction_record.extracted_mpesa_ref or transaction_record.reference
+
+        receipt = Receipt.objects.create(
+            organization=organization,
+            number=receipt_number,
+            tenant=invoice.lease.tenant,
+            invoice=invoice,
+            amount=amount,
+            received_on=transaction_record.transacted_on,
+            payment_method=channel,
+            external_reference=ext_ref,
+            received_by=request.user,
+        )
+
+        ReceiptAllocation.objects.create(
+            organization=organization,
+            receipt=receipt,
+            invoice=invoice,
+            amount=amount,
+            allocated_by=request.user,
+        )
+
+        invoice.balance -= amount
+        invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
+        invoice.save(update_fields=('balance', 'status', 'updated_at'))
+
+        transaction_record.receipt = receipt
+        transaction_record.status = BankTransaction.Status.MATCHED
+        transaction_record.matched_by = request.user
+        transaction_record.matched_at = timezone.now()
+        transaction_record.save()
+
+        return Response(self.get_serializer(transaction_record).data, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
     @action(detail=True, methods=('post',))
@@ -3308,6 +3462,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
         resp: dict = {'generated_count': len(generated), 'invoices': InvoiceSerializer(generated, many=True).data}
         if skipped_duplicate:
             resp['skipped_duplicate'] = skipped_duplicate
+        if not generated and skipped_duplicate:
+            resp['replayed'] = True
+            return Response(resp, status=200)
         return Response(resp, status=201)
 
     @action(detail=True, methods=('post',), url_path='resolve-issue')
