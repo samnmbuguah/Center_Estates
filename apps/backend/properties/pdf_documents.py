@@ -886,3 +886,111 @@ def arrears_aging_pdf(organization, property_name: str, rows: list[dict], summar
         organization, f"arrears-ageing-{date.today():%Y%m%d}.pdf", story, wide=True,
         title="Arrears Ageing Analysis", property_name=property_name, period=period, generated_by=generated_by,
     )
+
+
+def service_charge_reconciliation_pdf(reconciliation, generated_by="System"):
+    s = _styles()
+    scheme = reconciliation.service_charge
+    prop = scheme.property
+    org = scheme.organization
+
+    story = [
+        Paragraph("Service Charge Reconciliation Statement", s["Title"]),
+        Spacer(1, 4 * mm),
+    ]
+
+    info_rows = [
+        ("Scheme / Cost Centre", scheme.name),
+        ("Property", prop.name),
+        ("Reconciliation Period", f"{reconciliation.period_start:%d %b %Y} – {reconciliation.period_end:%d %b %Y}"),
+        ("Apportionment Basis", str(scheme.get_method_display() if hasattr(scheme, 'get_method_display') else scheme.method).title()),
+        ("Scheme Annual Budget", _money(scheme.annual_budget)),
+        ("Reconciliation Status", str(reconciliation.status).upper()),
+    ]
+    story.append(_info_table(info_rows, s))
+    story.append(Spacer(1, 5 * mm))
+
+    variance_val = reconciliation.variance
+    is_surplus = variance_val >= 0
+    var_label = "SURPLUS (UNDER BUDGET)" if is_surplus else "DEFICIT (OVER BUDGET)"
+
+    summary_table_data = [
+        ["FINANCIAL METRIC", "AMOUNT (KES)", "ASSESSMENT"],
+        ["Prorated Period Budget", f"{Decimal(reconciliation.budgeted_amount):,.2f}", "Calculated based on elapsed days"],
+        ["Actual Incurred Expenditure", f"{Decimal(reconciliation.actual_amount):,.2f}", "Approved & paid property expenses"],
+        [f"Net Variance [{var_label}]", f"{Decimal(abs(variance_val)):,.2f}", "Credit adjustment due" if is_surplus else "Balancing billing required"],
+    ]
+    sum_table = Table(summary_table_data, colWidths=[65 * mm, 45 * mm, 65 * mm])
+    sum_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, LINE),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BACKGROUND", (0, -1), (-1, -1), GREEN if is_surplus else RED),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(sum_table)
+    story.append(Spacer(1, 6 * mm))
+
+    allocations = list(scheme.allocations.select_related('unit').order_by('unit__code'))
+    if allocations:
+        story.append(Paragraph("Unit-Level Apportionment & Variance Breakdown", s["Section"]))
+        alloc_table_data = [["UNIT", "AREA (M²)", "SHARE RATIO", "PERIOD BUDGET", "ACTUAL SHARE", "VARIANCE"]]
+        for alloc in allocations:
+            u_area = f"{alloc.unit.area:,.1f}" if alloc.unit.area else "—"
+            u_ratio = f"{(alloc.ratio * 100):.2f}%"
+            u_budget = (reconciliation.budgeted_amount * alloc.ratio).quantize(Decimal('0.01'))
+            u_actual = (reconciliation.actual_amount * alloc.ratio).quantize(Decimal('0.01'))
+            u_var = u_budget - u_actual
+            alloc_table_data.append([
+                alloc.unit.code,
+                u_area,
+                u_ratio,
+                f"{u_budget:,.2f}",
+                f"{u_actual:,.2f}",
+                f"{u_var:,.2f}",
+            ])
+        alloc_table = Table(alloc_table_data, colWidths=[25 * mm, 25 * mm, 25 * mm, 35 * mm, 35 * mm, 30 * mm], repeatRows=1)
+        alloc_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("GRID", (0, 0), (-1, -1), 0.3, LINE),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(alloc_table)
+        story.append(Spacer(1, 6 * mm))
+
+    prep_name = reconciliation.prepared_by.get_full_name() or reconciliation.prepared_by.get_username() if reconciliation.prepared_by else "System"
+    rev_name = (reconciliation.reviewed_by.get_full_name() or reconciliation.reviewed_by.get_username()) if reconciliation.reviewed_by else "Pending Review"
+    rev_date = f"{reconciliation.reviewed_at:%d %b %Y %H:%M}" if reconciliation.reviewed_at else "Pending"
+
+    sign_data = [
+        ["PREPARED BY", "REVIEWED & APPROVED BY", "APPROVAL DATE"],
+        [prep_name, rev_name, rev_date],
+    ]
+    sign_table = Table(sign_data, colWidths=[60 * mm, 65 * mm, 50 * mm])
+    sign_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), PALE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.3, LINE),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(sign_table)
+
+    return _doc_response(
+        org, f"service-charge-reconciliation-{reconciliation.id}.pdf", story,
+        title="Service Charge Reconciliation", property_name=prop.name,
+        period=f"{reconciliation.period_start:%b %Y} – {reconciliation.period_end:%b %Y}",
+        generated_by=generated_by,
+    )
+

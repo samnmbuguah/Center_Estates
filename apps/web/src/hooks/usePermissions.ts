@@ -16,6 +16,7 @@ export interface UserPermissions {
   canViewLeaveRequests: boolean;
   canViewFeedback: boolean;
   canUseCompanion: boolean;
+  canManageCompanion: boolean;
 }
 
 export function usePermissions(): UserPermissions {
@@ -35,6 +36,13 @@ export function usePermissions(): UserPermissions {
       session?.roles?.includes("technician") ||
       session?.roles?.includes("admin")
   );
+  const canManageCompanion = Boolean(
+    isSuperAdmin ||
+    session?.permissions?.includes("companion.manage") ||
+    session?.roles?.includes("property_manager") ||
+    session?.roles?.includes("facility_manager") ||
+    session?.roles?.includes("admin")
+  );
 
   return useMemo<UserPermissions>(() => ({
     isSuperAdmin,
@@ -49,5 +57,6 @@ export function usePermissions(): UserPermissions {
     canViewLeaveRequests: true, // Available to all authenticated users
     canViewFeedback: true, // Available to all authenticated users
     canUseCompanion: true, // Available to all authenticated users
-  }), [isSuperAdmin, isFieldStaff]);
+    canManageCompanion,
+  }), [isSuperAdmin, isFieldStaff, canManageCompanion]);
 }

@@ -111,9 +111,9 @@ export function Panel({ title, badge, action, children, style }: { title?: React
 export function EmptyState({ icon = "📋", title = "No records", description, action }: { icon?: ReactNode; title?: string; description?: string; action?: ReactNode }) {
   return (
     <div className="card" style={{ textAlign: "center", padding: 48 }}>
-      <div style={{ fontSize: 34, marginBottom: 12, opacity: 0.45 }}>{icon}</div>
-      <h3 style={{ margin: "0 0 6px", fontSize: 16 }}>{title}</h3>
-      {description && <p className="muted" style={{ margin: "0 auto 18px", maxWidth: 420, fontSize: 13 }}>{description}</p>}
+      <div style={{ fontSize: 34, marginBottom: 12, opacity: 0.6 }}>{icon}</div>
+      <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "var(--text)" }}>{title}</h3>
+      {description && <p style={{ margin: "0 auto 18px", maxWidth: 460, fontSize: 13, color: "var(--text-secondary)", fontWeight: 600, lineHeight: 1.5 }}>{description}</p>}
       {action}
     </div>
   );

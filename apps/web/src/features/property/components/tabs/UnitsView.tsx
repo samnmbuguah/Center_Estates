@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -23,8 +23,14 @@ import {
 } from "../../utils/property.utils";
 import { UnitBillingScheduleDrawer } from "../UnitBillingScheduleDrawer";
 import { UnitFloorPlanCanvas, type Point, type UnitLayout } from "../floorplan/UnitFloorPlanCanvas";
-import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { Upload } from "lucide-react";
+
+type StoredFloorPlan = {
+  id: string; building: string; floor: string; title: string; version: string;
+  original_filename?: string; file_type?: string; original_url?: string; preview_url?: string;
+  preview_status?: string; preview_error?: string; created_at?: string;
+};
 
 export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRow }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onSelectRow?: (r: Row) => void;
@@ -32,6 +38,14 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const [view, setView] = useState<"commercial" | "residential" | "stacking" | "floorplan">("residential");
   const [selectedFloor, setSelectedFloor] = useState<string>("1");
   const [billingUnit, setBillingUnit] = useState<UnitRow | null>(null);
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("");
+  const [floorPlans, setFloorPlans] = useState<StoredFloorPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [planUploading, setPlanUploading] = useState(false);
+  const [planError, setPlanError] = useState("");
+  const [browserPdfPreview, setBrowserPdfPreview] = useState("");
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const units = rows as UnitRow[];
   const occupied = units.filter((u) => u.status === "occupied").length;
   const available = units.filter((u) => u.status === "available").length;
@@ -62,13 +76,27 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     });
   }, [units]);
 
-  const [floorImages, setFloorImages] = useState<Record<string, string>>({});
-  const floorPlanImage = floorImages[selectedFloor] || "";
+  const buildingOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    units.forEach((unit) => {
+      if (unit.building) seen.set(String(unit.building), unit.building_name || "Unnamed building");
+    });
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+  }, [units]);
+
+  useEffect(() => {
+    if (!selectedBuilding && buildingOptions.length) setSelectedBuilding(buildingOptions[0].id);
+    if (selectedBuilding && !buildingOptions.some((building) => building.id === selectedBuilding)) {
+      setSelectedBuilding(buildingOptions[0]?.id || "");
+    }
+  }, [buildingOptions, selectedBuilding]);
 
   // Available floors list
   const availableFloors = useMemo(() => {
-    return Array.from(new Set(units.map(u => String(u.floor ?? "1").trim() || "1"))).sort();
-  }, [units]);
+    return Array.from(new Set(units
+      .filter((unit) => !selectedBuilding || String(unit.building) === selectedBuilding)
+      .map(u => String(u.floor ?? "1").trim() || "1"))).sort();
+  }, [units, selectedBuilding]);
 
   // Set default selected floor if needed
   useEffect(() => {
@@ -77,10 +105,95 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     }
   }, [availableFloors, selectedFloor]);
 
+  useEffect(() => {
+    if (!selectedBuilding || !selectedFloor) return;
+    let active = true;
+    setPlansLoading(true);
+    setPlanError("");
+    apiFetch(`/facility/floor-plans/?building=${encodeURIComponent(selectedBuilding)}&floor=${encodeURIComponent(selectedFloor)}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await apiErrorMessage(response, "Could not load floor plan versions."));
+        return response.json();
+      })
+      .then((payload) => {
+        if (!active) return;
+        const plans = (Array.isArray(payload) ? payload : payload.results || []) as StoredFloorPlan[];
+        setFloorPlans(plans);
+        setSelectedPlanId((current) => plans.some((plan) => plan.id === current) ? current : (plans[0]?.id || ""));
+      })
+      .catch((error) => active && setPlanError(error instanceof Error ? error.message : "Could not load floor plans."))
+      .finally(() => active && setPlansLoading(false));
+    return () => { active = false; };
+  }, [selectedBuilding, selectedFloor]);
+
+  const selectedPlan = floorPlans.find((plan) => plan.id === selectedPlanId) || floorPlans[0];
+  const storedPreview = selectedPlan?.preview_status === "ready" ? (selectedPlan.preview_url || "") : "";
+  const floorPlanImage = storedPreview || browserPdfPreview;
+
+  // cPanel does not provide a server-side PDF renderer. Render page one in the
+  // browser so a PDF remains fully usable as a unit-mapping background.
+  useEffect(() => {
+    let active = true;
+    setBrowserPdfPreview("");
+    if (!selectedPlan || selectedPlan.file_type !== "pdf" || storedPreview || !selectedPlan.original_url) return;
+    setPdfPreviewLoading(true);
+    (async () => {
+      try {
+        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();
+        const response = await fetch(selectedPlan.original_url!, { credentials: "include" });
+        if (!response.ok) throw new Error("The PDF plan could not be opened.");
+        const document = await pdfjs.getDocument({ data: await response.arrayBuffer() }).promise;
+        const page = await document.getPage(1);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const scale = Math.min(2, 1600 / Math.max(baseViewport.width, baseViewport.height));
+        const viewport = page.getViewport({ scale });
+        const canvas = window.document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Your browser could not prepare the PDF preview.");
+        await page.render({ canvas, canvasContext: context, viewport }).promise;
+        if (active) setBrowserPdfPreview(canvas.toDataURL("image/png"));
+      } catch (error) {
+        if (active) setPlanError(error instanceof Error ? error.message : "The PDF was saved but could not be previewed in this browser.");
+      } finally {
+        if (active) setPdfPreviewLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [selectedPlan?.id, selectedPlan?.file_type, selectedPlan?.original_url, storedPreview]);
+
+  const uploadFloorPlan = async (file: File) => {
+    if (!selectedBuilding) {
+      setPlanError("Select a building before uploading its floor plan.");
+      return;
+    }
+    setPlanUploading(true);
+    setPlanError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const form = new FormData();
+      form.append("file", file);
+      form.append("building", selectedBuilding);
+      form.append("floor", selectedFloor);
+      const response = await apiFetch("/facility/floor-plans/upload/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() }, body: form });
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "The floor plan could not be uploaded."));
+      const created = await response.json() as StoredFloorPlan;
+      setFloorPlans((plans) => [created, ...plans]);
+      setSelectedPlanId(created.id);
+    } catch (error) {
+      setPlanError(error instanceof Error ? error.message : "The floor plan could not be uploaded.");
+    } finally {
+      setPlanUploading(false);
+    }
+  };
+
   // Current floor units formatted for UnitFloorPlanCanvas
   const currentFloorUnits = useMemo<UnitLayout[]>(() => {
     return units
       .filter((u) => (String(u.floor ?? "1").trim() || "1") === selectedFloor)
+      .filter((u) => !selectedBuilding || String(u.building) === selectedBuilding)
       .map((u) => {
         const meta = (u.metadata || {}) as Record<string, any>;
         return {
@@ -141,8 +254,15 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
       {view === "floorplan" ? (
         <Panel title="Interactive Unit Drawing Outline & Floor Plan">
           <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+            {planError && <Alert severity="error" onClose={() => setPlanError("")}>{planError}</Alert>}
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 800 }}>Building:</Typography>
+                  <Select size="small" value={selectedBuilding} onChange={(e) => setSelectedBuilding(String(e.target.value))} sx={{ minWidth: 180, fontSize: 13, height: 36, background: "var(--surface)" }}>
+                    {buildingOptions.map((building) => <MenuItem key={building.id} value={building.id}>{building.name}</MenuItem>)}
+                  </Select>
+                </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Typography variant="body2" sx={{ fontWeight: 800 }}>Select Floor Level:</Typography>
                   <Select
@@ -163,40 +283,33 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                   startIcon={<Upload size={14} />}
                   sx={{ height: 36, fontSize: 12 }}
                 >
-                  {floorPlanImage ? "Change Floor Plan Image" : "Upload Floor Plan Blueprint"}
+                  {planUploading ? "Uploading…" : "Upload Floor Plan"}
                   <input
                     hidden
                     type="file"
-                    accept="image/png,image/jpeg,image/svg+xml"
+                    accept="application/pdf,image/png,image/jpeg,image/svg+xml,.dwg,.dxf"
+                    disabled={planUploading || !selectedBuilding}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          if (typeof reader.result === "string") {
-                            setFloorImages((prev) => ({ ...prev, [selectedFloor]: reader.result as string }));
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      }
+                      if (file) void uploadFloorPlan(file);
+                      e.currentTarget.value = "";
                     }}
                   />
                 </Button>
-                {floorPlanImage && (
-                  <Button
-                    size="small"
-                    color="inherit"
-                    onClick={() => setFloorImages((prev) => ({ ...prev, [selectedFloor]: "" }))}
-                    sx={{ height: 36, fontSize: 11, textTransform: "none" }}
-                  >
-                    Clear Image
-                  </Button>
-                )}
+                {(plansLoading || pdfPreviewLoading) && <CircularProgress size={18} />}
+                {floorPlans.length > 1 && <Select size="small" value={selectedPlan?.id || ""} onChange={(e) => setSelectedPlanId(String(e.target.value))} sx={{ minWidth: 165, height: 36, fontSize: 12 }}>
+                  {floorPlans.map((plan) => <MenuItem key={plan.id} value={plan.id}>Version {plan.version} · {plan.original_filename || "Floor plan"}</MenuItem>)}
+                </Select>}
+                {selectedPlan?.original_url && <Button size="small" variant="text" component="a" href={selectedPlan.original_url} target="_blank" rel="noreferrer">Download original</Button>}
               </Box>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                💡 Click <strong>"Draw Unit Outline"</strong> to draw boundary corners over each unit space. Click any unit to view details.
+              <Typography variant="caption" sx={{ color: "text.secondary", maxWidth: 620 }}>
+                Upload PDF, PNG, JPG, SVG, DWG or DXF (max. 25 MB). PDFs and supported CAD drawings are converted to a mapping preview; the original is retained. Click <strong>“Draw Unit Outline”</strong> to map units.
               </Typography>
             </Box>
+
+            {selectedPlan?.preview_status === "preview_unavailable" && selectedPlan.file_type !== "pdf" && <Alert severity="warning" action={selectedPlan.original_url ? <Button color="inherit" size="small" component="a" href={selectedPlan.original_url} target="_blank">Download original</Button> : undefined}>
+              {selectedPlan.preview_error || "This drawing was saved but cannot be shown in the mapper yet. Export it as PDF or PNG, then upload that version."}
+            </Alert>}
 
             <UnitFloorPlanCanvas
               floorPlan={{

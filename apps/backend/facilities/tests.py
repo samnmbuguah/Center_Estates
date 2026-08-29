@@ -12,7 +12,7 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from properties.models import Building, Lease, Property, Tenant, TenantPortalAccess, Unit
 from subscriptions.models import Subscription
 
-from .models import Contractor, ContractorContract, ContractInvoiceAppraisal, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityJobCard, FacilityPaymentRecord, FinancePaymentRequest, Inspection, LocalPurchaseOrder, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ProcurementRecord, RepairRequisition, ServiceProfile, ServiceRequest, SupplierInvoice, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
+from .models import Contractor, ContractorContract, ContractInvoiceAppraisal, FacilityAsset, FacilityExpense, FacilityIncident, FacilityIncidentAttachment, FacilityIncidentEvent, FacilityJobCard, FacilityPaymentRecord, FinancePaymentRequest, FloorPlan, Inspection, LocalPurchaseOrder, MeterReading, MeterReconciliation, MeterResetEvent, PreventiveSchedule, ProcurementRecord, RepairRequisition, ServiceProfile, ServiceRequest, SupplierInvoice, UtilityMeter, WorkOrder, WorkOrderCostItem, WorkOrderEvent
 
 
 class FacilityIntegrityTests(TestCase):
@@ -33,7 +33,9 @@ class FacilityApiTests(TestCase):
         self.other = Organization.objects.create(name='Other Facility Client', slug='other-facility-client')
         Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
         Subscription.objects.create(organization=self.organization, module=Module.FACILITY, status=Subscription.Status.ACTIVE)
+        Subscription.objects.create(organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE)
         self.property = Property.objects.create(organization=self.organization, code='P1', name='Main Building')
+        self.building = Building.objects.create(organization=self.organization, property=self.property, code='BLD-1', name='Main Building')
         self.asset = FacilityAsset.objects.create(
             organization=self.organization, property=self.property, code='A1', name='Main Lift',
             category='Mechanical', purchase_value=Decimal('500000'),
@@ -54,6 +56,23 @@ class FacilityApiTests(TestCase):
         response = self.client.get('/api/v1/facility/assets/', **self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row['code'] for row in response.data], ['A1'])
+
+    def test_floor_plan_upload_is_property_scoped_and_retains_original(self):
+        response = self.client.post('/api/v1/facility/floor-plans/upload/', {
+            'building': str(self.building.id), 'floor': '6',
+            'file': SimpleUploadedFile('level-6.png', b'not-a-real-png-but-a-storage-test', content_type='image/png'),
+        }, format='multipart', **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)})
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['file_type'], 'png')
+        self.assertEqual(response.data['preview_status'], 'ready')
+        self.assertTrue(response.data['original_url'])
+        self.assertEqual(FloorPlan.objects.filter(organization=self.organization, building=self.building, floor='6').count(), 1)
+
+        listed = self.client.get('/api/v1/facility/floor-plans/', {
+            'building': str(self.building.id), 'floor': '6',
+        }, **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)})
+        self.assertEqual(listed.status_code, 200, listed.data)
+        self.assertEqual(len(listed.data), 1)
 
     def test_landlord_report_is_a_real_property_scoped_pdf(self):
         response = self.client.get('/api/v1/facility/analytics/landlord-report/', **{

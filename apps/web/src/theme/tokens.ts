@@ -51,9 +51,9 @@ export const lightTheme = {
     muted: slate[100],
   },
   text: {
-    primary: slate[900],
-    secondary: slate[700],
-    muted: slate[500],
+    primary: '#090d16',
+    secondary: '#1e293b',
+    muted: '#334155',
     inverse: '#ffffff',
     onBrand: '#ffffff',
   },

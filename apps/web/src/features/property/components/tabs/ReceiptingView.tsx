@@ -83,8 +83,8 @@ export function ReceiptingView({
           search={search}
           setSearch={setSearch}
           setTab={setTab}
-          onAdd={onAddCreditNote!}
-          onVoid={onVoidCreditNote!}
+          onAdd={onAddCreditNote}
+          onVoid={onVoidCreditNote as (note: CreditNoteRow) => void}
         />
       )}
 

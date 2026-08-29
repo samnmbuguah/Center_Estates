@@ -1,30 +1,20 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Button, Chip, MenuItem, TextField, Typography, Grid } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
-  ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
+  Pagination, money, number,
 } from "@/components/module-ui";
-import { ViewToolbar, ListState, SubTabs } from "../PropertyToolbar";
-import { EnhancedDataTable } from "@/components/enhanced-data-table";
-import { InteractiveDashboard } from "@/components/interactive-dashboard";
-import {
-  PropertyTab, Row, ID, PropertyRow, BuildingRow, UnitRow, ProjectRow,
-  TenantRow, TenantDocumentRow, LeaseRow, RentScheduleRow, InvoiceRow,
-  InvoicePreview, ReceiptRow, ReminderRow, BankTransactionRow, ExpenseRow,
-  BudgetRow, ServiceChargeRow, ServiceChargeAllocationRow,
-  ServiceChargeReconciliationRow, ReceiptAllocationRow, CreditNoteRow,
-  AgingTenantRow, AgingAnalytics, FinancialAnalytics, ReportItem,
-  DashboardData, RentSection, ScSection, TenancySection, FinancialsSection,
+import { ListState } from "../PropertyToolbar";
+import type {
+  PropertyTab, Row, PropertyRow,
 } from "../../types/property.types";
 import {
-  kM, kN, fmtDate, daysUntil, daysLeftLabel, overdueLabel, pct,
-  occupancyTone, shortId, exportCsv, exportLeaseICS, exportICS,
-  criticalFormatDate, criticalDaysUntil,
+  kM, kN, pct, occupancyTone,
 } from "../../utils/property.utils";
-import { Building2, DollarSign, Users, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
+import { Building2, DollarSign, Users, Layers, CheckCircle2, TrendingUp, Plus } from "lucide-react";
 
 export function PropertiesView({
   rows, loading, search, setSearch, setTab, onAdd, onSelectRow,
@@ -44,84 +34,89 @@ export function PropertiesView({
   const totalOccupied = props.reduce((s, p) => s + Number(p.occupied ?? 0), 0);
   const vacant = Math.max(totalUnits - totalOccupied, 0);
   const occupancyRate = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
+  const totalMonthlyRent = props.reduce((sum, p) => sum + Number(p.monthly_rent || p.monthlyRent || 0), 0);
 
   return (
-    <>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#4f46e5", color: "white",
-            textAlign: "center"
-          }}>
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{props.length}</Typography>
-            <Typography variant="caption">Properties</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#2563eb", color: "white",
-            textAlign: "center"
-          }}>
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{kN(totalUnits)}</Typography>
-            <Typography variant="caption">Total Units</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#d97706", color: "white",
-            textAlign: "center"
-          }}>
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{kN(totalBuildings)}</Typography>
-            <Typography variant="caption">Buildings</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#16a34a", color: "white",
-            textAlign: "center"
-          }}>
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{occupancyRate}%</Typography>
-            <Typography variant="caption">Occupancy</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#22c55e", color: "white",
-            textAlign: "center"
-          }}>
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>
-              KES {props.reduce((sum, p) => sum + Number(p.monthly_rent || 0), 0).toLocaleString()}
-            </Typography>
-            <Typography variant="caption">Monthly Revenue</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: active ? "#16a34a" : "#ef4444", color: "white",
-            textAlign: "center"
-          }}>
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{active ? "Active" : "Inactive"}</Typography>
-            <Typography variant="caption">Status</Typography>
-          </Box>
-        </Grid>
-      </Grid>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, width: "100%" }}>
+      {/* Sleek Design System KPI Strip */}
+      <KpiStrip cols={6}>
+        <KpiCard
+          icon={<Building2 size={16} />}
+          label="Properties"
+          value={props.length}
+          sub="Portfolio assets"
+          iconBg="rgba(59, 130, 246, 0.12)"
+          iconColor="#3b82f6"
+          borderColor="#3b82f6"
+        />
+        <KpiCard
+          icon={<Layers size={16} />}
+          label="Total Units"
+          value={kN(totalUnits)}
+          sub={`${totalOccupied} occupied`}
+          iconBg="rgba(99, 102, 241, 0.12)"
+          iconColor="#6366f1"
+          borderColor="#6366f1"
+        />
+        <KpiCard
+          icon={<Building2 size={16} />}
+          label="Buildings"
+          value={kN(totalBuildings)}
+          sub="Blocks / wings"
+          iconBg="rgba(245, 158, 11, 0.12)"
+          iconColor="#f59e0b"
+          borderColor="#f59e0b"
+        />
+        <KpiCard
+          icon={<Users size={16} />}
+          label="Occupancy Rate"
+          value={`${occupancyRate}%`}
+          sub={`${vacant} vacant unit${vacant === 1 ? "" : "s"}`}
+          iconBg="rgba(16, 185, 129, 0.12)"
+          iconColor="#10b981"
+          borderColor="#10b981"
+        />
+        <KpiCard
+          icon={<DollarSign size={16} />}
+          label="Contracted Rent"
+          value={money.format(totalMonthlyRent)}
+          sub="Monthly target"
+          iconBg="rgba(14, 165, 233, 0.12)"
+          iconColor="#0ea5e9"
+          borderColor="#0ea5e9"
+        />
+        <KpiCard
+          icon={<CheckCircle2 size={16} />}
+          label="Operational Status"
+          value={active === props.length ? "Active" : `${active} / ${props.length}`}
+          sub="All properties live"
+          iconBg="rgba(34, 197, 94, 0.12)"
+          iconColor="#22c55e"
+          borderColor="#22c55e"
+        />
+      </KpiStrip>
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Property Portfolio
-        </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<Building2 size={16} />}
-          onClick={onAdd}
-          sx={{ bgcolor: "#d92d2d", "&:hover": { bgcolor: "#b91c1c" } }}
+      {/* Portfolio Table Panel */}
+      <Panel
+        title="Property Portfolio"
+        action={
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Plus size={14} />}
+            onClick={onAdd}
+            sx={{ fontWeight: 700, fontSize: 12 }}
+          >
+            Add Property
+          </Button>
+        }
+      >
+        <ListState
+          loading={loading}
+          empty={filtered.length === 0}
+          emptyTitle="No property selected"
+          emptyDesc="Choose a property from the selector at the top of the workspace."
         >
-          Add Property
-        </Button>
-      </Box>
-
-      <Panel title="Selected Property">
-        <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No property selected" emptyDesc="Choose a property from the selector at the top of the workspace.">
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
@@ -135,26 +130,40 @@ export function PropertiesView({
                   <th>Monthly Rent</th>
                   <th>Outstanding</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {pagedRows.map((p) => (
-                  <tr key={String(p.id)} onClick={() => onSelectRow(p)}>
+                  <tr key={String(p.id)} onClick={() => onSelectRow(p)} style={{ cursor: "pointer" }}>
                     <td>
-                      <strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong>
+                      <strong style={{ fontSize: 13, color: "var(--text)" }}>{String(p.name ?? "—")}</strong>
                       <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(p.code ?? "—")}</div>
                     </td>
-                    <td><span className="badge badge-blue">{String(p.property_type ?? "—")}</span></td>
-                    <td style={{ fontSize: 12 }}>{String(p.city ?? "—")}</td>
-                    <td className="mono">{kN(p.units_count)}</td>
-                    <td className="mono">{p.occupied === undefined ? "—" : kN(p.occupied)}</td>
-                    <td>{p.occupancy === undefined ? <span className="muted">—</span> : <Badge tone={occupancyTone(Number(p.occupancy))}>{pct(p.occupied, p.units_count)}%</Badge>}</td>
-                    <td className="mono">{p.monthlyRent === undefined ? "—" : kM(p.monthlyRent)}</td>
-                    <td className="mono" style={{ color: Number(p.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{p.outstanding === undefined ? "—" : kM(p.outstanding)}</td>
-                    <td><StatusPill value={String(p.status ?? "—")} /></td>
                     <td>
-                      <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                      <span className="badge badge-blue" style={{ textTransform: "capitalize", fontSize: 11 }}>
+                        {String(p.property_type ?? "Commercial").replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12 }}>{String(p.city ?? p.location ?? "—")}</td>
+                    <td className="mono" style={{ fontWeight: 700 }}>{kN(p.units_count)}</td>
+                    <td className="mono">{p.occupied === undefined ? "—" : kN(p.occupied)}</td>
+                    <td>
+                      {p.occupancy === undefined ? (
+                        <span className="muted">—</span>
+                      ) : (
+                        <Badge tone={occupancyTone(Number(p.occupancy))}>{pct(p.occupied, p.units_count)}%</Badge>
+                      )}
+                    </td>
+                    <td className="mono" style={{ fontWeight: 700 }}>
+                      {p.monthly_rent || p.monthlyRent ? kM(p.monthly_rent || p.monthlyRent) : "—"}
+                    </td>
+                    <td className="mono" style={{ color: Number(p.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>
+                      {p.outstanding === undefined ? "—" : kM(p.outstanding)}
+                    </td>
+                    <td><StatusPill value={String(p.status ?? "active")} /></td>
+                    <td style={{ textAlign: "right" }}>
+                      <div className="row" style={{ gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); router.push(`/property-onboarding?edit=${p.id}`); }}>Edit</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("units"); }}>Units</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("tenants"); }}>Tenants</button>
@@ -169,8 +178,6 @@ export function PropertiesView({
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
-    </>
+    </Box>
   );
 }
-
-/* ─── BUILDINGS ─── */

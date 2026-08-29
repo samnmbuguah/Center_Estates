@@ -31,6 +31,7 @@ from .models import (
     PublicFeedbackQrCode,
     QmConversation,
     QmMessage,
+    CompanionAnnouncement,
 )
 from .serializers import (
     StaffHrRequestSerializer,
@@ -42,6 +43,7 @@ from .serializers import (
     TeamFeedbackThreadSerializer,
     PublicFeedbackQrCodeSerializer,
     QmConversationSerializer,
+    CompanionAnnouncementSerializer,
 )
 from notifications.models import Notification
 from notifications.services import notify_user, send_email_notification
@@ -321,6 +323,19 @@ class QmConversationViewSet(CompanionModelViewSet):
         return Response(self.get_serializer(conversation).data)
 
 
+class CompanionAnnouncementViewSet(CompanionModelViewSet):
+    """Manager-maintained messages that Companion can surface to staff."""
+
+    queryset = CompanionAnnouncement.objects.select_related('created_by')
+    serializer_class = CompanionAnnouncementSerializer
+    search_fields = ('title', 'message')
+    required_permission = 'companion.manage'
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(organization=organization, created_by=self.request.user)
+
+
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class CompanionDashboardViewSet(ViewSet):
     permission_classes = (HasModuleActionPermission,)
@@ -356,7 +371,7 @@ class CompanionDashboardViewSet(ViewSet):
             completed=Count('id', filter=Q(status=Task.Status.COMPLETED)),
         )
         from .nudges import evaluate_employee_nudge
-        active_nudge = evaluate_employee_nudge(request.user, organization)
+        active_nudge = evaluate_employee_nudge(request.user, organization, delivery='overview')
         return Response({
             'kpis': kpis,
             'activeNudge': active_nudge,
@@ -369,7 +384,7 @@ class CompanionDashboardViewSet(ViewSet):
     def nudge(self, request):
         organization = get_active_organization(request)
         from .nudges import evaluate_employee_nudge
-        active_nudge = evaluate_employee_nudge(request.user, organization)
+        active_nudge = evaluate_employee_nudge(request.user, organization, delivery='popup')
         return Response(active_nudge or {})
 
     @action(detail=False, methods=('post',), throttle_classes=(QMChatRateThrottle,))

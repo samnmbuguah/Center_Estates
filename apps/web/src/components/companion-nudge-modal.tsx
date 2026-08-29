@@ -2,10 +2,41 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Button, Dialog, Typography, Paper, IconButton } from "@mui/material";
-import { X, Sparkles, Heart, ArrowRight } from "lucide-react";
+import {
+  Box,
+  Button,
+  Dialog,
+  Typography,
+  Paper,
+  IconButton,
+  Switch,
+  FormControlLabel,
+  Divider,
+  Stack,
+} from "@mui/material";
+import {
+  X,
+  Sparkles,
+  Heart,
+  ArrowRight,
+  Settings2,
+  Megaphone,
+  Smile,
+  CheckCircle2,
+  ChevronLeft,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+
+type AnnouncementData = {
+  id?: string;
+  title: string;
+  message: string;
+  category?: string;
+  icon?: string;
+  action_label?: string;
+  action_href?: string;
+};
 
 type NudgeData = {
   id: string;
@@ -20,12 +51,48 @@ type NudgeData = {
   action_href?: string;
   urgency?: string;
   requires_acknowledgment?: boolean;
+  announcement?: AnnouncementData;
+};
+
+type NudgePreferences = {
+  showOperationalSummary: boolean;
+  showQuote: boolean;
+  showJokes: boolean;
+  showAnnouncements: boolean;
+  showActionButton: boolean;
+  showFooterNote: boolean;
+};
+
+const DEFAULT_PREFERENCES: NudgePreferences = {
+  showOperationalSummary: true,
+  showQuote: true,
+  showJokes: true,
+  showAnnouncements: true,
+  showActionButton: true,
+  showFooterNote: true,
 };
 
 const STORAGE_KEY = "ce_nudge_ack";
+const PREFS_STORAGE_KEY = "ce_nudge_preferences";
 const MAX_PER_DAY = 4;
 const COOLDOWN_MS = 45 * 60 * 1000; // 45 minutes
 const FIRST_DELAY_MS = 55 * 1000; // 55 seconds after login
+
+function loadPreferences(): NudgePreferences {
+  if (typeof window === "undefined") return DEFAULT_PREFERENCES;
+  try {
+    const raw = localStorage.getItem(PREFS_STORAGE_KEY);
+    return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES;
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+function savePreferences(prefs: NudgePreferences) {
+  try {
+    localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
+  } catch {}
+}
 
 function shouldShowNudge(nudge: NudgeData): boolean {
   if (typeof window === "undefined") return false;
@@ -33,14 +100,12 @@ function shouldShowNudge(nudge: NudgeData): boolean {
     const raw = localStorage.getItem(STORAGE_KEY);
     const data = raw ? JSON.parse(raw) : { count: 0, lastDate: "", lastId: "", lastTime: 0, ackIds: {} as Record<string, number> };
     const today = new Date().toISOString().slice(0, 10);
-    // Reset daily count
     if (data.lastDate !== today) {
       data.count = 0;
       data.lastDate = today;
     }
     if (data.count >= MAX_PER_DAY) return false;
     if (Date.now() - (data.lastTime || 0) < COOLDOWN_MS) return false;
-    // Don't show same nudge within 4 hours
     const lastAckForId = data.ackIds?.[nudge.id] || 0;
     if (Date.now() - lastAckForId < 4 * 60 * 60 * 1000) return false;
     return true;
@@ -74,16 +139,28 @@ export function CompanionNudgeModal() {
   const [nudge, setNudge] = useState<NudgeData | null>(null);
   const [open, setOpen] = useState(false);
   const [animateIn, setAnimateIn] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [prefs, setPrefs] = useState<NudgePreferences>(DEFAULT_PREFERENCES);
   const pollRef = useRef<number | null>(null);
   const org = session?.activeOrganizationId;
   const isAuthed = !!session?.user;
 
+  useEffect(() => {
+    setPrefs(loadPreferences());
+  }, []);
+
+  const updatePref = (key: keyof NudgePreferences, value: boolean) => {
+    setPrefs((prev) => {
+      const updated = { ...prev, [key]: value };
+      savePreferences(updated);
+      return updated;
+    });
+  };
+
   const fetchNudge = useCallback(async () => {
     if (!isAuthed || !org) return;
-    // Respect working hours 7am-8pm EAT (4am-5pm UTC)
     const hourEAT = (new Date().getUTCHours() + 3) % 24;
     if (hourEAT < 7 || hourEAT >= 20) return;
-    // Don't disturb if modal already open or user is typing
     if (document.visibilityState !== "visible") return;
     if (document.querySelector("input:focus, textarea:focus, [contenteditable]:focus")) return;
 
@@ -94,12 +171,12 @@ export function CompanionNudgeModal() {
       if (!data?.id || !data?.title) return;
       if (!shouldShowNudge(data)) return;
       setNudge(data);
+      setShowSettings(false);
       setOpen(true);
       requestAnimationFrame(() => setTimeout(() => setAnimateIn(true), 30));
     } catch {}
   }, [isAuthed, org]);
 
-  // Expose a window helper for demos: window.triggerCompanionNudge() to show instantly
   useEffect(() => {
     (window as unknown as Record<string, unknown>).triggerCompanionNudge = () => {
       localStorage.removeItem(STORAGE_KEY);
@@ -113,15 +190,12 @@ export function CompanionNudgeModal() {
     };
   }, [fetchNudge]);
 
-  // Initial delay + periodic poll
   useEffect(() => {
     if (!isAuthed) return;
     const firstTimer = window.setTimeout(fetchNudge, FIRST_DELAY_MS);
     const interval = window.setInterval(fetchNudge, COOLDOWN_MS + 5 * 60 * 1000);
-    // Also fetch when tab becomes visible after being hidden
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        // gentle check, not immediate to avoid spam
         setTimeout(fetchNudge, 4000);
       }
     };
@@ -136,16 +210,35 @@ export function CompanionNudgeModal() {
 
   const handleAcknowledge = useCallback(() => {
     if (nudge) recordAck(nudge.id);
-    // Also tell backend for analytics (fire-and-forget)
     if (nudge && org) {
-      apiFetch("/companion/telemetry/", { method: "POST", body: JSON.stringify({ events: [{ event: "nudge_acknowledged", properties: { nudge_id: nudge.id, category: nudge.category } }] }) }, org).catch(() => {});
+      apiFetch(
+        "/companion/telemetry/",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            events: [{ event: "nudge_acknowledged", properties: { nudge_id: nudge.id, category: nudge.category } }],
+          }),
+        },
+        org
+      ).catch(() => {});
     }
     setAnimateIn(false);
     setTimeout(() => {
       setOpen(false);
       setNudge(null);
+      setShowSettings(false);
     }, 280);
   }, [nudge, org]);
+
+  const handleDismiss = useCallback(() => {
+    if (nudge) recordAck(nudge.id);
+    setAnimateIn(false);
+    setTimeout(() => {
+      setOpen(false);
+      setNudge(null);
+      setShowSettings(false);
+    }, 180);
+  }, [nudge]);
 
   const handleAction = useCallback(() => {
     handleAcknowledge();
@@ -153,6 +246,13 @@ export function CompanionNudgeModal() {
       setTimeout(() => router.push(nudge.action_href as string), 350);
     }
   }, [handleAcknowledge, nudge, router]);
+
+  const handleAnnouncementAction = useCallback((href?: string) => {
+    handleAcknowledge();
+    if (href) {
+      setTimeout(() => router.push(href), 350);
+    }
+  }, [handleAcknowledge, router]);
 
   if (!nudge || !open) return null;
 
@@ -164,7 +264,7 @@ export function CompanionNudgeModal() {
   return (
     <Dialog
       open={open}
-      onClose={() => {}} // Block backdrop/escape — must acknowledge
+      onClose={handleDismiss}
       maxWidth="xs"
       fullWidth
       slotProps={{
@@ -199,100 +299,428 @@ export function CompanionNudgeModal() {
       `}</style>
 
       {/* Top accent bar */}
-      <Box sx={{ height: 5, background: `linear-gradient(90deg, ${accent}, ${accent}88)`, backgroundSize: "200% 100%", animation: animateIn ? "shimmer 2.2s linear infinite" : "none" }} />
-
-      {/* Confetti for productivity nudges */}
-      {isProductivity && animateIn && (
-        <Box sx={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-          {["🎉","✨","🎈","⭐","🌟"].map((e, i) => (
-            <Box key={i} sx={{
-              position: "absolute",
-              left: `${18 + i * 16}%`,
-              top: 12,
-              fontSize: 18,
-              animation: `confetti-fall ${1.2 + i * 0.25}s ease-out ${i * 0.12}s both`,
-            }}>{e}</Box>
-          ))}
-        </Box>
-      )}
+      <Box
+        sx={{
+          height: 5,
+          background: `linear-gradient(90deg, ${accent}, ${accent}88)`,
+          backgroundSize: "200% 100%",
+          animation: animateIn ? "shimmer 2.2s linear infinite" : "none",
+        }}
+      />
 
       <Box sx={{ p: 3.5, pt: 3, position: "relative" }}>
-        {/* Companion avatar with animation */}
-        <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-          <Box sx={{
-            width: 72, height: 72, borderRadius: "50%",
-            background: lightAccent,
-            border: `2px solid ${accent}22`,
-            display: "grid", placeItems: "center",
-            fontSize: 34,
-            animation: nudge.animation === "breathe" ? "breathe 3s ease-in-out infinite" : nudge.animation === "float" ? "float 3.2s ease-in-out infinite" : nudge.animation === "pulse" ? "pulse-glow 2.4s ease-in-out infinite" : isProductivity ? "breathe 2.6s ease-in-out infinite" : "breathe 3s ease-in-out infinite",
-          }}>
-            {nudge.icon}
-          </Box>
+        {/* Header Controls */}
+        <Box sx={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 0.5, zIndex: 2 }}>
+          <IconButton
+            aria-label="Card display settings"
+            onClick={() => setShowSettings((v) => !v)}
+            size="small"
+            sx={{
+              color: showSettings ? accent : "text.secondary",
+              bgcolor: showSettings ? lightAccent : "transparent",
+              "&:hover": { bgcolor: lightAccent },
+            }}
+          >
+            <Settings2 size={17} />
+          </IconButton>
+          <IconButton
+            aria-label="Close companion nudge"
+            onClick={handleDismiss}
+            size="small"
+            sx={{ color: "text.secondary" }}
+          >
+            <X size={18} />
+          </IconButton>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1.2 }}>
-          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.6, px: 1.25, py: 0.4, borderRadius: 99, bgcolor: lightAccent, border: `1px solid ${accent}18` }}>
-            <Sparkles size={12} style={{ color: accent }} />
-            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: "0.68rem", letterSpacing: ".06em", textTransform: "uppercase", color: accent }}>
-              Companion Nudge · {nudge.category}
+        {showSettings ? (
+          /* Card Feature Toggles Screen */
+          <Box sx={{ py: 1 }}>
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5 }}>
+              <IconButton size="small" onClick={() => setShowSettings(false)}>
+                <ChevronLeft size={18} />
+              </IconButton>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: "0.95rem" }}>
+                Customize Card Features
+              </Typography>
+            </Stack>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 2 }}>
+              Toggle which sections you would like to display on your daily Companion card.
             </Typography>
+
+            <Divider sx={{ mb: 1.5 }} />
+
+            <Stack spacing={1.2}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={prefs.showOperationalSummary}
+                    onChange={(e) => updatePref("showOperationalSummary", e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                      Operational Task Summary
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                      Active tasks count & workload status
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={prefs.showAnnouncements}
+                    onChange={(e) => updatePref("showAnnouncements", e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                      Company Announcements & Ads
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                      Company-wide campaigns & updates
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={prefs.showJokes}
+                    onChange={(e) => updatePref("showJokes", e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                      “Just for Smiles” Humor Box
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                      Lighthearted estate & property jokes
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={prefs.showQuote}
+                    onChange={(e) => updatePref("showQuote", e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                      Thoughtful Quote / Inspiration
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                      Encouraging wellness thoughts
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={prefs.showActionButton}
+                    onChange={(e) => updatePref("showActionButton", e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                      Main Action Button
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                      Primary navigation CTA
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={prefs.showFooterNote}
+                    onChange={(e) => updatePref("showFooterNote", e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                      Footer Cooldown Note
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
+                      Upcoming nudge interval notice
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Stack>
+
+            <Box sx={{ mt: 2.5 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => setShowSettings(false)}
+                sx={{
+                  borderRadius: 2.5,
+                  py: 1,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  bgcolor: accent,
+                  "&:hover": { bgcolor: accent, filter: "brightness(0.92)" },
+                }}
+              >
+                Done Customizing
+              </Button>
+            </Box>
           </Box>
-        </Box>
+        ) : (
+          /* Standard Rich Card View */
+          <>
+            {/* Companion avatar */}
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+              <Box
+                sx={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: "50%",
+                  background: lightAccent,
+                  border: `2px solid ${accent}22`,
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 34,
+                  animation:
+                    nudge.animation === "breathe"
+                      ? "breathe 3s ease-in-out infinite"
+                      : nudge.animation === "float"
+                      ? "float 3.2s ease-in-out infinite"
+                      : nudge.animation === "pulse"
+                      ? "pulse-glow 2.4s ease-in-out infinite"
+                      : isProductivity
+                      ? "breathe 2.6s ease-in-out infinite"
+                      : "breathe 3s ease-in-out infinite",
+                }}
+              >
+                {nudge.icon}
+              </Box>
+            </Box>
 
-        <Typography variant="h6" sx={{ fontWeight: 900, textAlign: "center", lineHeight: 1.25, mb: 1, color: "text.primary", fontSize: "1.15rem" }}>
-          {nudge.title}
-        </Typography>
+            {/* Pill Category */}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1.2 }}>
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.6,
+                  px: 1.25,
+                  py: 0.4,
+                  borderRadius: 99,
+                  bgcolor: lightAccent,
+                  border: `1px solid ${accent}18`,
+                }}
+              >
+                <Sparkles size={12} style={{ color: accent }} />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: "0.68rem",
+                    letterSpacing: ".06em",
+                    textTransform: "uppercase",
+                    color: accent,
+                  }}
+                >
+                  Companion Nudge · {nudge.category}
+                </Typography>
+              </Box>
+            </Box>
 
-        <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", lineHeight: 1.6, mb: 1.5, px: 1 }}>
-          {nudge.message}
-        </Typography>
+            {/* Operational Summary / Title & Message */}
+            {prefs.showOperationalSummary && (
+              <>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 900,
+                    textAlign: "center",
+                    lineHeight: 1.25,
+                    mb: 1,
+                    color: "text.primary",
+                    fontSize: "1.15rem",
+                  }}
+                >
+                  {nudge.title}
+                </Typography>
 
-        {nudge.thought && (
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, mb: 1.75, px: 1 }}>
-            <Heart size={13} style={{ color: accent, opacity: 0.9 }} />
-            <Typography variant="caption" sx={{ fontStyle: "italic", color: "text.secondary", fontWeight: 600, textAlign: "center" }}>
-              {nudge.thought}
-            </Typography>
-          </Box>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "text.secondary", textAlign: "center", lineHeight: 1.6, mb: 1.5, px: 1 }}
+                >
+                  {nudge.message}
+                </Typography>
+              </>
+            )}
+
+            {/* Thoughtful quote */}
+            {prefs.showQuote && nudge.thought && (
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, mb: 1.75, px: 1 }}>
+                <Heart size={13} style={{ color: accent, opacity: 0.9 }} />
+                <Typography
+                  variant="caption"
+                  sx={{ fontStyle: "italic", color: "text.secondary", fontWeight: 600, textAlign: "center" }}
+                >
+                  {nudge.thought}
+                </Typography>
+              </Box>
+            )}
+
+            {/* Dedicated Company Announcement / Advertisement Sub-section */}
+            {prefs.showAnnouncements && nudge.announcement && (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.5,
+                  mb: 1.75,
+                  borderRadius: 2.5,
+                  bgcolor: "rgba(245, 158, 11, 0.07)",
+                  border: "1px solid rgba(245, 158, 11, 0.24)",
+                  position: "relative",
+                }}
+              >
+                <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+                    <span style={{ fontSize: 13 }}>{nudge.announcement.icon || "📣"}</span>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 800,
+                        color: "#d97706",
+                        letterSpacing: ".04em",
+                        textTransform: "uppercase",
+                        fontSize: "0.68rem",
+                      }}
+                    >
+                      Company {nudge.announcement.category === "campaign" ? "Campaign" : "Announcement"}
+                    </Typography>
+                  </Stack>
+                  {nudge.announcement.action_href && (
+                    <button
+                      onClick={() => handleAnnouncementAction(nudge.announcement?.action_href)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#d97706",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 2,
+                        padding: 0,
+                      }}
+                    >
+                      {nudge.announcement.action_label || "View"} →
+                    </button>
+                  )}
+                </Stack>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.88rem", color: "text.primary" }}>
+                  {nudge.announcement.title}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", lineHeight: 1.45, display: "block", mt: 0.25 }}
+                >
+                  {nudge.announcement.message}
+                </Typography>
+              </Paper>
+            )}
+
+            {/* Just for Smiles Humor Box */}
+            {prefs.showJokes && nudge.joke && (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.5,
+                  mb: 2.25,
+                  borderRadius: 2.5,
+                  bgcolor: "rgba(248,250,252,0.9)",
+                  border: "1px dashed",
+                  borderColor: "divider",
+                  textAlign: "center",
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 800,
+                    color: accent,
+                    letterSpacing: ".04em",
+                    textTransform: "uppercase",
+                    fontSize: "0.66rem",
+                    display: "block",
+                    mb: 0.5,
+                  }}
+                >
+                  Just for smiles
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ fontStyle: "italic", color: "text.secondary", lineHeight: 1.5, fontSize: "0.86rem" }}
+                >
+                  “{nudge.joke}”
+                </Typography>
+              </Paper>
+            )}
+
+            {/* Main Action CTA Button */}
+            {prefs.showActionButton && (
+              <Button
+                fullWidth
+                variant="contained"
+                size="large"
+                onClick={handleAction}
+                endIcon={<ArrowRight size={16} />}
+                sx={{
+                  borderRadius: 2.5,
+                  py: 1.35,
+                  textTransform: "none",
+                  fontWeight: 800,
+                  fontSize: "0.92rem",
+                  boxShadow: `0 8px 20px ${accent}30`,
+                  bgcolor: accent,
+                  "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: `0 10px 24px ${accent}38` },
+                }}
+              >
+                {nudge.action_label || "Got it, thanks"}
+              </Button>
+            )}
+
+            {/* Footer Cooldown Note */}
+            {prefs.showFooterNote && (
+              <Box sx={{ display: "flex", justifyContent: "center", mt: 1.25 }}>
+                <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.7rem" }}>
+                  You’ll see a new thoughtful nudge again in a little while
+                </Typography>
+              </Box>
+            )}
+          </>
         )}
-
-        {nudge.joke && (
-          <Paper elevation={0} sx={{ p: 1.5, mb: 2.25, borderRadius: 2.5, bgcolor: "rgba(248,250,252,0.9)", border: "1px dashed", borderColor: "divider", textAlign: "center" }}>
-            <Typography variant="caption" sx={{ fontWeight: 800, color: accent, letterSpacing: ".04em", textTransform: "uppercase", fontSize: "0.66rem", display: "block", mb: 0.5 }}>
-              Just for smiles
-            </Typography>
-            <Typography variant="body2" sx={{ fontStyle: "italic", color: "text.secondary", lineHeight: 1.5, fontSize: "0.86rem" }}>
-              “{nudge.joke}”
-            </Typography>
-          </Paper>
-        )}
-
-        <Button
-          fullWidth
-          variant="contained"
-          size="large"
-          onClick={handleAction}
-          endIcon={<ArrowRight size={16} />}
-          sx={{
-            borderRadius: 2.5,
-            py: 1.35,
-            textTransform: "none",
-            fontWeight: 800,
-            fontSize: "0.92rem",
-            boxShadow: `0 8px 20px ${accent}30`,
-            bgcolor: accent,
-            "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: `0 10px 24px ${accent}38` },
-          }}
-        >
-          {nudge.action_label || "Got it, thanks"}
-        </Button>
-
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 1.25 }}>
-          <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.7rem" }}>
-            You’ll see a new thoughtful nudge again in a little while
-          </Typography>
-        </Box>
       </Box>
     </Dialog>
   );

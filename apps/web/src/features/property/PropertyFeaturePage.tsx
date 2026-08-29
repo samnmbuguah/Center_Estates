@@ -146,7 +146,7 @@ export function PropertyFeaturePage({
       case "receipt-allocations":
         return <ReceiptAllocationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
       case "bank-reconciliation":
-        return <BankReconciliationView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onMatch={(r) => logic.setMatchTarget(r as BankTransactionRow)} />;
+        return <BankReconciliationView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} organizationId={logic.organizationId} canFinance={logic.canFinance} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onRefresh={logic.fetchData} onMatch={(r) => logic.setMatchTarget(r as BankTransactionRow)} />;
       case "credit-notes":
         return <CreditNotesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onAdd={() => logic.handleCreateCreditNote(null)} onVoid={logic.handleVoidCreditNote} />;
       case "service-profiles":
@@ -158,7 +158,17 @@ export function PropertyFeaturePage({
       case "service-charge-allocations":
         return <ServiceChargeAllocationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
       case "service-charge-reconciliations":
-        return <ServiceChargeReconciliationsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
+        return (
+          <ServiceChargeReconciliationsView
+            rows={logic.rows}
+            loading={logic.loading}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            onReview={logic.handleReviewReconciliation}
+            onApprove={logic.handleApproveReconciliation}
+            onDownloadPdf={logic.handleDownloadReconciliationPdf}
+          />
+        );
       case "budgets":
         return <BudgetsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSelectRow={logic.setSelectedRow} onAdd={() => logic.handleCreateBudget(null)} onAction={(b, a) => { if (a === "approve") logic.handleApproveBudget(b); else if (a === "reject") logic.handleRejectBudgetPrompt(b); }} />;
       case "expenses":

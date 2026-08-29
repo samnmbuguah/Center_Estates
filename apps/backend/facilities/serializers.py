@@ -565,10 +565,26 @@ class FloorPlanSerializer(serializers.ModelSerializer):
     building_name = serializers.CharField(source='building.name', read_only=True)
     property_name = serializers.CharField(source='building.property.name', read_only=True)
     uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True, default='')
+    original_url = serializers.SerializerMethodField()
+    preview_url = serializers.SerializerMethodField()
 
     class Meta:
         model = FloorPlan
         exclude = ('organization',)
+        read_only_fields = ('uploaded_by', 'file_url', 'original_filename', 'file_type', 'preview_status', 'preview_error')
+
+    def _absolute_file_url(self, value):
+        if not value:
+            return ''
+        url = value.url
+        request = self.context.get('request')
+        return request.build_absolute_uri(url) if request else url
+
+    def get_original_url(self, instance):
+        return self._absolute_file_url(instance.uploaded_file) or instance.file_url
+
+    def get_preview_url(self, instance):
+        return self._absolute_file_url(instance.preview_file) or instance.file_url
 
 
 class AssetConditionAssessmentSerializer(serializers.ModelSerializer):

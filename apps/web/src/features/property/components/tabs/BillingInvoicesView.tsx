@@ -22,6 +22,7 @@ export function BillingInvoicesView({
   search = "",
   setSearch = () => {},
   setTab = () => {},
+  organizationId = null,
   canFinance = true,
   canApprove = true,
   onAddInvoice = () => {},
@@ -46,6 +47,7 @@ export function BillingInvoicesView({
   search?: string;
   setSearch?: (v: string) => void;
   setTab?: (t: PropertyTab) => void;
+  organizationId?: string | null;
   canFinance?: boolean;
   canApprove?: boolean;
   onAddInvoice?: () => void;
@@ -71,7 +73,12 @@ export function BillingInvoicesView({
       />
 
       {billingSection === "pipeline" && (
-        <PropertyBillingDashboard onNavigate={onNavigateBilling} onSingleInvoice={onSingleInvoice} />
+        <PropertyBillingDashboard
+          onNavigate={(target) => {
+            onNavigateBilling(target);
+          }}
+          onSingleInvoice={onSingleInvoice}
+        />
       )}
 
       {billingSection === "invoices" && (

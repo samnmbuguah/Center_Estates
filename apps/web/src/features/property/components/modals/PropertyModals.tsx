@@ -525,11 +525,14 @@ export function PropertyModals(props: PropertyModalsProps) {
         )}
 
         {showRecordReceipt && (
-          <Modal title="Record Rent Payment Receipt" onClose={() => setShowRecordReceipt(false)} wide>
+          <Modal title="Record tenant payment" onClose={() => setShowRecordReceipt(false)} wide>
             <form onSubmit={submitRecordReceipt} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="card" style={{ padding: "10px 14px", background: "var(--surface-2)", fontSize: 13, color: "var(--text-primary)" }}>
+                <strong>Step 1 of 2 — record the payment.</strong> This posts a receipt and updates the tenant balance. For a bank transfer, add the bank reference, then use <strong>Bank reconciliation</strong> to match the statement line without creating another receipt.
+              </div>
               <div className="grid-2">
-                <Field label="Receipt Number" required>
-                  <input name="number" required placeholder="e.g. RCPT-2026-0001" />
+                <Field label="Receipt number">
+                  <input value="Generated automatically when posted" disabled aria-label="Receipt number generated automatically" />
                 </Field>
                 <Field label="Received On" required>
                   <input name="received_on" type="date" required />
@@ -777,8 +780,8 @@ export function PropertyModals(props: PropertyModalsProps) {
           <Modal title="Set up service charge" onClose={() => setShowAddServiceCharge(false)} wide>
             <form onSubmit={submitServiceCharge} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <Field label="Property" required>
-                <select name="property" required defaultValue="">
-                  <option value="" disabled>Select property</option>
+                <select name="property" required defaultValue={String(activeProperty?.id ?? (propertyOptions[0]?.id ?? ""))}>
+                  {!activeProperty && !propertyOptions[0] && <option value="" disabled>Select property</option>}
                   {propertyOptions.map((property) => (
                     <option key={String(property.id)} value={String(property.id)}>{String(property.name ?? property.code)}</option>
                   ))}
@@ -843,8 +846,8 @@ export function PropertyModals(props: PropertyModalsProps) {
               ) : (
                 <>
                   <Field label="Property" required>
-                    <select name="property" required defaultValue="">
-                      <option value="" disabled>Select property</option>
+                    <select name="property" required defaultValue={String(activeProperty?.id ?? (propertyOptions[0]?.id ?? ""))}>
+                      {!activeProperty && !propertyOptions[0] && <option value="" disabled>Select property</option>}
                       {propertyOptions.map((property) => (
                         <option key={String(property.id)} value={String(property.id)}>{String(property.code ?? "")} · {String(property.name ?? "")}</option>
                       ))}

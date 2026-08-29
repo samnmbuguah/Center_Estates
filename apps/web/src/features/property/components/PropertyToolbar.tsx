@@ -13,8 +13,8 @@ export function ViewToolbar({
   return (
     <div className="card" style={{ padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
       <div>
-        <h3 style={{ margin: 0, fontSize: 16 }}>{title}</h3>
-        {subtitle && <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>{subtitle}</p>}
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--text)" }}>{title}</h3>
+        {subtitle && <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>{subtitle}</p>}
       </div>
       <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
         {onSearch && searchTestid ? (

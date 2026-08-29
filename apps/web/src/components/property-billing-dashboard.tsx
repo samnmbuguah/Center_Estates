@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
-import { LoadingState } from "@/components/module-ui";
-import { BillingRun, BillingIssue, Candidate, InvoiceChargeType, candidateHasChargeType } from "./billing/types";
+import { LoadingState, money } from "@/components/module-ui";
+import { BillingRun, BillingIssue, Candidate, InvoiceChargeType, candidateHasChargeType, invoiceChargeType } from "./billing/types";
 import { BillingHeader, BillingMode } from "./billing/BillingHeader";
 import { BillingActionBanner } from "./billing/BillingActionBanner";
+import { BillingChargeRollup } from "./billing/BillingChargeRollup";
 import { BillingKpis } from "./billing/BillingKpis";
 import { CandidateTable } from "./billing/CandidateTable";
 import { CandidatePreviewDrawer } from "./billing/CandidatePreviewDrawer";
@@ -28,6 +29,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const organizationId = session?.activeOrganizationId ?? null;
   const now = new Date();
   
+  const [billingTarget, setBillingTarget] = useState<"tenant" | "landlord">("tenant");
   const [mode, setMode] = useState<BillingMode>("monthly");
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [quarterYear, setQuarterYear] = useState(now.getFullYear());
@@ -38,6 +40,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const [allRuns, setAllRuns] = useState<BillingRun[]>([]);
   const [run, setRun] = useState<BillingRun | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -115,13 +118,30 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     if (!organizationId) return;
     if (showSkeleton) setLoading(true);
     setError("");
-    const [runRes, invRes] = await Promise.all([apiFetch("/property/billing-runs/", {}, organizationId), apiFetch("/property/invoices/", {}, organizationId)]);
-    if (!runRes.ok || !invRes.ok) { setError(await apiErrorMessage(!runRes.ok ? runRes : invRes, "Billing data could not be loaded.")); setLoading(false); return; }
-    const runRows = (await runRes.json()) as BillingRun[];
-    const invRows = (await invRes.json()) as Invoice[];
-    setAllRuns(runRows);
-    setInvoices(invRows);
-    setLoading(false);
+    try {
+      const [runRes, invRes, propRes] = await Promise.all([
+        apiFetch("/property/billing-runs/", {}, organizationId),
+        apiFetch("/property/invoices/", {}, organizationId),
+        apiFetch("/property/properties/", {}, organizationId),
+      ]);
+      if (!runRes.ok || !invRes.ok) {
+        setError(await apiErrorMessage(!runRes.ok ? runRes : invRes, "Billing data could not be loaded."));
+        setLoading(false);
+        return;
+      }
+      const runRows = (await runRes.json()) as BillingRun[];
+      const invRows = (await invRes.json()) as Invoice[];
+      setAllRuns(runRows);
+      setInvoices(invRows);
+      if (propRes.ok) {
+        const propData = await propRes.json();
+        setProperties(Array.isArray(propData) ? propData : propData.results ?? []);
+      }
+    } catch {
+      setError("Failed to communicate with billing service.");
+    } finally {
+      setLoading(false);
+    }
   }, [organizationId]);
 
   useEffect(() => { void load(true); }, [load]);
@@ -134,6 +154,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       const norm = bt.toLowerCase().replace("-", "_");
       if (norm === "servicecharge") setChargeTypeFilter("service_charge");
       else if (["rent", "service_charge", "utility", "other"].includes(norm)) setChargeTypeFilter(norm as InvoiceChargeType);
+      else if (norm === "landlord") setBillingTarget("landlord");
     }
   }, []);
 
@@ -142,8 +163,68 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     const matching = allRuns.find(r => r.period_start === period_start && r.period_end === period_end)
       || allRuns.find(r => r.period_start === period_start);
     setRun(matching ?? null);
-    setSelected(matching?.candidates.filter(c => c.status === "ready").map(c => c.id) ?? []);
   }, [allRuns, period_start, period_end]);
+
+  // Auto-scan and auto-prepare queue whenever period or filters change
+  const lastScannedKey = useRef<string>("");
+  useEffect(() => {
+    if (!organizationId || loading || busy || billingTarget !== "tenant") return;
+    const scanKey = `${period_start}_${period_end}_${chargeTypeFilter}`;
+    if (lastScannedKey.current === scanKey) return;
+
+    const matching = allRuns.find(r => r.period_start === period_start && r.period_end === period_end)
+      || allRuns.find(r => r.period_start === period_start);
+
+    if (!matching) {
+      lastScannedKey.current = scanKey;
+      void mutate("create");
+    } else if (matching.status === "preparing" && (!matching.candidates || matching.candidates.length === 0)) {
+      lastScannedKey.current = scanKey;
+      void mutate("prepare");
+    }
+  }, [organizationId, loading, busy, billingTarget, period_start, period_end, chargeTypeFilter, allRuns]);
+
+  // Compute Landlord Candidates dynamically based on managed properties and contracted revenue
+  const landlordCandidates = useMemo<Candidate[]>(() => {
+    if (properties.length === 0) return [];
+    const startMonthStr = period_start.slice(0, 7);
+    return properties.map((p) => {
+      const rentRoll = Number(p.contracted_rent || p.expected_rent || (Number(p.units_count || 6) * 50000));
+      const mgmtRate = Number(p.management_fee_rate || 5.0); // Standard 5.0%
+      const commissionAmount = Math.round(rentRoll * (mgmtRate / 100));
+
+      const existingInv = invoices.find(
+        (inv) =>
+          (inv.tenant_name?.toLowerCase().includes((p.owner_name || p.name).toLowerCase()) ||
+           inv.number?.startsWith("LB-") ||
+           inv.tenant_name?.toLowerCase().includes("landlord")) &&
+          inv.issued_on >= period_start && inv.issued_on <= period_end
+      );
+      const isBilled = Boolean(existingInv);
+
+      return {
+        id: `landlord-${p.id}`,
+        tenant_name: p.owner_name || p.landlord_name || `${p.name} Property Owner`,
+        property_name: p.name,
+        unit_code: `${p.units_count || p.total_units || 'Whole'} Units`,
+        lease_reference: `MGMT-COMMISSION-${startMonthStr}`,
+        due_date: period_end,
+        billing_items: [
+          {
+            code: "mgmt_fee",
+            description: `Management Commission (${mgmtRate.toFixed(2)}% of ${money.format(rentRoll)})`,
+            amount: String(commissionAmount),
+            total: String(commissionAmount),
+            billed: isBilled,
+            invoice_number: existingInv?.number,
+          },
+        ],
+        total: String(commissionAmount),
+        status: isBilled ? "generated" : "ready",
+        issue_summary: [],
+      };
+    });
+  }, [properties, invoices, period_start, period_end]);
 
   const prepareTypesBody = chargeTypeFilter !== "all"
     ? { invoice_types: chargeTypeFilter === "utility" ? ["water", "electricity", "utility"] : [chargeTypeFilter] }
@@ -152,6 +233,38 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   async function mutate(action: "create" | "prepare" | "approve" | "generate") {
     if (!organizationId) return;
     setBusy(action); setError(""); setNotice("");
+
+    // Landlord Billing Generation
+    if (billingTarget === "landlord" && action === "generate") {
+      try {
+        const selectedCandidates = landlordCandidates.filter((c) => selected.includes(c.id) && c.status === "ready");
+        for (const cand of selectedCandidates) {
+          await apiFetch(
+            "/property/invoices/",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                recipient_name: cand.tenant_name,
+                property_name: cand.property_name,
+                invoice_type: "Management Fee",
+                amount: cand.total,
+                due_date: cand.due_date,
+                notes: `Property Management Commission for ${formattedPeriod}`,
+              }),
+            },
+            organizationId
+          );
+        }
+        setNotice(`Generated ${selectedCandidates.length} Landlord Management Invoice(s) for ${formattedPeriod}.`);
+      } catch {
+        setError("Failed to generate landlord invoices.");
+      }
+      await load();
+      setBusy("");
+      return;
+    }
+
+    // Tenant Billing Run Mutate
     const body: Record<string, unknown> = action === "create"
       ? { period_start, period_end }
       : action === "generate"
@@ -166,10 +279,6 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       ? await apiFetch("/property/billing-runs/", { method: "POST", body: JSON.stringify(body) }, organizationId)
       : await apiFetch(`/property/billing-runs/${run?.id}/${action}/`, { method: "POST", body: JSON.stringify(body) }, organizationId);
 
-    // Starting a billing run means both creating its durable queue and scanning
-    // the active leases. Previously only the empty queue was created, leaving
-    // the run permanently in "preparing" with no candidates and no visible
-    // way to continue.
     if (action === "create" && res.ok) {
       const createdRun = (await res.json()) as BillingRun;
       res = await apiFetch(
@@ -198,18 +307,48 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     await load(); setBusy("");
   }
 
-  const totals = run?.totals ?? {};
-  const ready = Number(totals.ready ?? run?.candidates.filter(c => c.status === "ready").length ?? 0);
+  const isCandidateReady = (c: Candidate, filter: InvoiceChargeType | "all"): boolean => {
+    if (c.status === "issue" || c.status === "excluded") return false;
+    if (billingTarget === "landlord") {
+      return (c.billing_items || []).some((it: any) => !it.billed);
+    }
+    if (filter === "all") {
+      return (c.billing_items || []).some((it: any) => !it.billed);
+    }
+    return (c.billing_items || []).some((it: any) => {
+      const t = invoiceChargeType(it.code);
+      const matchesType = filter === "utility" ? t === "utility" : t === filter;
+      return matchesType && !it.billed;
+    });
+  };
+
+  const rawCandidates = billingTarget === "landlord" ? landlordCandidates : (run?.candidates ?? []);
+
+  const totals = useMemo(() => {
+    if (billingTarget === "landlord") {
+      const totalAmt = landlordCandidates.reduce((s, c) => s + Number(c.total || 0), 0);
+      const readyAmt = landlordCandidates.filter(c => c.status === "ready").reduce((s, c) => s + Number(c.total || 0), 0);
+      return {
+        total_candidates: landlordCandidates.length,
+        ready_count: landlordCandidates.filter(c => c.status === "ready").length,
+        total_amount: totalAmt,
+        ready_amount: readyAmt,
+        with_issues: 0,
+      };
+    }
+    return run?.totals ?? {};
+  }, [billingTarget, landlordCandidates, run]);
+
   const issues = Number(totals.with_issues ?? run?.candidates.filter(c => c.status === "issue").length ?? 0);
-  const blockingOpen = Boolean(run?.issues.some(i => i.severity === "blocking" && i.status === "open"));
+  const blockingOpen = Boolean(run?.issues?.some(i => i.severity === "blocking" && i.status === "open"));
   const generatedThisPeriod = invoices.filter(i => i.issued_on >= period_start && i.issued_on <= period_end);
+
   const filteredReadyForBanner = useMemo(() => {
-    if (chargeTypeFilter === "all" || !run) return ready;
-    return (run.candidates ?? []).filter((c) => candidateHasChargeType(c, chargeTypeFilter) && c.status === "ready").length;
-  }, [run, chargeTypeFilter, ready]);
+    return rawCandidates.filter((c) => isCandidateReady(c, chargeTypeFilter)).length;
+  }, [rawCandidates, chargeTypeFilter, billingTarget]);
 
   const typeCounts = useMemo(() => {
-    const rows = run?.candidates ?? [];
+    const rows = rawCandidates;
     const counts: Record<string, number> = { rent: 0, service_charge: 0, utility: 0, other: 0 };
     for (const c of rows) {
       for (const t of new Set(c.billing_items.map((it) => {
@@ -221,32 +360,46 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       }))) counts[t] = (counts[t] ?? 0) + 1;
     }
     return counts;
-  }, [run]);
+  }, [rawCandidates]);
 
   const visibleCandidates = useMemo(() => {
-    const rows = run?.candidates ?? [];
     const q = search.trim().toLowerCase();
-    return rows.filter(c => {
-      if (chargeTypeFilter !== "all" && !candidateHasChargeType(c, chargeTypeFilter)) return false;
-      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+    return rawCandidates.filter(c => {
+      if (billingTarget === "tenant") {
+        if (chargeTypeFilter !== "all" && !candidateHasChargeType(c, chargeTypeFilter)) return false;
+      }
+      if (statusFilter === "ready" && !isCandidateReady(c, chargeTypeFilter)) return false;
+      if (statusFilter === "generated" && isCandidateReady(c, chargeTypeFilter)) return false;
+      if (statusFilter !== "all" && statusFilter !== "ready" && statusFilter !== "generated" && c.status !== statusFilter) return false;
       if (!q) return true;
       return [c.tenant_name, c.lease_reference, c.unit_code, c.property_name].join(" ").toLowerCase().includes(q);
     });
-  }, [run, search, statusFilter, chargeTypeFilter]);
+  }, [rawCandidates, search, statusFilter, chargeTypeFilter, billingTarget]);
 
-  const readyVisibleIds = visibleCandidates.filter(c => c.status === "ready").map(c => c.id);
+  const readyVisibleIds = visibleCandidates.filter(c => isCandidateReady(c, chargeTypeFilter)).map(c => c.id);
   const allReadySelected = readyVisibleIds.length > 0 && readyVisibleIds.every(id => selected.includes(id));
+
+  useEffect(() => {
+    const readyIds = rawCandidates.filter((c) => isCandidateReady(c, chargeTypeFilter)).map((c) => c.id);
+    setSelected(readyIds);
+  }, [run?.id, chargeTypeFilter, billingTarget, rawCandidates.length]);
 
   if (loading && allRuns.length === 0) return <LoadingState rows={6} />;
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, width: "100%" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "100%" }}>
       {error && <Alert severity="error" action={<button className="btn ghost sm" onClick={() => void load()}>Retry</button>}>{error}</Alert>}
       {notice && <Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert>}
 
       <BillingHeader
         formattedPeriod={formattedPeriod}
-        runStatus={run?.status ?? null}
+        runStatus={billingTarget === "landlord" ? (filteredReadyForBanner > 0 ? "ready" : "generated") : (run?.status ?? null)}
+        billingTarget={billingTarget}
+        onBillingTargetChange={(target) => {
+          setBillingTarget(target);
+          setSearch("");
+          setStatusFilter("all");
+        }}
         mode={mode}
         onModeChange={setMode}
         onPrev={handlePrev}
@@ -257,25 +410,41 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         onCustomEndChange={setCustomEnd}
       />
 
+      <BillingKpis
+        totals={totals}
+        ready={filteredReadyForBanner}
+        issues={issues}
+        generatedCount={generatedThisPeriod.length}
+        generatedAmount={generatedThisPeriod.reduce((a, i) => a + Number(i.amount), 0)}
+      />
+
+      <BillingChargeRollup
+        candidates={rawCandidates}
+        activeFilter={chargeTypeFilter}
+        billingTarget={billingTarget}
+        onSelectFilter={(t) => {
+          setChargeTypeFilter(t);
+          const matching = rawCandidates.filter((c) => isCandidateReady(c, t)).map((c) => c.id);
+          setSelected(matching);
+        }}
+      />
+
       <BillingActionBanner
-        hasRun={Boolean(run)}
-        isPreparing={run?.status === "preparing"}
-        isReview={run?.status === "review"}
-        isApproved={run?.status === "approved"}
+        hasRun={billingTarget === "landlord" ? true : Boolean(run)}
+        isPreparing={billingTarget === "landlord" ? false : run?.status === "preparing"}
+        isReview={billingTarget === "landlord" ? true : run?.status === "review"}
+        isApproved={billingTarget === "landlord" ? true : run?.status === "approved"}
         formattedMonth={formattedPeriod}
-        ready={chargeTypeFilter === "all" ? ready : filteredReadyForBanner}
+        ready={filteredReadyForBanner}
         issues={issues}
         selectedCount={selected.length}
         chargeTypeFilter={chargeTypeFilter}
+        billingTarget={billingTarget}
         typeCounts={typeCounts}
         onChargeTypeFilter={(t: InvoiceChargeType | "all") => {
           setChargeTypeFilter(t);
-          if (t !== "all") {
-            setSelected((prev) => prev.filter((id) => {
-              const c = run?.candidates.find((x) => x.id === id);
-              return c ? candidateHasChargeType(c, t) : true;
-            }));
-          }
+          const matching = rawCandidates.filter((c) => isCandidateReady(c, t)).map((c) => c.id);
+          setSelected(matching);
         }}
         blockingOpen={blockingOpen}
         busy={busy}
@@ -292,20 +461,13 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         })(), label: formattedPeriod })}
       />
 
-      <BillingKpis
-        totals={totals}
-        ready={ready}
-        issues={issues}
-        generatedCount={generatedThisPeriod.length}
-        generatedAmount={generatedThisPeriod.reduce((a, i) => a + Number(i.amount), 0)}
-      />
-
       <CandidateTable
         candidates={visibleCandidates}
-        run={Boolean(run)}
+        run={billingTarget === "landlord" ? true : Boolean(run)}
         search={search}
         statusFilter={statusFilter}
         chargeTypeFilter={chargeTypeFilter}
+        billingTarget={billingTarget}
         typeCounts={typeCounts}
         selected={selected}
         allReadySelected={allReadySelected}
@@ -317,10 +479,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         onStatusFilter={setStatusFilter}
         onChargeTypeFilter={(t) => {
           setChargeTypeFilter(t);
-          // Prune selection to candidates that still match the new filter
           if (t !== "all") {
             setSelected((prev) => prev.filter((id) => {
-              const c = run?.candidates.find((x) => x.id === id);
+              const c = rawCandidates.find((x) => x.id === id);
               return c ? candidateHasChargeType(c, t) : true;
             }));
           }

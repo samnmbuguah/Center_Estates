@@ -71,15 +71,42 @@ export default function TenantPortalPage() {
   const [satisfactionScore, setSatisfactionScore] = useState<number | null>(5);
   const [reopenReason, setReopenReason] = useState("");
   const [confirmationBusy, setConfirmationBusy] = useState(false);
-  const load = useCallback(async () => {
+  const [previewTenants, setPreviewTenants] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
+
+  const load = useCallback(async (selectedTenantId?: string) => {
     if (!organizationId) return;
     setLoading(true);
     setError("");
     try {
-      const tenantParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenant") : null;
-      const endpoint = tenantParam ? `/property/portal/${tenantParam}/` : "/property/portal/";
+      const urlTenantParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenant") : null;
+      const targetTenantId = selectedTenantId || urlTenantParam || activeTenantId;
+      const endpoint = targetTenantId ? `/property/portal/${targetTenantId}/` : "/property/portal/";
       const response = await apiFetch(endpoint, {}, organizationId);
       if (!response.ok) {
+        if (response.status === 403 && !targetTenantId) {
+          // Check if current user is admin/staff who can preview tenant portals
+          try {
+            const tenantsRes = await apiFetch("/property/tenants/", {}, organizationId);
+            if (tenantsRes.ok) {
+              const tenantsList = await tenantsRes.json();
+              const results: { id: string; name: string; code: string }[] = Array.isArray(tenantsList)
+                ? tenantsList
+                : (tenantsList?.results || []);
+              if (results.length > 0) {
+                setPreviewTenants(results);
+                setActiveTenantId(results[0].id);
+                const previewRes = await apiFetch(`/property/portal/${results[0].id}/`, {}, organizationId);
+                if (previewRes.ok) {
+                  const json = await previewRes.json();
+                  setData(json);
+                  setLoading(false);
+                  return;
+                }
+              }
+            }
+          } catch { /* ignore and fallback to error */ }
+        }
         let errMessage = response.status === 403
           ? "This account is not linked to a tenant portal profile."
           : "Your tenant account could not be loaded.";
@@ -99,7 +126,7 @@ export default function TenantPortalPage() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, [organizationId, activeTenantId]);
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
@@ -291,25 +318,46 @@ export default function TenantPortalPage() {
     );
   const lease = data.currentLease;
   const isImpersonating = typeof window !== "undefined" && Boolean(new URLSearchParams(window.location.search).get("tenant"));
+  const isPreviewMode = isImpersonating || previewTenants.length > 0;
 
   return (
     <div className="page-wrap property-app">
-      {isImpersonating && (
-        <div style={{ background: "linear-gradient(90deg, #1e3a8a, #2563eb)", color: "#fff", padding: "12px 18px", borderRadius: 10, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 12px rgba(37, 99, 235, 0.2)" }}>
+      {isPreviewMode && (
+        <div style={{ background: "linear-gradient(90deg, #1e3a8a, #2563eb)", color: "#fff", padding: "12px 18px", borderRadius: 10, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.2)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 22 }}>🛡️</span>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>Support Mode: Viewing Portal as {data.tenant.name} ({data.tenant.code})</div>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Staff Preview Mode: Viewing Portal as {data.tenant.name} ({data.tenant.code})</div>
               <div style={{ fontSize: 12, opacity: 0.9 }}>Administrative preview active. All invoices, receipts, and service requests reflect this tenant&apos;s live view.</div>
             </div>
           </div>
-          <button
-            className="btn sm"
-            style={{ background: "rgba(255, 255, 255, 0.2)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.4)", borderRadius: 6, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}
-            onClick={() => window.close()}
-          >
-            Close Support View ✕
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {previewTenants.length > 1 && (
+              <select
+                style={{ background: "#ffffff", color: "#1e293b", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 13, border: "none", cursor: "pointer" }}
+                value={activeTenantId || data.tenant.code}
+                onChange={(e) => {
+                  setActiveTenantId(e.target.value);
+                  void load(e.target.value);
+                }}
+              >
+                {previewTenants.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    Switch Tenant: {t.name} ({t.code})
+                  </option>
+                ))}
+              </select>
+            )}
+            {isImpersonating && (
+              <button
+                className="btn sm"
+                style={{ background: "rgba(255, 255, 255, 0.2)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.4)", borderRadius: 6, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}
+                onClick={() => window.close()}
+              >
+                Close Support View ✕
+              </button>
+            )}
+          </div>
         </div>
       )}
       <section className="property-heading">

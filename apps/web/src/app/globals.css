@@ -2728,7 +2728,7 @@ a.profile-dropdown-item { text-decoration: none; }
 .module-workspace-body {
   margin: 0 auto;
   max-width: 1600px;
-  padding: 22px 28px 36px;
+  padding: 14px 22px 28px;
   width: 100%;
 }
 .module-page-heading {
@@ -5481,7 +5481,7 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 
 /* Module navigation: one workflow level at a time, instead of one endless row. */
 .module-nav-bar {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-surface);
@@ -5499,12 +5499,12 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 }
 
 .module-nav-groups {
-  padding: 7px;
+  padding: 5px 7px;
   background: var(--bg-app);
   border-bottom: 1px solid var(--border-color);
 }
 
-.module-nav-pages { padding: 8px; }
+.module-nav-pages { padding: 6px 7px; }
 
 .module-nav-groups button,
 .module-nav-pages button {
@@ -5534,7 +5534,7 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 }
 
 .module-nav-groups button {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 800;
@@ -5555,7 +5555,7 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 }
 
 .module-nav-pages button {
-  padding: 9px 14px;
+  padding: 7px 12px;
   border-radius: 7px;
   font-size: 14px;
   font-weight: 800;
@@ -5930,9 +5930,9 @@ button, a, input, select, textarea { transition: border-color .16s ease, box-sha
   --surface-raised: #ffffff;
   --surface-sunken: #f1f5f9;
   --interactive-hover: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
+  --text-primary: #090d16;
+  --text-secondary: #1e293b;
+  --text-muted: #334155;
   --text: var(--text-primary);
   --ink: var(--text-primary);
   --muted: var(--text-secondary);

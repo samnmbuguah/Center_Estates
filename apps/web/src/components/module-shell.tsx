@@ -115,7 +115,7 @@ export function ModuleShell({
       style={{ display: "block", width: "100%", minHeight: "100vh", position: "relative" }}
     >
       {/* MAIN CONTENT — with horizontal navigation bar */}
-      <div className="module-workspace-main main" style={{ width: "100%", minWidth: 0, padding: "clamp(16px, 4vw, 24px)" }}>
+      <div className="module-workspace-main main" style={{ width: "100%", minWidth: 0, padding: "clamp(12px, 2.5vw, 18px)" }}>
         <div className="module-workspace-body" style={{ width: "100%" }}>
 
           {/* Two-level module navigation: workflow groups, then pages in the active group. */}

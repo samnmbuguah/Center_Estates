@@ -177,6 +177,8 @@ export function PropertyOnboardingForm() {
             engagement_start: meta.landlord_engagement?.starts_on || "",
             engagement_end: meta.landlord_engagement?.ends_on || "",
             management_fee: meta.landlord_engagement?.management_fee_percent ? String(meta.landlord_engagement.management_fee_percent) : "",
+            letting_fee_type: meta.landlord_engagement?.letting_fee_type || "one_month_rent",
+            letting_fee_rate: meta.landlord_engagement?.letting_fee_rate ? String(meta.landlord_engagement.letting_fee_rate) : "",
             payment_terms: meta.landlord_engagement?.payment_terms || "",
             notes: prop.notes || meta.notes || "",
           }));
@@ -495,7 +497,15 @@ export function PropertyOnboardingForm() {
       building: { floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" },
       utilities, assets, contacts, service_providers: providers,
       documents: documents.map(({ file, ...document }) => ({ ...document, filename: file?.name ?? "" })),
-      landlord_engagement: { engagement_type: values.engagement_type || "management", starts_on: values.engagement_start || null, ends_on: values.engagement_end || null, management_fee_percent: values.management_fee || null, payment_terms: values.payment_terms || "" },
+      landlord_engagement: {
+        engagement_type: values.engagement_type || "management",
+        starts_on: values.engagement_start || null,
+        ends_on: values.engagement_end || null,
+        management_fee_percent: values.management_fee || null,
+        letting_fee_type: values.letting_fee_type || "one_month_rent",
+        letting_fee_rate: values.letting_fee_rate || null,
+        payment_terms: values.payment_terms || "",
+      },
       notes: values.notes || "",
       onboarding_status: readiness.score === 100 ? "complete" : "in_progress",
       onboarding_readiness: {
@@ -777,7 +787,27 @@ export function PropertyOnboardingForm() {
         </Box>
       </Section>
 
-      <Section id="landlord" title="Landlord engagement and terms"><Grid><TextField select label="Engagement type" value={values.engagement_type || "management"} onChange={set("engagement_type")}><MenuItem value="management">Property management</MenuItem><MenuItem value="letting">Letting only</MenuItem><MenuItem value="facility">Facility management</MenuItem><MenuItem value="full_service">Full service</MenuItem></TextField><TextField type="date" label="Agreement start" value={values.engagement_start || ""} onChange={set("engagement_start")} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="date" label="Agreement end" value={values.engagement_end || ""} onChange={set("engagement_end")} slotProps={{ inputLabel: { shrink: true } }} /><TextField type="number" label="Management fee (%)" value={values.management_fee || ""} onChange={set("management_fee")} /><TextField sx={{ gridColumn: { md: "span 2" } }} label="Payment terms" value={values.payment_terms || ""} onChange={set("payment_terms")} /></Grid></Section>
+      <Section id="landlord" title="Landlord engagement and terms">
+        <Grid columns={3}>
+          <TextField select label="Engagement type" value={values.engagement_type || "management"} onChange={set("engagement_type")}>
+            <MenuItem value="management">Property management</MenuItem>
+            <MenuItem value="letting">Letting only</MenuItem>
+            <MenuItem value="facility">Facility management</MenuItem>
+            <MenuItem value="full_service">Full service</MenuItem>
+          </TextField>
+          <TextField type="date" label="Agreement start" value={values.engagement_start || ""} onChange={set("engagement_start")} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField type="date" label="Agreement end" value={values.engagement_end || ""} onChange={set("engagement_end")} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField type="number" label="Management fee (%)" placeholder="e.g. 5.0 or 8.0" value={values.management_fee || ""} onChange={set("management_fee")} />
+          <TextField select label="Letting / tenant sourcing fee basis" value={values.letting_fee_type || "one_month_rent"} onChange={set("letting_fee_type")}>
+            <MenuItem value="one_month_rent">1 Month Rent (100%)</MenuItem>
+            <MenuItem value="half_month_rent">Half Month Rent (50%)</MenuItem>
+            <MenuItem value="percent_annual">% of Annual Lease Value</MenuItem>
+            <MenuItem value="flat">Fixed Flat Amount</MenuItem>
+          </TextField>
+          <TextField type="number" label="Letting fee rate / amount" placeholder="Rate (%) or Amount (KES)" value={values.letting_fee_rate || ""} onChange={set("letting_fee_rate")} />
+          <TextField sx={{ gridColumn: { md: "span 3" } }} label="Payment terms & remittance instructions" value={values.payment_terms || ""} onChange={set("payment_terms")} />
+        </Grid>
+      </Section>
 
       <Section id="documents" title="Documents register"><Alert severity="info" sx={{ mb: 2 }}>Files are uploaded to the secure document store after the property is created. A failed file upload is reported and can be retried without recreating the property.</Alert><Grid columns={5}><TextField label="Document name" value={documentDraft.name} onChange={e => setDocumentDraft({ ...documentDraft, name: e.target.value })} /><TextField select label="Type" value={documentDraft.type} onChange={e => setDocumentDraft({ ...documentDraft, type: e.target.value })}><MenuItem value="title">Title</MenuItem><MenuItem value="management_agreement">Management agreement</MenuItem><MenuItem value="tax">Tax document</MenuItem><MenuItem value="insurance">Insurance</MenuItem><MenuItem value="other">Other</MenuItem></TextField><TextField label="Reference" value={documentDraft.reference} onChange={e => setDocumentDraft({ ...documentDraft, reference: e.target.value })} /><TextField type="date" label="Expiry date" value={documentDraft.expires_on} onChange={e => setDocumentDraft({ ...documentDraft, expires_on: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} /><Button variant="outlined" component="label" startIcon={<Upload size={16} />}>{documentDraft.file?.name || "Choose file"}<input hidden type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={event => setDocumentDraft({ ...documentDraft, file: event.target.files?.[0] ?? null })} /></Button><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!documentDraft.name.trim() || !documentDraft.file} onClick={() => { setDocuments(rows => [...rows, documentDraft]); setDocumentDraft(blankDocument); }}>Add document</Button></Grid><RowList rows={documents} columns={["Name","Type","File","Reference","Expires"]} render={d => [d.name,d.type,d.file?.name || "—",d.reference,d.expires_on || "—"]} onRemove={i => setDocuments(rows => rows.filter((_, index) => index !== i))} empty="No documents selected for upload." /></Section>
 

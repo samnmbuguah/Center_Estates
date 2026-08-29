@@ -9,6 +9,7 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -1348,6 +1349,35 @@ class PropertyApiTests(TestCase):
             format='json', **self.headers,
         ).status_code, 400)
 
+    def test_receipt_number_is_generated_when_the_user_does_not_supply_one(self):
+        response = self.client.post('/api/v1/property/receipts/', {
+            'tenant': str(self.tenant.id), 'received_on': '2026-08-01', 'amount': '300.00',
+            'payment_method': 'bank_transfer', 'external_reference': 'AUTO-RECEIPT-1',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertRegex(response.data['number'], r'^RCPT-2026-\d{5}$')
+
+    def test_bank_statement_csv_import_is_idempotent_and_validates_required_columns(self):
+        statement = SimpleUploadedFile(
+            'august-statement.csv',
+            b'reference,date,description,amount\nKCB-100,2026-08-01,Acacia rent,"1,250.00"\n',
+            content_type='text/csv',
+        )
+        response = self.client.post('/api/v1/property/bank-transactions/import-csv/', {'file': statement}, **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data, {'created': 1, 'skipped': 0})
+        transaction_record = BankTransaction.objects.get(organization=self.organization, reference='KCB-100')
+        self.assertEqual(transaction_record.amount, Decimal('1250.00'))
+        repeated = self.client.post('/api/v1/property/bank-transactions/import-csv/', {
+            'file': SimpleUploadedFile('august-statement.csv', b'reference,date,amount\nKCB-100,2026-08-01,1250\n', content_type='text/csv')
+        }, **self.headers)
+        self.assertEqual(repeated.status_code, 201, repeated.data)
+        self.assertEqual(repeated.data, {'created': 0, 'skipped': 1})
+        invalid = self.client.post('/api/v1/property/bank-transactions/import-csv/', {
+            'file': SimpleUploadedFile('invalid.csv', b'reference,amount\nKCB-101,1250\n', content_type='text/csv')
+        }, **self.headers)
+        self.assertEqual(invalid.status_code, 400, invalid.data)
+
     def test_tenancy_occupancy_report_is_live_and_property_scoped(self):
         headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         response = self.client.get(
@@ -2119,4 +2149,3 @@ class PropertyAccountingAuditFlowTests(TestCase):
         self.invoice1.refresh_from_db()
         self.assertEqual(self.invoice1.balance, Decimal('50000.00'))
         self.assertEqual(self.invoice1.status, Invoice.Status.ISSUED)
-

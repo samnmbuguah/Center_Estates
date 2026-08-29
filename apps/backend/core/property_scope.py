@@ -44,6 +44,7 @@ PROPERTY_LOOKUPS = {
     'properties.ScheduledReport': 'property_id',
     # Facility management
     'facilities.FacilityAsset': 'property_id',
+    'facilities.FloorPlan': 'building__property_id',
     'facilities.Contractor': 'assigned_properties__id',
     'facilities.WorkOrder': 'property_id',
     'facilities.WorkOrderEvent': 'work_order__property_id',

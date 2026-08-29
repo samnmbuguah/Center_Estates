@@ -290,6 +290,14 @@ export function usePropertyLogic({
           const data = await res.json();
           if (version !== loadVersion.current) return;
           setRows(Array.isArray(data) ? data as Row[] : []);
+        } else if (receiptingSection === "credit-notes") {
+          const res = await apiFetch(`/property/credit-notes/?search=${q}`, {}, organizationId);
+          if (!res.ok) { fail(); return; }
+          const data = await res.json();
+          if (version !== loadVersion.current) return;
+          const notes = Array.isArray(data) ? data as Row[] : [];
+          setRows(notes);
+          setCreditNotes(notes);
         } else {
           const listRes = await apiFetch(`/property/receipts/?search=${q}`, {}, organizationId);
           if (!listRes.ok) { fail(); return; }
@@ -883,7 +891,6 @@ export function usePropertyLogic({
     const form = new FormData(e.currentTarget);
     const raw = Object.fromEntries(form.entries());
     const payload = {
-      number: String(raw.number ?? "").trim(),
       tenant: String(raw.tenant ?? ""),
       invoice: raw.invoice ? String(raw.invoice) : null,
       received_on: String(raw.received_on ?? ""),
@@ -1027,6 +1034,49 @@ export function usePropertyLogic({
     } else {
       const body = await res.json().catch(() => ({}));
       setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Service-charge reconciliation failed.");
+    }
+  }
+
+  async function handleReviewReconciliation(row: ServiceChargeReconciliationRow) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/service-charge-reconciliations/${row.id}/review/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+    }, organizationId);
+    if (res.ok) {
+      const updated = await res.json();
+      setRows((prev) => prev.map((r) => (r.id === row.id ? (updated as Row) : r)));
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Failed to mark reconciliation as reviewed.");
+    }
+  }
+
+  async function handleApproveReconciliation(row: ServiceChargeReconciliationRow) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/property/service-charge-reconciliations/${row.id}/approve/`, {
+      method: "POST", headers: { "X-CSRFToken": csrfFromCookie() },
+    }, organizationId);
+    if (res.ok) {
+      const updated = await res.json();
+      setRows((prev) => prev.map((r) => (r.id === row.id ? (updated as Row) : r)));
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(Object.values(body as Record<string, unknown>).flat().join(" ") || "Failed to approve reconciliation.");
+    }
+  }
+
+  async function handleDownloadReconciliationPdf(row: ServiceChargeReconciliationRow) {
+    const res = await apiFetch(`/property/service-charge-reconciliations/${row.id}/pdf/`, {}, organizationId);
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `service-charge-reconciliation-${row.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     }
   }
 
@@ -1557,6 +1607,9 @@ export function usePropertyLogic({
     handleBulkActivateTenants,
     handleBulkActivateLeases,
     generateServiceChargeAllocations,
+    handleReviewReconciliation,
+    handleApproveReconciliation,
+    handleDownloadReconciliationPdf,
     fetchData: loadData,
   };
 }

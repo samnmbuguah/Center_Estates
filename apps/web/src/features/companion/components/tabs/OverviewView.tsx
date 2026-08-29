@@ -13,12 +13,16 @@ export function OverviewView({
   userName,
   onSelectTab,
   onRunAction,
+  onManageReminders,
+  canManageReminders,
 }: {
   dash: CompanionDash | null;
   loading: boolean;
   userName: string;
   onSelectTab: (tab: string) => void;
   onRunAction: (task: Row, action: string) => void;
+  onManageReminders: () => void;
+  canManageReminders: boolean;
 }) {
   const kpis = (dash?.kpis ?? {}) as Record<string, unknown>;
   const recentTasks = dash?.recentTasks ?? [];
@@ -35,11 +39,15 @@ export function OverviewView({
         <div style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>
           Personal workspace & team operational briefings
         </div>
-        <a
-          href="/caretaker-portal?preview=1"
-          target="_blank"
-          rel="noreferrer"
-          style={{
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {canManageReminders && (
+            <button className="btn ghost sm" onClick={onManageReminders}>📣 Manage team reminders</button>
+          )}
+          <a
+            href="/caretaker-portal?preview=1"
+            target="_blank"
+            rel="noreferrer"
+            style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
@@ -54,15 +62,16 @@ export function OverviewView({
             fontWeight: 800,
             boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
           }}
-        >
-          📱 Preview caretaker portal ↗
-        </a>
+          >
+            📱 Preview caretaker portal ↗
+          </a>
+        </div>
       </div>
 
       <DailyBriefingCard userName={userName} />
 
       <KpiStrip>
-        <KpiCard icon="📅" label="Due Today" value={String(kpis.dueToday ?? 0)} sub="Tasks due today" onClick={() => onSelectTab("my-tasks")} />
+        {Number(kpis.dueToday ?? 0) > 0 && <KpiCard icon="📅" label="Due Today" value={String(kpis.dueToday)} sub="Tasks due today" onClick={() => onSelectTab("my-tasks")} />}
         <KpiCard icon="⏰" label="Overdue" value={String(kpis.overdue ?? 0)} sub="Past due date" borderColor="var(--danger)" onClick={() => onSelectTab("my-tasks")} />
         <KpiCard icon="🚨" label="Escalated" value={String(kpis.escalated ?? 0)} sub="SLA breaches" borderColor="var(--danger)" onClick={() => onSelectTab("my-tasks")} />
         <KpiCard icon="⚙️" label="In Progress" value={String(kpis.inProgress ?? 0)} sub="Actively worked" onClick={() => onSelectTab("my-tasks")} />

@@ -16,6 +16,7 @@ import { TasksView } from "./components/tabs/TasksView";
 import { TemplatesView } from "./components/tabs/TemplatesView";
 import { PerformanceView } from "./components/tabs/PerformanceView";
 import { MeterReadingsView } from "./components/tabs/MeterReadingsView";
+import { TeamRemindersDialog } from "./components/TeamRemindersDialog";
 import {
   AssignTaskModal,
   CompleteTaskModal,
@@ -114,6 +115,7 @@ export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = 
   const [completingTask, setCompletingTask] = useState<Row | null>(null);
   const [previewEvidenceUrl, setPreviewEvidenceUrl] = useState<string | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [showReminderManager, setShowReminderManager] = useState(false);
   const isFieldStaff = permissions.isFieldStaff || initialTab === "meter-readings";
 
   const filteredNavGroups = useMemo(() => {
@@ -200,8 +202,16 @@ export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = 
             userName={userName}
             onSelectTab={(t) => setTab(t as CompanionTab)}
             onRunAction={runTaskAction}
+            onManageReminders={() => setShowReminderManager(true)}
+            canManageReminders={permissions.canManageCompanion}
           />
         )}
+
+        <TeamRemindersDialog
+          open={showReminderManager}
+          onClose={() => setShowReminderManager(false)}
+          organizationId={session?.activeOrganizationId}
+        />
 
         {/* QM AI */}
         {tab === "qm" && (

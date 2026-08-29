@@ -50,15 +50,47 @@ def _pick_closer(nudge_id: str) -> str:
 def _attach_delight(nudge, user):
     if not nudge:
         return nudge
-    uid = getattr(user, 'id', 0) or 0
-    nudge['joke'] = _pick_joke(nudge.get('id','ambient'), uid)
-    nudge['thought'] = _pick_closer(nudge.get('id','ambient'))
+    # Manager-authored campaigns should remain exactly as their author wrote
+    # them. Wellness jokes are useful for automated nudges, not deadlines.
+    if not nudge.get('is_campaign'):
+        uid = getattr(user, 'id', 0) or 0
+        nudge['joke'] = _pick_joke(nudge.get('id','ambient'), uid)
+        nudge['thought'] = _pick_closer(nudge.get('id','ambient'))
     nudge['animation'] = {'wellness': 'breathe', 'productivity': 'confetti', 'workload': 'pulse', 'planning': 'float'}.get(nudge.get('category','wellness'), 'breathe')
     nudge['requires_acknowledgment'] = True
     return nudge
 
 
-def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110) -> Optional[Dict[str, Any]]:
+def _campaign_nudge(organization, delivery: str) -> Optional[Dict[str, Any]]:
+    from companion.models import CompanionAnnouncement
+
+    now = timezone.now()
+    delivery_values = (CompanionAnnouncement.Delivery.BOTH, delivery)
+    campaign = CompanionAnnouncement.objects.filter(
+        organization=organization,
+        is_active=True,
+        starts_at__lte=now,
+        delivery__in=delivery_values,
+    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now)).order_by('priority', '-created_at').first()
+    if not campaign:
+        return None
+    # Include the update time in the client-side key: an edited message is
+    # eligible to be shown again, while an unchanged one still honours cooldown.
+    return {
+        'id': f'campaign-{campaign.id}-{int(campaign.updated_at.timestamp())}',
+        'category': campaign.category,
+        'icon': campaign.icon or '📣',
+        'title': campaign.title,
+        'message': campaign.message,
+        'action_label': campaign.action_label or 'Got it',
+        'action_href': campaign.action_href or '/companion',
+        'urgency': 'medium',
+        'is_campaign': True,
+        'ends_at': campaign.ends_at.isoformat() if campaign.ends_at else None,
+    }
+
+
+def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110, delivery: str = 'popup') -> Optional[Dict[str, Any]]:
     """
     Evaluates the user's workload, task state, calendar, and time of day
     to generate an empathetic, actionable, ambient nudge.
@@ -76,16 +108,9 @@ def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110) -
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
     if not organization or not user or not user.is_authenticated:
-        return {
-            "id": "ambient-ready",
-            "category": "wellness",
-            "icon": "✨",
-            "title": f"Welcome, {user_name}",
-            "message": "Operations companion is active and monitoring portfolio workflows.",
-            "action_label": "View Tasks",
-            "action_href": "/companion",
-            "urgency": "low",
-        }
+        return None
+
+    campaign = _campaign_nudge(organization, delivery)
 
     my_tasks = Task.objects.filter(
         organization=organization,
@@ -127,7 +152,7 @@ def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110) -
     # ─────────────────────────────────────────────────────────────
 
     # 1. Evening Wrap-Up & Work-Life Balance Nudge (5:00 PM - 7:30 PM)
-    if 17 <= local_hour < 20:
+    if 17 <= local_hour < 20 and (active_count or completed_today_count or overdue_count or approaching_deadlines):
         if active_count == 0 or (overdue_count == 0 and approaching_deadlines == 0):
             return {
                 "id": "evening-wrapup-done",
@@ -217,7 +242,7 @@ def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110) -
         }
 
     # Default Morning Focus Nudge (8:00 AM - 9:30 AM)
-    if 7 <= local_hour < 10:
+    if 7 <= local_hour < 10 and active_count:
         return {
             "id": "morning-kickoff",
             "category": "productivity",
@@ -229,18 +254,54 @@ def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110) -
             "urgency": "low"
         }
 
-    # Fallback balanced nudge
+    # Do not interrupt staff merely to say there are zero tasks. Companion is
+    # intentionally quiet when there is nothing actionable.
+    if not (active_count or completed_today_count or overdue_count or approaching_deadlines):
+        return None
+
+    completed_clause = f" and {completed_today_count} completed today" if completed_today_count else ""
     return {
         "id": "ambient-checkin",
         "category": "wellness",
         "icon": "✨",
         "title": f"Operating smoothly, {user_name}",
-        "message": f"You have {active_count} active tasks and {completed_today_count} completed today. I'm operating quietly in the background if you need assistance.",
+        "message": f"You have {active_count} active task{'s' if active_count != 1 else ''}{completed_clause}. Companion is ready when you need assistance.",
         "action_label": "View Tasks",
         "action_href": "/companion?tab=my-tasks",
         "urgency": "low"
     }
 
-def evaluate_employee_nudge(user, organization, session_active_minutes: int = 110):
-    nudge = _evaluate_raw_nudge(user, organization, session_active_minutes)
-    return _attach_delight(nudge, user) if nudge else nudge
+def evaluate_employee_nudge(user, organization, session_active_minutes: int = 110, delivery: str = 'popup'):
+    nudge = _evaluate_raw_nudge(user, organization, session_active_minutes, delivery)
+    campaign = _campaign_nudge(organization, delivery)
+    user_name = user.first_name or user.username or "there" if user else "there"
+
+    if not nudge and campaign:
+        nudge = {
+            "id": f"ambient-{campaign['id']}",
+            "category": "wellness",
+            "icon": "✨",
+            "title": f"Operating smoothly, {user_name}",
+            "message": "You have 0 active tasks and 0 completed today. I'm operating quietly in the background if you need assistance.",
+            "action_label": "View Tasks",
+            "action_href": "/companion?tab=my-tasks",
+            "urgency": "low",
+        }
+
+    if not nudge:
+        return None
+
+    nudge = _attach_delight(nudge, user)
+
+    if campaign:
+        nudge['announcement'] = {
+            'id': campaign.get('id'),
+            'title': campaign.get('title'),
+            'message': campaign.get('message'),
+            'category': campaign.get('category'),
+            'icon': campaign.get('icon') or '📣',
+            'action_label': campaign.get('action_label') or 'View details',
+            'action_href': campaign.get('action_href') or '/companion',
+        }
+
+    return nudge

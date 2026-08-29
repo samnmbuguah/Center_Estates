@@ -1,7 +1,7 @@
 export type Candidate = {
   id: string; tenant_name: string; property_name: string; unit_code: string;
   lease_reference: string; due_date: string;
-  billing_items: Array<{ code: string; description: string; total?: string; amount?: string }>;
+  billing_items: Array<{ code: string; description: string; total?: string; amount?: string; billed?: boolean; invoice_id?: string; invoice_number?: string }>;
   total: string; status: string;
   issue_summary: Array<{ code: string; message: string; severity: string }>;
   invoice_number?: string;

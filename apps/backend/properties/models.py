@@ -1282,3 +1282,51 @@ class ExitClearance(OrganizationOwnedModel):
             raise ValidationError('Exit clearance tenant must belong to the same organization.')
         if self.deductions and not isinstance(self.deductions, list):
             raise ValidationError({'deductions': 'Deductions must be a list of {item, amount, notes} records.'})
+
+
+class LandlordInvoice(OrganizationOwnedModel):
+    """Management fee invoice generated for a landlord based on collected rent."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SENT = 'sent', 'Sent'
+        PAID = 'paid', 'Paid'
+        PARTIAL = 'partial', 'Partially paid'
+        OVERDUE = 'overdue', 'Overdue'
+
+    class FeeType(models.TextChoices):
+        MANAGEMENT = 'management', 'Management fee'
+        LETTING = 'letting', 'Letting fee'
+        OTHER = 'other', 'Other'
+
+    number = models.CharField(max_length=60)
+    property = models.ForeignKey(Property, on_delete=models.PROTECT, related_name='landlord_invoices')
+    landlord_name = models.CharField(max_length=200)
+    landlord_pin = models.CharField(max_length=80, blank=True)
+    fee_type = models.CharField(max_length=20, choices=FeeType.choices, default=FeeType.MANAGEMENT)
+    billing_period = models.CharField(max_length=20)  # YYYY-MM
+    gross_collections = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    fee_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0'))  # percentage
+    fee_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('16.00'))
+    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    deductions = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    net_payout = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    issued_on = models.DateField(null=True, blank=True)
+    due_on = models.DateField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
+    notes = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-billing_period', '-created_at')
+        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_landlord_invoice_number')]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Invoice property must belong to the same organization.')
+        if self.total_amount is not None and self.total_amount < 0:
+            raise ValidationError({'total_amount': 'Total amount cannot be negative.'})

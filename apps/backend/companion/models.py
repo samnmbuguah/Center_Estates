@@ -449,3 +449,46 @@ class QmMessage(OrganizationOwnedModel):
     class Meta:
         ordering = ('created_at',)
         indexes = [models.Index(fields=('organization', 'conversation', 'created_at'))]
+
+
+class CompanionAnnouncement(OrganizationOwnedModel):
+    """A manager-authored, time-bound reminder shown by the Companion.
+
+    Announcements deliberately belong to an organisation rather than a property: a
+    campaign such as a staff activity or policy reminder should follow a member as
+    they work across the portfolio.
+    """
+
+    class Category(models.TextChoices):
+        ANNOUNCEMENT = 'announcement', 'Announcement'
+        CAMPAIGN = 'campaign', 'Campaign'
+        REMINDER = 'reminder', 'Reminder'
+
+    class Delivery(models.TextChoices):
+        POPUP = 'popup', 'Sign-in popup only'
+        OVERVIEW = 'overview', 'Companion home only'
+        BOTH = 'both', 'Popup and Companion home'
+
+    title = models.CharField(max_length=180)
+    message = models.TextField()
+    category = models.CharField(max_length=20, choices=Category.choices, default=Category.REMINDER)
+    icon = models.CharField(max_length=16, default='📣')
+    action_label = models.CharField(max_length=80, blank=True, default='')
+    action_href = models.CharField(max_length=500, blank=True, default='')
+    delivery = models.CharField(max_length=16, choices=Delivery.choices, default=Delivery.BOTH)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
+    priority = models.PositiveSmallIntegerField(default=50)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='companion_announcements',
+    )
+
+    class Meta:
+        ordering = ('priority', '-created_at')
+        indexes = [models.Index(fields=('organization', 'is_active', 'starts_at', 'ends_at'))]
+
+    def clean(self):
+        if self.ends_at and self.starts_at and self.ends_at <= self.starts_at:
+            raise ValidationError({'ends_at': 'The end date must be after the start date.'})

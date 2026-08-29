@@ -9,7 +9,7 @@ import os
 from core.models import Module
 from organizations.models import Membership, Organization, Role, Permission, MembershipRole
 from subscriptions.models import Subscription
-from companion.models import QmConversation, QmMessage, Task, TaskEvent, PublicFeedbackQrCode, TeamFeedbackThread
+from companion.models import CompanionAnnouncement, QmConversation, QmMessage, Task, TaskEvent, PublicFeedbackQrCode, TeamFeedbackThread
 from django.utils import timezone
 from datetime import timedelta
 from companion.qm_agent import QMAgentOrchestrator
@@ -103,6 +103,38 @@ class CompanionApiTests(TestCase):
         self.assertLessEqual(len(queries), 10, f'Dashboard used {len(queries)} queries')
         self.assertEqual(len(res.data["recentTasks"]), 1)
         self.assertEqual(res.data["recentTasks"][0]["title"], "Task for staff")
+
+    def test_manager_can_publish_and_pause_a_companion_campaign(self):
+        self.login(self.admin)
+        starts_at = timezone.now() - timedelta(minutes=1)
+        created = self.client.post('/api/v1/companion/announcements/', {
+            'title': 'Safety week', 'message': 'Please complete the safety briefing by Friday.',
+            'category': 'campaign', 'delivery': 'both', 'starts_at': starts_at.isoformat(),
+            'action_label': 'Open briefing', 'action_href': '/companion?tab=dialogue',
+        }, format='json')
+        self.assertEqual(created.status_code, 201, created.content)
+        self.assertEqual(created.data['created_by_name'], 'Ad Min')
+
+        self.login(self.staff)
+        popup = self.client.get('/api/v1/companion/dashboard/nudge/')
+        self.assertEqual(popup.status_code, 200, popup.content)
+        self.assertEqual(popup.data['title'], 'Safety week')
+        self.assertTrue(popup.data['is_campaign'])
+        self.assertNotIn('joke', popup.data)
+
+        self.login(self.admin)
+        paused = self.client.patch(
+            f"/api/v1/companion/announcements/{created.data['id']}/", {'is_active': False}, format='json',
+        )
+        self.assertEqual(paused.status_code, 200, paused.content)
+        self.login(self.staff)
+        self.assertEqual(self.client.get('/api/v1/companion/dashboard/nudge/').data, {})
+
+    def test_empty_workload_does_not_create_an_ambient_nudge(self):
+        self.login(self.staff)
+        response = self.client.get('/api/v1/companion/dashboard/nudge/')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.data, {})
 
     def test_tasks_and_dashboard_honor_selected_property(self):
         first = Property.objects.create(organization=self.organization, code='CP-1', name='Companion One')

@@ -25,7 +25,9 @@ export function RentView({
   onSendReminder = () => {},
   onInvoiceAction = () => {},
   onSelectRow = () => {},
-  onAddInvoice = () => {},
+  // Kept as a compatibility input while manual invoicing remains available
+  // from the Billing Pipeline. The register deliberately has no duplicate CTA.
+  onAddInvoice: _onAddInvoice = () => {},
   onDownloadPdf = () => {},
   onRefresh = () => {},
   canFinance = true,
@@ -45,33 +47,88 @@ export function RentView({
   onInvoiceAction?: (row: InvoiceRow, action: "submit-review" | "approve" | "issue" | "void") => void;
   onSelectRow?: (r: Row) => void;
   canFinance?: boolean;
-  canApprove?: boolean;
   onAddInvoice?: () => void;
+  canApprove?: boolean;
   onDownloadPdf?: (row: InvoiceRow) => void;
   onRefresh?: () => void;
 }) {
+  const now = new Date();
+  const [periodMode, setPeriodMode] = useState<"month" | "all">("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const currentInvoices = (invoices && invoices.length > 0 ? invoices : (rows && rows.length > 0 ? rows : rentInvoices)) as InvoiceRow[];
   const displayInvoices = (rows && rows.length > 0 ? rows : currentInvoices) as InvoiceRow[];
-  
-  const totalBilled = currentInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
-  const outstanding = currentInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
-  const collected = Math.max(totalBilled - outstanding, 0);
-  const collectionRate = pct(collected, totalBilled);
-  const dueThisMonth = currentInvoices.filter((i) => {
-    const d = new Date(String(i.due_on ?? ""));
-    const now = new Date();
-    return !Number.isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && Number(i.balance ?? 0) > 0;
-  }).length;
+
+  const changeMonth = (offset: number) => {
+    const [year, monthNum] = selectedMonth.split("-").map(Number);
+    const date = new Date(year, monthNum - 1 + offset, 1);
+    setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+    setPeriodMode("month");
+  };
+
+  const formattedSelectedMonth = useMemo(() => {
+    const [y, m] = selectedMonth.split("-").map(Number);
+    return new Date(y, m - 1).toLocaleDateString("en-KE", { month: "long", year: "numeric" });
+  }, [selectedMonth]);
+
+  const normalizeType = (t?: string): string => {
+    const s = String(t || "").trim().toLowerCase();
+    if (s === "rent") return "rent";
+    if (s === "sc" || s === "service_charge" || s.includes("service")) return "service_charge";
+    if (s === "water" || s === "electricity" || s === "utility" || s.includes("utility")) return "utility";
+    if (s.includes("mgmt") || s.includes("management") || s.includes("commission") || s.includes("landlord")) return "management_fee";
+    return "other";
+  };
+
+  const typeLabelMap: Record<string, string> = {
+    rent: "Rent",
+    service_charge: "Service Charge",
+    utility: "Utilities",
+    management_fee: "Management Fee",
+    other: "Other",
+  };
 
   const filteredInvoices = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return displayInvoices.filter((inv) => {
+      // Month / Period filter
+      if (periodMode === "month") {
+        const invDate = String(inv.issued_on || inv.due_on || "");
+        if (!invDate.startsWith(selectedMonth)) {
+          // Check metadata billing period as fallback
+          const bp = String((inv.metadata as Record<string, unknown> | undefined)?.billing_period || "");
+          if (!bp.includes(selectedMonth)) return false;
+        }
+      }
+
+      // Type filter
+      if (typeFilter !== "all") {
+        const norm = normalizeType(inv.invoice_type);
+        if (norm !== typeFilter) return false;
+      }
+
+      // Status filter
       if (statusFilter !== "all" && String(inv.status).toLowerCase() !== statusFilter) return false;
-      return true;
+
+      // Text search
+      if (!q) return true;
+      const propName = String((inv.metadata as Record<string, unknown> | undefined)?.property_name ?? "");
+      const matchString = [inv.number, inv.tenant_name, propName, inv.invoice_type, inv.amount].join(" ").toLowerCase();
+      return matchString.includes(q);
     });
-  }, [displayInvoices, statusFilter]);
+  }, [displayInvoices, periodMode, selectedMonth, typeFilter, statusFilter, search]);
+
+  const totalBilled = filteredInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
+  const outstanding = filteredInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
+  const collected = Math.max(totalBilled - outstanding, 0);
+  const collectionRate = pct(collected, totalBilled);
+  const dueThisMonth = filteredInvoices.filter((i) => {
+    const d = new Date(String(i.due_on ?? ""));
+    return !Number.isNaN(d.getTime()) && Number(i.balance ?? 0) > 0;
+  }).length;
 
   const selectedInvoices = useMemo(() => {
     return filteredInvoices.filter((i) => selectedIds.has(String(i.id)));
@@ -119,8 +176,24 @@ export function RentView({
     { label: "120+ days", key: "over_120" },
   ];
 
+  const getTypeBadge = (rawType?: string) => {
+    const norm = normalizeType(rawType);
+    switch (norm) {
+      case "rent":
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", fontWeight: 700, fontSize: 11 }}>Rent</span>;
+      case "service_charge":
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(139, 92, 246, 0.12)", color: "#7c3aed", fontWeight: 700, fontSize: 11 }}>Service Charge</span>;
+      case "utility":
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(20, 184, 166, 0.12)", color: "#0d9488", fontWeight: 700, fontSize: 11 }}>Utility</span>;
+      case "management_fee":
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(245, 158, 11, 0.12)", color: "#d97706", fontWeight: 700, fontSize: 11 }}>Mgmt Fee</span>;
+      default:
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(100, 116, 139, 0.12)", color: "#475569", fontWeight: 700, fontSize: 11 }}>{rawType || "Invoice"}</span>;
+    }
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
       <KpiStrip>
         <KpiCard icon="🧾" iconBg="rgba(79,70,229,0.12)" iconColor="#4f46e5" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} />
         <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="#16a34a" label="Collected" value={kM(collected)} sub={`${collectionRate}% collection rate`} />
@@ -133,7 +206,7 @@ export function RentView({
         subtitle="Authoritative ledger of issued invoices and lifecycle status"
         search={search}
         onSearch={setSearch}
-        placeholder="Search invoice number, tenant or property…"
+        placeholder="Search invoice number, tenant, property or type…"
       >
         <button
           className="btn ghost sm"
@@ -142,6 +215,7 @@ export function RentView({
               selectedInvoices.length > 0 ? selectedInvoices : filteredInvoices,
               [
                 { key: "number", label: "Invoice No" },
+                { key: "invoice_type", label: "Type" },
                 { key: "tenant_name", label: "Tenant" },
                 { key: "due_on", label: "Due Date" },
                 { key: "amount", label: "Amount" },
@@ -154,10 +228,86 @@ export function RentView({
         >
           Export CSV {selectedInvoices.length > 0 ? `(${selectedInvoices.length})` : ""}
         </button>
-        <button className="btn ghost sm" onClick={() => setTab("receipting")}>Receipts & Collections →</button>
-        {canFinance && <button className="btn primary sm" onClick={onAddInvoice}>+ New Single Invoice</button>}
       </ViewToolbar>
 
+      {/* Period & Charge Type Navigation Bar */}
+      <Box
+        sx={{
+          p: 1.5,
+          borderRadius: 2,
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1.5,
+        }}
+      >
+        {/* Left: Period Month Switcher */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, color: "var(--text-secondary)", fontSize: 11 }}>
+            Period:
+          </span>
+          <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden", background: "var(--surface-2)" }}>
+            <button
+              type="button"
+              className="btn ghost sm"
+              style={{ padding: "4px 8px", borderRadius: 0, height: 28 }}
+              onClick={() => changeMonth(-1)}
+              title="Previous Month"
+            >
+              ◀
+            </button>
+            <span style={{ padding: "4px 12px", fontWeight: 700, fontSize: 12, color: periodMode === "month" ? "var(--primary)" : "var(--text)" }}>
+              {periodMode === "month" ? formattedSelectedMonth : "All Time"}
+            </span>
+            <button
+              type="button"
+              className="btn ghost sm"
+              style={{ padding: "4px 8px", borderRadius: 0, height: 28 }}
+              onClick={() => changeMonth(1)}
+              title="Next Month"
+            >
+              ▶
+            </button>
+          </div>
+          <button
+            type="button"
+            className={`btn sm ${periodMode === "all" ? "primary" : "ghost"}`}
+            style={{ fontSize: 11, height: 28 }}
+            onClick={() => setPeriodMode(periodMode === "all" ? "month" : "all")}
+          >
+            {periodMode === "all" ? "✓ All Periods" : "Show All Periods"}
+          </button>
+        </div>
+
+        {/* Right: Invoice Type Filter Chips */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, color: "var(--text-secondary)", fontSize: 11 }}>
+            Filter Type:
+          </span>
+          {([
+            { key: "all", label: "All Types" },
+            { key: "rent", label: "Rent" },
+            { key: "service_charge", label: "Service Charge" },
+            { key: "utility", label: "Utilities" },
+            { key: "management_fee", label: "Mgmt Fees" },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={`btn sm ${typeFilter === t.key ? "primary" : "ghost"}`}
+              style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
+              onClick={() => setTypeFilter(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </Box>
+
+      {/* Lifecycle Status Filter Strip */}
       <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           {[
@@ -214,8 +364,24 @@ export function RentView({
         )}
       </div>
 
-      <Panel title="Invoices">
-        <ListState loading={loading} empty={filteredInvoices.length === 0} emptyTitle="No invoices found" emptyDesc="Invoices created in the billing pipeline will appear here.">
+      <Panel title={`Invoices ${periodMode === "month" ? `— ${formattedSelectedMonth}` : "— All Time"}`}>
+        <ListState
+          loading={loading}
+          empty={filteredInvoices.length === 0}
+          emptyTitle={periodMode === "month" ? `No invoices found for ${formattedSelectedMonth}` : "No invoices found"}
+          emptyDesc={
+            periodMode === "month"
+              ? `No invoices match the selected filters for ${formattedSelectedMonth}. Invoices generated in the Billing Pipeline will appear here.`
+              : "Invoices created in the billing pipeline will appear here."
+          }
+        >
+          {filteredInvoices.length === 0 && periodMode === "month" && (
+            <div style={{ padding: "16px", textAlign: "center" }}>
+              <button className="btn primary sm" onClick={() => setTab("billing")}>
+                Open Billing Pipeline for {formattedSelectedMonth} →
+              </button>
+            </div>
+          )}
           <div className="table-scroll">
             <table className="fc-data-table">
               <thead>
@@ -228,7 +394,8 @@ export function RentView({
                     />
                   </th>
                   <th>Invoice No</th>
-                  <th>Tenant</th>
+                  <th>Type</th>
+                  <th>Tenant / Recipient</th>
                   <th>Property</th>
                   <th>Due Date</th>
                   <th>Amount</th>
@@ -260,6 +427,9 @@ export function RentView({
                       </td>
                       <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>
                         {String(inv.number ?? "—")}
+                      </td>
+                      <td>
+                        {getTypeBadge(inv.invoice_type)}
                       </td>
                       <td>
                         <strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "—")}</strong>

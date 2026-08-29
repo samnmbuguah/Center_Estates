@@ -11,7 +11,7 @@ from .models import (
     ServiceCharge, TaxConfiguration, TenantMovement, UnitStatusHistory, LeaseEscalation,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment,
-    TenantHandover, ExitClearance,
+    TenantHandover, ExitClearance, LandlordInvoice,
 )
 
 
@@ -288,6 +288,23 @@ class ExitClearanceSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class LandlordInvoiceSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+
+    class Meta:
+        model = LandlordInvoice
+        exclude = ('organization',)
+        read_only_fields = ('number', 'status', 'issued_on', 'paid_at', 'payment_reference')
+        ref_name = 'LandlordInvoice'
+
+    def validate(self, attrs):
+        organization = get_active_organization(self.context['request'])
+        prop = attrs.get('property')
+        if prop and prop.organization_id != organization.id:
+            raise serializers.ValidationError({'property': 'Property must belong to the active organization.'})
+        return attrs
+
+
 class TenantSerializer(serializers.ModelSerializer):
     code = serializers.CharField(read_only=True)
     unit = serializers.SerializerMethodField()
@@ -418,6 +435,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Receipt
         exclude = ('organization', 'received_by')
+        extra_kwargs = {'number': {'required': False, 'allow_blank': True}}
 
     def validate_amount(self, value):
         if value <= 0:
@@ -504,11 +522,19 @@ class ServiceChargeAllocationSerializer(serializers.ModelSerializer):
 class ServiceChargeReconciliationSerializer(serializers.ModelSerializer):
     service_charge_name = serializers.CharField(source='service_charge.name', read_only=True)
     property_name = serializers.CharField(source='service_charge.property.name', read_only=True)
+    prepared_by_name = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ServiceChargeReconciliation
-        exclude = ('organization', 'prepared_by', 'reviewed_by', 'reviewed_at')
-        read_only_fields = ('budgeted_amount', 'actual_amount', 'variance', 'status')
+        exclude = ('organization',)
+        read_only_fields = ('budgeted_amount', 'actual_amount', 'variance', 'status', 'prepared_by', 'reviewed_by', 'reviewed_at')
+
+    def get_prepared_by_name(self, obj):
+        return obj.prepared_by.get_full_name() or obj.prepared_by.get_username() if obj.prepared_by else 'System'
+
+    def get_reviewed_by_name(self, obj):
+        return obj.reviewed_by.get_full_name() or obj.reviewed_by.get_username() if obj.reviewed_by else ''
 
 
 class TenantDocumentSerializer(serializers.ModelSerializer):

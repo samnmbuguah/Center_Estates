@@ -1,10 +1,14 @@
 import csv
 import io
+import os
+import subprocess
+import tempfile
 from io import BytesIO
 from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
 import uuid
 
 from django.db import transaction
+from django.core.files.base import ContentFile
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
@@ -13,6 +17,7 @@ import calendar
 from decimal import Decimal
 from rest_framework import serializers, status
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
@@ -26,7 +31,7 @@ from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 
 from core.models import Module
-from core.permissions import HasModuleActionPermission
+from core.permissions import HasModuleActionPermission, HasModuleSubscription
 from core.serializers import GenericObjectSerializer
 from core.tenancy import get_active_organization
 from core.property_scope import scope_model_queryset, scope_queryset_to_property
@@ -1152,10 +1157,96 @@ class FacilityIncidentViewSet(FacilityModelViewSet):
 
 
 class FloorPlanViewSet(FacilityModelViewSet):
-    write_permission = 'facility.administer'
+    # Floor-plan/unit mapping is entered from Property > Occupancy and must not
+    # disappear for customers who subscribe to Property without Facility.
+    required_module = Module.PROPERTY
+    write_permission = 'property.operations'
     queryset = FloorPlan.objects.select_related('building__property')
     serializer_class = FloorPlanSerializer
     search_fields = ('title', 'building__name', 'building__property__name')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        building_id = self.request.query_params.get('building')
+        floor = self.request.query_params.get('floor')
+        if building_id:
+            queryset = queryset.filter(building_id=building_id)
+        if floor:
+            queryset = queryset.filter(floor=floor)
+        return queryset
+
+    @staticmethod
+    def _make_preview(upload, extension):
+        """Return (ContentFile|None, filename, error). Never execute uploaded files."""
+        if extension in {'png', 'jpg', 'jpeg', 'svg'}:
+            return None, '', ''
+        try:
+            with tempfile.TemporaryDirectory(prefix='ce-floor-plan-') as directory:
+                source = os.path.join(directory, f'original.{extension}')
+                with open(source, 'wb') as destination:
+                    for chunk in upload.chunks():
+                        destination.write(chunk)
+                pdf_path = source
+                if extension in {'dwg', 'dxf'}:
+                    result = subprocess.run(
+                        ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', directory, source],
+                        capture_output=True, text=True, timeout=45, check=False,
+                    )
+                    pdf_path = os.path.join(directory, 'original.pdf')
+                    if result.returncode != 0 or not os.path.exists(pdf_path):
+                        return None, '', 'This CAD drawing was saved, but a preview could not be generated. Export it as PDF or PNG to map units.'
+                preview_base = os.path.join(directory, 'preview')
+                result = subprocess.run(
+                    ['pdftoppm', '-f', '1', '-l', '1', '-png', '-r', '144', pdf_path, preview_base],
+                    capture_output=True, text=True, timeout=45, check=False,
+                )
+                preview_path = f'{preview_base}-1.png'
+                if result.returncode != 0 or not os.path.exists(preview_path):
+                    return None, '', 'The file was saved, but its first page could not be converted into a mapping preview.'
+                with open(preview_path, 'rb') as preview:
+                    return ContentFile(preview.read()), 'floor-plan-preview.png', ''
+        except (OSError, subprocess.TimeoutExpired):
+            return None, '', 'The file was saved, but preview generation timed out. Export it as PNG and upload that version to map units.'
+
+    @action(detail=False, methods=('post',), url_path='upload', parser_classes=(MultiPartParser, FormParser))
+    @transaction.atomic
+    def upload(self, request):
+        upload = request.FILES.get('file')
+        if not upload:
+            raise ValidationError({'file': 'Choose a floor plan to upload.'})
+        if upload.size > 25 * 1024 * 1024:
+            raise ValidationError({'file': 'Floor plans must be 25 MB or smaller.'})
+        filename = os.path.basename(upload.name or '')
+        extension = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        allowed = {'pdf', 'png', 'jpg', 'jpeg', 'svg', 'dwg', 'dxf'}
+        if extension not in allowed:
+            raise ValidationError({'file': 'Upload a PDF, PNG, JPG, SVG, DWG, or DXF floor plan.'})
+        organization = get_active_organization(request)
+        building_id = request.data.get('building')
+        building = Building.objects.filter(pk=building_id, organization=organization).first()
+        if building is None:
+            raise ValidationError({'building': 'Select a building in the active organization.'})
+        floor = str(request.data.get('floor') or '1').strip()[:40]
+        if not floor:
+            raise ValidationError({'floor': 'Select a floor level.'})
+        version = str(FloorPlan.objects.filter(organization=organization, building=building, floor=floor).count() + 1)
+        preview, preview_name, preview_error = self._make_preview(upload, extension)
+        # Reset the stream after preview generation before Django storage consumes it.
+        upload.seek(0)
+        plan = FloorPlan(
+            organization=organization, building=building, floor=floor,
+            title=(request.data.get('title') or f'{building.name} — Floor {floor}')[:180],
+            file_url='', uploaded_file=upload, original_filename=filename, file_type=extension,
+            version=version, preview_status='ready' if not preview_error else 'preview_unavailable',
+            preview_error=preview_error, uploaded_by=request.user,
+        )
+        plan.save()
+        if preview:
+            plan.preview_file.save(preview_name, preview, save=False)
+        # Image originals are safe browser previews; PDFs/CAD use a generated PNG only.
+        plan.file_url = plan.preview_file.url if plan.preview_file else plan.uploaded_file.url
+        plan.save(update_fields=('preview_file', 'file_url', 'updated_at'))
+        return Response(self.get_serializer(plan, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
         serializer.save(organization=self._validate_organization(serializer), uploaded_by=self.request.user)
@@ -2043,13 +2134,8 @@ class FacilityPortalViewSet(ViewSet):
     them submit new requests against their active lease property.
     """
 
-    permission_classes = (HasModuleActionPermission,)
+    permission_classes = (HasModuleSubscription,)
     required_module = Module.FACILITY
-    permission_map = {
-        'service_request': 'facility.view',
-        'confirm_service_request': 'facility.view',
-        'reopen_service_request': 'facility.view',
-    }
 
     serializer_class = GenericObjectSerializer
 

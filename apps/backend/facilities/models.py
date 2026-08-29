@@ -569,6 +569,15 @@ class FloorPlan(OrganizationOwnedModel):
     building = models.ForeignKey('properties.Building', on_delete=models.CASCADE, related_name='facility_floor_plans')
     floor = models.CharField(max_length=40, default='1')
     title = models.CharField(max_length=180)
+    # Keep the original drawing for audit/download and a browser-safe preview for
+    # the interactive unit mapper.  The latter is deliberately separate: a DWG
+    # or PDF must never be treated as an image by the browser.
+    uploaded_file = models.FileField(upload_to='facility/floor-plans/%Y/%m/', null=True, blank=True)
+    preview_file = models.FileField(upload_to='facility/floor-plan-previews/%Y/%m/', null=True, blank=True)
+    original_filename = models.CharField(max_length=255, blank=True)
+    file_type = models.CharField(max_length=20, blank=True)
+    preview_status = models.CharField(max_length=24, default='ready')
+    preview_error = models.CharField(max_length=300, blank=True)
     file_url = models.CharField(max_length=500)
     scale_factor = models.DecimalField(max_digits=12, decimal_places=4, default=1.0)
     scale_unit = models.CharField(max_length=20, default='m')
