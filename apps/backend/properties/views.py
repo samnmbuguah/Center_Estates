@@ -39,7 +39,7 @@ from .models import (
     RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment, UnitStatusHistory, LeaseEscalation,
-    TenantHandover, ExitClearance, LandlordInvoice,
+    TenantHandover, ExitClearance, LandlordInvoice, Owner, PropertyCollectionAccount, PropertyFeeProfile,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -54,6 +54,7 @@ from .serializers import (
     TenantMovementSerializer, TenantPortalAccessSerializer, TenantSerializer,
     TenantHandoverSerializer, ExitClearanceSerializer, LandlordInvoiceSerializer,
     UnitSerializer, UnitChargeRuleSerializer, UnitStatusHistorySerializer,
+    OwnerSerializer, PropertyCollectionAccountSerializer, PropertyFeeProfileSerializer,
 )
 
 
@@ -912,6 +913,244 @@ class PropertyViewSet(OrganizationModelViewSet):
             'utility_meters_created': len(meters),
         }, status=201)
 
+    @action(detail=False, methods=('post',), url_path='onboard-sectional-title')
+    @transaction.atomic
+    def onboard_sectional_title(self, request):
+        """Complete 12-step Sectional Title property onboarding in a single atomic transaction."""
+        organization = get_active_organization(request)
+        data = request.data
+
+        # 1. Create Property
+        prop_data = data.get('property') or {}
+        if not isinstance(prop_data, dict) or not prop_data.get('name'):
+            raise ValidationError({'property': 'Property name is required.'})
+
+        existing_codes = Property.objects.filter(
+            organization=organization, code__startswith='PROP-'
+        ).values_list('code', flat=True)
+        numbers = [int(code.rsplit('-', 1)[-1]) for code in existing_codes if code.rsplit('-', 1)[-1].isdigit()]
+        prop_code = f"PROP-{(max(numbers) + 1) if numbers else 1:04d}"
+
+        commence_date = _parse_flexible_date(prop_data.get('management_commencement_date') or prop_data.get('commencement_date'))
+
+        property_record = Property.objects.create(
+            organization=organization,
+            code=prop_code,
+            name=str(prop_data.get('name')).strip(),
+            property_type='sectional_title',
+            is_sectional_title=True,
+            scheme_registration_number=str(prop_data.get('scheme_registration_number') or prop_data.get('scheme_number') or '').strip(),
+            total_blocks=int(prop_data.get('total_blocks') or 1),
+            total_units_count=int(prop_data.get('total_units_count') or prop_data.get('total_units') or 1),
+            estate_manager_name=str(prop_data.get('estate_manager_name') or prop_data.get('estate_manager') or '').strip(),
+            management_commencement_date=commence_date,
+            address=str(prop_data.get('address') or '').strip(),
+            city=str(prop_data.get('city') or 'Nairobi').strip(),
+            status=Property.Status.ACTIVE if data.get('activate_immediately') else Property.Status.DRAFT,
+            metadata=prop_data.get('metadata') or {},
+        )
+
+        # 2. Create Buildings / Blocks
+        buildings_map = {}
+        blocks_data = data.get('blocks') or data.get('buildings') or []
+        if isinstance(blocks_data, list):
+            for i, b_item in enumerate(blocks_data, 1):
+                b_name = b_item if isinstance(b_item, str) else (b_item.get('name') or f'Block {i}')
+                b_code = f"BLK-{i:02d}"
+                b_floors = int(b_item.get('floors', 1)) if isinstance(b_item, dict) else 1
+                b_obj = Building.objects.create(
+                    organization=organization,
+                    property=property_record,
+                    code=b_code,
+                    name=b_name,
+                    floors=b_floors,
+                )
+                buildings_map[b_name.upper()] = b_obj
+                buildings_map[b_code.upper()] = b_obj
+
+        # 3. Create Owners / Landlords map
+        owners_map = {}
+        owners_data = data.get('owners') or []
+        if isinstance(owners_data, list):
+            for i, o_item in enumerate(owners_data, 1):
+                if isinstance(o_item, dict) and o_item.get('name'):
+                    o_name = str(o_item['name']).strip()
+                    existing_o_codes = Owner.objects.filter(
+                        organization=organization, code__startswith='OWN-'
+                    ).values_list('code', flat=True)
+                    o_nums = [int(c.rsplit('-', 1)[-1]) for c in existing_o_codes if c.rsplit('-', 1)[-1].isdigit()]
+                    o_code = f"OWN-{(max(o_nums) + 1) if o_nums else 1:04d}"
+                    o_obj = Owner.objects.create(
+                        organization=organization,
+                        code=o_code,
+                        name=o_name,
+                        email=str(o_item.get('email') or '').strip(),
+                        phone=str(o_item.get('phone') or '').strip(),
+                        id_or_registration_number=str(o_item.get('id_or_registration_number') or o_item.get('id_number') or '').strip(),
+                        pin_number=str(o_item.get('pin_number') or o_item.get('pin') or '').strip(),
+                        settlement_bank_name=str(o_item.get('settlement_bank_name') or o_item.get('bank_name') or '').strip(),
+                        settlement_bank_account=str(o_item.get('settlement_bank_account') or o_item.get('bank_account') or '').strip(),
+                        settlement_bank_branch=str(o_item.get('settlement_bank_branch') or o_item.get('branch') or '').strip(),
+                        settlement_paybill_or_till=str(o_item.get('settlement_paybill_or_till') or o_item.get('paybill') or '').strip(),
+                        notes=str(o_item.get('notes') or '').strip(),
+                    )
+                    owners_map[o_name.upper()] = o_obj
+                    if o_item.get('id'):
+                        owners_map[str(o_item['id'])] = o_obj
+
+        # 4. Create Units
+        units_data = data.get('units') or []
+        created_units = []
+        if isinstance(units_data, list):
+            for index, u_item in enumerate(units_data, 1):
+                if not isinstance(u_item, dict):
+                    continue
+                u_code = str(u_item.get('code') or f"U-{index:03d}").strip()
+                b_name_key = str(u_item.get('building_name') or u_item.get('block') or '').strip().upper()
+                b_instance = buildings_map.get(b_name_key) or (list(buildings_map.values())[0] if buildings_map else None)
+
+                # Link owner
+                o_key = str(u_item.get('owner_name') or u_item.get('owner_id') or '').strip().upper()
+                o_instance = owners_map.get(o_key) or (Owner.objects.filter(organization=organization, id=u_item.get('owner_id')).first() if u_item.get('owner_id') else None)
+
+                mandate = u_item.get('management_mandate') or Unit.ManagementMandate.BOTH
+                sc_payer = u_item.get('service_charge_payer') or Unit.PayerChoice.OWNER
+                water_payer = u_item.get('water_payer') or Unit.PayerChoice.TENANT
+                
+                commission_rate = Decimal(str(u_item.get('rental_commission_rate') or '10.00'))
+                common_area_fee = Decimal(str(u_item.get('common_area_fee_amount') or '0.00'))
+                letting_fee = Decimal(str(u_item.get('letting_fee_amount') or '0.00'))
+                area_val = Decimal(str(u_item['area'])) if u_item.get('area') else None
+                ownership_share = Decimal(str(u_item.get('ownership_share') or '1.0000'))
+
+                unit_obj = Unit.objects.create(
+                    organization=organization,
+                    property=property_record,
+                    building=b_instance,
+                    owner=o_instance,
+                    code=u_code,
+                    floor=str(u_item.get('floor') or '').strip(),
+                    unit_type=str(u_item.get('unit_type') or 'apartment').strip(),
+                    status=Unit.Status.AVAILABLE,
+                    area=area_val,
+                    sectional_title_number=str(u_item.get('sectional_title_number') or u_item.get('title_deed_number') or '').strip(),
+                    ownership_share=ownership_share,
+                    management_mandate=mandate,
+                    service_charge_payer=sc_payer,
+                    water_payer=water_payer,
+                    rental_commission_rate=commission_rate,
+                    common_area_fee_amount=common_area_fee,
+                    letting_fee_amount=letting_fee,
+                )
+                created_units.append(unit_obj)
+
+        # 5. Create Fee Profiles
+        fee_profiles_data = data.get('fee_profiles') or []
+        if isinstance(fee_profiles_data, list):
+            for fp in fee_profiles_data:
+                if isinstance(fp, dict) and fp.get('fee_type'):
+                    ft = str(fp['fee_type']).strip().lower()
+                    if ft == 'common_area':
+                        ft = PropertyFeeProfile.FeeType.COMMON_AREA_FEE
+                    PropertyFeeProfile.objects.create(
+                        organization=organization,
+                        property=property_record,
+                        fee_type=ft,
+                        calculation_basis=fp.get('calculation_basis', PropertyFeeProfile.Basis.FIXED),
+                        amount=Decimal(str(fp.get('amount') or '0.00')),
+                        percentage_rate=Decimal(str(fp.get('percentage_rate') or '0.00')),
+                        billing_frequency=fp.get('billing_frequency', 'monthly'),
+                        billed_to=fp.get('billed_to', PropertyFeeProfile.BilledTo.UNIT_OWNER),
+                        vat_applicable=bool(fp.get('vat_applicable', True)),
+                        vat_rate=Decimal(str(fp.get('vat_rate') or '16.00')),
+                        effective_from=_parse_flexible_date(fp.get('effective_from')) or timezone.localdate(),
+                    )
+
+        # 6. Create Collection Accounts
+        accounts_data = data.get('collection_accounts') or []
+        if isinstance(accounts_data, list):
+            for ca in accounts_data:
+                if isinstance(ca, dict) and ca.get('charge_type'):
+                    PropertyCollectionAccount.objects.create(
+                        organization=organization,
+                        property=property_record,
+                        charge_type=ca['charge_type'],
+                        bank_name=str(ca.get('bank_name') or '').strip(),
+                        account_name=str(ca.get('account_name') or '').strip(),
+                        account_number=str(ca.get('account_number') or '').strip(),
+                        branch=str(ca.get('branch') or '').strip(),
+                        mpesa_paybill=str(ca.get('mpesa_paybill') or '').strip(),
+                        mpesa_reference_format=str(ca.get('mpesa_reference_format') or '{CHARGE}-{UNIT}-{MONTH}-{YEAR}').strip(),
+                    )
+
+        return Response(PropertySerializer(property_record).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=('get',), url_path='readiness-check')
+    def readiness_check(self, request, pk=None):
+        property_obj = self.get_object()
+        checks = []
+        issues = []
+
+        # 1. Scheme Registration Check
+        if property_obj.is_sectional_title:
+            if property_obj.scheme_registration_number:
+                checks.append({'title': 'Sectional Scheme Registration', 'passed': True, 'detail': property_obj.scheme_registration_number})
+            else:
+                checks.append({'title': 'Sectional Scheme Registration', 'passed': False, 'detail': 'Missing sectional scheme registration number.'})
+                issues.append('Missing sectional scheme registration number.')
+
+        # 2. Units Check
+        units = property_obj.units.all()
+        if units.exists():
+            checks.append({'title': 'Units Registered', 'passed': True, 'detail': f'{units.count()} units registered.'})
+        else:
+            checks.append({'title': 'Units Registered', 'passed': False, 'detail': 'No units created under this property.'})
+            issues.append('No units registered.')
+
+        # 3. Unit Owners Check (for sectional properties)
+        if property_obj.is_sectional_title:
+            unassigned_units = units.filter(owner__isnull=True)
+            if not unassigned_units.exists():
+                checks.append({'title': 'Unit Landlords / Owners Assigned', 'passed': True, 'detail': f'All {units.count()} units have assigned owners.'})
+            else:
+                detail = f'{unassigned_units.count()} unit(s) do not have an owner assigned.'
+                checks.append({'title': 'Unit Landlords / Owners Assigned', 'passed': False, 'detail': detail})
+                issues.append(detail)
+
+        # 4. Collection Accounts Check
+        accounts = property_obj.collection_accounts.filter(is_active=True)
+        req_types = {'rent', 'service_charge'} if property_obj.is_sectional_title else {'rent'}
+        existing_types = set(accounts.values_list('charge_type', flat=True))
+        missing_accts = req_types - existing_types
+        if not missing_accts:
+            checks.append({'title': 'Collection Bank Accounts', 'passed': True, 'detail': f'{accounts.count()} active collection route(s).'})
+        else:
+            detail = f'Missing collection accounts for: {", ".join(missing_accts)}.'
+            checks.append({'title': 'Collection Bank Accounts', 'passed': False, 'detail': detail})
+            issues.append(detail)
+
+        # 5. Settlement Details Check for Managed Units
+        if property_obj.is_sectional_title:
+            managed_units = units.filter(management_mandate__in=[Unit.ManagementMandate.RENTAL_MANAGEMENT, Unit.ManagementMandate.BOTH], owner__isnull=False)
+            missing_settlements = [u.code for u in managed_units if not u.owner.settlement_bank_account and not u.owner.settlement_paybill_or_till]
+            if not missing_settlements:
+                checks.append({'title': 'Owner Settlement Bank Accounts', 'passed': True, 'detail': 'All rental-managed unit owners have settlement bank details.'})
+            else:
+                detail = f'Units under rental management missing owner settlement details: {", ".join(missing_settlements[:5])}.'
+                checks.append({'title': 'Owner Settlement Bank Accounts', 'passed': False, 'detail': detail})
+                issues.append(detail)
+
+        is_ready = len(issues) == 0
+        return Response({
+            'property_id': str(property_obj.id),
+            'property_name': property_obj.name,
+            'is_ready': is_ready,
+            'total_checks': len(checks),
+            'passed_checks': sum(1 for c in checks if c['passed']),
+            'checks': checks,
+            'issues': issues,
+        })
+
     @transaction.atomic
     @action(detail=True, methods=('post',), url_path='bulk-units')
     def bulk_units(self, request, pk=None):
@@ -981,11 +1220,89 @@ class ParkingAssignmentViewSet(OrganizationModelViewSet):
     search_fields = ('parking_space__code', 'lease__tenant__name', 'lease__unit__code')
 
 
+class OwnerViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = Owner.objects.all().prefetch_related('units')
+    serializer_class = OwnerSerializer
+    search_fields = ('name', 'code', 'email', 'phone', 'pin_number', 'id_or_registration_number')
+
+    def perform_create(self, serializer):
+        organization = get_active_organization(self.request)
+        existing_codes = Owner.objects.filter(
+            organization=organization, code__startswith='OWN-'
+        ).values_list('code', flat=True)
+        numbers = [int(code.rsplit('-', 1)[-1]) for code in existing_codes if code.rsplit('-', 1)[-1].isdigit()]
+        code = f"OWN-{(max(numbers) + 1) if numbers else 1:04d}"
+        serializer.save(organization=organization, code=code)
+
+    @action(detail=True, methods=('get',), url_path='financial-summary')
+    def financial_summary(self, request, pk=None):
+        owner = self.get_object()
+        units = owner.units.all()
+        owner_invoices = Invoice.objects.filter(owner=owner)
+        total_invoiced = owner_invoices.aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
+        total_balance = owner_invoices.aggregate(s=Sum('balance'))['s'] or Decimal('0.00')
+        total_paid = total_invoiced - total_balance
+
+        leases = Lease.objects.filter(unit__in=units, status=Lease.Status.ACTIVE)
+        active_rent_roll = sum(l.monthly_rent for l in leases)
+
+        return Response({
+            'owner_id': str(owner.id),
+            'owner_name': owner.name,
+            'owner_code': owner.code,
+            'units_count': units.count(),
+            'total_invoiced': total_invoiced,
+            'total_paid': total_paid,
+            'outstanding_balance': total_balance,
+            'active_rent_roll': active_rent_roll,
+            'settlement_details': {
+                'bank_name': owner.settlement_bank_name,
+                'account_number': owner.settlement_bank_account,
+                'branch': owner.settlement_bank_branch,
+                'paybill': owner.settlement_paybill_or_till,
+            }
+        })
+
+
+class PropertyCollectionAccountViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = PropertyCollectionAccount.objects.all().select_related('property')
+    serializer_class = PropertyCollectionAccountSerializer
+    search_fields = ('bank_name', 'account_name', 'account_number', 'mpesa_paybill')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        prop_id = self.request.query_params.get('property')
+        return qs.filter(property_id=prop_id) if prop_id else qs
+
+
+class PropertyFeeProfileViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = PropertyFeeProfile.objects.all().select_related('property')
+    serializer_class = PropertyFeeProfileSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        prop_id = self.request.query_params.get('property')
+        return qs.filter(property_id=prop_id) if prop_id else qs
+
+
 class UnitViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
-    queryset = Unit.objects.select_related('property', 'building')
+    queryset = Unit.objects.select_related('property', 'building', 'owner')
     serializer_class = UnitSerializer
-    search_fields = ('code', 'unit_type', 'property__name')
+    search_fields = ('code', 'unit_type', 'property__name', 'owner__name')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        owner_id = self.request.query_params.get('owner')
+        if owner_id:
+            qs = qs.filter(owner_id=owner_id)
+        prop_id = self.request.query_params.get('property')
+        if prop_id:
+            qs = qs.filter(property_id=prop_id)
+        return qs
 
 
 class UnitChargeRuleViewSet(OrganizationModelViewSet):
@@ -3403,8 +3720,39 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 line_subtotal = Decimal(item['subtotal'])
                 line_tax = Decimal(item['tax_amount'])
                 line_total = Decimal(item['total'])
+
+                unit_obj = candidate.lease.unit if candidate.lease else None
+                owner_obj = None
+                recipient_type = Invoice.RecipientType.TENANT
+                if unit_obj and unit_obj.property and unit_obj.property.is_sectional_title:
+                    if invoice_type == 'service_charge' and unit_obj.service_charge_payer == Unit.PayerChoice.OWNER:
+                        recipient_type = Invoice.RecipientType.OWNER
+                        owner_obj = unit_obj.owner
+
+                collection_acct = None
+                if unit_obj and unit_obj.property:
+                    collection_acct = PropertyCollectionAccount.objects.filter(
+                        property=unit_obj.property, charge_type=invoice_type, is_active=True
+                    ).first()
+
+                mpesa_ref = ''
+                if unit_obj:
+                    fmt = (collection_acct.mpesa_reference_format if collection_acct else None) or '{CHARGE}-{UNIT}-{MONTH}-{YEAR}'
+                    c_prefix = 'RENT' if invoice_type == 'rent' else ('SC' if invoice_type == 'service_charge' else ('WATER' if invoice_type == 'water' else 'MF'))
+                    try:
+                        mpesa_ref = fmt.format(
+                            CHARGE=c_prefix,
+                            UNIT=unit_obj.code,
+                            MONTH=f"{run.period_start:%m}",
+                            YEAR=f"{run.period_start:%Y}"
+                        )
+                    except Exception:
+                        mpesa_ref = f"{c_prefix}-{unit_obj.code}-{run.period_start:%m}-{run.period_start:%Y}"
+
                 invoice = Invoice.objects.create(
                     organization=run.organization, number=next_invoice_number(run.organization, year), lease=candidate.lease,
+                    recipient_type=recipient_type, owner=owner_obj, unit=unit_obj, charge_type=invoice_type,
+                    collection_account=collection_acct, mpesa_reference=mpesa_ref,
                     invoice_type=invoice_type, issued_on=candidate.invoice_date, due_on=candidate.due_date,
                     subtotal=line_subtotal, tax_amount=line_tax,
                     tax_rate=(line_tax / line_subtotal * Decimal('100')).quantize(Decimal('0.01')) if line_subtotal else 0,

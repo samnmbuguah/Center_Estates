@@ -14,12 +14,16 @@ from .views import (
     TenantDocumentViewSet, TenantPortalAccessViewSet, TenantPortalViewSet,
     TaxConfigurationViewSet, TenantMovementViewSet, TenantViewSet,
     UnitChargeRuleViewSet, UnitStatusHistoryViewSet, UnitViewSet,
+    OwnerViewSet, PropertyCollectionAccountViewSet, PropertyFeeProfileViewSet,
 )
 from .handover_views import ExitClearanceViewSet, TenantHandoverViewSet
 
 router = DefaultRouter()
 router.register('dashboard', PropertyDashboardViewSet, basename='property-dashboard')
 router.register('properties', PropertyViewSet)
+router.register('owners', OwnerViewSet)
+router.register('collection-accounts', PropertyCollectionAccountViewSet)
+router.register('fee-profiles', PropertyFeeProfileViewSet)
 router.register('buildings', BuildingViewSet)
 router.register('parking-spaces', ParkingSpaceViewSet)
 router.register('parking-assignments', ParkingAssignmentViewSet)

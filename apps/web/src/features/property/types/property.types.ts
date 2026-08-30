@@ -4,6 +4,7 @@ export type PropertyTab =
   | "buildings"
   | "feedback-qr"
   | "units"
+  | "owners"
   | "projects"
   | "tenancy"
   | "tenants"
@@ -47,6 +48,7 @@ export const labels: Record<PropertyTab, string> = {
   buildings: "Buildings",
   "feedback-qr": "Concierge QR Codes",
   units: "Occupancy",
+  owners: "Unit Landlords & Owners",
   projects: "Projects",
   tenancy: "Tenancy",
   tenants: "Tenants",
@@ -82,11 +84,73 @@ export const labels: Record<PropertyTab, string> = {
   calendar: "Calendar",
 };
 
+export interface OwnerRow extends Row {
+  id: ID;
+  code?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  id_or_registration_number?: string;
+  pin_number?: string;
+  settlement_bank_name?: string;
+  settlement_bank_account?: string;
+  settlement_bank_branch?: string;
+  settlement_paybill_or_till?: string;
+  notes?: string;
+  units_count?: number;
+  units_list?: Array<{
+    id: string;
+    code: string;
+    property_id: string;
+    property_name: string;
+    sectional_title_number?: string;
+    management_mandate?: string;
+    ownership_share?: string;
+    floor?: string;
+    area?: string | null;
+  }>;
+  created_at?: string;
+}
+
+export interface PropertyCollectionAccountRow extends Row {
+  id: ID;
+  property?: ID;
+  property_name?: string;
+  charge_type?: "rent" | "service_charge" | "water" | "management_fee" | string;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  branch?: string;
+  mpesa_paybill?: string;
+  mpesa_reference_format?: string;
+  is_active?: boolean;
+  created_at?: string;
+}
+
+export interface PropertyFeeProfileRow extends Row {
+  id: ID;
+  property?: ID;
+  property_name?: string;
+  fee_type?: "common_area_fee" | "rental_commission" | "letting_fee" | "other" | string;
+  calculation_basis?: "fixed" | "percentage" | "area_rate" | string;
+  amount?: number;
+  percentage_rate?: number;
+  billing_frequency?: string;
+  billed_to?: "unit_owner" | "tenant" | "manager" | string;
+  vat_applicable?: boolean;
+  vat_rate?: number;
+  effective_from?: string;
+  is_active?: boolean;
+}
+
 export interface PropertyRow extends Row {
   id: ID; code?: string; name?: string; property_type?: string; status?: string;
   city?: string; address?: string; country?: string; buildings_count?: number;
   units_count?: number; created_at?: string;
   occupied?: number; vacant?: number; occupancy?: number; monthlyRent?: number; outstanding?: number;
+  is_sectional_title?: boolean; scheme_registration_number?: string;
+  total_blocks?: number; total_units_count?: number;
+  estate_manager_name?: string; management_commencement_date?: string;
 }
 
 export interface BuildingRow extends Row {
@@ -98,6 +162,14 @@ export interface UnitRow extends Row {
   id: ID; code?: string; property?: ID; building?: ID; floor?: string;
   unit_type?: string; status?: string; area?: number | null; property_name?: string;
   building_name?: string; created_at?: string;
+  owner?: ID | null; owner_name?: string; owner_code?: string;
+  sectional_title_number?: string; ownership_share?: number | string;
+  management_mandate?: "common_area_only" | "rental_management" | "both" | "none" | string;
+  service_charge_payer?: "owner" | "tenant" | string;
+  water_payer?: "owner" | "tenant" | string;
+  rental_commission_rate?: number | string;
+  common_area_fee_amount?: number | string;
+  letting_fee_amount?: number | string;
 }
 
 export interface ProjectRow extends Row {
@@ -137,6 +209,11 @@ export interface InvoiceRow extends Row {
   due_on?: string; subtotal?: number; tax_rate?: number; tax_amount?: number; amount?: number; balance?: number; status?: string;
   tenant_name?: string; tenant_id?: ID; prepared_by?: ID; reviewed_by?: ID; reviewed_at?: string;
   issued_by?: ID; issued_at?: string;
+  recipient_type?: "tenant" | "owner" | string;
+  owner?: ID | null; owner_name?: string; owner_id?: ID | null;
+  unit?: ID | null; unit_code?: string; property_name?: string;
+  charge_type?: string; mpesa_reference?: string;
+  collection_account_details?: PropertyCollectionAccountRow;
 }
 
 export interface InvoicePreview {

@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.utils import timezone
 
 from core.models import OrganizationOwnedModel
 
@@ -23,6 +24,12 @@ class Property(OrganizationOwnedModel):
     country = models.CharField(max_length=2, default='KE')
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    is_sectional_title = models.BooleanField(default=False)
+    scheme_registration_number = models.CharField(max_length=100, blank=True)
+    total_blocks = models.PositiveIntegerField(default=1)
+    total_units_count = models.PositiveIntegerField(default=1)
+    estate_manager_name = models.CharField(max_length=200, blank=True)
+    management_commencement_date = models.DateField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -73,6 +80,32 @@ class Building(OrganizationOwnedModel):
         return f'{self.property.code}/{self.code}'
 
 
+class Owner(OrganizationOwnedModel):
+    """Owner / Landlord of a property unit in sectional title schemes or managed single properties."""
+    code = models.CharField(max_length=40)
+    name = models.CharField(max_length=200)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    id_or_registration_number = models.CharField(max_length=100, blank=True)
+    pin_number = models.CharField(max_length=40, blank=True)
+    settlement_bank_name = models.CharField(max_length=100, blank=True)
+    settlement_bank_account = models.CharField(max_length=100, blank=True)
+    settlement_bank_branch = models.CharField(max_length=100, blank=True)
+    settlement_paybill_or_till = models.CharField(max_length=40, blank=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('name',)
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'code'), name='unique_organization_owner_code')
+        ]
+
+    def __str__(self):
+        return f'{self.name} ({self.code})'
+
+
 class Unit(OrganizationOwnedModel):
     class Status(models.TextChoices):
         AVAILABLE = 'available', 'Available'
@@ -81,13 +114,32 @@ class Unit(OrganizationOwnedModel):
         SOLD = 'sold', 'Sold'
         UNAVAILABLE = 'unavailable', 'Unavailable'
 
+    class ManagementMandate(models.TextChoices):
+        COMMON_AREA_ONLY = 'common_area_only', 'Common Area Management Only'
+        RENTAL_MANAGEMENT = 'rental_management', 'Rental Management Only'
+        BOTH = 'both', 'Both (Common Area & Rental)'
+        NONE = 'none', 'Self-Managed / None'
+
+    class PayerChoice(models.TextChoices):
+        OWNER = 'owner', 'Unit Owner / Landlord'
+        TENANT = 'tenant', 'Tenant'
+
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='units')
     building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name='units', null=True, blank=True)
+    owner = models.ForeignKey(Owner, on_delete=models.SET_NULL, null=True, blank=True, related_name='units')
     code = models.CharField(max_length=40)
     floor = models.CharField(max_length=20, blank=True)
     unit_type = models.CharField(max_length=80, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.AVAILABLE)
     area = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    sectional_title_number = models.CharField(max_length=100, blank=True)
+    ownership_share = models.DecimalField(max_digits=8, decimal_places=4, default=1.0000)
+    management_mandate = models.CharField(max_length=30, choices=ManagementMandate.choices, default=ManagementMandate.BOTH)
+    service_charge_payer = models.CharField(max_length=20, choices=PayerChoice.choices, default=PayerChoice.OWNER)
+    water_payer = models.CharField(max_length=20, choices=PayerChoice.choices, default=PayerChoice.TENANT)
+    rental_commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=10.00)
+    common_area_fee_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0.00)
+    letting_fee_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0.00)
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -527,6 +579,73 @@ class BillingProfile(OrganizationOwnedModel):
             raise ValidationError({'effective_to': 'End date cannot precede the effective date.'})
 
 
+class PropertyCollectionAccount(OrganizationOwnedModel):
+    """Collection account configuration per charge type (Rent, Service Charge, Water, Management Fee)."""
+    class ChargeType(models.TextChoices):
+        RENT = 'rent', 'Rent'
+        SERVICE_CHARGE = 'service_charge', 'Service charge'
+        WATER = 'water', 'Water'
+        MANAGEMENT_FEE = 'management_fee', 'Management fee'
+        OTHER = 'other', 'Other'
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='collection_accounts')
+    charge_type = models.CharField(max_length=30, choices=ChargeType.choices)
+    bank_name = models.CharField(max_length=100)
+    account_name = models.CharField(max_length=160)
+    account_number = models.CharField(max_length=60)
+    branch = models.CharField(max_length=100, blank=True)
+    mpesa_paybill = models.CharField(max_length=40, blank=True)
+    mpesa_reference_format = models.CharField(max_length=100, default='{CHARGE}-{UNIT}-{MONTH}-{YEAR}')
+    is_active = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('property__name', 'charge_type')
+        constraints = [
+            models.UniqueConstraint(fields=('property', 'charge_type'), name='unique_property_charge_collection_account')
+        ]
+
+    def __str__(self):
+        return f'{self.property.name} - {self.get_charge_type_display()} ({self.account_number})'
+
+
+class PropertyFeeProfile(OrganizationOwnedModel):
+    """Configured fee structure for manager income (Common area fee, rental commission %, letting fee)."""
+    class FeeType(models.TextChoices):
+        COMMON_AREA_FEE = 'common_area_fee', 'Common area management fee'
+        RENTAL_COMMISSION = 'rental_commission', 'Rental management commission'
+        LETTING_FEE = 'letting_fee', 'Letting / Agency fee'
+        OTHER = 'other', 'Other management fee'
+
+    class Basis(models.TextChoices):
+        FIXED = 'fixed', 'Fixed amount'
+        PERCENTAGE = 'percentage', 'Percentage rate'
+        AREA_RATE = 'area_rate', 'Rate per area'
+
+    class BilledTo(models.TextChoices):
+        UNIT_OWNER = 'unit_owner', 'Unit Owner'
+        TENANT = 'tenant', 'Tenant'
+        MANAGER = 'manager', 'Manager / Estate'
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='fee_profiles')
+    fee_type = models.CharField(max_length=30, choices=FeeType.choices)
+    calculation_basis = models.CharField(max_length=20, choices=Basis.choices, default=Basis.FIXED)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    percentage_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    billing_frequency = models.CharField(max_length=16, default='monthly')
+    billed_to = models.CharField(max_length=20, choices=BilledTo.choices, default=BilledTo.UNIT_OWNER)
+    vat_applicable = models.BooleanField(default=True)
+    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=16.00)
+    effective_from = models.DateField(default=timezone.localdate)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('property__name', 'fee_type')
+
+    def __str__(self):
+        return f'{self.property.name} - {self.get_fee_type_display()}'
+
+
 class Invoice(OrganizationOwnedModel):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
@@ -538,8 +657,18 @@ class Invoice(OrganizationOwnedModel):
         OVERDUE = 'overdue', 'Overdue'
         VOID = 'void', 'Void'
 
+    class RecipientType(models.TextChoices):
+        TENANT = 'tenant', 'Tenant'
+        OWNER = 'owner', 'Unit Owner / Landlord'
+
     number = models.CharField(max_length=60)
-    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name='invoices')
+    lease = models.ForeignKey(Lease, on_delete=models.PROTECT, related_name='invoices', null=True, blank=True)
+    recipient_type = models.CharField(max_length=20, choices=RecipientType.choices, default=RecipientType.TENANT)
+    owner = models.ForeignKey(Owner, on_delete=models.PROTECT, related_name='invoices', null=True, blank=True)
+    unit = models.ForeignKey(Unit, on_delete=models.PROTECT, related_name='invoices', null=True, blank=True)
+    charge_type = models.CharField(max_length=40, default='rent')
+    collection_account = models.ForeignKey(PropertyCollectionAccount, on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices')
+    mpesa_reference = models.CharField(max_length=100, blank=True)
     invoice_type = models.CharField(max_length=40, default='rent')
     issued_on = models.DateField()
     due_on = models.DateField()
@@ -565,6 +694,12 @@ class Invoice(OrganizationOwnedModel):
             self.subtotal = self.amount
         if self.lease_id and self.lease.organization_id != self.organization_id:
             raise ValidationError('Invoice lease must belong to the same organization.')
+        if self.owner_id and self.owner.organization_id != self.organization_id:
+            raise ValidationError('Invoice owner must belong to the same organization.')
+        if self.unit_id and self.unit.organization_id != self.organization_id:
+            raise ValidationError('Invoice unit must belong to the same organization.')
+        if not self.lease_id and not self.owner_id and not self.unit_id:
+            raise ValidationError('Invoice must be attached to a lease, an owner, or a unit.')
         if self.amount <= 0:
             raise ValidationError({'amount': 'Invoice amount must be greater than zero.'})
         if self.balance < 0 or self.balance > self.amount:
@@ -697,7 +832,8 @@ class InvoiceLine(OrganizationOwnedModel):
 
 class Receipt(OrganizationOwnedModel):
     number = models.CharField(max_length=60)
-    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='receipts')
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
+    owner = models.ForeignKey(Owner, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
     received_on = models.DateField()
     amount = models.DecimalField(max_digits=14, decimal_places=2)
@@ -712,6 +848,8 @@ class Receipt(OrganizationOwnedModel):
     def clean(self):
         if self.tenant_id and self.tenant.organization_id != self.organization_id:
             raise ValidationError('Receipt tenant must belong to the same organization.')
+        if self.owner_id and self.owner.organization_id != self.organization_id:
+            raise ValidationError('Receipt owner must belong to the same organization.')
         if self.invoice_id and self.invoice.organization_id != self.organization_id:
             raise ValidationError('Receipt invoice must belong to the same organization.')
         if self.amount <= 0:

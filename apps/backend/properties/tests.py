@@ -28,6 +28,7 @@ from .models import (
     ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
     TaxConfiguration, TenantMovement, Unit, UnitChargeRule, UnitStatusHistory, ParkingSpace, ParkingAssignment,
+    Owner, PropertyCollectionAccount, PropertyFeeProfile,
 )
 
 
@@ -2219,3 +2220,243 @@ class PropertyAccountingAuditFlowTests(TestCase):
         self.invoice1.refresh_from_db()
         self.assertEqual(self.invoice1.balance, Decimal('40000.00'))
         self.assertEqual(self.invoice1.status, Invoice.Status.PARTIAL)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class SectionalTitleOnboardingAndBillingTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='sectional_admin', email='sectional@example.com', password='password123'
+        )
+        self.organization = Organization.objects.create(name='Sectional Management Org', slug='sectional-mgmt-org')
+        Membership.objects.create(
+            organization=self.organization, user=self.user, is_default=True, is_organization_admin=True,
+        )
+        Subscription.objects.create(
+            organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE, is_active=True,
+        )
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+        self.client.force_authenticate(user=self.user)
+
+    def test_sectional_title_onboarding_and_readiness_check(self):
+        payload = {
+            'property': {
+                'name': 'Kilimani Heights Apartments',
+                'scheme_registration_number': 'SS/NAI/2026/089',
+                'total_blocks': 2,
+                'total_units_count': 4,
+                'estate_manager_name': 'Mary Wanjiku',
+                'management_commencement_date': '2026-09-01',
+                'address': 'Argwings Kodhek Road, Kilimani',
+                'city': 'Nairobi',
+            },
+            'blocks': [
+                {'name': 'Block A', 'floors': 5},
+                {'name': 'Block B', 'floors': 5},
+            ],
+            'owners': [
+                {
+                    'name': 'Dr. James Kariuki',
+                    'email': 'jkariuki@example.com',
+                    'phone': '+254711223344',
+                    'pin_number': 'A001234567Z',
+                    'settlement_bank_name': 'KCB Bank',
+                    'settlement_bank_account': '1234567890',
+                    'settlement_bank_branch': 'Kilimani',
+                },
+                {
+                    'name': 'Sarah Muthoni',
+                    'email': 'smuthoni@example.com',
+                    'phone': '+254722334455',
+                    'pin_number': 'A009876543Y',
+                    'settlement_bank_name': 'Equity Bank',
+                    'settlement_bank_account': '0987654321',
+                    'settlement_bank_branch': 'Upperhill',
+                }
+            ],
+            'units': [
+                {
+                    'code': 'A101',
+                    'block': 'Block A',
+                    'floor': '1',
+                    'owner_name': 'Dr. James Kariuki',
+                    'sectional_title_number': 'ST/A101/2026',
+                    'ownership_share': '0.2500',
+                    'management_mandate': 'both',
+                    'service_charge_payer': 'owner',
+                    'water_payer': 'tenant',
+                    'rental_commission_rate': '10.00',
+                    'common_area_fee_amount': '5000.00',
+                },
+                {
+                    'code': 'A102',
+                    'block': 'Block A',
+                    'floor': '1',
+                    'owner_name': 'Dr. James Kariuki',
+                    'sectional_title_number': 'ST/A102/2026',
+                    'ownership_share': '0.2500',
+                    'management_mandate': 'common_area_only',
+                    'service_charge_payer': 'owner',
+                    'water_payer': 'tenant',
+                    'rental_commission_rate': '0.00',
+                    'common_area_fee_amount': '5000.00',
+                },
+                {
+                    'code': 'B201',
+                    'block': 'Block B',
+                    'floor': '2',
+                    'owner_name': 'Sarah Muthoni',
+                    'sectional_title_number': 'ST/B201/2026',
+                    'ownership_share': '0.2500',
+                    'management_mandate': 'rental_management',
+                    'service_charge_payer': 'owner',
+                    'water_payer': 'tenant',
+                    'rental_commission_rate': '8.50',
+                    'common_area_fee_amount': '5000.00',
+                },
+                {
+                    'code': 'B202',
+                    'block': 'Block B',
+                    'floor': '2',
+                    'owner_name': 'Sarah Muthoni',
+                    'sectional_title_number': 'ST/B202/2026',
+                    'ownership_share': '0.2500',
+                    'management_mandate': 'both',
+                    'service_charge_payer': 'owner',
+                    'water_payer': 'tenant',
+                    'rental_commission_rate': '10.00',
+                    'common_area_fee_amount': '5000.00',
+                }
+            ],
+            'fee_profiles': [
+                {
+                    'fee_type': 'common_area',
+                    'calculation_basis': 'fixed',
+                    'amount': '5000.00',
+                    'billed_to': 'unit_owner',
+                },
+                {
+                    'fee_type': 'rental_commission',
+                    'calculation_basis': 'percentage',
+                    'percentage_rate': '10.00',
+                    'billed_to': 'unit_owner',
+                }
+            ],
+            'collection_accounts': [
+                {
+                    'charge_type': 'rent',
+                    'bank_name': 'NCBA Bank',
+                    'account_name': 'Kilimani Heights Rent Collection',
+                    'account_number': '1122334455',
+                    'branch': 'Kilimani',
+                    'mpesa_paybill': '522522',
+                    'mpesa_reference_format': 'RENT-{UNIT}-{MONTH}-{YEAR}',
+                },
+                {
+                    'charge_type': 'service_charge',
+                    'bank_name': 'NCBA Bank',
+                    'account_name': 'Kilimani Heights SC Collection',
+                    'account_number': '1122334466',
+                    'branch': 'Kilimani',
+                    'mpesa_paybill': '522522',
+                    'mpesa_reference_format': 'SC-{UNIT}-{MONTH}-{YEAR}',
+                }
+            ],
+            'activate_immediately': True,
+        }
+
+        # Test Onboarding endpoint
+        res = self.client.post('/api/v1/property/properties/onboard-sectional-title/', payload, format='json', **self.headers)
+        self.assertEqual(res.status_code, 201, res.data)
+        prop_id = res.data['id']
+
+        # Verify created models
+        prop = Property.objects.get(id=prop_id)
+        self.assertTrue(prop.is_sectional_title)
+        self.assertEqual(prop.scheme_registration_number, 'SS/NAI/2026/089')
+        self.assertEqual(prop.buildings.count(), 2)
+        self.assertEqual(prop.units.count(), 4)
+        self.assertEqual(prop.collection_accounts.count(), 2)
+        self.assertEqual(prop.fee_profiles.count(), 2)
+
+        # Check unit owner assignment
+        unit_a101 = prop.units.get(code='A101')
+        self.assertIsNotNone(unit_a101.owner)
+        self.assertEqual(unit_a101.owner.name, 'Dr. James Kariuki')
+        self.assertEqual(unit_a101.management_mandate, 'both')
+        self.assertEqual(unit_a101.common_area_fee_amount, Decimal('5000.00'))
+
+        # Test Readiness Check endpoint
+        rc_res = self.client.get(f'/api/v1/property/properties/{prop_id}/readiness-check/', **self.headers)
+        self.assertEqual(rc_res.status_code, 200, rc_res.data)
+        self.assertTrue(rc_res.data['is_ready'])
+        self.assertEqual(rc_res.data['passed_checks'], 5)
+
+        # Test Owner Financial Summary endpoint
+        owner_obj = unit_a101.owner
+        summary_res = self.client.get(f'/api/v1/property/owners/{owner_obj.id}/financial-summary/', **self.headers)
+        self.assertEqual(summary_res.status_code, 200, summary_res.data)
+        self.assertEqual(summary_res.data['units_count'], 2)
+        self.assertEqual(summary_res.data['settlement_details']['bank_name'], 'KCB Bank')
+
+    def test_sectional_title_billing_generates_correct_invoices_and_mpesa_refs(self):
+        # Create sectional property with owner and tenant lease
+        prop = Property.objects.create(
+            organization=self.organization, code='PROP-SEC-01', name='Riverside Sectional Courts',
+            is_sectional_title=True, scheme_registration_number='SS/NRB/2026/001',
+        )
+        bld = Building.objects.create(organization=self.organization, property=prop, code='B1', name='Block 1')
+        owner = Owner.objects.create(
+            organization=self.organization, code='OWN-0001', name='Grace Muthoni',
+            settlement_bank_name='Stanbic Bank', settlement_bank_account='0100998877',
+        )
+        unit = Unit.objects.create(
+            organization=self.organization, property=prop, building=bld, code='R-101',
+            owner=owner, sectional_title_number='ST/R101', management_mandate='both',
+            service_charge_payer='owner', common_area_fee_amount=Decimal('4500.00'),
+        )
+        tenant = Tenant.objects.create(organization=self.organization, code='TNT-001', name='David Otieno')
+        lease = Lease.objects.create(
+            organization=self.organization, unit=unit, tenant=tenant, reference='L-R101-01',
+            starts_on=date(2026, 1, 1), ends_on=date(2026, 12, 31), monthly_rent=Decimal('45000.00'),
+            billing_day=1, status=Lease.Status.ACTIVE,
+        )
+        # Add collection account
+        rent_acct = PropertyCollectionAccount.objects.create(
+            organization=self.organization, property=prop, charge_type='rent',
+            bank_name='NCBA Bank', account_name='Riverside Rent A/C', account_number='11002233',
+            mpesa_paybill='522522', mpesa_reference_format='RENT-{UNIT}-{MONTH}-{YEAR}',
+        )
+        sc_acct = PropertyCollectionAccount.objects.create(
+            organization=self.organization, property=prop, charge_type='service_charge',
+            bank_name='NCBA Bank', account_name='Riverside SC A/C', account_number='11002244',
+            mpesa_paybill='522522', mpesa_reference_format='SC-{UNIT}-{MONTH}-{YEAR}',
+        )
+
+        # Run Billing Run for August 2026
+        billing_run = BillingRun.objects.create(
+            organization=self.organization, property=prop, period_start=date(2026, 8, 1),
+            period_end=date(2026, 8, 31), created_by=self.user,
+        )
+        # Prepare
+        prep_res = self.client.post(f'/api/v1/property/billing-runs/{billing_run.id}/prepare/', **self.headers)
+        self.assertEqual(prep_res.status_code, 200, prep_res.data)
+
+        # Approve
+        billing_run.status = BillingRun.Status.REVIEW
+        billing_run.save(update_fields=('status',))
+        app_res = self.client.post(f'/api/v1/property/billing-runs/{billing_run.id}/approve/', **self.headers)
+        self.assertEqual(app_res.status_code, 200, app_res.data)
+
+        # Generate
+        gen_res = self.client.post(f'/api/v1/property/billing-runs/{billing_run.id}/generate/', **self.headers)
+        self.assertIn(gen_res.status_code, (200, 201), gen_res.data)
+
+        # Verify generated Rent invoice
+        rent_inv = Invoice.objects.filter(lease=lease, invoice_type='rent', metadata__billing_period='2026-08').first()
+        self.assertIsNotNone(rent_inv)
+        self.assertEqual(rent_inv.amount, Decimal('45000.00'))
+        self.assertEqual(rent_inv.collection_account, rent_acct)
+        self.assertEqual(rent_inv.mpesa_reference, 'RENT-R-101-08-2026')
+

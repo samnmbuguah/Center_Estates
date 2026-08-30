@@ -11,7 +11,7 @@ from .models import (
     ServiceCharge, TaxConfiguration, TenantMovement, UnitStatusHistory, LeaseEscalation,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment,
-    TenantHandover, ExitClearance, LandlordInvoice,
+    TenantHandover, ExitClearance, LandlordInvoice, Owner, PropertyCollectionAccount, PropertyFeeProfile,
 )
 
 
@@ -223,9 +223,56 @@ class BuildingSerializer(serializers.ModelSerializer):
         exclude = ('organization',)
 
 
+class OwnerSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(read_only=True)
+    units_count = serializers.SerializerMethodField()
+    units_list = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Owner
+        exclude = ('organization',)
+
+    def get_units_count(self, obj):
+        return obj.units.count()
+
+    def get_units_list(self, obj):
+        return [
+            {
+                'id': str(u.id),
+                'code': u.code,
+                'property_id': str(u.property_id),
+                'property_name': u.property.name,
+                'sectional_title_number': u.sectional_title_number,
+                'management_mandate': u.management_mandate,
+                'ownership_share': str(u.ownership_share),
+                'floor': u.floor or '',
+                'area': str(u.area) if u.area else None,
+            }
+            for u in obj.units.all().select_related('property')
+        ]
+
+
+class PropertyCollectionAccountSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+
+    class Meta:
+        model = PropertyCollectionAccount
+        exclude = ('organization',)
+
+
+class PropertyFeeProfileSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+
+    class Meta:
+        model = PropertyFeeProfile
+        exclude = ('organization',)
+
+
 class UnitSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
     building_name = serializers.CharField(source='building.name', read_only=True, default='')
+    owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
+    owner_code = serializers.CharField(source='owner.code', read_only=True, default='')
     charge_rules = UnitChargeRuleSerializer(many=True, read_only=True)
     class Meta:
         model = Unit
@@ -395,17 +442,45 @@ class LeaseSerializer(serializers.ModelSerializer):
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
-    tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
-    tenant_id = serializers.UUIDField(source='lease.tenant.id', read_only=True)
-    property_name = serializers.CharField(source='lease.unit.property.name', read_only=True)
-    unit_code = serializers.CharField(source='lease.unit.code', read_only=True)
+    tenant_name = serializers.SerializerMethodField()
+    tenant_id = serializers.SerializerMethodField()
+    owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
+    owner_id = serializers.UUIDField(source='owner.id', read_only=True, default=None)
+    property_name = serializers.SerializerMethodField()
+    unit_code = serializers.SerializerMethodField()
+    collection_account_details = PropertyCollectionAccountSerializer(source='collection_account', read_only=True)
     lines = InvoiceLineSerializer(many=True, read_only=True)
+
     class Meta:
         model = Invoice
         exclude = ('organization',)
         read_only_fields = ('number', 'balance', 'status', 'tax_amount', 'prepared_by', 'reviewed_by', 'reviewed_at', 'issued_by', 'issued_at')
         ref_name = 'PropertyInvoice'
         extra_kwargs = {'amount': {'required': False}, 'subtotal': {'required': False}}
+
+    def get_tenant_name(self, obj):
+        if obj.lease and obj.lease.tenant:
+            return obj.lease.tenant.name
+        return ''
+
+    def get_tenant_id(self, obj):
+        if obj.lease and obj.lease.tenant:
+            return str(obj.lease.tenant.id)
+        return None
+
+    def get_unit_code(self, obj):
+        if obj.unit:
+            return obj.unit.code
+        if obj.lease and obj.lease.unit:
+            return obj.lease.unit.code
+        return ''
+
+    def get_property_name(self, obj):
+        if obj.unit and obj.unit.property:
+            return obj.unit.property.name
+        if obj.lease and obj.lease.unit and obj.lease.unit.property:
+            return obj.lease.unit.property.name
+        return ''
 
     def validate_amount(self, value):
         if value <= 0:
@@ -431,7 +506,9 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
 
 class ReceiptSerializer(serializers.ModelSerializer):
-    tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+    tenant_name = serializers.CharField(source='tenant.name', read_only=True, default='')
+    owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
+
     class Meta:
         model = Receipt
         exclude = ('organization', 'received_by')

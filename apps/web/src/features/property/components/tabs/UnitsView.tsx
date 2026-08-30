@@ -458,6 +458,8 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                     <th>Unit Code</th>
                     <th>Building</th>
                     <th>Floor</th>
+                    <th>Landlord / Owner</th>
+                    <th>Mandate</th>
                     {view === "commercial" ? (
                       <>
                         <th>Area (sq.ft)</th>
@@ -480,6 +482,22 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                         <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(u.code ?? "—")}</td>
                         <td style={{ fontSize: 12 }}>{String(u.building_name ?? "—")}</td>
                         <td className="mono" style={{ fontSize: 12 }}>{String(u.floor ?? "—")}</td>
+                        <td style={{ fontSize: 12 }}>
+                          {u.owner_name ? (
+                            <span style={{ fontWeight: 600, color: "#818cf8" }}>{u.owner_name}</span>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          {u.management_mandate ? (
+                            <span className="badge badge-purple" style={{ fontSize: 10 }}>
+                              {u.management_mandate.replace(/_/g, " ")}
+                            </span>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
                         {view === "commercial" ? (
                           <>
                             <td className="mono">{area === null ? "—" : kN(area)}</td>

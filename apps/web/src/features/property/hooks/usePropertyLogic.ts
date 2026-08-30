@@ -178,6 +178,7 @@ export function usePropertyLogic({
   const endpointFor = (t: PropertyTab): string => {
     const map: Partial<Record<PropertyTab, string>> = {
       properties: "properties",
+      owners: "owners",
       buildings: "buildings",
       units: "units",
       projects: "projects",

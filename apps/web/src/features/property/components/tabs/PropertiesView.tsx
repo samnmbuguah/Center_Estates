@@ -17,10 +17,10 @@ import {
 import { Building2, DollarSign, Users, Layers, CheckCircle2, TrendingUp, Plus } from "lucide-react";
 
 export function PropertiesView({
-  rows, loading, search, setSearch, setTab, onAdd, onSelectRow,
+  rows, loading, search, setSearch, setTab, onAdd, onAddSectionalTitle, onSelectRow,
 }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
-  setTab: (t: PropertyTab) => void; onAdd: () => void; onSelectRow: (r: Row) => void;
+  setTab: (t: PropertyTab) => void; onAdd: () => void; onAddSectionalTitle?: () => void; onSelectRow: (r: Row) => void;
 }) {
   const router = useRouter();
   const [page, setPage] = useState(1);
@@ -100,15 +100,34 @@ export function PropertiesView({
       <Panel
         title="Property Portfolio"
         action={
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<Plus size={14} />}
-            onClick={onAdd}
-            sx={{ fontWeight: 700, fontSize: 12 }}
-          >
-            Add Property
-          </Button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {onAddSectionalTitle && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Building2 size={14} />}
+                onClick={onAddSectionalTitle}
+                sx={{
+                  fontWeight: 700,
+                  fontSize: 12,
+                  borderColor: "#6366f1",
+                  color: "#818cf8",
+                  "&:hover": { borderColor: "#4f46e5", background: "rgba(99, 102, 241, 0.08)" },
+                }}
+              >
+                Onboard Sectional Scheme
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={14} />}
+              onClick={onAdd}
+              sx={{ fontWeight: 700, fontSize: 12 }}
+            >
+              Add Property
+            </Button>
+          </div>
         }
       >
         <ListState
@@ -138,11 +157,17 @@ export function PropertiesView({
                   <tr key={String(p.id)} onClick={() => onSelectRow(p)} style={{ cursor: "pointer" }}>
                     <td>
                       <strong style={{ fontSize: 13, color: "var(--text)" }}>{String(p.name ?? "—")}</strong>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>{String(p.code ?? "—")}</div>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>
+                        {String(p.code ?? "—")}
+                        {p.scheme_registration_number ? ` • ${p.scheme_registration_number}` : ""}
+                      </div>
                     </td>
                     <td>
-                      <span className="badge badge-blue" style={{ textTransform: "capitalize", fontSize: 11 }}>
-                        {String(p.property_type ?? "Commercial").replace(/_/g, " ")}
+                      <span
+                        className={p.is_sectional_title ? "badge badge-purple" : "badge badge-blue"}
+                        style={{ textTransform: "capitalize", fontSize: 11 }}
+                      >
+                        {p.is_sectional_title ? "Sectional Scheme" : String(p.property_type ?? "Commercial").replace(/_/g, " ")}
                       </span>
                     </td>
                     <td style={{ fontSize: 12 }}>{String(p.city ?? p.location ?? "—")}</td>

@@ -11,8 +11,10 @@ import { RowDetailPanel } from "./components/RowDetailPanel";
 import { TenantPortalDrawer } from "./components/TenantPortalDrawer";
 import { PropertyModals } from "./components/modals/PropertyModals";
 
+import { useState } from "react";
 import { OverviewView } from "./components/tabs/OverviewView";
 import { PropertiesView } from "./components/tabs/PropertiesView";
+import { OwnersView } from "./components/tabs/OwnersView";
 import { BuildingsView } from "./components/tabs/BuildingsView";
 import { UnitsView } from "./components/tabs/UnitsView";
 import { ProjectsView } from "./components/tabs/ProjectsView";
@@ -41,6 +43,7 @@ import { FeesView } from "./components/tabs/FeesView";
 import { ReportsView } from "./components/tabs/ReportsView";
 import { ForecastView } from "./components/tabs/ForecastView";
 import { CriticalDatesView } from "./components/tabs/CriticalDatesView";
+import { SectionalTitleOnboardingModal } from "./components/modals/SectionalTitleOnboardingModal";
 
 import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
 const PropertyTenancyReports = dynamic(() => import("@/components/property-tenancy-reports").then((module) => module.PropertyTenancyReports), { loading: () => <LoadingState rows={7} /> });
@@ -57,13 +60,35 @@ export function PropertyFeaturePage({
   standaloneOnboarding?: boolean;
 }) {
   const logic = usePropertyLogic({ initialTab, standaloneOnboarding });
+  const [showSectionalOnboarding, setShowSectionalOnboarding] = useState(false);
 
   const renderActiveTab = () => {
     switch (logic.tab) {
       case "overview":
         return <OverviewView dashboard={logic.dashboard} loading={logic.loading} setTab={logic.setTab} canOperate={logic.canOperate} canLease={logic.canLease} canFinance={logic.canFinance} />;
       case "properties":
-        return <PropertiesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onAdd={() => logic.setShowAddProperty(true)} setTab={logic.setTab} />;
+        return (
+          <PropertiesView
+            rows={logic.rows}
+            loading={logic.loading}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            onSelectRow={logic.handleSelectRow}
+            onAdd={() => logic.setShowAddProperty(true)}
+            onAddSectionalTitle={() => setShowSectionalOnboarding(true)}
+            setTab={logic.setTab}
+          />
+        );
+      case "owners":
+        return (
+          <OwnersView
+            search={logic.search}
+            setSearch={logic.setSearch}
+            setTab={logic.setTab}
+            onSelectRow={logic.handleSelectRow}
+            canOperate={logic.canOperate}
+          />
+        );
       case "buildings":
         return <BuildingsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} />;
       case "feedback-qr":
@@ -202,6 +227,11 @@ export function PropertyFeaturePage({
         {logic.error && <ErrorBanner message={logic.error} onRetry={logic.fetchData} />}
         {renderActiveTab()}
         <PropertyModals {...logic} />
+        <SectionalTitleOnboardingModal
+          open={showSectionalOnboarding}
+          onClose={() => setShowSectionalOnboarding(false)}
+          onSuccess={logic.fetchData}
+        />
       </div>
     );
   }
@@ -249,6 +279,11 @@ export function PropertyFeaturePage({
         )}
 
         <PropertyModals {...logic} />
+        <SectionalTitleOnboardingModal
+          open={showSectionalOnboarding}
+          onClose={() => setShowSectionalOnboarding(false)}
+          onSuccess={logic.fetchData}
+        />
       </div>
     </ModuleShell>
   );
