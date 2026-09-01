@@ -510,6 +510,9 @@ class ReceiptSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
     payer_name = serializers.SerializerMethodField()
     wallet_credit = serializers.SerializerMethodField()
+    # Charge classification — allows UI to filter receipts by what they paid for
+    charge_type = serializers.CharField(source='invoice.invoice_type', read_only=True, default='')
+    recipient_type = serializers.CharField(source='invoice.recipient_type', read_only=True, default='')
 
     class Meta:
         model = Receipt
@@ -559,6 +562,9 @@ class BankTransactionSerializer(serializers.ModelSerializer):
     receipt_tenant = serializers.CharField(source='receipt.invoice.lease.tenant.name', read_only=True, default='')
     receipt_unit = serializers.CharField(source='receipt.invoice.lease.unit.code', read_only=True, default='')
     receipt_invoice_number = serializers.CharField(source='receipt.invoice.number', read_only=True, default='')
+    # Expose invoice charge type so the UI can display a charge-category badge on matched rows
+    receipt_invoice_type = serializers.CharField(source='receipt.invoice.invoice_type', read_only=True, default='')
+    receipt_recipient_type = serializers.CharField(source='receipt.invoice.recipient_type', read_only=True, default='')
 
     class Meta:
         model = BankTransaction

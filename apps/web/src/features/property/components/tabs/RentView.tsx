@@ -57,10 +57,12 @@ export function RentView({
   const [selectedMonth, setSelectedMonth] = useState<string>(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [recipientFilter, setRecipientFilter] = useState<"all" | "tenant" | "owner">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const currentInvoices = (invoices && invoices.length > 0 ? invoices : (rows && rows.length > 0 ? rows : rentInvoices)) as InvoiceRow[];
   const displayInvoices = (rows && rows.length > 0 ? rows : currentInvoices) as InvoiceRow[];
+
 
   const changeMonth = (offset: number) => {
     const [year, monthNum] = selectedMonth.split("-").map(Number);
@@ -110,6 +112,12 @@ export function RentView({
         if (norm !== typeFilter) return false;
       }
 
+      // Recipient type filter (Tenant vs Owner — sectional title)
+      if (recipientFilter !== "all") {
+        const rt = String((inv as any).recipient_type || "tenant").toLowerCase();
+        if (rt !== recipientFilter) return false;
+      }
+
       // Status filter
       if (statusFilter !== "all" && String(inv.status).toLowerCase() !== statusFilter) return false;
 
@@ -119,7 +127,8 @@ export function RentView({
       const matchString = [inv.number, inv.tenant_name, propName, inv.invoice_type, inv.amount].join(" ").toLowerCase();
       return matchString.includes(q);
     });
-  }, [displayInvoices, periodMode, selectedMonth, typeFilter, statusFilter, search]);
+  }, [displayInvoices, periodMode, selectedMonth, typeFilter, statusFilter, recipientFilter, search]);
+
 
   const totalBilled = filteredInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = filteredInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
@@ -285,7 +294,7 @@ export function RentView({
         {/* Right: Invoice Type Filter Chips */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, color: "var(--text-secondary)", fontSize: 11 }}>
-            Filter Type:
+            Charge:
           </span>
           {([
             { key: "all", label: "All Types" },
@@ -304,7 +313,24 @@ export function RentView({
               {t.label}
             </button>
           ))}
+
+          {/* Recipient Type Chips — separates tenant from owner invoices */}
+          <span style={{ fontWeight: 700, color: "var(--text-secondary)", fontSize: 11, marginLeft: 8 }}>
+            Recipient:
+          </span>
+          {(["all", "tenant", "owner"] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`btn sm ${recipientFilter === r ? "primary" : "ghost"}`}
+              style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
+              onClick={() => setRecipientFilter(r)}
+            >
+              {r === "all" ? "All" : r === "tenant" ? "Tenants" : "Owners"}
+            </button>
+          ))}
         </div>
+
       </Box>
 
       {/* Lifecycle Status Filter Strip */}

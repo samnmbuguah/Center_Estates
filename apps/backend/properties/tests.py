@@ -735,7 +735,7 @@ class PropertyApiTests(TestCase):
                 'contact_email': 'jane@acme.test',
             },
             'lease': {
-                'unit': str(available_unit.id), 'term_months': 72, 'starts_on': '2026-09-01',
+                'unit': str(available_unit.id), 'term_months': 72, 'starts_on': '2027-01-01',
                 'area': 1000, 'rent_rate_per_sqft': 100, 'service_charge_rate_per_sqft': 15,
                 'vat_rate': 16, 'security_deposit': 999999, 'billing_day': 1,
                 'escalation_percent': 5, 'escalation_interval_months': 12,
@@ -755,7 +755,7 @@ class PropertyApiTests(TestCase):
         self.assertEqual(tenant.metadata['tenant_application']['contact_name'], 'Jane Wanjiku')
         self.assertEqual(lease.status, Lease.Status.DRAFT)
         self.assertTrue(lease.reference.startswith('LEASE-'))
-        self.assertEqual(lease.ends_on.isoformat(), '2032-09-01')
+        self.assertEqual(lease.ends_on.isoformat(), '2033-01-01')  # 72 months from 2027-01-01
         self.assertEqual(lease.monthly_rent, Decimal('100000.00'))
         self.assertEqual(lease.deposit, Decimal('200000.00'))
         self.assertEqual(lease.escalation_percent, Decimal('5.00'))
@@ -766,13 +766,16 @@ class PropertyApiTests(TestCase):
         self.assertEqual(activated.status_code, 200, activated.data)
         schedules = RentSchedule.objects.filter(lease=lease).order_by('period_start')
         self.assertEqual(schedules.count(), 72)
-        self.assertEqual(schedules[12].period_start.isoformat(), '2027-09-01')
+        self.assertEqual(schedules[12].period_start.isoformat(), '2028-01-01')  # 12 months from 2027-01-01
         self.assertEqual(schedules[12].base_rent, Decimal('100000.00'))
         self.assertEqual(schedules[12].escalation_amount, Decimal('5000.00'))
         self.assertEqual(schedules[24].escalation_amount, Decimal('10250.00'))
+        # Attempting to generate an invoice before the lease commences must be rejected.
+        # schedules[0].period_start = '2027-01-01' which is in the future (as_of=today < starts_on).
         premature = self.client.post(f'/api/v1/property/rent-schedules/{schedules[0].id}/generate-invoice/', {}, format='json', **self.headers)
         self.assertEqual(premature.status_code, 400)
         self.assertIn('commencement', str(premature.data).lower())
+
 
     def test_tenant_onboarding_reserves_parking_and_records_opening_arrears_separately(self):
         unit = Unit.objects.create(

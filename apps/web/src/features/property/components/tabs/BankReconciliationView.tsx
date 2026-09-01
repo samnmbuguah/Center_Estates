@@ -9,6 +9,57 @@ import { ViewToolbar, ListState } from "../PropertyToolbar";
 import type { BankTransactionRow, Row } from "../../types/property.types";
 import { fmtDate, kM, kN } from "../../utils/property.utils";
 
+// ---------------------------------------------------------------------------
+// Charge-type intelligence helpers
+// Reads RENT-/SC-/WATER-/MF- prefixes from description, extracted_mpesa_ref
+// or bank reference to show operators what the deposit is likely paying for.
+// ---------------------------------------------------------------------------
+const CHARGE_PREFIX_MAP: Record<string, { label: string; bg: string; color: string }> = {
+  "RENT":  { label: "Rent",           bg: "rgba(59,130,246,0.13)",  color: "#2563eb" },
+  "SC":    { label: "Service Charge", bg: "rgba(139,92,246,0.13)",  color: "#7c3aed" },
+  "WATER": { label: "Water",          bg: "rgba(20,184,166,0.13)",  color: "#0d9488" },
+  "MF":    { label: "Mgmt Fee",       bg: "rgba(245,158,11,0.13)",  color: "#d97706" },
+};
+
+function detectChargePrefix(tx: BankTransactionRow): string | null {
+  const candidates = [
+    tx.extracted_mpesa_ref,
+    tx.reference,
+    (tx as any).receipt_invoice_type,
+    tx.description,
+    tx.raw_details,
+  ];
+  const upper = candidates.filter(Boolean).join(" ").toUpperCase();
+  for (const prefix of Object.keys(CHARGE_PREFIX_MAP)) {
+    if (upper.includes(`${prefix}-`) || upper.startsWith(prefix)) return prefix;
+  }
+  return null;
+}
+
+function ChargePrefixBadge({ tx }: { tx: BankTransactionRow }) {
+  // Prefer backend-provided invoice type on matched rows
+  const invType = String((tx as any).receipt_invoice_type || "").toLowerCase();
+  let prefix: string | null = null;
+  if (invType === "rent") prefix = "RENT";
+  else if (invType === "service_charge" || invType === "sc") prefix = "SC";
+  else if (invType === "water" || invType === "utility") prefix = "WATER";
+  else if (invType.includes("mgmt") || invType.includes("management")) prefix = "MF";
+  else prefix = detectChargePrefix(tx);
+
+  if (!prefix) return null;
+  const style = CHARGE_PREFIX_MAP[prefix];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      padding: "1px 7px", borderRadius: 4,
+      background: style.bg, color: style.color,
+      fontWeight: 700, fontSize: 10, letterSpacing: 0.3,
+    }}>
+      {prefix === "SC" ? "🏢" : prefix === "WATER" ? "💧" : prefix === "MF" ? "📋" : "🏠"} {style.label}
+    </span>
+  );
+}
+
 interface InvoiceOption {
   id: string;
   number: string;
@@ -436,6 +487,8 @@ export function BankReconciliationView({
                       </td>
                       <td>
                         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {/* Charge-type intelligence badge — derived from reference prefix or matched invoice */}
+                          <ChargePrefixBadge tx={tx} />
                           {tx.extracted_mpesa_ref && (
                             <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d" }}>
                               📱 M-PESA: <span className="mono">{tx.extracted_mpesa_ref}</span>
@@ -451,7 +504,7 @@ export function BankReconciliationView({
                               👤 {tx.extracted_payer_name}
                             </span>
                           )}
-                          {!tx.extracted_mpesa_ref && !tx.extracted_account && !tx.extracted_payer_name && (
+                          {!tx.extracted_mpesa_ref && !tx.extracted_account && !tx.extracted_payer_name && !detectChargePrefix(tx) && (
                             <span className="muted" style={{ fontSize: 11 }}>—</span>
                           )}
                         </div>

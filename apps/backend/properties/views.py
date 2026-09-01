@@ -3137,6 +3137,9 @@ class ReceiptViewSet(OrganizationModelViewSet):
                 raise ValidationError({'invoice': 'Selected invoice belongs to a different landlord.'})
             if invoice.status not in (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE):
                 raise ValidationError({'invoice': 'Only issued invoices can receive payments.'})
+            if amount > invoice.balance:
+                raise ValidationError({'amount': 'Receipt exceeds the invoice balance.'})
+
         number = str(serializer.validated_data.get('number') or '').strip()
         if not number:
             prefix = f'RCPT-{timezone.localdate():%Y}-'
@@ -3251,6 +3254,16 @@ class BankTransactionViewSet(OrganizationModelViewSet):
         receipts_by_ref = {r.external_reference.strip().upper(): r for r in unlinked_receipts if r.external_reference}
         receipts_by_number = {r.number.strip().upper(): r for r in unlinked_receipts if r.number}
 
+        # Auto-Match Rule 4: Match by invoice.mpesa_reference (RENT-/SC-/WATER-/MF- codes)
+        # Maps each invoice's payment reference code to the receipt that cleared it
+        invoices_by_mpesa_ref = {}
+        for r in unlinked_receipts:
+            if r.invoice_id:
+                inv_mpesa_ref = getattr(r.invoice, 'mpesa_reference', '') or ''
+                if inv_mpesa_ref:
+                    invoices_by_mpesa_ref[inv_mpesa_ref.strip().upper()] = r
+
+
         created_count = 0
         skipped_count = 0
         auto_matched_count = 0
@@ -3297,6 +3310,20 @@ class BankTransactionViewSet(OrganizationModelViewSet):
                 cand = receipts_by_number[tx.reference.upper()]
                 if cand.amount == tx.amount:
                     matched_rcpt = cand
+            # Auto-Match Rule 4: Invoice mpesa_reference (RENT-/SC-/WATER-/MF- codes)
+            # Check whether the narration contains a known sectional-title charge reference code.
+            elif tx.extracted_mpesa_ref and tx.extracted_mpesa_ref.upper() in invoices_by_mpesa_ref:
+                cand = invoices_by_mpesa_ref[tx.extracted_mpesa_ref.upper()]
+                if cand.amount == tx.amount:
+                    matched_rcpt = cand
+            else:
+                # Scan description for embedded charge reference codes (RENT-/SC-/WATER-/MF-)
+                desc_upper = (tx.description or tx.raw_details or '').upper()
+                for ref_code, cand in invoices_by_mpesa_ref.items():
+                    if ref_code and ref_code in desc_upper and cand.amount == tx.amount:
+                        matched_rcpt = cand
+                        break
+
 
             if matched_rcpt:
                 tx.receipt = matched_rcpt

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { BillingActionBanner } from "@/components/billing/BillingActionBanner";
 
 describe("BillingActionBanner", () => {
-  it("lets a user resume a saved billing run that has not been scanned", () => {
+  it("renders scan step and triggers refresh/rescan", () => {
     const onRecheck = jest.fn();
 
     render(
@@ -28,13 +28,13 @@ describe("BillingActionBanner", () => {
       />,
     );
 
-    expect(screen.getByText("Complete the readiness scan for July 2026")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Scan leases & prepare invoices" }));
+    expect(screen.getByText("1. Scan & Prepare")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Refresh/i }));
     expect(onRecheck).toHaveBeenCalledTimes(1);
   });
 
-  it("lets an authorized manager confirm a reviewed billing run", () => {
-    const onApprove = jest.fn();
+  it("lets an authorized manager generate candidate invoices", () => {
+    const onGenerate = jest.fn();
 
     render(
       <BillingActionBanner
@@ -53,14 +53,15 @@ describe("BillingActionBanner", () => {
         canApprove
         onInitialize={jest.fn()}
         onRecheck={jest.fn()}
-        onApprove={onApprove}
-        onGenerate={jest.fn()}
+        onApprove={jest.fn()}
+        onGenerate={onGenerate}
         onSingleInvoice={jest.fn()}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Billing Run" }));
-    expect(onApprove).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Approve Billing Run")).not.toBeInTheDocument();
+    expect(screen.getByText("2. Candidates (3 ready)")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Generate 3 Invoices/i }));
+    expect(onGenerate).toHaveBeenCalledTimes(1);
   });
 });
+
