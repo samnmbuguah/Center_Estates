@@ -129,6 +129,38 @@ export function RentView({
     });
   }, [displayInvoices, periodMode, selectedMonth, typeFilter, statusFilter, recipientFilter, search]);
 
+  // Dynamic distribution counts within current period context
+  const counts = useMemo(() => {
+    const base = displayInvoices.filter((inv) => {
+      if (periodMode === "month") {
+        const invDate = String(inv.issued_on || inv.due_on || "");
+        if (!invDate.startsWith(selectedMonth)) {
+          const bp = String((inv.metadata as Record<string, unknown> | undefined)?.billing_period || "");
+          if (!bp.includes(selectedMonth)) return false;
+        }
+      }
+      return true;
+    });
+
+    const charge: Record<string, number> = { all: base.length, rent: 0, service_charge: 0, utility: 0, management_fee: 0 };
+    const recipient: Record<string, number> = { all: base.length, tenant: 0, owner: 0 };
+    const status: Record<string, number> = { all: base.length, draft: 0, issued: 0, partial: 0, paid: 0, overdue: 0, void: 0 };
+
+    for (const inv of base) {
+      const norm = normalizeType(inv.invoice_type);
+      charge[norm] = (charge[norm] || 0) + 1;
+
+      const rt = String((inv as any).recipient_type || "tenant").toLowerCase();
+      recipient[rt] = (recipient[rt] || 0) + 1;
+
+      const st = String(inv.status || "").toLowerCase();
+      status[st] = (status[st] || 0) + 1;
+    }
+
+    return { charge, recipient, status };
+  }, [displayInvoices, periodMode, selectedMonth]);
+
+
 
   const totalBilled = filteredInvoices.reduce((s, i) => s + Number(i.amount ?? 0), 0);
   const outstanding = filteredInvoices.reduce((s, i) => s + Number(i.balance ?? 0), 0);
@@ -297,11 +329,11 @@ export function RentView({
             Charge:
           </span>
           {([
-            { key: "all", label: "All Types" },
-            { key: "rent", label: "Rent" },
-            { key: "service_charge", label: "Service Charge" },
-            { key: "utility", label: "Utilities" },
-            { key: "management_fee", label: "Mgmt Fees" },
+            { key: "all", label: "All", count: counts.charge.all },
+            { key: "rent", label: "Rent", count: counts.charge.rent },
+            { key: "service_charge", label: "Service Charge", count: counts.charge.service_charge },
+            { key: "utility", label: "Utilities", count: counts.charge.utility },
+            { key: "management_fee", label: "Mgmt Fees", count: counts.charge.management_fee },
           ] as const).map((t) => (
             <button
               key={t.key}
@@ -310,7 +342,7 @@ export function RentView({
               style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
               onClick={() => setTypeFilter(t.key)}
             >
-              {t.label}
+              {t.label} <span style={{ opacity: 0.7, fontSize: 10, marginLeft: 3 }}>({t.count ?? 0})</span>
             </button>
           ))}
 
@@ -318,15 +350,19 @@ export function RentView({
           <span style={{ fontWeight: 700, color: "var(--text-secondary)", fontSize: 11, marginLeft: 8 }}>
             Recipient:
           </span>
-          {(["all", "tenant", "owner"] as const).map((r) => (
+          {([
+            { key: "all", label: "All", count: counts.recipient.all },
+            { key: "tenant", label: "Tenants", count: counts.recipient.tenant },
+            { key: "owner", label: "Owners", count: counts.recipient.owner },
+          ] as const).map((r) => (
             <button
-              key={r}
+              key={r.key}
               type="button"
-              className={`btn sm ${recipientFilter === r ? "primary" : "ghost"}`}
+              className={`btn sm ${recipientFilter === r.key ? "primary" : "ghost"}`}
               style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
-              onClick={() => setRecipientFilter(r)}
+              onClick={() => setRecipientFilter(r.key as any)}
             >
-              {r === "all" ? "All" : r === "tenant" ? "Tenants" : "Owners"}
+              {r.label} <span style={{ opacity: 0.7, fontSize: 10, marginLeft: 3 }}>({r.count ?? 0})</span>
             </button>
           ))}
         </div>
@@ -336,25 +372,26 @@ export function RentView({
       {/* Lifecycle Status Filter Strip */}
       <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          {[
-            ["all", "All Invoices"],
-            ["draft", "Draft"],
-            ["review", "Under Review"],
-            ["approved", "Approved"],
-            ["issued", "Issued"],
-            ["overdue", "Overdue"],
-            ["paid", "Paid"],
-          ].map(([id, label]) => (
+          {([
+            ["all", `All (${counts.status.all ?? 0})`],
+            ["draft", `Draft (${counts.status.draft ?? 0})`],
+            ["issued", `Issued (${counts.status.issued ?? 0})`],
+            ["partial", `Partially Paid (${counts.status.partial ?? 0})`],
+            ["paid", `Paid (${counts.status.paid ?? 0})`],
+            ["overdue", `Overdue (${counts.status.overdue ?? 0})`],
+          ] as const).map(([id, label]) => (
             <button
               key={id}
               type="button"
               className={`btn sm ${statusFilter === id ? "primary" : "ghost"}`}
+              style={{ fontSize: 12 }}
               onClick={() => setStatusFilter(id)}
             >
               {label}
             </button>
           ))}
         </div>
+
 
         {selectedIds.size > 0 && (
           <div

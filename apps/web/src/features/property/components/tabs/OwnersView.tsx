@@ -9,9 +9,11 @@ import { OwnerRow, PropertyTab, Row, ID } from "../../types/property.types";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import {
   Users, Building2, Landmark, Plus, DollarSign,
-  CheckCircle2, CreditCard, RefreshCw, KeyRound, Download, Upload
+  CheckCircle2, CreditCard, RefreshCw, KeyRound, Download, Upload, FileText,
 } from "lucide-react";
 import { csvCell, csvColumn, normalizeCsvHeader, parseCsv } from "@/lib/csv";
+import { exportCsv } from "../../utils/property.utils";
+
 
 type OwnerImportRow = Record<string, any> & { row: number; errors?: Record<string, string> };
 
@@ -36,6 +38,14 @@ export function OwnersView({
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showAddOwnerModal, setShowAddOwnerModal] = useState(false);
   const [showBulkOwnerModal, setShowBulkOwnerModal] = useState(false);
+  const [remittanceOwner, setRemittanceOwner] = useState<OwnerRow | null>(null);
+  const [remittancePeriod, setRemittancePeriod] = useState({
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+  });
+  const [remittanceData, setRemittanceData] = useState<Record<string, any> | null>(null);
+  const [remittanceLoading, setRemittanceLoading] = useState(false);
+  const [remittanceError, setRemittanceError] = useState("");
   const [ownerImportRows, setOwnerImportRows] = useState<OwnerImportRow[]>([]);
   const [ownerImportFile, setOwnerImportFile] = useState("");
   const [ownerImportBusy, setOwnerImportBusy] = useState(false);
@@ -91,6 +101,26 @@ export function OwnersView({
       setSummaryLoading(false);
     }
   };
+
+  const fetchRemittanceStatement = async (owner: OwnerRow, m?: number, y?: number) => {
+    const targetMonth = m ?? remittancePeriod.month;
+    const targetYear = y ?? remittancePeriod.year;
+    setRemittanceOwner(owner);
+    setRemittancePeriod({ month: targetMonth, year: targetYear });
+    setRemittanceLoading(true);
+    setRemittanceError("");
+    try {
+      const res = await apiFetch(`/property/owners/${owner.id}/remittance-statement/?month=${targetMonth}&year=${targetYear}`);
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "Remittance statement could not be loaded."));
+      const data = await res.json();
+      setRemittanceData(data);
+    } catch (err: any) {
+      setRemittanceError(err.message || "Failed to load remittance statement.");
+    } finally {
+      setRemittanceLoading(false);
+    }
+  };
+
 
   const handleCreateOwner = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,17 +355,31 @@ export function OwnersView({
                       </div>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn ghost sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectOwner(o);
-                        }}
-                      >
-                        Financial Summary
-                      </button>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn ghost sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectOwner(o);
+                          }}
+                        >
+                          Ledger
+                        </button>
+                        <button
+                          type="button"
+                          className="btn primary sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void fetchRemittanceStatement(o);
+                          }}
+                          title="Generate Landlord Remittance Statement"
+                        >
+                          <DollarSign size={13} style={{ marginRight: 3 }} /> Statement
+                        </button>
+                      </div>
                     </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -383,8 +427,18 @@ export function OwnersView({
               flexDirection: "column",
               gap: 12,
             }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: "#a5b4fc", display: "flex", alignItems: "center", gap: 6 }}>
-                <DollarSign size={15} /> Landlord Ledger & Financial Summary
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "#a5b4fc", display: "flex", alignItems: "center", gap: 6 }}>
+                  <DollarSign size={15} /> Landlord Ledger & Financial Summary
+                </div>
+                <button
+                  type="button"
+                  className="btn primary sm"
+                  onClick={() => selectedOwner && void fetchRemittanceStatement(selectedOwner)}
+                  style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
+                >
+                  <DollarSign size={12} style={{ marginRight: 2 }} /> Remittance Statement
+                </button>
               </div>
 
               {summaryLoading ? (
@@ -406,6 +460,7 @@ export function OwnersView({
                 </div>
               ) : null}
             </div>
+
 
             {/* Profile & Settlement Info */}
             <div style={{
@@ -609,10 +664,226 @@ export function OwnersView({
             {ownerImportFile && <div style={{ fontSize: 13, fontWeight: 600 }}>Preview: {ownerImportFile} · {ownerImportRows.length} row(s)</div>}
             {ownerImportError && <ErrorBanner message={ownerImportError} />}
             {ownerImportRows.length > 0 && <div style={{ overflowX: "auto", maxHeight: 360, border: "1px solid var(--border)", borderRadius: 8 }}><table className="table" style={{ minWidth: 780 }}><thead><tr><th>Row</th><th>Owner</th><th>PIN</th><th>Units</th><th>Engagements</th><th>Status</th></tr></thead><tbody>{ownerImportRows.map((row) => <tr key={row.row}><td>{row.row}</td><td>{row.name || row.owner_name || row.landlord_name}</td><td>{row.pin_number || row.kra_pin || "—"}</td><td>{row.unit_codes || row.unit_code || "—"}</td><td>{row.engaged_for_unit_management === "yes" ? "Unit management " : ""}{row.engaged_for_letting === "yes" ? "Letting" : "—"}</td><td>{Object.keys(row.errors || {}).length ? <span className="badge badge-red">{Object.values(row.errors || {}).join(" ")}</span> : <span className="badge badge-green">Ready</span>}</td></tr>)}</tbody></table></div>}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="btn ghost" onClick={() => setShowBulkOwnerModal(false)}>Cancel</button><button type="button" className="btn primary" disabled={!ownerImportRows.length || ownerImportRows.some((row) => Object.keys(row.errors || {}).length > 0) || ownerImportBusy} onClick={() => void importOwners()}>{ownerImportBusy ? "Importing…" : `Import ${ownerImportRows.length} owner(s)`}</button></div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className="btn ghost" onClick={() => setShowBulkOwnerModal(false)}>Cancel</button>
+              <button type="button" className="btn primary" disabled={!ownerImportRows.length || ownerImportRows.some((row) => Object.keys(row.errors || {}).length > 0) || ownerImportBusy} onClick={() => void importOwners()}>{ownerImportBusy ? "Importing…" : `Import ${ownerImportRows.length} owner(s)`}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Remittance Statement Preview Modal */}
+
+      {remittanceOwner && (
+        <Modal
+          title={
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingRight: 24 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Landmark size={18} color="#6366f1" />
+                <span>Landlord Remittance Statement · {remittanceOwner.name}</span>
+              </div>
+              <span className="badge badge-purple" style={{ fontSize: 11 }}>
+                {remittanceData?.reference_code || `REMIT-${remittanceOwner.code}-${String(remittancePeriod.month).padStart(2, "0")}-${remittancePeriod.year}`}
+              </span>
+            </div>
+          }
+          onClose={() => {
+            setRemittanceOwner(null);
+            setRemittanceData(null);
+          }}
+          maxWidth="lg"
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Period Navigation Toolbar */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 10,
+              padding: "10px 14px",
+              background: "var(--surface)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Billing Period:</span>
+                <select
+                  value={remittancePeriod.month}
+                  onChange={(e) => void fetchRemittanceStatement(remittanceOwner, Number(e.target.value), remittancePeriod.year)}
+                  style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 12 }}
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {new Date(2000, m - 1, 1).toLocaleString("default", { month: "long" })}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={remittancePeriod.year}
+                  onChange={(e) => void fetchRemittanceStatement(remittanceOwner, remittancePeriod.month, Number(e.target.value))}
+                  style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 12 }}
+                >
+                  {[2025, 2026, 2027, 2028].map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn ghost sm"
+                  onClick={() => void fetchRemittanceStatement(remittanceOwner, remittancePeriod.month, remittancePeriod.year)}
+                  style={{ fontSize: 11, height: 26 }}
+                >
+                  <RefreshCw size={11} style={{ marginRight: 3 }} /> Refresh
+                </button>
+              </div>
+
+              {/* Settlement Payout Destination */}
+              <div style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, color: "#818cf8" }}>
+                <Landmark size={13} />
+                <span>
+                  Payout Route: <strong>{remittanceOwner.settlement_bank_name || "Bank"}</strong> · Acc: <strong className="mono">{remittanceOwner.settlement_bank_account || remittanceOwner.settlement_paybill_or_till || "Not Configured"}</strong>
+                </span>
+              </div>
+            </div>
+
+            {remittanceLoading ? (
+              <LoadingState rows={4} />
+            ) : remittanceError ? (
+
+              <ErrorBanner message={remittanceError} />
+            ) : remittanceData ? (
+              <>
+                {/* Executive Summary Metric Strip */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 10,
+                }}>
+                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Gross Collections</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#10b981", marginTop: 2 }}>
+                      {money.format(remittanceData.total_gross_collected ?? 0)}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Agency Commission</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#f59e0b", marginTop: 2 }}>
+                      - {money.format(remittanceData.total_commission_deducted ?? 0)}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(139, 92, 246, 0.08)", border: "1px solid rgba(139, 92, 246, 0.2)" }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Service Charge Offset</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#8b5cf6", marginTop: 2 }}>
+                      - {money.format(remittanceData.total_service_charge_deducted ?? 0)}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "12px", borderRadius: 8, background: "linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)", border: "1px solid rgba(99, 102, 241, 0.4)" }}>
+                    <div style={{ fontSize: 11, color: "#a5b4fc", fontWeight: 700 }}>NET REMITTANCE PAYABLE</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#38bdf8", marginTop: 2 }}>
+                      {money.format(remittanceData.net_remittance_payable ?? 0)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Per-Unit Breakdown Table */}
+                <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflowX: "auto" }}>
+                  <table className="table" style={{ width: "100%", minWidth: 700, fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th>Unit Code</th>
+                        <th>Property</th>
+                        <th>Tenant</th>
+                        <th style={{ textAlign: "right" }}>Monthly Rent</th>
+                        <th style={{ textAlign: "right" }}>Gross Collected</th>
+                        <th style={{ textAlign: "right" }}>Commission</th>
+                        <th style={{ textAlign: "right" }}>SC Deducted</th>
+                        <th style={{ textAlign: "right" }}>Net Payout</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(remittanceData.units || []).length > 0 ? (
+                        remittanceData.units.map((u: any) => (
+                          <tr key={u.unit_id}>
+                            <td className="mono" style={{ fontWeight: 700, color: "#818cf8" }}>{u.unit_code}</td>
+                            <td>{u.property_name || "—"}</td>
+                            <td><strong>{u.tenant_name}</strong></td>
+                            <td className="mono" style={{ textAlign: "right" }}>{money.format(u.monthly_rent)}</td>
+                            <td className="mono" style={{ textAlign: "right", color: "#10b981", fontWeight: 600 }}>{money.format(u.gross_collected)}</td>
+                            <td className="mono" style={{ textAlign: "right", color: "#f59e0b" }}>
+                              {money.format(u.commission_deducted)} <span style={{ fontSize: 10, opacity: 0.7 }}>({u.commission_rate}%)</span>
+                            </td>
+                            <td className="mono" style={{ textAlign: "right", color: "#8b5cf6" }}>{money.format(u.service_charge_deducted)}</td>
+                            <td className="mono" style={{ textAlign: "right", fontWeight: 700, color: "var(--text)" }}>{money.format(u.net_payout)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: "center", padding: 16, color: "var(--muted)" }}>
+                            No active units recorded for this landlord in the selected billing period.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Modal Footer Actions */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                    Generated on {new Date().toLocaleDateString("en-KE", { dateStyle: "long" })} • Authoritative Sectional Title Remittance
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn ghost sm"
+                      onClick={() => {
+                        const rows = (remittanceData.units || []).map((u: any) => ({
+                          unit_code: u.unit_code,
+                          property: u.property_name,
+                          tenant: u.tenant_name,
+                          monthly_rent: u.monthly_rent,
+                          gross_collected: u.gross_collected,
+                          commission_deducted: u.commission_deducted,
+                          service_charge_deducted: u.service_charge_deducted,
+                          net_payout: u.net_payout,
+                        }));
+                        exportCsv(
+                          rows,
+                          [
+                            { key: "unit_code", label: "Unit" },
+                            { key: "property", label: "Property" },
+                            { key: "tenant", label: "Tenant" },
+                            { key: "monthly_rent", label: "Monthly Rent" },
+                            { key: "gross_collected", label: "Gross Collected" },
+                            { key: "commission_deducted", label: "Commission Deducted" },
+                            { key: "service_charge_deducted", label: "SC Deducted" },
+                            { key: "net_payout", label: "Net Payout" },
+                          ],
+                          `remittance-${remittanceOwner.code}-${remittancePeriod.month}-${remittancePeriod.year}.csv`
+                        );
+                      }}
+                    >
+                      <Download size={13} style={{ marginRight: 4 }} /> Export Statement CSV
+                    </button>
+                    <button
+                      type="button"
+                      className="btn primary sm"
+                      onClick={() => window.print()}
+                    >
+                      <FileText size={13} style={{ marginRight: 4 }} /> Print / Save PDF
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
           </div>
         </Modal>
       )}
     </div>
   );
 }
+

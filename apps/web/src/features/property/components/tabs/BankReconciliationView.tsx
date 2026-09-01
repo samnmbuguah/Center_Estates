@@ -8,6 +8,10 @@ import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { ViewToolbar, ListState } from "../PropertyToolbar";
 import type { BankTransactionRow, Row } from "../../types/property.types";
 import { fmtDate, kM, kN } from "../../utils/property.utils";
+import {
+  UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle,
+  ArrowRight, Landmark, RefreshCw, Upload,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Charge-type intelligence helpers
@@ -97,6 +101,8 @@ export function BankReconciliationView({
   const [showAdd, setShowAdd] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showDropzone, setShowDropzone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [importSummary, setImportSummary] = useState<{
@@ -138,15 +144,13 @@ export function BankReconciliationView({
             }));
           setInvoices(valid);
 
-          // Auto-select candidate invoice if unit code or tenant matches extracted details
-          const targetUnit = (quickReceiptTarget.extracted_account || "").trim().toLowerCase();
-          const targetPayer = (quickReceiptTarget.extracted_payer_name || "").trim().toLowerCase();
-
-          const bestMatch = valid.find((inv) => {
-            if (targetUnit && inv.unit_code?.toLowerCase().includes(targetUnit)) return true;
-            if (targetPayer && inv.tenant_name?.toLowerCase().includes(targetPayer)) return true;
-            return false;
-          });
+          // Find optimal auto-match candidate
+          const rawMatch = quickReceiptTarget.extracted_account || quickReceiptTarget.extracted_mpesa_ref || "";
+          const targetAmt = Number(quickReceiptTarget.amount ?? 0);
+          const bestMatch = valid.find(
+            (i) => (rawMatch && i.number.toLowerCase().includes(rawMatch.toLowerCase())) ||
+                   (Math.abs(i.balance - targetAmt) < 0.01 && (quickReceiptTarget.extracted_payer_name && i.tenant_name?.toLowerCase().includes(quickReceiptTarget.extracted_payer_name.toLowerCase())))
+          );
 
           if (bestMatch) {
             setSelectedInvoiceId(bestMatch.id);
@@ -205,9 +209,7 @@ export function BankReconciliationView({
     });
   }, [transactions, activeTab, summary]);
 
-  async function handleImportStatement(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+  async function processFile(file: File) {
     if (!file) return;
 
     setImporting(true);
@@ -245,6 +247,12 @@ export function BankReconciliationView({
     } finally {
       setImporting(false);
     }
+  }
+
+  async function handleImportStatement(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) await processFile(file);
   }
 
   async function submitQuickReceipt(event: FormEvent<HTMLFormElement>) {
@@ -327,28 +335,20 @@ export function BankReconciliationView({
 
       <ViewToolbar
         title="Bank Reconciliation & Intelligence"
-        subtitle="Upload bank statements (NBK, Stanbic, KCB, Excel/CSV) to automatically flag unreceipted deposits and reconcile ledger proof of payments."
+        subtitle="Upload bank statements (NCBA, Equity, KCB, Stanbic, Co-op, M-Pesa) to automatically flag unreceipted deposits and reconcile ledger proof of payments."
         search={search}
         onSearch={setSearch}
         placeholder="Search bank reference, M-PESA code, unit, payer or amount…"
       >
         {canFinance && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              hidden
-              onChange={handleImportStatement}
-            />
             <button
               type="button"
               className="btn ghost sm"
-              disabled={importing}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setShowDropzone(!showDropzone)}
               style={{ fontWeight: 600, border: "1px solid var(--border-color)", background: "var(--bg-surface)" }}
             >
-              {importing ? "⏳ Parsing Statement…" : "↑ Upload Bank Statement (.xlsx, .csv)"}
+              <UploadCloud size={14} style={{ marginRight: 5 }} /> {showDropzone ? "Hide Upload Zone" : "Upload Statement (.xlsx, .csv)"}
             </button>
             <button type="button" className="btn primary sm" onClick={() => setShowAdd(true)}>
               + Add Manual Line
@@ -356,6 +356,82 @@ export function BankReconciliationView({
           </div>
         )}
       </ViewToolbar>
+
+      {/* Interactive Drag & Drop Statement Dropzone */}
+      {canFinance && (showDropzone || transactions.length === 0) && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) await processFile(file);
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            border: isDragging ? "2px dashed #6366f1" : "1.5px dashed var(--border)",
+            background: isDragging
+              ? "rgba(99, 102, 241, 0.08)"
+              : "radial-gradient(ellipse at top, rgba(99, 102, 241, 0.04) 0%, var(--surface) 100%)",
+            borderRadius: 12,
+            padding: "20px 24px",
+            textAlign: "center",
+            cursor: "pointer",
+            transition: "all 0.2s ease-in-out",
+            position: "relative",
+          }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            hidden
+            onChange={handleImportStatement}
+          />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              background: isDragging ? "rgba(99, 102, 241, 0.2)" : "var(--surface-2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: isDragging ? "#6366f1" : "var(--primary)",
+            }}>
+              <UploadCloud size={24} className={importing ? "animate-bounce" : ""} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>
+                {importing ? "Processing and auto-matching statement…" : isDragging ? "Drop your bank statement file here" : "Drag & drop bank statement (.xlsx, .csv) or click to browse"}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                Automatic multi-pattern matching for M-Pesa, NCBA, Equity, KCB, Stanbic & Co-op statements
+              </div>
+            </div>
+
+            {/* Supported Kenyan Commercial Bank Badges */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+              <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Auto-Parsed Formats:</span>
+              {[
+                { name: "NCBA Bank", color: "#2563eb", bg: "rgba(37,99,235,0.08)" },
+                { name: "Equity EazzyBiz", color: "#b91c1c", bg: "rgba(185,28,28,0.08)" },
+                { name: "KCB Corporate", color: "#15803d", bg: "rgba(21,128,61,0.08)" },
+                { name: "Stanbic Bank", color: "#0284c7", bg: "rgba(2,132,199,0.08)" },
+                { name: "Co-op Omni", color: "#047857", bg: "rgba(4,120,87,0.08)" },
+                { name: "M-PESA Business", color: "#16a34a", bg: "rgba(22,163,74,0.08)" },
+              ].map((b) => (
+                <span key={b.name} style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 12, background: b.bg, color: b.color, border: `1px solid ${b.color}22` }}>
+                  {b.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
 
       <KpiStrip cols={4}>
         <KpiCard
@@ -731,6 +807,107 @@ export function BankReconciliationView({
           </form>
         </Modal>
       )}
+
+      {/* Post-Import Reconciliation Breakdown Modal */}
+      {showImportModal && importSummary && (
+
+        <Modal
+          title={
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <FileSpreadsheet size={18} color="#10b981" />
+              <span>Bank Statement Import & Auto-Match Report</span>
+            </div>
+          }
+          onClose={() => setShowImportModal(false)}
+          maxWidth="md"
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Auto Match Rate Card */}
+            <div style={{
+              padding: "16px",
+              borderRadius: 10,
+              background: "radial-gradient(ellipse at top, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%)",
+              border: "1px solid rgba(16, 185, 129, 0.3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#34d399" }}>
+                    ✓ Statement Processed Successfully
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                    Rule 1–4 Auto-Matching applied across all active invoices & receipts
+                  </div>
+                </div>
+                <span className="badge badge-green" style={{ fontSize: 12, fontWeight: 800 }}>
+                  {Number(importSummary.created ?? 0) > 0
+                    ? `${Math.round((Number(importSummary.auto_matched ?? 0) / Number(importSummary.created ?? 1)) * 100)}% Reconciled`
+                    : "100% Synced"}
+                </span>
+              </div>
+
+              {/* Progress meter bar */}
+              <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 4, overflow: "hidden" }}>
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Number(importSummary.created ?? 0) > 0 ? Math.min(100, Math.round((Number(importSummary.auto_matched ?? 0) / Number(importSummary.created ?? 1)) * 100)) : 100}%`,
+                    background: "linear-gradient(90deg, #10b981 0%, #34d399 100%)",
+                    transition: "width 0.4s ease-in-out",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Metrics Breakdown Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+              <div style={{ padding: "12px", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--border)", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Total Parsed</div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{importSummary.total_parsed ?? 0}</div>
+              </div>
+              <div style={{ padding: "12px", borderRadius: 8, background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>New Lines</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#3b82f6", marginTop: 2 }}>{importSummary.created ?? 0}</div>
+              </div>
+              <div style={{ padding: "12px", borderRadius: 8, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>Auto-Matched</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981", marginTop: 2 }}>{importSummary.auto_matched ?? 0}</div>
+              </div>
+              <div style={{ padding: "12px", borderRadius: 8, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>Unreceipted</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#f59e0b", marginTop: 2 }}>{importSummary.unreceipted_credits ?? 0}</div>
+              </div>
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+              {Number(importSummary.unreceipted_credits ?? 0) > 0 && (
+                <button
+                  type="button"
+                  className="btn primary sm"
+                  style={{ background: "#b45309", borderColor: "#b45309" }}
+                  onClick={() => {
+                    setActiveTab("unreceipted");
+                    setShowImportModal(false);
+                  }}
+                >
+                  <AlertTriangle size={13} style={{ marginRight: 4 }} /> Review {importSummary.unreceipted_credits} Unreceipted Deposits
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn ghost sm"
+                onClick={() => setShowImportModal(false)}
+              >
+                Close Report
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
+
