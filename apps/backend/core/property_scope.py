@@ -147,6 +147,23 @@ def scope_queryset_to_property(queryset, request, organization):
         return queryset.filter(
             Q(property_id=property_record.pk) | Q(leases__unit__property_id=property_record.pk),
         ).distinct()
+    if queryset.model._meta.label == 'properties.Receipt':
+        # Receipts can be recorded before allocation to an invoice.  Those
+        # receipts are still owned by the tenant's selected property and must
+        # remain visible in its receipting ledger.
+        return queryset.filter(
+            Q(invoice__lease__unit__property_id=property_record.pk)
+            | Q(tenant__property_id=property_record.pk)
+            | Q(tenant__leases__unit__property_id=property_record.pk),
+        ).distinct()
+    if queryset.model._meta.label == 'properties.BankTransaction':
+        # Keep bank items matched to an unallocated receipt reconcilable in
+        # that receipt's property, rather than hiding them until allocation.
+        return queryset.filter(
+            Q(receipt__invoice__lease__unit__property_id=property_record.pk)
+            | Q(receipt__tenant__property_id=property_record.pk)
+            | Q(receipt__tenant__leases__unit__property_id=property_record.pk),
+        ).distinct()
     if queryset.model._meta.label == 'facilities.Contractor':
         return queryset.filter(
             Q(assigned_properties__id=property_record.pk)

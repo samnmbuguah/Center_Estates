@@ -20,7 +20,8 @@
     "e2e:story": "playwright test --grep",
     "e2e:headed": "playwright test --headed",
     "backend:check": "apps/backend/.venv/bin/python apps/backend/manage.py check",
-    "backend:test": "cd apps/backend && .venv/bin/python manage.py test",
+    "backend:test": "cd apps/backend && .venv/bin/python -m pytest --reuse-db --nomigrations",
+    "backend:test:migrations": "cd apps/backend && .venv/bin/python manage.py makemigrations --check --dry-run",
     "backend:test:e2e": "cd apps/backend && DB_NAME=center_estates_test .venv/bin/python manage.py test --settings=config.settings_test"
   },
   "devDependencies": {

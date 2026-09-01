@@ -90,6 +90,19 @@ function flattenError(value: unknown): string[] {
 }
 
 export async function apiErrorMessage(response: Response, fallback = "The request could not be completed.") {
+  // A 5xx response is an operational failure, not a validation message. Never
+  // render a server payload here: proxy/framework error bodies can otherwise
+  // disclose internal field names or stack details to users.
+  if (response.status >= 500) {
+    let errorReference = "";
+    try {
+      const body = await response.clone().json() as { error_id?: unknown };
+      if (typeof body.error_id === "string" && body.error_id.trim()) {
+        errorReference = ` Support reference: ${body.error_id.trim()}.`;
+      }
+    } catch { /* a non-JSON 5xx still receives the same safe message */ }
+    return `${fallback} Your information has been retained where possible. Please retry.${errorReference}`;
+  }
   try {
     const body = await response.clone().json();
     const messages = flattenError(body).filter(Boolean);
@@ -102,7 +115,6 @@ export async function apiErrorMessage(response: Response, fallback = "The reques
   if (response.status === 409) return "A conflict occurred with this record. Please refresh the page and retry.";
   if (response.status === 502 || response.status === 503) return "The backend service is temporarily restarting or updating. Please wait a moment and retry.";
   if (response.status === 504) return "The request timed out while processing on the server. Please retry in a moment.";
-  if (response.status >= 500) return "The server encountered an unexpected error. Your entered data has been retained; please retry.";
   return fallback;
 }
 

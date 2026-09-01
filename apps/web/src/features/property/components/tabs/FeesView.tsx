@@ -9,6 +9,7 @@ import DownloadRounded from "@mui/icons-material/DownloadRounded";
 import ReceiptLongRounded from "@mui/icons-material/ReceiptLongRounded";
 import SettingsSuggestRounded from "@mui/icons-material/SettingsSuggestRounded";
 import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
+import DeleteRounded from "@mui/icons-material/DeleteRounded";
 
 import { KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState } from "@/components/module-ui";
 import { ViewToolbar, ListState } from "../PropertyToolbar";
@@ -177,6 +178,28 @@ export function FeesView({
     }
   };
 
+  // Delete draft invoice
+  const handleDelete = async (inv: LandlordInvoice) => {
+    if (!organizationId) return;
+    if (!window.confirm(`Delete draft invoice ${inv.number} for ${inv.landlord_name}? This cannot be undone.`)) return;
+    try {
+      const res = await apiFetch(`/property/landlord-invoices/${inv.id}/`, {
+        method: "DELETE",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+      }, organizationId);
+      if (res.ok) {
+        toast.success(`Invoice ${inv.number} deleted.`);
+        void loadInvoices();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        const msg = Object.values(body as Record<string, unknown>).flat().join(" ");
+        toast.error(msg || "Could not delete invoice. Only draft invoices can be deleted.");
+      }
+    } catch {
+      toast.error("Unable to reach the server.");
+    }
+  };
+
   const handleDownloadReport = (format: "pdf" | "excel" | "csv") => {
     if (onExport) {
       void onExport({ key: "management-fee", name: "Management Fee Report", description: "Agency management commission and landlord disbursements", category: "Financial" } as any, format);
@@ -262,6 +285,11 @@ export function FeesView({
                         )}
                         {inv.status === "sent" && (
                           <Button size="small" variant="contained" color="success" onClick={() => void handleMarkPaid(inv)} sx={{ fontSize: 11, py: 0.25 }}>Mark Paid</Button>
+                        )}
+                        {inv.status === "draft" && (
+                          <Button size="small" variant="outlined" color="error" onClick={() => void handleDelete(inv)} sx={{ fontSize: 11, py: 0.25, minWidth: 0 }}>
+                            <DeleteRounded sx={{ fontSize: 15 }} />
+                          </Button>
                         )}
                       </div>
                     </td>

@@ -578,7 +578,7 @@ class FloorPlan(OrganizationOwnedModel):
     file_type = models.CharField(max_length=20, blank=True)
     preview_status = models.CharField(max_length=24, default='ready')
     preview_error = models.CharField(max_length=300, blank=True)
-    file_url = models.CharField(max_length=500)
+    file_url = models.CharField(max_length=500, blank=True)
     scale_factor = models.DecimalField(max_digits=12, decimal_places=4, default=1.0)
     scale_unit = models.CharField(max_length=20, default='m')
     version = models.CharField(max_length=20, default='1.0')

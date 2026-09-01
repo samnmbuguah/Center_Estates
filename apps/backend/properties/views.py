@@ -35,7 +35,7 @@ from .models import (
     BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
     Building, Budget, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent,
-    PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation,
+    PaymentWebhookEvent, Project, Property, Receipt, ReceiptAllocation, PayerWallet, PayerWalletEntry,
     RentSchedule, ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment, UnitStatusHistory, LeaseEscalation,
@@ -659,11 +659,149 @@ class PropertyViewSet(OrganizationModelViewSet):
     serializer_class = PropertySerializer
     search_fields = ('name', 'code', 'city')
 
+    def retrieve(self, request, *args, **kwargs):
+        """Include setup records when the onboarding form re-opens a property.
+
+        List views remain deliberately light; the editable detail view needs the
+        actual buildings and units so a later save cannot accidentally act on an
+        empty browser model.
+        """
+        instance = self.get_object()
+        data = self.get_serializer(instance).data
+        data['buildings'] = BuildingSerializer(
+            instance.buildings.order_by('created_at', 'code'), many=True,
+        ).data
+        data['units'] = UnitSerializer(
+            instance.units.select_related('building').order_by('code'), many=True,
+        ).data
+        return Response(data)
+
+    def _sync_onboarding_structure(self, instance, organization, payload):
+        """Add or update onboarding buildings and units without deleting history.
+
+        Property onboarding used the same nested payload for creation and edit,
+        while the generic PATCH endpoint previously only updated the property
+        fields.  That meant a successful edit response could silently omit unit
+        uploads.  This synchronizer is additive and idempotent: it updates rows
+        explicitly supplied by the user, creates missing rows, and never removes
+        existing operational records, leases, or billing history.
+        """
+        building_payload = payload.get('building')
+        units_payload = payload.get('units')
+        if building_payload is not None and not isinstance(building_payload, dict):
+            raise ValidationError({'building': 'Building details must be an object.'})
+        if units_payload is not None and not isinstance(units_payload, list):
+            raise ValidationError({'units': 'Units must be a list.'})
+        if isinstance(units_payload, list) and len(units_payload) > 500:
+            raise ValidationError({'units': 'Units must contain at most 500 records.'})
+
+        buildings = list(instance.buildings.order_by('created_at', 'code'))
+        buildings_created = 0
+        if isinstance(building_payload, dict) and isinstance(building_payload.get('buildings'), list):
+            proposed = building_payload['buildings']
+            if len(proposed) > 100:
+                raise ValidationError({'building': 'A property may have at most 100 buildings.'})
+            resolved = []
+            for index, raw in enumerate(proposed, start=1):
+                if not isinstance(raw, dict):
+                    raise ValidationError({'building': f'Building {index} must be an object.'})
+                name = str(raw.get('name') or '').strip() or f'Building {index}'
+                try:
+                    floors = int(raw.get('floors') or 1)
+                except (TypeError, ValueError):
+                    raise ValidationError({'building': f'Building "{name}" floors must be a whole number.'})
+                if not 1 <= floors <= 250:
+                    raise ValidationError({'building': f'Building "{name}" floors must be between 1 and 250.'})
+                building = instance.buildings.filter(name__iexact=name).first()
+                metadata = {key: value for key, value in raw.items() if key not in {'name', 'floors'}}
+                if building:
+                    building.floors = floors
+                    building.metadata = {**(building.metadata or {}), **metadata}
+                    building.save(update_fields=('floors', 'metadata', 'updated_at'))
+                else:
+                    next_number = instance.buildings.count() + 1
+                    building = Building.objects.create(
+                        organization=organization, property=instance,
+                        code=f'BLD-{next_number:03d}', name=name, floors=floors,
+                        metadata=metadata,
+                    )
+                    buildings_created += 1
+                resolved.append(building)
+            buildings = resolved
+
+        units_created = 0
+        units_updated = 0
+        if isinstance(units_payload, list):
+            seen_codes = set()
+            for index, raw in enumerate(units_payload, start=1):
+                if not isinstance(raw, dict):
+                    raise ValidationError({'units': f'Unit {index} must be an object.'})
+                code = str(raw.get('unit_no') or raw.get('code') or '').strip().upper()
+                if not code:
+                    raise ValidationError({'units': f'Unit {index} requires a unit number.'})
+                if code in seen_codes:
+                    raise ValidationError({'units': f'Unit number {code} is duplicated.'})
+                seen_codes.add(code)
+                building = None
+                building_index = raw.get('building_index')
+                if building_index not in (None, ''):
+                    try:
+                        building_position = int(building_index) - 1
+                    except (TypeError, ValueError):
+                        raise ValidationError({'units': f'Unit {code} has an invalid building number "{building_index}".'})
+                    if building_position < 0 or building_position >= len(buildings):
+                        raise ValidationError({'units': f'Unit {code} references building #{building_index}, but only {len(buildings)} building(s) are available.'})
+                    building = buildings[building_position]
+                metadata = {
+                    'use': str(raw.get('use') or '').strip(),
+                    'rateable_area': raw.get('rateable_area') or None,
+                    'description': str(raw.get('description') or '').strip(),
+                }
+                try:
+                    service_rate = Decimal(str(raw.get('service_charge_rate') or 0))
+                except Exception:
+                    raise ValidationError({'units': f'Unit {code} has an invalid service charge rate.'})
+                if service_rate < 0:
+                    raise ValidationError({'units': f'Unit {code} service charge rate cannot be negative.'})
+                metadata['billing_setup'] = {'service_charge_rate': str(service_rate)}
+                unit = instance.units.filter(code__iexact=code).first()
+                if unit:
+                    unit.building = building
+                    unit.floor = str(raw.get('floor') or '').strip()
+                    unit.unit_type = str(raw.get('unit_type') or '').strip()
+                    unit.area = raw.get('area') or None
+                    unit.metadata = {**(unit.metadata or {}), **metadata}
+                    unit.save(update_fields=('building', 'floor', 'unit_type', 'area', 'metadata', 'updated_at'))
+                    units_updated += 1
+                else:
+                    unit = Unit.objects.create(
+                        organization=organization, property=instance, building=building,
+                        code=code, floor=str(raw.get('floor') or '').strip(),
+                        unit_type=str(raw.get('unit_type') or '').strip(), area=raw.get('area') or None,
+                        status=Unit.Status.AVAILABLE, metadata=metadata,
+                    )
+                    units_created += 1
+                if service_rate:
+                    service_item, _ = BillingItem.objects.get_or_create(
+                        organization=organization, code='SERVICE_CHARGE',
+                        defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.AREA_RATE, 'income_category': 'service_charge'},
+                    )
+                    UnitChargeRule.objects.update_or_create(
+                        organization=organization, unit=unit, billing_item=service_item,
+                        defaults={
+                            'frequency': UnitChargeRule.Frequency.MONTHLY,
+                            'calculation': BillingItem.Calculation.AREA_RATE,
+                            'rate': service_rate, 'billing_day': 1, 'is_active': True,
+                        },
+                    )
+        return {'buildings_created': buildings_created, 'units_created': units_created, 'units_updated': units_updated}
+
     @transaction.atomic
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        data = request.data
+        request_payload = request.data
+        data = request_payload
         if isinstance(data.get('property'), dict):
             prop_data = dict(data.get('property'))
             metadata = prop_data.get('metadata')
@@ -677,8 +815,12 @@ class PropertyViewSet(OrganizationModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
+        structure_result = self._sync_onboarding_structure(instance, get_active_organization(request), request_payload)
+
         _sync_property_service_providers(instance, request.user)
-        return Response(serializer.data)
+        response_data = serializer.data
+        response_data['onboarding_sync'] = structure_result
+        return Response(response_data)
 
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True
@@ -1195,6 +1337,13 @@ class BuildingViewSet(OrganizationModelViewSet):
     serializer_class = BuildingSerializer
     search_fields = ('name', 'code', 'property__name')
 
+    def perform_destroy(self, instance):
+        # Buildings are structural parents for units. Never let a simple UI
+        # delete cascade into occupancy, leasing, or billing history.
+        if instance.units.exists():
+            raise ValidationError({'detail': 'This building has units and cannot be deleted. Remove or reassign its units first; operational records are preserved.'})
+        instance.delete()
+
 
 class ParkingSpaceViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
@@ -1235,6 +1384,90 @@ class OwnerViewSet(OrganizationModelViewSet):
         code = f"OWN-{(max(numbers) + 1) if numbers else 1:04d}"
         serializer.save(organization=organization, code=code)
 
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk-import')
+    def bulk_import(self, request):
+        """Preview or create sectional-title owners from a CSV-derived row set.
+
+        The browser parses CSV consistently with other importers, while the API
+        performs the authoritative validation and unit ownership assignment.
+        Existing records are matched by PIN, email, or exact name so a retry is
+        safe and does not duplicate an owner.
+        """
+        organization = get_active_organization(request)
+        source_rows = request.data.get('rows') if isinstance(request.data.get('rows'), list) else []
+        commit = str(request.data.get('mode', 'preview')).lower() == 'commit'
+        if not source_rows:
+            raise ValidationError({'rows': 'Upload at least one landlord or owner row.'})
+        if len(source_rows) > 500:
+            raise ValidationError({'rows': 'A maximum of 500 owners can be uploaded at once.'})
+
+        def as_bool(value):
+            return str(value or '').strip().lower() in {'1', 'true', 'yes', 'y'}
+
+        codes = Owner.objects.filter(organization=organization, code__startswith='OWN-').values_list('code', flat=True)
+        sequence = max((int(code.rsplit('-', 1)[-1]) for code in codes if code.rsplit('-', 1)[-1].isdigit()), default=0)
+        results = []
+        for index, raw in enumerate(source_rows, start=2):
+            row = {str(key).strip().lower(): str(value or '').strip() for key, value in (raw or {}).items()}
+            errors = {}
+            name = row.get('name') or row.get('owner_name') or row.get('landlord_name')
+            email = row.get('email', '')
+            pin = row.get('pin_number') or row.get('kra_pin') or row.get('pin') or ''
+            if not name:
+                errors['name'] = 'Owner or landlord name is required.'
+            if email and '@' not in email:
+                errors['email'] = 'Enter a valid email address.'
+            unit_codes = [code.strip() for code in (row.get('unit_codes') or row.get('unit_code') or '').replace(';', ',').split(',') if code.strip()]
+            units = list(Unit.objects.for_organization(organization).filter(code__in=unit_codes)) if unit_codes else []
+            found_codes = {unit.code.lower() for unit in units}
+            missing_units = [code for code in unit_codes if code.lower() not in found_codes]
+            if missing_units:
+                errors['unit_codes'] = f"Unit(s) not found: {', '.join(missing_units)}."
+            normalized = {
+                'name': name or '', 'email': email, 'phone': row.get('phone', ''),
+                'pin_number': pin, 'id_or_registration_number': row.get('id_or_registration_number') or row.get('registration_number') or '',
+                'settlement_bank_name': row.get('settlement_bank_name') or row.get('bank_name') or '',
+                'settlement_bank_account': row.get('settlement_bank_account') or row.get('bank_account') or '',
+                'settlement_bank_branch': row.get('settlement_bank_branch') or row.get('bank_branch') or '',
+                'settlement_paybill_or_till': row.get('settlement_paybill_or_till') or row.get('paybill_or_till') or '',
+                'engaged_for_unit_management': as_bool(row.get('engaged_for_unit_management')),
+                'engaged_for_letting': as_bool(row.get('engaged_for_letting')),
+                'is_management_company': as_bool(row.get('is_management_company')),
+                'unit_codes': unit_codes,
+            }
+            result = {'row': index, 'data': normalized, 'errors': errors}
+            if commit and not errors:
+                owner = None
+                if pin:
+                    owner = Owner.objects.filter(organization=organization, pin_number__iexact=pin).first()
+                if owner is None and email:
+                    owner = Owner.objects.filter(organization=organization, email__iexact=email).first()
+                if owner is None:
+                    owner = Owner.objects.filter(organization=organization, name__iexact=name).first()
+                owner_values = {key: value for key, value in normalized.items() if key != 'unit_codes'}
+                if owner is None:
+                    sequence += 1
+                    owner = Owner.objects.create(organization=organization, code=f'OWN-{sequence:04d}', **owner_values)
+                    result['created'] = True
+                else:
+                    for key, value in owner_values.items():
+                        setattr(owner, key, value)
+                    owner.save()
+                    result['updated'] = True
+                for unit in units:
+                    unit.owner = owner
+                    unit.save(update_fields=('owner', 'updated_at'))
+                result['owner_id'] = str(owner.id)
+            results.append(result)
+        return Response({
+            'mode': 'commit' if commit else 'preview', 'rows': results,
+            'valid_count': sum(1 for row in results if not row['errors']),
+            'error_count': sum(1 for row in results if row['errors']),
+            'created_count': sum(1 for row in results if row.get('created')),
+            'updated_count': sum(1 for row in results if row.get('updated')),
+        }, status=status.HTTP_201_CREATED if commit else status.HTTP_200_OK)
+
     @action(detail=True, methods=('get',), url_path='financial-summary')
     def financial_summary(self, request, pk=None):
         owner = self.get_object()
@@ -1262,6 +1495,102 @@ class OwnerViewSet(OrganizationModelViewSet):
                 'branch': owner.settlement_bank_branch,
                 'paybill': owner.settlement_paybill_or_till,
             }
+        })
+
+    @action(detail=True, methods=('get',), url_path='remittance-statement')
+    def remittance_statement(self, request, pk=None):
+        owner = self.get_object()
+        now = timezone.now()
+        month = int(request.query_params.get('month') or now.month)
+        year = int(request.query_params.get('year') or now.year)
+
+        units = owner.units.select_related('property', 'building').prefetch_related('leases__tenant').all()
+        unit_statements = []
+        total_gross_collected = Decimal('0.00')
+        total_commission_deducted = Decimal('0.00')
+        total_service_charge_deducted = Decimal('0.00')
+        total_maintenance_deducted = Decimal('0.00')
+
+        for unit in units:
+            active_lease = unit.leases.filter(status=Lease.Status.ACTIVE).first()
+            tenant_name = active_lease.tenant.name if active_lease else 'Vacant'
+            rent_amount = active_lease.monthly_rent if active_lease else Decimal('0.00')
+
+            # Find receipts for this unit in the specified period
+            unit_receipts = Receipt.objects.filter(
+                invoice__lease__unit=unit,
+                received_on__year=year,
+                received_on__month=month,
+            )
+            gross_collected = unit_receipts.aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
+            if gross_collected == Decimal('0.00') and active_lease:
+                # Fallback to current invoice payments if no direct period receipt filter
+                paid_rent = Invoice.objects.filter(
+                    lease=active_lease,
+                    due_on__year=year,
+                    due_on__month=month,
+                    status=Invoice.Status.PAID
+                ).aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
+                gross_collected = paid_rent
+
+            comm_rate = unit.rental_commission_rate if unit.rental_commission_rate is not None else Decimal('10.00')
+            commission_amount = (gross_collected * comm_rate / Decimal('100.00')).quantize(Decimal('0.01'))
+
+            sc_deduction = Decimal('0.00')
+            if unit.management_mandate in (Unit.ManagementMandate.BOTH, Unit.ManagementMandate.COMMON_AREA_ONLY):
+                if unit.service_charge_payer in ('owner', Unit.PayerChoice.OWNER):
+                    sc_deduction = (unit.common_area_fee_amount or Decimal('0.00')).quantize(Decimal('0.01'))
+
+            net_unit_payout = max(Decimal('0.00'), gross_collected - commission_amount - sc_deduction)
+
+            total_gross_collected += gross_collected
+            total_commission_deducted += commission_amount
+            total_service_charge_deducted += sc_deduction
+
+            unit_statements.append({
+                'unit_id': str(unit.id),
+                'unit_code': unit.code,
+                'sectional_title_number': unit.sectional_title_number or '',
+                'property_name': unit.property.name if unit.property else '',
+                'tenant_name': tenant_name,
+                'management_mandate': unit.management_mandate,
+                'monthly_rent': rent_amount,
+                'gross_collected': gross_collected,
+                'commission_rate': comm_rate,
+                'commission_deducted': commission_amount,
+                'service_charge_deducted': sc_deduction,
+                'net_payout': net_unit_payout,
+            })
+
+        net_remittance_payable = max(Decimal('0.00'), total_gross_collected - total_commission_deducted - total_service_charge_deducted - total_maintenance_deducted)
+        reference_code = f"REMIT-{owner.code}-{month:02d}-{year}"
+
+        return Response({
+            'owner_id': str(owner.id),
+            'owner_name': owner.name,
+            'owner_code': owner.code,
+            'pin_number': owner.pin_number,
+            'period': {
+                'month': month,
+                'year': year,
+                'month_name': timezone.datetime(year, month, 1).strftime('%B %Y'),
+            },
+            'remittance_reference': reference_code,
+            'summary': {
+                'total_units': len(unit_statements),
+                'total_gross_collected': total_gross_collected,
+                'total_commission_deducted': total_commission_deducted,
+                'total_service_charge_deducted': total_service_charge_deducted,
+                'total_maintenance_deducted': total_maintenance_deducted,
+                'net_remittance_payable': net_remittance_payable,
+            },
+            'settlement_route': {
+                'bank_name': owner.settlement_bank_name or 'Not Configured',
+                'account_number': owner.settlement_bank_account or '—',
+                'branch': owner.settlement_bank_branch or '—',
+                'paybill_or_till': owner.settlement_paybill_or_till or '—',
+            },
+            'units': unit_statements,
         })
 
 
@@ -1456,6 +1785,7 @@ class TenantViewSet(OrganizationModelViewSet):
                     lease.unit.status = Unit.Status.OCCUPIED
                     lease.unit.save(update_fields=('status', 'updated_at'))
                     activate_lease_allocations(lease, request.user)
+                    LeaseViewSet._issue_offer_letter(lease, request.user)
                     activated_leases.append(lease.reference)
 
         return Response({
@@ -1500,6 +1830,7 @@ class TenantViewSet(OrganizationModelViewSet):
                         lease.unit.status = Unit.Status.OCCUPIED
                         lease.unit.save(update_fields=('status', 'updated_at'))
                         activate_lease_allocations(lease, request.user)
+                        LeaseViewSet._issue_offer_letter(lease, request.user)
                         total_activated_leases += 1
 
         return Response({
@@ -2062,6 +2393,82 @@ class LeaseViewSet(OrganizationModelViewSet):
     serializer_class = LeaseSerializer
     search_fields = ('reference', 'tenant__name', 'unit__code')
 
+    @staticmethod
+    def _offer_letter(lease):
+        """Return the current offer payload without exposing internal lease metadata."""
+        offer = dict((lease.metadata or {}).get('offer_letter') or {})
+        if not offer:
+            return None
+        return {
+            'reference': offer.get('reference'),
+            'version': offer.get('version', 1),
+            'status': offer.get('status', 'issued'),
+            'issued_at': offer.get('issued_at'),
+            'issued_by': offer.get('issued_by'),
+            'accepted_at': offer.get('accepted_at'),
+            'accepted_by': offer.get('accepted_by'),
+            'terms': {
+                'property_name': lease.unit.property.name,
+                'unit_code': lease.unit.code,
+                'starts_on': lease.starts_on,
+                'ends_on': lease.ends_on,
+                'monthly_rent': lease.monthly_rent,
+                'billing_day': lease.billing_day,
+                'escalation_percent': lease.escalation_percent,
+                'escalation_interval_months': lease.escalation_interval_months,
+            },
+        }
+
+    @staticmethod
+    def _issue_offer_letter(lease, user, *, reissue=False):
+        """Create a versioned, auditable acceptance gate for a new tenancy."""
+        metadata = dict(lease.metadata or {})
+        existing = dict(metadata.get('offer_letter') or {})
+        if existing and existing.get('status') == 'accepted' and not reissue:
+            return existing
+        version = int(existing.get('version') or 0) + 1 if existing else 1
+        offer = {
+            'reference': f'OFR-{lease.reference}-V{version}',
+            'version': version,
+            'status': 'issued',
+            'issued_at': timezone.now().isoformat(),
+            'issued_by': user.get_username(),
+            'terms_fingerprint': hashlib.sha256(
+                f'{lease.reference}|{lease.starts_on}|{lease.ends_on}|{lease.monthly_rent}|{lease.billing_day}|{lease.escalation_percent}'.encode()
+            ).hexdigest(),
+        }
+        metadata['offer_letter'] = offer
+        metadata['offer_required'] = True
+        lease.metadata = metadata
+        lease.save(update_fields=('metadata', 'updated_at'))
+
+        # Delivery channels are configured per organisation. The in-app notice is
+        # deterministic; e-mail/WhatsApp dispatch remains the responsibility of
+        # the configured notification integrations rather than pretending it sent.
+        from notifications.models import Notification
+        for access in TenantPortalAccess.objects.for_organization(lease.organization).filter(
+            tenant=lease.tenant, is_active=True,
+        ).select_related('user'):
+            Notification.objects.create(
+                organization=lease.organization, recipient=access.user,
+                title='Tenancy offer ready for acceptance',
+                message=f'Please review and accept {offer["reference"]} for {lease.unit.property.name}, Unit {lease.unit.code}. Billing starts after acceptance.',
+                level=Notification.Level.INFO, action_url='/tenant-portal',
+                metadata={'lease_id': str(lease.id), 'offer_reference': offer['reference'], 'offer_status': 'issued'},
+            )
+        return offer
+
+    @action(detail=True, methods=('get', 'post'), url_path='offer-letter')
+    def offer_letter(self, request, pk=None):
+        lease = Lease.objects.select_for_update().select_related('unit__property', 'tenant').get(pk=self.get_object().pk)
+        if request.method == 'POST':
+            current = dict((lease.metadata or {}).get('offer_letter') or {})
+            reissue = str(request.data.get('reissue', '')).lower() in ('1', 'true', 'yes')
+            if current.get('status') == 'accepted' and not reissue:
+                raise ValidationError({'offer_letter': 'This offer has been accepted. Set reissue=true only when tenancy terms have changed.'})
+            self._issue_offer_letter(lease, request.user, reissue=bool(current))
+        return Response({'lease': self.get_serializer(lease).data, 'offer_letter': self._offer_letter(lease)})
+
     @transaction.atomic
     @action(detail=False, methods=('post',), url_path='bulk-import')
     def bulk_import(self, request):
@@ -2243,6 +2650,7 @@ class LeaseViewSet(OrganizationModelViewSet):
                     lease.tenant.status = Tenant.Status.ACTIVE
                     lease.tenant.save(update_fields=('status', 'updated_at'))
                 activate_lease_allocations(lease, request.user)
+                self._issue_offer_letter(lease, request.user)
                 dirty = True
 
             if dirty:
@@ -2274,6 +2682,7 @@ class LeaseViewSet(OrganizationModelViewSet):
             lease.tenant.status = Tenant.Status.ACTIVE
             lease.tenant.save(update_fields=('status', 'updated_at'))
         activate_lease_allocations(lease, request.user)
+        self._issue_offer_letter(lease, request.user)
         return Response(self.get_serializer(lease).data)
 
     @transaction.atomic
@@ -2304,6 +2713,7 @@ class LeaseViewSet(OrganizationModelViewSet):
                         lease.tenant.status = Tenant.Status.ACTIVE
                         lease.tenant.save(update_fields=('status', 'updated_at'))
                     activate_lease_allocations(lease, request.user)
+                    self._issue_offer_letter(lease, request.user)
                     activated_count += 1
 
         return Response({
@@ -2370,6 +2780,7 @@ class LeaseViewSet(OrganizationModelViewSet):
         lease.status = Lease.Status.EXPIRED
         lease.save(update_fields=('status', 'updated_at'))
         generate_rent_schedule(renewed)
+        self._issue_offer_letter(renewed, request.user)
         return Response(self.get_serializer(renewed).data, status=201)
 
     def perform_destroy(self, instance):
@@ -2474,11 +2885,16 @@ class InvoiceViewSet(OrganizationModelViewSet):
         invoice = Invoice.objects.select_for_update().get(pk=self.get_object().pk)
         if invoice.status != Invoice.Status.APPROVED:
             raise ValidationError({'status': 'Only confirmed invoices can be issued.'})
-        validate_lease_billable(invoice.lease, timezone.localdate())
+        if invoice.lease_id:
+            validate_lease_billable(invoice.lease, timezone.localdate())
         invoice.status = Invoice.Status.ISSUED
         invoice.issued_by = request.user
         invoice.issued_at = timezone.now()
         invoice.save(update_fields=('status', 'issued_by', 'issued_at', 'updated_at'))
+        _apply_wallet_to_invoice(invoice=invoice, organization=invoice.organization)
+        invoice.refresh_from_db()
+        if invoice.recipient_type == Invoice.RecipientType.OWNER:
+            return Response(self.get_serializer(invoice).data)
         tenant = invoice.lease.tenant
         preference = str(tenant.metadata.get('billing_preference', 'email' if tenant.email else 'portal'))
         channel = preference if preference in InvoiceReminder.Channel.values else (InvoiceReminder.Channel.EMAIL if tenant.email else InvoiceReminder.Channel.PORTAL)
@@ -2568,11 +2984,130 @@ class InvoiceViewSet(OrganizationModelViewSet):
         instance.delete()
 
 
+RECEIPT_ALLOCATION_PRIORITY = {
+    'penalty': 0,
+    'vat': 1,
+    'utilities': 2,
+    'service_charge': 3,
+    'rent': 4,
+    'other': 5,
+}
+
+
+def _receipt_invoice_component(invoice):
+    """Classify an invoice for transparent receipting priority allocation."""
+    value = f'{invoice.charge_type} {invoice.invoice_type}'.lower()
+    if 'penalt' in value:
+        return ReceiptAllocation.Component.PENALTY
+    if any(token in value for token in ('water', 'electric', 'utilit')):
+        return ReceiptAllocation.Component.UTILITIES
+    if any(token in value for token in ('service_charge', 'service charge', 'common_area')):
+        return ReceiptAllocation.Component.SERVICE_CHARGE
+    if 'rent' in value:
+        return ReceiptAllocation.Component.RENT
+    return ReceiptAllocation.Component.OTHER
+
+
+def _payer_invoice_queryset(receipt, organization):
+    open_statuses = (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE)
+    queryset = Invoice.objects.select_for_update().filter(
+        organization=organization, status__in=open_statuses, balance__gt=0,
+    )
+    if receipt.payer_type == Receipt.PayerType.LANDLORD:
+        return queryset.filter(recipient_type=Invoice.RecipientType.OWNER, owner_id=receipt.owner_id)
+    return queryset.filter(recipient_type=Invoice.RecipientType.TENANT, lease__tenant_id=receipt.tenant_id)
+
+
+def _wallet_for_receipt(receipt, organization):
+    fields = {'organization': organization, 'tenant': receipt.tenant, 'owner': receipt.owner}
+    wallet, _ = PayerWallet.objects.select_for_update().get_or_create(**fields)
+    return wallet
+
+
+def _apply_wallet_credit(*, receipt, organization, amount, user):
+    if amount <= 0:
+        return Decimal('0.00')
+    wallet = _wallet_for_receipt(receipt, organization)
+    wallet.balance += amount
+    wallet.save(update_fields=('balance', 'updated_at'))
+    PayerWalletEntry.objects.create(
+        organization=organization, wallet=wallet, receipt=receipt,
+        entry_type=PayerWalletEntry.EntryType.CREDIT, amount=amount,
+        note='Unapplied receipt credit retained for future invoices.',
+    )
+    return amount
+
+
+def _apply_wallet_to_invoice(*, invoice, organization):
+    """Apply existing payer credit the moment an invoice is issued."""
+    if invoice.recipient_type == Invoice.RecipientType.OWNER:
+        wallet = PayerWallet.objects.select_for_update().filter(organization=organization, owner_id=invoice.owner_id).first()
+    else:
+        wallet = PayerWallet.objects.select_for_update().filter(organization=organization, tenant_id=invoice.lease.tenant_id).first() if invoice.lease_id else None
+    if not wallet or wallet.balance <= 0 or invoice.balance <= 0:
+        return Decimal('0.00')
+    applied = min(wallet.balance, invoice.balance)
+    wallet.balance -= applied
+    wallet.save(update_fields=('balance', 'updated_at'))
+    invoice.balance -= applied
+    invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
+    invoice.save(update_fields=('balance', 'status', 'updated_at'))
+    PayerWalletEntry.objects.create(
+        organization=organization, wallet=wallet, invoice=invoice,
+        entry_type=PayerWalletEntry.EntryType.DEBIT, amount=applied,
+        note=f'Applied wallet credit to invoice {invoice.number}.',
+    )
+    return applied
+
+
+def _allocate_receipt(*, receipt, organization, amount, user, invoice=None):
+    """Allocate a receipt by business priority and retain any excess as wallet credit."""
+    candidates = [invoice] if invoice else list(_payer_invoice_queryset(receipt, organization))
+    # An invoice can contain a VAT portion and a charge portion.  Keep them as
+    # separate allocations so VAT is always settled before utilities, service
+    # charge and rent even when it was bundled on the original invoice.
+    queue = []
+    for candidate in candidates:
+        vat_already_allocated = ReceiptAllocation.objects.filter(
+            invoice=candidate, component=ReceiptAllocation.Component.VAT,
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        vat_outstanding = max(Decimal('0.00'), min(candidate.balance, candidate.tax_amount - vat_already_allocated))
+        if vat_outstanding:
+            queue.append((RECEIPT_ALLOCATION_PRIORITY[ReceiptAllocation.Component.VAT], candidate.due_on, str(candidate.id), candidate, ReceiptAllocation.Component.VAT, vat_outstanding))
+        charge_outstanding = candidate.balance - vat_outstanding
+        if charge_outstanding:
+            component = _receipt_invoice_component(candidate)
+            queue.append((RECEIPT_ALLOCATION_PRIORITY[component], candidate.due_on, str(candidate.id), candidate, component, charge_outstanding))
+    queue.sort(key=lambda item: item[:3])
+    remaining = amount
+    allocations = []
+    for _, _, _, candidate, component, bucket_balance in queue:
+        if remaining <= 0:
+            break
+        if candidate.balance <= 0 or bucket_balance <= 0:
+            continue
+        allocation = min(remaining, candidate.balance, bucket_balance)
+        ReceiptAllocation.objects.create(
+            organization=organization, receipt=receipt, invoice=candidate, component=component,
+            amount=allocation, allocated_by=user,
+        )
+        candidate.balance -= allocation
+        candidate.status = Invoice.Status.PAID if candidate.balance == 0 else Invoice.Status.PARTIAL
+        candidate.save(update_fields=('balance', 'status', 'updated_at'))
+        allocations.append({'invoice': candidate.number, 'component': component, 'amount': str(allocation)})
+        remaining -= allocation
+    if allocations:
+        receipt.invoice_id = invoice.id if invoice else None
+        receipt.save(update_fields=('invoice', 'updated_at'))
+    wallet_credit = _apply_wallet_credit(receipt=receipt, organization=organization, amount=remaining, user=user)
+    return allocations, wallet_credit
+
+
 class ReceiptViewSet(OrganizationModelViewSet):
     write_permission = 'property.finance'
-    queryset = Receipt.objects.select_related('tenant', 'invoice')
+    queryset = Receipt.objects.select_related('tenant', 'owner', 'invoice')
     serializer_class = ReceiptSerializer
-    search_fields = ('number', 'tenant__name', 'external_reference')
+    search_fields = ('number', 'tenant__name', 'owner__name', 'external_reference')
 
     @action(detail=True, methods=('get',), url_path='pdf')
     def pdf(self, request, pk=None):
@@ -2583,31 +3118,35 @@ class ReceiptViewSet(OrganizationModelViewSet):
         organization = self._validate_organization(serializer)
         invoice = serializer.validated_data.get('invoice')
         tenant = serializer.validated_data.get('tenant')
+        owner = serializer.validated_data.get('owner')
+        payer_type = serializer.validated_data.get('payer_type') or (Receipt.PayerType.LANDLORD if owner else Receipt.PayerType.TENANT)
         amount = serializer.validated_data['amount']
+        if payer_type == Receipt.PayerType.TENANT and not tenant:
+            raise ValidationError({'tenant': 'Select the tenant who made this payment.'})
+        if payer_type == Receipt.PayerType.LANDLORD and not owner:
+            raise ValidationError({'owner': 'Select the landlord who made this payment.'})
+        if tenant and owner:
+            raise ValidationError({'payer_type': 'A receipt can have one payer only.'})
         if invoice:
             invoice = Invoice.objects.select_for_update().filter(pk=invoice.pk, organization=organization).first()
             if not invoice:
                 raise ValidationError({'invoice': 'Invoice belongs to another organization.'})
-            if invoice.lease.tenant_id != tenant.id:
-                raise ValidationError({'invoice': 'Invoice belongs to another tenant.'})
+            if tenant and (not invoice.lease_id or invoice.lease.tenant_id != tenant.id):
+                raise ValidationError({'invoice': 'Selected invoice belongs to a different tenant.'})
+            if owner and invoice.owner_id != owner.id:
+                raise ValidationError({'invoice': 'Selected invoice belongs to a different landlord.'})
             if invoice.status not in (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE):
                 raise ValidationError({'invoice': 'Only issued invoices can receive payments.'})
-            if amount > invoice.balance:
-                raise ValidationError({'amount': 'Receipt exceeds the invoice balance.'})
         number = str(serializer.validated_data.get('number') or '').strip()
         if not number:
             prefix = f'RCPT-{timezone.localdate():%Y}-'
             sequence = Receipt.objects.filter(organization=organization, number__startswith=prefix).count() + 1
             number = f'{prefix}{sequence:05d}'
-        receipt = serializer.save(organization=organization, received_by=self.request.user, number=number)
-        if invoice:
-            ReceiptAllocation.objects.create(
-                organization=organization, receipt=receipt, invoice=invoice,
-                amount=amount, allocated_by=self.request.user,
-            )
-            invoice.balance -= amount
-            invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
-            invoice.save(update_fields=('balance', 'status', 'updated_at'))
+        receipt = serializer.save(
+            organization=organization, received_by=self.request.user, number=number,
+            payer_type=payer_type,
+        )
+        _allocate_receipt(receipt=receipt, organization=organization, amount=amount, user=self.request.user, invoice=invoice)
 
     def perform_update(self, serializer):
         raise ValidationError({'receipt': 'Posted receipts are immutable.'})
@@ -3373,6 +3912,14 @@ class BillingRunViewSet(OrganizationModelViewSet):
             current_lease_ids.add(str(lease.id))
             issue_rows = []
             items = []
+            offer = dict((lease.metadata or {}).get('offer_letter') or {})
+            if offer and offer.get('status') != 'accepted':
+                issue_rows.append((
+                    'offer_letter_pending',
+                    'The tenant must accept the tenancy offer letter before the first invoice can be generated.',
+                    None,
+                    BillingReadinessIssue.Severity.BLOCKING,
+                ))
             profiles = lease.billing_profiles.filter(
                 is_active=True, effective_from__lte=run.period_end,
             ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=run.period_start)).select_related('billing_item__tax_configuration')
@@ -4111,37 +4658,12 @@ class ReceiptAllocationViewSet(OrganizationModelViewSet):
             if remaining_receipt_amount <= Decimal('0.00'):
                 continue
             
-            open_invoices = Invoice.objects.select_for_update().filter(
-                organization=organization,
-                lease__tenant=receipt.tenant,
-                status__in=(Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE),
-                balance__gt=0
-            ).order_by('due_on', 'id')
-
-            for invoice in open_invoices:
-                if remaining_receipt_amount <= Decimal('0.00'):
-                    break
-                alloc_amount = min(remaining_receipt_amount, invoice.balance)
-                if alloc_amount > Decimal('0.00'):
-                    ReceiptAllocation.objects.create(
-                        organization=organization,
-                        receipt=receipt,
-                        invoice=invoice,
-                        amount=alloc_amount,
-                        allocated_by=request.user
-                    )
-                    invoice.balance -= alloc_amount
-                    invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
-                    invoice.save(update_fields=('balance', 'status', 'updated_at'))
-                    remaining_receipt_amount -= alloc_amount
-                    total_allocated += alloc_amount
-                    allocated_count += 1
-            
-            if remaining_receipt_amount == Decimal('0.00'):
-                last_alloc = ReceiptAllocation.objects.filter(receipt=receipt).last()
-                if last_alloc:
-                    receipt.invoice = last_alloc.invoice
-                    receipt.save(update_fields=('invoice', 'updated_at'))
+            allocations, wallet_credit = _allocate_receipt(
+                receipt=receipt, organization=organization,
+                amount=remaining_receipt_amount, user=request.user,
+            )
+            total_allocated += sum((Decimal(row['amount']) for row in allocations), Decimal('0.00'))
+            allocated_count += len(allocations)
 
         return Response({
             'detail': f'Auto-allocated {allocated_count} receipt allocations totaling KES {total_allocated:,.2f}.',
@@ -4263,6 +4785,11 @@ class LandlordInvoiceViewSet(OrganizationModelViewSet):
             issued_on=timezone.localdate(),
             status=LandlordInvoice.Status.DRAFT,
         )
+
+    def perform_destroy(self, instance):
+        if instance.status != LandlordInvoice.Status.DRAFT:
+            raise ValidationError({'status': 'Only draft invoices can be deleted.'})
+        instance.delete()
 
     @transaction.atomic
     @action(detail=True, methods=('post',))
@@ -5244,10 +5771,13 @@ class TenantPortalViewSet(ViewSet):
         outstanding = invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).aggregate(
             total=Sum('balance'),
         )['total'] or Decimal('0')
+        wallet_credit = PayerWallet.objects.for_organization(tenant.organization).filter(tenant=tenant).values_list('balance', flat=True).first() or Decimal('0')
         return {
             'tenant': TenantSerializer(tenant).data,
             'currentLease': LeaseSerializer(current_lease).data if current_lease else None,
+            'offerLetter': LeaseViewSet._offer_letter(current_lease) if current_lease else None,
             'balance': outstanding,
+            'walletCredit': wallet_credit,
             'invoices': InvoiceSerializer(invoices[:12], many=True).data,
             'receipts': ReceiptSerializer(receipts[:12], many=True).data,
             'paymentGateways': list(gateways),
@@ -5264,6 +5794,56 @@ class TenantPortalViewSet(ViewSet):
                 recipient=request.user,
             ).values('id', 'title', 'message', 'level', 'created_at', 'read_at')[:12]),
         }
+
+    @action(detail=False, methods=('get',), url_path='offer-letter')
+    def offer_letter(self, request):
+        access = self._access()
+        lease = Lease.objects.for_organization(access.organization).filter(
+            tenant=access.tenant, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT),
+        ).select_related('unit__property').order_by('-starts_on').first()
+        if lease is None:
+            raise ValidationError({'offer_letter': 'There is no tenancy offer available for this account.'})
+        offer = LeaseViewSet._offer_letter(lease)
+        if offer is None:
+            raise ValidationError({'offer_letter': 'A tenancy offer has not been issued yet. Contact the property manager.'})
+        return Response({'lease_reference': lease.reference, 'offer_letter': offer})
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='offer-letter/accept')
+    def accept_offer_letter(self, request):
+        access = self._access()
+        accepted_by = str(request.data.get('accepted_by') or '').strip()
+        confirmed = request.data.get('confirmed') is True
+        if not accepted_by:
+            raise ValidationError({'accepted_by': 'Enter the name of the authorised person accepting this offer.'})
+        if not confirmed:
+            raise ValidationError({'confirmed': 'Confirm that you accept the tenancy offer and its terms.'})
+        lease = Lease.objects.select_for_update().for_organization(access.organization).filter(
+            tenant=access.tenant, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT),
+        ).select_related('unit__property').order_by('-starts_on').first()
+        if lease is None:
+            raise ValidationError({'offer_letter': 'There is no current tenancy offer to accept.'})
+        metadata = dict(lease.metadata or {})
+        offer = dict(metadata.get('offer_letter') or {})
+        if not offer:
+            raise ValidationError({'offer_letter': 'A tenancy offer has not been issued yet. Contact the property manager.'})
+        if offer.get('status') == 'accepted':
+            return Response({'detail': 'This tenancy offer has already been accepted.', 'offer_letter': LeaseViewSet._offer_letter(lease)})
+        if offer.get('status') != 'issued':
+            raise ValidationError({'offer_letter': 'This tenancy offer is not available for acceptance.'})
+        offer.update({
+            'status': 'accepted',
+            'accepted_at': timezone.now().isoformat(),
+            'accepted_by': accepted_by,
+            'accepted_user': request.user.get_username(),
+        })
+        metadata['offer_letter'] = offer
+        lease.metadata = metadata
+        lease.save(update_fields=('metadata', 'updated_at'))
+        return Response({
+            'detail': 'Offer accepted. Your property team can now generate the first invoice when it is due.',
+            'offer_letter': LeaseViewSet._offer_letter(lease),
+        })
 
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):

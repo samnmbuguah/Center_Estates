@@ -543,6 +543,31 @@ class FacilityApiTests(TestCase):
         self.assertEqual(response['Content-Type'], 'text/csv')
         self.assertIn('facility-assets.csv', response['Content-Disposition'])
 
+    def test_facility_export_pdf_uses_application_export_format_parameter(self):
+        response = self.client.get(
+            '/api/v1/facility/analytics/exports/?type=assets&export_format=pdf',
+            **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('facility-assets-', response['Content-Disposition'])
+
+    def test_every_facility_export_type_uses_real_model_fields(self):
+        """Every advertised ledger must be exportable, even before it has rows."""
+        export_types = (
+            'assets', 'capex', 'work-orders', 'inspections', 'statutory',
+            'contractors', 'budgets', 'expenses', 'meters', 'ppm', 'incidents',
+            'requisitions', 'invoices', 'risks',
+        )
+        for export_type in export_types:
+            with self.subTest(export_type=export_type):
+                response = self.client.get(
+                    f'/api/v1/facility/analytics/exports/?type={export_type}',
+                    **self.headers,
+                )
+                self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+                self.assertEqual(response['Content-Type'], 'text/csv')
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class FacilityRolePermissionApiTests(TestCase):

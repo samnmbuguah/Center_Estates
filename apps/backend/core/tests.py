@@ -12,7 +12,8 @@ from organizations.models import Membership, MembershipRole, Organization, Permi
 from .tenancy import get_active_organization, scope_to_request
 from properties.models import Property
 from subscriptions.models import Subscription
-from core.models import Module
+from core.models import ClientErrorEvent, FeatureTestProgress, Module
+from core.exceptions import custom_exception_handler
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
@@ -22,6 +23,95 @@ class HealthEndpointTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'ok')
+
+
+class ApiExceptionSafetyTests(TestCase):
+    def test_unhandled_exception_hides_internal_details_and_returns_reference(self):
+        request = RequestFactory().get('/api/v1/facility/dashboard/')
+        request.request_id = 'safe-reference-123'
+        internal_error = RuntimeError("Cannot resolve keyword 'trade' into field")
+
+        response = custom_exception_handler(internal_error, {'request': request})
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.data['detail'], 'We could not complete this request right now. Please retry.')
+        self.assertEqual(response.data['error_id'], 'safe-reference-123')
+        self.assertNotIn('error', response.data)
+        self.assertNotIn('trade', str(response.data))
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
+class ClientErrorDiagnosticsTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='error-admin', password='test')
+        self.organization = Organization.objects.create(name='Error Client', slug='error-client')
+        Membership.objects.create(
+            user=self.user, organization=self.organization,
+            is_default=True, is_organization_admin=True,
+        )
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_client_errors_are_deduplicated_and_visible_to_org_admin(self):
+        payload = {
+            'message': 'Chunk failed to load',
+            'url': '/facility',
+            'release': 'production',
+            'organizationId': str(self.organization.id),
+            'extra': {'source': 'window.error'},
+        }
+        self.assertEqual(self.client.post('/api/v1/client-errors/', payload, format='json').status_code, 202)
+        self.assertEqual(self.client.post('/api/v1/client-errors/', payload, format='json').status_code, 202)
+        event = ClientErrorEvent.objects.get(organization=self.organization)
+        self.assertEqual(event.occurrences, 2)
+
+        client = APIClient(); client.force_authenticate(self.user)
+        response = client.get('/api/v1/client-errors/health/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['open_count'], 1)
+        self.assertEqual(response.data['results'][0]['occurrences'], 2)
+
+        resolved = client.patch('/api/v1/client-errors/health/', {
+            'id': str(event.id), 'status': 'resolved',
+        }, format='json', **self.headers)
+        self.assertEqual(resolved.status_code, 200, resolved.data)
+        event.refresh_from_db()
+        self.assertEqual(event.status, ClientErrorEvent.Status.RESOLVED)
+
+        resolved_list = client.get('/api/v1/client-errors/health/?status=resolved', **self.headers)
+        self.assertEqual(resolved_list.status_code, 200, resolved_list.data)
+        self.assertEqual(resolved_list.data['open_count'], 0)
+        self.assertEqual(len(resolved_list.data['results']), 1)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
+class TestingChecklistTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='test-admin', password='test')
+        self.organization = Organization.objects.create(name='Release Test Client', slug='release-test-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        self.client = APIClient(); self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_admin_can_track_a_workflow_and_progress_is_organization_scoped(self):
+        initial = self.client.get('/api/v1/testing/checklist/', **self.headers)
+        self.assertEqual(initial.status_code, 200, initial.data)
+        item = next(item for item in initial.data['results'] if item['key'] == 'property.billing')
+        self.assertEqual(item['status'], 'not_started')
+        updated = self.client.patch('/api/v1/testing/checklist/property.billing/', {
+            'status': 'passed', 'notes': 'Invoice pipeline checked with a representative lease.',
+        }, format='json', **self.headers)
+        self.assertEqual(updated.status_code, 200, updated.data)
+        progress = FeatureTestProgress.objects.get(organization=self.organization, feature_key='property.billing')
+        self.assertEqual(progress.status, FeatureTestProgress.Status.PASSED)
+        self.assertEqual(progress.tested_by, self.user)
+
+    def test_non_admin_cannot_access_checklist(self):
+        user = get_user_model().objects.create_user(username='test-member', password='test')
+        organization = Organization.objects.create(name='Member Client', slug='member-client')
+        Membership.objects.create(user=user, organization=organization, is_default=True)
+        client = APIClient(); client.force_authenticate(user)
+        response = client.get('/api/v1/testing/checklist/', HTTP_X_ORGANIZATION_ID=str(organization.id))
+        self.assertEqual(response.status_code, 403)
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)

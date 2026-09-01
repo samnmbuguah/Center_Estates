@@ -52,6 +52,7 @@ const ADMIN_SUBITEMS = [
   { id: "orgs", label: "Organization & Modules", icon: "🏢", href: "/administration?tab=orgs" },
   { id: "tax", label: "KRA Tax & E-TIMS", icon: "📜", href: "/administration?tab=tax" },
   { id: "audit", label: "Security Audit Trail", icon: "🛡️", href: "/administration?tab=audit" },
+  { id: "system-health", label: "System Health", icon: "🩺", href: "/administration?tab=system-health" },
   { id: "feedback-qr", label: "Public Feedback QR Codes", icon: "▦", href: "/administration?tab=feedback-qr" },
 ];
 
@@ -523,6 +524,29 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
               >
                 <ChartNoAxesCombined size={isMobile ? 22 : 18} />
                 {!collapsed && <span>Usage Analytics</span>}
+              </Link>
+            </Tooltip>
+          ) : null}
+
+          {isAdministrator && !activeModuleSlug ? (
+            <Tooltip title={collapsed ? "Testing hub" : ""} placement="right" disableHoverListener={!collapsed}>
+              <Link
+                className={`nav-link ${pathname === "/testing" ? "active" : ""}`}
+                href="/testing"
+                onClick={onCloseMobile}
+                title={collapsed ? "" : "Testing hub"}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
+                  justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6,
+                  background: pathname === "/testing" ? "var(--brand-primary, #e23b3b)" : "transparent",
+                  color: pathname === "/testing" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                  fontWeight: pathname === "/testing" ? 700 : 500, textDecoration: "none",
+                  fontSize: isMobile ? 15 : 13, transition: "background 0.15s ease, color 0.15s ease",
+                }}
+              >
+                <ClipboardCheck size={isMobile ? 22 : 18} />
+                {!collapsed && <span>Testing hub</span>}
               </Link>
             </Tooltip>
           ) : null}

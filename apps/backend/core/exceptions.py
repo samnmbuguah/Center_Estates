@@ -1,4 +1,5 @@
 import logging
+import uuid
 from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework import status
@@ -15,15 +16,24 @@ def custom_exception_handler(exc, context):
         view_name = view.__class__.__name__ if view else 'UnknownView'
         request = context.get('request')
         path = getattr(request, 'path', 'UnknownPath')
+        django_request = getattr(request, '_request', request)
+        request_id = (
+            getattr(request, 'request_id', None)
+            or getattr(django_request, 'request_id', None)
+            or uuid.uuid4().hex[:16]
+        )
         logger.error(
-            "Unhandled exception in %s on path %s: %s",
-            view_name, path, str(exc),
+            "Unhandled exception id=%s in %s on path %s: %s",
+            request_id, view_name, path, str(exc),
             exc_info=True
         )
         return Response(
             {
-                "detail": f"An internal server error occurred while processing this request.",
-                "error": str(exc) if hasattr(exc, '__str__') else "Server Error",
+                # Internal exception text can reveal implementation details and is
+                # not actionable for an end user.  Keep it in the server log,
+                # correlated with this safe reference for support follow-up.
+                "detail": "We could not complete this request right now. Please retry.",
+                "error_id": request_id,
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

@@ -310,7 +310,7 @@ export function CompanionNudgeModal() {
 
       <Box sx={{ p: 3.5, pt: 3, position: "relative" }}>
         {/* Header Controls */}
-        <Box sx={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 0.5, zIndex: 2 }}>
+        <Box sx={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 0.75, zIndex: 2 }}>
           <IconButton
             aria-label="Card display settings"
             onClick={() => setShowSettings((v) => !v)}
@@ -326,10 +326,20 @@ export function CompanionNudgeModal() {
           <IconButton
             aria-label="Close companion nudge"
             onClick={handleDismiss}
-            size="small"
-            sx={{ color: "text.secondary" }}
+            size="medium"
+            title="Close"
+            sx={{
+              width: 36,
+              height: 36,
+              color: "text.primary",
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              boxShadow: "0 2px 8px rgba(15,23,42,0.14)",
+              "&:hover": { bgcolor: "action.hover", color: "error.main" },
+            }}
           >
-            <X size={18} />
+            <X size={20} strokeWidth={2.5} />
           </IconButton>
         </Box>
 

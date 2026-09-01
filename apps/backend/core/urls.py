@@ -1,9 +1,9 @@
 from django.urls import path
 
 from .views import (
-    ClientErrorView, DemoIdentitiesView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
+    ClientErrorHealthView, ClientErrorView, DemoIdentitiesView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
     PasswordResetRequestView, RefreshView, RegisterView, StopImpersonateView,
-    CalendarFeedView, TicketsFeedView, WorkspaceInboxView, WorkspacePulseView, csrf, health, security_audit,
+    CalendarFeedView, TestingChecklistView, TicketsFeedView, WorkspaceInboxView, WorkspacePulseView, csrf, health, security_audit,
 )
 
 urlpatterns = [
@@ -22,7 +22,10 @@ urlpatterns = [
     path('workspace/inbox/', WorkspaceInboxView.as_view(), name='workspace-inbox'),
     path('workspace/pulse/', WorkspacePulseView.as_view(), name='workspace-pulse'),
     path('client-errors/', ClientErrorView.as_view(), name='client-errors'),
+    path('client-errors/health/', ClientErrorHealthView.as_view(), name='client-errors-health'),
     path('calendar-feed/', CalendarFeedView.as_view(), name='calendar-feed'),
     path('tickets-feed/', TicketsFeedView.as_view(), name='tickets-feed'),
+    path('testing/checklist/', TestingChecklistView.as_view(), name='testing-checklist'),
+    path('testing/checklist/<str:feature_key>/', TestingChecklistView.as_view(), name='testing-checklist-detail'),
     path('security/audit/', security_audit, name='security-audit'),
 ]

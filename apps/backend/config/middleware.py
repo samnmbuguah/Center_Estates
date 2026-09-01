@@ -16,6 +16,8 @@ class RequestObservabilityMiddleware:
 
     def __call__(self, request):
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
+        # Make the same safe correlation ID available to DRF's exception handler.
+        request.request_id = request_id
         started = time.monotonic()
         try:
             response = self.get_response(request)
@@ -83,4 +85,3 @@ class ContentSecurityPolicyMiddleware:
             response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
             response['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
         return response
-

@@ -9,8 +9,11 @@ import { OwnerRow, PropertyTab, Row, ID } from "../../types/property.types";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import {
   Users, Building2, Landmark, Plus, DollarSign,
-  CheckCircle2, CreditCard, RefreshCw, KeyRound
+  CheckCircle2, CreditCard, RefreshCw, KeyRound, Download, Upload
 } from "lucide-react";
+import { csvCell, csvColumn, normalizeCsvHeader, parseCsv } from "@/lib/csv";
+
+type OwnerImportRow = Record<string, any> & { row: number; errors?: Record<string, string> };
 
 export function OwnersView({
   search,
@@ -32,6 +35,11 @@ export function OwnersView({
   const [financialSummary, setFinancialSummary] = useState<Record<string, any> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showAddOwnerModal, setShowAddOwnerModal] = useState(false);
+  const [showBulkOwnerModal, setShowBulkOwnerModal] = useState(false);
+  const [ownerImportRows, setOwnerImportRows] = useState<OwnerImportRow[]>([]);
+  const [ownerImportFile, setOwnerImportFile] = useState("");
+  const [ownerImportBusy, setOwnerImportBusy] = useState(false);
+  const [ownerImportError, setOwnerImportError] = useState("");
   const [newOwnerForm, setNewOwnerForm] = useState({
     name: "",
     email: "",
@@ -42,6 +50,9 @@ export function OwnersView({
     settlement_bank_account: "",
     settlement_bank_branch: "",
     settlement_paybill_or_till: "",
+    engaged_for_unit_management: false,
+    engaged_for_letting: false,
+    is_management_company: false,
     notes: "",
   });
 
@@ -49,8 +60,8 @@ export function OwnersView({
     setLoading(true);
     setError("");
     try {
-      const res = await apiFetch("/api/v1/property/owners/");
-      if (!res.ok) throw new Error("Failed to load unit owners.");
+      const res = await apiFetch("/property/owners/");
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "Landlords and owners could not be loaded."));
       const data = await res.json();
       const rows = Array.isArray(data) ? data : (data.results || []);
       setOwners(rows);
@@ -69,7 +80,7 @@ export function OwnersView({
     setSelectedOwner(owner);
     setSummaryLoading(true);
     try {
-      const res = await apiFetch(`/api/v1/property/owners/${owner.id}/financial-summary/`);
+      const res = await apiFetch(`/property/owners/${owner.id}/financial-summary/`);
       if (res.ok) {
         const data = await res.json();
         setFinancialSummary(data);
@@ -84,7 +95,7 @@ export function OwnersView({
   const handleCreateOwner = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await apiFetch("/api/v1/property/owners/", {
+      const res = await apiFetch("/property/owners/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -93,8 +104,7 @@ export function OwnersView({
         body: JSON.stringify(newOwnerForm),
       });
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        const msg = await apiErrorMessage(errJson, "Failed to create landlord profile.");
+        const msg = await apiErrorMessage(res, "Landlord profile could not be created.");
         throw new Error(msg);
       }
       setShowAddOwnerModal(false);
@@ -108,12 +118,64 @@ export function OwnersView({
         settlement_bank_account: "",
         settlement_bank_branch: "",
         settlement_paybill_or_till: "",
+        engaged_for_unit_management: false,
+        engaged_for_letting: false,
+        is_management_company: false,
         notes: "",
       });
       loadOwners();
     } catch (err: any) {
       alert(err.message);
     }
+  };
+
+  const downloadOwnerTemplate = () => {
+    const rows = [
+      ["name", "email", "phone", "pin_number", "id_or_registration_number", "settlement_bank_name", "settlement_bank_account", "settlement_bank_branch", "settlement_paybill_or_till", "unit_codes", "engaged_for_unit_management", "engaged_for_letting", "is_management_company"],
+      ["ABC Holdings Ltd", "accounts@abc.example", "+254700000000", "P012345678X", "C.12345", "NCBA Bank", "010123456789", "Westlands", "", "A-101;A-102", "yes", "no", "no"],
+    ];
+    const csv = rows.map((row) => row.map((value) => `\"${value.replaceAll('\"', '\"\"')}\"`).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = url; link.download = "center-estates-landlord-owner-template.csv"; link.click(); URL.revokeObjectURL(url);
+  };
+
+  const parseOwnerFile = async (file?: File) => {
+    if (!file) return;
+    setOwnerImportError("");
+    try {
+      const rows = parseCsv(await file.text());
+      if (rows.length < 2) throw new Error("The CSV needs a header row and at least one owner row.");
+      const headers = rows[0].map(normalizeCsvHeader);
+      const nameIndex = csvColumn(headers, ["name", "owner_name", "landlord_name"]);
+      if (nameIndex < 0) throw new Error("The CSV needs a Name, Owner Name, or Landlord Name column.");
+      if (rows.length - 1 > 500) throw new Error("Upload a maximum of 500 owners at a time.");
+      setOwnerImportFile(file.name);
+      setOwnerImportRows(rows.slice(1).map((row, index) => Object.fromEntries(headers.map((header, column) => [header, csvCell(row, column)])) as OwnerImportRow & { row: number }).map((row, index) => ({ ...row, row: index + 2, errors: (row.name || row.owner_name || row.landlord_name ? {} : { name: "Owner name is required." }) as Record<string, string> })));
+    } catch (err) {
+      setOwnerImportRows([]);
+      setOwnerImportError(err instanceof Error ? err.message : "The CSV could not be read.");
+    }
+  };
+
+  const importOwners = async () => {
+    if (!ownerImportRows.length) return;
+    setOwnerImportBusy(true); setOwnerImportError("");
+    try {
+      const res = await apiFetch("/property/owners/bulk-import/", { method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() }, body: JSON.stringify({ mode: "commit", rows: ownerImportRows.map(({ row, errors, ...data }) => data) }) });
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "The owner import could not be completed."));
+      const payload = await res.json();
+      const processed = payload.rows as Array<{ row: number; errors: Record<string, string> }>;
+      const failed = processed.filter((entry) => Object.keys(entry.errors || {}).length);
+      if (failed.length) {
+        setOwnerImportRows((current) => current.map((entry) => ({ ...entry, errors: failed.find((failure) => failure.row === entry.row)?.errors || {} })));
+        setOwnerImportError(`${failed.length} row(s) need attention. Correct the CSV and upload again; valid rows were saved.`);
+      } else {
+        setShowBulkOwnerModal(false); setOwnerImportRows([]); setOwnerImportFile("");
+        await loadOwners();
+      }
+    } catch (err) {
+      setOwnerImportError(err instanceof Error ? err.message : "The owner import could not be completed.");
+    } finally { setOwnerImportBusy(false); }
   };
 
   const filteredOwners = owners.filter((o) => {
@@ -176,6 +238,11 @@ export function OwnersView({
           <button type="button" className="btn ghost sm" onClick={loadOwners}>
             <RefreshCw size={14} style={{ marginRight: 6 }} /> Refresh
           </button>
+          {canOperate && (
+            <button type="button" className="btn ghost sm" onClick={() => setShowBulkOwnerModal(true)}>
+              <Upload size={14} style={{ marginRight: 6 }} /> Upload owners CSV
+            </button>
+          )}
           {canOperate && (
             <button
               type="button"
@@ -511,6 +578,14 @@ export function OwnersView({
               </div>
             </div>
 
+            <div style={{ padding: "12px 14px", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--border)", fontSize: 13 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Sectional-title engagement</div>
+              <label style={{ display: "block", marginBottom: 8 }}><input type="checkbox" checked={newOwnerForm.engaged_for_unit_management} onChange={(event) => setNewOwnerForm({ ...newOwnerForm, engaged_for_unit_management: event.target.checked })} /> Engaged for individual unit management</label>
+              <label style={{ display: "block", marginBottom: 8 }}><input type="checkbox" checked={newOwnerForm.engaged_for_letting} onChange={(event) => setNewOwnerForm({ ...newOwnerForm, engaged_for_letting: event.target.checked })} /> Engaged for letting / agency</label>
+              <label style={{ display: "block" }}><input type="checkbox" checked={newOwnerForm.is_management_company} onChange={(event) => setNewOwnerForm({ ...newOwnerForm, is_management_company: event.target.checked })} /> This is the property management company</label>
+              <div style={{ color: "var(--muted)", marginTop: 8, fontSize: 12 }}>Service charge is billed to the unit owner. These flags only make an owner eligible for optional management or letting fees.</div>
+            </div>
+
             <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
               <button type="button" className="btn ghost" onClick={() => setShowAddOwnerModal(false)}>
                 Cancel
@@ -520,6 +595,22 @@ export function OwnersView({
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {showBulkOwnerModal && (
+        <Modal title="Bulk onboard landlords & owners" onClose={() => !ownerImportBusy && setShowBulkOwnerModal(false)} maxWidth="lg">
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>Upload up to 500 owners. Optionally map their units using a semicolon-separated <strong>unit_codes</strong> value. Existing owners are safely updated by PIN, email, or exact name.</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="btn ghost sm" onClick={downloadOwnerTemplate}><Download size={14} style={{ marginRight: 6 }} /> Download CSV template</button>
+              <label className="btn primary sm" style={{ cursor: "pointer" }}><Upload size={14} style={{ marginRight: 6 }} /> Choose CSV<input hidden type="file" accept=".csv,text/csv" onChange={(event) => { void parseOwnerFile(event.target.files?.[0]); event.target.value = ""; }} /></label>
+            </div>
+            {ownerImportFile && <div style={{ fontSize: 13, fontWeight: 600 }}>Preview: {ownerImportFile} · {ownerImportRows.length} row(s)</div>}
+            {ownerImportError && <ErrorBanner message={ownerImportError} />}
+            {ownerImportRows.length > 0 && <div style={{ overflowX: "auto", maxHeight: 360, border: "1px solid var(--border)", borderRadius: 8 }}><table className="table" style={{ minWidth: 780 }}><thead><tr><th>Row</th><th>Owner</th><th>PIN</th><th>Units</th><th>Engagements</th><th>Status</th></tr></thead><tbody>{ownerImportRows.map((row) => <tr key={row.row}><td>{row.row}</td><td>{row.name || row.owner_name || row.landlord_name}</td><td>{row.pin_number || row.kra_pin || "—"}</td><td>{row.unit_codes || row.unit_code || "—"}</td><td>{row.engaged_for_unit_management === "yes" ? "Unit management " : ""}{row.engaged_for_letting === "yes" ? "Letting" : "—"}</td><td>{Object.keys(row.errors || {}).length ? <span className="badge badge-red">{Object.values(row.errors || {}).join(" ")}</span> : <span className="badge badge-green">Ready</span>}</td></tr>)}</tbody></table></div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="btn ghost" onClick={() => setShowBulkOwnerModal(false)}>Cancel</button><button type="button" className="btn primary" disabled={!ownerImportRows.length || ownerImportRows.some((row) => Object.keys(row.errors || {}).length > 0) || ownerImportBusy} onClick={() => void importOwners()}>{ownerImportBusy ? "Importing…" : `Import ${ownerImportRows.length} owner(s)`}</button></div>
+          </div>
         </Modal>
       )}
     </div>

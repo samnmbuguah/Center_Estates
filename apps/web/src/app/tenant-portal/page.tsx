@@ -17,7 +17,26 @@ type Portal = {
     monthly_rent: string;
     status: string;
   };
+  offerLetter: null | {
+    reference: string;
+    version: number;
+    status: "issued" | "accepted" | "rejected";
+    issued_at?: string;
+    accepted_at?: string;
+    accepted_by?: string;
+    terms: {
+      property_name: string;
+      unit_code: string;
+      starts_on: string;
+      ends_on: string;
+      monthly_rent: string;
+      billing_day: number;
+      escalation_percent: string;
+      escalation_interval_months: number;
+    };
+  };
   balance: string;
+  walletCredit?: string;
   invoices: Row[];
   receipts: Row[];
   documents: Row[];
@@ -36,6 +55,7 @@ type Tab =
   | "payments"
   | "maintenance"
   | "documents"
+  | "offer"
   | "notices"
   | "profile";
 const labels: Record<Tab, string> = {
@@ -44,6 +64,7 @@ const labels: Record<Tab, string> = {
   payments: "Payments & receipts",
   maintenance: "Maintenance requests",
   documents: "Documents",
+  offer: "Offer & acceptance",
   notices: "Messages & notices",
   profile: "Profile & lease",
 };
@@ -73,6 +94,10 @@ export default function TenantPortalPage() {
   const [confirmationBusy, setConfirmationBusy] = useState(false);
   const [previewTenants, setPreviewTenants] = useState<{ id: string; name: string; code: string }[]>([]);
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
+  const [offerAcceptedBy, setOfferAcceptedBy] = useState("");
+  const [offerConfirmed, setOfferConfirmed] = useState(false);
+  const [offerBusy, setOfferBusy] = useState(false);
+  const [offerError, setOfferError] = useState("");
 
   const load = useCallback(async (selectedTenantId?: string) => {
     if (!organizationId) return;
@@ -200,6 +225,32 @@ export default function TenantPortalPage() {
     setConfirmationRequest(null);
     setReopenReason("");
     await load();
+  }
+  async function acceptOfferLetter() {
+    if (!offerAcceptedBy.trim() || !offerConfirmed) {
+      setOfferError("Enter the authorised signatory's name and confirm acceptance before continuing.");
+      return;
+    }
+    setOfferBusy(true);
+    setOfferError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const response = await apiFetch("/property/portal/offer-letter/accept/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ accepted_by: offerAcceptedBy.trim(), confirmed: true }),
+      }, organizationId);
+      if (!response.ok) {
+        setOfferError(await apiErrorMessage(response, "The offer could not be accepted. Please try again."));
+        return;
+      }
+      setRequestSuccess("Tenancy offer accepted. Billing can proceed when the first charge is due.");
+      await load();
+    } catch {
+      setOfferError("The offer could not be accepted. Check your connection and try again.");
+    } finally {
+      setOfferBusy(false);
+    }
   }
   async function downloadDocument(path: string, fallbackName: string) {
     setError("");
@@ -431,6 +482,14 @@ export default function TenantPortalPage() {
               }
               go={() => setTab("invoices")}
             />
+            {Number(data.walletCredit || 0) > 0 && (
+              <Kpi
+                label="Available credit"
+                value={cash.format(Number(data.walletCredit))}
+                note="Applied automatically to your next invoice"
+                go={() => setTab("invoices")}
+              />
+            )}
             <Kpi
               label="Recent invoices"
               value={String(data.invoices.length)}
@@ -453,6 +512,14 @@ export default function TenantPortalPage() {
               note="Open requests"
               go={() => setTab("maintenance")}
             />
+            {data.offerLetter?.status === "issued" && (
+              <Kpi
+                label="Action required"
+                value="Offer pending"
+                note="Accept tenancy terms to enable first billing"
+                go={() => setTab("offer")}
+              />
+            )}
           </section>
           <section className="dashboard-columns">
             <article className="data-panel">
@@ -639,6 +706,44 @@ export default function TenantPortalPage() {
               ),
             ])}
           />
+        </Panel>
+      )}
+      {tab === "offer" && (
+        <Panel title="Tenancy offer & acceptance">
+          {!data.offerLetter ? <Empty /> : (
+            <div className="portal-profile-grid">
+              <div className="profile-card">
+                <h3>{data.offerLetter.reference} · Version {data.offerLetter.version}</h3>
+                <p>Status: <strong>{data.offerLetter.status === "accepted" ? "Accepted" : "Awaiting acceptance"}</strong></p>
+                <p>Premises: <strong>{data.offerLetter.terms.property_name} — {data.offerLetter.terms.unit_code}</strong></p>
+                <p>Term: <strong>{data.offerLetter.terms.starts_on} to {data.offerLetter.terms.ends_on}</strong></p>
+                <p>Rent: <strong>{cash.format(Number(data.offerLetter.terms.monthly_rent))} / month</strong></p>
+                <p>Billing date: <strong>Day {data.offerLetter.terms.billing_day} of each billing cycle</strong></p>
+                {Number(data.offerLetter.terms.escalation_percent) > 0 && <p>Escalation: <strong>{data.offerLetter.terms.escalation_percent}% every {data.offerLetter.terms.escalation_interval_months} months</strong></p>}
+              </div>
+              <div className="profile-card">
+                {data.offerLetter.status === "accepted" ? <>
+                  <h3>Acceptance recorded</h3>
+                  <p>Accepted by <strong>{data.offerLetter.accepted_by || "Authorised signatory"}</strong>.</p>
+                  <p>Recorded {data.offerLetter.accepted_at ? new Date(data.offerLetter.accepted_at).toLocaleString() : "—"}.</p>
+                  <Alert severity="success">The accepted offer is attached to the tenancy audit trail.</Alert>
+                </> : isPreviewMode ? <>
+                  <h3>Awaiting tenant acceptance</h3>
+                  <Alert severity="info">This is a staff preview. The tenant must sign in to their own portal account to accept the offer.</Alert>
+                </> : <>
+                  <h3>Accept this offer</h3>
+                  <p>Review the tenancy details before accepting. This confirmation is recorded against your tenancy and enables first billing.</p>
+                  {offerError && <Alert severity="error" sx={{ mb: 1 }}>{offerError}</Alert>}
+                  <TextField fullWidth label="Authorised signatory name" value={offerAcceptedBy} onChange={(event) => setOfferAcceptedBy(event.target.value)} sx={{ mb: 1.5 }} />
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 16 }}>
+                    <input type="checkbox" checked={offerConfirmed} onChange={(event) => setOfferConfirmed(event.target.checked)} />
+                    <span>I confirm I am authorised to accept this tenancy offer and agree to the stated terms.</span>
+                  </label>
+                  <Button variant="contained" disabled={offerBusy} onClick={() => void acceptOfferLetter()}>{offerBusy ? "Recording acceptance…" : "Accept tenancy offer"}</Button>
+                </>}
+              </div>
+            </div>
+          )}
         </Panel>
       )}
       <Dialog open={Boolean(confirmationRequest)} onClose={() => !confirmationBusy && setConfirmationRequest(null)} fullWidth maxWidth="xs">

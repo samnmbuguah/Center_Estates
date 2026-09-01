@@ -104,9 +104,15 @@ export function NotificationCenter() {
 
   useEffect(() => {
     pollingStoppedRef.current = false;
-    void fetchNotifications();
+    // The workspace should become usable before non-critical notification
+    // polling competes for an API worker. The bell stays available and begins
+    // loading shortly afterwards.
+    const initialFetch = window.setTimeout(() => void fetchNotifications(), 3_000);
     const interval = setInterval(() => void fetchNotifications(), 60_000);
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(initialFetch);
+      clearInterval(interval);
+    };
   }, [fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.read_at).length;

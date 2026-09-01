@@ -92,6 +92,12 @@ class Owner(OrganizationOwnedModel):
     settlement_bank_account = models.CharField(max_length=100, blank=True)
     settlement_bank_branch = models.CharField(max_length=100, blank=True)
     settlement_paybill_or_till = models.CharField(max_length=40, blank=True)
+    # Sectional-title engagements are independent per owner.  They control
+    # eligibility for optional unit-management and letting fee runs; service
+    # charge remains payable by every applicable unit owner.
+    engaged_for_unit_management = models.BooleanField(default=False)
+    engaged_for_letting = models.BooleanField(default=False)
+    is_management_company = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)
@@ -831,7 +837,22 @@ class InvoiceLine(OrganizationOwnedModel):
 
 
 class Receipt(OrganizationOwnedModel):
+    class PayerType(models.TextChoices):
+        TENANT = 'tenant', 'Tenant'
+        LANDLORD = 'landlord', 'Landlord / unit owner'
+
+    class PayingFor(models.TextChoices):
+        RENT = 'rent', 'Rent'
+        SERVICE_CHARGE = 'service_charge', 'Service charge'
+        UTILITIES = 'utilities', 'Water / electricity'
+        MANAGEMENT_FEE = 'management_fee', 'Management fee'
+        LETTING_FEE = 'letting_fee', 'Letting fee'
+        FACILITY_MANAGEMENT_FEE = 'facility_management_fee', 'Facility management fee'
+        OTHER = 'other', 'Other'
+
     number = models.CharField(max_length=60)
+    payer_type = models.CharField(max_length=12, choices=PayerType.choices, default=PayerType.TENANT)
+    paying_for = models.CharField(max_length=32, choices=PayingFor.choices, default=PayingFor.RENT)
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
     owner = models.ForeignKey(Owner, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
@@ -854,6 +875,51 @@ class Receipt(OrganizationOwnedModel):
             raise ValidationError('Receipt invoice must belong to the same organization.')
         if self.amount <= 0:
             raise ValidationError({'amount': 'Receipt amount must be greater than zero.'})
+        if bool(self.tenant_id) == bool(self.owner_id):
+            raise ValidationError({'payer_type': 'Select exactly one payer: a tenant or a landlord.'})
+        if self.payer_type == self.PayerType.TENANT and not self.tenant_id:
+            raise ValidationError({'tenant': 'Select the tenant who made this payment.'})
+        if self.payer_type == self.PayerType.LANDLORD and not self.owner_id:
+            raise ValidationError({'owner': 'Select the landlord who made this payment.'})
+
+
+class PayerWallet(OrganizationOwnedModel):
+    """Unapplied payer credit, retained with an immutable transaction trail."""
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='wallets', null=True, blank=True)
+    owner = models.ForeignKey(Owner, on_delete=models.PROTECT, related_name='wallets', null=True, blank=True)
+    balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'tenant'), condition=models.Q(tenant__isnull=False), name='unique_tenant_payer_wallet'),
+            models.UniqueConstraint(fields=('organization', 'owner'), condition=models.Q(owner__isnull=False), name='unique_owner_payer_wallet'),
+        ]
+
+    def clean(self):
+        if bool(self.tenant_id) == bool(self.owner_id):
+            raise ValidationError('A wallet must belong to exactly one tenant or landlord.')
+        if self.balance < 0:
+            raise ValidationError({'balance': 'Wallet credit cannot be negative.'})
+
+
+class PayerWalletEntry(OrganizationOwnedModel):
+    class EntryType(models.TextChoices):
+        CREDIT = 'credit', 'Credit received'
+        DEBIT = 'debit', 'Credit applied'
+
+    wallet = models.ForeignKey(PayerWallet, on_delete=models.PROTECT, related_name='entries')
+    receipt = models.ForeignKey(Receipt, on_delete=models.PROTECT, null=True, blank=True, related_name='wallet_entries')
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, null=True, blank=True, related_name='wallet_entries')
+    entry_type = models.CharField(max_length=12, choices=EntryType.choices)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ('created_at',)
+
+    def clean(self):
+        if self.amount <= 0:
+            raise ValidationError({'amount': 'Wallet entry amount must be greater than zero.'})
 
 
 class InvoiceReminder(OrganizationOwnedModel):
@@ -1219,22 +1285,34 @@ class RentSchedule(OrganizationOwnedModel):
 
 
 class ReceiptAllocation(OrganizationOwnedModel):
+    class Component(models.TextChoices):
+        PENALTY = 'penalty', 'Penalty'
+        VAT = 'vat', 'VAT'
+        UTILITIES = 'utilities', 'Utilities'
+        SERVICE_CHARGE = 'service_charge', 'Service charge'
+        RENT = 'rent', 'Rent'
+        OTHER = 'other', 'Other'
+
     receipt = models.ForeignKey(Receipt, on_delete=models.PROTECT, related_name='allocations')
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='receipt_allocations')
+    component = models.CharField(max_length=20, choices=Component.choices, default=Component.OTHER)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     allocated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='property_receipt_allocations')
 
     class Meta:
         ordering = ('created_at',)
-        constraints = [models.UniqueConstraint(fields=('receipt', 'invoice'), name='unique_receipt_invoice_allocation')]
+        constraints = [models.UniqueConstraint(fields=('receipt', 'invoice', 'component'), name='unique_receipt_invoice_component_allocation')]
 
     def clean(self):
         if self.receipt_id and self.receipt.organization_id != self.organization_id:
             raise ValidationError('Receipt allocation must belong to the same organization.')
         if self.invoice_id and self.invoice.organization_id != self.organization_id:
             raise ValidationError('Allocated invoice must belong to the same organization.')
-        if self.receipt_id and self.invoice_id and self.receipt.tenant_id != self.invoice.lease.tenant_id:
-            raise ValidationError({'invoice': 'Receipt and invoice must belong to the same tenant.'})
+        if self.receipt_id and self.invoice_id:
+            if self.receipt.tenant_id and self.invoice.lease_id and self.receipt.tenant_id != self.invoice.lease.tenant_id:
+                raise ValidationError({'invoice': 'Receipt and invoice must belong to the same tenant.'})
+            if self.receipt.owner_id and self.invoice.owner_id and self.receipt.owner_id != self.invoice.owner_id:
+                raise ValidationError({'invoice': 'Receipt and invoice must belong to the same landlord.'})
         if self.amount <= 0:
             raise ValidationError({'amount': 'Allocation must be greater than zero.'})
 

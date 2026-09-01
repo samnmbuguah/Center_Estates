@@ -7,7 +7,7 @@ from .models import (
     BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
     Building, Budget, CreditNote, Expense, Invoice, InvoiceLine,
     InvoiceReminder, Lease, PaymentGatewayConfiguration, PaymentIntent, Project, Property,
-    Receipt, ReceiptAllocation, RentSchedule, ReportDefinition, ReportExecution, ScheduledReport,
+    Receipt, ReceiptAllocation, PayerWallet, RentSchedule, ReportDefinition, ReportExecution, ScheduledReport,
     ServiceCharge, TaxConfiguration, TenantMovement, UnitStatusHistory, LeaseEscalation,
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment,
@@ -508,6 +508,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
 class ReceiptSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='tenant.name', read_only=True, default='')
     owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
+    payer_name = serializers.SerializerMethodField()
+    wallet_credit = serializers.SerializerMethodField()
 
     class Meta:
         model = Receipt
@@ -518,6 +520,27 @@ class ReceiptSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError('Receipt amount must be greater than zero.')
         return value
+
+    def get_payer_name(self, obj):
+        return obj.owner.name if obj.payer_type == Receipt.PayerType.LANDLORD and obj.owner_id else (obj.tenant.name if obj.tenant_id else '')
+
+    def get_wallet_credit(self, obj):
+        filters = {'organization': obj.organization}
+        filters['owner_id' if obj.payer_type == Receipt.PayerType.LANDLORD else 'tenant_id'] = obj.owner_id if obj.payer_type == Receipt.PayerType.LANDLORD else obj.tenant_id
+        return str(PayerWallet.objects.filter(**filters).values_list('balance', flat=True).first() or Decimal('0.00'))
+
+    def validate(self, attrs):
+        payer_type = attrs.get('payer_type') or (Receipt.PayerType.LANDLORD if attrs.get('owner') else Receipt.PayerType.TENANT)
+        tenant = attrs.get('tenant', getattr(self.instance, 'tenant', None))
+        owner = attrs.get('owner', getattr(self.instance, 'owner', None))
+        if payer_type == Receipt.PayerType.TENANT and not tenant:
+            raise serializers.ValidationError({'tenant': 'Select the tenant who made this payment.'})
+        if payer_type == Receipt.PayerType.LANDLORD and not owner:
+            raise serializers.ValidationError({'owner': 'Select the landlord who made this payment.'})
+        if tenant and owner:
+            raise serializers.ValidationError({'payer_type': 'A receipt can have one payer only.'})
+        attrs['payer_type'] = payer_type
+        return attrs
 
 
 class InvoiceReminderSerializer(serializers.ModelSerializer):

@@ -15,7 +15,11 @@ PassengerPython "/home2/monitori/virtualenv/api.centerestates.com/3.9/bin/python
 
 # LITESPEED / CONCURRENCY SETTINGS
 <IfModule Litespeed>
-   SetEnv LSAPI_CHILDREN 24
+   # The shared CloudLinux account is capped at six LSAPI workers. Requesting
+   # 24 caused the process manager to continually attempt extra children and
+   # log max-child saturation. Match the enforced limit; increasing capacity
+   # requires the hosting provider to raise the account-level LVE limit.
+   SetEnv LSAPI_CHILDREN 6
    SetEnv LSAPI_AVOID_FORK 0
    SetEnv LSAPI_MAX_REQS 5000
 </IfModule>

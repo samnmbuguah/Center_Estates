@@ -5,7 +5,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import JsonResponse
 from django.db import connection
-from django.db.models import Q
+from django.db.models import F, Q
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.utils import timezone
@@ -22,7 +22,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 
 from core.serializers import MembershipSerializer, serialize_modules
-from core.models import Module
+from core.models import ClientErrorEvent, FeatureTestProgress, Module
 from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import get_active_property, scope_model_queryset
 from organizations.models import Membership
@@ -35,6 +35,92 @@ VISIBLE_DEMO_IDENTITIES = {
     'role-operations-staff',
     'role-read-only',
 }
+
+
+# This is deliberately a curated acceptance catalogue rather than a claim that
+# every implementation detail has browser coverage.  It gives operations a
+# shared, auditable place to record the workflows they have actually exercised.
+TEST_CHECKLIST = (
+    ('property.onboarding', 'Property', 'Create, save, resume and activate a property onboarding draft', '/property-onboarding'),
+    ('property.units_import', 'Property', 'Add units manually and validate a bulk CSV import before saving', '/property-onboarding?section=units'),
+    ('property.unit_billing', 'Property', 'Configure unit billing schedules, deposits, utilities and parking', '/property?tab=units'),
+    ('property.tenancy', 'Property', 'Create a tenant, lease, offer details and rent escalation', '/property?tab=tenancy'),
+    ('property.billing', 'Property', 'Scan billing candidates, generate invoices and confirm dispatch', '/property?tab=billing'),
+    ('property.receipting', 'Property', 'Record tenant or landlord receipt, auto-allocate and retain wallet credit', '/property?tab=receipting'),
+    ('property.reconciliation', 'Property', 'Import statement entries and reconcile them to posted receipts', '/property?tab=bank-reconciliation'),
+    ('property.recovery', 'Property', 'Review arrears, deposit exposure and issue a recovery notice', '/property?tab=arrears-recovery'),
+    ('property.reporting', 'Property', 'Export financial and tenancy reports as the required PDF or CSV', '/property?tab=financial-reports'),
+    ('property.tenant_portal', 'Property', 'Tenant views invoices, receipts, documents and submits a service request', '/tenant-portal'),
+    ('facility.assets', 'Facility', 'Onboard an asset with lifecycle, service profile, documents and evidence', '/facility?tab=assets'),
+    ('facility.meters', 'Facility', 'Capture meter readings as draft and approve a valid reading', '/facility?tab=meter-readings'),
+    ('facility.tickets', 'Facility', 'Raise a ticket, assign it, update SLA status and close it with evidence', '/facility?tab=service-requests'),
+    ('facility.work_orders', 'Facility', 'Create and complete a work order with photo or video evidence', '/facility?tab=work-orders'),
+    ('facility.incidents', 'Facility', 'Report an incident, investigate it and record corrective action', '/facility?tab=incident-reporting'),
+    ('facility.procurement', 'Facility', 'Approve requisition, compare quotations, issue LPO and create a job card', '/facility?tab=procurement'),
+    ('facility.ppm', 'Facility', 'Schedule and complete planned preventive maintenance', '/facility?tab=planned-maintenance'),
+    ('facility.providers', 'Facility', 'Onboard service provider, documents, SLA contract and scorecard', '/facility?tab=contractors'),
+    ('facility.caretaker', 'Facility', 'Use the mobile caretaker portal to submit readings, requests and evidence', '/caretaker-portal'),
+    ('companion.tasks', 'Companion', 'Assign, accept, update and complete a task', '/companion?tab=my-tasks'),
+    ('companion.qm', 'Companion', 'Open Quartermaster, use chat and access a saved conversation', '/companion?tab=quartermaster'),
+    ('companion.announcements', 'Companion', 'Create a campaign announcement and confirm appropriate staff visibility', '/companion?tab=team'),
+    ('platform.access', 'Platform', 'Verify role permissions, organization scope and denied actions', '/administration?tab=roles'),
+    ('platform.reliability', 'Platform', 'Verify sign-in, property switching, responsive layout and graceful errors', '/workspaces'),
+    ('platform.api', 'Platform', 'Review authenticated API endpoints and schema in the API console', '/api-console'),
+)
+
+
+class TestingChecklistView(APIView):
+    """Organisation-admin acceptance testing dashboard with persistent evidence."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def _organization_for_admin(self, request):
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        if not organization or not (request.user.is_superuser or (membership and membership.is_organization_admin)):
+            return None
+        return organization
+
+    def get(self, request):
+        organization = self._organization_for_admin(request)
+        if not organization:
+            return Response({'detail': 'Organisation administrator access is required.'}, status=403)
+        progress_by_key = {
+            row.feature_key: row for row in FeatureTestProgress.objects.filter(organization=organization).select_related('tested_by')
+        }
+        items = []
+        counts = {status: 0 for status in FeatureTestProgress.Status.values}
+        for key, module, title, url in TEST_CHECKLIST:
+            progress = progress_by_key.get(key)
+            status = progress.status if progress else FeatureTestProgress.Status.NOT_STARTED
+            counts[status] += 1
+            items.append({
+                'key': key, 'module': module, 'title': title, 'url': url, 'status': status,
+                'notes': progress.notes if progress else '', 'evidence_url': progress.evidence_url if progress else '',
+                'tested_at': progress.tested_at if progress else None,
+                'tested_by': progress.tested_by.get_full_name() or progress.tested_by.get_username() if progress and progress.tested_by else '',
+            })
+        return Response({'results': items, 'summary': counts, 'total': len(items)})
+
+    def patch(self, request, feature_key):
+        organization = self._organization_for_admin(request)
+        if not organization:
+            return Response({'detail': 'Organisation administrator access is required.'}, status=403)
+        if feature_key not in {item[0] for item in TEST_CHECKLIST}:
+            return Response({'detail': 'Unknown checklist item.'}, status=404)
+        status = request.data.get('status')
+        if status not in FeatureTestProgress.Status.values:
+            return Response({'detail': 'Choose a valid checklist status.'}, status=400)
+        notes = str(request.data.get('notes', ''))[:4000]
+        evidence_url = str(request.data.get('evidence_url', ''))[:500]
+        progress, _ = FeatureTestProgress.objects.get_or_create(organization=organization, feature_key=feature_key)
+        progress.status = status
+        progress.notes = notes
+        progress.evidence_url = evidence_url
+        progress.tested_by = request.user
+        progress.tested_at = timezone.now() if status != FeatureTestProgress.Status.NOT_STARTED else None
+        progress.save()
+        return Response({'key': feature_key, 'status': progress.status, 'tested_at': progress.tested_at})
 
 
 class CalendarFeedView(APIView):
@@ -1121,15 +1207,108 @@ class ClientErrorView(APIView):
 
     @extend_schema(request=None, responses={202: {'type': 'object'}})
     def post(self, request):
+        import hashlib
         import logging
         logger = logging.getLogger('client-errors')
         data = request.data
         message = str(data.get('message', ''))[:500]
         stack = str(data.get('stack', ''))[:2000]
+        component_stack = str(data.get('componentStack', ''))[:2000]
         url = str(data.get('url', ''))[:500]
         release = str(data.get('release', ''))[:50]
-        extra = data.get('extra', {})
+        extra = data.get('extra', {}) if isinstance(data.get('extra', {}), dict) else {}
+        organization = None
+        organization_id = str(data.get('organizationId', ''))[:64]
+        if organization_id:
+            from organizations.models import Organization
+            organization = Organization.objects.filter(id=organization_id).first()
+        fingerprint = hashlib.sha256(
+            f'{release}|{message}|{url}|{component_stack[:500]}'.encode('utf-8')
+        ).hexdigest()
+        now = timezone.now()
+        try:
+            event, created = ClientErrorEvent.objects.get_or_create(
+                organization=organization,
+                fingerprint=fingerprint,
+                defaults={
+                    'message': message or 'Client error',
+                    'stack': stack,
+                    'component_stack': component_stack,
+                    'url': url,
+                    'release': release,
+                    'extra': extra,
+                    'first_seen_at': now,
+                    'last_seen_at': now,
+                },
+            )
+            if not created:
+                ClientErrorEvent.objects.filter(pk=event.pk).update(
+                    occurrences=F('occurrences') + 1,
+                    last_seen_at=now,
+                    stack=stack or F('stack'),
+                    component_stack=component_stack or F('component_stack'),
+                    extra=extra or F('extra'),
+                )
+        except Exception:
+            logger.exception('Unable to persist client error event')
         logger.warning('CLIENT ERROR [%s] %s | url=%s | extra=%s', release, message, url, extra)
         if stack:
             logger.debug('Stack: %s', stack[:500])
         return Response({'detail': 'Error logged.'}, status=202)
+
+
+class ClientErrorHealthView(APIView):
+    """Organisation administrators can triage current browser failures."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def _organization_for_admin(self, request):
+        organization = get_active_organization(request)
+        membership = get_active_membership(request, organization)
+        if not (request.user.is_superuser or (membership and membership.is_organization_admin)):
+            return None
+        return organization
+
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
+    def get(self, request):
+        organization = self._organization_for_admin(request)
+        if not organization:
+            return Response({'detail': 'Organisation administrator access is required.'}, status=403)
+        all_events = ClientErrorEvent.objects.filter(organization=organization)
+        events = all_events
+        status_filter = request.query_params.get('status')
+        if status_filter in ClientErrorEvent.Status.values:
+            events = events.filter(status=status_filter)
+        try:
+            limit = int(request.query_params.get('limit', 50))
+        except (TypeError, ValueError):
+            limit = 50
+        limit = min(max(limit, 1), 100)
+        rows = list(events[:limit])
+        return Response({
+            # Keep the headline useful even when the table is filtered to a
+            # resolved or ignored state.
+            'open_count': all_events.filter(status=ClientErrorEvent.Status.OPEN).count(),
+            'results': [{
+                'id': str(event.id), 'message': event.message, 'url': event.url,
+                'release': event.release, 'occurrences': event.occurrences,
+                'first_seen_at': event.first_seen_at, 'last_seen_at': event.last_seen_at,
+                'status': event.status, 'extra': event.extra,
+            } for event in rows],
+        })
+
+    @extend_schema(request=None, responses={200: {'type': 'object'}})
+    def patch(self, request):
+        organization = self._organization_for_admin(request)
+        if not organization:
+            return Response({'detail': 'Organisation administrator access is required.'}, status=403)
+        event_id = str(request.data.get('id', ''))
+        status = request.data.get('status')
+        if status not in (ClientErrorEvent.Status.RESOLVED, ClientErrorEvent.Status.IGNORED):
+            return Response({'detail': 'Status must be resolved or ignored.'}, status=400)
+        event = ClientErrorEvent.objects.filter(id=event_id, organization=organization).first()
+        if not event:
+            return Response({'detail': 'Error event was not found.'}, status=404)
+        event.status = status
+        event.save(update_fields=('status', 'updated_at'))
+        return Response({'id': str(event.id), 'status': event.status})

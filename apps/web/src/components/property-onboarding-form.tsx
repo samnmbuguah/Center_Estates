@@ -25,7 +25,7 @@ type AssetDraft = { name: string; category: string; location: string; quantity: 
 type ContactDraft = { name: string; role: string; email: string; phone: string };
 type ProviderDraft = { name: string; category: string; service: string; frequency: string; criticality: string; monthly_cost: string; contact: string; email: string; phone: string };
 type DocumentDraft = { name: string; type: string; reference: string; expires_on: string; file: File | null };
-type BuildingDraft = { name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
+type BuildingDraft = { id?: string; name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
 
 const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", service_charge_rate: "0", description: "", building_index: "" };
 const blankUtility: UtilityDraft = { type: "water", account_no: "", provider: "", bill_cycle: "monthly", status: "active", meter_code: "", supply_mode: "postpaid", initial_reading: "", reading_date: "", tariff: "0", unit: "m³", unit_code: "" };
@@ -184,6 +184,19 @@ export function PropertyOnboardingForm() {
           }));
           if (meta.landlord?.vat_registered) setVatRegistered(true);
 
+          // The detail endpoint includes the persisted setup records.  Loading
+          // them before an edit keeps a later save additive rather than making
+          // an existing property look empty in the onboarding card.
+          if (Array.isArray(prop.buildings)) {
+            setBuildings(prop.buildings.map((b: any) => ({
+              id: b.id,
+              name: b.name || "", floors: String(b.floors || "1"),
+              floor_numbers: b.metadata?.floor_numbers || "", use: b.metadata?.use || "",
+              access_points: b.metadata?.access_points || "", parking_spaces: String(b.metadata?.parking_spaces || "0"),
+              amenities: b.metadata?.amenities || "",
+            })));
+          }
+
           // Populate Service Providers / Service Lines
           const savedProviders = meta.service_providers || [];
           if (Array.isArray(savedProviders) && savedProviders.length > 0) {
@@ -260,7 +273,7 @@ export function PropertyOnboardingForm() {
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [editId, organizationId, setValues, setUnits, setProviders, setUtilities, setAssets, setContacts]);
+  }, [editId, organizationId, setValues, setUnits, setBuildings, setProviders, setUtilities, setAssets, setContacts]);
 
   const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => setValues(current => ({ ...current, [name]: event.target.value }));
   const totalArea = useMemo(() => units.reduce((sum, unit) => sum + Number(unit.area || 0), 0), [units]);
@@ -291,6 +304,24 @@ export function PropertyOnboardingForm() {
       setError("Building names must be unique within the property."); return;
     }
     setBuildings(current => [...current, buildingDraft]); setBuildingDraft(blankBuilding); setError("");
+  };
+
+  const removeBuilding = async (index: number) => {
+    const building = buildings[index];
+    if (!building) return;
+    if (!building.id) {
+      setBuildings(rows => rows.filter((_, rowIndex) => rowIndex !== index));
+      return;
+    }
+    if (!window.confirm(`Delete ${building.name}? This is only available while it has no units.`)) return;
+    const response = await apiFetch(`/property/buildings/${building.id}/`, { method: "DELETE" }, organizationId);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setError(body?.detail || "This building could not be deleted. Buildings with units are protected.");
+      return;
+    }
+    setBuildings(rows => rows.filter((_, rowIndex) => rowIndex !== index));
+    toast.success(`${building.name} was removed.`);
   };
 
   const importUnits = async (file?: File) => {
@@ -613,12 +644,16 @@ export function PropertyOnboardingForm() {
 
       <Section id="buildings" title="Buildings">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Add each building or tower individually with its own floor count. If the property has a single building, add it here with its details.
+          {values.title_type === "sectional"
+            ? "Register each block or tower once. Sectional units are captured in the Units tab, where they can be bulk-uploaded and mapped to this property."
+            : "Add each building or tower individually with its own floor count. If the property has a single building, add it here with its details."}
         </Typography>
         <Grid columns={4}>
           <TextField required label="Building name" placeholder="e.g. Tower A, Main Block" value={buildingDraft.name} onChange={e => setBuildingDraft({ ...buildingDraft, name: e.target.value })} />
           <TextField required type="number" label="Number of floors" value={buildingDraft.floors} onChange={e => setBuildingDraft({ ...buildingDraft, floors: e.target.value })} slotProps={{ htmlInput: { min: 1 } }} />
-          <TextField label="Floor numbers" placeholder="e.g. G, 1, 2, 3" value={buildingDraft.floor_numbers} onChange={e => setBuildingDraft({ ...buildingDraft, floor_numbers: e.target.value })} />
+          {values.title_type === "sectional"
+            ? <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}><Typography variant="body2" color="text.secondary">Sectional unit numbers are maintained in the Units register.</Typography><Button size="small" variant="outlined" onClick={() => jump("units")}>Bulk upload units</Button></Box>
+            : <TextField label="Floor numbers" placeholder="e.g. G, 1, 2, 3" value={buildingDraft.floor_numbers} onChange={e => setBuildingDraft({ ...buildingDraft, floor_numbers: e.target.value })} />}
           <TextField label="Building use" placeholder="e.g. Residential, Commercial" value={buildingDraft.use} onChange={e => setBuildingDraft({ ...buildingDraft, use: e.target.value })} />
         </Grid>
         <Box sx={{ mt: 1 }}><Grid columns={4}>
@@ -631,9 +666,9 @@ export function PropertyOnboardingForm() {
         </Grid></Box>
         <RowList
           rows={buildings}
-          columns={["Name", "Floors", "Floor #s", "Use", "Parking", "Amenities"]}
-          render={b => [b.name, `${b.floors} floors`, b.floor_numbers || "—", b.use || "—", b.parking_spaces || "0", b.amenities || "—"]}
-          onRemove={i => setBuildings(rows => rows.filter((_, index) => index !== i))}
+          columns={["Name", "Floors", values.title_type === "sectional" ? "Sectional units" : "Floor #s", "Use", "Parking", "Amenities"]}
+          render={b => [b.name, `${b.floors} floors`, values.title_type === "sectional" ? `${units.filter(unit => Number(unit.building_index || 1) === buildings.indexOf(b) + 1).length} registered` : b.floor_numbers || "—", b.use || "—", b.parking_spaces || "0", b.amenities || "—"]}
+          onRemove={i => { void removeBuilding(i); }}
           empty="No buildings added yet. Add at least one building or tower."
         />
         {buildings.length > 0 && (
@@ -666,7 +701,7 @@ export function PropertyOnboardingForm() {
           </Box></Box>
           <Box sx={{ p: 1.5, display: "flex", justifyContent: "flex-end", gap: 1 }}><Button color="inherit" onClick={() => { setUnitImportRows([]); setUnitImportFile(""); setError(""); }}>Discard preview</Button><Button variant="contained" onClick={applyUnitImport}>Add validated units</Button></Box>
         </Paper>}
-        <Grid columns={4}><TextField required label="Unit number" value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label="Unit type" value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label="Area (sq ft)" value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Service charge / sq ft" value={unitDraft.service_charge_rate} onChange={e => setUnitDraft({ ...unitDraft, service_charge_rate: e.target.value })} helperText="Inherited by every tenancy" /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
+        <Grid columns={4}><TextField required label={values.title_type === "sectional" ? "Sectional unit number" : "Unit number"} value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label={values.property_type === "residential" ? "Typology" : "Unit type"} placeholder={values.property_type === "residential" ? "e.g. 1 Bedroom, 2 Bedroom" : "e.g. Shop, Office"} value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label={values.property_type === "residential" ? "Unit area (sq ft)" : "Space area (sq ft)"} value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Service charge / sq ft" value={unitDraft.service_charge_rate} onChange={e => setUnitDraft({ ...unitDraft, service_charge_rate: e.target.value })} helperText="Inherited by every tenancy" /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
         <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button>
         <Divider sx={{ my: 2 }} />
         <RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area", "Layout Outline"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—", u.polygon && u.polygon.length > 0 ? <Chip size="small" color="success" label="✓ Outline Mapped" sx={{ fontSize: 10, fontWeight: 700 }} /> : <span style={{ color: "#94a3b8", fontSize: 11 }}>Not mapped</span>]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />

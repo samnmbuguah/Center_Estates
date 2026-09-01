@@ -58,7 +58,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return "unauthenticated";
       }
       const selected = organizationId ?? localStorage.getItem("ce_organization");
-      const response = await apiFetch("/auth/me/", {}, selected);
+      let response = await apiFetch("/auth/me/", {}, selected);
+      // An organization choice belongs to a previous browser session.  It may
+      // no longer be available to the user who has just signed in (for
+      // example, when a shared computer changes from an administrator to a
+      // property manager). Retry without that stale header before treating the
+      // workspace as unavailable.
+      if (response.status === 403 && selected && organizationId === undefined) {
+        localStorage.removeItem("ce_organization");
+        localStorage.removeItem("ce_organization_brand");
+        response = await apiFetch("/auth/me/");
+      }
       if (response.status === 401 || response.status === 403) {
         if (typeof window !== "undefined") sessionStorage.removeItem(AUTH_FLAG_STORAGE_KEY);
         setSession(null);
@@ -72,9 +82,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(data);
       if (typeof window !== "undefined") sessionStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
       if (data.activeOrganizationId) localStorage.setItem("ce_organization", data.activeOrganizationId);
-      // Warm the CSRF token for the next mutation without making a temporary
-      // CSRF endpoint failure invalidate an otherwise healthy session.
-      void apiFetch("/auth/csrf/").catch(() => undefined);
+      // CSRF is only required for mutations.  Warming it immediately after
+      // /auth/me used to add another competing request during the critical
+      // post-login bootstrap burst (notifications, workspace and companion).
+      // Defer it; apiFetch still refreshes it automatically before a mutation
+      // if it has expired.
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => void apiFetch("/auth/csrf/").catch(() => undefined), 5_000);
+      }
       return "authenticated";
     } catch (error) {
       // Log the error but don't expose to user - treat as temporary network issue
@@ -132,7 +147,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // post-login session load so the public-route bootstrap skip doesn't
     // short-circuit it while we are still on /login.
     sessionStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
-    const sessionResult = await loadSession(null);
+    // Never carry a different person's last selected organization through a
+    // new login. The API selects this user's default organization first.
+    localStorage.removeItem("ce_organization");
+    localStorage.removeItem("ce_organization_brand");
+    const sessionResult = await loadSession(undefined);
     if (sessionResult !== "authenticated") throw new Error("Signed in, but the workspace could not be loaded. Please retry.");
     sessionStorage.setItem(QM_LOGIN_BRIEF_STORAGE_KEY, "1");
     const returnTo = sessionStorage.getItem("ce_return_after_login");

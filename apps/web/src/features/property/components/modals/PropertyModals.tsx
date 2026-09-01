@@ -127,6 +127,7 @@ export interface PropertyModalsProps {
   unitMix: { type: string; count: number; size: number }[];
   setUnitMix: (v: any) => void;
   tenantOptions: Row[];
+  ownerOptions: Row[];
   unitOptions: Row[];
   invoiceOptions: Row[];
   receiptOptions: Row[];
@@ -192,7 +193,7 @@ export function PropertyModals(props: PropertyModalsProps) {
     wizardStep, setWizardStep,
     propertyData, setPropertyData,
     unitMix, setUnitMix,
-    tenantOptions, unitOptions, invoiceOptions, receiptOptions, propertyOptions, leaseOptions,
+    tenantOptions, ownerOptions, unitOptions, invoiceOptions, receiptOptions, propertyOptions, leaseOptions,
     billingContext,
     invoicePreview, setInvoicePreview,
     invoiceDraft, setInvoiceDraft,
@@ -525,10 +526,10 @@ export function PropertyModals(props: PropertyModalsProps) {
         )}
 
         {showRecordReceipt && (
-          <Modal title="Record tenant payment" onClose={() => setShowRecordReceipt(false)} wide>
+          <Modal title="Record payment receipt" onClose={() => setShowRecordReceipt(false)} wide>
             <form onSubmit={submitRecordReceipt} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="card" style={{ padding: "10px 14px", background: "var(--surface-2)", fontSize: 13, color: "var(--text-primary)" }}>
-                <strong>Step 1 of 2 — record the payment.</strong> This posts a receipt and updates the tenant balance. For a bank transfer, add the bank reference, then use <strong>Bank reconciliation</strong> to match the statement line without creating another receipt.
+                <strong>Record once, allocate safely.</strong> Choose the payer and what they are paying for. The system first applies penalties, VAT, utilities, service charge, then rent; any extra remains as wallet credit for a future invoice. For a bank transfer, add the bank reference, then use <strong>Bank reconciliation</strong> to match the statement line without creating another receipt.
               </div>
               <div className="grid-2">
                 <Field label="Receipt number">
@@ -538,12 +539,35 @@ export function PropertyModals(props: PropertyModalsProps) {
                   <input name="received_on" type="date" required />
                 </Field>
               </div>
-              <Field label="Tenant" required>
-                <select name="tenant" required defaultValue="">
-                  <option value="" disabled>Select tenant</option>
-                  {tenantOptions.map((t) => (
-                    <option key={String(t.id)} value={String(t.id)}>{String(t.name)}</option>
-                  ))}
+              <div className="grid-2">
+                <Field label="Paying for" required>
+                  <select name="paying_for" defaultValue="rent">
+                    <option value="rent">Rent</option>
+                    <option value="service_charge">Service charge</option>
+                    <option value="utilities">Water / electricity</option>
+                    <option value="management_fee">Management fee</option>
+                    <option value="letting_fee">Letting fee</option>
+                    <option value="facility_management_fee">Facility management fee</option>
+                    <option value="other">Other</option>
+                  </select>
+                </Field>
+                <div style={{ display: "flex", alignItems: "end", fontSize: 12, color: "var(--text-secondary)", paddingBottom: 8 }}>
+                  The payer selection determines whether this is a tenant or landlord receipt.
+                </div>
+              </div>
+              <Field label="Payer" required>
+                <select name="payer" required defaultValue="" data-testid="receipt-payer">
+                  <option value="" disabled>Select a tenant or landlord</option>
+                  <optgroup label="Tenants">
+                    {tenantOptions.map((t) => (
+                      <option key={`tenant-${String(t.id)}`} value={`tenant:${String(t.id)}`}>{String(t.name)}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Landlords / unit owners">
+                    {ownerOptions.map((o) => (
+                      <option key={`landlord-${String(o.id)}`} value={`landlord:${String(o.id)}`}>{String(o.name)}</option>
+                    ))}
+                  </optgroup>
                 </select>
               </Field>
               <div className="grid-2">
@@ -559,9 +583,9 @@ export function PropertyModals(props: PropertyModalsProps) {
                   </select>
                 </Field>
               </div>
-              <Field label="Allocate to Invoice (optional)">
+              <Field label="Allocate to a specific invoice (optional)">
                 <select name="invoice" defaultValue={receiptInvoice}>
-                  <option value="">Unallocated</option>
+                  <option value="">Use automatic priority allocation</option>
                   {invoiceOptions.map((inv) => (
                     <option key={String(inv.id)} value={String(inv.id)}>{String(inv.number)} · {kM(inv.amount)}</option>
                   ))}

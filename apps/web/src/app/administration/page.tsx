@@ -44,6 +44,18 @@ type MemberItem = {
   assigned_properties: { id: string; name: string; code: string }[];
 };
 
+type ClientErrorEvent = {
+  id: string;
+  message: string;
+  url: string;
+  release: string;
+  occurrences: number;
+  first_seen_at: string;
+  last_seen_at: string;
+  status: "open" | "resolved" | "ignored";
+  extra: Record<string, unknown>;
+};
+
 type GatewayConfig = {
   id?: string;
   public_key?: string;
@@ -128,8 +140,8 @@ function AdministrationContent() {
 
   // Active subtab read from sidebar URL search parameter
   const urlTab = searchParams ? searchParams.get("tab") : null;
-  const tab = (urlTab && ["users", "roles", "mpesa", "smtp", "orgs", "tax", "audit", "feedback-qr"].includes(urlTab))
-    ? (urlTab as "users" | "roles" | "mpesa" | "smtp" | "orgs" | "tax" | "audit" | "feedback-qr")
+  const tab = (urlTab && ["users", "roles", "mpesa", "smtp", "orgs", "tax", "audit", "system-health", "feedback-qr"].includes(urlTab))
+    ? (urlTab as "users" | "roles" | "mpesa" | "smtp" | "orgs" | "tax" | "audit" | "system-health" | "feedback-qr")
     : (isSuperAdministrator ? "users" : "feedback-qr");
 
   const canAccessAdministration = isSuperAdministrator || (
@@ -145,6 +157,10 @@ function AdministrationContent() {
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [properties, setProperties] = useState<PropertyItem[]>([]);
+  const [clientErrors, setClientErrors] = useState<ClientErrorEvent[]>([]);
+  const [openClientErrorCount, setOpenClientErrorCount] = useState(0);
+  const [clientErrorsLoading, setClientErrorsLoading] = useState(false);
+  const [apiHealth, setApiHealth] = useState<"loading" | "operational" | "unavailable">("loading");
 
   // User Table Search & Filters
   const [userSearch, setUserSearch] = useState("");
@@ -458,14 +474,61 @@ function AdministrationContent() {
     }
   }, [organizationId, isSuperAdministrator, isFinanceAdmin, isManagerOrAdmin]);
 
+  const loadClientErrors = useCallback(async () => {
+    if (!organizationId || !isSuperAdministrator) return;
+    setClientErrorsLoading(true);
+    try {
+      const response = await apiFetch("/client-errors/health/?status=open&limit=50", {}, organizationId);
+      if (!response.ok) throw new Error("Could not load browser error diagnostics.");
+      const payload = await response.json() as { open_count?: number; results?: ClientErrorEvent[] };
+      setOpenClientErrorCount(payload.open_count || 0);
+      setClientErrors(payload.results || []);
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Could not load browser error diagnostics." });
+    } finally {
+      setClientErrorsLoading(false);
+    }
+  }, [organizationId, isSuperAdministrator]);
+
+  const loadApiHealth = useCallback(async () => {
+    if (!isSuperAdministrator) return;
+    setApiHealth("loading");
+    try {
+      const response = await apiFetch("/health/", {}, organizationId);
+      const payload = response.ok ? await response.json() as { status?: string; database?: string } : null;
+      setApiHealth(payload?.status === "ok" && payload.database === "ok" ? "operational" : "unavailable");
+    } catch {
+      setApiHealth("unavailable");
+    }
+  }, [organizationId, isSuperAdministrator]);
+
+  async function updateClientErrorStatus(id: string, status: "resolved" | "ignored") {
+    if (!organizationId) return;
+    try {
+      const response = await apiFetch("/client-errors/health/", {
+        method: "PATCH",
+        body: JSON.stringify({ id, status }),
+      }, organizationId);
+      if (!response.ok) throw new Error("Could not update this error event.");
+      setNotice({ type: "success", text: `Error marked ${status}.` });
+      await loadClientErrors();
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Could not update this error event." });
+    }
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (tab === "users" || tab === "roles" || tab === "mpesa") void loadPropertiesAndRoles();
       if (tab === "users") void loadMembers();
       if (tab === "smtp") void loadSmtpConfig();
+      if (tab === "system-health") {
+        void loadClientErrors();
+        void loadApiHealth();
+      }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [tab, loadPropertiesAndRoles, loadMembers, loadSmtpConfig]);
+  }, [tab, loadPropertiesAndRoles, loadMembers, loadSmtpConfig, loadClientErrors, loadApiHealth]);
 
   useEffect(() => {
     if (tab !== "mpesa" || !selectedPropertyId) return;
@@ -2103,6 +2166,53 @@ function AdministrationContent() {
                 <option>Batch Daily Transmission</option>
               </select>
             </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "system-health" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 20, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Activity size={19} /> System health</h2>
+              <p style={{ margin: "5px 0 0", color: "var(--muted)", fontSize: 13 }}>Browser errors are grouped by cause and route, so recurring issues can be triaged without reading server logs.</p>
+            </div>
+            <button className="btn secondary" type="button" onClick={() => { void loadClientErrors(); void loadApiHealth(); }} disabled={clientErrorsLoading}>
+              {clientErrorsLoading ? "Refreshing…" : "↻ Refresh"}
+            </button>
+          </div>
+
+          <KpiStrip cols={3}>
+            <KpiCard icon={apiHealth === "operational" ? "🟢" : apiHealth === "unavailable" ? "🔴" : "⏳"} iconBg={apiHealth === "operational" ? "#dcfce7" : apiHealth === "unavailable" ? "#fee2e2" : "#fef3c7"} iconColor={apiHealth === "operational" ? "#15803d" : apiHealth === "unavailable" ? "#b91c1c" : "#a16207"} label="API & database" value={apiHealth === "operational" ? "Operational" : apiHealth === "unavailable" ? "Unavailable" : "Checking…"} sub="Live check from this browser" />
+            <KpiCard icon="⚠️" iconBg={openClientErrorCount ? "#fee2e2" : "#dcfce7"} iconColor={openClientErrorCount ? "#b91c1c" : "#15803d"} label="Open browser errors" value={String(openClientErrorCount)} sub="Unique error signatures" />
+            <KpiCard icon="🧭" iconBg="#e0f2fe" iconColor="#0369a1" label="Scope" value="This organisation" sub="Errors are isolated by active organisation" />
+          </KpiStrip>
+
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div><strong>Open client errors</strong><div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Only technical failures reported by the browser are listed here.</div></div>
+              <StatusPill tone={openClientErrorCount ? "yellow" : "green"}>{openClientErrorCount ? "Needs review" : "All clear"}</StatusPill>
+            </div>
+            {clientErrorsLoading ? (
+              <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>Loading error diagnostics…</div>
+            ) : clientErrors.length === 0 ? (
+              <EmptyState icon="✓" title="No open browser errors" description="New browser errors will appear here automatically, grouped by signature." />
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+                  <thead><tr style={{ background: "var(--surface-2, #f8fafc)", textAlign: "left", fontSize: 12 }}>
+                    <th style={{ padding: "11px 16px" }}>Error</th><th style={{ padding: "11px 16px" }}>Route</th><th style={{ padding: "11px 16px" }}>Occurrences</th><th style={{ padding: "11px 16px" }}>Last seen</th><th style={{ padding: "11px 16px", textAlign: "right" }}>Actions</th>
+                  </tr></thead>
+                  <tbody>{clientErrors.map((event) => <tr key={event.id} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td style={{ padding: "13px 16px", maxWidth: 380 }}><strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={event.message}>{event.message}</strong><span style={{ color: "var(--muted)", fontSize: 12 }}>{event.release || "production"}</span></td>
+                    <td style={{ padding: "13px 16px", fontFamily: "monospace", fontSize: 12 }}>{event.url || "—"}</td>
+                    <td style={{ padding: "13px 16px" }}><Badge tone={event.occurrences > 10 ? "red" : "blue"}>{event.occurrences}</Badge></td>
+                    <td style={{ padding: "13px 16px", fontSize: 13 }}>{new Date(event.last_seen_at).toLocaleString()}</td>
+                    <td style={{ padding: "13px 16px", textAlign: "right", whiteSpace: "nowrap" }}><button type="button" className="btn secondary" onClick={() => void updateClientErrorStatus(event.id, "ignored")}>Ignore</button>{" "}<button type="button" className="btn primary" onClick={() => void updateClientErrorStatus(event.id, "resolved")}>Resolve</button></td>
+                  </tr>)}</tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

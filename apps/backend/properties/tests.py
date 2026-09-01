@@ -28,7 +28,8 @@ from .models import (
     ReportDefinition, ReportExecution, ScheduledReport, ServiceCharge, ServiceChargeAllocation,
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
     TaxConfiguration, TenantMovement, Unit, UnitChargeRule, UnitStatusHistory, ParkingSpace, ParkingAssignment,
-    Owner, PropertyCollectionAccount, PropertyFeeProfile,
+    Owner, PropertyCollectionAccount, PropertyFeeProfile, PayerWallet,
+    LandlordInvoice,
 )
 
 
@@ -92,6 +93,45 @@ class PropertyApiTests(TestCase):
         response = self.client.get('/api/v1/property/properties/', **self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row['code'] for row in response.data], ['OWN-001'])
+
+    def test_unallocated_receipt_remains_visible_in_its_property_ledger(self):
+        receipt = Receipt.objects.create(
+            organization=self.organization,
+            number='RCPT-UNALLOCATED-1',
+            tenant=self.tenant,
+            received_on='2026-08-01',
+            amount=Decimal('500.00'),
+            payment_method='bank_transfer',
+            received_by=self.user,
+        )
+        response = self.client.get(
+            '/api/v1/property/receipts/',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIn(str(receipt.id), [row['id'] for row in response.data])
+
+    def test_receipt_auto_allocates_by_charge_priority_and_keeps_excess_as_credit(self):
+        utilities = Invoice.objects.create(
+            organization=self.organization, number='INV-UTIL-1', lease=self.lease,
+            charge_type='utilities', invoice_type='utilities', issued_on='2026-07-01', due_on='2026-07-02',
+            subtotal=Decimal('100.00'), tax_rate=Decimal('16.00'), tax_amount=Decimal('16.00'),
+            amount=Decimal('116.00'), balance=Decimal('116.00'), status=Invoice.Status.ISSUED,
+        )
+        response = self.client.post('/api/v1/property/receipts/', {
+            'tenant': str(self.tenant.id), 'payer_type': 'tenant', 'paying_for': 'rent',
+            'received_on': '2026-08-01', 'amount': '1216.00', 'payment_method': 'bank_transfer',
+            'external_reference': 'TEST-PRIORITY-1',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        utilities.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(utilities.status, Invoice.Status.PAID)
+        self.assertEqual(self.invoice.status, Invoice.Status.PAID)
+        wallet = PayerWallet.objects.get(organization=self.organization, tenant=self.tenant)
+        self.assertEqual(wallet.balance, Decimal('100.00'))
+        components = list(ReceiptAllocation.objects.filter(receipt_id=response.data['id']).values_list('component', flat=True))
+        self.assertEqual(components[0], ReceiptAllocation.Component.VAT)
 
     def test_dashboard_uses_live_organization_data(self):
         response = self.client.get('/api/v1/property/dashboard/', **self.headers)
@@ -832,6 +872,54 @@ class PropertyApiTests(TestCase):
         self.assertEqual(reading.status, MeterReading.Status.APPROVED)
         self.assertEqual(response.data['utility_meters_created'], 1)
 
+    def test_edit_onboarding_persists_uploaded_buildings_and_units(self):
+        response = self.client.patch(f'/api/v1/property/properties/{self.property.id}/', {
+            'property': {
+                'name': 'Owned Property', 'property_type': 'commercial', 'status': 'active',
+                'address': 'Mombasa Road', 'city': 'Nairobi', 'country': 'KE',
+                'metadata': {'landlord': {'name': 'Property Owner'}},
+            },
+            'building': {'buildings': [{'name': 'Main Block', 'floors': 6, 'use': 'Commercial'}]},
+            'units': [
+                {'unit_no': 'G-01', 'unit_type': 'Retail', 'floor': 'Ground', 'use': 'Shop', 'area': '800', 'building_index': 1, 'service_charge_rate': '12.50'},
+                {'unit_no': '1-A', 'unit_type': 'Office', 'floor': '1', 'use': 'Office', 'area': '650', 'building_index': 1},
+            ],
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['onboarding_sync'], {'buildings_created': 1, 'units_created': 2, 'units_updated': 0})
+        self.property.refresh_from_db()
+        self.assertEqual(self.property.buildings.count(), 1)
+        self.assertEqual(self.property.units.count(), 3)  # Existing unit is retained.
+        created = self.property.units.get(code='G-01')
+        self.assertEqual(created.metadata['use'], 'Shop')
+        self.assertEqual(created.charge_rules.get(billing_item__code='SERVICE_CHARGE').rate, Decimal('12.50'))
+
+        detail = self.client.get(f'/api/v1/property/properties/{self.property.id}/', **self.headers)
+        self.assertEqual(detail.status_code, 200, detail.data)
+        self.assertEqual(len(detail.data['buildings']), 1)
+        self.assertIn('G-01', [unit['code'] for unit in detail.data['units']])
+
+    def test_building_delete_allows_empty_buildings_and_protects_units(self):
+        empty = Building.objects.create(
+            organization=self.organization, property=self.property,
+            code='BLD-EMPTY', name='Empty Annex', floors=1,
+        )
+        deleted = self.client.delete(f'/api/v1/property/buildings/{empty.id}/', **self.headers)
+        self.assertEqual(deleted.status_code, 204, deleted.data)
+        self.assertFalse(Building.objects.filter(id=empty.id).exists())
+
+        occupied_structure = Building.objects.create(
+            organization=self.organization, property=self.property,
+            code='BLD-USED', name='Occupied Block', floors=1,
+        )
+        self.unit.building = occupied_structure
+        self.unit.save(update_fields=('building', 'updated_at'))
+        blocked = self.client.delete(f'/api/v1/property/buildings/{occupied_structure.id}/', **self.headers)
+        self.assertEqual(blocked.status_code, 400, blocked.data)
+        self.assertIn('cannot be deleted', str(blocked.data))
+        self.assertTrue(Building.objects.filter(id=occupied_structure.id).exists())
+
     def test_tenant_company_card_is_validated_and_assigned_to_selected_property(self):
         scoped_headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         response = self.client.post('/api/v1/property/tenants/', {
@@ -1296,6 +1384,39 @@ class PropertyApiTests(TestCase):
         self.assertEqual(request_record.unit, self.unit)
         TenantPortalAccess.objects.filter(user=self.user).update(is_active=False)
         self.assertEqual(self.client.get('/api/v1/property/portal/', **self.headers).status_code, 403)
+
+    def test_offer_letter_acceptance_blocks_then_releases_first_billing(self):
+        TenantPortalAccess.objects.create(
+            organization=self.organization, user=self.user, tenant=self.tenant,
+        )
+        issued = self.client.post(
+            f'/api/v1/property/leases/{self.lease.id}/offer-letter/', {}, format='json', **self.headers,
+        )
+        self.assertEqual(issued.status_code, 200, issued.data)
+        self.assertEqual(issued.data['offer_letter']['status'], 'issued')
+        self.assertTrue(Notification.objects.filter(
+            recipient=self.user, metadata__offer_reference=issued.data['offer_letter']['reference'],
+        ).exists())
+
+        run = BillingRun.objects.create(
+            organization=self.organization, property=self.property,
+            period_start=date(2026, 8, 1), period_end=date(2026, 8, 31), created_by=self.user,
+        )
+        prepared = self.client.post(f'/api/v1/property/billing-runs/{run.id}/prepare/', {}, format='json', **self.headers)
+        self.assertEqual(prepared.status_code, 200, prepared.data)
+        candidate = BillingCandidate.objects.get(billing_run=run, lease=self.lease)
+        self.assertEqual(candidate.status, BillingCandidate.Status.ISSUE)
+        self.assertTrue(any(issue['code'] == 'offer_letter_pending' for issue in candidate.issue_summary))
+
+        accepted = self.client.post('/api/v1/property/portal/offer-letter/accept/', {
+            'accepted_by': 'A Tenant', 'confirmed': True,
+        }, format='json', **self.headers)
+        self.assertEqual(accepted.status_code, 200, accepted.data)
+        self.assertEqual(accepted.data['offer_letter']['status'], 'accepted')
+        prepared = self.client.post(f'/api/v1/property/billing-runs/{run.id}/prepare/', {}, format='json', **self.headers)
+        self.assertEqual(prepared.status_code, 200, prepared.data)
+        candidate.refresh_from_db()
+        self.assertEqual(candidate.status, BillingCandidate.Status.READY)
 
     def test_lease_renewal_preserves_continuity_and_is_idempotent(self):
         renewed = self.client.post(f'/api/v1/property/leases/{self.lease.id}/renew/', {
@@ -2239,6 +2360,29 @@ class SectionalTitleOnboardingAndBillingTests(TestCase):
         self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
         self.client.force_authenticate(user=self.user)
 
+    def test_bulk_owner_import_assigns_sectional_units_and_engagements(self):
+        property_obj = Property.objects.create(
+            organization=self.organization, code='PROP-BULK-OWN', name='Bulk Owner Court', is_sectional_title=True,
+        )
+        building = Building.objects.create(
+            organization=self.organization, property=property_obj, code='BLOCK-A', name='Block A',
+        )
+        Unit.objects.create(organization=self.organization, property=property_obj, building=building, code='A-101')
+        Unit.objects.create(organization=self.organization, property=property_obj, building=building, code='A-102')
+        payload = {'mode': 'commit', 'rows': [{
+            'name': 'Acacia Holdings Ltd', 'email': 'accounts@acacia.example', 'pin_number': 'P012345678X',
+            'unit_codes': 'A-101; A-102', 'engaged_for_unit_management': 'yes', 'engaged_for_letting': 'no',
+        }]}
+
+        response = self.client.post('/api/v1/property/owners/bulk-import/', payload, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['created_count'], 1)
+        owner = Owner.objects.get(organization=self.organization, pin_number='P012345678X')
+        self.assertTrue(owner.engaged_for_unit_management)
+        self.assertFalse(owner.engaged_for_letting)
+        self.assertEqual(owner.units.count(), 2)
+
     def test_sectional_title_onboarding_and_readiness_check(self):
         payload = {
             'property': {
@@ -2460,3 +2604,93 @@ class SectionalTitleOnboardingAndBillingTests(TestCase):
         self.assertEqual(rent_inv.collection_account, rent_acct)
         self.assertEqual(rent_inv.mpesa_reference, 'RENT-R-101-08-2026')
 
+        # Test Landlord Remittance Statement Calculation
+        rent_inv.status = Invoice.Status.PAID
+        rent_inv.balance = Decimal('0.00')
+        rent_inv.save()
+
+        remit_res = self.client.get(
+            f'/api/v1/property/owners/{owner.id}/remittance-statement/?month=8&year=2026',
+            **self.headers
+        )
+        self.assertEqual(remit_res.status_code, 200, remit_res.data)
+        data = remit_res.data
+        self.assertEqual(data['summary']['total_gross_collected'], Decimal('45000.00'))
+        # 10% commission on 45,000 = 4,500
+        self.assertEqual(data['summary']['total_commission_deducted'], Decimal('4500.00'))
+        # Net remittance = 45000 - 4500 commission - SC = actual net
+        self.assertGreater(data['summary']['net_remittance_payable'], Decimal('0.00'))
+        self.assertLess(data['summary']['net_remittance_payable'], Decimal('45000.00'))
+        self.assertEqual(data['settlement_route']['bank_name'], 'Stanbic Bank')
+        self.assertIn('account_number', data['settlement_route'])
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class LandlordInvoiceApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='landlord-user', email='landlord@example.com', password='test-password',
+        )
+        self.organization = Organization.objects.create(name='Landlord Client', slug='landlord-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(
+            organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE,
+        )
+        self.property = Property.objects.create(
+            organization=self.organization, code='LND-001', name='Landlord Property', status=Property.Status.ACTIVE,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def create_invoice(self, status='draft'):
+        invoice = LandlordInvoice.objects.create(
+            organization=self.organization, number='LB-2026-000001', property=self.property,
+            landlord_name='Landlord Property', billing_period='2026-08',
+            gross_collections=Decimal('100000'), fee_rate=Decimal('8.00'),
+            fee_amount=Decimal('8000.00'), vat_rate=Decimal('16.00'),
+            vat_amount=Decimal('1280.00'), total_amount=Decimal('9280.00'),
+            net_payout=Decimal('90720.00'), status=status,
+        )
+        return invoice
+
+    def test_create_generates_number_and_computes_totals(self):
+        response = self.client.post(
+            '/api/v1/property/landlord-invoices/',
+            {
+                'property': self.property.id,
+                'landlord_name': 'Landlord Property',
+                'fee_type': 'management',
+                'billing_period': '2026-08',
+                'gross_collections': '100000',
+                'fee_rate': '8.00',
+                'vat_rate': '16.00',
+                'deductions': '0',
+                'notes': 'August settlement',
+            },
+            **self.headers, format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        data = response.data
+        self.assertEqual(data['number'], 'LB-2026-000001')
+        self.assertEqual(data['status'], 'draft')
+        self.assertEqual(data['fee_amount'], '8000.00')
+        self.assertEqual(data['vat_amount'], '1280.00')
+        self.assertEqual(data['total_amount'], '9280.00')
+        self.assertEqual(data['net_payout'], '90720.00')
+
+    def test_draft_invoice_can_be_deleted(self):
+        invoice = self.create_invoice(status='draft')
+        response = self.client.delete(
+            f'/api/v1/property/landlord-invoices/{invoice.id}/', **self.headers,
+        )
+        self.assertEqual(response.status_code, 204, response.data)
+        self.assertFalse(LandlordInvoice.objects.filter(id=invoice.id).exists())
+
+    def test_sent_invoice_cannot_be_deleted(self):
+        invoice = self.create_invoice(status='sent')
+        response = self.client.delete(
+            f'/api/v1/property/landlord-invoices/{invoice.id}/', **self.headers,
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertTrue(LandlordInvoice.objects.filter(id=invoice.id).exists())

@@ -41,7 +41,8 @@ echo "Deploying API to ${REMOTE_HOST}:${API_PATH} and frontend to ${REMOTE_HOST}
 if [[ "$RUN_TESTS" == "1" ]]; then
   echo "Running backend tests before deploy..."
   cd apps/backend
-  if .venv/bin/python -m pytest companion.tests properties.tests -x -q --tb=short 2>&1; then
+  if .venv/bin/python manage.py makemigrations --check --dry-run && \
+    .venv/bin/python -m pytest companion.tests properties.tests -x -q --tb=short --reuse-db --nomigrations 2>&1; then
     echo "All tests passed."
   else
     echo "Some tests failed. Aborting deploy." >&2

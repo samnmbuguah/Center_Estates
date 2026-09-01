@@ -370,14 +370,18 @@ class CompanionDashboardViewSet(ViewSet):
             inProgress=Count('id', filter=Q(status=Task.Status.IN_PROGRESS)),
             completed=Count('id', filter=Q(status=Task.Status.COMPLETED)),
         )
+        active_tasks_list = list(active.order_by('-updated_at')[:30])
+        recent_tasks = active_tasks_list[:10]
+        overdue_tasks = sorted([t for t in active_tasks_list if t.due_at and t.due_at < now], key=lambda t: t.due_at)[:10]
+        escalated_tasks = sorted([t for t in active_tasks_list if t.escalated], key=lambda t: t.escalated_at or t.updated_at, reverse=True)[:10]
         from .nudges import evaluate_employee_nudge
         active_nudge = evaluate_employee_nudge(request.user, organization, delivery='overview')
         return Response({
             'kpis': kpis,
             'activeNudge': active_nudge,
-            'recentTasks': TaskSerializer(active.order_by('-updated_at')[:10], many=True).data,
-            'overdueTasks': TaskSerializer(active.filter(due_at__lt=now).order_by('due_at')[:10], many=True).data,
-            'escalatedTasks': TaskSerializer(active.filter(escalated=True).order_by('-escalated_at')[:10], many=True).data,
+            'recentTasks': TaskSerializer(recent_tasks, many=True).data,
+            'overdueTasks': TaskSerializer(overdue_tasks, many=True).data,
+            'escalatedTasks': TaskSerializer(escalated_tasks, many=True).data,
         })
 
     @action(detail=False, methods=('get',))

@@ -78,9 +78,12 @@ export function CommandCenterWorkspace() {
         setPulse(data.pulse ?? {});
       }
     }
-    void loadPulse();
+    // Render the command-center shell first. Pulse data is informative and
+    // must not make a fresh login look unsuccessful when the API is busy.
+    const deferredLoad = window.setTimeout(() => void loadPulse(), 750);
     return () => {
       cancelled = true;
+      window.clearTimeout(deferredLoad);
     };
   }, [organizationId, moduleSlugs]);
 

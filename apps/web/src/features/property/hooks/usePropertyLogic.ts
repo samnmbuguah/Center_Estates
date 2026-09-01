@@ -127,6 +127,7 @@ export function usePropertyLogic({
   const [unitMix, setUnitMix] = useState<{ type: string; count: number; size: number }[]>([{ type: "", count: 1, size: 0 }]);
 
   const [tenantOptions, setTenantOptions] = useState<Row[]>([]);
+  const [ownerOptions, setOwnerOptions] = useState<Row[]>([]);
   const [unitOptions, setUnitOptions] = useState<Row[]>([]);
   const [invoiceOptions, setInvoiceOptions] = useState<Row[]>([]);
   const [receiptOptions, setReceiptOptions] = useState<Row[]>([]);
@@ -517,6 +518,11 @@ export function usePropertyLogic({
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setTenantOptions(Array.isArray(d) ? d : []));
     }
+    if (showRecordReceipt) {
+      void apiFetch("/property/owners/?search=", {}, organizationId)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setOwnerOptions(Array.isArray(d) ? d : []));
+    }
     if (showInvoiceComposer) {
       void apiFetch("/property/leases/?status=active&search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
@@ -891,8 +897,17 @@ export function usePropertyLogic({
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const raw = Object.fromEntries(form.entries());
+    const payer = String(raw.payer ?? "");
+    const [payerType, payerId] = payer.split(":", 2);
+    if (!payerId || !["tenant", "landlord"].includes(payerType)) {
+      setError("Select the tenant or landlord who made this payment.");
+      return;
+    }
     const payload = {
-      tenant: String(raw.tenant ?? ""),
+      payer_type: payerType,
+      tenant: payerType === "tenant" ? payerId : null,
+      owner: payerType === "landlord" ? payerId : null,
+      paying_for: String(raw.paying_for ?? "rent"),
       invoice: raw.invoice ? String(raw.invoice) : null,
       received_on: String(raw.received_on ?? ""),
       amount: Number(raw.amount ?? 0),
@@ -907,8 +922,10 @@ export function usePropertyLogic({
     }, organizationId);
     if (res.ok) {
       setShowRecordReceipt(false);
-      setTab("receipts");
-      loadData();
+      // Switch to the ledger and let its property-scoped effect fetch the
+      // current data. Calling the previous loader here races that fetch.
+      setReceiptingSection("receipts");
+      setTab("receipting");
     } else {
       setError("Receipt recording failed.");
     }
@@ -1541,6 +1558,7 @@ export function usePropertyLogic({
     unitMix,
     setUnitMix,
     tenantOptions,
+    ownerOptions,
     unitOptions,
     invoiceOptions,
     receiptOptions,

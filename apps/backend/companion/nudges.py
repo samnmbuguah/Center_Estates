@@ -147,6 +147,14 @@ def _evaluate_raw_nudge(user, organization, session_active_minutes: int = 110, d
         start_date__lte=now.date() + timedelta(days=3)
     ).exists()
 
+    # 1. Manager Campaign Broadcasts take top priority
+    if campaign:
+        return campaign
+
+    # 2. Quiet Mode: If the user has zero workload/tasks today and no campaign, stay quiet
+    if not (active_count or completed_today_count or overdue_count or approaching_deadlines or has_upcoming_leave):
+        return None
+
     # ─────────────────────────────────────────────────────────────
     # Nudge Decision Matrix (Prioritized by contextual urgency)
     # ─────────────────────────────────────────────────────────────

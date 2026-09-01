@@ -34,9 +34,13 @@ export function EmailUpdateBanner() {
         // Ignore background fetch error
       }
     }
-    checkProfile();
+    // This is a helpful prompt, not a prerequisite for opening a workspace.
+    // Delay the profile lookup so it cannot compete with session bootstrap on
+    // constrained hosting workers.
+    const deferredCheck = window.setTimeout(() => void checkProfile(), 6_000);
     return () => {
       cancelled = true;
+      window.clearTimeout(deferredCheck);
     };
   }, [session?.user]);
 

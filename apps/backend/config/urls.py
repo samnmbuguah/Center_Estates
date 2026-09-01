@@ -10,7 +10,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.middleware.csrf import get_token
 from django.views.static import serve
 from django.conf import settings
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 # ---------------------------------------------------------------------------
 # Shared HTML shell (nav + footer + base styles)
@@ -2448,6 +2448,9 @@ urlpatterns = [
     path('_next/static/<path:path>', serve_nextjs_static, name='nextjs-static'),
     path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/v1/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    # Stable aliases retained for the operations team and prior /console links.
+    path('console/', SpectacularSwaggerView.as_view(url_name='schema'), name='api-console'),
+    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='api-redoc'),
     path('admin/', admin.site.urls),
     path('api/v1/', include('core.urls')),
     path('api/v1/audit/', include('audit.urls')),

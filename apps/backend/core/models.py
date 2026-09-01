@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 
@@ -39,3 +40,72 @@ class OrganizationOwnedModel(TimeStampedModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class ClientErrorEvent(TimeStampedModel):
+    """Deduplicated browser errors for operational diagnostics.
+
+    This intentionally stores a bounded technical payload only. It is not an
+    audit trail for user-entered form values or a replacement for application
+    logs.
+    """
+
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        RESOLVED = 'resolved', 'Resolved'
+        IGNORED = 'ignored', 'Ignored'
+
+    organization = models.ForeignKey(
+        'organizations.Organization', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='client_error_events',
+    )
+    fingerprint = models.CharField(max_length=64, db_index=True)
+    message = models.CharField(max_length=500)
+    stack = models.TextField(blank=True)
+    component_stack = models.TextField(blank=True)
+    url = models.CharField(max_length=500, blank=True)
+    release = models.CharField(max_length=50, blank=True)
+    extra = models.JSONField(default=dict, blank=True)
+    occurrences = models.PositiveIntegerField(default=1)
+    first_seen_at = models.DateTimeField()
+    last_seen_at = models.DateTimeField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+
+    class Meta:
+        ordering = ('-last_seen_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('organization', 'fingerprint'),
+                name='unique_client_error_event_per_organization_fingerprint',
+            ),
+        ]
+
+
+class FeatureTestProgress(OrganizationOwnedModel):
+    """Per-organisation acceptance-test evidence for the curated release checklist."""
+
+    class Status(models.TextChoices):
+        NOT_STARTED = 'not_started', 'Not started'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        PASSED = 'passed', 'Passed'
+        FAILED = 'failed', 'Failed'
+        BLOCKED = 'blocked', 'Blocked'
+
+    feature_key = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NOT_STARTED)
+    notes = models.TextField(blank=True)
+    evidence_url = models.URLField(blank=True)
+    tested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='feature_test_progress',
+    )
+    tested_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('feature_key',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('organization', 'feature_key'),
+                name='unique_feature_test_progress_per_organization',
+            ),
+        ]

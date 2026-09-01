@@ -384,7 +384,7 @@ export function SectionalTitleOnboardingModal({
         activate_immediately: true,
       };
 
-      const res = await apiFetch("/api/v1/property/properties/onboard-sectional-title/", {
+      const res = await apiFetch("/property/properties/onboard-sectional-title/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

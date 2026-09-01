@@ -146,7 +146,7 @@ export function ReportsView({
     setError("");
     try {
       const response = await apiFetch(
-        `/facility/analytics/exports/?type=${exportType}&format=json&start=${start}&end=${end}`,
+        `/facility/analytics/exports/?type=${exportType}&export_format=json&start=${start}&end=${end}`,
         {},
         organizationId
       );
@@ -365,7 +365,7 @@ export function ReportsView({
       const url =
         exportType === "landlord-report" && format === "pdf"
           ? `/facility/analytics/landlord-report/?start=${start}&end=${end}`
-          : `/facility/analytics/exports/?type=${exportType}&format=${format}&start=${start}&end=${end}`;
+          : `/facility/analytics/exports/?type=${exportType}&export_format=${format}&start=${start}&end=${end}`;
 
       const response = await apiFetch(url, {}, organizationId);
       if (!response.ok) {
