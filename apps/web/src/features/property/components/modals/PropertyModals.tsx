@@ -210,6 +210,7 @@ export function PropertyModals(props: PropertyModalsProps) {
     error = "",
     setError = () => {},
   } = props;
+  const [receiptPayerType, setReceiptPayerType] = useState<"tenant" | "landlord">("tenant");
 
   const submitAddProperty = (e?: any) => onAddPropertySubmit(e ?? { preventDefault: () => {} } as any);
   const submitAddLease = onAddLeaseSubmit;
@@ -529,7 +530,7 @@ export function PropertyModals(props: PropertyModalsProps) {
           <Modal title="Record payment receipt" onClose={() => setShowRecordReceipt(false)} wide>
             <form onSubmit={submitRecordReceipt} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="card" style={{ padding: "10px 14px", background: "var(--surface-2)", fontSize: 13, color: "var(--text-primary)" }}>
-                <strong>Record once, allocate safely.</strong> Choose the payer and what they are paying for. The system first applies penalties, VAT, utilities, service charge, then rent; any extra remains as wallet credit for a future invoice. For a bank transfer, add the bank reference, then use <strong>Bank reconciliation</strong> to match the statement line without creating another receipt.
+                <strong>Record once, allocate safely.</strong> Select whether the payer is a tenant or landlord, then choose the payer. The system applies the organisation&apos;s configured priority matrix to their open balances: penalties, VAT, utilities, service charge, then rent. Any excess remains as wallet credit for a future invoice. For a bank transfer, add the bank reference, then use <strong>Bank reconciliation</strong> to match the statement line without creating another receipt.
               </div>
               <div className="grid-2">
                 <Field label="Receipt number">
@@ -540,34 +541,22 @@ export function PropertyModals(props: PropertyModalsProps) {
                 </Field>
               </div>
               <div className="grid-2">
-                <Field label="Paying for" required>
-                  <select name="paying_for" defaultValue="rent">
-                    <option value="rent">Rent</option>
-                    <option value="service_charge">Service charge</option>
-                    <option value="utilities">Water / electricity</option>
-                    <option value="management_fee">Management fee</option>
-                    <option value="letting_fee">Letting fee</option>
-                    <option value="facility_management_fee">Facility management fee</option>
-                    <option value="other">Other</option>
+                <Field label="Payer type" required>
+                  <select name="payer_type" value={receiptPayerType} onChange={(event) => setReceiptPayerType(event.target.value as "tenant" | "landlord")} data-testid="receipt-payer-type">
+                    <option value="tenant">Tenant</option>
+                    <option value="landlord">Landlord / unit owner</option>
                   </select>
                 </Field>
                 <div style={{ display: "flex", alignItems: "end", fontSize: 12, color: "var(--text-secondary)", paddingBottom: 8 }}>
-                  The payer selection determines whether this is a tenant or landlord receipt.
+                  Allocation is automatic; do not select a charge category here.
                 </div>
               </div>
               <Field label="Payer" required>
-                <select name="payer" required defaultValue="" data-testid="receipt-payer">
-                  <option value="" disabled>Select a tenant or landlord</option>
-                  <optgroup label="Tenants">
-                    {tenantOptions.map((t) => (
-                      <option key={`tenant-${String(t.id)}`} value={`tenant:${String(t.id)}`}>{String(t.name)}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Landlords / unit owners">
-                    {ownerOptions.map((o) => (
-                      <option key={`landlord-${String(o.id)}`} value={`landlord:${String(o.id)}`}>{String(o.name)}</option>
-                    ))}
-                  </optgroup>
+                <select key={receiptPayerType} name="payer" required defaultValue="" data-testid="receipt-payer">
+                  <option value="" disabled>{receiptPayerType === "tenant" ? "Select tenant" : "Select landlord / unit owner"}</option>
+                  {receiptPayerType === "tenant"
+                    ? tenantOptions.map((t) => <option key={`tenant-${String(t.id)}`} value={`tenant:${String(t.id)}`}>{String(t.name)}</option>)
+                    : ownerOptions.map((o) => <option key={`landlord-${String(o.id)}`} value={`landlord:${String(o.id)}`}>{String(o.name)}</option>)}
                 </select>
               </Field>
               <div className="grid-2">

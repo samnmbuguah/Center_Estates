@@ -124,6 +124,7 @@ class PropertyApiTests(TestCase):
             'external_reference': 'TEST-PRIORITY-1',
         }, format='json', **self.headers)
         self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['paying_for'], Receipt.PayingFor.AUTOMATIC)
         utilities.refresh_from_db()
         self.invoice.refresh_from_db()
         self.assertEqual(utilities.status, Invoice.Status.PAID)

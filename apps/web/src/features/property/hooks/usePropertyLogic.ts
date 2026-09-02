@@ -898,16 +898,16 @@ export function usePropertyLogic({
     const form = new FormData(e.currentTarget);
     const raw = Object.fromEntries(form.entries());
     const payer = String(raw.payer ?? "");
-    const [payerType, payerId] = payer.split(":", 2);
-    if (!payerId || !["tenant", "landlord"].includes(payerType)) {
-      setError("Select the tenant or landlord who made this payment.");
+    const [payerTypeFromPayer, payerId] = payer.split(":", 2);
+    const payerType = String(raw.payer_type ?? "tenant");
+    if (!payerId || !["tenant", "landlord"].includes(payerType) || payerType !== payerTypeFromPayer) {
+      setError("Select a payer that matches the payer type (Tenant or Landlord).");
       return;
     }
     const payload = {
       payer_type: payerType,
       tenant: payerType === "tenant" ? payerId : null,
       owner: payerType === "landlord" ? payerId : null,
-      paying_for: String(raw.paying_for ?? "rent"),
       invoice: raw.invoice ? String(raw.invoice) : null,
       received_on: String(raw.received_on ?? ""),
       amount: Number(raw.amount ?? 0),

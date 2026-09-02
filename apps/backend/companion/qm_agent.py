@@ -21,6 +21,7 @@ class QMAgentOrchestrator:
         # Support generic AI gateway env vars with provider-specific fallbacks
         self.api_key = (
             os.environ.get('AI_ORCHESTRATOR_API_KEY')
+            or os.environ.get('OPENCODE_API_KEY')
             or os.environ.get('DEEPSEEK_API_KEY')
             or os.environ.get('OPENAI_API_KEY')
             or os.environ.get('NVIDIA_API_KEY')
@@ -28,14 +29,17 @@ class QMAgentOrchestrator:
         
         base_url = (
             os.environ.get('AI_ORCHESTRATOR_BASE_URL')
+            or os.environ.get('OPENCODE_API_URL')
             or os.environ.get('DEEPSEEK_BASE_URL')
             or os.environ.get('NVIDIA_API_URL')
             or 'https://api.deepseek.com/v1'
         ).rstrip('/')
         
-        self.api_url = f'{base_url}/chat/completions' if not base_url.endswith('/chat/completions') else base_url
+        self.api_url = f'{base_url}/chat/completions' if not base_url.endswith(('/chat/completions', '/responses')) else base_url
+        self.uses_responses_api = self.api_url.endswith('/responses')
         self.model = (
             os.environ.get('AI_ORCHESTRATOR_MODEL')
+            or os.environ.get('OPENCODE_MODEL')
             or os.environ.get('DEEPSEEK_MODEL')
             or os.environ.get('NVIDIA_MODEL')
             or 'deepseek-chat'
@@ -229,22 +233,33 @@ class QMAgentOrchestrator:
             f"Active Operator: {user_name}\n"
             f"Live System Context:\n{context_str}\n\n"
             "OPERATIONAL RULES:\n"
-            "1. Ground all answers strictly in authorized live ERP data. Never invent figures, tenants, or records.\n"
+            "1. Answer the operator's exact question first, then use only authorized live ERP data. Never invent figures, tenants, or records.\n"
             "2. Follow the Loop: Detect -> Explain -> Recommend Action -> Require Approval.\n"
             "3. Format responses cleanly using standard markdown: bullet points (• or -), bold metrics (**KES 50,000**), and concise paragraphs. Never use ASCII underlines (like '====') or excessive header hashes (like '####').\n"
             "4. Tone: Professional, helpful, proactive, and concise. Highlight key actions immediately.\n"
             "5. For financial, tenant notice, or work order proposals, formulate exact parameters for user approval.\n"
+            "6. When asked about a validation error, explain it in plain language. If the field is not identified in the error/context, say that clearly and give the shortest safe next step; do not replace the answer with a generic portfolio summary.\n"
         )
 
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.2,
-            "max_tokens": 450
-        }
+        if self.uses_responses_api:
+            payload = {
+                "model": self.model,
+                "input": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                "max_output_tokens": 450,
+            }
+        else:
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.2,
+                "max_tokens": 450
+            }
 
         try:
             req = urllib.request.Request(
@@ -259,7 +274,19 @@ class QMAgentOrchestrator:
             with urllib.request.urlopen(req, timeout=self.timeout_seconds) as res:
                 if res.status == 200:
                     data = json.loads(res.read().decode('utf-8'))
-                    agent_text = data['choices'][0]['message']['content'].strip()
+                    if self.uses_responses_api:
+                        agent_text = str(data.get('output_text', '')).strip()
+                        if not agent_text:
+                            chunks = []
+                            for item in data.get('output', []):
+                                for content in item.get('content', []):
+                                    if content.get('type') in ('output_text', 'text'):
+                                        chunks.append(str(content.get('text', '')))
+                            agent_text = ''.join(chunks).strip()
+                    else:
+                        agent_text = data['choices'][0]['message']['content'].strip()
+                    if not agent_text:
+                        raise ValueError('AI provider returned no message text')
                     return {
                         "agent": "Center Estates AI Copilot",
                         "status": "success",

@@ -1,3 +1,5 @@
+import logging
+
 from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import OpenApiTypes, extend_schema, extend_schema_view
@@ -408,6 +410,29 @@ class CompanionDashboardViewSet(ViewSet):
                 organization=organization, user=request.user, property=get_active_property(request, organization),
                 title=raw_prompt[:177] + ('…' if len(raw_prompt) > 177 else ''),
             )
+        else:
+            # An accidental double-click or retry must not create a second
+            # canned answer or pollute the conversation history.
+            duplicate = conversation.messages.filter(
+                role=QmMessage.Role.USER, content__iexact=raw_prompt,
+            ).order_by('-created_at').first()
+            if duplicate:
+                prior_answer = conversation.messages.filter(
+                    role=QmMessage.Role.ASSISTANT, created_at__gt=duplicate.created_at,
+                ).order_by('created_at').first()
+                if prior_answer:
+                    metadata = prior_answer.response_metadata or {}
+                    return Response({
+                        'prompt': raw_prompt,
+                        'response': prior_answer.content,
+                        'suggestedActions': metadata.get('suggestedActions', []),
+                        'agent': metadata.get('agent', 'Quartermaster (QM)'),
+                        'agentStatus': metadata.get('agentStatus', 'cached'),
+                        'groundedAt': metadata.get('groundedAt', prior_answer.created_at.isoformat()),
+                        'timestamp': now.isoformat(),
+                        'conversationId': str(conversation.id),
+                        'deduplicated': True,
+                    })
         QmMessage.objects.create(
             organization=organization, conversation=conversation, role=QmMessage.Role.USER, content=raw_prompt,
         )
@@ -424,6 +449,12 @@ class CompanionDashboardViewSet(ViewSet):
             'property_scope': getattr(get_active_property(request, organization), 'name', 'Portfolio'),
             'my_tasks': {'active': active_tasks.count(), 'overdue': overdue_count, 'escalated': escalated_count},
         }
+        recent_messages = list(conversation.messages.order_by('-created_at')[:9])
+        if recent_messages:
+            context['recent_conversation'] = [
+                {'role': message.role, 'content': message.content[:600]}
+                for message in reversed(recent_messages)
+            ]
         subscribed = set(organization.subscriptions.available().values_list('module', flat=True))
         membership = get_active_membership(request, organization)
         permission_keys = set()
@@ -465,21 +496,35 @@ class CompanionDashboardViewSet(ViewSet):
         import json
         context_str = json.dumps(context, indent=2)
 
+        validation_explanation = ''
+        if 'no more than' in prompt and ('character' in prompt or 'characters' in prompt):
+            validation_explanation = (
+                "**What this means**\n\n"
+                "One of the values you entered is longer than the allowed limit. The message says the limit is **2 characters**, but it does not identify the field.\n\n"
+                "**What to do**\n"
+                "- Check the field currently highlighted in red and shorten its value to two characters or fewer.\n"
+                "- If no field is highlighted, do not delete your work: save the retained draft, then report the page and field to your administrator so the validation message can be corrected.\n\n"
+                "This is a form-validation problem, not a loss of the property or asset data."
+            )
+
         qm_result = {}
         llm_response = ''
-        try:
-            qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
-            qm_result = qm_orchestrator.execute_agent(
-                prompt=raw_prompt,
-                user_name=request.user.first_name or request.user.username,
-                context_str=context_str,
-            )
-            llm_response = qm_result.get('response', '')
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"QM Agent execution fallback: {e}")
+        if not validation_explanation:
+            try:
+                qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
+                qm_result = qm_orchestrator.execute_agent(
+                    prompt=raw_prompt,
+                    user_name=request.user.first_name or request.user.username,
+                    context_str=context_str,
+                )
+                llm_response = qm_result.get('response', '')
+            except Exception:
+                logging.getLogger(__name__).warning("QM Agent execution fallback", exc_info=True)
 
-        if any(term in prompt for term in ('brief', 'priorit', 'start of day', 'today')):
+        if validation_explanation:
+            response_text = validation_explanation
+            suggested_actions = []
+        elif any(term in prompt for term in ('brief', 'priorit', 'start of day', 'today')):
             parts = [
                 f"**Your operational briefing — {context['property_scope']}**",
                 f"- Active tasks: **{context['my_tasks']['active']}**; overdue: **{overdue_count}**; escalated: **{escalated_count}**",

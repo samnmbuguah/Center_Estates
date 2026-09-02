@@ -842,6 +842,7 @@ class Receipt(OrganizationOwnedModel):
         LANDLORD = 'landlord', 'Landlord / unit owner'
 
     class PayingFor(models.TextChoices):
+        AUTOMATIC = 'automatic', 'Automatic priority allocation'
         RENT = 'rent', 'Rent'
         SERVICE_CHARGE = 'service_charge', 'Service charge'
         UTILITIES = 'utilities', 'Water / electricity'
@@ -852,7 +853,10 @@ class Receipt(OrganizationOwnedModel):
 
     number = models.CharField(max_length=60)
     payer_type = models.CharField(max_length=12, choices=PayerType.choices, default=PayerType.TENANT)
-    paying_for = models.CharField(max_length=32, choices=PayingFor.choices, default=PayingFor.RENT)
+    # A receipt records *who* paid.  Its invoice components are settled by the
+    # organisation's allocation matrix; a cashier must not override that order.
+    # Legacy values remain valid for historic receipts and reporting.
+    paying_for = models.CharField(max_length=32, choices=PayingFor.choices, default=PayingFor.AUTOMATIC)
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
     owner = models.ForeignKey(Owner, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name='receipts', null=True, blank=True)

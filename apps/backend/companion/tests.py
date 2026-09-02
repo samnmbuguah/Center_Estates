@@ -49,6 +49,18 @@ class CompanionApiTests(TestCase):
         self.assertEqual(agent.model, 'meta/llama-3.1-8b-instruct')
         self.assertEqual(agent.timeout_seconds, 24)
 
+    def test_qm_uses_opencode_responses_endpoint(self):
+        with patch.dict(os.environ, {
+            'AI_ORCHESTRATOR_API_KEY': 'test-key',
+            'AI_ORCHESTRATOR_BASE_URL': 'https://opencode.ai/zen/v1/responses',
+            'AI_ORCHESTRATOR_MODEL': 'muse-spark-1.2',
+        }, clear=True):
+            agent = QMAgentOrchestrator()
+        self.assertTrue(agent.configured)
+        self.assertTrue(agent.uses_responses_api)
+        self.assertEqual(agent.api_url, 'https://opencode.ai/zen/v1/responses')
+        self.assertEqual(agent.model, 'muse-spark-1.2')
+
     @patch('companion.views.send_email_notification', return_value=True)
     def test_public_qr_ticket_is_trackable_and_records_email_acknowledgement(self, send_email):
         property_record = Property.objects.create(
@@ -233,6 +245,28 @@ class CompanionApiTests(TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn('response', response.data)
+
+    def test_qm_explains_ambiguous_validation_errors_without_generic_summary(self):
+        self.login(self.admin)
+        response = self.client.post(
+            '/api/v1/companion/dashboard/chat/',
+            {'prompt': 'What does this mean: Ensure this field has no more than 2 characters?'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn('does not identify the field', response.data['response'])
+        self.assertEqual(response.data['suggestedActions'], [])
+
+    def test_qm_reuses_answer_for_duplicate_question_in_same_conversation(self):
+        self.login(self.admin)
+        with patch('companion.views.QMAgentOrchestrator.execute_agent', return_value={'agent': 'Quartermaster (QM)', 'status': 'local', 'response': 'A focused answer.'}):
+            first = self.client.post('/api/v1/companion/dashboard/chat/', {'prompt': 'Explain the current arrears'}, format='json')
+            second = self.client.post('/api/v1/companion/dashboard/chat/', {
+                'prompt': 'Explain the current arrears', 'conversation_id': first.data['conversationId'],
+            }, format='json')
+        self.assertEqual(second.status_code, 200, second.content)
+        self.assertTrue(second.data['deduplicated'])
+        self.assertEqual(QmMessage.objects.filter(conversation_id=first.data['conversationId']).count(), 2)
 
     def test_ai_daily_brief_is_grounded_and_role_aware(self):
         self.login(self.staff)

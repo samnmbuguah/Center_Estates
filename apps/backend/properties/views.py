@@ -3148,6 +3148,7 @@ class ReceiptViewSet(OrganizationModelViewSet):
         receipt = serializer.save(
             organization=organization, received_by=self.request.user, number=number,
             payer_type=payer_type,
+            paying_for=Receipt.PayingFor.AUTOMATIC,
         )
         _allocate_receipt(receipt=receipt, organization=organization, amount=amount, user=self.request.user, invoice=invoice)
 

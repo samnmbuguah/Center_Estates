@@ -517,7 +517,12 @@ class ReceiptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Receipt
         exclude = ('organization', 'received_by')
-        extra_kwargs = {'number': {'required': False, 'allow_blank': True}}
+        extra_kwargs = {
+            'number': {'required': False, 'allow_blank': True},
+            # Retained for historic report rows only. New receipts always use
+            # the configured automatic allocation matrix.
+            'paying_for': {'read_only': True},
+        }
 
     def validate_amount(self, value):
         if value <= 0:
