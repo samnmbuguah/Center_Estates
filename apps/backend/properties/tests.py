@@ -133,10 +133,10 @@ class PropertyApiTests(TestCase):
         components = list(ReceiptAllocation.objects.filter(receipt_id=response.data['id']).values_list('component', flat=True))
         self.assertEqual(components[0], ReceiptAllocation.Component.VAT)
 
-    def test_receipt_with_specific_invoice_accepts_overpayment_and_credits_wallet(self):
+    def test_receipt_automatically_allocates_overpayment_and_credits_wallet(self):
         # Invoice balance is 1000.00 (from setUp), receipt amount is 1500.00
         response = self.client.post('/api/v1/property/receipts/', {
-            'tenant': str(self.tenant.id), 'invoice': str(self.invoice.id),
+            'tenant': str(self.tenant.id),
             'payer_type': 'tenant', 'paying_for': 'rent',
             'received_on': '2026-08-01', 'amount': '1500.00', 'payment_method': 'mpesa',
             'external_reference': 'TEST-OVERPAY-1',
@@ -1020,7 +1020,7 @@ class PropertyApiTests(TestCase):
     def test_receipt_is_atomically_allocated_and_updates_invoice(self):
         response = self.client.post('/api/v1/property/receipts/', {
             'number': 'RCT-1', 'tenant': str(self.tenant.id),
-            'invoice': str(self.invoice.id), 'received_on': '2026-07-31',
+            'received_on': '2026-07-31',
             'amount': '400.00', 'payment_method': 'bank_transfer',
             'external_reference': 'BANK-001',
         }, format='json', **self.headers)
@@ -1082,7 +1082,7 @@ class PropertyApiTests(TestCase):
     def test_receipt_overpayment_is_accepted_and_credits_wallet(self):
         response = self.client.post('/api/v1/property/receipts/', {
             'number': 'RCT-BAD', 'tenant': str(self.tenant.id),
-            'invoice': str(self.invoice.id), 'received_on': '2026-07-31',
+            'received_on': '2026-07-31',
             'amount': '1000.01', 'payment_method': 'cash',
         }, format='json', **self.headers)
         self.assertEqual(response.status_code, 201, response.data)
@@ -1133,7 +1133,6 @@ class PropertyApiTests(TestCase):
         # Create manual receipt with transaction reference
         response = self.client.post('/api/v1/property/receipts/', {
             'tenant': str(self.tenant.id),
-            'invoice': str(self.invoice.id),
             'amount': '1000.00',
             'payment_method': 'bank_transfer',
             'external_reference': 'KCB-TX-998811',
@@ -1258,6 +1257,7 @@ class PropertyApiTests(TestCase):
             'received_on': '2026-08-01', 'amount': '100.00', 'payment_method': 'cash',
         }, format='json', **self.headers)
         self.assertEqual(rejected.status_code, 400)
+        self.assertIn('allocated automatically', str(rejected.data['invoice'][0]).lower())
         premature_issue = self.client.post(f"/api/v1/property/invoices/{created.data['id']}/issue/", {}, format='json', **self.headers)
         self.assertEqual(premature_issue.status_code, 400)
         submitted = self.client.post(f"/api/v1/property/invoices/{created.data['id']}/submit-review/", {}, format='json', **self.headers)
@@ -2144,7 +2144,7 @@ class PropertyRolePermissionApiTests(TestCase):
 
         receipt = self.client.post('/api/v1/property/receipts/', {
             'number': 'ROLE-RCT-1', 'tenant': str(self.tenant.id),
-            'invoice': str(self.invoice.id), 'received_on': '2026-08-01',
+            'received_on': '2026-08-01',
             'amount': '400.00', 'payment_method': 'bank_transfer',
             'external_reference': 'ROLE-BANK-1',
         }, format='json', **self.headers)
@@ -2824,5 +2824,3 @@ class LandlordInvoiceApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400, response.data)
         self.assertTrue(LandlordInvoice.objects.filter(id=invoice.id).exists())
-
-

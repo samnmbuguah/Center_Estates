@@ -538,6 +538,13 @@ class ReceiptSerializer(serializers.ModelSerializer):
         return str(PayerWallet.objects.filter(**filters).values_list('balance', flat=True).first() or Decimal('0.00'))
 
     def validate(self, attrs):
+        # A payment is owned by its payer, not by a selected charge or invoice.
+        # Restrict direct API clients as well as the web UI so the configured
+        # allocation matrix cannot be silently bypassed.
+        if self.instance is None and self.initial_data.get('invoice'):
+            raise serializers.ValidationError({
+                'invoice': 'Receipts are allocated automatically by the configured priority matrix. Select a payer instead.'
+            })
         payer_type = attrs.get('payer_type') or (Receipt.PayerType.LANDLORD if attrs.get('owner') else Receipt.PayerType.TENANT)
         tenant = attrs.get('tenant', getattr(self.instance, 'tenant', None))
         owner = attrs.get('owner', getattr(self.instance, 'owner', None))

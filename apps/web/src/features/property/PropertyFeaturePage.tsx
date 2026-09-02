@@ -127,7 +127,7 @@ export function PropertyFeaturePage({
             onAddInvoice={() => logic.setShowInvoiceComposer(true)}
             onAddCreditNote={() => logic.handleCreateCreditNote(null)}
             onVoidCreditNote={logic.handleVoidCreditNote}
-            onRecordReceipt={(invoiceId) => { logic.setReceiptInvoice(invoiceId ?? ""); logic.setShowRecordReceipt(true); }}
+            onRecordReceipt={() => logic.setShowRecordReceipt(true)}
             onSendReminder={logic.handleSendReminder}
             onInvoiceAction={logic.handleInvoiceAction}
             onSelectRow={logic.setSelectedRow}
@@ -159,7 +159,7 @@ export function PropertyFeaturePage({
       case "rent-schedules":
         return <RentSchedulesView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onGenerateInvoice={logic.handleGenerateScheduleInvoice} onRefresh={logic.fetchData} canFinance={logic.canFinance} />;
       case "rent":
-        return <RentView rows={logic.rows} invoices={logic.rentInvoices} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} canApprove={logic.canApprove} onAddInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={(invoiceId) => { logic.setReceiptInvoice(invoiceId ?? ""); logic.setShowRecordReceipt(true); }} onSendReminder={logic.handleSendReminder} onInvoiceAction={logic.handleInvoiceAction} onSelectRow={logic.setSelectedRow} onDownloadPdf={logic.downloadInvoicePdf} onRefresh={logic.fetchData} />;
+        return <RentView rows={logic.rows} invoices={logic.rentInvoices} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} canFinance={logic.canFinance} canApprove={logic.canApprove} onAddInvoice={() => logic.setShowInvoiceComposer(true)} onRecordReceipt={() => logic.setShowRecordReceipt(true)} onSendReminder={logic.handleSendReminder} onInvoiceAction={logic.handleInvoiceAction} onSelectRow={logic.setSelectedRow} onDownloadPdf={logic.downloadInvoicePdf} onRefresh={logic.fetchData} />;
       case "arrears":
         return <ArrearsRecoveryView rows={logic.rows} reminders={logic.reminders} analytics={logic.analytics} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSendReminder={logic.handleSendReminder} />;
       case "reminders":

@@ -121,7 +121,6 @@ export function usePropertyLogic({
   const [documentRejectTarget, setDocumentRejectTarget] = useState<TenantDocumentRow | null>(null);
   const [confirmVoidInvoice, setConfirmVoidInvoice] = useState<InvoiceRow | null>(null);
   const [confirmRejectBudget, setConfirmRejectBudget] = useState<BudgetRow | null>(null);
-  const [receiptInvoice, setReceiptInvoice] = useState<ID>("");
   const [wizardStep, setWizardStep] = useState(1);
   const [propertyData, setPropertyData] = useState<Record<string, string>>({});
   const [unitMix, setUnitMix] = useState<{ type: string; count: number; size: number }[]>([{ type: "", count: 1, size: 0 }]);
@@ -925,7 +924,6 @@ export function usePropertyLogic({
       payer_type: payerType,
       tenant: payerType === "tenant" ? payerId : null,
       owner: payerType === "landlord" ? payerId : null,
-      invoice: raw.invoice ? String(raw.invoice) : null,
       received_on: String(raw.received_on ?? ""),
       amount: Number(raw.amount ?? 0),
       payment_method: String(raw.payment_method ?? "bank_transfer"),
@@ -1375,8 +1373,9 @@ export function usePropertyLogic({
     setTab("reminders");
   };
 
-  const openRecordReceipt = (invoiceId?: ID) => {
-    setReceiptInvoice(invoiceId ?? "");
+  // Keep the optional invoice argument for existing row actions, but do not
+  // preselect or submit it: receipt allocation is payer-led and automatic.
+  const openRecordReceipt = (_invoiceId?: ID) => {
     setShowRecordReceipt(true);
   };
 
@@ -1566,8 +1565,6 @@ export function usePropertyLogic({
     setConfirmVoidInvoice,
     confirmRejectBudget,
     setConfirmRejectBudget,
-    receiptInvoice,
-    setReceiptInvoice,
     wizardStep,
     setWizardStep,
     propertyData,

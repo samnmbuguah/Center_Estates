@@ -119,8 +119,6 @@ export interface PropertyModalsProps {
   setConfirmVoidInvoice: (v: InvoiceRow | null) => void;
   confirmRejectBudget: BudgetRow | null;
   setConfirmRejectBudget: (v: BudgetRow | null) => void;
-  receiptInvoice: ID;
-  setReceiptInvoice: (v: ID) => void;
   wizardStep: number;
   setWizardStep: (v: number) => void;
   propertyData: Record<string, string>;
@@ -190,7 +188,6 @@ export function PropertyModals(props: PropertyModalsProps) {
     documentRejectTarget, setDocumentRejectTarget,
     confirmVoidInvoice, setConfirmVoidInvoice,
     confirmRejectBudget, setConfirmRejectBudget,
-    receiptInvoice, setReceiptInvoice,
     wizardStep, setWizardStep,
     propertyData, setPropertyData,
     unitMix, setUnitMix,
@@ -704,14 +701,12 @@ export function PropertyModals(props: PropertyModalsProps) {
                   </select>
                 </Field>
               </div>
-              <Field label="Allocate to a specific invoice (optional)">
-                <select name="invoice" defaultValue={receiptInvoice}>
-                  <option value="">Use automatic priority allocation</option>
-                  {invoiceOptions.map((inv) => (
-                    <option key={String(inv.id)} value={String(inv.id)}>{String(inv.number)} · {kM(inv.amount)}</option>
-                  ))}
-                </select>
-              </Field>
+              <div className="card" style={{ padding: "10px 14px", background: "var(--surface-2)", fontSize: 12, color: "var(--text-secondary)" }}>
+                <strong style={{ color: "var(--text-primary)" }}>Allocation preview</strong>
+                <div style={{ marginTop: 4 }}>
+                  This payment will be applied automatically across the selected payer&apos;s open invoices using the configured priority order. If the payment exceeds their outstanding balance, the remainder is saved as wallet credit.
+                </div>
+              </div>
               <Field label="External Reference">
                 <input name="external_reference" placeholder="Bank ref / M-Pesa code" />
               </Field>
