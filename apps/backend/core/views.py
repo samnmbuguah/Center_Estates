@@ -81,6 +81,7 @@ class TestingChecklistView(APIView):
             return None
         return organization
 
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
         organization = self._organization_for_admin(request)
         if not organization:
@@ -102,6 +103,7 @@ class TestingChecklistView(APIView):
             })
         return Response({'results': items, 'summary': counts, 'total': len(items)})
 
+    @extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT})
     def patch(self, request, feature_key):
         organization = self._organization_for_admin(request)
         if not organization:
