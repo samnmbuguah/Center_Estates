@@ -282,8 +282,13 @@ export function RowDetailPanel({
             {(row as any).metadata.utilities.map((u: any, idx: number) => (
               <div key={idx} style={{ padding: "8px 10px", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 800, fontSize: 12, textTransform: "capitalize" }}>{u.type || "Utility"}</span>
+                    {u.unit_code && (
+                      <span style={{ fontSize: 10, background: "rgba(79, 70, 229, 0.1)", color: "#4f46e5", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                        Unit {u.unit_code}
+                      </span>
+                    )}
                     {u.meter_code && (
                       <span className="mono" style={{ fontSize: 10, background: "#fef3c7", color: "#92400e", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
                         Meter: {u.meter_code}
@@ -291,8 +296,9 @@ export function RowDetailPanel({
                     )}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
-                    {u.provider ? `${u.provider} · ` : ""}{u.account_no ? `Acc: ${u.account_no}` : ""}
+                    {u.location ? `📍 ${u.location}` : ""}{u.location && u.account_no ? " · " : ""}{u.account_no ? `Acc: ${u.account_no}` : (!u.location && u.provider ? u.provider : "")}
                   </div>
+
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 11, fontWeight: 700 }}>

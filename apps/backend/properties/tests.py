@@ -876,7 +876,39 @@ class PropertyApiTests(TestCase):
         self.assertEqual(reading.status, MeterReading.Status.APPROVED)
         self.assertEqual(response.data['utility_meters_created'], 1)
 
+    def test_onboard_property_with_unit_allocated_meter_and_location(self):
+        response = self.client.post('/api/v1/property/properties/onboard/', {
+            'property': {
+                'name': 'Kilimani Heights', 'property_type': 'residential', 'status': 'draft',
+                'address': 'Argwings Kodhek', 'city': 'Nairobi', 'country': 'KE',
+                'metadata': {
+                    'landlord': {'name': 'Kilimani Landlord'},
+                    'location': {'county': 'Nairobi'},
+                    'utilities': [{
+                        'type': 'water', 'account_no': 'WTR-ACC-101',
+                        'meter_code': 'MTR-WTR-A101', 'unit_code': 'A101',
+                        'location': 'Outside Door Floor 1',
+                        'tariff': '200', 'bill_cycle': 'monthly',
+                        'status': 'active',
+                    }],
+                },
+            },
+            'units': [
+                {'unit_no': 'A101', 'unit_type': 'Apartment', 'floor': '1', 'use': 'Residential', 'area': '1200'},
+            ],
+        }, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 201, response.content)
+        prop = Property.objects.get(name='Kilimani Heights')
+        unit = prop.units.get(code='A101')
+        from facilities.models import UtilityMeter
+        meter = UtilityMeter.objects.get(property=prop, code='MTR-WTR-A101')
+        self.assertEqual(meter.property_unit, unit)
+        self.assertEqual(meter.location, 'Outside Door Floor 1')
+        self.assertEqual(meter.tariff, Decimal('200'))
+
     def test_edit_onboarding_persists_uploaded_buildings_and_units(self):
+
         response = self.client.patch(f'/api/v1/property/properties/{self.property.id}/', {
             'property': {
                 'name': 'Owned Property', 'property_type': 'commercial', 'status': 'active',

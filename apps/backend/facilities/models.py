@@ -452,6 +452,7 @@ class UtilityMeter(OrganizationOwnedModel):
 
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=160)
+    location = models.CharField(max_length=200, blank=True, default='')
     property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='utility_meters')
     property_unit = models.ForeignKey('properties.Unit', on_delete=models.PROTECT, related_name='utility_meters', null=True, blank=True)
     utility_type = models.CharField(max_length=16, choices=Utility.choices)
@@ -460,6 +461,7 @@ class UtilityMeter(OrganizationOwnedModel):
     unit = models.CharField(max_length=20, default='kWh')
     tariff = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     is_active = models.BooleanField(default=True)
+
 
     class Meta:
         ordering = ('name',)

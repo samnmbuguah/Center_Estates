@@ -1017,9 +1017,11 @@ class PropertyViewSet(OrganizationModelViewSet):
             meter = UtilityMeter.objects.create(
                 organization=organization, property=property_record, property_unit=assigned_unit, code=meter_code,
                 name=f"{property_record.name} {utility_type.title()} {meter_code}", utility_type=utility_type,
+                location=str(utility.get('location') or '').strip(),
                 unit=str(utility.get('unit') or ('kWh' if utility_type == 'electricity' else 'm³'))[:20],
                 tariff=tariff, is_active=str(utility.get('status', 'active')).lower() == 'active',
             )
+
             meters.append(meter)
             if assigned_unit and tariff > 0 and is_postpaid:
                 item_code = utility_type.upper()
