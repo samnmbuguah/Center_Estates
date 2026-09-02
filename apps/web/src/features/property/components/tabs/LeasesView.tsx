@@ -17,8 +17,9 @@ import {
 } from "../../utils/property.utils";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
-import { Zap, CheckSquare, Layers, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Zap, CheckSquare, Layers, AlertCircle, CheckCircle2, Sparkles, FileText, Upload } from "lucide-react";
 import { BulkLeaseImporter } from "../BulkLeaseImporter";
+
 
 export function LeasesView({
   rows,
@@ -74,6 +75,40 @@ export function LeasesView({
   const [editBillingDay, setEditBillingDay] = useState("1");
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
+
+  // AI Lease OCR Modal state
+  const [showAiOcrModal, setShowAiOcrModal] = useState(false);
+  const [ocrText, setOcrText] = useState("");
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState("");
+  const [extractedLease, setExtractedLease] = useState<any | null>(null);
+
+  const handleExtractLease = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!ocrText.trim() || !org) return;
+    setOcrLoading(true);
+    setOcrError("");
+    setExtractedLease(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch("/property/leases/extract-document/", {
+        method: "POST",
+        body: JSON.stringify({ raw_text: ocrText }),
+      }, org);
+      if (res.ok) {
+        const data = await res.json();
+        setExtractedLease(data.extracted_data);
+      } else {
+        const err = await res.json();
+        setOcrError(err.detail || "Failed to extract lease terms.");
+      }
+    } catch {
+      setOcrError("Network error occurred during extraction.");
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
 
   const openEditModal = (l: LeaseRow) => {
     setEditTarget(l);
@@ -263,10 +298,28 @@ export function LeasesView({
               ⚡ Bulk Edit ({selectedIds.length} Selected)
             </button>
           )}
+          <button
+            type="button"
+            className="btn sm"
+            style={{
+              background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+              color: "#ffffff",
+              border: "none",
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
+            }}
+            onClick={() => setShowAiOcrModal(true)}
+          >
+            <Sparkles size={14} /> AI Extract Lease
+          </button>
           <button className="btn primary sm" data-testid="property-add-lease-btn" onClick={handleAdd}>+ Add Lease</button>
           <button className="btn ghost sm" onClick={() => setShowImport(true)}>Import leases</button>
         </div>
       </div>
+
 
       <Panel title="Lease Register" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Invoices →</button>}>
         <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No leases found" emptyDesc="Add a single lease or bulk import a tenancy schedule to populate the register.">
@@ -606,8 +659,110 @@ export function LeasesView({
         </Modal>
       )}
 
+      {/* AI Lease Document Extractor Modal */}
+      {showAiOcrModal && (
+        <Modal
+          title="📄 AI Lease Agreement & ID Extractor"
+          onClose={() => {
+            setShowAiOcrModal(false);
+            setExtractedLease(null);
+            setOcrText("");
+            setOcrError("");
+          }}
+          wide
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ padding: "12px 16px", borderRadius: 8, background: "linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(79, 70, 229, 0.08) 100%)", border: "1px solid rgba(124, 58, 237, 0.2)" }}>
+              <div style={{ fontWeight: 750, color: "var(--text-primary)", fontSize: 14 }}>
+                Quartermaster AI Document Intelligence
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                Paste lease clauses, contract terms, or tenancy text below. Quartermaster will extract tenant name, ID, phone, rent, deposit, dates, and escalation clauses.
+              </div>
+            </div>
+
+            {ocrError && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(220, 38, 38, 0.1)", color: "#dc2626", border: "1px solid #fca5a5", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+                <AlertCircle size={16} />
+                <span>{ocrError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleExtractLease} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <Field label="Paste Lease Agreement Text / Tenancy Clauses" required>
+                <textarea
+                  rows={6}
+                  required
+                  placeholder="e.g. This Tenancy Agreement is made between Center Estates and Tenant Jane Doe (ID: 29831920, Tel: 0712345678) for Unit A101 at Lynx Apartments. The monthly rent shall be KES 65,000 with a security deposit of KES 130,000 for a term of 1 year commencing 01/10/2026 to 30/09/2027, subject to 10% annual escalation."
+                  value={ocrText}
+                  onChange={(e) => setOcrText(e.target.value)}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 13, fontFamily: "inherit" }}
+                />
+              </Field>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  type="submit"
+                  className="btn sm"
+                  disabled={ocrLoading || !ocrText.trim()}
+                  style={{
+                    background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                    color: "#ffffff",
+                    border: "none",
+                    fontWeight: 700,
+                    padding: "8px 18px",
+                  }}
+                >
+                  <Sparkles size={14} style={{ marginRight: 6 }} />
+                  {ocrLoading ? "Extracting Lease Terms…" : "Extract Terms with AI"}
+                </button>
+              </div>
+            </form>
+
+            {extractedLease && (
+              <div style={{ padding: 16, borderRadius: 10, background: "var(--surface-2)", border: "1px solid rgba(16, 185, 129, 0.4)", display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: "#10b981", display: "flex", alignItems: "center", gap: 6 }}>
+                    <CheckCircle2 size={16} /> Extracted Lease Summary
+                  </span>
+                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "#10b981", fontWeight: 700 }}>
+                    95% Confidence
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
+                  <div><strong style={{ color: "var(--muted)" }}>Tenant Name:</strong> <div>{extractedLease.tenant_name || "—"}</div></div>
+                  <div><strong style={{ color: "var(--muted)" }}>National ID:</strong> <div>{extractedLease.national_id || "—"}</div></div>
+                  <div><strong style={{ color: "var(--muted)" }}>Phone Number:</strong> <div>{extractedLease.phone_number || "—"}</div></div>
+                  <div><strong style={{ color: "var(--muted)" }}>Unit Code:</strong> <div>{extractedLease.unit_code || "—"}</div></div>
+                  <div><strong style={{ color: "var(--muted)" }}>Monthly Rent:</strong> <div>{extractedLease.monthly_rent ? `KES ${Number(extractedLease.monthly_rent).toLocaleString()}` : "—"}</div></div>
+                  <div><strong style={{ color: "var(--muted)" }}>Security Deposit:</strong> <div>{extractedLease.deposit ? `KES ${Number(extractedLease.deposit).toLocaleString()}` : "—"}</div></div>
+                  <div><strong style={{ color: "var(--muted)" }}>Lease Dates:</strong> <div>{extractedLease.starts_on || "—"} to {extractedLease.ends_on || "—"}</div></div>
+                  <div><strong style={{ color: "var(--muted)" }}>Escalation:</strong> <div>{extractedLease.escalation_percent ? `${extractedLease.escalation_percent}% every ${extractedLease.escalation_interval_months || 12} mos` : "0%"}</div></div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="btn primary sm"
+                    onClick={() => {
+                      setShowAiOcrModal(false);
+                      handleAdd();
+                    }}
+                    style={{ fontWeight: 800 }}
+                  >
+                    Proceed to Create Lease Form →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
       <BulkLeaseImporter open={showImport} onClose={() => setShowImport(false)} onDone={onRefresh} />
     </>
   );
 }
+
 

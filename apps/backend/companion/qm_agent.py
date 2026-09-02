@@ -79,11 +79,50 @@ class QMAgentOrchestrator:
             {
                 "type": "function",
                 "function": {
-                    "name": "get_facility_work_orders",
-                    "description": "Get open work orders, urgent asset maintenance alerts, and PPM schedule status.",
+                    "name": "match_bank_transactions",
+
+                    "description": "Auto-match raw bank/M-Pesa statement narrative strings against open tenant invoices.",
                     "parameters": {
                         "type": "object",
-                        "properties": {"priority": {"type": "string", "enum": ["urgent", "high", "medium", "low"]}},
+                        "properties": {"min_confidence": {"type": "number", "description": "Minimum confidence threshold (0.0 to 1.0)"}},
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "extract_lease_document",
+                    "description": "Extract structured lease terms (rent, deposit, dates, escalation) and tenant info from contract text.",
+                    "parameters": {
+                        "type": "object",
+                        "required": ["raw_text"],
+                        "properties": {"raw_text": {"type": "string"}},
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_proactive_nudges",
+                    "description": "Scan tenant ledgers for overdue rent > 7 days and upcoming lease escalations within 30 days.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"nudge_type": {"type": "string", "enum": ["arrears", "escalation", "all"]}},
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "triage_work_order",
+                    "description": "Classify facility defect description into trade category, urgency, cost estimate, and match contractors.",
+                    "parameters": {
+                        "type": "object",
+                        "required": ["description"],
+                        "properties": {
+                            "description": {"type": "string"},
+                            "category": {"type": "string"}
+                        }
                     }
                 }
             },
@@ -121,6 +160,64 @@ class QMAgentOrchestrator:
                 }
             }
         ]
+
+    def ask(self, prompt: str, system_override: Optional[str] = None) -> str:
+        """Direct raw LLM prompt completion with optional system instruction override."""
+        if not self.configured:
+            return ""
+
+        system_instruction = system_override or f"You are the AI Assistant for {self.organization_name}."
+
+        if self.uses_responses_api:
+            payload = {
+                "model": self.model,
+                "input": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                "max_output_tokens": 800,
+            }
+        else:
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.1,
+                "max_tokens": 800
+            }
+
+        try:
+            req = urllib.request.Request(
+                self.api_url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.api_key}',
+                },
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as res:
+                if res.status == 200:
+                    data = json.loads(res.read().decode('utf-8'))
+                    if self.uses_responses_api:
+                        agent_text = str(data.get('output_text', '')).strip()
+                        if not agent_text:
+                            chunks = []
+                            for item in data.get('output', []):
+                                for content in item.get('content', []):
+                                    if content.get('type') in ('output_text', 'text'):
+                                        chunks.append(str(content.get('text', '')))
+                            agent_text = ''.join(chunks).strip()
+                    else:
+                        agent_text = data['choices'][0]['message']['content'].strip()
+                    return agent_text
+        except Exception as err:
+            logger.warning("AI Orchestrator ask() failed: %s", err)
+
+        return ""
+
 
     def generate_daily_briefing(self, user_name: str, erp_context: Dict[str, Any]) -> Dict[str, Any]:
         """Synthesizes a structured daily executive briefing from live ERP telemetry."""

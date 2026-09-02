@@ -10,8 +10,9 @@ import type { BankTransactionRow, Row } from "../../types/property.types";
 import { fmtDate, kM, kN } from "../../utils/property.utils";
 import {
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle,
-  ArrowRight, Landmark, RefreshCw, Upload,
+  ArrowRight, Landmark, RefreshCw, Upload, Bot, Sparkles, Zap,
 } from "lucide-react";
+
 
 // ---------------------------------------------------------------------------
 // Charge-type intelligence helpers
@@ -121,7 +122,91 @@ export function BankReconciliationView({
   const [payerName, setPayerName] = useState("");
   const [paymentChannel, setPaymentChannel] = useState<"mpesa" | "bank_transfer">("bank_transfer");
 
+  // AI Auto-Match state
+  const [showAiMatchModal, setShowAiMatchModal] = useState(false);
+  const [aiMatches, setAiMatches] = useState<any[]>([]);
+  const [aiMatchStats, setAiMatchStats] = useState<{ total: number; matched: number; highConfidence: number } | null>(null);
+  const [aiMatchLoading, setAiMatchLoading] = useState(false);
+  const [aiBatchBusy, setAiBatchBusy] = useState(false);
+
+  const runAiMatch = async () => {
+    setAiMatchLoading(true);
+    setShowAiMatchModal(true);
+    try {
+      const res = await apiFetch("/property/bank-transactions/ai-match/", {}, organizationId ?? undefined);
+      if (res.ok) {
+        const data = await res.json();
+        setAiMatches(data.matches || []);
+        setAiMatchStats({
+          total: data.total_unmatched || 0,
+          matched: data.matched_count || 0,
+          highConfidence: data.high_confidence_count || 0,
+        });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setAiMatchLoading(false);
+    }
+  };
+
+  const approveAiMatch = async (match: any) => {
+    try {
+      await apiFetch("/auth/csrf/", {}, organizationId ?? undefined);
+      const res = await apiFetch(`/property/bank-transactions/${match.transaction_id}/quick-receipt/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({
+          invoice_id: match.suggested_invoice.id,
+          payment_channel: match.extracted_mpesa_ref ? "mpesa" : "bank_transfer",
+          payer_name: match.extracted_payer_name || match.suggested_invoice.tenant_name,
+        }),
+      }, organizationId ?? undefined);
+      if (res.ok) {
+        setAiMatches((prev) => prev.filter((m) => m.transaction_id !== match.transaction_id));
+        setFeedback({ type: "success", message: `Successfully receipted and matched ${match.transaction_ref}!` });
+        onRefresh();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const approveAllHighConfidence = async () => {
+    const highConf = aiMatches.filter((m) => m.is_high_confidence);
+    if (!highConf.length) return;
+    setAiBatchBusy(true);
+    try {
+      await apiFetch("/auth/csrf/", {}, organizationId ?? undefined);
+      const payload = {
+        items: highConf.map((m) => ({
+          transaction_id: m.transaction_id,
+          invoice_id: m.suggested_invoice.id,
+        })),
+      };
+      const res = await apiFetch("/property/bank-transactions/batch-quick-receipt/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify(payload),
+      }, organizationId ?? undefined);
+      if (res.ok) {
+        const data = await res.json();
+        setFeedback({
+          type: "success",
+          message: `Successfully batch receipted and reconciled ${data.processed_count} transactions!`,
+        });
+        setShowAiMatchModal(false);
+        onRefresh();
+      }
+    } catch {
+      // ignore
+    } finally {
+      setAiBatchBusy(false);
+    }
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   // Fetch available invoices for quick receipting
   useEffect(() => {
@@ -344,6 +429,23 @@ export function BankReconciliationView({
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               type="button"
+              className="btn sm"
+              onClick={runAiMatch}
+              style={{
+                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                color: "#ffffff",
+                border: "none",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
+              }}
+            >
+              <Sparkles size={14} /> AI Auto-Match
+            </button>
+            <button
+              type="button"
               className="btn ghost sm"
               onClick={() => setShowDropzone(!showDropzone)}
               style={{ fontWeight: 600, border: "1px solid var(--border-color)", background: "var(--bg-surface)" }}
@@ -356,6 +458,7 @@ export function BankReconciliationView({
           </div>
         )}
       </ViewToolbar>
+
 
       {/* Interactive Drag & Drop Statement Dropzone */}
       {canFinance && (showDropzone || transactions.length === 0) && (
@@ -907,7 +1010,163 @@ export function BankReconciliationView({
           </div>
         </Modal>
       )}
+
+      {/* AI Auto-Match Intelligence Modal */}
+      {showAiMatchModal && (
+        <Modal
+          title="🤖 AI Bank Narrative Auto-Matcher"
+          onClose={() => setShowAiMatchModal(false)}
+          wide
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ padding: "12px 16px", borderRadius: 8, background: "linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(79, 70, 229, 0.08) 100%)", border: "1px solid rgba(124, 58, 237, 0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 750, color: "var(--text-primary)", fontSize: 14 }}>
+                  Quartermaster AI Statement Intelligence
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                  Analyzing statement narratives for unit codes, tenant names, phone numbers, and exact invoice balances.
+                </div>
+              </div>
+              {aiMatchStats && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <span style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(16,185,129,0.15)", color: "#10b981", fontWeight: 700, fontSize: 12 }}>
+                    {aiMatchStats.highConfidence} High Confidence
+                  </span>
+                  <span style={{ padding: "4px 8px", borderRadius: 6, background: "var(--surface-2)", color: "var(--text-secondary)", fontWeight: 600, fontSize: 12 }}>
+                    {aiMatchStats.matched} of {aiMatchStats.total} Matched
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {aiMatchLoading ? (
+              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
+                <RefreshCw size={24} className="spin" style={{ marginBottom: 10 }} />
+                <div style={{ fontWeight: 600 }}>Quartermaster AI is scanning open invoices and matching narratives…</div>
+              </div>
+            ) : aiMatches.length === 0 ? (
+              <div style={{ padding: "30px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
+                <CheckCircle2 size={32} color="#10b981" style={{ marginBottom: 8 }} />
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>All deposits are reconciled!</div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>No unmatched bank statement lines were found requiring reconciliation.</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: "55vh", overflowY: "auto", paddingRight: 4 }}>
+                {aiMatches.map((m) => (
+                  <div
+                    key={m.transaction_id}
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 10,
+                      background: "var(--surface-2)",
+                      border: m.is_high_confidence ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid var(--border)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>
+                            {kM(m.amount)}
+                          </span>
+                          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                            {m.transacted_on} · Ref: <strong style={{ color: "var(--text-primary)" }}>{m.transaction_ref}</strong>
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              background: m.is_high_confidence ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
+                              color: m.is_high_confidence ? "#10b981" : "#f59e0b",
+                            }}
+                          >
+                            {Math.round(m.confidence * 100)}% Match
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>
+                          Narrative: <em>&ldquo;{m.narrative || "—"}&rdquo;</em>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn primary sm"
+                        onClick={() => approveAiMatch(m)}
+                        style={{
+                          background: m.is_high_confidence ? "#16a34a" : "#4f46e5",
+                          borderColor: m.is_high_confidence ? "#16a34a" : "#4f46e5",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        ✓ Match & Receipt
+                      </button>
+                    </div>
+
+                    <div style={{ padding: "8px 12px", borderRadius: 6, background: "var(--surface)", border: "1px dashed var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                      <div>
+                        <span style={{ color: "var(--muted)" }}>Matched To: </span>
+                        <strong>{m.suggested_invoice.tenant_name}</strong> (Unit {m.suggested_invoice.unit_code}) · Invoice <strong className="mono">{m.suggested_invoice.number}</strong>
+                      </div>
+                      <div style={{ color: "#10b981", fontWeight: 700 }}>
+                        Balance: {kM(m.suggested_invoice.balance)}
+                      </div>
+                    </div>
+
+                    {m.match_reasons && m.match_reasons.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {m.match_reasons.map((r: string, idx: number) => (
+                          <span key={idx} style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.08)", color: "#6366f1", fontWeight: 600 }}>
+                            ✓ {r}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              <button
+                type="button"
+                className="btn ghost sm"
+                onClick={() => setShowAiMatchModal(false)}
+              >
+                Close
+              </button>
+
+              {aiMatches.some((m) => m.is_high_confidence) && (
+                <button
+                  type="button"
+                  className="btn primary sm"
+                  onClick={approveAllHighConfidence}
+                  disabled={aiBatchBusy}
+                  style={{
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    border: "none",
+                    fontWeight: 800,
+                    padding: "8px 18px",
+                  }}
+                >
+                  <Zap size={14} style={{ marginRight: 6 }} />
+                  {aiBatchBusy
+                    ? "Batch Receipting…"
+                    : `Approve & Receipt All ${aiMatches.filter((m) => m.is_high_confidence).length} High-Confidence Matches`}
+                </button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
+
 

@@ -2124,6 +2124,96 @@ class ServiceRequestViewSet(FacilityModelViewSet):
                 )
         return Response(self.get_serializer(service_request).data)
 
+    @action(detail=False, methods=('post',), url_path='ai-triage')
+    def ai_triage(self, request):
+        """AI Triage: Analyze maintenance issue description to classify trade, priority, estimated cost range, and recommend contractors."""
+        organization = get_active_organization(request)
+        description = request.data.get('description', '').strip()
+        subject = request.data.get('subject', '').strip()
+        category = request.data.get('category', '').strip()
+        full_text = f"{subject} {description}".lower()
+
+        if not full_text.strip():
+            raise ValidationError({'description': 'Provide a description or subject for triage.'})
+
+        # 1. Trade Category Detection
+        detected_category = 'general'
+        if any(w in full_text for w in ('leak', 'pipe', 'drain', 'clog', 'sewage', 'tap', 'faucet', 'toilet', 'flush', 'water pressure', 'geyser', 'plumb')):
+            detected_category = 'plumbing'
+        elif any(w in full_text for w in ('spark', 'circuit', 'breaker', 'blackout', 'short circuit', 'power', 'socket', 'switch', 'light', 'bulb', 'wiring', 'electr')):
+            detected_category = 'electrical'
+        elif any(w in full_text for w in ('ac', 'air condition', 'hvac', 'vent', 'chiller', 'heating', 'cooling', 'fan')):
+            detected_category = 'hvac'
+        elif any(w in full_text for w in ('lift', 'elevator', 'stuck in lift', 'escalator')):
+            detected_category = 'elevator'
+        elif any(w in full_text for w in ('door', 'lock', 'key', 'handle', 'hinge', 'cupboard', 'cabinet', 'window', 'glass', 'carpenter')):
+            detected_category = 'carpentry'
+        elif any(w in full_text for w in ('paint', 'crack', 'wall', 'plaster', 'ceiling', 'tiles', 'grout', 'masonry')):
+            detected_category = 'civil'
+        elif any(w in full_text for w in ('guard', 'cctv', 'gate', 'intercom', 'alarm', 'fence', 'security')):
+            detected_category = 'security'
+        elif category:
+            detected_category = category
+
+        # 2. Priority Classification
+        priority = 'normal'
+        urgency_reason = 'Standard maintenance request.'
+        if any(w in full_text for w in ('burst', 'flooding', 'fire', 'smoke', 'gas leak', 'stuck in lift', 'shock', 'sparking', 'emergency', 'no water in building', 'blackout')):
+            priority = 'critical'
+            urgency_reason = 'Critical risk of property damage or occupant safety hazard.'
+        elif any(w in full_text for w in ('overflow', 'leak', 'no power', 'broken lock', 'security risk', 'major', 'urgent', 'hot water')):
+            priority = 'high'
+            urgency_reason = 'High urgency: directly affects tenant living comfort or security.'
+        elif any(w in full_text for w in ('flicker', 'slow drain', 'creak', 'handle loose', 'touch up', 'minor')):
+            priority = 'low'
+            urgency_reason = 'Minor cosmetic or non-blocking maintenance issue.'
+
+        # 3. Estimated Cost Range (KES)
+        cost_ranges = {
+            'plumbing': {'min_kes': 2500, 'max_kes': 8500, 'avg_kes': 4500},
+            'electrical': {'min_kes': 2000, 'max_kes': 10000, 'avg_kes': 5000},
+            'hvac': {'min_kes': 5000, 'max_kes': 25000, 'avg_kes': 12000},
+            'elevator': {'min_kes': 15000, 'max_kes': 60000, 'avg_kes': 30000},
+            'carpentry': {'min_kes': 1500, 'max_kes': 6000, 'avg_kes': 3500},
+            'civil': {'min_kes': 3000, 'max_kes': 15000, 'avg_kes': 7500},
+            'security': {'min_kes': 4000, 'max_kes': 18000, 'avg_kes': 8000},
+            'general': {'min_kes': 1500, 'max_kes': 5000, 'avg_kes': 3000},
+        }
+        cost_estimate = cost_ranges.get(detected_category, cost_ranges['general'])
+
+        # 4. Contractor Recommendations
+        from facilities.models import Contractor
+        contractors = Contractor.objects.filter(
+            organization=organization, status='active',
+        )
+        matching = []
+        for c in contractors:
+            spec = (c.specialization or '').lower()
+            name = c.name
+            matched = detected_category in spec or detected_category in name.lower()
+            rating = float(c.rating or 4.5)
+            matching.append({
+                'id': str(c.id),
+                'name': c.name,
+                'phone': c.phone,
+                'email': c.email,
+                'specialization': c.specialization or detected_category.title(),
+                'rating': rating,
+                'is_trade_matched': matched,
+                'compliance_status': c.compliance_status if hasattr(c, 'compliance_status') else 'valid',
+            })
+        matching.sort(key=lambda x: (x['is_trade_matched'], x['rating']), reverse=True)
+
+        return Response({
+            'detected_category': detected_category,
+            'suggested_priority': priority,
+            'urgency_reason': urgency_reason,
+            'estimated_cost_range': cost_estimate,
+            'recommended_contractors': matching[:5],
+            'triage_summary': f"Triaged as {priority.upper()} {detected_category.title()} issue. Estimated repair budget: KES {cost_estimate['min_kes']:,} - {cost_estimate['max_kes']:,}.",
+        }, status=status.HTTP_200_OK)
+
+
 
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class FacilityPortalViewSet(ViewSet):

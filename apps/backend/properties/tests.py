@@ -1079,16 +1079,68 @@ class PropertyApiTests(TestCase):
         denied = self.client.get(f'/api/v1/property/invoices/{self.invoice.id}/pdf/', HTTP_X_ORGANIZATION_ID=str(self.other.id))
         self.assertEqual(denied.status_code, 404)
 
-    def test_receipt_overpayment_is_rejected_without_partial_records(self):
+    def test_receipt_overpayment_is_accepted_and_credits_wallet(self):
         response = self.client.post('/api/v1/property/receipts/', {
             'number': 'RCT-BAD', 'tenant': str(self.tenant.id),
             'invoice': str(self.invoice.id), 'received_on': '2026-07-31',
             'amount': '1000.01', 'payment_method': 'cash',
         }, format='json', **self.headers)
-        self.assertEqual(response.status_code, 400, response.data)
-        self.assertFalse(ReceiptAllocation.objects.filter(invoice=self.invoice).exists())
+        self.assertEqual(response.status_code, 201, response.data)
         self.invoice.refresh_from_db()
-        self.assertEqual(self.invoice.balance, Decimal('1000.00'))
+        self.assertEqual(self.invoice.balance, Decimal('0.00'))
+        self.assertEqual(self.invoice.status, Invoice.Status.PAID)
+        wallet = PayerWallet.objects.get(organization=self.organization, tenant=self.tenant)
+        self.assertEqual(wallet.balance, Decimal('0.01'))
+
+    def test_bank_transaction_ai_match_and_batch_receipt(self):
+        tx = BankTransaction.objects.create(
+            organization=self.organization,
+            reference='MPESA-QW1293',
+            transacted_on=date(2026, 8, 1),
+            amount=Decimal('1000.00'),
+            money_in=Decimal('1000.00'),
+            description=f'Rent payment for {self.unit.code} by {self.tenant.name}',
+            extracted_payer_name=self.tenant.name,
+        )
+
+        response = self.client.get('/api/v1/property/bank-transactions/ai-match/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertGreaterEqual(response.data['matched_count'], 1)
+        match_item = response.data['matches'][0]
+        self.assertEqual(match_item['transaction_id'], str(tx.id))
+        self.assertEqual(match_item['suggested_invoice']['id'], str(self.invoice.id))
+
+        # Test batch receipt execution
+        batch_res = self.client.post('/api/v1/property/bank-transactions/batch-quick-receipt/', {
+            'items': [{'transaction_id': str(tx.id), 'invoice_id': str(self.invoice.id)}],
+        }, format='json', **self.headers)
+        self.assertEqual(batch_res.status_code, 200, batch_res.data)
+        self.assertEqual(batch_res.data['processed_count'], 1)
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, BankTransaction.Status.MATCHED)
+        self.assertIsNotNone(tx.receipt)
+
+    def test_lease_document_extraction_endpoint(self):
+        raw_text = (
+            "Tenancy Agreement between Center Estates and Tenant Jane Mwangi (ID: 30129844, Tel: 0722123456) "
+            "for Unit B204 at Lynx Apartments. Monthly rent KES 55,000, Security deposit KES 110,000. "
+            "Term: 2026-09-01 to 2027-08-31 with 10% annual escalation."
+        )
+        response = self.client.post('/api/v1/property/leases/extract-document/', {
+            'raw_text': raw_text,
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data['extracted_data']
+        self.assertIn('Jane Mwangi', data['tenant_name'])
+        self.assertEqual(data['national_id'], '30129844')
+        self.assertEqual(data['monthly_rent'], '55000')
+        self.assertEqual(data['deposit'], '110000')
+        self.assertEqual(data['starts_on'], '2026-09-01')
+        self.assertEqual(data['ends_on'], '2027-08-31')
+        self.assertEqual(data['escalation_percent'], '10')
+
+
+
 
     def test_credit_note_reduces_balance_and_is_immutable(self):
         response = self.client.post('/api/v1/property/credit-notes/', {
@@ -2745,3 +2797,5 @@ class LandlordInvoiceApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400, response.data)
         self.assertTrue(LandlordInvoice.objects.filter(id=invoice.id).exists())
+
+

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Box, Button, Chip, IconButton, Paper, TextField, Typography } from "@mui/material";
 import { ArrowUp, ExternalLink, Minimize2, Sparkles, Trash2, X } from "lucide-react";
@@ -34,6 +35,7 @@ export default function QmChatWindow({
   onClose: () => void;
   onMinimize: () => void;
 }) {
+  const pathname = usePathname();
   const { activeProperty } = usePropertyContext();
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<QmMessage[]>([]);
@@ -55,7 +57,15 @@ export default function QmChatWindow({
     try {
       const response = await apiFetch("/companion/dashboard/chat/", {
         method: "POST",
-        body: JSON.stringify({ prompt: clean, conversation_id: conversationId }),
+        body: JSON.stringify({
+          prompt: clean,
+          conversation_id: conversationId,
+          page_context: {
+            pathname,
+            property_id: activeProperty?.id,
+            property_name: activeProperty?.name,
+          },
+        }),
       }, organizationId);
       if (!response.ok) throw new Error(await apiErrorMessage(response, "QM could not answer that question."));
       const answer = await response.json() as QmResponse;
@@ -71,7 +81,8 @@ export default function QmChatWindow({
     } finally {
       setLoading(false);
     }
-  }, [conversationId, loading, organizationId]);
+  }, [conversationId, loading, organizationId, pathname, activeProperty]);
+
 
   useEffect(() => {
     if (!organizationId) return;

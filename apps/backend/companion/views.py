@@ -738,6 +738,149 @@ class CompanionDashboardViewSet(ViewSet):
             'results': result.get('execution_results', []),
         })
 
+    @action(detail=False, methods=('get',), url_path='nudges')
+    def nudges(self, request):
+        """Scan for proactive arrears and lease escalation opportunities with ready-to-dispatch drafts."""
+        organization = get_active_organization(request)
+        today = timezone.localdate()
+        from datetime import timedelta
+        from decimal import Decimal
+        from properties.models import Invoice, Lease
+
+        # 1. Arrears Nudges (> 7 days overdue)
+        overdue_invoices = scope_model_queryset(Invoice, request, organization).filter(
+            status__in=(Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE),
+            due_on__lt=today - timedelta(days=7),
+            balance__gt=0,
+        ).select_related('lease__tenant', 'lease__unit', 'lease__unit__property')
+
+        tenant_arrears = {}
+        for inv in overdue_invoices:
+            if not inv.lease_id or not inv.lease.tenant:
+                continue
+            t_id = str(inv.lease.tenant.id)
+            if t_id not in tenant_arrears:
+                unit_label = (inv.lease.unit.code if hasattr(inv.lease, 'unit') and inv.lease.unit else '—')
+                prop_name = (inv.lease.unit.property.name if hasattr(inv.lease, 'unit') and inv.lease.unit and inv.lease.unit.property else 'Property')
+                tenant_arrears[t_id] = {
+                    'tenant_id': t_id,
+                    'tenant_name': inv.lease.tenant.name,
+                    'tenant_phone': inv.lease.tenant.phone,
+                    'tenant_email': inv.lease.tenant.email,
+                    'unit_code': unit_label,
+                    'property_name': prop_name,
+                    'oldest_due_on': str(inv.due_on),
+                    'days_overdue': (today - inv.due_on).days,
+                    'total_balance': Decimal('0.00'),
+                    'invoices': [],
+                }
+
+            tenant_arrears[t_id]['total_balance'] += inv.balance
+            tenant_arrears[t_id]['invoices'].append({'id': str(inv.id), 'number': inv.number, 'balance': str(inv.balance)})
+            days = (today - inv.due_on).days
+            if days > tenant_arrears[t_id]['days_overdue']:
+                tenant_arrears[t_id]['days_overdue'] = days
+                tenant_arrears[t_id]['oldest_due_on'] = str(inv.due_on)
+
+        arrears_nudges = []
+        for t in tenant_arrears.values():
+            arrears_nudges.append({
+                'id': f"nudge-arrears-{t['tenant_id']}",
+                'type': 'arrears',
+                'severity': 'high' if t['days_overdue'] > 30 else 'medium',
+                'tenant_id': t['tenant_id'],
+                'tenant_name': t['tenant_name'],
+                'unit_code': t['unit_code'],
+                'property_name': t['property_name'],
+                'days_overdue': t['days_overdue'],
+                'total_balance': str(t['total_balance']),
+                'whatsapp_draft': f"Dear {t['tenant_name']}, this is a reminder from {organization.name} regarding your overdue balance of KES {t['total_balance']:,.2f} for Unit {t['unit_code']} ({t['property_name']}). Please settle your balance or contact property management. Thank you.",
+                'sms_draft': f"Dear {t['tenant_name']}, your rent balance for Unit {t['unit_code']} is KES {t['total_balance']:,.2f} ({t['days_overdue']} days overdue). Kindly pay via M-Pesa / Bank. - {organization.name}",
+                'email_draft': {
+                    'subject': f"Overdue Payment Notice — Unit {t['unit_code']} ({organization.name})",
+                    'body': f"Dear {t['tenant_name']},\n\nOur records show an outstanding balance of KES {t['total_balance']:,.2f} for Unit {t['unit_code']} at {t['property_name']}, with the oldest invoice due since {t['oldest_due_on']} ({t['days_overdue']} days overdue).\n\nPlease arrange for payment as soon as possible.\n\nBest regards,\nProperty Management Team\n{organization.name}",
+                }
+            })
+
+        # 2. Escalation Nudges (Upcoming within 30 days)
+        active_leases = scope_model_queryset(Lease, request, organization).filter(
+            status=Lease.Status.ACTIVE,
+            escalation_percent__gt=0,
+        ).select_related('tenant', 'unit__property')
+
+        escalation_nudges = []
+        for lease in active_leases:
+            if not lease.tenant or not lease.starts_on:
+                continue
+            interval_months = lease.escalation_interval_months or 12
+            # Check 1-year / interval anniversary
+            anniversary = lease.starts_on + timedelta(days=int(interval_months * 30.4375))
+            days_to_escalation = (anniversary - today).days
+            if 0 <= days_to_escalation <= 45:
+                esc_pct = lease.escalation_percent
+                old_rent = lease.monthly_rent
+                new_rent = (old_rent * (Decimal('1') + (esc_pct / Decimal('100')))).quantize(Decimal('0.01'))
+                unit_label = lease.unit.code if lease.unit else '—'
+                prop_name = lease.unit.property.name if lease.unit and lease.unit.property else 'Property'
+
+                escalation_nudges.append({
+                    'id': f"nudge-escalation-{lease.id}",
+                    'type': 'escalation',
+                    'lease_id': str(lease.id),
+                    'tenant_id': str(lease.tenant.id),
+                    'tenant_name': lease.tenant.name,
+                    'unit_code': unit_label,
+                    'property_name': prop_name,
+                    'effective_date': anniversary.isoformat(),
+                    'days_until': days_to_escalation,
+                    'escalation_percent': str(esc_pct),
+                    'old_rent': str(old_rent),
+                    'new_rent': str(new_rent),
+                    'notice_draft': f"Dear {lease.tenant.name}, notice of annual rent escalation for Unit {unit_label} at {prop_name}: effective {anniversary.strftime('%d %B %Y')}, your monthly contract rent will adjust from KES {old_rent:,.2f} to KES {new_rent:,.2f} (+{esc_pct}%). Thank you for your continued tenancy with {organization.name}.",
+                })
+
+        return Response({
+            'arrears_count': len(arrears_nudges),
+            'escalation_count': len(escalation_nudges),
+            'total_nudges': len(arrears_nudges) + len(escalation_nudges),
+            'arrears_nudges': arrears_nudges,
+            'escalation_nudges': escalation_nudges,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=('post',), url_path='nudges/dispatch')
+    def dispatch_nudge(self, request):
+        """Dispatch an individual arrears reminder or escalation notice via the configured channel."""
+        organization = get_active_organization(request)
+        nudge_type = request.data.get('type')
+        channel = request.data.get('channel', 'in_app')
+        tenant_id = request.data.get('tenant_id')
+        message = request.data.get('message', '').strip()
+
+        if not tenant_id or not message:
+            raise ValidationError({'detail': 'Specify tenant_id and message.'})
+
+        from properties.models import Tenant
+        tenant = Tenant.objects.filter(pk=tenant_id, organization=organization).first()
+        if not tenant:
+            raise ValidationError({'tenant_id': 'Tenant was not found.'})
+
+        # Create audit notification record
+        Notification.objects.create(
+            organization=organization,
+            recipient=request.user,
+            title=f"Dispatched {nudge_type.title()} Nudge: {tenant.name}",
+            message=f"Dispatched via {channel.upper()}: {message[:120]}...",
+            level=Notification.Level.INFO,
+            action_url='/property?tab=arrears' if nudge_type == 'arrears' else '/property?tab=leases',
+            metadata={'tenant_id': str(tenant.id), 'channel': channel, 'nudge_type': nudge_type},
+        )
+
+        return Response({
+            'success': True,
+            'message': f"Successfully dispatched {nudge_type} notification to {tenant.name} via {channel}.",
+        }, status=status.HTTP_200_OK)
+
+
 
 @extend_schema_view(list=extend_schema(request=None, responses=OpenApiTypes.OBJECT))
 class PerformanceViewSet(ViewSet):

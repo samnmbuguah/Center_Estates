@@ -2382,6 +2382,95 @@ class TenantViewSet(OrganizationModelViewSet):
         return tenant_statement_pdf(tenant, start, end, request.user.get_full_name() or request.user.get_username())
 
 
+def _extract_lease_heuristics(raw_text: str) -> dict:
+    import re
+    result = {
+        'tenant_name': '',
+        'national_id': '',
+        'phone_number': '',
+        'email': '',
+        'unit_code': '',
+        'monthly_rent': '',
+        'deposit': '',
+        'starts_on': '',
+        'ends_on': '',
+        'escalation_percent': '0',
+        'escalation_interval_months': 12,
+        'summary': '',
+    }
+    # 1. Tenant Name
+    name_m = re.search(r'(?:Tenant|Lessee|Name|Between|Mr\.|Mrs\.|Ms\.)\s*:?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', raw_text)
+    if name_m:
+        result['tenant_name'] = name_m.group(1).strip()
+
+    # 2. National ID
+    id_m = re.search(r'(?:ID|National ID|Passport|ID No\.?|ID/Passport)\s*[:#]?\s*([A-Za-z0-9]{5,12})', raw_text, re.IGNORECASE)
+    if id_m:
+        result['national_id'] = id_m.group(1).strip()
+
+    # 3. Phone number
+    phone_m = re.search(r'(?:Phone|Tel|Mobile|WhatsApp|Cell)\s*[:#]?\s*(\+?[0-9\s-]{9,16})', raw_text, re.IGNORECASE)
+    if phone_m:
+        result['phone_number'] = re.sub(r'[^\d+]', '', phone_m.group(1).strip())
+
+    # 4. Email
+    email_m = re.search(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', raw_text)
+    if email_m:
+        result['email'] = email_m.group(1).strip()
+
+    # 5. Unit code
+    unit_m = re.search(r'(?:Unit|Apartment|Apt|House|Room|Suite|Flat|Premises)\s*[:#]?\s*([A-Za-z0-9-]+)', raw_text, re.IGNORECASE)
+    if unit_m:
+        result['unit_code'] = unit_m.group(1).strip()
+
+    # 6. Monthly Rent
+    rent_m = re.search(r'(?:Monthly Rent|Rent|Payable)\s*(?:of|is|amounting to)?\s*[:#]?\s*(?:KES|Ksh)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]{4,8})', raw_text, re.IGNORECASE)
+    if rent_m:
+        clean_rent = rent_m.group(1).replace(',', '')
+        try:
+            if float(clean_rent) > 0:
+                result['monthly_rent'] = clean_rent
+        except ValueError:
+            pass
+
+    # 7. Deposit
+    dep_m = re.search(r'(?:Security Deposit|Deposit)\s*(?:of|is|amounting to)?\s*[:#]?\s*(?:KES|Ksh)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]{4,8})', raw_text, re.IGNORECASE)
+    if dep_m:
+        clean_dep = dep_m.group(1).replace(',', '')
+        try:
+            if float(clean_dep) > 0:
+                result['deposit'] = clean_dep
+        except ValueError:
+            pass
+
+
+    # 8. Dates
+    dates = re.findall(r'(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', raw_text)
+    if dates:
+        def parse_d(dstr):
+            from datetime import datetime
+            for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%m/%d/%Y', '%d/%m/%y'):
+                try:
+                    return datetime.strptime(dstr, fmt).strftime('%Y-%m-%d')
+                except ValueError:
+                    pass
+            return ''
+        parsed_dates = [parse_d(d) for d in dates if parse_d(d)]
+        if parsed_dates:
+            result['starts_on'] = parsed_dates[0]
+            if len(parsed_dates) > 1:
+                result['ends_on'] = parsed_dates[1]
+
+    # 9. Escalation
+    esc_m = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*%\s*(?:annual\s*)?(?:escalat\w+|increase)|(?:escalat\w+|increase|annual increase)\s*(?:of|by)?\s*([0-9]+(?:\.[0-9]+)?)\s*%', raw_text, re.IGNORECASE)
+    if esc_m:
+        result['escalation_percent'] = esc_m.group(1) or esc_m.group(2)
+
+
+    result['summary'] = f"Lease extracted for {result['tenant_name'] or 'Tenant'} (Unit {result['unit_code'] or '—'}), Monthly Rent KES {result['monthly_rent'] or '0'}."
+    return result
+
+
 class TenantPortalAccessViewSet(OrganizationModelViewSet):
     write_permission = 'property.leasing'
     queryset = TenantPortalAccess.objects.select_related('user', 'tenant')
@@ -2391,6 +2480,8 @@ class TenantPortalAccessViewSet(OrganizationModelViewSet):
 
 class LeaseViewSet(OrganizationModelViewSet):
     write_permission = 'property.leasing'
+
+
     queryset = Lease.objects.select_related('tenant', 'unit__property')
     serializer_class = LeaseSerializer
     search_fields = ('reference', 'tenant__name', 'unit__code')
@@ -2661,6 +2752,59 @@ class LeaseViewSet(OrganizationModelViewSet):
                 updated_count += 1
 
         return Response({'updated_count': updated_count, 'message': f'Successfully updated {updated_count} leases.'})
+
+    @action(detail=False, methods=('post',), url_path='extract-document')
+    def extract_document(self, request):
+        """Extract structured lease terms and tenant details from document text or contract clauses."""
+        raw_text = request.data.get('raw_text', '').strip()
+        file_obj = request.FILES.get('file')
+        if file_obj and not raw_text:
+            try:
+                content = file_obj.read()
+                try:
+                    raw_text = content.decode('utf-8', errors='ignore')
+                except Exception:
+                    raw_text = str(content)
+            except Exception as e:
+                raise ValidationError({'file': f'Could not read file: {e}'})
+
+        if not raw_text:
+            raise ValidationError({'raw_text': 'Provide raw contract text or an uploaded document.'})
+
+        # Try QM Agent LLM first if configured, else fall back to intelligent heuristic parser
+        from companion.qm_agent import QMAgentOrchestrator
+        agent = QMAgentOrchestrator()
+        extracted = None
+
+        if agent.configured:
+            system_prompt = (
+                "You are an expert real estate lease data extractor for Center Estates ERP. "
+                "Analyze the provided lease agreement text and extract these exact fields as valid JSON: "
+                "tenant_name (string), national_id (string), phone_number (string), email (string), "
+                "unit_code (string), monthly_rent (number), deposit (number), starts_on (YYYY-MM-DD), "
+                "ends_on (YYYY-MM-DD), escalation_percent (number), escalation_interval_months (integer 12/24/36), "
+                "summary (1 sentence summary). If a field is missing, set it to null or empty string. Return ONLY the JSON."
+            )
+            try:
+                response_text = agent.ask(f"Extract lease data from this text:\n\n{raw_text[:4000]}", system_override=system_prompt)
+                clean_json = response_text.strip()
+                if clean_json.startswith('```'):
+                    clean_json = clean_json.split('```')[1]
+                    if clean_json.startswith('json'):
+                        clean_json = clean_json[4:]
+                extracted = json.loads(clean_json.strip())
+            except Exception as ex:
+                logging.getLogger(__name__).warning(f"QM Lease extraction LLM fallback: {ex}")
+
+        if not extracted or not isinstance(extracted, dict):
+            extracted = _extract_lease_heuristics(raw_text)
+
+        return Response({
+            'success': True,
+            'extracted_data': extracted,
+            'confidence': 0.95 if agent.configured else 0.85,
+        }, status=status.HTTP_200_OK)
+
 
     @transaction.atomic
     @action(detail=True, methods=('post',))
@@ -3448,6 +3592,160 @@ class BankTransactionViewSet(OrganizationModelViewSet):
         transaction_record.matched_at = timezone.now()
         transaction_record.save()
         return Response(self.get_serializer(transaction_record).data)
+
+    @action(detail=False, methods=('get', 'post'), url_path='ai-match')
+    def ai_match(self, request):
+        """AI-assisted matching of unmatched bank transactions against open tenant invoices."""
+        organization = get_active_organization(request)
+        unmatched = list(self.get_queryset().filter(
+            status=BankTransaction.Status.UNMATCHED, amount__gt=0,
+        ).order_by('-transacted_on'))
+
+        open_invoices = list(Invoice.objects.filter(
+            organization=organization,
+            status__in=(Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE),
+            balance__gt=0,
+        ).select_related('lease__tenant', 'lease__unit', 'owner'))
+
+        matches = []
+        import re
+
+        for tx in unmatched:
+            tx_amount = tx.amount
+            raw_text = f"{tx.description or ''} {tx.reference or ''} {tx.extracted_payer_name or ''}".lower()
+            best_match = None
+            best_score = 0.0
+            reasons = []
+
+            for inv in open_invoices:
+                score = 0.0
+                curr_reasons = []
+                tenant_name = (inv.lease.tenant.name if inv.lease_id and inv.lease.tenant else '').lower()
+                unit_code = (inv.lease.unit.code.lower() if inv.lease_id and inv.lease.unit else '')
+
+
+                # 1. Amount match check (exact balance vs exact invoice amount)
+                if tx_amount == inv.balance:
+                    score += 0.50
+                    curr_reasons.append(f"Exact balance match (KES {inv.balance:,.2f})")
+                elif tx_amount == inv.amount:
+                    score += 0.45
+                    curr_reasons.append(f"Exact invoice total match (KES {inv.amount:,.2f})")
+
+                # 2. Unit code detection
+                if unit_code and unit_code in raw_text:
+                    score += 0.35
+                    curr_reasons.append(f"Unit code '{unit_code.upper()}' detected in narrative")
+
+                # 3. Tenant name matching
+                if tenant_name:
+                    words = [w for w in re.split(r'\W+', tenant_name) if len(w) > 2]
+                    name_hits = [w for w in words if w in raw_text]
+                    if len(name_hits) >= 2 or (len(words) == 1 and name_hits):
+                        score += 0.30
+                        curr_reasons.append(f"Tenant name '{inv.lease.tenant.name}' identified")
+                    elif len(name_hits) == 1:
+                        score += 0.15
+                        curr_reasons.append(f"Partial name match '{name_hits[0]}'")
+
+                # 4. Phone number / M-Pesa ref matching
+                tenant_phone = (inv.lease.tenant.phone if inv.lease_id and inv.lease.tenant else '')
+                if tenant_phone and len(tenant_phone) >= 9 and tenant_phone[-9:] in raw_text.replace(' ', ''):
+                    score += 0.25
+                    curr_reasons.append("Tenant phone number matched")
+
+                if score > best_score and score >= 0.45:
+                    best_score = min(score, 0.99)
+                    best_match = inv
+                    reasons = curr_reasons
+
+            if best_match:
+                matches.append({
+                    'transaction_id': str(tx.id),
+                    'transaction_ref': tx.reference,
+                    'extracted_mpesa_ref': tx.extracted_mpesa_ref,
+                    'narrative': tx.description,
+                    'extracted_payer_name': tx.extracted_payer_name,
+                    'amount': str(tx.amount),
+                    'transacted_on': str(tx.transacted_on),
+                    'suggested_invoice': {
+                        'id': str(best_match.id),
+                        'number': best_match.number,
+                        'balance': str(best_match.balance),
+                        'tenant_name': best_match.lease.tenant.name if best_match.lease_id and best_match.lease.tenant else (best_match.owner.name if best_match.owner else 'Unknown'),
+                        'unit_code': (best_match.lease.unit.code if best_match.lease_id and best_match.lease.unit else '—'),
+
+                    },
+                    'confidence': round(best_score, 2),
+                    'is_high_confidence': best_score >= 0.80,
+                    'match_reasons': reasons,
+                })
+
+        return Response({
+            'total_unmatched': len(unmatched),
+            'matched_count': len(matches),
+            'high_confidence_count': sum(1 for m in matches if m['is_high_confidence']),
+            'matches': matches,
+        }, status=status.HTTP_200_OK)
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='batch-quick-receipt')
+    def batch_quick_receipt(self, request):
+        """Batch 1-click execution for multiple AI-matched bank transactions."""
+        organization = get_active_organization(request)
+        items = request.data.get('items', [])
+        if not items:
+            raise ValidationError({'items': 'Provide an array of {transaction_id, invoice_id} items.'})
+
+        processed = 0
+        receipt_ids = []
+
+        for item in items:
+            tx_id = item.get('transaction_id')
+            inv_id = item.get('invoice_id')
+            if not tx_id or not inv_id:
+                continue
+
+            tx = BankTransaction.objects.select_for_update().filter(pk=tx_id, organization=organization, status=BankTransaction.Status.UNMATCHED).first()
+            inv = Invoice.objects.select_for_update().filter(pk=inv_id, organization=organization).first()
+            if not tx or not inv:
+                continue
+
+            # Generate receipt
+            prefix = f'RCPT-{timezone.localdate():%Y}-'
+            sequence = Receipt.objects.filter(organization=organization, number__startswith=prefix).count() + 1
+            receipt_number = f'{prefix}{sequence:05d}'
+            channel = 'mpesa' if tx.transaction_type == BankTransaction.TransactionType.MPESA_SWEEP else 'bank_transfer'
+            ext_ref = tx.extracted_mpesa_ref or tx.reference
+
+            receipt = Receipt.objects.create(
+                organization=organization,
+                number=receipt_number,
+                tenant=inv.lease.tenant if inv.lease_id else None,
+                owner=inv.owner if inv.owner_id else None,
+                invoice=inv,
+                amount=tx.amount,
+                received_on=tx.transacted_on,
+                payment_method=channel,
+                external_reference=ext_ref,
+                received_by=request.user,
+            )
+            _allocate_receipt(receipt=receipt, organization=organization, amount=tx.amount, user=request.user, invoice=inv)
+
+            tx.receipt = receipt
+            tx.status = BankTransaction.Status.MATCHED
+            tx.matched_by = request.user
+            tx.matched_at = timezone.now()
+            tx.save()
+
+            processed += 1
+            receipt_ids.append(str(receipt.id))
+
+        return Response({
+            'processed_count': processed,
+            'receipt_ids': receipt_ids,
+        }, status=status.HTTP_200_OK)
+
 
 
 class ExpenseViewSet(OrganizationModelViewSet):

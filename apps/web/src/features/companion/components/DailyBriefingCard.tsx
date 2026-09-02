@@ -52,14 +52,27 @@ export function DailyBriefingCard({
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [executedIds, setExecutedIds] = useState<Set<string>>(new Set());
 
+  // Proactive Nudges state
+  const [nudgesData, setNudgesData] = useState<{ arrears_nudges: any[]; escalation_nudges: any[]; total_nudges: number; arrears_count?: number; escalation_count?: number } | null>(null);
+  const [dispatchingNudgeId, setDispatchingNudgeId] = useState<string | null>(null);
+  const [dispatchedNudgeIds, setDispatchedNudgeIds] = useState<Set<string>>(new Set());
+
+
   useEffect(() => {
     let cancelled = false;
     async function loadBriefing() {
       try {
-        const res = await apiFetch("/companion/dashboard/daily-briefing/");
+        const [res, nudgesRes] = await Promise.all([
+          apiFetch("/companion/dashboard/daily-briefing/"),
+          apiFetch("/companion/dashboard/nudges/"),
+        ]);
         if (res.ok && !cancelled) {
           const json = (await res.json()) as LangGraphBriefingData;
           setData(json);
+        }
+        if (nudgesRes.ok && !cancelled) {
+          const nJson = await nudgesRes.json();
+          setNudgesData(nJson);
         }
       } catch {
         // Fallback gracefully
@@ -72,6 +85,30 @@ export function DailyBriefingCard({
       cancelled = true;
     };
   }, []);
+
+  const handleDispatchNudge = async (nudge: any, channel: "whatsapp" | "sms" | "email") => {
+    setDispatchingNudgeId(nudge.id);
+    try {
+      const msg = channel === "whatsapp" ? (nudge.whatsapp_draft || nudge.notice_draft) : (nudge.sms_draft || nudge.notice_draft);
+      const res = await apiFetch("/companion/dashboard/nudges/dispatch/", {
+        method: "POST",
+        body: JSON.stringify({
+          type: nudge.type,
+          tenant_id: nudge.tenant_id,
+          channel,
+          message: msg,
+        }),
+      });
+      if (res.ok) {
+        setDispatchedNudgeIds((prev) => new Set(prev).add(nudge.id));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDispatchingNudgeId(null);
+    }
+  };
+
 
   const handleSpeak = () => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -334,6 +371,161 @@ export function DailyBriefingCard({
           </div>
         </div>
       )}
+
+      {/* Proactive Nudges & Tenant Communications */}
+      {nudgesData && nudgesData.total_nudges > 0 && (
+        <div style={{ borderTop: "1px solid rgba(13, 148, 136, 0.15)", paddingTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>🔔</span> Proactive AI Action Nudges ({nudgesData.total_nudges})
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>
+              {nudgesData.arrears_count} Arrears · {nudgesData.escalation_count} Escalations
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 12 }}>
+            {/* Arrears Nudges */}
+            {nudgesData.arrears_nudges.map((nudge) => {
+              const isDispatched = dispatchedNudgeIds.has(nudge.id);
+              const isBusy = dispatchingNudgeId === nudge.id;
+              return (
+                <div
+                  key={nudge.id}
+                  style={{
+                    background: isDispatched ? "rgba(22, 163, 74, 0.08)" : "var(--surface)",
+                    border: isDispatched ? "1px solid rgba(22, 163, 74, 0.3)" : "1px solid rgba(239, 68, 68, 0.3)",
+                    borderRadius: 10,
+                    padding: "12px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: "#dc2626", textTransform: "uppercase" }}>
+                        ⚠️ Rent Arrears · {nudge.days_overdue}d Overdue
+                      </span>
+                      {isDispatched && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 800 }}>✓ Sent</span>}
+                    </div>
+                    <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>{nudge.tenant_name}</strong>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      Unit {nudge.unit_code} ({nudge.property_name}) · Balance: <strong style={{ color: "#dc2626" }}>KES {Number(nudge.total_balance).toLocaleString()}</strong>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6, fontStyle: "italic", background: "var(--surface-2)", padding: "6px 8px", borderRadius: 6 }}>
+                      &ldquo;{nudge.sms_draft}&rdquo;
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+                    {isDispatched ? (
+                      <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 700 }}>Notification recorded</span>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => void handleDispatchNudge(nudge, "whatsapp")}
+                          style={{
+                            background: "#25d366",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "4px 10px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          💬 WhatsApp
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => void handleDispatchNudge(nudge, "sms")}
+                          style={{
+                            background: "#4f46e5",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "4px 10px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          📱 SMS
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Escalation Nudges */}
+            {nudgesData.escalation_nudges.map((nudge) => {
+              const isDispatched = dispatchedNudgeIds.has(nudge.id);
+              const isBusy = dispatchingNudgeId === nudge.id;
+              return (
+                <div
+                  key={nudge.id}
+                  style={{
+                    background: isDispatched ? "rgba(22, 163, 74, 0.08)" : "var(--surface)",
+                    border: isDispatched ? "1px solid rgba(22, 163, 74, 0.3)" : "1px solid rgba(124, 58, 237, 0.3)",
+                    borderRadius: 10,
+                    padding: "12px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>
+                        📈 Rent Escalation · In {nudge.days_until}d
+                      </span>
+                      {isDispatched && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 800 }}>✓ Sent</span>}
+                    </div>
+                    <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>{nudge.tenant_name}</strong>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      Unit {nudge.unit_code} · KES {Number(nudge.old_rent).toLocaleString()} ➔ <strong style={{ color: "#16a34a" }}>KES {Number(nudge.new_rent).toLocaleString()}</strong> (+{nudge.escalation_percent}%)
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+                    {isDispatched ? (
+                      <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 700 }}>Notice dispatched</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleDispatchNudge(nudge, "email")}
+                        style={{
+                          background: "#7c3aed",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "5px 12px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        📨 Dispatch Escalation Notice
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
