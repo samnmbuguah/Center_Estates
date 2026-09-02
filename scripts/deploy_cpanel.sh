@@ -97,7 +97,7 @@ tar -czf "$BACKEND_ARCHIVE" \
 scp "$BACKEND_ARCHIVE" "${REMOTE_HOST}:${API_PATH}/deploy-api.tar.gz"
 scp "scripts/cpanel-api.htaccess" "${REMOTE_HOST}:${API_PATH}/.htaccess"
 
-ssh "$REMOTE_HOST" "
+ssh "$REMOTE_HOST" "bash -s" <<EOF
   set -e
   source '${PYTHON_VENV}'
   cd '${API_PATH}'
@@ -107,9 +107,9 @@ ssh "$REMOTE_HOST" "
   find apps/backend -type d -name '__pycache__' -empty -delete
   requirements_hash=\$(sha256sum apps/backend/requirements.txt | awk '{print \$1}')
   installed_hash=\$(cat .requirements.sha256 2>/dev/null || true)
-  if [ \"\${requirements_hash}\" != \"\${installed_hash}\" ]; then
+  if [ "\${requirements_hash}" != "\${installed_hash}" ]; then
     python -m pip install --quiet -r apps/backend/requirements.txt PyMySQL
-    printf '%s\\n' \"\${requirements_hash}\" > .requirements.sha256
+    printf '%s\n' "\${requirements_hash}" > .requirements.sha256
   else
     echo 'Python dependencies unchanged; skipping pip install.'
   fi
@@ -123,18 +123,18 @@ ssh "$REMOTE_HOST" "
   mkdir -p tmp
   touch tmp/restart.txt
   # Kill stale Python workers matching this application's exact command.
-  app_pids=\$(pgrep -u \$(id -u) -f '^/opt/alt/python39/bin/lswsgi -m ${API_PATH}/passenger_wsgi.py\$' || true)
+  app_pids=\$(pgrep -u \$(id -u) -f "^/opt/alt/python39/bin/lswsgi -m ${API_PATH}/passenger_wsgi.py" || true)
   for app_pid in \${app_pids}; do
     kill -TERM "\${app_pid}" 2>/dev/null || true
   done
   # Wait for graceful shutdown, then force-kill stragglers
   sleep 3
-  app_pids=\$(pgrep -u \$(id -u) -f '^/opt/alt/python39/bin/lswsgi -m ${API_PATH}/passenger_wsgi.py\$' || true)
+  app_pids=\$(pgrep -u \$(id -u) -f "^/opt/alt/python39/bin/lswsgi -m ${API_PATH}/passenger_wsgi.py" || true)
   for app_pid in \${app_pids}; do
     kill -9 "\${app_pid}" 2>/dev/null || true
   done
   sleep 2
-"
+EOF
 
   # Do not move on to the frontend release while the restarted API is still
   # warming up. Existing browser sessions can refresh their access token as
@@ -175,7 +175,7 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
   tar -czf "$FRONTEND_ARCHIVE" \
     app.js apps/web/.next/standalone apps/web/.next/static apps/web/public
   scp "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
-  ssh "$REMOTE_HOST" "
+  ssh "$REMOTE_HOST" "bash -s" <<EOF
     set -e
     source '${NODE_VENV}'
     cd '${FRONTEND_PATH}'
@@ -193,26 +193,26 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     touch tmp/restart.txt
     # Kill stale Next.js workers matching this application's path.
     # First try SIGTERM for graceful shutdown, then SIGKILL if needed.
-    web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == \"next-server\" {print \$1}')
+    web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}')
     for web_pid in \${web_pids}; do
-      if [ \"\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)\" = \"${FRONTEND_PATH}/apps/web/.next/standalone/apps/web\" ]; then
-        kill -TERM \"\${web_pid}\" 2>/dev/null || true
+      if [ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]; then
+        kill -TERM "\${web_pid}" 2>/dev/null || true
       fi
     done
     # Wait up to 10s for graceful shutdown, then force-kill stragglers
     sleep 3
-    web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == \"next-server\" {print \$1}')
+    web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}')
     for web_pid in \${web_pids}; do
-      if [ \"\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)\" = \"${FRONTEND_PATH}/apps/web/.next/standalone/apps/web\" ]; then
-        kill -9 \"\${web_pid}\" 2>/dev/null || true
+      if [ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]; then
+        kill -9 "\${web_pid}" 2>/dev/null || true
       fi
     done
     sleep 2
     # Verify a fresh worker spawned (Passenger auto-restarts on next request)
     curl -sf https://${DOMAIN}/ > /dev/null 2>&1 || true
-    new_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == \"next-server\" {print \$1}' | wc -l)
-    echo \"Active next-server workers after restart: \${new_pids}\"
-  "
+    new_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}' | wc -l)
+    echo "Active next-server workers after restart: \${new_pids}"
+EOF
 fi
 
 echo "Deployment complete: https://${DOMAIN} and https://${API_DOMAIN}"
