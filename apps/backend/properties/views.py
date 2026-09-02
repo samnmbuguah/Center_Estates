@@ -6092,14 +6092,29 @@ class TenantPortalViewSet(ViewSet):
         outstanding = invoices.exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).aggregate(
             total=Sum('balance'),
         )['total'] or Decimal('0')
-        wallet_credit = PayerWallet.objects.for_organization(tenant.organization).filter(tenant=tenant).values_list('balance', flat=True).first() or Decimal('0')
+        wallet = PayerWallet.objects.for_organization(tenant.organization).filter(tenant=tenant).first()
+        wallet_credit = wallet.balance if wallet else Decimal('0.00')
+        wallet_entries = []
+        if wallet:
+            for entry in wallet.entries.select_related('receipt', 'invoice').order_by('-created_at')[:20]:
+                wallet_entries.append({
+                    'id': str(entry.id),
+                    'entry_type': entry.entry_type,
+                    'amount': str(entry.amount),
+                    'note': entry.note,
+                    'created_at': entry.created_at.isoformat() if entry.created_at else None,
+                    'receipt_number': entry.receipt.number if entry.receipt else None,
+                    'invoice_number': entry.invoice.number if entry.invoice else None,
+                })
         return {
             'tenant': TenantSerializer(tenant).data,
             'currentLease': LeaseSerializer(current_lease).data if current_lease else None,
             'offerLetter': LeaseViewSet._offer_letter(current_lease) if current_lease else None,
             'balance': outstanding,
             'walletCredit': wallet_credit,
+            'walletEntries': wallet_entries,
             'invoices': InvoiceSerializer(invoices[:12], many=True).data,
+
             'receipts': ReceiptSerializer(receipts[:12], many=True).data,
             'paymentGateways': list(gateways),
             'documents': TenantDocumentSerializer(

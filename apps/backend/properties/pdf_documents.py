@@ -278,7 +278,27 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
     table = Table(data, colWidths=[72 * mm, 18 * mm, 28 * mm, 25 * mm, 30 * mm], repeatRows=1)
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .35, LINE), ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
     story.extend([table, Spacer(1, 5 * mm)])
-    totals = Table([["Total amount excl. VAT", _money(invoice.subtotal or invoice.amount - invoice.tax_amount)], ["Total VAT", _money(invoice.tax_amount)], ["Invoice total", _money(invoice.amount)], ["Previous tenant balance", _money(Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).exclude(pk=invoice.pk).aggregate(v=Sum("balance"))["v"] or 0)], ["TOTAL AMOUNT DUE", _money(Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).aggregate(v=Sum("balance"))["v"] or 0)]], colWidths=[55 * mm, 43 * mm], hAlign="RIGHT")
+    from properties.models import PayerWalletEntry
+    wallet_applied = PayerWalletEntry.objects.filter(
+        organization=invoice.organization, invoice=invoice, entry_type=PayerWalletEntry.EntryType.DEBIT
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+    totals_rows = [
+        ["Total amount excl. VAT", _money(invoice.subtotal or invoice.amount - invoice.tax_amount)],
+        ["Total VAT", _money(invoice.tax_amount)],
+        ["Invoice total", _money(invoice.amount)],
+    ]
+    if wallet_applied > 0:
+        totals_rows.append(["Less advance credit applied", f"-{_money(wallet_applied)}"])
+        totals_rows.append(["Net invoice balance", _money(invoice.balance)])
+
+    prev_balance = Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).exclude(pk=invoice.pk).aggregate(v=Sum("balance"))["v"] or Decimal("0.00")
+    totals_rows.append(["Previous tenant balance", _money(prev_balance)])
+    total_due = Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).aggregate(v=Sum("balance"))["v"] or Decimal("0.00")
+    totals_rows.append(["TOTAL AMOUNT DUE", _money(total_due)])
+
+    totals = Table(totals_rows, colWidths=[55 * mm, 43 * mm], hAlign="RIGHT")
+
     totals.setStyle(TableStyle([("ALIGN", (1, 0), (1, -1), "RIGHT"), ("LINEBELOW", (0, 0), (-1, -2), .3, LINE), ("BACKGROUND", (0, -1), (-1, -1), RED), ("TEXTCOLOR", (0, -1), (-1, -1), colors.white), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8.5), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
     story.append(totals)
     bank = (prop.metadata or {}).get("bank_details", {})

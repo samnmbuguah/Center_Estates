@@ -37,7 +37,17 @@ type Portal = {
   };
   balance: string;
   walletCredit?: string;
+  walletEntries?: {
+    id: string;
+    entry_type: string;
+    amount: string;
+    note: string;
+    created_at?: string;
+    receipt_number?: string;
+    invoice_number?: string;
+  }[];
   invoices: Row[];
+
   receipts: Row[];
   documents: Row[];
   serviceRequests: Row[];
@@ -487,9 +497,10 @@ export default function TenantPortalPage() {
                 label="Available credit"
                 value={cash.format(Number(data.walletCredit))}
                 note="Applied automatically to your next invoice"
-                go={() => setTab("invoices")}
+                go={() => setTab("payments")}
               />
             )}
+
             <Kpi
               label="Recent invoices"
               value={String(data.invoices.length)}
@@ -649,8 +660,60 @@ export default function TenantPortalPage() {
               </button>,
             ])}
           />
+
+          {(Number(data.walletCredit || 0) > 0 || (data.walletEntries && data.walletEntries.length > 0)) && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                <div>
+                  <h4 style={{ margin: "0 0 4px 0", fontSize: "1rem", fontWeight: 700 }}>Advance Credit & Wallet Ledger</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted, #64748b)" }}>
+                    Overpayments retained and automatically applied toward newly issued invoices.
+                  </p>
+                </div>
+                <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "6px 14px", borderRadius: 8 }}>
+                  <span style={{ fontSize: "0.8rem", color: "#059669", fontWeight: 600, marginRight: 6 }}>Current Credit Balance:</span>
+                  <strong style={{ fontSize: "1rem", color: "#047857" }}>{cash.format(Number(data.walletCredit || 0))}</strong>
+                </div>
+              </div>
+
+              {data.walletEntries && data.walletEntries.length > 0 ? (
+                <PortalTable
+                  headers={["Date", "Entry Type", "Amount", "Reference", "Note"]}
+                  rows={data.walletEntries.map((entry) => [
+                    String(entry.created_at || "—").slice(0, 10),
+                    <span
+                      key={entry.id}
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        background: entry.entry_type === "credit" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                        color: entry.entry_type === "credit" ? "#047857" : "#1d4ed8",
+                      }}
+                    >
+                      {entry.entry_type === "credit" ? "CREDIT (+)" : "DEBIT (-)"}
+                    </span>,
+                    <strong
+                      key={`${entry.id}-amt`}
+                      style={{ color: entry.entry_type === "credit" ? "#059669" : "#2563eb" }}
+                    >
+                      {entry.entry_type === "credit" ? `+${cash.format(Number(entry.amount))}` : `-${cash.format(Number(entry.amount))}`}
+                    </strong>,
+                    entry.receipt_number ? `Receipt ${entry.receipt_number}` : entry.invoice_number ? `Invoice ${entry.invoice_number}` : "—",
+                    entry.note || "Advance balance movement",
+                  ])}
+                />
+              ) : (
+                <p style={{ fontSize: "0.85rem", color: "#94a3b8", fontStyle: "italic", margin: "12px 0" }}>
+                  No prior wallet entries recorded. Future overpayments will appear here automatically.
+                </p>
+              )}
+            </div>
+          )}
         </Panel>
       )}
+
       {tab === "maintenance" && (
         <Panel
           title="Maintenance tickets"

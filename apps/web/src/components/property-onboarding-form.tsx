@@ -311,8 +311,12 @@ export function PropertyOnboardingForm() {
     return () => { active = false; };
   }, [editId, organizationId, setValues, setUnits, setBuildings, setProviders, setUtilities, setAssets, setContacts]);
 
-  const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => setValues(current => ({ ...current, [name]: event.target.value }));
+  const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (error) setError("");
+    setValues(current => ({ ...current, [name]: event.target.value }));
+  };
   const totalArea = useMemo(() => units.reduce((sum, unit) => sum + Number(unit.area || 0), 0), [units]);
+
 
   const jump = (id: string) => {
     setSection(id);
@@ -706,7 +710,33 @@ export function PropertyOnboardingForm() {
       }}
       message="Your unsaved property onboarding draft was restored."
     />
-    {error && <Alert severity="error" variant="filled" action={<Button color="inherit" size="small" onClick={() => window.dispatchEvent(new CustomEvent("ce:qm-help", { detail: { message: `Help me resolve this property onboarding error: ${error}` } }))}>Ask QM</Button>} sx={{ mb: 2, position: "sticky", top: 128, zIndex: 4, boxShadow: 3 }}><strong>Action needed:</strong> {error} Your entered information has been retained.</Alert>}
+    {error && (
+      <Alert
+        severity="error"
+        variant="filled"
+        onClose={() => setError("")}
+        action={
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Button
+              color="inherit"
+              size="small"
+              variant="outlined"
+              sx={{ borderColor: "rgba(255,255,255,0.6)", color: "#fff", fontWeight: 700 }}
+              onClick={() => window.dispatchEvent(new CustomEvent("ce:qm-help", { detail: { message: `Help me resolve this property onboarding error: ${error}` } }))}
+            >
+              Ask QM
+            </Button>
+            <IconButton size="small" aria-label="close" color="inherit" onClick={() => setError("")}>
+              ✕
+            </IconButton>
+          </Box>
+        }
+        sx={{ mb: 2, position: "sticky", top: 128, zIndex: 4, boxShadow: 3 }}
+      >
+        <strong>Action needed:</strong> {error} Your entered information has been retained.
+      </Alert>
+    )}
+
     <Box sx={{ display: "grid", gap: 2, [`& > .onboarding-section:not(#${section})`]: { display: "none" } }}>
       <Section id="general" title="General information">
         <Grid><TextField label="Property code" value="Auto generated" disabled /><TextField required label="Property name" value={values.name || ""} onChange={set("name")} /><TextField select required label="Property status" value={values.status} onChange={set("status")}><MenuItem value="draft">Draft</MenuItem><MenuItem value="active">Active</MenuItem><MenuItem value="inactive">Inactive</MenuItem></TextField>
