@@ -3302,6 +3302,22 @@ class ReceiptViewSet(OrganizationModelViewSet):
         )
         _allocate_receipt(receipt=receipt, organization=organization, amount=amount, user=self.request.user, invoice=invoice)
 
+        ext_ref = (receipt.external_reference or '').strip()
+        if ext_ref:
+            tx = BankTransaction.objects.filter(
+                organization=organization,
+                status=BankTransaction.Status.UNMATCHED,
+            ).filter(
+                Q(reference__iexact=ext_ref) | Q(extracted_mpesa_ref__iexact=ext_ref)
+            ).first()
+            if tx and tx.amount == receipt.amount:
+                tx.receipt = receipt
+                tx.status = BankTransaction.Status.MATCHED
+                tx.matched_by = self.request.user
+                tx.matched_at = timezone.now()
+                tx.save(update_fields=('receipt', 'status', 'matched_by', 'matched_at', 'updated_at'))
+
+
     def perform_update(self, serializer):
         raise ValidationError({'receipt': 'Posted receipts are immutable.'})
 

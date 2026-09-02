@@ -565,7 +565,11 @@ export function usePropertyLogic({
       void apiFetch("/property/invoices/?search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setInvoiceOptions(Array.isArray(d) ? d : []));
+      void apiFetch("/property/receipts/?search=", {}, organizationId)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setReceiptOptions(Array.isArray(d) ? d : []));
     }
+
     if (matchTarget) {
       void apiFetch("/property/receipts/?search=", {}, organizationId)
         .then((r) => (r.ok ? r.json() : []))

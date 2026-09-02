@@ -18,7 +18,8 @@ import {
 import { kM, kN, fmtDate } from "../../utils/property.utils";
 import { TenantApplicationCard } from "@/components/tenant-application-card";
 import { BulkTenantUploader } from "@/components/bulk-tenant-uploader";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+
 
 function EditTenantForm({ tenant, onSave, onCancel }: { tenant: TenantRow; onSave: (data: Record<string, unknown>) => void; onCancel: () => void }) {
   const [form, setForm] = useState({
@@ -211,6 +212,8 @@ export function PropertyModals(props: PropertyModalsProps) {
     setError = () => {},
   } = props;
   const [receiptPayerType, setReceiptPayerType] = useState<"tenant" | "landlord">("tenant");
+  const [selectedReceiptPayerKey, setSelectedReceiptPayerKey] = useState<string>("");
+  const [receiptAmountInput, setReceiptAmountInput] = useState<string>("");
 
   const submitAddProperty = (e?: any) => onAddPropertySubmit(e ?? { preventDefault: () => {} } as any);
   const submitAddLease = onAddLeaseSubmit;
@@ -234,8 +237,41 @@ export function PropertyModals(props: PropertyModalsProps) {
     }
   };
 
+  const selectedPayerId = selectedReceiptPayerKey ? selectedReceiptPayerKey.split(":")[1] : "";
+
+  const selectedTenantObj = receiptPayerType === "tenant" ? tenantOptions.find(t => String(t.id) === selectedPayerId) : null;
+  const selectedOwnerObj = receiptPayerType === "landlord" ? ownerOptions.find(o => String(o.id) === selectedPayerId) : null;
+
+  const payerInvoices = useMemo(() => {
+    if (!selectedPayerId) return [];
+    return invoiceOptions.filter(inv => {
+      if (receiptPayerType === "tenant") {
+        const tId = (inv as any).lease?.tenant?.id || (inv as any).tenant_id || (inv as any).lease?.tenant_id || ((inv as any).lease && typeof (inv as any).lease === "object" ? (inv as any).lease.tenant : null);
+        return String(tId) === selectedPayerId || String((inv as any).tenant) === selectedPayerId || String((inv as any).tenant_id) === selectedPayerId;
+      } else {
+        return String((inv as any).owner_id || (inv as any).owner?.id || (inv as any).owner) === selectedPayerId;
+      }
+    });
+  }, [selectedPayerId, receiptPayerType, invoiceOptions]);
+
+  const payerReceipts = useMemo(() => {
+    if (!selectedPayerId) return [];
+    return receiptOptions.filter(rcpt => {
+      if (receiptPayerType === "tenant") {
+        return String((rcpt as any).tenant?.id || (rcpt as any).tenant_id || (rcpt as any).tenant) === selectedPayerId;
+      } else {
+        return String((rcpt as any).owner?.id || (rcpt as any).owner_id || (rcpt as any).owner) === selectedPayerId;
+      }
+    });
+  }, [selectedPayerId, receiptPayerType, receiptOptions]);
+
+  const openPayerInvoices = payerInvoices.filter(inv => Number(inv.balance ?? inv.amount ?? 0) > 0);
+  const totalOutstanding = openPayerInvoices.reduce((sum, inv) => sum + Number(inv.balance ?? inv.amount ?? 0), 0);
+  const payerWalletCredit = Number((selectedTenantObj as any)?.wallet_balance ?? (selectedTenantObj as any)?.wallet_credit ?? (selectedTenantObj as any)?.metadata?.wallet_balance ?? 0);
+
   return (
     <>
+
         {showAddProperty && (
           standaloneOnboarding ? (
             <section className="property-onboarding-page" aria-labelledby="property-onboarding-title">
@@ -552,16 +588,112 @@ export function PropertyModals(props: PropertyModalsProps) {
                 </div>
               </div>
               <Field label="Payer" required>
-                <select key={receiptPayerType} name="payer" required defaultValue="" data-testid="receipt-payer">
+                <select
+                  key={receiptPayerType}
+                  name="payer"
+                  required
+                  value={selectedReceiptPayerKey}
+                  onChange={(e) => setSelectedReceiptPayerKey(e.target.value)}
+                  data-testid="receipt-payer"
+                >
                   <option value="" disabled>{receiptPayerType === "tenant" ? "Select tenant" : "Select landlord / unit owner"}</option>
                   {receiptPayerType === "tenant"
                     ? tenantOptions.map((t) => <option key={`tenant-${String(t.id)}`} value={`tenant:${String(t.id)}`}>{String(t.name)}</option>)
                     : ownerOptions.map((o) => <option key={`landlord-${String(o.id)}`} value={`landlord:${String(o.id)}`}>{String(o.name)}</option>)}
                 </select>
               </Field>
+
+              {selectedReceiptPayerKey && (
+                <div style={{ background: "var(--surface-1, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <div>
+                      <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-secondary)", fontWeight: 700 }}>
+                        📄 Live Account Statement: {String(selectedTenantObj?.name ?? selectedOwnerObj?.name ?? "Client")}
+                      </span>
+
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 2 }}>
+                        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Total Outstanding:</span>
+                        <strong style={{ fontSize: 16, color: totalOutstanding > 0 ? "#e11d48" : "#16a34a" }}>
+                          {kM(totalOutstanding)}
+                        </strong>
+                        {payerWalletCredit > 0 && (
+                          <span style={{ fontSize: 12, background: "rgba(16, 185, 129, 0.15)", color: "#047857", padding: "2px 8px", borderRadius: 4, fontWeight: 600 }}>
+                            Wallet Credit: {kM(payerWalletCredit)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {totalOutstanding > 0 && (
+                      <button
+                        type="button"
+                        className="btn ghost sm"
+                        style={{ background: "rgba(37, 99, 235, 0.08)", borderColor: "rgba(37, 99, 235, 0.3)", color: "#1d4ed8", fontWeight: 700 }}
+                        onClick={() => setReceiptAmountInput(String(totalOutstanding))}
+                      >
+                        ⚡ Auto-fill Full Balance ({kM(totalOutstanding)})
+                      </button>
+                    )}
+                  </div>
+
+                  {openPayerInvoices.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 4 }}>
+                        Pending Invoices ({openPayerInvoices.length})
+                      </div>
+                      <div style={{ maxHeight: 110, overflowY: "auto", border: "1px solid var(--border-color, #e2e8f0)", borderRadius: 6 }}>
+                        <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse", textAlign: "left" }}>
+                          <thead style={{ background: "var(--surface-2, #f1f5f9)", position: "sticky", top: 0 }}>
+                            <tr>
+                              <th style={{ padding: "4px 8px" }}>Invoice #</th>
+                              <th style={{ padding: "4px 8px" }}>Due Date</th>
+                              <th style={{ padding: "4px 8px", textAlign: "right" }}>Billed</th>
+                              <th style={{ padding: "4px 8px", textAlign: "right" }}>Balance Due</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {openPayerInvoices.map(inv => (
+                              <tr key={String(inv.id)} style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                                <td style={{ padding: "4px 8px", fontWeight: 600 }}>{String(inv.number)}</td>
+                                <td style={{ padding: "4px 8px", color: "var(--text-secondary)" }}>{String(inv.due_on || "—")}</td>
+                                <td style={{ padding: "4px 8px", textAlign: "right" }}>{kM(Number(inv.amount || 0))}</td>
+                                <td style={{ padding: "4px 8px", textAlign: "right", color: "#e11d48", fontWeight: 700 }}>{kM(Number(inv.balance || 0))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#16a34a", fontStyle: "italic", background: "rgba(22, 163, 74, 0.08)", padding: "6px 10px", borderRadius: 4 }}>
+                      ✓ All invoices paid up to date. Any new payment will be credited to available wallet advance.
+                    </div>
+                  )}
+
+                  {payerReceipts.length > 0 && (
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <span><strong>Recent Payments:</strong></span>
+                      {payerReceipts.slice(0, 3).map(r => (
+                        <span key={String(r.id)}>
+                          {String(r.number)}: {kM(Number(r.amount || 0))} ({String(r.received_on || "").slice(5, 10)})
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid-2">
                 <Field label="Amount (KES)" required>
-                  <input name="amount" type="number" min={1} required placeholder="0" data-testid="receipt-amount-input" />
+                  <input
+                    name="amount"
+                    type="number"
+                    min={1}
+                    required
+                    placeholder="0"
+                    value={receiptAmountInput}
+                    onChange={(e) => setReceiptAmountInput(e.target.value)}
+                    data-testid="receipt-amount-input"
+                  />
                 </Field>
                 <Field label="Payment Method">
                   <select name="payment_method" defaultValue="bank_transfer">
@@ -590,6 +722,7 @@ export function PropertyModals(props: PropertyModalsProps) {
             </form>
           </Modal>
         )}
+
 
         {showInvoiceComposer && (
           <Modal title="Create manual invoice draft" onClose={() => { setShowInvoiceComposer(false); setInvoicePreview(null); }} wide>

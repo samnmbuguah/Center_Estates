@@ -1120,6 +1120,33 @@ class PropertyApiTests(TestCase):
         self.assertEqual(tx.status, BankTransaction.Status.MATCHED)
         self.assertIsNotNone(tx.receipt)
 
+    def test_manual_receipt_with_code_auto_matches_unmatched_bank_transaction(self):
+        tx = BankTransaction.objects.create(
+            organization=self.organization,
+            reference='KCB-TX-998811',
+            transacted_on=date(2026, 8, 1),
+            amount=Decimal('1000.00'),
+            money_in=Decimal('1000.00'),
+            description='Direct Bank Deposit',
+            status=BankTransaction.Status.UNMATCHED,
+        )
+        # Create manual receipt with transaction reference
+        response = self.client.post('/api/v1/property/receipts/', {
+            'tenant': str(self.tenant.id),
+            'invoice': str(self.invoice.id),
+            'amount': '1000.00',
+            'payment_method': 'bank_transfer',
+            'external_reference': 'KCB-TX-998811',
+            'received_on': '2026-08-01',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, BankTransaction.Status.MATCHED)
+        self.assertEqual(str(tx.receipt_id), str(response.data['id']))
+
+
+
+
     def test_lease_document_extraction_endpoint(self):
         raw_text = (
             "Tenancy Agreement between Center Estates and Tenant Jane Mwangi (ID: 30129844, Tel: 0722123456) "
