@@ -6,10 +6,11 @@ describe("manual invoice amount defaults", () => {
     expect(defaultManualInvoiceSubtotal("rent", 134120, 3)).toBe("402360");
   });
 
-  it.each(["service_charge", "utility", "move_in", "other"])(
+  it.each(["security_deposit", "service_charge", "utility", "move_in", "other"])(
     "does not reuse rent for %s invoices",
     (invoiceType) => {
       expect(defaultManualInvoiceSubtotal(invoiceType, 134120)).toBe("");
     },
   );
+
 });

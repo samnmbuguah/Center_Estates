@@ -675,10 +675,16 @@ export function usePropertyLogic({
         const selectedLease = leaseOptions.find((l) => String(l.id) === value);
         if (selectedLease) {
           const rentVal = Number(selectedLease.monthly_rent ?? 0);
+          const depositVal = Number((selectedLease as any).deposit ?? 0);
           const months = billingContext?.months_count || 1;
-          updated.subtotal = defaultManualInvoiceSubtotal(current.invoice_type, rentVal, months);
-          if (current.invoice_type !== "rent") {
-            void fetchSuggestedSubtotalForType(current.invoice_type, value, months);
+          if (current.invoice_type === "security_deposit") {
+            updated.subtotal = depositVal > 0 ? String(depositVal) : "";
+            updated.tax_rate = "0";
+          } else {
+            updated.subtotal = defaultManualInvoiceSubtotal(current.invoice_type, rentVal, months);
+            if (current.invoice_type !== "rent") {
+              void fetchSuggestedSubtotalForType(current.invoice_type, value, months);
+            }
           }
           // Always ensure due_on is set relative to issued_on
           const issued = new Date(current.issued_on || new Date());
@@ -691,18 +697,25 @@ export function usePropertyLogic({
         const selectedLease = leaseOptions.find((lease) => String(lease.id) === current.lease);
         const months = billingContext?.months_count || 1;
         const rentVal = Number(selectedLease?.monthly_rent ?? 0);
-        // Rent is the only amount carried directly by the lease.
-        updated.subtotal = defaultManualInvoiceSubtotal(value, rentVal, months);
-        // For non-rent categories, fetch the correct billable amount from the
-        // same sources the bulk pipeline uses so both flows stay aligned.
-        if (value !== "rent" && selectedLease) {
-          void fetchSuggestedSubtotalForType(value, String(selectedLease.id), months);
+        const depositVal = Number((selectedLease as any)?.deposit ?? 0);
+        if (value === "security_deposit") {
+          updated.subtotal = depositVal > 0 ? String(depositVal) : "";
+          updated.tax_rate = "0";
+        } else {
+          // Rent is the only amount carried directly by the lease.
+          updated.subtotal = defaultManualInvoiceSubtotal(value, rentVal, months);
+          // For non-rent categories, fetch the correct billable amount from the
+          // same sources the bulk pipeline uses so both flows stay aligned.
+          if (value !== "rent" && selectedLease) {
+            void fetchSuggestedSubtotalForType(value, String(selectedLease.id), months);
+          }
         }
       }
       return updated;
     });
     setInvoicePreview(null);
   };
+
 
   async function previewInvoice() {
     if (!organizationId || !invoiceDraft.lease || Number(invoiceDraft.subtotal) <= 0) {

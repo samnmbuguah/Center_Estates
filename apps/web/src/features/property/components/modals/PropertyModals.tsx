@@ -617,8 +617,12 @@ export function PropertyModals(props: PropertyModalsProps) {
               <div className="grid-2">
                 <Field label="Invoice type (Category)" required>
                   <select value={invoiceDraft.invoice_type} onChange={(e) => updateInvoiceDraft("invoice_type", e.target.value)}>
-                    <option value="rent">Rent</option><option value="service_charge">Service charge</option>
-                    <option value="utility">Utility</option><option value="move_in">Move-in charges</option><option value="other">Other</option>
+                    <option value="rent">Rent</option>
+                    <option value="security_deposit">Security Deposit</option>
+                    <option value="service_charge">Service charge</option>
+                    <option value="utility">Utility</option>
+                    <option value="move_in">Move-in charges</option>
+                    <option value="other">Other</option>
                   </select>
                 </Field>
                 <Field label="VAT Tax" required>
@@ -642,33 +646,42 @@ export function PropertyModals(props: PropertyModalsProps) {
                 </div>
               </div>
               <div>
-                <Field label={`Billable Amount / ${{ rent: "Rent", service_charge: "Service charge", utility: "Utility", move_in: "Move-in charges", other: "Other charge" }[invoiceDraft.invoice_type] || "Charge"} (Excl. VAT)${billingContext && billingContext.months_count > 1 ? ` — ${billingContext.months_count} Months Total` : ""}`} required>
+                <Field label={`Billable Amount / ${{ rent: "Rent", security_deposit: "Security Deposit", service_charge: "Service charge", utility: "Utility", move_in: "Move-in charges", other: "Other charge" }[invoiceDraft.invoice_type] || "Charge"} (Excl. VAT)${billingContext && billingContext.months_count > 1 ? ` — ${billingContext.months_count} Months Total` : ""}`} required>
                   <input type="number" min="0.01" step="0.01" required placeholder="e.g. 100000" value={invoiceDraft.subtotal} onChange={(e) => updateInvoiceDraft("subtotal", e.target.value)} data-testid="invoice-subtotal" />
                 </Field>
                 <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>
                   {billingContext && billingContext.months_count > 1
                     ? `Total amount in Ksh across ${billingContext.months_count} months before VAT (approx. ${kM(Number(invoiceDraft.subtotal || 0) / billingContext.months_count)} / month)`
-                    : invoiceDraft.invoice_type === "rent"
-                      ? `Monthly rent is filled from the selected lease${invoiceDraft.subtotal ? ` (Ksh ${invoiceDraft.subtotal})` : ""}; you can adjust it. For recurring billing across all units, use Billing Pipeline instead.`
-                      : invoiceDraft.invoice_type === "service_charge"
-                        ? invoiceDraft.subtotal
-                          ? `Service charge auto-filled from the billing profile for this lease (Ksh ${invoiceDraft.subtotal}). Adjust if needed, or configure recurring charges in Billing Pipeline.`
-                          : "No service-charge profile found for this lease. Enter the amount manually, or set up a recurring billing profile in Billing Pipeline for automated bulk invoicing."
-                        : invoiceDraft.invoice_type === "utility"
+                    : invoiceDraft.invoice_type === "security_deposit"
+                      ? (() => {
+                          const sel = leaseOptions.find((l) => String(l.id) === invoiceDraft.lease) as unknown as Record<string, unknown> | undefined;
+                          const dep = Number(sel?.deposit ?? 0);
+                          return dep > 0
+                            ? `🛡️ Security deposit (Ksh ${dep.toLocaleString()}) auto-filled from lease agreement. Security deposits are zero-rated (0% VAT).`
+                            : "Enter the security deposit amount to bill the tenant. Security deposits are zero-rated for VAT.";
+                        })()
+                      : invoiceDraft.invoice_type === "rent"
+                        ? `Monthly rent is filled from the selected lease${invoiceDraft.subtotal ? ` (Ksh ${invoiceDraft.subtotal})` : ""}; you can adjust it. For recurring billing across all units, use Billing Pipeline instead.`
+                        : invoiceDraft.invoice_type === "service_charge"
                           ? invoiceDraft.subtotal
-                            ? `Utility — estimated from billing profile rate (Ksh ${invoiceDraft.subtotal}). Confirm meter consumption and adjust before saving. Bulk pipeline will use the latest approved reading.`
-                            : "No utility profile found. Enter the meter-based amount manually. Bulk pipeline auto-calculates from readings when available."
-                          : invoiceDraft.invoice_type === "move_in"
-                            ? (() => {
-                                const sel = leaseOptions.find((l) => String(l.id) === invoiceDraft.lease) as unknown as Record<string, unknown> | undefined;
-                                const dep = Number(sel?.deposit ?? 0);
-                                const rent = Number(sel?.monthly_rent ?? 0);
-                                const hint = dep > 0 && rent > 0 ? `Suggested: deposit Ksh ${dep.toLocaleString()} + first rent Ksh ${rent.toLocaleString()} = Ksh ${(dep + rent).toLocaleString()}. ` : dep > 0 ? `Deposit on file: Ksh ${dep.toLocaleString()}. ` : "";
-                                return `${hint}Enter the move-in total (deposit, fees, pro-rata rent). Leave empty to type manually.`;
-                              })()
-                            : "Enter the one-off amount for this invoice. For recurring charges, configure the unit billing schedule and use Billing Pipeline for bulk generation."}
+                            ? `Service charge auto-filled from the billing profile for this lease (Ksh ${invoiceDraft.subtotal}). Adjust if needed, or configure recurring charges in Billing Pipeline.`
+                            : "No service-charge profile found for this lease. Enter the amount manually, or set up a recurring billing profile in Billing Pipeline for automated bulk invoicing."
+                          : invoiceDraft.invoice_type === "utility"
+                            ? invoiceDraft.subtotal
+                              ? `Utility — estimated from billing profile rate (Ksh ${invoiceDraft.subtotal}). Confirm meter consumption and adjust before saving. Bulk pipeline will use the latest approved reading.`
+                              : "No utility profile found. Enter the meter-based amount manually. Bulk pipeline auto-calculates from readings when available."
+                            : invoiceDraft.invoice_type === "move_in"
+                              ? (() => {
+                                  const sel = leaseOptions.find((l) => String(l.id) === invoiceDraft.lease) as unknown as Record<string, unknown> | undefined;
+                                  const dep = Number(sel?.deposit ?? 0);
+                                  const rent = Number(sel?.monthly_rent ?? 0);
+                                  const hint = dep > 0 && rent > 0 ? `Suggested: deposit Ksh ${dep.toLocaleString()} + first rent Ksh ${rent.toLocaleString()} = Ksh ${(dep + rent).toLocaleString()}. ` : dep > 0 ? `Deposit on file: Ksh ${dep.toLocaleString()}. ` : "";
+                                  return `${hint}Enter the move-in total (deposit, fees, pro-rata rent). Leave empty to type manually.`;
+                                })()
+                              : "Enter the one-off amount for this invoice. For recurring charges, configure the unit billing schedule and use Billing Pipeline for bulk generation."}
                 </span>
               </div>
+
 
               {Number(invoiceDraft.subtotal) > 0 && (
                 <section className="card" style={{ padding: 14, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>

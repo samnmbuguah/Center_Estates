@@ -63,7 +63,66 @@ export function LeasesView({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Single Lease Edit State
+  const [editTarget, setEditTarget] = useState<LeaseRow | null>(null);
+  const [editStartsOn, setEditStartsOn] = useState("");
+  const [editEndsOn, setEditEndsOn] = useState("");
+  const [editMonthlyRent, setEditMonthlyRent] = useState("");
+  const [editDeposit, setEditDeposit] = useState("");
+  const [editEscalation, setEditEscalation] = useState("");
+  const [editInterval, setEditInterval] = useState("12");
+  const [editBillingDay, setEditBillingDay] = useState("1");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const openEditModal = (l: LeaseRow) => {
+    setEditTarget(l);
+    setEditStartsOn(l.starts_on ? String(l.starts_on).slice(0, 10) : "");
+    setEditEndsOn(l.ends_on ? String(l.ends_on).slice(0, 10) : "");
+    setEditMonthlyRent(String(l.monthly_rent || ""));
+    setEditDeposit(String(l.deposit || ""));
+    setEditEscalation(String(l.escalation_percent || "0"));
+    setEditInterval(String(l.escalation_interval_months || "12"));
+    setEditBillingDay(String(l.billing_day || "1"));
+    setEditError("");
+  };
+
+  const handleEditSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editTarget || !org) return;
+    setEditBusy(true);
+    setEditError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const payload: Record<string, any> = {
+        starts_on: editStartsOn,
+        ends_on: editEndsOn,
+        monthly_rent: Number(editMonthlyRent || 0),
+        deposit: Number(editDeposit || 0),
+        escalation_percent: Number(editEscalation || 0),
+        escalation_interval_months: Number(editInterval || 12),
+        billing_day: Number(editBillingDay || 1),
+      };
+      const res = await apiFetch(`/property/leases/${editTarget.id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }, org);
+      if (res.ok) {
+        setEditTarget(null);
+        onRefresh();
+      } else {
+        const err = await res.json();
+        setEditError(typeof err === "object" ? Object.values(err).flat().join(" ") : "Failed to update lease terms.");
+      }
+    } catch {
+      setEditError("An error occurred while updating the lease.");
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
   // Bulk Edit Form Fields
+
   const [bulkEscalation, setBulkEscalation] = useState("");
   const [bulkInterval, setBulkInterval] = useState("12");
   const [bulkServiceCharge, setBulkServiceCharge] = useState("");
@@ -264,6 +323,7 @@ export function LeasesView({
                       <td className="mono" style={{ fontSize: 12 }}>{daysLeftLabel(l.ends_on)}</td>
                       <td>
                         <div className="row" style={{ gap: 6 }}>
+                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); openEditModal(l); }}>Edit</button>
                           {l.status === "draft" && (
                             <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "activate"); }}>Activate</button>
                           )}
@@ -276,6 +336,7 @@ export function LeasesView({
                           <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("rent"); }}>Invoices</button>
                         </div>
                       </td>
+
                     </tr>
                   );
                 })}
@@ -285,6 +346,7 @@ export function LeasesView({
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
+
 
       {/* Bulk Operations Modal */}
       {showBulkModal && (
@@ -411,7 +473,141 @@ export function LeasesView({
           </form>
         </Modal>
       )}
+
+      {/* Edit Single Lease Modal */}
+      {editTarget && (
+        <Modal
+          title={`✏️ Edit Lease: ${editTarget.reference || editTarget.id} (${editTarget.tenant_name || "Tenant"} · Unit ${editTarget.unit_code || "—"})`}
+          onClose={() => setEditTarget(null)}
+          wide
+        >
+          <form onSubmit={handleEditSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>
+              Update the lease start/end dates, monthly rent, security deposit, and escalation terms.
+            </p>
+
+            {editError && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: "rgba(220, 38, 38, 0.1)",
+                  color: "#dc2626",
+                  border: "1px solid #fca5a5",
+                  fontSize: 13,
+                }}
+              >
+                <AlertCircle size={18} />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <Field label="Lease Start Date (starts_on)" required>
+                <input
+                  type="date"
+                  required
+                  value={editStartsOn}
+                  onChange={(e) => setEditStartsOn(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Lease End Date (ends_on)" required>
+                <input
+                  type="date"
+                  required
+                  min={editStartsOn}
+                  value={editEndsOn}
+                  onChange={(e) => setEditEndsOn(e.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <Field label="Monthly Contract Rent (KES)" required>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 50000"
+                  value={editMonthlyRent}
+                  onChange={(e) => setEditMonthlyRent(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Security Deposit (KES)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 100000"
+                  value={editDeposit}
+                  onChange={(e) => setEditDeposit(e.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+              <Field label="Annual Escalation %">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  placeholder="e.g. 10.00"
+                  value={editEscalation}
+                  onChange={(e) => setEditEscalation(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Escalation Interval">
+                <select value={editInterval} onChange={(e) => setEditInterval(e.target.value)}>
+                  <option value="12">Annually (Every 12 Months)</option>
+                  <option value="24">Biennially (Every 24 Months)</option>
+                  <option value="36">Triennially (Every 36 Months)</option>
+                </select>
+              </Field>
+
+              <Field label="Billing Day of Month">
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="1"
+                  value={editBillingDay}
+                  onChange={(e) => setEditBillingDay(e.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+              <button
+                type="button"
+                className="btn ghost sm"
+                onClick={() => setEditTarget(null)}
+                disabled={editBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn primary sm"
+                disabled={editBusy}
+                style={{ fontWeight: 800 }}
+              >
+                {editBusy ? "Saving Changes..." : "Save Lease Terms"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       <BulkLeaseImporter open={showImport} onClose={() => setShowImport(false)} onDone={onRefresh} />
     </>
   );
 }
+
