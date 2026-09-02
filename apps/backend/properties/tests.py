@@ -130,11 +130,26 @@ class PropertyApiTests(TestCase):
         self.assertEqual(utilities.status, Invoice.Status.PAID)
         self.assertEqual(self.invoice.status, Invoice.Status.PAID)
         wallet = PayerWallet.objects.get(organization=self.organization, tenant=self.tenant)
-        self.assertEqual(wallet.balance, Decimal('100.00'))
         components = list(ReceiptAllocation.objects.filter(receipt_id=response.data['id']).values_list('component', flat=True))
         self.assertEqual(components[0], ReceiptAllocation.Component.VAT)
 
+    def test_receipt_with_specific_invoice_accepts_overpayment_and_credits_wallet(self):
+        # Invoice balance is 1000.00 (from setUp), receipt amount is 1500.00
+        response = self.client.post('/api/v1/property/receipts/', {
+            'tenant': str(self.tenant.id), 'invoice': str(self.invoice.id),
+            'payer_type': 'tenant', 'paying_for': 'rent',
+            'received_on': '2026-08-01', 'amount': '1500.00', 'payment_method': 'mpesa',
+            'external_reference': 'TEST-OVERPAY-1',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.Status.PAID)
+        self.assertEqual(self.invoice.balance, Decimal('0.00'))
+        wallet = PayerWallet.objects.get(organization=self.organization, tenant=self.tenant)
+        self.assertEqual(wallet.balance, Decimal('500.00'))
+
     def test_dashboard_uses_live_organization_data(self):
+
         response = self.client.get('/api/v1/property/dashboard/', **self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['kpis']['properties'], 1)

@@ -3064,7 +3064,12 @@ def _apply_wallet_to_invoice(*, invoice, organization):
 
 def _allocate_receipt(*, receipt, organization, amount, user, invoice=None):
     """Allocate a receipt by business priority and retain any excess as wallet credit."""
-    candidates = [invoice] if invoice else list(_payer_invoice_queryset(receipt, organization))
+    if invoice:
+        other_candidates = [inv for inv in _payer_invoice_queryset(receipt, organization) if inv.id != invoice.id]
+        candidates = [invoice] + other_candidates
+    else:
+        candidates = list(_payer_invoice_queryset(receipt, organization))
+
     # An invoice can contain a VAT portion and a charge portion.  Keep them as
     # separate allocations so VAT is always settled before utilities, service
     # charge and rent even when it was bundled on the original invoice.
@@ -3139,8 +3144,7 @@ class ReceiptViewSet(OrganizationModelViewSet):
                 raise ValidationError({'invoice': 'Selected invoice belongs to a different landlord.'})
             if invoice.status not in (Invoice.Status.ISSUED, Invoice.Status.PARTIAL, Invoice.Status.OVERDUE):
                 raise ValidationError({'invoice': 'Only issued invoices can receive payments.'})
-            if amount > invoice.balance:
-                raise ValidationError({'amount': 'Receipt exceeds the invoice balance.'})
+
 
         number = str(serializer.validated_data.get('number') or '').strip()
         if not number:
@@ -3387,8 +3391,6 @@ class BankTransactionViewSet(OrganizationModelViewSet):
             raise ValidationError({'invoice_id': 'Only issued or overdue invoices can receive payment receipts.'})
 
         amount = transaction_record.amount
-        if amount > invoice.balance:
-            raise ValidationError({'amount': f'Transaction amount (KES {amount:,.2f}) exceeds invoice balance (KES {invoice.balance:,.2f}).'})
 
         # Generate receipt number
         prefix = f'RCPT-{timezone.localdate():%Y}-'
@@ -3414,17 +3416,7 @@ class BankTransactionViewSet(OrganizationModelViewSet):
             received_by=request.user,
         )
 
-        ReceiptAllocation.objects.create(
-            organization=organization,
-            receipt=receipt,
-            invoice=invoice,
-            amount=amount,
-            allocated_by=request.user,
-        )
-
-        invoice.balance -= amount
-        invoice.status = Invoice.Status.PAID if invoice.balance == 0 else Invoice.Status.PARTIAL
-        invoice.save(update_fields=('balance', 'status', 'updated_at'))
+        _allocate_receipt(receipt=receipt, organization=organization, amount=amount, user=request.user, invoice=invoice)
 
         transaction_record.receipt = receipt
         transaction_record.status = BankTransaction.Status.MATCHED
@@ -3433,6 +3425,7 @@ class BankTransactionViewSet(OrganizationModelViewSet):
         transaction_record.save()
 
         return Response(self.get_serializer(transaction_record).data, status=status.HTTP_201_CREATED)
+
 
     @transaction.atomic
     @action(detail=True, methods=('post',))
