@@ -546,80 +546,165 @@ class CompanionDashboardViewSet(ViewSet):
         elif validation_explanation:
             response_text = validation_explanation
             suggested_actions = [{"label": "View Onboarding", "action": "onboarding", "href": "/property/onboarding"}]
-        elif any(term in prompt for term in ('brief', 'priorit', 'start of day', 'today')):
-            parts = [
-                f"**Your operational briefing — {context['property_scope']}**",
-                f"- Active tasks: **{context['my_tasks']['active']}**; overdue: **{overdue_count}**; escalated: **{escalated_count}**",
-            ]
-            property_data = context.get('property')
-            facility_data = context.get('facility')
-            if property_data:
-                parts.append(
-                    f"- Property: **{property_data['occupied_units']} of {property_data['units']} units occupied**; "
-                    f"KES **{property_data['collections_this_month_kes']}** collected this month; "
-                    f"KES **{property_data['outstanding_kes']}** outstanding"
-                )
-            if facility_data:
-                parts.append(
-                    f"- Facility: **{facility_data['open_work_orders']} open work orders**, "
-                    f"including **{facility_data['critical_work_orders']} critical** and **{facility_data['overdue_work_orders']} overdue**; "
-                    f"**{facility_data['overdue_ppm']}** overdue PPM schedules"
-                )
-            response_text = '\n'.join(parts)
-            suggested_actions = [{"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"}]
-            if property_data:
-                suggested_actions.append({"label": "Review Collections", "action": "collections", "href": "/property?tab=rent"})
-            if facility_data:
-                suggested_actions.append({"label": "Review Work Orders", "action": "work_orders", "href": "/facility?tab=work-orders"})
-        elif 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
-            data = context.get('property')
-            response_text = (f"Property information is not available for your role." if not data else (
-                f"**Live property summary — {context['property_scope']}**\n"
-                f"- Properties: **{data['properties']}**; units: **{data['units']}**; occupied: **{data['occupied_units']}**\n"
-                f"- Active leases: **{data['active_leases']}**\n"
-                f"- Collected this month: **KES {data['collections_this_month_kes']}**\n"
-                f"- Outstanding invoice balance: **KES {data['outstanding_kes']}**"
-            ))
-            suggested_actions = [{"label": "View Rent Aging", "action": "view_report", "href": "/property?tab=arrears"}]
-            if can('property.finance'):
-                suggested_actions[:0] = [
-                    {"label": "Generate Rent Invoices", "action": "generate_invoices", "href": "/property?tab=billing"},
-                    {"label": "Send Reminders", "action": "send_reminders", "href": "/property?tab=arrears"},
-                ]
-        elif 'facility' in prompt or 'work order' in prompt or 'maintenance' in prompt or 'hvac' in prompt:
-            data = context.get('facility')
-            response_text = ("Facility information is not available for your role." if not data else (
-                f"**Live facility summary — {context['property_scope']}**\n"
-                f"- Open work orders: **{data['open_work_orders']}**\n"
-                f"- Critical: **{data['critical_work_orders']}**; overdue: **{data['overdue_work_orders']}**\n"
-                f"- Overdue preventive-maintenance schedules: **{data['overdue_ppm']}**"
-            ))
-            suggested_actions = [
-                {"label": "Review Critical Alerts", "action": "alerts", "href": "/facility?tab=overview"},
-                {"label": "PPM Schedule", "action": "ppm", "href": "/facility?tab=planned-maintenance"},
-            ]
-            if can('facility.work') or can('facility.manage'):
-                suggested_actions.insert(0, {"label": "+ Dispatch Work Order", "action": "new_wo", "href": "/facility?tab=work-orders"})
-
-        elif 'construction' in prompt or 'ticket' in prompt or 'project' in prompt or 'site' in prompt:
-            response_text = llm_response or "Construction data tools are not enabled for this QM workspace yet. Open Monitoring to review current project records."
-            suggested_actions = [
-                {"label": "View Projects Directory", "action": "projects", "href": "/monitoring/projects"},
-                {"label": "Review Site Issues", "action": "issues", "href": "/monitoring?tab=tickets"},
-                {"label": "Open IPC Builder", "action": "ipc", "href": "/monitoring/projects/1/ipc"},
-            ]
-        else:
-            response_text = llm_response or (
-                f"🤖 **CeEst Operations Companion Status for {request.user.first_name or request.user.username}**:\n"
-                f"- You have **{active_tasks.filter(assignee=request.user).count()} active tasks** assigned to you.\n"
-                f"- **{overdue_count} tasks are overdue** and **{escalated_count} tasks require SLA escalation**.\n"
-                f"- Answers use your authorized live property scope: **{context['property_scope']}**."
+        # 1. Properties & Portfolio intent
+        if any(term in prompt for term in ('propert', 'portfolio', 'estate', 'how many unit', 'building', 'units count', 'unit count', 'occupan')):
+            from properties.models import Building, Lease, Property, Unit
+            all_props = Property.objects.filter(organization=organization)
+            prop_count = all_props.count()
+            prop_names = list(all_props.values_list('name', flat=True)[:8])
+            prop_names_str = ', '.join(f'**{name}**' for name in prop_names) if prop_names else 'None registered yet'
+            if prop_count > 8:
+                prop_names_str += f' *(and {prop_count - 8} more)*'
+            
+            all_units = Unit.objects.filter(organization=organization)
+            total_units = all_units.count()
+            occupied_units = all_units.filter(status=Unit.Status.OCCUPIED).count()
+            available_units = all_units.filter(status=Unit.Status.AVAILABLE).count()
+            occupancy_rate = f"{(occupied_units / total_units * 100):.1f}%" if total_units > 0 else "0%"
+            
+            buildings_count = Building.objects.filter(organization=organization).count()
+            active_leases = Lease.objects.filter(organization=organization, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).count()
+            
+            response_text = (
+                f"📊 **Portfolio & Property Overview — {organization.name}**\n\n"
+                f"- **Total Properties**: **{prop_count}** ({prop_names_str})\n"
+                f"- **Total Units**: **{total_units}** registered across portfolio\n"
+                f"- **Occupancy**: **{occupied_units} occupied** ({occupancy_rate}), **{available_units} available/vacant**\n"
+                f"- **Buildings Registered**: **{buildings_count}**\n"
+                f"- **Active Tenancies / Leases**: **{active_leases}**"
             )
             suggested_actions = [
-                {"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"},
-                {"label": "Review Approvals", "action": "approvals", "href": "/companion?tab=approvals"},
-                {"label": "Assign New Task", "action": "assign", "href": "/companion?tab=tasks"},
+                {"label": "View Properties Directory", "action": "properties", "href": "/property"},
+                {"label": "+ Onboard New Property", "action": "onboard", "href": "/property/onboarding"},
+                {"label": "View Units Directory", "action": "units", "href": "/property?tab=units"},
             ]
+
+        # 2. Financials, Rent, Invoices, Receipts & Arrears
+        elif any(term in prompt for term in ('rent', 'arrear', 'collection', 'invoice', 'receipt', 'balance', 'outstanding', 'financial', 'income', 'kes', 'payment', 'money')):
+            from properties.models import Invoice, Receipt, Tenant
+            month_start = now.date().replace(day=1)
+            receipts = Receipt.objects.filter(organization=organization, received_on__gte=month_start)
+            month_collections = receipts.aggregate(total=Sum('amount'))['total'] or 0
+            
+            invoices = Invoice.objects.filter(organization=organization).exclude(status=Invoice.Status.VOID)
+            outstanding_balance = invoices.aggregate(total=Sum('balance'))['total'] or 0
+            open_invoices_count = invoices.filter(status__in=(Invoice.Status.ISSUED, Invoice.Status.PARTIALLY_PAID)).count()
+            
+            response_text = (
+                f"💰 **Financial & Collections Summary — {organization.name}**\n\n"
+                f"- **Collections This Month**: **KES {month_collections:,.2f}**\n"
+                f"- **Outstanding Invoice Balance**: **KES {outstanding_balance:,.2f}**\n"
+                f"- **Open / Pending Invoices**: **{open_invoices_count}** invoices awaiting payment\n"
+                f"- **Payment Methods**: Direct M-Pesa automated match, Bank Statement reconciliation, and Manual Receipting with statement preview."
+            )
+            suggested_actions = [
+                {"label": "View Rent & Collections", "action": "collections", "href": "/property?tab=rent"},
+                {"label": "Rent Arrears Aging", "action": "arrears", "href": "/property?tab=arrears"},
+                {"label": "Manual Receipting", "action": "receipts", "href": "/property?tab=receipts"},
+            ]
+
+        # 3. Tenants & Leases
+        elif any(term in prompt for term in ('tenant', 'lease', 'tenanc', 'occupan', 'agreement')):
+            from properties.models import Lease, Tenant, Unit
+            all_tenants = Tenant.objects.filter(organization=organization)
+            tenants_count = all_tenants.count()
+            active_leases = Lease.objects.filter(organization=organization, status=Lease.Status.ACTIVE).count()
+            expiring_leases = Lease.objects.filter(organization=organization, status=Lease.Status.EXPIRING).count()
+            
+            response_text = (
+                f"👥 **Tenants & Leasing Status — {organization.name}**\n\n"
+                f"- **Total Registered Tenants**: **{tenants_count}**\n"
+                f"- **Active Leases**: **{active_leases}**\n"
+                f"- **Expiring Leases (Next 60 Days)**: **{expiring_leases}**\n"
+                f"- **Automated Workflows**: Monthly rent invoicing, rent escalation tracking, automated SMS/Email reminders, and move-in/move-out inspections."
+            )
+            suggested_actions = [
+                {"label": "View Tenants Directory", "action": "tenants", "href": "/property?tab=tenants"},
+                {"label": "Lease Agreements", "action": "leases", "href": "/property?tab=leases"},
+            ]
+
+        # 4. Facilities, Maintenance, Work Orders, PPM & Contractors
+        elif any(term in prompt for term in ('facilit', 'work order', 'maintenance', 'contractor', 'service line', 'repair', 'ppm', 'meter', 'utilit', 'hvac', 'plumb', 'electric')):
+            from facilities.models import Contractor, PreventiveSchedule, UtilityMeter, WorkOrder
+            orders = WorkOrder.objects.filter(organization=organization).exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
+            open_wo = orders.count()
+            critical_wo = orders.filter(priority=WorkOrder.Priority.CRITICAL).count()
+            overdue_wo = orders.filter(resolution_due_at__lt=now).count()
+            active_ppm = PreventiveSchedule.objects.filter(organization=organization, is_active=True).count()
+            contractors_count = Contractor.objects.filter(organization=organization).count()
+            meters_count = UtilityMeter.objects.filter(organization=organization).count()
+            
+            response_text = (
+                f"🛠️ **Facilities & Operations Summary — {organization.name}**\n\n"
+                f"- **Open Work Orders**: **{open_wo}** (**{critical_wo} critical**, **{overdue_wo} overdue**)\n"
+                f"- **Active PPM Schedules**: **{active_ppm}** preventive maintenance routines\n"
+                f"- **Registered Service Providers / Contractors**: **{contractors_count}**\n"
+                f"- **Utility Meters (Water / Power / Gas)**: **{meters_count}** metered accounts registered"
+            )
+            suggested_actions = [
+                {"label": "Facility Overview", "action": "facility", "href": "/facility?tab=overview"},
+                {"label": "Work Orders", "action": "wo", "href": "/facility?tab=work-orders"},
+                {"label": "Service Providers", "action": "contractors", "href": "/facility?tab=contractors"},
+            ]
+
+        # 5. Construction & Monitoring
+        elif any(term in prompt for term in ('construction', 'project', 'site', 'ticket', 'ipc')):
+            response_text = (
+                f"🏗️ **Construction & Project Monitoring**\n\n"
+                f"- Track project milestones, Interim Payment Certificates (IPCs), site logs, quality inspections, and contractor defects."
+            )
+            suggested_actions = [
+                {"label": "Projects Directory", "action": "projects", "href": "/monitoring/projects"},
+                {"label": "Site Issues & Tickets", "action": "tickets", "href": "/monitoring?tab=tickets"},
+            ]
+
+        # 6. Operational Briefings / Start of Day
+        elif any(term in prompt for term in ('brief', 'priorit', 'start of day', 'today')):
+            from properties.models import Property, Receipt, Unit
+            all_props = Property.objects.filter(organization=organization).count()
+            all_units = Unit.objects.filter(organization=organization)
+            occupied = all_units.filter(status=Unit.Status.OCCUPIED).count()
+            total_u = all_units.count()
+            month_start = now.date().replace(day=1)
+            collections = Receipt.objects.filter(organization=organization, received_on__gte=month_start).aggregate(total=Sum('amount'))['total'] or 0
+            
+            parts = [
+                f"📋 **Your Operational Briefing — {organization.name}**",
+                f"- **Assigned Tasks**: **{context['my_tasks']['active']} active**; overdue: **{overdue_count}**; escalated: **{escalated_count}**",
+                f"- **Portfolio**: **{occupied} of {total_u} units occupied** across **{all_props} properties**",
+                f"- **Collections (This Month)**: **KES {collections:,.2f}**",
+            ]
+            response_text = '\n'.join(parts)
+            suggested_actions = [
+                {"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"},
+                {"label": "Review Collections", "action": "collections", "href": "/property?tab=rent"},
+                {"label": "Facility Overview", "action": "facility", "href": "/facility?tab=overview"},
+            ]
+
+        # 7. General Assistant Comprehensive Status
+        else:
+            from properties.models import Property, Receipt, Unit
+            all_props = Property.objects.filter(organization=organization).count()
+            all_units = Unit.objects.filter(organization=organization)
+            occupied = all_units.filter(status=Unit.Status.OCCUPIED).count()
+            total_u = all_units.count()
+            month_start = now.date().replace(day=1)
+            collections = Receipt.objects.filter(organization=organization, received_on__gte=month_start).aggregate(total=Sum('amount'))['total'] or 0
+            
+            response_text = (
+                f"🤖 **Quartermaster AI — {organization.name}**\n\n"
+                f"- **Properties**: **{all_props}** registered\n"
+                f"- **Units**: **{occupied} occupied** / **{total_u} total**\n"
+                f"- **Month Collections**: **KES {collections:,.2f}**\n"
+                f"- **Your Active Tasks**: **{active_tasks.count()}**\n\n"
+                f"*You can ask me anything about properties, units, rent arrears, tenant leases, utility meters, work orders, or operational workflows.*"
+            )
+            suggested_actions = [
+                {"label": "View Properties", "action": "properties", "href": "/property"},
+                {"label": "Rent & Arrears", "action": "arrears", "href": "/property?tab=arrears"},
+                {"label": "Facilities & Work Orders", "action": "facility", "href": "/facility?tab=overview"},
+            ]
+
 
         payload = {
             'prompt': request.data.get('prompt', ''),
