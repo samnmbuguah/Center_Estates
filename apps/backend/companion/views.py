@@ -410,32 +410,10 @@ class CompanionDashboardViewSet(ViewSet):
                 organization=organization, user=request.user, property=get_active_property(request, organization),
                 title=raw_prompt[:177] + ('…' if len(raw_prompt) > 177 else ''),
             )
-        else:
-            # An accidental double-click or retry must not create a second
-            # canned answer or pollute the conversation history.
-            duplicate = conversation.messages.filter(
-                role=QmMessage.Role.USER, content__iexact=raw_prompt,
-            ).order_by('-created_at').first()
-            if duplicate:
-                prior_answer = conversation.messages.filter(
-                    role=QmMessage.Role.ASSISTANT, created_at__gt=duplicate.created_at,
-                ).order_by('created_at').first()
-                if prior_answer:
-                    metadata = prior_answer.response_metadata or {}
-                    return Response({
-                        'prompt': raw_prompt,
-                        'response': prior_answer.content,
-                        'suggestedActions': metadata.get('suggestedActions', []),
-                        'agent': metadata.get('agent', 'Quartermaster (QM)'),
-                        'agentStatus': metadata.get('agentStatus', 'cached'),
-                        'groundedAt': metadata.get('groundedAt', prior_answer.created_at.isoformat()),
-                        'timestamp': now.isoformat(),
-                        'conversationId': str(conversation.id),
-                        'deduplicated': True,
-                    })
         QmMessage.objects.create(
             organization=organization, conversation=conversation, role=QmMessage.Role.USER, content=raw_prompt,
         )
+
 
         # QM is read-only and is grounded only in records this user is authorized to see.
         tasks = scope_model_queryset(Task, request, organization).select_related(
@@ -543,12 +521,9 @@ class CompanionDashboardViewSet(ViewSet):
         if llm_response:
             response_text = llm_response
             suggested_actions = qm_result.get('suggestedActions') or []
-        elif validation_explanation:
-            response_text = validation_explanation
-            suggested_actions = [{"label": "View Onboarding", "action": "onboarding", "href": "/property/onboarding"}]
-        # 1. Properties & Portfolio intent
-        if any(term in prompt for term in ('propert', 'portfolio', 'estate', 'how many unit', 'building', 'units count', 'unit count', 'occupan')):
+        elif any(term in prompt for term in ('propert', 'portfolio', 'estate', 'how many unit', 'building', 'units count', 'unit count', 'occupan')):
             from properties.models import Building, Lease, Property, Unit
+
             all_props = Property.objects.filter(organization=organization)
             prop_count = all_props.count()
             prop_names = list(all_props.values_list('name', flat=True)[:8])
