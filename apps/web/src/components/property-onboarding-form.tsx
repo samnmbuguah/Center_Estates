@@ -605,15 +605,12 @@ export function PropertyOnboardingForm() {
     const buildingList = buildings.length > 0
       ? buildings.map(b => ({ name: b.name, floors: Number(b.floors || 1), floor_numbers: b.floor_numbers, use: b.use, access_points: b.access_points, parking_spaces: Number(b.parking_spaces || 0), amenities: b.amenities }))
       : [{ name: "Main Building", floors: Number(values.floors || 1), floor_numbers: values.floor_numbers || "", use: values.building_use || "", access_points: values.access_points || "", parking_spaces: Number(values.parking_spaces || 0), amenities: values.amenities || "" }];
-    const badBuilding = units.find(u => {
-      const idx = Number(u.building_index);
-      if (!idx) return false;
-      return idx < 1 || idx > buildingList.length;
+    const cleanUnits = units.map(u => {
+      const rawIdx = String(u.building_index || "").trim().toLowerCase();
+      const isBlank = !rawIdx || rawIdx === "n/a" || rawIdx === "na" || rawIdx === "none" || rawIdx === "-" || rawIdx === "0" || isNaN(Number(rawIdx));
+      const bIdx = isBlank ? "" : String(Math.min(Math.max(Number(rawIdx), 1), buildingList.length));
+      return { ...u, building_index: bIdx };
     });
-    if (badBuilding) {
-      setError(`Unit "${badBuilding.unit_no}" references building #${badBuilding.building_index}, but only ${buildingList.length} building(s) exist. Use building number 1–${buildingList.length} or leave blank.`);
-      jump("units"); setSaving(false); return;
-    }
     const metadata = {
       category: values.category || "", lr_number: values.lr_number, pin_number: values.pin_number || "",
       year_built: values.year_built || null, title_type: values.title_type, land_size_sqft: values.land_size || null,
@@ -654,9 +651,10 @@ export function PropertyOnboardingForm() {
           building: {
             buildings: buildingList,
           },
-          units,
+          units: cleanUnits,
         }),
       }, organizationId);
+
       if (!response.ok) {
         if (response.status === 401) throw new Error("Your session expired before the property could be saved. Sign in again and retry.");
         if (response.status === 403) throw new Error("You do not have permission to onboard properties for this organization.");

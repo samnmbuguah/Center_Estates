@@ -699,8 +699,9 @@ class PropertyViewSet(OrganizationModelViewSet):
         buildings_created = 0
         if isinstance(building_payload, dict) and isinstance(building_payload.get('buildings'), list):
             proposed = building_payload['buildings']
-            if len(proposed) > 100:
-                raise ValidationError({'building': 'A property may have at most 100 buildings.'})
+            if len(proposed) > 500:
+                raise ValidationError({'building': 'A property may have at most 500 buildings.'})
+
             resolved = []
             for index, raw in enumerate(proposed, start=1):
                 if not isinstance(raw, dict):
@@ -743,15 +744,17 @@ class PropertyViewSet(OrganizationModelViewSet):
                     raise ValidationError({'units': f'Unit number {code} is duplicated.'})
                 seen_codes.add(code)
                 building = None
-                building_index = raw.get('building_index')
-                if building_index not in (None, ''):
+                raw_b_idx = str(raw.get('building_index') or '').strip().lower()
+                if raw_b_idx not in ('', 'none', 'n/a', 'na', '-', 'null', '0'):
                     try:
-                        building_position = int(building_index) - 1
+                        building_position = int(raw_b_idx) - 1
+                        if 0 <= building_position < len(buildings):
+                            building = buildings[building_position]
+                        elif buildings:
+                            building = buildings[0]
                     except (TypeError, ValueError):
-                        raise ValidationError({'units': f'Unit {code} has an invalid building number "{building_index}".'})
-                    if building_position < 0 or building_position >= len(buildings):
-                        raise ValidationError({'units': f'Unit {code} references building #{building_index}, but only {len(buildings)} building(s) are available.'})
-                    building = buildings[building_position]
+                        building = None
+
                 metadata = {
                     'use': str(raw.get('use') or '').strip(),
                     'rateable_area': raw.get('rateable_area') or None,
@@ -855,8 +858,9 @@ class PropertyViewSet(OrganizationModelViewSet):
 
         if isinstance(buildings_list, list) and buildings_list:
             # New format: array of individual buildings with per-building details
-            if len(buildings_list) > 100:
-                raise ValidationError({'building': 'Maximum 100 buildings allowed.'})
+            if len(buildings_list) > 500:
+                raise ValidationError({'building': 'Maximum 500 buildings allowed.'})
+
             for index, bld in enumerate(buildings_list, 1):
                 if not isinstance(bld, dict):
                     raise ValidationError({'building': f'Building {index} must be an object.'})
@@ -940,18 +944,17 @@ class PropertyViewSet(OrganizationModelViewSet):
                 raise ValidationError({'units': f'Unit {index} requires a unit number.'})
             if code in seen_codes:
                 raise ValidationError({'units': f'Unit number {code} is duplicated.'})
-            seen_codes.add(code)
-            building_index = raw_unit.get('building_index')
+            raw_b_idx = str(raw_unit.get('building_index') or '').strip().lower()
             building = None
-            if building_index not in (None, ''):
+            if raw_b_idx not in ('', 'none', 'n/a', 'na', '-', 'null', '0'):
                 try:
-                    idx = int(building_index) - 1
-                    if idx < 0 or idx >= len(buildings):
-                        available = ', '.join(f'{i+1}: {b.name}' for i, b in enumerate(buildings)) or 'none'
-                        raise ValidationError({'units': f'Unit {code} references building #{building_index}, but only {len(buildings)} building(s) exist ({available}). Use a building number between 1 and {len(buildings)}, or leave blank.'})
-                    building = buildings[idx]
+                    idx = int(raw_b_idx) - 1
+                    if 0 <= idx < len(buildings):
+                        building = buildings[idx]
+                    elif buildings:
+                        building = buildings[0]
                 except (TypeError, ValueError):
-                    raise ValidationError({'units': f'Unit {code} has an invalid building number "{building_index}". Use a whole number (1, 2, 3…) or leave blank.'})
+                    building = None
             unit = Unit.objects.create(
                 organization=organization,
                 property=property_record,
@@ -992,8 +995,9 @@ class PropertyViewSet(OrganizationModelViewSet):
         # water/electricity/gas supplies are also registered in Facility
         # Management so opening readings are operational rather than decorative.
         utilities_payload = property_record.metadata.get('utilities', [])
-        if not isinstance(utilities_payload, list) or len(utilities_payload) > 100:
-            raise ValidationError({'utilities': 'Utilities must be a list containing at most 100 records.'})
+        if not isinstance(utilities_payload, list) or len(utilities_payload) > 1000:
+            raise ValidationError({'utilities': 'Utilities must be a list containing at most 1,000 records.'})
+
         from facilities.models import MeterReading, UtilityMeter
         meters = []
         for index, utility in enumerate(utilities_payload, start=1):

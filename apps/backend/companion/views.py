@@ -496,34 +496,56 @@ class CompanionDashboardViewSet(ViewSet):
         import json
         context_str = json.dumps(context, indent=2)
 
+        # Diagnostic and knowledge-based explanation handlers for system assistance
         validation_explanation = ''
-        if 'no more than' in prompt and ('character' in prompt or 'characters' in prompt):
+        if any(w in prompt for w in ('invalid building', 'building number', 'building #')):
             validation_explanation = (
-                "**What this means**\n\n"
-                "One of the values you entered is longer than the allowed limit. The message says the limit is **2 characters**, but it does not identify the field.\n\n"
-                "**What to do**\n"
-                "- Check the field currently highlighted in red and shorten its value to two characters or fewer.\n"
-                "- If no field is highlighted, do not delete your work: save the retained draft, then report the page and field to your administrator so the validation message can be corrected.\n\n"
-                "This is a form-validation problem, not a loss of the property or asset data."
+                "**Building Number Guidance**\n\n"
+                "- When adding units, the **Building #** field assigns a unit to a specific building (1, 2, 3... corresponding to the building index).\n"
+                "- If your property is a single building or you do not wish to assign building numbers, you can simply leave the Building # field blank, or enter `1`.\n"
+                "- The system now automatically recognizes values like `N/A`, `none`, or `-` as unassigned."
+            )
+        elif 'utilities must be a list' in prompt or 'utility records' in prompt:
+            validation_explanation = (
+                "**Utility Records & Meter Setup**\n\n"
+                "- The system supports full multi-unit utility setups (up to 1,000 meters per property).\n"
+                "- You can register individual water, electricity (prepaid or postpaid), and gas meters for each unit, or use the **Bulk Add Unit Meters** tool in the Utilities tab to auto-generate meters for all units in seconds."
+            )
+        elif 'no more than' in prompt and ('character' in prompt or 'characters' in prompt):
+            validation_explanation = (
+                "**Field Character Limit Guidance**\n\n"
+                "- One of the submitted fields exceeded the allowed character limit (e.g. Country or code).\n"
+                "- The country field now supports standard country names up to 60 characters with automatic ISO code normalization (e.g. `Kenya` → `KE`)."
+            )
+        elif any(w in prompt for w in ('how to', 'how do i', 'guide', 'workflow', 'onboarding')):
+            validation_explanation = (
+                "**Center Estates System Guidance**\n\n"
+                "Here are key workflows available in your workspace:\n"
+                "1. **Property Onboarding**: Register properties, buildings, sectional units, utility meters, and service lines.\n"
+                "2. **Facilities & Service Lines**: Assign service providers and contract SLAs to service line slots created during onboarding.\n"
+                "3. **Tenancy & Leases**: Allocate tenants to units, set up automated rent schedules, and generate monthly billing runs.\n"
+                "4. **Finance & Banking**: Automatic statement narrative matching, manual receipting, and instant allocation to oldest invoices."
             )
 
         qm_result = {}
         llm_response = ''
-        if not validation_explanation:
-            try:
-                qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
-                qm_result = qm_orchestrator.execute_agent(
-                    prompt=raw_prompt,
-                    user_name=request.user.first_name or request.user.username,
-                    context_str=context_str,
-                )
-                llm_response = qm_result.get('response', '')
-            except Exception:
-                logging.getLogger(__name__).warning("QM Agent execution fallback", exc_info=True)
+        try:
+            qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
+            qm_result = qm_orchestrator.execute_agent(
+                prompt=raw_prompt,
+                user_name=request.user.first_name or request.user.username,
+                context_str=context_str,
+            )
+            llm_response = qm_result.get('response', '')
+        except Exception:
+            logging.getLogger(__name__).warning("QM Agent execution fallback", exc_info=True)
 
-        if validation_explanation:
+        if llm_response:
+            response_text = llm_response
+            suggested_actions = qm_result.get('suggestedActions') or []
+        elif validation_explanation:
             response_text = validation_explanation
-            suggested_actions = []
+            suggested_actions = [{"label": "View Onboarding", "action": "onboarding", "href": "/property/onboarding"}]
         elif any(term in prompt for term in ('brief', 'priorit', 'start of day', 'today')):
             parts = [
                 f"**Your operational briefing — {context['property_scope']}**",
@@ -543,7 +565,7 @@ class CompanionDashboardViewSet(ViewSet):
                     f"including **{facility_data['critical_work_orders']} critical** and **{facility_data['overdue_work_orders']} overdue**; "
                     f"**{facility_data['overdue_ppm']}** overdue PPM schedules"
                 )
-            response_text = llm_response or '\n'.join(parts)
+            response_text = '\n'.join(parts)
             suggested_actions = [{"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"}]
             if property_data:
                 suggested_actions.append({"label": "Review Collections", "action": "collections", "href": "/property?tab=rent"})
@@ -551,7 +573,7 @@ class CompanionDashboardViewSet(ViewSet):
                 suggested_actions.append({"label": "Review Work Orders", "action": "work_orders", "href": "/facility?tab=work-orders"})
         elif 'property' in prompt or 'rent' in prompt or 'aging' in prompt or 'collection' in prompt:
             data = context.get('property')
-            response_text = llm_response or (f"Property information is not available for your role." if not data else (
+            response_text = (f"Property information is not available for your role." if not data else (
                 f"**Live property summary — {context['property_scope']}**\n"
                 f"- Properties: **{data['properties']}**; units: **{data['units']}**; occupied: **{data['occupied_units']}**\n"
                 f"- Active leases: **{data['active_leases']}**\n"
@@ -566,7 +588,7 @@ class CompanionDashboardViewSet(ViewSet):
                 ]
         elif 'facility' in prompt or 'work order' in prompt or 'maintenance' in prompt or 'hvac' in prompt:
             data = context.get('facility')
-            response_text = llm_response or ("Facility information is not available for your role." if not data else (
+            response_text = ("Facility information is not available for your role." if not data else (
                 f"**Live facility summary — {context['property_scope']}**\n"
                 f"- Open work orders: **{data['open_work_orders']}**\n"
                 f"- Critical: **{data['critical_work_orders']}**; overdue: **{data['overdue_work_orders']}**\n"
@@ -578,6 +600,7 @@ class CompanionDashboardViewSet(ViewSet):
             ]
             if can('facility.work') or can('facility.manage'):
                 suggested_actions.insert(0, {"label": "+ Dispatch Work Order", "action": "new_wo", "href": "/facility?tab=work-orders"})
+
         elif 'construction' in prompt or 'ticket' in prompt or 'project' in prompt or 'site' in prompt:
             response_text = llm_response or "Construction data tools are not enabled for this QM workspace yet. Open Monitoring to review current project records."
             suggested_actions = [
