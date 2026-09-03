@@ -14,7 +14,8 @@ import type {
 import {
   kM, kN, pct, occupancyTone,
 } from "../../utils/property.utils";
-import { Building2, DollarSign, Users, Layers, CheckCircle2, TrendingUp, Plus } from "lucide-react";
+import { Building2, DollarSign, Users, Layers, CheckCircle2, TrendingUp, Plus, FileText } from "lucide-react";
+import { PropertyDossierModal } from "../modals/PropertyDossierModal";
 
 export function PropertiesView({
   rows, loading, search, setSearch, setTab, onAdd, onAddSectionalTitle, onSelectRow,
@@ -24,6 +25,8 @@ export function PropertiesView({
 }) {
   const router = useRouter();
   const [page, setPage] = useState(1);
+  const [selectedDossier, setSelectedDossier] = useState<PropertyRow | null>(null);
+
   const PAGE_SIZE = 20;
   const props = rows as PropertyRow[];
   const filtered = props;
@@ -189,6 +192,13 @@ export function PropertiesView({
                     <td><StatusPill value={String(p.status ?? "active")} /></td>
                     <td style={{ textAlign: "right" }}>
                       <div className="row" style={{ gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <button
+                          className="btn outline sm"
+                          style={{ fontWeight: 700, fontSize: 11, borderColor: "var(--primary, #2563eb)", color: "var(--primary, #2563eb)", display: "inline-flex", alignItems: "center", gap: 4 }}
+                          onClick={(e) => { e.stopPropagation(); setSelectedDossier(p); }}
+                        >
+                          <FileText size={12} /> Dossier & Audit
+                        </button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); router.push(`/property-onboarding?edit=${p.id}`); }}>Edit</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("units"); }}>Units</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("tenants"); }}>Tenants</button>
@@ -203,6 +213,16 @@ export function PropertiesView({
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
+
+      {/* Property Dossier & Onboarding Completeness Audit Modal */}
+      {selectedDossier && (
+        <PropertyDossierModal
+          property={selectedDossier}
+          onClose={() => setSelectedDossier(null)}
+          onEdit={(id) => router.push(`/property-onboarding?edit=${id}`)}
+        />
+      )}
     </Box>
   );
 }
+
