@@ -520,7 +520,60 @@ class CompanionDashboardViewSet(ViewSet):
 
         if llm_response:
             response_text = llm_response
-            suggested_actions = qm_result.get('suggestedActions') or []
+        # 1. Schedule, Calendar, Next Week & Tasks intent
+        elif any(term in prompt for term in ('schedule', 'calendar', 'next week', 'this week', 'upcoming', 'due', 'agenda', 'my task', 'assigned task', 'timeline')):
+
+            from datetime import timedelta
+            next_week_end = now + timedelta(days=14)
+            my_upcoming_tasks = list(
+                Task.objects.filter(
+                    assignee=request.user,
+                ).exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED)).order_by('due_at')[:5]
+            )
+            from facilities.models import PreventiveSchedule, WorkOrder
+            upcoming_ppm = list(
+                PreventiveSchedule.objects.filter(
+                    organization=organization, is_active=True,
+                    next_due_on__gte=now.date(), next_due_on__lte=now.date() + timedelta(days=14),
+                ).order_by('next_due_on')[:5]
+            )
+            urgent_wo = list(
+                WorkOrder.objects.filter(
+                    organization=organization,
+                    priority__in=(WorkOrder.Priority.CRITICAL, WorkOrder.Priority.HIGH),
+                ).exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED)).order_by('resolution_due_at')[:5]
+            )
+
+            lines = [f"📅 **Upcoming Schedule & Operational Agenda — {organization.name}**\n"]
+            if my_upcoming_tasks:
+                lines.append(f"**Your Assigned Tasks ({len(my_upcoming_tasks)}):**")
+                for t in my_upcoming_tasks:
+                    due_str = t.due_at.strftime('%a, %d %b %H:%M') if t.due_at else 'No deadline'
+                    lines.append(f"- **{t.title}** (Due: *{due_str}*, Priority: *{t.priority}*)")
+            else:
+                lines.append("• **Your Assigned Tasks**: No pending tasks currently assigned to you.")
+
+            if upcoming_ppm:
+                lines.append(f"\n**Facility Planned Maintenance (Next 14 Days):**")
+                for p in upcoming_ppm:
+                    lines.append(f"- **{p.title}** (Scheduled: *{p.next_due_on.strftime('%a, %d %b')}*, Asset: *{p.asset.name if p.asset else 'General'}*)")
+
+            if urgent_wo:
+                lines.append(f"\n**High Priority Work Orders:**")
+                for w in urgent_wo:
+                    lines.append(f"- **{w.title}** (*{w.property.name if w.property else 'General'}*, Priority: *{w.priority}*)")
+
+            if not my_upcoming_tasks and not upcoming_ppm and not urgent_wo:
+                lines.append("\n*You have a clear operational schedule for next week. No overdue tasks or critical maintenance items are currently pending.*")
+
+            response_text = '\n'.join(lines)
+            suggested_actions = [
+                {"label": "View My Tasks", "action": "my_tasks", "href": "/companion?tab=my-tasks"},
+                {"label": "PPM Maintenance Calendar", "action": "ppm", "href": "/facility?tab=planned-maintenance"},
+                {"label": "Facility Overview", "action": "facility", "href": "/facility?tab=overview"},
+            ]
+
+        # 2. Properties & Portfolio intent
         elif any(term in prompt for term in ('propert', 'portfolio', 'estate', 'how many unit', 'building', 'units count', 'unit count', 'occupan')):
             from properties.models import Building, Lease, Property, Unit
 
@@ -553,6 +606,7 @@ class CompanionDashboardViewSet(ViewSet):
                 {"label": "+ Onboard New Property", "action": "onboard", "href": "/property/onboarding"},
                 {"label": "View Units Directory", "action": "units", "href": "/property?tab=units"},
             ]
+
 
         # 2. Financials, Rent, Invoices, Receipts & Arrears
         elif any(term in prompt for term in ('rent', 'arrear', 'collection', 'invoice', 'receipt', 'balance', 'outstanding', 'financial', 'income', 'kes', 'payment', 'money')):
