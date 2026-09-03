@@ -23,7 +23,7 @@ type UnitImportRow = UnitDraft & { sourceRow: number; errors: Partial<Record<key
 type UtilityDraft = { type: string; account_no: string; location: string; bill_cycle: string; status: string; meter_code: string; supply_mode: string; tariff: string; unit: string; unit_code: string };
 type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
 type ContactDraft = { name: string; role: string; email: string; phone: string };
-type ProviderDraft = { name: string; category: string; service: string; frequency: string; criticality: string; monthly_cost: string; contact: string; email: string; phone: string };
+type ProviderDraft = { name?: string; category: string; service: string; frequency: string; criticality: string; scope?: string; monthly_cost?: string; contact?: string; email?: string; phone?: string };
 type DocumentDraft = { name: string; type: string; reference: string; expires_on: string; file: File | null };
 type BuildingDraft = { id?: string; name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
 
@@ -32,10 +32,11 @@ const blankUtility: UtilityDraft = { type: "water", account_no: "", location: ""
 
 const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity: "1", status: "active" };
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
-const blankProvider: ProviderDraft = { name: "", category: "Security & Guarding", service: "", frequency: "monthly", criticality: "medium", monthly_cost: "0", contact: "", email: "", phone: "" };
+const blankProvider: ProviderDraft = { name: "", category: "Security & Guarding", service: "", frequency: "monthly", criticality: "medium", scope: "", monthly_cost: "0", contact: "", email: "", phone: "" };
 const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "", file: null };
 const blankBuilding: BuildingDraft = { name: "", floors: "1", floor_numbers: "", use: "", access_points: "", parking_spaces: "0", amenities: "" };
-const initialValues: Values = { status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold" };
+const initialValues: Values = { status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold", engagement_type: "management", management_fee_basis: "percent_collections" };
+
 
 function normalizeNumber(value: string) {
   return value.replace(/[\s,]/g, "").trim();
@@ -152,6 +153,13 @@ export function PropertyOnboardingForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(""), 12000);
+    return () => clearTimeout(timer);
+  }, [error]);
+
+
   const restoredDraft = valuesRestored || unitsRestored || utilitiesRestored || assetsRestored || contactsRestored || providersRestored;
   const clearDraft = () => { clearValues(); clearUnits(); clearBuildings(); clearUtilities(); clearAssets(); clearContacts(); clearProviders(); };
   const readiness = useMemo(() => {
@@ -163,7 +171,7 @@ export function PropertyOnboardingForm() {
       { section: "units", label: "At least one unit", complete: units.length > 0 },
       { section: "utilities", label: "Utility accounts", complete: utilities.length > 0 },
       { section: "contacts", label: "Property contact", complete: contacts.some(contact => Boolean(contact.name && (contact.email || contact.phone))) },
-      { section: "providers", label: "Service provider", complete: providers.some(provider => Boolean(provider.name && provider.service)) },
+      { section: "providers", label: "Service line", complete: providers.some(provider => Boolean(provider.service || provider.name)) },
       { section: "documents", label: "Property document", complete: documents.length > 0 },
     ];
     const completed = checks.filter(check => check.complete).length;
@@ -213,7 +221,8 @@ export function PropertyOnboardingForm() {
             engagement_type: meta.landlord_engagement?.engagement_type || "management",
             engagement_start: meta.landlord_engagement?.starts_on || "",
             engagement_end: meta.landlord_engagement?.ends_on || "",
-            management_fee: meta.landlord_engagement?.management_fee_percent ? String(meta.landlord_engagement.management_fee_percent) : "",
+            management_fee_basis: meta.landlord_engagement?.management_fee_basis || (meta.landlord_engagement?.engagement_type === "facility" ? "flat_monthly" : meta.landlord_engagement?.engagement_type === "sectional" ? "per_unit" : "percent_collections"),
+            management_fee: meta.landlord_engagement?.management_fee_rate ? String(meta.landlord_engagement.management_fee_rate) : (meta.landlord_engagement?.management_fee_percent ? String(meta.landlord_engagement.management_fee_percent) : ""),
             letting_fee_type: meta.landlord_engagement?.letting_fee_type || "one_month_rent",
             letting_fee_rate: meta.landlord_engagement?.letting_fee_rate ? String(meta.landlord_engagement.letting_fee_rate) : "",
             payment_terms: meta.landlord_engagement?.payment_terms || "",
@@ -238,12 +247,13 @@ export function PropertyOnboardingForm() {
           const savedProviders = meta.service_providers || [];
           if (Array.isArray(savedProviders) && savedProviders.length > 0) {
             setProviders(savedProviders.map((p: any) => ({
-              name: p.name || p.provider_name || "",
               category: p.category || "General Maintenance",
               service: p.service || p.service_name || p.name || "",
               frequency: p.frequency || "monthly",
               criticality: p.criticality || "medium",
-              monthly_cost: String(p.monthly_cost || "0"),
+              scope: p.scope || p.coverage || "",
+              name: p.name || p.provider_name || "",
+              monthly_cost: String(p.monthly_cost || p.cost || "0"),
               contact: p.contact || p.contact_person || "",
               email: p.email || "",
               phone: p.phone || "",
@@ -311,10 +321,11 @@ export function PropertyOnboardingForm() {
     return () => { active = false; };
   }, [editId, organizationId, setValues, setUnits, setBuildings, setProviders, setUtilities, setAssets, setContacts]);
 
-  const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+  const set = (name: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (error) setError("");
     setValues(current => ({ ...current, [name]: event.target.value }));
   };
+
   const totalArea = useMemo(() => units.reduce((sum, unit) => sum + Number(unit.area || 0), 0), [units]);
 
 
@@ -502,25 +513,27 @@ export function PropertyOnboardingForm() {
   const importProviders = async (file?: File) => {
     if (!file) return;
     const rows = parseCsv(await file.text());
-    if (rows.length < 2) { setError("The service provider CSV file contains no data rows."); jump("providers"); return; }
+    if (rows.length < 2) { setError("The service line CSV file contains no data rows."); jump("providers"); return; }
     rows.shift(); // skip header
     const imported: ProviderDraft[] = rows.map(row => ({
       service: row[0] ?? "",
       category: row[1] || "General Maintenance",
       frequency: row[2] || "monthly",
       criticality: row[3] || "medium",
-      monthly_cost: row[4] || "0",
-      name: row[5] || row[0] || "",
-      contact: row[6] || row[2] || "",
-      email: row[7] || row[3] || "",
-      phone: row[8] || row[4] || "",
+      scope: row[4] || "",
+      monthly_cost: row[5] || "0",
+      name: row[6] || "",
+      contact: row[7] || "",
+      email: row[8] || "",
+      phone: row[9] || "",
     }));
     const noService = imported.filter(p => !p.service && !p.name);
-    if (!imported.length) { setError("The service provider CSV file contains no data rows."); jump("providers"); return; }
-    if (noService.length) { setError(`${noService.length} provider(s) are missing a service name.`); jump("providers"); return; }
-    if (imported.length + providers.length > 500) { setError(`Importing ${imported.length} providers would exceed the 500-provider limit (currently ${providers.length}).`); jump("providers"); return; }
+    if (!imported.length) { setError("The service line CSV file contains no data rows."); jump("providers"); return; }
+    if (noService.length) { setError(`${noService.length} service line(s) are missing a name.`); jump("providers"); return; }
+    if (imported.length + providers.length > 500) { setError(`Importing ${imported.length} service lines would exceed the 500 limit (currently ${providers.length}).`); jump("providers"); return; }
     setProviders(current => [...current, ...imported]); setError("");
   };
+
 
   const importUtilities = async (file?: File) => {
     if (!file) return;
@@ -614,7 +627,9 @@ export function PropertyOnboardingForm() {
         engagement_type: values.engagement_type || "management",
         starts_on: values.engagement_start || null,
         ends_on: values.engagement_end || null,
-        management_fee_percent: values.management_fee || null,
+        management_fee_basis: values.management_fee_basis || (values.engagement_type === "facility" ? "flat_monthly" : values.engagement_type === "sectional" ? "per_unit" : "percent_collections"),
+        management_fee_rate: values.management_fee || null,
+        management_fee_percent: values.management_fee_basis === "percent_collections" ? (values.management_fee || null) : null,
         letting_fee_type: values.letting_fee_type || "one_month_rent",
         letting_fee_rate: values.letting_fee_rate || null,
         payment_terms: values.payment_terms || "",
@@ -646,8 +661,17 @@ export function PropertyOnboardingForm() {
         if (response.status === 401) throw new Error("Your session expired before the property could be saved. Sign in again and retry.");
         if (response.status === 403) throw new Error("You do not have permission to onboard properties for this organization.");
         const body = await response.json().catch(() => ({}));
-        throw new Error(Object.values(body as Record<string, unknown>).flat().join(" ") || "Property onboarding failed.");
+        const errMessages: string[] = [];
+        if (typeof body === "object" && body !== null) {
+          for (const [key, val] of Object.entries(body as Record<string, unknown>)) {
+            const fieldLabel = key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+            const text = Array.isArray(val) ? val.join(", ") : typeof val === "object" && val !== null ? JSON.stringify(val) : String(val);
+            errMessages.push(`${fieldLabel}: ${text}`);
+          }
+        }
+        throw new Error(errMessages.join(" · ") || "Property onboarding failed.");
       }
+
       const result = await response.json() as { property?: { id: string; name: string; code?: string; status?: string; city?: string }; id?: string; name?: string; code?: string; status?: string; city?: string };
       const savedProp = result.property ?? (result.id ? (result as { id: string; name: string; code?: string; status?: string; city?: string }) : null);
       clearDraft();
@@ -715,27 +739,12 @@ export function PropertyOnboardingForm() {
         severity="error"
         variant="filled"
         onClose={() => setError("")}
-        action={
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Button
-              color="inherit"
-              size="small"
-              variant="outlined"
-              sx={{ borderColor: "rgba(255,255,255,0.6)", color: "#fff", fontWeight: 700 }}
-              onClick={() => window.dispatchEvent(new CustomEvent("ce:qm-help", { detail: { message: `Help me resolve this property onboarding error: ${error}` } }))}
-            >
-              Ask QM
-            </Button>
-            <IconButton size="small" aria-label="close" color="inherit" onClick={() => setError("")}>
-              ✕
-            </IconButton>
-          </Box>
-        }
-        sx={{ mb: 2, position: "sticky", top: 128, zIndex: 4, boxShadow: 3 }}
+        sx={{ mb: 2, position: "sticky", top: 128, zIndex: 4, boxShadow: 3, borderRadius: 2 }}
       >
         <strong>Action needed:</strong> {error} Your entered information has been retained.
       </Alert>
     )}
+
 
     <Box sx={{ display: "grid", gap: 2, [`& > .onboarding-section:not(#${section})`]: { display: "none" } }}>
       <Section id="general" title="General information">
@@ -1077,13 +1086,13 @@ export function PropertyOnboardingForm() {
 
       <Section id="contacts" title="Property contacts"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Add contacts manually or import an existing directory.</Typography><Box sx={{ display: "flex", gap: 1 }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-contact-template.csv", [["name","role","email","phone"],["Jane Wanjiku","Caretaker","jane@example.com","+254700000000"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload contacts<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importContacts(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Name" value={contactDraft.name} onChange={e => setContactDraft({ ...contactDraft, name: e.target.value })} /><TextField label="Role" value={contactDraft.role} onChange={e => setContactDraft({ ...contactDraft, role: e.target.value })} /><TextField type="email" label="Email" value={contactDraft.email} onChange={e => setContactDraft({ ...contactDraft, email: e.target.value })} /><TextField label="Phone" value={contactDraft.phone} onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!contactDraft.name.trim()} onClick={() => { setContacts(rows => [...rows, contactDraft]); setContactDraft(blankContact); }}>Add contact</Button></Grid><RowList rows={contacts} columns={["Name","Role","Email","Phone"]} render={c => [c.name,c.role,c.email,c.phone]} onRemove={i => setContacts(rows => rows.filter((_, index) => index !== i))} empty="No contacts added." /></Section>
 
-      <Section id="providers" title="Service Profiles & Maintenance Service Lines">
+      <Section id="providers" title="Service Profiles & Facility Service Lines">
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Define recurring facility service lines (e.g. Security, Cleaning, Lift Maintenance, Fire Safety) and assign approved service contractors.
+            Define recurring facility service lines required for this property (e.g. 24/7 Security, Cleaning, Lift Maintenance, Fire Safety). Approved service contractors and contract rates are assigned dynamically in the Facilities module.
           </Typography>
           <Box sx={{ display: "flex", gap: 1 }}>
-            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-service-line-template.csv", [["service_line_name","category","frequency","criticality","monthly_cost","provider_name","contact_person","email","phone"],["24/7 Security Guarding","Security & Guarding","monthly","critical","120000","Apex Security Ltd","John Doe","security@example.com","+254700000000"],["Lift Preventive Maintenance","Lift / Elevator Maintenance","monthly","critical","45000","Schindler Lifts","Jane Doe","service@example.com","+254711000000"]])}>Download template</Button>
+            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-service-line-template.csv", [["service_line_name","category","frequency","criticality","scope"],["24/7 Security Guarding","Security & Guarding","monthly","critical","Main Gate & Compound"],["Lift Preventive Maintenance","Lift / Elevator Maintenance","monthly","critical","Passenger Lifts Block A & B"],["Waste Collection & Disposal","Waste & Refuse Disposal","monthly","medium","Perimeter Bins & Refuse Chute"],["Backup Generator Servicing","Backup Generator & Fuel","quarterly","high","Generator Room - Block A"]])}>Download template</Button>
             <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importProviders(event.target.files?.[0]); event.target.value = ""; }} /></Button>
           </Box>
         </Box>
@@ -1101,51 +1110,46 @@ export function PropertyOnboardingForm() {
               "Plumbing & Water Systems", "CCTV & Access Control", "General Maintenance",
             ].map(cat => <MenuItem key={cat} value={cat}>{cat}</MenuItem>)}
           </TextField>
-          <TextField label="Service Line Name" placeholder="e.g. 24/7 Gate & Compound Security" value={providerDraft.service} onChange={e => setProviderDraft({ ...providerDraft, service: e.target.value })} />
-          <TextField select label="Billing Frequency" value={providerDraft.frequency} onChange={e => setProviderDraft({ ...providerDraft, frequency: e.target.value })}>
+          <TextField label="Service Line Name / Requirement" placeholder="e.g. 24/7 Gate & Perimeter Security" value={providerDraft.service} onChange={e => setProviderDraft({ ...providerDraft, service: e.target.value })} />
+          <TextField select label="Billing / Service Frequency" value={providerDraft.frequency} onChange={e => setProviderDraft({ ...providerDraft, frequency: e.target.value })}>
             <MenuItem value="monthly">Monthly</MenuItem>
             <MenuItem value="quarterly">Quarterly</MenuItem>
             <MenuItem value="bi_annual">Bi-Annual</MenuItem>
             <MenuItem value="annual">Annual</MenuItem>
             <MenuItem value="daily">Daily / As-Needed</MenuItem>
           </TextField>
-          <TextField select label="Criticality" value={providerDraft.criticality} onChange={e => setProviderDraft({ ...providerDraft, criticality: e.target.value })}>
+          <TextField select label="Criticality / SLA Level" value={providerDraft.criticality} onChange={e => setProviderDraft({ ...providerDraft, criticality: e.target.value })}>
             <MenuItem value="critical">Critical (24/7 SLA)</MenuItem>
             <MenuItem value="high">High Priority</MenuItem>
             <MenuItem value="medium">Medium</MenuItem>
             <MenuItem value="low">Low / Routine</MenuItem>
           </TextField>
-          <TextField type="number" label="Est. Monthly Budget (KES)" value={providerDraft.monthly_cost} onChange={e => setProviderDraft({ ...providerDraft, monthly_cost: e.target.value })} />
+          <TextField label="Scope / Coverage Area (Optional)" placeholder="e.g. Main Gate, Blocks A & B" value={providerDraft.scope || ""} onChange={e => setProviderDraft({ ...providerDraft, scope: e.target.value })} />
         </Grid>
-        <Box sx={{ mt: 1.5 }}>
-          <Grid columns={5}>
-            <TextField label="Contractor / Provider Name" placeholder="e.g. Coast Lifts Ltd" value={providerDraft.name} onChange={e => setProviderDraft({ ...providerDraft, name: e.target.value })} />
-            <TextField label="Contact Person" value={providerDraft.contact} onChange={e => setProviderDraft({ ...providerDraft, contact: e.target.value })} />
-            <TextField type="email" label="Email" value={providerDraft.email} onChange={e => setProviderDraft({ ...providerDraft, email: e.target.value })} />
-            <TextField label="Phone" value={providerDraft.phone} onChange={e => setProviderDraft({ ...providerDraft, phone: e.target.value })} />
-            <Button
-              variant="outlined"
-              startIcon={<Plus size={16} />}
-              disabled={!providerDraft.service.trim()}
-              onClick={() => { setProviders(rows => [...rows, providerDraft]); setProviderDraft(blankProvider); }}
-            >
-              Add Service Line
-            </Button>
-          </Grid>
+        <Box sx={{ mt: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            💡 Service lines create the facility requirement slots. Contractors & costs are assigned when allocating in <strong>Facilities</strong>.
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Plus size={16} />}
+            disabled={!providerDraft.service.trim()}
+            onClick={() => { setProviders(rows => [...rows, providerDraft]); setProviderDraft(blankProvider); }}
+          >
+            Add Service Line
+          </Button>
         </Box>
         <Box sx={{ mt: 2 }}>
           <RowList
             rows={providers}
-            columns={["Service Line", "Category", "Frequency", "Criticality", "Est. Budget", "Provider", "Contact", "Phone"]}
+            columns={["Service Line", "Category", "Billing Frequency", "Criticality", "Coverage / Scope", "Provider Status"]}
             render={p => [
               p.service || p.name,
               p.category || "General Maintenance",
-              p.frequency || "Monthly",
-              p.criticality || "Medium",
-              Number(p.monthly_cost) > 0 ? `KES ${Number(p.monthly_cost).toLocaleString()}` : "—",
-              p.name || "Unassigned",
-              p.contact || "—",
-              p.phone || "—",
+              p.frequency === "monthly" ? "Monthly" : p.frequency === "quarterly" ? "Quarterly" : p.frequency === "annual" ? "Annual" : p.frequency || "Monthly",
+              p.criticality === "critical" ? "Critical (24/7)" : p.criticality === "high" ? "High Priority" : p.criticality || "Medium",
+              p.scope || "Whole property",
+              p.name ? `Assigned: ${p.name}` : "Unallocated (Assign in Facilities)",
             ]}
             onRemove={i => setProviders(rows => rows.filter((_, index) => index !== i))}
             empty="No service lines or maintenance profiles added."
@@ -1154,16 +1158,72 @@ export function PropertyOnboardingForm() {
       </Section>
 
       <Section id="landlord" title="Landlord engagement and terms">
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Configure management fees and engagement terms. Sectional properties charge per unit for common area management, property management is charged as a % of collections or flat figure, and facility management is billed as a flat monthly figure.
+          </Typography>
+        </Box>
         <Grid columns={3}>
-          <TextField select label="Engagement type" value={values.engagement_type || "management"} onChange={set("engagement_type")}>
+          <TextField
+            select
+            label="Engagement type"
+            value={values.engagement_type || "management"}
+            onChange={(e) => {
+              if (error) setError("");
+              const newType = e.target.value;
+              let newBasis = values.management_fee_basis;
+              if (newType === "facility") newBasis = "flat_monthly";
+              else if (newType === "sectional") newBasis = "per_unit";
+              else if (newType === "management" || newType === "full_service") newBasis = "percent_collections";
+              setValues(prev => ({ ...prev, engagement_type: newType, management_fee_basis: newBasis }));
+            }}
+          >
+
             <MenuItem value="management">Property management</MenuItem>
-            <MenuItem value="letting">Letting only</MenuItem>
+            <MenuItem value="sectional">Sectional title / Common area management</MenuItem>
             <MenuItem value="facility">Facility management</MenuItem>
-            <MenuItem value="full_service">Full service</MenuItem>
+            <MenuItem value="full_service">Full service (Property & Facility)</MenuItem>
+            <MenuItem value="letting">Letting only</MenuItem>
           </TextField>
           <TextField type="date" label="Agreement start" value={values.engagement_start || ""} onChange={set("engagement_start")} slotProps={{ inputLabel: { shrink: true } }} />
           <TextField type="date" label="Agreement end" value={values.engagement_end || ""} onChange={set("engagement_end")} slotProps={{ inputLabel: { shrink: true } }} />
-          <TextField type="number" label="Management fee (%)" placeholder="e.g. 5.0 or 8.0" value={values.management_fee || ""} onChange={set("management_fee")} />
+
+          <TextField
+            select
+            label="Management fee basis"
+            value={values.management_fee_basis || (values.engagement_type === "facility" ? "flat_monthly" : values.engagement_type === "sectional" ? "per_unit" : "percent_collections")}
+            onChange={set("management_fee_basis")}
+          >
+            <MenuItem value="percent_collections">% of Rent Collections (Property Management)</MenuItem>
+            <MenuItem value="per_unit">Per Unit Fee — KES/unit/month (Sectional / Common Area)</MenuItem>
+            <MenuItem value="flat_monthly">Fixed Flat Monthly Fee — KES/month (Facility Management)</MenuItem>
+          </TextField>
+
+          <TextField
+            type="number"
+            label={
+              values.management_fee_basis === "per_unit"
+                ? "Management fee (KES / unit / month)"
+                : values.management_fee_basis === "flat_monthly"
+                ? "Fixed monthly management fee (KES)"
+                : "Management fee (%)"
+            }
+            placeholder={
+              values.management_fee_basis === "per_unit"
+                ? `e.g. 1500 (Total KES ${(Number(units.length || 1) * 1500).toLocaleString()}/mo)`
+                : values.management_fee_basis === "flat_monthly"
+                ? "e.g. 50000"
+                : "e.g. 5.0 or 8.0"
+            }
+            value={values.management_fee || ""}
+            onChange={set("management_fee")}
+            helperText={
+              values.management_fee_basis === "per_unit" && units.length > 0 && values.management_fee
+                ? `Total KES ${(Number(values.management_fee) * units.length).toLocaleString()}/month across ${units.length} unit(s)`
+                : undefined
+            }
+          />
+
           <TextField select label="Letting / tenant sourcing fee basis" value={values.letting_fee_type || "one_month_rent"} onChange={set("letting_fee_type")}>
             <MenuItem value="one_month_rent">1 Month Rent (100%)</MenuItem>
             <MenuItem value="half_month_rent">Half Month Rent (50%)</MenuItem>
@@ -1174,6 +1234,7 @@ export function PropertyOnboardingForm() {
           <TextField sx={{ gridColumn: { md: "span 3" } }} label="Payment terms & remittance instructions" value={values.payment_terms || ""} onChange={set("payment_terms")} />
         </Grid>
       </Section>
+
 
       <Section id="documents" title="Documents register"><Alert severity="info" sx={{ mb: 2 }}>Files are uploaded to the secure document store after the property is created. A failed file upload is reported and can be retried without recreating the property.</Alert><Grid columns={5}><TextField label="Document name" value={documentDraft.name} onChange={e => setDocumentDraft({ ...documentDraft, name: e.target.value })} /><TextField select label="Type" value={documentDraft.type} onChange={e => setDocumentDraft({ ...documentDraft, type: e.target.value })}><MenuItem value="title">Title</MenuItem><MenuItem value="management_agreement">Management agreement</MenuItem><MenuItem value="tax">Tax document</MenuItem><MenuItem value="insurance">Insurance</MenuItem><MenuItem value="other">Other</MenuItem></TextField><TextField label="Reference" value={documentDraft.reference} onChange={e => setDocumentDraft({ ...documentDraft, reference: e.target.value })} /><TextField type="date" label="Expiry date" value={documentDraft.expires_on} onChange={e => setDocumentDraft({ ...documentDraft, expires_on: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} /><Button variant="outlined" component="label" startIcon={<Upload size={16} />}>{documentDraft.file?.name || "Choose file"}<input hidden type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={event => setDocumentDraft({ ...documentDraft, file: event.target.files?.[0] ?? null })} /></Button><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!documentDraft.name.trim() || !documentDraft.file} onClick={() => { setDocuments(rows => [...rows, documentDraft]); setDocumentDraft(blankDocument); }}>Add document</Button></Grid><RowList rows={documents} columns={["Name","Type","File","Reference","Expires"]} render={d => [d.name,d.type,d.file?.name || "—",d.reference,d.expires_on || "—"]} onRemove={i => setDocuments(rows => rows.filter((_, index) => index !== i))} empty="No documents selected for upload." /></Section>
 

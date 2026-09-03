@@ -84,11 +84,12 @@ export function DraftBanner({
           )}
         </Box>
         {hasFiles && (
-          <Typography variant="body2" color="text.primary" sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: 13, fontWeight: 600 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: 13 }}>
             <FileText size={14} />
-            For security, any attached files ({fileCount > 0 ? `${fileCount} file${fileCount > 1 ? "s" : ""}` : "documents"}) must be re-selected before saving.
+            Note: Standard browser security requires re-selecting local files ({fileCount > 0 ? `${fileCount} file${fileCount > 1 ? "s" : ""}` : "documents"}) before final submission.
           </Typography>
         )}
+
       </Stack>
     </Alert>
   );

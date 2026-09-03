@@ -21,7 +21,8 @@ class Property(OrganizationOwnedModel):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     address = models.TextField(blank=True)
     city = models.CharField(max_length=100, blank=True)
-    country = models.CharField(max_length=2, default='KE')
+    country = models.CharField(max_length=60, default='KE', blank=True)
+
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     is_sectional_title = models.BooleanField(default=False)

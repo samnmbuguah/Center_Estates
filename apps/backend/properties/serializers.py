@@ -211,9 +211,21 @@ class PropertySerializer(serializers.ModelSerializer):
     code = serializers.CharField(read_only=True)
     buildings_count = serializers.IntegerField(read_only=True, default=0)
     units_count = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = Property
         exclude = ('organization',)
+
+    def validate_country(self, value):
+        if not value:
+            return 'KE'
+        val = str(value).strip()
+        country_map = {
+            'kenya': 'KE', 'uganda': 'UG', 'tanzania': 'TZ', 'rwanda': 'RW',
+            'south sudan': 'SS', 'united states': 'US', 'united kingdom': 'GB',
+        }
+        return country_map.get(val.lower(), val[:60])
+
 
 
 class BuildingSerializer(serializers.ModelSerializer):
