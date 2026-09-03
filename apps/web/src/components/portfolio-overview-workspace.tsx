@@ -6,8 +6,9 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
 import { Pagination } from "@/components/module-ui";
-import { Building2, Edit3, Plus, Search, CheckCircle2, Wrench, Users, DollarSign } from "lucide-react";
+import { Building2, Edit3, Plus, Search, CheckCircle2, Wrench, Users, DollarSign, FileText, Filter } from "lucide-react";
 import { PortfolioAnalyticsDashboard, type PortfolioDashboardData } from "@/components/portfolio-analytics-dashboard";
+import { PropertyDossierModal } from "@/features/property/components/modals/PropertyDossierModal";
 
 type PropertyRecord = {
   id: string;
@@ -45,9 +46,12 @@ export function PortfolioOverviewWorkspace() {
   const [dashboard, setDashboard] = useState<PortfolioDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [selectedDossier, setSelectedDossier] = useState<PropertyRecord | null>(null);
   const [editingProperty, setEditingProperty] = useState<PropertyRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
 
   // Fetch pulse and property list
   const fetchData = useCallback(async () => {
@@ -151,12 +155,19 @@ export function PortfolioOverviewWorkspace() {
 
   const filtered = propertiesList.filter((p) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
       p.name?.toLowerCase().includes(q) ||
       p.code?.toLowerCase().includes(q) ||
       p.address?.toLowerCase().includes(q) ||
-      p.city?.toLowerCase().includes(q)
-    );
+      p.city?.toLowerCase().includes(q);
+
+    const matchesType =
+      typeFilter === "all" ||
+      (typeFilter === "commercial" && p.property_type?.toLowerCase() === "commercial") ||
+      (typeFilter === "residential" && p.property_type?.toLowerCase() === "residential") ||
+      (typeFilter === "industrial" && p.property_type?.toLowerCase() === "industrial");
+
+    return matchesSearch && matchesType;
   });
 
   const paginatedProps = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -174,9 +185,9 @@ export function PortfolioOverviewWorkspace() {
             Portfolio Management
           </p>
           <h1 style={{ fontSize: 26, fontWeight: 900, color: "#000000", margin: "4px 0 0", letterSpacing: "-0.02em" }}>
-            Portfolio Overview
+            Real Estate Portfolio Overview
           </h1>
-          <span style={{ fontSize: 14, color: "#0f172a", fontWeight: 750 }}>
+          <span style={{ color: "#0f172a", fontSize: 13, fontWeight: 750, marginTop: 4, display: "block" }}>
             Real-time management dashboard of all registered properties, units, and active operations.
           </span>
         </div>
@@ -203,7 +214,7 @@ export function PortfolioOverviewWorkspace() {
       </div>
 
       {/* Portfolio Glance Statistics Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
         <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
             <span style={{ background: "#fee2e2", color: "#dc2626", padding: 8, borderRadius: 8, display: "flex" }}>
@@ -257,46 +268,76 @@ export function PortfolioOverviewWorkspace() {
         </article>
       </div>
 
-      <PortfolioAnalyticsDashboard data={dashboard} />
-
-      {/* Properties Register Section */}
-      <article className="data-panel" style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+      {/* PRIMARY SECTION: Properties Register (Placed at the top as requested) */}
+      <article className="data-panel" style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, overflow: "hidden", marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, background: "#fafafa" }}>
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
-              Properties Register ({filtered.length})
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
+                Properties Register ({filtered.length})
+              </h2>
+              <span style={{ fontSize: 11, fontWeight: 800, background: "#e2e8f0", color: "#334155", padding: "2px 8px", borderRadius: 12 }}>
+                Primary Portfolio View
+              </span>
+            </div>
             <p style={{ fontSize: 13, color: "#0f172a", fontWeight: 750, margin: "2px 0 0" }}>
-              Select any property to view, edit, or manage its attributes.
+              Select any property to view live status, open technical dossier audit, or manage details.
             </p>
           </div>
 
-          <div style={{ position: "relative", width: "100%", maxWidth: 360, minWidth: 260 }}>
-            <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
-            <input
-              type="text"
-              placeholder="Search properties..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              style={{
-                paddingTop: 9,
-                paddingBottom: 9,
-                paddingRight: 14,
-                paddingLeft: 40,
-                borderRadius: 8,
-                border: "1px solid #cbd5e1",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#0f172a",
-                background: "#ffffff",
-                width: "100%",
-                boxSizing: "border-box",
-                outline: "none",
-              }}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Quick Type Filter Chips */}
+            <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 8, gap: 2 }}>
+              {["all", "commercial", "residential"].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => { setTypeFilter(t); setPage(1); }}
+                  style={{
+                    background: typeFilter === t ? "#ffffff" : "transparent",
+                    color: typeFilter === t ? "#0f172a" : "#64748b",
+                    fontWeight: typeFilter === t ? 800 : 600,
+                    fontSize: 12,
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    border: typeFilter === t ? "1px solid #cbd5e1" : "none",
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div style={{ position: "relative", width: "100%", maxWidth: 280, minWidth: 200 }}>
+              <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+              <input
+                type="text"
+                placeholder="Search by code, name, city..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  paddingTop: 8,
+                  paddingBottom: 8,
+                  paddingRight: 12,
+                  paddingLeft: 34,
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  background: "#ffffff",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  outline: "none",
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -322,22 +363,24 @@ export function PortfolioOverviewWorkspace() {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ padding: 32, textAlign: "center", color: "#0f172a", fontWeight: 750 }}>
-                    No properties match your search query.
+                    No properties match your filter criteria.
                   </td>
                 </tr>
               ) : (
                 paginatedProps.map((prop) => (
-                  <tr key={prop.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <tr key={prop.id} style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer" }} onClick={() => selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") })}>
                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 900, color: "#000000", fontFamily: "ui-monospace, monospace" }}>
                       {prop.code || `PROP-${prop.id.slice(0, 6)}`}
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 800, color: "#000000" }}>
-                      <Link href="/property" onClick={() => selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") })} style={{ color: "#000000", textDecoration: "none" }}>
+                      <Link href="/property" onClick={(e) => { e.stopPropagation(); selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") }); }} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 800 }}>
                         {prop.name}
                       </Link>
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "#0f172a", textTransform: "capitalize" }}>
-                      {prop.property_type || "—"}
+                      <span style={{ background: prop.property_type?.toLowerCase() === "residential" ? "#f3e8ff" : "#e0e7ff", color: prop.property_type?.toLowerCase() === "residential" ? "#6b21a8" : "#3730a3", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>
+                        {prop.property_type || "Commercial"}
+                      </span>
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "#0f172a" }}>
                       {prop.address ? `${prop.address}${prop.city ? `, ${prop.city}` : ""}` : prop.city || "—"}
@@ -348,26 +391,52 @@ export function PortfolioOverviewWorkspace() {
                       </span>
                     </td>
                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
-                      <Link
-                        href={`/property-onboarding?edit=${prop.id}`}
-                        style={{
-                          background: "#ffffff",
-                          border: "1px solid #cbd5e1",
-                          color: "#000000",
-                          padding: "6px 12px",
-                          borderRadius: 6,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          textDecoration: "none",
-                        }}
-                      >
-                        <Edit3 size={14} />
-                        <span>Edit Details</span>
-                      </Link>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDossier(prop);
+                          }}
+                          style={{
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            color: "#1d4ed8",
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                        >
+                          <FileText size={13} />
+                          <span>Dossier & Audit</span>
+                        </button>
+                        <Link
+                          href={`/property-onboarding?edit=${prop.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            background: "#ffffff",
+                            border: "1px solid #cbd5e1",
+                            color: "#000000",
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            textDecoration: "none",
+                          }}
+                        >
+                          <Edit3 size={13} />
+                          <span>Edit Details</span>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -375,10 +444,28 @@ export function PortfolioOverviewWorkspace() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding: "0 20px 16px" }}>
+        <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <small style={{ color: "#64748b", fontWeight: 700 }}>Showing {paginatedProps.length} of {filtered.length} properties</small>
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       </article>
+
+      {/* SECONDARY SECTION: Portfolio Analytics & Deep Insights Dashboard */}
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: "#000000", marginBottom: 12 }}>
+          Portfolio Analytics & Arrears Distribution
+        </h3>
+        <PortfolioAnalyticsDashboard data={dashboard} />
+      </div>
+
+      {/* Property Dossier & Onboarding Completeness Audit Modal */}
+      {selectedDossier && (
+        <PropertyDossierModal
+          property={selectedDossier as any}
+          onClose={() => setSelectedDossier(null)}
+          onEdit={(id) => { window.location.href = `/property-onboarding?edit=${id}`; }}
+        />
+      )}
 
       {/* Edit Property Modal */}
       {editingProperty && (

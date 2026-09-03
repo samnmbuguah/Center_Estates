@@ -1438,9 +1438,16 @@ class OwnerViewSet(OrganizationModelViewSet):
                 errors['name'] = 'Owner or landlord name is required.'
             if email and '@' not in email:
                 errors['email'] = 'Enter a valid email address.'
-            unit_codes = [code.strip() for code in (row.get('unit_codes') or row.get('unit_code') or '').replace(';', ',').split(',') if code.strip()]
+            raw_unit_str = (
+                row.get('unit_numbers') or row.get('unit_number')
+                or row.get('unit_codes') or row.get('unit_code')
+                or row.get('units') or row.get('unit') or ''
+            )
+
+            unit_codes = [code.strip() for code in raw_unit_str.replace(';', ',').split(',') if code.strip()]
             units = list(Unit.objects.for_organization(organization).filter(code__in=unit_codes)) if unit_codes else []
             found_codes = {unit.code.lower() for unit in units}
+
             missing_units = [code for code in unit_codes if code.lower() not in found_codes]
             if missing_units:
                 errors['unit_codes'] = f"Unit(s) not found: {', '.join(missing_units)}."

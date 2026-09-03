@@ -161,10 +161,10 @@ export function OwnersView({
 
   const downloadOwnerTemplate = () => {
     const rows = [
-      ["name", "email", "phone", "pin_number", "id_or_registration_number", "settlement_bank_name", "settlement_bank_account", "settlement_bank_branch", "settlement_paybill_or_till", "unit_codes", "engaged_for_unit_management", "engaged_for_letting", "is_management_company"],
-      ["ABC Holdings Ltd", "accounts@abc.example", "+254700000000", "P012345678X", "C.12345", "NCBA Bank", "010123456789", "Westlands", "", "A-101;A-102", "yes", "no", "no"],
+      ["unit_numbers", "name", "email", "phone", "pin_number", "id_or_registration_number", "settlement_bank_name", "settlement_bank_account", "settlement_bank_branch", "settlement_paybill_or_till", "engaged_for_unit_management", "engaged_for_letting", "is_management_company"],
+      ["A-101;A-102", "ABC Holdings Ltd", "accounts@abc.example", "+254700000000", "P012345678X", "C.12345", "NCBA Bank", "010123456789", "Westlands", "", "yes", "no", "no"],
     ];
-    const csv = rows.map((row) => row.map((value) => `\"${value.replaceAll('\"', '\"\"')}\"`).join(",")).join("\r\n");
+    const csv = rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = "center-estates-landlord-owner-template.csv"; link.click(); URL.revokeObjectURL(url);
   };
@@ -180,12 +180,24 @@ export function OwnersView({
       if (nameIndex < 0) throw new Error("The CSV needs a Name, Owner Name, or Landlord Name column.");
       if (rows.length - 1 > 500) throw new Error("Upload a maximum of 500 owners at a time.");
       setOwnerImportFile(file.name);
-      setOwnerImportRows(rows.slice(1).map((row, index) => Object.fromEntries(headers.map((header, column) => [header, csvCell(row, column)])) as OwnerImportRow & { row: number }).map((row, index) => ({ ...row, row: index + 2, errors: (row.name || row.owner_name || row.landlord_name ? {} : { name: "Owner name is required." }) as Record<string, string> })));
+      setOwnerImportRows(
+        rows.slice(1).map((row, index) => {
+          const entry = Object.fromEntries(headers.map((header, column) => [header, csvCell(row, column)])) as OwnerImportRow;
+          const unitVal = entry.unit_numbers || entry.unit_number || entry.unit_codes || entry.unit_code || entry.units || entry.unit || "";
+          return {
+            ...entry,
+            unit_codes: unitVal,
+            row: index + 2,
+            errors: (entry.name || entry.owner_name || entry.landlord_name ? {} : { name: "Owner name is required." }) as Record<string, string>,
+          };
+        })
+      );
     } catch (err) {
       setOwnerImportRows([]);
       setOwnerImportError(err instanceof Error ? err.message : "The CSV could not be read.");
     }
   };
+
 
   const importOwners = async () => {
     if (!ownerImportRows.length) return;
