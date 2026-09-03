@@ -32,8 +32,12 @@ class QMAgentOrchestrator:
             or os.environ.get('OPENCODE_API_URL')
             or os.environ.get('DEEPSEEK_BASE_URL')
             or os.environ.get('NVIDIA_API_URL')
-            or 'https://api.deepseek.com/v1'
+            or 'https://opencode.ai/zen/v1'
         ).rstrip('/')
+        
+        # Normalize opencode URL to working Zen gateway
+        if 'api.opencode.ai' in base_url:
+            base_url = 'https://opencode.ai/zen/v1'
         
         self.api_url = f'{base_url}/chat/completions' if not base_url.endswith(('/chat/completions', '/responses')) else base_url
         self.uses_responses_api = self.api_url.endswith('/responses')
@@ -42,10 +46,14 @@ class QMAgentOrchestrator:
             or os.environ.get('OPENCODE_MODEL')
             or os.environ.get('DEEPSEEK_MODEL')
             or os.environ.get('NVIDIA_MODEL')
-            or 'deepseek-chat'
+            or 'ling-3.0-flash-fin-free'
         )
-        timeout = os.environ.get('AI_TIMEOUT_SECONDS') or os.environ.get('NVIDIA_TIMEOUT_SECONDS') or '30'
+        # If model is deepseek-chat on opencode, map to supported fast model
+        if 'opencode.ai' in self.api_url and self.model in ('deepseek-chat', 'gpt-4o', 'gpt-3.5-turbo'):
+            self.model = 'ling-3.0-flash-fin-free'
+        timeout = os.environ.get('AI_TIMEOUT_SECONDS') or os.environ.get('NVIDIA_TIMEOUT_SECONDS') or '25'
         self.timeout_seconds = min(max(int(timeout), 5), 45)
+
 
     @property
     def configured(self) -> bool:
@@ -195,7 +203,9 @@ class QMAgentOrchestrator:
                 headers={
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {self.api_key}',
+                    'User-Agent': 'CenterEstates-ERP/1.0',
                 },
+
                 method='POST'
             )
             with urllib.request.urlopen(req, timeout=self.timeout_seconds) as res:
@@ -338,64 +348,72 @@ class QMAgentOrchestrator:
             "6. When asked about a validation error, explain it in plain language. If the field is not identified in the error/context, say that clearly and give the shortest safe next step; do not replace the answer with a generic portfolio summary.\n"
         )
 
-        if self.uses_responses_api:
-            payload = {
-                "model": self.model,
-                "input": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt},
-                ],
-                "max_output_tokens": 450,
-            }
-        else:
-            payload = {
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.2,
-                "max_tokens": 450
-            }
+        candidate_models = [self.model]
+        for fallback in ('ling-3.0-flash-fin-free', 'nemotron-3.5-lightning-free', 'nemotron-3-ultra-free', 'muse-spark-1.3-contributor-free', 'laguna-s-2.1-free'):
+            if fallback not in candidate_models:
+                candidate_models.append(fallback)
 
-        try:
-            req = urllib.request.Request(
-                self.api_url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {self.api_key}',
-                },
-                method='POST'
-            )
-            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as res:
-                if res.status == 200:
-                    data = json.loads(res.read().decode('utf-8'))
-                    if self.uses_responses_api:
-                        agent_text = str(data.get('output_text', '')).strip()
-                        if not agent_text:
-                            chunks = []
-                            for item in data.get('output', []):
-                                for content in item.get('content', []):
-                                    if content.get('type') in ('output_text', 'text'):
-                                        chunks.append(str(content.get('text', '')))
-                            agent_text = ''.join(chunks).strip()
-                    else:
-                        agent_text = data['choices'][0]['message']['content'].strip()
-                    if not agent_text:
-                        raise ValueError('AI provider returned no message text')
-                    return {
-                        "agent": "Center Estates AI Copilot",
-                        "status": "success",
-                        "response": agent_text,
-                        "model": self.model,
-                        "toolsExposed": [t["function"]["name"] for t in self.get_registered_tools()]
-                    }
-        except Exception as err:
-            logger.warning("AI Orchestrator request failed (%s): %s", self.model, type(err).__name__)
+        for candidate in candidate_models:
+            if self.uses_responses_api:
+                payload = {
+                    "model": candidate,
+                    "input": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "max_output_tokens": 450,
+                }
+            else:
+                payload = {
+                    "model": candidate,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 450
+                }
+
+            try:
+                req = urllib.request.Request(
+                    self.api_url,
+                    data=json.dumps(payload).encode('utf-8'),
+                    headers={
+                        'Content-Type': 'application/json',
+                        'Authorization': f'Bearer {self.api_key}',
+                        'User-Agent': 'CenterEstates-ERP/1.0',
+                    },
+                    method='POST'
+                )
+                with urllib.request.urlopen(req, timeout=min(self.timeout_seconds, 12)) as res:
+                    if res.status == 200:
+                        data = json.loads(res.read().decode('utf-8'))
+                        if self.uses_responses_api:
+                            agent_text = str(data.get('output_text', '')).strip()
+                            if not agent_text:
+                                chunks = []
+                                for item in data.get('output', []):
+                                    for content in item.get('content', []):
+                                        if content.get('type') in ('output_text', 'text'):
+                                            chunks.append(str(content.get('text', '')))
+                                agent_text = ''.join(chunks).strip()
+                        else:
+                            agent_text = data['choices'][0]['message']['content'].strip()
+                        if agent_text:
+                            return {
+                                "agent": "Center Estates AI Copilot",
+                                "status": "success",
+                                "response": agent_text,
+                                "model": candidate,
+                                "toolsExposed": [t["function"]["name"] for t in self.get_registered_tools()]
+                            }
+            except Exception as err:
+                logger.debug("Candidate model (%s) failed: %s; trying next fallback", candidate, type(err).__name__)
+                continue
 
         return {
             "agent": "Center Estates AI Copilot",
             "status": "unavailable",
             "response": ""
         }
+

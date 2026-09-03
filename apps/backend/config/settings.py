@@ -23,6 +23,10 @@ warnings.filterwarnings('ignore', message=r'.*allowed_objects.*')
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR.parent.parent / '.env')
+load_dotenv(Path('/home2/monitori/api.centerestates.com/.env'))
+load_dotenv(Path('/home2/monitori/.env'))
+
 
 
 def secret_setting(name, default='', default_file=''):
