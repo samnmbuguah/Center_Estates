@@ -6,9 +6,16 @@ from rest_framework import status
 
 logger = logging.getLogger(__name__)
 
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 def custom_exception_handler(exc, context):
+    if isinstance(exc, DjangoValidationError):
+        data = exc.message_dict if hasattr(exc, 'message_dict') else {'detail': exc.messages}
+        return Response(data, status=status.HTTP_400_BAD_REQUEST)
+
     # Call REST framework's default exception handler first to get standard error response.
     response = exception_handler(exc, context)
+
 
     # If an unhandled exception occurred, format it as a clean JSON response instead of crashing
     if response is None:

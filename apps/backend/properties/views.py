@@ -581,6 +581,15 @@ def _sync_property_service_providers(property_record, user=None):
         email = str(prov.get('email') or '').strip()
         phone = str(prov.get('phone') or '').strip()
 
+        from django.core.validators import validate_email
+        clean_email = ''
+        if email and '@' in email:
+            try:
+                validate_email(email)
+                clean_email = email
+            except Exception:
+                clean_email = ''
+
         contractor = None
         if prov_name:
             contractor = Contractor.objects.filter(
@@ -590,18 +599,23 @@ def _sync_property_service_providers(property_record, user=None):
                 code = f'SP-{uuid.uuid4().hex[:8].upper()}'
                 while Contractor.objects.filter(organization=organization, code=code).exists():
                     code = f'SP-{uuid.uuid4().hex[:8].upper()}'
-                contractor = Contractor.objects.create(
-                    organization=organization,
-                    code=code,
-                    name=prov_name,
-                    specialty=category,
-                    contact_name=contact_name,
-                    email=email,
-                    phone=phone,
-                    status=Contractor.Status.ACTIVE,
-                    approval_status=Contractor.ApprovalStatus.APPROVED,
-                )
-            contractor.assigned_properties.add(property_record)
+                try:
+                    contractor = Contractor.objects.create(
+                        organization=organization,
+                        code=code,
+                        name=prov_name,
+                        specialty=category,
+                        contact_name=contact_name,
+                        email=clean_email,
+                        phone=phone,
+                        status=Contractor.Status.ACTIVE,
+                        approval_status=Contractor.ApprovalStatus.APPROVED,
+                    )
+                except Exception:
+                    contractor = None
+            if contractor:
+                contractor.assigned_properties.add(property_record)
+
 
         service_profile = ServiceProfile.objects.filter(
             organization=organization,
