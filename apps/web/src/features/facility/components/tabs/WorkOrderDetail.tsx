@@ -33,24 +33,59 @@ export function WorkOrderDetail({
   const [showCostForm, setShowCostForm] = useState(false);
   const [showMediaForm, setShowMediaForm] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [fastTracking, setFastTracking] = useState(false);
+  const [requisitionCreated, setRequisitionCreated] = useState<Row | null>(null);
 
   const loadEvidence = useCallback(async () => {
     if (!organizationId) return;
     const query = encodeURIComponent(String(row.number ?? ""));
-    const [eventResponse, costResponse, attachmentResponse] = await Promise.all([
+    const [eventResponse, costResponse, attachmentResponse, reqResponse] = await Promise.all([
       apiFetch(`/facility/work-order-events/?search=${query}`, {}, organizationId),
       apiFetch(`/facility/work-order-cost-items/?search=${query}`, {}, organizationId),
       apiFetch(`/facility/work-order-attachments/?search=${query}`, {}, organizationId),
+      apiFetch(`/facility/requisitions/?search=${query}`, {}, organizationId),
     ]);
     setEvents(eventResponse.ok ? await eventResponse.json() : []);
     setCostItems(costResponse.ok ? await costResponse.json() : []);
     setAttachments(attachmentResponse.ok ? await attachmentResponse.json() : []);
-  }, [row.number, organizationId]);
+    if (reqResponse.ok) {
+      const reqData = await reqResponse.json();
+      const list = Array.isArray(reqData) ? reqData : reqData.results ?? [];
+      const match = list.find((r: Row) => String(r.work_order) === String(row.id) || String(r.work_order_id) === String(row.id));
+      if (match) setRequisitionCreated(match);
+    }
+  }, [row.id, row.number, organizationId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadEvidence(), 0);
     return () => window.clearTimeout(timer);
   }, [loadEvidence]);
+
+  async function handleFastTrackRequisition() {
+    if (!organizationId) return;
+    setFastTracking(true);
+    setDetailError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/facility/work-orders/${row.id}/fast-track-requisition/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie(), "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }, organizationId);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setDetailError(Object.values(body as Record<string, unknown>).flat().join(" ") || "The requisition could not be created.");
+        return;
+      }
+      const data = await res.json();
+      setRequisitionCreated(data);
+      await loadEvidence();
+    } catch (e: unknown) {
+      setDetailError(e instanceof Error ? e.message : "Failed to fast-track requisition.");
+    } finally {
+      setFastTracking(false);
+    }
+  }
 
   async function submitCostItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -215,6 +250,29 @@ export function WorkOrderDetail({
               <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{status === "completed" ? "Resolution evidence recorded" : "Use the register action to advance this work order"}</span>
             </div>
           </div>
+
+          <div className="data-panel" style={{ padding: "16px 18px", border: "1px solid rgba(37,99,235,0.2)", background: "linear-gradient(135deg, rgba(37,99,235,0.04), rgba(14,165,233,0.02))" }}>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 6, color: "var(--primary, #2563eb)" }}>Procurement Escalation</strong>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 10px" }}>
+              Need outside contractor sourcing or spare parts purchase for this job?
+            </p>
+            {requisitionCreated ? (
+              <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 6, padding: "8px 12px", color: "#065f46", fontSize: 12 }}>
+                ✓ Requisition <strong>{String(requisitionCreated.code)}</strong> created! View under the Requisitions / Procurement tab to evaluate bids.
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", fontWeight: 600, border: "1px solid #2563eb", color: "#2563eb", background: "#fff", borderRadius: 6 }}
+                disabled={fastTracking}
+                onClick={handleFastTrackRequisition}
+              >
+                {fastTracking ? "Creating Requisition..." : "⚡ Fast-Track to Procurement Requisition"}
+              </button>
+            )}
+          </div>
+
           <div className="data-panel" style={{ padding: "16px 18px" }}>
             <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Work Order Timeline</strong>
             <div style={{ display: "grid", gap: 12 }}>

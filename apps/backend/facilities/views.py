@@ -1851,6 +1851,62 @@ class WorkOrderViewSet(FacilityModelViewSet):
         )
         return Response(WorkOrderSerializer(work_order).data)
 
+    @action(detail=True, methods=('post',), url_path='fast-track-requisition')
+    @transaction.atomic
+    def fast_track_requisition(self, request, pk=None):
+        """1-Click Fast-Track: Promotes an active Work Order into an official Repair Requisition."""
+        work_order = self.get_object()
+        organization = get_active_organization(request)
+
+        # Check if a requisition already exists for this work order
+        existing = RepairRequisition.objects.filter(organization=organization, work_order=work_order).first()
+        if existing:
+            return Response(RepairRequisitionSerializer(existing).data, status=status.HTTP_200_OK)
+
+        est_cost = request.data.get('estimated_cost') or work_order.estimated_cost or Decimal('0.00')
+        required_repair = request.data.get('required_repair') or work_order.description or work_order.title
+        issue_desc = work_order.description or work_order.title
+        priority = request.data.get('priority') or (
+            RepairRequisition.Priority.HIGH if work_order.priority in ('urgent', 'high')
+            else RepairRequisition.Priority.LOW if work_order.priority == 'low'
+            else RepairRequisition.Priority.MEDIUM
+        )
+
+        code = f'REQ-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+        while RepairRequisition.objects.filter(organization=organization, code=code).exists():
+            code = f'REQ-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}'
+
+        requisition = RepairRequisition.objects.create(
+            organization=organization,
+            property=work_order.property,
+            asset=work_order.asset,
+            code=code,
+            title=f"Requisition for {work_order.number}: {work_order.title}"[:200],
+            issue_description=issue_desc,
+            required_repair=required_repair,
+            location=getattr(work_order, 'location', '') or (work_order.property.name if work_order.property else ''),
+            estimated_cost=est_cost,
+            priority=priority,
+            status=RepairRequisition.Status.SUBMITTED,
+            requester=request.user,
+            provider=work_order.contractor,
+            work_order=work_order,
+            metadata={
+                'source': 'fast_track_work_order',
+                'work_order_id': str(work_order.id),
+                'work_order_number': work_order.number,
+                'category': work_order.category,
+            }
+        )
+
+        WorkOrderEvent.objects.create(
+            organization=organization, work_order=work_order,
+            event_type='requisition_raised', from_status=work_order.status,
+            to_status=work_order.status, notes=f'Fast-tracked procurement requisition {code} created.', actor=request.user,
+        )
+
+        return Response(RepairRequisitionSerializer(requisition).data, status=status.HTTP_201_CREATED)
+
 
 class WorkOrderEventViewSet(FacilityModelViewSet):
     write_permission = 'facility.work'
@@ -2356,6 +2412,182 @@ class FacilityPortalViewSet(ViewSet):
             metadata={'service_request_id': str(service_request.pk), 'property_id': str(service_request.property_id)},
         )
         return Response(ServiceRequestSerializer(service_request).data)
+
+
+class ContractorPortalViewSet(ViewSet):
+    """Service Provider / Contractor facing portal.
+
+    Provides contractors with real-time visibility into their dispatched work orders,
+    open RFQ bidding opportunities, digital job card signing, and invoice settlement tracking.
+    """
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.FACILITY
+    serializer_class = GenericObjectSerializer
+
+    def _get_contractor(self, request, organization):
+        contractor_id = request.query_params.get('contractor_id') or request.data.get('contractor_id')
+        if contractor_id:
+            c = Contractor.objects.filter(organization=organization, pk=contractor_id).first()
+            if c:
+                return c
+        if request.user and request.user.email:
+            c = Contractor.objects.filter(organization=organization, email__iexact=request.user.email).first()
+            if c:
+                return c
+        return Contractor.objects.filter(organization=organization).first()
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def list(self, request):
+        organization = get_active_organization(request)
+        contractor = self._get_contractor(request, organization)
+        if not contractor:
+            return Response({'detail': 'No contractor profile found for this organization.'}, status=404)
+
+        work_orders = WorkOrder.objects.filter(
+            organization=organization, contractor=contractor
+        ).exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED)).select_related('property', 'asset').order_by('-created_at')
+
+        rfqs = ProcurementRecord.objects.filter(
+            organization=organization, status__in=(ProcurementRecord.Status.SOURCING, ProcurementRecord.Status.EVALUATION)
+        ).select_related('requisition', 'property').prefetch_related('quotations')
+
+        rfq_list = []
+        for rfq in rfqs:
+            existing_quote = rfq.quotations.filter(bidder=contractor).first()
+            rfq_list.append({
+                'id': str(rfq.id),
+                'code': rfq.code,
+                'title': rfq.requisition.title,
+                'scope': rfq.requisition.required_repair,
+                'property_name': rfq.property.name,
+                'status': rfq.status,
+                'created_at': rfq.created_at,
+                'has_quoted': bool(existing_quote),
+                'my_quote': {
+                    'total': str(existing_quote.total),
+                    'quotation_number': existing_quote.quotation_number,
+                    'is_awarded': existing_quote.is_awarded,
+                } if existing_quote else None,
+            })
+
+        job_cards_qs = FacilityJobCard.objects.filter(
+            organization=organization, lpo__supplier=contractor
+        ).select_related('lpo', 'property', 'work_order').order_by('-created_at')
+
+        invoices_qs = SupplierInvoice.objects.filter(
+            organization=organization, supplier=contractor
+        ).select_related('property', 'work_order').order_by('-created_at')
+
+        all_contractors = list(Contractor.objects.filter(organization=organization).values('id', 'name', 'code', 'specialty'))
+
+        unpaid_invoices = invoices_qs.exclude(status=SupplierInvoice.Status.PAID)
+        unpaid_total = unpaid_invoices.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        return Response({
+            'contractor': {
+                'id': str(contractor.id),
+                'code': contractor.code,
+                'name': contractor.name,
+                'specialty': contractor.specialty,
+                'contact_name': contractor.contact_name,
+                'email': contractor.email,
+                'phone': contractor.phone,
+                'status': contractor.status,
+                'rating': float(contractor.rating or 4.5),
+                'insurance_expires_on': contractor.insurance_expires_on,
+                'license_expires_on': contractor.license_expires_on,
+                'tax_compliance_expires_on': contractor.tax_compliance_expires_on,
+            },
+            'all_contractors': all_contractors,
+            'kpis': {
+                'active_jobs': work_orders.count(),
+                'open_rfqs': len(rfq_list),
+                'pending_job_cards': job_cards_qs.exclude(status=FacilityJobCard.Status.VERIFIED).count(),
+                'unpaid_invoices_count': unpaid_invoices.count(),
+                'unpaid_invoices_total': str(unpaid_total),
+            },
+            'work_orders': WorkOrderSerializer(work_orders, many=True).data,
+            'rfqs': rfq_list,
+            'job_cards': FacilityJobCardSerializer(job_cards_qs[:20], many=True).data,
+            'invoices': SupplierInvoiceSerializer(invoices_qs[:30], many=True).data,
+        })
+
+    @action(detail=False, methods=('post',), url_path='submit-quote')
+    @transaction.atomic
+    def submit_quote(self, request):
+        organization = get_active_organization(request)
+        contractor = self._get_contractor(request, organization)
+        if not contractor:
+            raise ValidationError({'contractor': 'Valid contractor profile required.'})
+
+        procurement_id = request.data.get('procurement_id')
+        procurement = ProcurementRecord.objects.filter(organization=organization, pk=procurement_id).first()
+        if not procurement or procurement.status not in (ProcurementRecord.Status.SOURCING, ProcurementRecord.Status.EVALUATION):
+            raise ValidationError({'procurement': 'Procurement is not open for bidding.'})
+
+        subtotal = Decimal(str(request.data.get('subtotal', 0)))
+        vat_amount = Decimal(str(request.data.get('vat_amount', 0)))
+        total = Decimal(str(request.data.get('total') or (subtotal + vat_amount)))
+        quote_num = str(request.data.get('quotation_number', '')).strip() or f'Q-{uuid.uuid4().hex[:6].upper()}'
+        lead_days = int(request.data.get('lead_time_days', 3))
+
+        quote, created = ProcurementQuotation.objects.update_or_create(
+            organization=organization,
+            procurement=procurement,
+            bidder=contractor,
+            defaults={
+                'quotation_number': quote_num,
+                'quoted_on': timezone.localdate(),
+                'valid_until': request.data.get('valid_until') or None,
+                'lead_time_days': lead_days,
+                'subtotal': subtotal,
+                'vat_amount': vat_amount,
+                'total': total,
+                'compliance_notes': str(request.data.get('compliance_notes', '')).strip(),
+                'document_url': str(request.data.get('document_url', '')).strip(),
+                'recorded_by': request.user,
+            }
+        )
+        if procurement.status == ProcurementRecord.Status.SOURCING:
+            procurement.status = ProcurementRecord.Status.EVALUATION
+            procurement.save(update_fields=('status', 'updated_at'))
+
+        return Response(ProcurementQuotationSerializer(quote).data, status=201)
+
+    @action(detail=False, methods=('post',), url_path='sign-job-card')
+    @transaction.atomic
+    def sign_job_card(self, request):
+        organization = get_active_organization(request)
+        contractor = self._get_contractor(request, organization)
+        job_card_id = request.data.get('job_card_id')
+        job_card = FacilityJobCard.objects.filter(organization=organization, pk=job_card_id).first()
+        if not job_card:
+            raise ValidationError({'job_card': 'Job card not found.'})
+
+        notes = str(request.data.get('completion_notes', '')).strip()
+        signatory = str(request.data.get('contractor_signatory', '')).strip() or (contractor.contact_name or contractor.name if contractor else 'Contractor Representative')
+        evidence = request.data.get('evidence_urls', [])
+        if isinstance(evidence, str) and evidence:
+            evidence = [evidence]
+
+        job_card.status = FacilityJobCard.Status.CONTRACTOR_SIGNED
+        job_card.completed_at = timezone.now()
+        job_card.completion_notes = notes or job_card.completion_notes
+        job_card.contractor_signatory = signatory
+        job_card.contractor_signed_at = timezone.now()
+        if evidence:
+            job_card.evidence_urls = list(set((job_card.evidence_urls or []) + evidence))
+        job_card.save()
+
+        if job_card.work_order_id:
+            wo = job_card.work_order
+            wo.status = WorkOrder.Status.COMPLETED
+            wo.completed_at = timezone.now()
+            wo.progress = 100
+            wo.resolution_notes = notes or 'Work completed and signed off by contractor on digital job card.'
+            wo.save(update_fields=('status', 'completed_at', 'progress', 'resolution_notes', 'updated_at'))
+
+        return Response(FacilityJobCardSerializer(job_card).data)
 
 
 class UtilityMeterViewSet(FacilityModelViewSet):

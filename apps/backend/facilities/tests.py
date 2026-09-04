@@ -1262,3 +1262,64 @@ class ProcurementFinanceWorkflowApiTests(TestCase):
         appraisal_pdf = self.client.get(f'/api/v1/facility/contract-invoice-appraisals/{appraisal.id}/pdf/', **self.headers)
         self.assertEqual(appraisal_pdf.status_code, 200)
         self.assertTrue(appraisal_pdf.content.startswith(b'%PDF-'))
+
+    def test_fast_track_requisition_from_work_order(self):
+        """1-Click conversion from Work Order to Repair Requisition."""
+        work_order = WorkOrder.objects.create(
+            organization=self.organization, number='WO-FT-001', title='Pump malfunction',
+            category='Mechanical', property=self.property, reported_by=self.user,
+            priority=WorkOrder.Priority.HIGH, status=WorkOrder.Status.ASSIGNED,
+            contractor=self.bidder, reported_at=timezone.now(),
+        )
+        response = self.client.post(
+            f'/api/v1/facility/work-orders/{work_order.id}/fast-track-requisition/',
+            {'estimated_cost': '18000.00', 'required_repair': 'Replace motor and pulley'},
+            format='json', **self.headers,
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(str(response.data['work_order']), str(work_order.id))
+        self.assertTrue(response.data['code'].startswith('REQ-'))
+        self.assertEqual(Decimal(response.data['estimated_cost']), Decimal('18000.00'))
+
+        # Idempotent call returns existing requisition
+        dup = self.client.post(
+            f'/api/v1/facility/work-orders/{work_order.id}/fast-track-requisition/',
+            {}, format='json', **self.headers,
+        )
+        self.assertEqual(dup.status_code, 200)
+        self.assertEqual(dup.data['id'], response.data['id'])
+
+    def test_contractor_portal_dashboard_and_bidding(self):
+        """Service provider portal dashboard, quotation submission, and job card signing."""
+        requisition = self._approved_requisition()
+        procurement = ProcurementRecord.objects.create(
+            organization=self.organization, requisition=requisition, property=self.property,
+            code='PROC-PORTAL-1', status=ProcurementRecord.Status.SOURCING, created_by=self.user,
+        )
+
+        dash = self.client.get(
+            f'/api/v1/facility/contractor-portal/?contractor_id={self.bidder.id}',
+            **self.headers,
+        )
+        self.assertEqual(dash.status_code, 200, dash.data)
+        self.assertEqual(dash.data['contractor']['id'], str(self.bidder.id))
+        self.assertIn('kpis', dash.data)
+        self.assertIn('work_orders', dash.data)
+
+        # Submit quote via contractor portal
+        quote_resp = self.client.post(
+            '/api/v1/facility/contractor-portal/submit-quote/',
+            {
+                'contractor_id': str(self.bidder.id),
+                'procurement_id': str(procurement.id),
+                'subtotal': '22000.00',
+                'vat_amount': '3520.00',
+                'total': '25520.00',
+                'quotation_number': 'APEX-Q-2026',
+                'lead_time_days': 2,
+            },
+            format='json', **self.headers,
+        )
+        self.assertEqual(quote_resp.status_code, 201, quote_resp.data)
+        self.assertEqual(Decimal(quote_resp.data['total']), Decimal('25520.00'))
+
