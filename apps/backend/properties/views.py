@@ -259,7 +259,17 @@ class OrganizationModelViewSet(ModelViewSet):
         from django.db.models import Max
         existing = serializer.Meta.model.objects.filter(organization=organization, code__startswith=f"{prefix}-").values_list("code", flat=True)
         numbers = [int(code.rsplit("-", 1)[-1]) for code in existing if code.rsplit("-", 1)[-1].isdigit()]
-        serializer.save(organization=organization, code=f"{prefix}-{(max(numbers) + 1) if numbers else 1:04d}")
+        create_kwargs = {
+            'organization': organization,
+            'code': f"{prefix}-{(max(numbers) + 1) if numbers else 1:04d}",
+        }
+        if hasattr(serializer.Meta.model, 'created_by') and self.request.user and self.request.user.is_authenticated:
+            create_kwargs['created_by'] = self.request.user
+        instance = serializer.save(**create_kwargs)
+        if model_name == "PROPERTY" and self.request.user and self.request.user.is_authenticated:
+            membership = organization.memberships.filter(user=self.request.user, status='active').first()
+            if membership:
+                membership.assigned_properties.add(instance)
 
     def perform_update(self, serializer):
         self._validate_organization(serializer)
@@ -857,11 +867,17 @@ class PropertyViewSet(OrganizationModelViewSet):
         existing_codes = Property.objects.filter(
             organization=organization, code__startswith='PROP-'
         ).values_list('code', flat=True)
-        numbers = [int(code.rsplit('-', 1)[-1]) for code in existing_codes if code.rsplit('-', 1)[-1].isdigit()]
-        property_record = serializer.save(
-            organization=organization,
-            code=f"PROP-{(max(numbers) + 1) if numbers else 1:04d}",
-        )
+        extra_kwargs = {
+            'organization': organization,
+            'code': f"PROP-{(max(numbers) + 1) if numbers else 1:04d}",
+        }
+        if request.user and request.user.is_authenticated:
+            extra_kwargs['created_by'] = request.user
+        property_record = serializer.save(**extra_kwargs)
+        if request.user and request.user.is_authenticated:
+            membership = organization.memberships.filter(user=request.user, status='active').first()
+            if membership:
+                membership.assigned_properties.add(property_record)
 
         building_payload = request.data.get('building') or {}
         if not isinstance(building_payload, dict):
@@ -1660,6 +1676,16 @@ class UnitViewSet(OrganizationModelViewSet):
             qs = qs.filter(property_id=prop_id)
         return qs
 
+    @action(detail=False, methods=('post',), url_path='bulk-update-typology')
+    def bulk_update_typology(self, request):
+        unit_ids = request.data.get('unit_ids', [])
+        unit_type = str(request.data.get('unit_type', '')).strip()
+        if not unit_ids or not unit_type:
+            return Response({'detail': 'unit_ids and unit_type are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self.get_queryset().filter(id__in=unit_ids)
+        updated = qs.update(unit_type=unit_type)
+        return Response({'updated': updated, 'unit_type': unit_type})
+
 
 class UnitChargeRuleViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
@@ -2336,9 +2362,29 @@ class TenantViewSet(OrganizationModelViewSet):
                     if existing_tenant:
                         tenant = existing_tenant
                         tenant_code = tenant.code
+                        updated_fields = []
+                        if tenant_data.get('billing_address') and not tenant.billing_address:
+                            tenant.billing_address = tenant_data.get('billing_address')
+                            updated_fields.append('billing_address')
+                        if tenant_data.get('contact_person') and not (tenant.metadata or {}).get('tenant_application', {}).get('contact_person'):
+                            meta = tenant.metadata or {}
+                            app_meta = meta.get('tenant_application') or {}
+                            app_meta['contact_person'] = tenant_data.get('contact_person')
+                            meta['tenant_application'] = app_meta
+                            tenant.metadata = meta
+                            updated_fields.append('metadata')
+                        if updated_fields:
+                            tenant.save(update_fields=updated_fields)
                     else:
                         tenant_code = _next_ref(Tenant, 'code', 'TNT')
                         application_number = f"APP-{timezone.localdate().year}-{tenant_code.rsplit('-', 1)[-1]}"
+                        tenant_meta = {
+                            'tenant_application': {
+                                'application_number': application_number,
+                                'source': 'bulk_import',
+                                'contact_person': tenant_data.get('contact_person') or {},
+                            }
+                        }
                         tenant_serializer = TenantSerializer(data={
                             'name': t_name,
                             'tenant_type': tenant_data.get('tenant_type', 'company'),
@@ -2348,7 +2394,7 @@ class TenantViewSet(OrganizationModelViewSet):
                             'registration_number': t_reg,
                             'billing_address': tenant_data.get('billing_address', ''),
                             'status': Tenant.Status.PROSPECT,
-                            'metadata': {'tenant_application': {'application_number': application_number, 'source': 'bulk_import'}},
+                            'metadata': tenant_meta,
                         })
                         tenant_serializer.is_valid(raise_exception=True)
                         tenant = tenant_serializer.save(organization=organization, property=unit.property, code=tenant_code)
@@ -2364,6 +2410,21 @@ class TenantViewSet(OrganizationModelViewSet):
                         'security_deposit': str(security_deposit), 'utilities_security_deposit': str(utility_deposit),
                         'total_amount_payable': str(total_inc_vat + security_deposit + utility_deposit),
                     }
+                    lease_meta = {
+                        'application_number': application_number,
+                        'term_months': term_months,
+                        'source': 'bulk_import',
+                        **calculations,
+                    }
+                    if lease_data.get('parking_bay'):
+                        lease_meta['parking'] = {
+                            'bay': str(lease_data.get('parking_bay')),
+                            'monthly_fee': str(lease_data.get('parking_monthly_fee', '0')),
+                        }
+                    if lease_data.get('opening_balance_amount'):
+                        lease_meta['opening_balance'] = {
+                            'amount': str(lease_data.get('opening_balance_amount', '0')),
+                        }
                     lease = Lease.objects.create(
                         organization=organization, reference=lease_reference, unit=unit, tenant=tenant,
                         starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
@@ -2371,7 +2432,7 @@ class TenantViewSet(OrganizationModelViewSet):
                         escalation_percent=escalation_percent,
                         escalation_interval_months=int(lease_data.get('escalation_interval_months', 12)),
                         status=Lease.Status.DRAFT,
-                        metadata={'application_number': application_number, 'term_months': term_months, 'source': 'bulk_import', **calculations},
+                        metadata=lease_meta,
                     )
                     _inherit_unit_charge_profiles(lease)
                     succeeded.append({

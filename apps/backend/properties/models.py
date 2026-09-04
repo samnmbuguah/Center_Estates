@@ -31,6 +31,13 @@ class Property(OrganizationOwnedModel):
     total_units_count = models.PositiveIntegerField(default=1)
     estate_manager_name = models.CharField(max_length=200, blank=True)
     management_commencement_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_properties',
+    )
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -386,6 +393,10 @@ class Lease(OrganizationOwnedModel):
     class Meta:
         ordering = ('-starts_on',)
         constraints = [models.UniqueConstraint(fields=('organization', 'reference'), name='unique_organization_lease_reference')]
+        indexes = [
+            models.Index(fields=('organization', 'status', 'ends_on'), name='lease_org_status_ends_idx'),
+            models.Index(fields=('organization', 'ends_on'), name='lease_org_ends_on_idx'),
+        ]
 
     def clean(self):
         if self.ends_on and self.starts_on and self.ends_on <= self.starts_on:
@@ -695,6 +706,10 @@ class Invoice(OrganizationOwnedModel):
     class Meta:
         ordering = ('-issued_on',)
         constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_invoice_number')]
+        indexes = [
+            models.Index(fields=('organization', 'status', 'due_on'), name='invoice_org_status_due_idx'),
+            models.Index(fields=('organization', 'due_on', 'balance'), name='invoice_org_due_balance_idx'),
+        ]
 
     def clean(self):
         if self.subtotal == 0 and self.amount > 0 and self.tax_amount == 0:

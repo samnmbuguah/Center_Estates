@@ -415,16 +415,27 @@ class CompanionDashboardViewSet(ViewSet):
         )
 
 
-        # QM is read-only and is grounded only in records this user is authorized to see.
+        # QM is grounded in live ERP records with full portfolio & temporal awareness.
         tasks = scope_model_queryset(Task, request, organization).select_related(
             'assignee', 'assigned_by', 'delegated_to', 'template',
         ).filter(assignee=request.user)
         active_tasks = tasks.exclude(status__in=(Task.Status.COMPLETED, Task.Status.CANCELLED))
         overdue_count = active_tasks.filter(due_at__lt=now).count()
         escalated_count = active_tasks.filter(escalated=True).count()
+        
+        local_now = timezone.localtime(now)
+        active_prop = get_active_property(request, organization)
+
         context = {
             'organization': organization.name,
-            'property_scope': getattr(get_active_property(request, organization), 'name', 'Portfolio'),
+            'current_date_time': {
+                'formatted': local_now.strftime('%A, %d %B %Y, %I:%M %p %Z'),
+                'date': local_now.strftime('%Y-%m-%d'),
+                'day_of_week': local_now.strftime('%A'),
+                'time': local_now.strftime('%H:%M:%S'),
+                'timezone': str(timezone.get_current_timezone_name()),
+            },
+            'active_workspace_property_scope': active_prop.name if active_prop else 'Portfolio Wide (All Properties)',
             'my_tasks': {'active': active_tasks.count(), 'overdue': overdue_count, 'escalated': escalated_count},
         }
         recent_messages = list(conversation.messages.order_by('-created_at')[:9])
@@ -448,19 +459,43 @@ class CompanionDashboardViewSet(ViewSet):
             return is_admin or permission in permission_keys
 
         if can_view(Module.PROPERTY):
-            from properties.models import Invoice, Lease, Property, Receipt, Unit
-            properties = scope_model_queryset(Property, request, organization)
-            units = scope_model_queryset(Unit, request, organization)
-            invoices = scope_model_queryset(Invoice, request, organization).exclude(status=Invoice.Status.VOID)
+            from properties.models import Invoice, Lease, Property, Receipt, Unit, Tenant
+
+            scoped_properties = scope_model_queryset(Property, request, organization)
+            scoped_units = scope_model_queryset(Unit, request, organization)
+            scoped_invoices = scope_model_queryset(Invoice, request, organization).exclude(status=Invoice.Status.VOID)
+            scoped_leases = scope_model_queryset(Lease, request, organization)
             month_start = now.date().replace(day=1)
-            receipts = scope_model_queryset(Receipt, request, organization).filter(received_on__gte=month_start)
-            context['property'] = {
-                'properties': properties.count(), 'units': units.count(),
-                'occupied_units': units.filter(status=Unit.Status.OCCUPIED).count(),
-                'active_leases': scope_model_queryset(Lease, request, organization).filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).count(),
-                'outstanding_kes': str(invoices.aggregate(total=Sum('balance'))['total'] or 0),
-                'collections_this_month_kes': str(receipts.aggregate(total=Sum('amount'))['total'] or 0),
+            scoped_receipts = scope_model_queryset(Receipt, request, organization).filter(received_on__gte=month_start)
+
+            prop_list = []
+            for p in scoped_properties.prefetch_related('units'):
+                p_units = p.units.all()
+                total_u = p_units.count()
+                occ_u = p_units.filter(status=Unit.Status.OCCUPIED).count()
+                prop_list.append({
+                    'id': str(p.id),
+                    'name': p.name,
+                    'code': p.code,
+                    'type': p.property_type,
+                    'total_units': total_u,
+                    'occupied_units': occ_u,
+                    'vacant_units': total_u - occ_u,
+                })
+
+            # QM sees exactly what the user is scoped to — no cross-property leakage.
+            context['properties'] = {
+                'scope': active_prop.name if active_prop else 'Portfolio Wide',
+                'properties_list': prop_list,
+                'total_properties': scoped_properties.count(),
+                'total_units': scoped_units.count(),
+                'occupied_units': scoped_units.filter(status=Unit.Status.OCCUPIED).count(),
+                'total_tenants': scope_model_queryset(Tenant, request, organization).count(),
+                'active_leases': scoped_leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).count(),
+                'outstanding_kes': str(scoped_invoices.aggregate(total=Sum('balance'))['total'] or 0),
+                'collections_this_month_kes': str(scoped_receipts.aggregate(total=Sum('amount'))['total'] or 0),
             }
+
         if can_view(Module.FACILITY):
             from facilities.models import PreventiveSchedule, WorkOrder
             orders = scope_model_queryset(WorkOrder, request, organization).exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
@@ -472,7 +507,7 @@ class CompanionDashboardViewSet(ViewSet):
             }
 
         import json
-        context_str = json.dumps(context, indent=2)
+        context_str = json.dumps(context, indent=2, default=str)
 
         # Diagnostic and knowledge-based explanation handlers for system assistance
         validation_explanation = ''
@@ -507,19 +542,68 @@ class CompanionDashboardViewSet(ViewSet):
 
         qm_result = {}
         llm_response = ''
+        tools_executed = []
+        suggested_actions = [
+            {"label": "Portfolio Overview", "action": "overview", "href": "/overview"},
+            {"label": "Properties Register", "action": "properties", "href": "/property"},
+            {"label": "Facility Maintenance", "action": "facility", "href": "/facility?tab=overview"},
+        ]
+
+        # ── LangGraph Agent Invocation (primary path) ──────────────────────────
+        # Build conversation history from the stored QmMessages for this session
+        _conv_history = [
+            {'role': msg.role, 'content': msg.content[:800]}
+            for msg in conversation.messages.order_by('-created_at')[:8]
+        ]
+        _conv_history.reverse()  # chronological order
+
+        allowed_modules = [m for m in Module.values if can_view(m)]
+
+        _agent_state = {
+            'organization_id': str(organization.id),
+            'user_id': str(request.user.id),
+            'user_name': request.user.get_full_name() or request.user.username,
+            'user_role': 'admin' if (request.user.is_superuser or is_admin) else 'member',
+            'mode': 'chat',
+            'input_query': raw_prompt,
+            'conversation_history': _conv_history,
+            # Pass the user's active property scope and allowed modules so QM queries only authorized data
+            'active_property_id': str(active_prop.id) if active_prop else None,
+            'active_property_name': active_prop.name if active_prop else None,
+            'allowed_modules': allowed_modules,
+        }
         try:
-            qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
-            qm_result = qm_orchestrator.execute_agent(
-                prompt=raw_prompt,
-                user_name=request.user.first_name or request.user.username,
-                context_str=context_str,
-            )
-            llm_response = qm_result.get('response', '')
+            from companion.agent import agent_orchestrator
+            _graph_result = agent_orchestrator.invoke(_agent_state)
+            llm_response = _graph_result.get('final_response', '')
+            tools_executed = _graph_result.get('tools_executed', [])
+            qm_result = {'agent': 'Quartermaster (LangGraph)', 'status': 'grounded'}
         except Exception:
-            logging.getLogger(__name__).warning("QM Agent execution fallback", exc_info=True)
+            logging.getLogger(__name__).warning("LangGraph agent invocation failed, falling back", exc_info=True)
+            # Fallback: try legacy QMAgentOrchestrator
+            try:
+                qm_orchestrator = QMAgentOrchestrator(organization_name=organization.name)
+                _legacy = qm_orchestrator.execute_agent(
+                    prompt=raw_prompt,
+                    user_name=request.user.first_name or request.user.username,
+                    context_str=context_str,
+                    organization=organization,
+                    request=request,
+                    allowed_modules=allowed_modules,
+                )
+                llm_response = _legacy.get('response', '')
+                qm_result = _legacy
+            except Exception:
+                logging.getLogger(__name__).warning("QM legacy fallback also failed", exc_info=True)
 
         if llm_response:
             response_text = llm_response
+        elif validation_explanation:
+            response_text = validation_explanation
+            suggested_actions = [
+                {"label": "Properties Register", "action": "properties", "href": "/property"},
+                {"label": "Facility Overview", "action": "facility", "href": "/facility?tab=overview"},
+            ]
         # 1. Schedule, Calendar, Next Week & Tasks intent
         elif any(term in prompt for term in ('schedule', 'calendar', 'next week', 'this week', 'upcoming', 'due', 'agenda', 'my task', 'assigned task', 'timeline')):
 
@@ -740,16 +824,20 @@ class CompanionDashboardViewSet(ViewSet):
             'response': response_text,
             'suggestedActions': suggested_actions,
             'agent': qm_result.get('agent', 'Quartermaster (QM)'),
-            'agentStatus': qm_result.get('status', 'local'),
+            'agentStatus': qm_result.get('status', 'grounded'),
             'groundedAt': now.isoformat(),
             'timestamp': now.isoformat(),
             'conversationId': str(conversation.id),
+            'toolsExecuted': tools_executed,
         }
         QmMessage.objects.create(
             organization=organization, conversation=conversation, role=QmMessage.Role.ASSISTANT,
             content=response_text, response_metadata={
                 'suggestedActions': suggested_actions,
-                'agent': payload['agent'], 'agentStatus': payload['agentStatus'], 'groundedAt': payload['groundedAt'],
+                'agent': payload['agent'],
+                'agentStatus': payload['agentStatus'],
+                'groundedAt': payload['groundedAt'],
+                'toolsExecuted': tools_executed,
             },
         )
         conversation.save(update_fields=('updated_at',))
@@ -1384,6 +1472,24 @@ class TeamFeedbackThreadViewSet(CompanionModelViewSet):
     queryset = TeamFeedbackThread.objects.all()
     serializer_class = TeamFeedbackThreadSerializer
     search_fields = ('title', 'reference', 'module')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        organization = get_active_organization(self.request)
+        membership = get_active_membership(self.request, organization)
+        is_dev_admin = bool(
+            getattr(self.request.user, 'is_superuser', False)
+            or (membership and membership.is_organization_admin)
+            or (membership and membership.roles.filter(slug__in=['engineering', 'developer', 'platform-admin']).exists())
+        )
+        # Bug reports assigned to the developer/engineering team are private engineering telemetry
+        if not is_dev_admin:
+            queryset = queryset.exclude(
+                Q(category=TeamFeedbackThread.FeedbackType.BUG)
+                & ~Q(created_by=self.request.user)
+                & ~Q(assigned_to=self.request.user)
+            )
+        return queryset
 
     STATUS_TRANSITIONS = {
         'open': ('open', 'in_progress', 'resolved', 'closed'),
@@ -2254,23 +2360,98 @@ class StreamingChatView(APIView):
         import json
         from django.http import StreamingHttpResponse
         from .agent.gateway import LLMGateway
+        from .agent.tools.finance_tools import inspect_arrears_and_collections
+        from .agent.tools.facility_tools import inspect_facility_work_orders
+        from .agent.tools.tenant_tools import inspect_leasing_and_occupancy
+        from .agent.tools.calendar_tools import get_upcoming_critical_dates
 
         organization = get_active_organization(request)
+        org_id = str(organization.id) if organization else None
         messages = request.data.get('messages', [])
         if not messages:
             last_msg = request.data.get('message', '')
             if last_msg:
                 messages = [{'role': 'user', 'content': str(last_msg)}]
 
+        # Resolve the user's active property scope and role permissions
+        from core.property_scope import get_active_property
+        from core.models import Module
+        from core.membership import get_active_membership
+
+        membership = get_active_membership(request, organization)
+        permission_keys = set()
+        if membership:
+            membership = membership.__class__.objects.prefetch_related('roles__permissions').get(pk=membership.pk)
+            permission_keys = {permission.key for role in membership.roles.all() for permission in role.permissions.all()}
+        is_admin = bool(request.user.is_superuser or (membership and membership.is_organization_admin))
+        subscribed = set(organization.subscriptions.available().values_list('module', flat=True)) if organization else set()
+
+        def can_view(module):
+            return module in subscribed and (is_admin or any(key.startswith(f'{module}.') for key in permission_keys))
+
+        allowed_modules = [m for m in Module.values if can_view(m)]
+
+        active_prop_stream = None
+        prop_id_stream = None
+        try:
+            active_prop_stream = get_active_property(request, organization)
+            prop_id_stream = str(active_prop_stream.id) if active_prop_stream else None
+        except Exception:
+            pass
+        scope_label = active_prop_stream.name if active_prop_stream else 'Portfolio Wide'
+
+        # Gather live grounded context for streaming (scoped to authorized modules and property)
+        grounded_facts = ""
+        tools_used = []
+        if org_id:
+            try:
+                fin = inspect_arrears_and_collections(org_id, property_id=prop_id_stream, allowed_modules=allowed_modules)
+                fac = inspect_facility_work_orders(org_id, property_id=prop_id_stream, allowed_modules=allowed_modules)
+                lease = inspect_leasing_and_occupancy(org_id, property_id=prop_id_stream, allowed_modules=allowed_modules)
+                cal = get_upcoming_critical_dates(org_id, property_id=prop_id_stream, allowed_modules=allowed_modules)
+
+                if "property" in allowed_modules:
+                    tools_used.extend(["finance_data", "leasing_data"])
+                if "facility" in allowed_modules:
+                    tools_used.append("facility_data")
+                if cal.get("events"):
+                    tools_used.append("calendar_events")
+
+                from django.utils import timezone as tz
+                local_now = tz.localtime(tz.now())
+                fact_lines = [
+                    f"TODAY'S DATE: {local_now.strftime('%A, %d %B %Y, %I:%M %p %Z')}",
+                    f"DATA SCOPE: {scope_label}",
+                ]
+                if "property" in allowed_modules:
+                    fact_lines.append(f"FINANCE: KES {fin.get('total_arrears', 0):,.0f} in arrears across {fin.get('overdue_count', 0)} overdue invoices.")
+                    fact_lines.append(f"LEASING: {lease.get('expiring_leases_count', 0)} leases expiring within 60 days.")
+                if "facility" in allowed_modules:
+                    fact_lines.append(f"FACILITY: {fac.get('open_work_orders', 0)} open work orders, {fac.get('urgent_count', 0)} critical.")
+                if cal.get("events"):
+                    fact_lines.append(f"CALENDAR EVENTS: {json.dumps(cal.get('events', [])[:6], default=str)}")
+
+                grounded_facts = "\n".join(fact_lines)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning("Streaming: context ingestion failed", exc_info=True)
+
         gateway = LLMGateway()
         system_prompt = (
-            f"You are Quartermaster, the AI Operations Copilot for {organization.name if organization else 'Center Estates'}. "
-            "Provide helpful, concise, executive property and operational insights. "
-            "Format your answers with clean markdown bullets and bold headers."
+            f"You are Quartermaster, the AI Operations Agent for {organization.name if organization else 'Center Estates'}.\n\n"
+            + (f"LIVE GROUNDED SYSTEM DATA:\n{grounded_facts}\n\n" if grounded_facts else "")
+            + "DIRECTIVES:\n"
+            "1. Ground every answer in the live data above. Use clean markdown bullets.\n"
+            "2. ROLE & SCOPE BOUNDARIES: You operate strictly within the authorized scope of the logged-in operator. All data provided is already scoped to what the operator is authorized to see. Never include disclaimers, contrasts, or 'Note:' remarks about workspace filters or portfolio differences. Answer directly and factually for the data visible to the operator.\n"
+            "3. Be concise, professional, and definitive."
         )
 
         def event_stream():
             try:
+                # First emit which tools were used
+                if tools_used:
+                    meta = json.dumps({"toolsExecuted": tools_used})
+                    yield f"data: {meta}\n\n"
                 for token in gateway.stream_chat(system_prompt, messages):
                     payload = json.dumps({"token": token})
                     yield f"data: {payload}\n\n"

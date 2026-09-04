@@ -148,6 +148,10 @@ export function TeamMatrixView({
                               🏢 <strong>{p.name}</strong> <span className="mono muted">({p.code})</span>
                             </span>
                           ))
+                        ) : m.roles?.some((r) => r.slug === "property-manager" || r.name.toLowerCase().includes("property manager")) ? (
+                          <span style={{ fontSize: 11, padding: "2px 8px", background: "#fef3c7", color: "#92400e", borderRadius: 4, fontWeight: 700, border: "1px solid #fde68a" }}>
+                            🔒 Self-Created Only (0 Assigned)
+                          </span>
                         ) : (
                           <span className="muted" style={{ fontSize: 12 }}>Unrestricted / General</span>
                         )}

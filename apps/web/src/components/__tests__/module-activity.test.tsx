@@ -36,7 +36,7 @@ describe("ModuleTicketsView", () => {
     render(<ModuleTicketsView moduleName="Companion" />);
 
     expect(await screen.findByText("TT-92652")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.click(screen.getByRole("button", { name: /view|open/i }));
 
     expect(await screen.findByText("Please clean the office")).toBeInTheDocument();
     expect(screen.getByText("Blue Shield Towers")).toBeInTheDocument();

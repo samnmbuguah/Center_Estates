@@ -1211,6 +1211,23 @@ function AdministrationContent() {
                                   <span className="mono muted" style={{ fontSize: 10 }}>({p.code})</span>
                                 </span>
                               ))
+                            ) : m.roles?.some((r) => r.slug === "property-manager" || r.name.toLowerCase().includes("property manager")) ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  padding: "3px 8px",
+                                  background: "#fef3c7",
+                                  color: "#92400e",
+                                  borderRadius: 6,
+                                  fontWeight: 700,
+                                  border: "1px solid #fde68a",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                }}
+                              >
+                                <span>🔒</span> Self-Created Only (0 Assigned)
+                              </span>
                             ) : (
                               <span className="muted" style={{ fontSize: 12 }}>
                                 General / Unrestricted
@@ -2867,10 +2884,30 @@ function AdministrationContent() {
                     onClick={() => setEditSelectedProps([])}
                     style={{ fontSize: 11, color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
                   >
-                    Clear All
+                    Clear All (Self-Created Only)
                   </button>
                 </div>
               </div>
+
+              {editingMember.roles?.some((r) => r.slug === "property-manager" || r.name.toLowerCase().includes("property manager")) && (
+                <div
+                  style={{
+                    background: "rgba(2, 132, 199, 0.08)",
+                    border: "1px solid rgba(2, 132, 199, 0.25)",
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    marginBottom: 12,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>ℹ️</span>
+                  <div style={{ fontSize: 12, lineHeight: 1.4, color: "#0369a1" }}>
+                    <strong>Property Manager Scoping Policy Active:</strong> By default, Property Managers can only view and manage properties they personally create in the system. Use the checkboxes below only to grant explicit authorization for properties created by other team members or administrators.
+                  </div>
+                </div>
+              )}
 
               {/* Properties Grid */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, maxHeight: 200, overflowY: "auto", padding: 2 }}>

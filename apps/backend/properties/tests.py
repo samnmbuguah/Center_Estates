@@ -2824,3 +2824,117 @@ class LandlordInvoiceApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400, response.data)
         self.assertTrue(LandlordInvoice.objects.filter(id=invoice.id).exists())
+
+
+class BulkTemplateContractTests(TestCase):
+    """Regression test suite ensuring all downloadable CSV templates parse and import without errors."""
+
+    def setUp(self):
+        self.organization = Organization.objects.create(name='Template Test Org', slug='template-test-org')
+        self.user = get_user_model().objects.create_user(username='template_tester', password='password')
+        Membership.objects.create(
+            user=self.user, organization=self.organization, is_organization_admin=True, is_default=True,
+        )
+        self.property = Property.objects.create(
+            organization=self.organization, code='PROP-TPL-01', name='Lynx Residency', is_sectional_title=True,
+        )
+        self.building = Building.objects.create(
+            organization=self.organization, property=self.property, code='BLD-01', name='Block A',
+        )
+        # Pre-create units matching template
+        self.u1 = Unit.objects.create(organization=self.organization, property=self.property, building=self.building, code='A-101', unit_type='Studio', area=Decimal('350'))
+        self.u2 = Unit.objects.create(organization=self.organization, property=self.property, building=self.building, code='A-102', unit_type='1Br', area=Decimal('550'))
+        self.u3 = Unit.objects.create(organization=self.organization, property=self.property, building=self.building, code='B-201', unit_type='2Br Std', area=Decimal('850'))
+        self.u4 = Unit.objects.create(organization=self.organization, property=self.property, building=self.building, code='B-202', unit_type='2Br Ensuite', area=Decimal('1050'))
+        self.u5 = Unit.objects.create(organization=self.organization, property=self.property, building=self.building, code='G-01', unit_type='Shop', area=Decimal('850'))
+
+        self.headers = {
+            'HTTP_X_ORGANIZATION_ID': str(self.organization.id),
+            'HTTP_X_PROPERTY_ID': str(self.property.id),
+        }
+        self.client.force_authenticate(user=self.user)
+
+    def test_tenant_template_sample_rows_bulk_onboard_succeeds_with_zero_failures(self):
+        """Verify that every row from tenant-bulk-upload-template.csv imports successfully."""
+        template_rows = [
+            {
+                'tenant': {'name': 'Grace Mwangi', 'tenant_type': 'individual', 'email': 'grace.mwangi@example.com', 'phone': '0722123456', 'tax_id': 'A001234567Z', 'registration_number': '28456789'},
+                'lease': {'unit_code': 'A-101', 'area': '350', 'starts_on': '2026-09-01', 'term_months': 12, 'monthly_rent': '25000', 'service_charge_rate_per_sqft': '0', 'vat_rate': '0', 'billing_day': 1},
+            },
+            {
+                'tenant': {'name': 'Brian Kiprono', 'tenant_type': 'individual', 'email': 'brian.kiprono@example.com', 'phone': '0733987654', 'tax_id': 'A009876543W', 'registration_number': '31234567'},
+                'lease': {'unit_code': 'A-102', 'area': '550', 'starts_on': '01/09/2026', 'term_months': 12, 'monthly_rent': '35000', 'service_charge_rate_per_sqft': '0', 'vat_rate': '0', 'billing_day': 1},
+            },
+            {
+                'tenant': {'name': 'Faith Njeri Ndungu', 'tenant_type': 'individual', 'email': 'faith.njeri@example.com', 'phone': '0711555888', 'tax_id': 'A005556667K', 'registration_number': '29876543'},
+                'lease': {'unit_code': 'B-201', 'area': '850', 'starts_on': '2026-09-01', 'term_months': 12, 'monthly_rent': '50000', 'service_charge_rate_per_sqft': '0', 'vat_rate': '0', 'billing_day': 1},
+            },
+            {
+                'tenant': {'name': 'Kevin Otieno & Linda Achieng', 'tenant_type': 'individual', 'email': 'otieno.family@example.com', 'phone': '0700112233', 'tax_id': 'A007778889P', 'registration_number': '27654321'},
+                'lease': {'unit_code': 'B-202', 'area': '1050', 'starts_on': '01/09/2026', 'term_months': 24, 'monthly_rent': '65000', 'service_charge_rate_per_sqft': '0', 'vat_rate': '0', 'billing_day': 1},
+            },
+            {
+                'tenant': {'name': 'Savannah Retail Enterprises Ltd', 'tenant_type': 'company', 'email': 'accounts@savannahretail.co.ke', 'phone': '0722000111', 'tax_id': 'P051234567X', 'registration_number': 'CPR/2022/12345'},
+                'lease': {'unit_code': 'G-01', 'area': '850', 'starts_on': '2026-09-01', 'term_months': 24, 'monthly_rent': '85000', 'rent_rate_per_sqft': '100', 'service_charge_rate_per_sqft': '35', 'vat_rate': '16', 'billing_day': 1},
+            },
+        ]
+
+        payload = {'auto_create_units': True, 'rows': template_rows}
+        res = self.client.post('/api/v1/property/tenants/bulk-onboard/', payload, format='json', **self.headers)
+
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['succeeded_count'], 5)
+        self.assertEqual(res.data['failed_count'], 0)
+
+        # Confirm residential lease has 0% VAT
+        res_lease = Lease.objects.get(unit=self.u1)
+        self.assertEqual(Decimal(str(res_lease.metadata.get('vat_rate'))), Decimal('0'))
+        self.assertEqual(Decimal(str(res_lease.metadata.get('vat_amount'))), Decimal('0.00'))
+
+        # Confirm day-first date normalization for 01/09/2026
+        df_lease = Lease.objects.get(unit=self.u2)
+        self.assertEqual(df_lease.starts_on.strftime('%Y-%m-%d'), '2026-09-01')
+
+        # Confirm commercial lease has 16% VAT
+        comm_lease = Lease.objects.get(unit=self.u5)
+        self.assertEqual(Decimal(str(comm_lease.metadata.get('vat_rate'))), Decimal('16'))
+        self.assertGreater(Decimal(str(comm_lease.metadata.get('vat_amount'))), Decimal('0'))
+
+    def test_owner_template_sample_rows_bulk_import_succeeds_with_zero_failures(self):
+        """Verify that every row from center-estates-landlord-owner-template.csv imports successfully."""
+        owner_rows = [
+            {
+                'name': 'Dr. Peter Kamau Kariuki', 'email': 'peter.kariuki@example.com', 'phone': '+254722111222',
+                'pin_number': 'A001234567Z', 'id_or_registration_number': '12345678', 'settlement_bank_name': 'Standard Chartered Bank',
+                'settlement_bank_account': '0100123456700', 'settlement_bank_branch': 'Chiromo', 'settlement_paybill_or_till': '',
+                'engaged_for_unit_management': 'yes', 'engaged_for_letting': 'yes', 'is_management_company': 'no',
+                'unit_codes': 'A-101',
+            },
+            {
+                'name': 'Eng. Mary Wambui Gitau', 'email': 'mary.gitau@example.com', 'phone': '+254733222333',
+                'pin_number': 'A009876543Y', 'id_or_registration_number': '23456789', 'settlement_bank_name': '',
+                'settlement_bank_account': '', 'settlement_bank_branch': '', 'settlement_paybill_or_till': '247247',
+                'engaged_for_unit_management': 'yes', 'engaged_for_letting': 'no', 'is_management_company': 'no',
+                'unit_codes': 'B-201; B-202',
+            },
+            {
+                'name': 'ABC Holdings Ltd', 'email': 'accounts@abcholdings.co.ke', 'phone': '+254700000000',
+                'pin_number': 'P012345678X', 'id_or_registration_number': 'CPR/2020/12345', 'settlement_bank_name': 'NCBA Bank',
+                'settlement_bank_account': '010123456789', 'settlement_bank_branch': 'Westlands', 'settlement_paybill_or_till': '',
+                'engaged_for_unit_management': 'yes', 'engaged_for_letting': 'no', 'is_management_company': 'no',
+                'unit_codes': 'A-102',
+            },
+        ]
+
+        payload = {'mode': 'commit', 'rows': owner_rows}
+        res = self.client.post('/api/v1/property/owners/bulk-import/', payload, format='json', **self.headers)
+
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['created_count'], 3)
+        self.assertEqual(res.data['failed_count'], 0)
+
+        # Confirm multi-unit ownership assignment
+        mary = Owner.objects.get(organization=self.organization, pin_number='A009876543Y')
+        self.assertEqual(mary.units.count(), 2)
+        self.assertEqual(set(mary.units.values_list('code', flat=True)), {'B-201', 'B-202'})
+

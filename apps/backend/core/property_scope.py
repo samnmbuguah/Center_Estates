@@ -93,6 +93,8 @@ PROPERTY_LOOKUPS = {
     # Companion work and tender pipelines
     'companion.Task': 'property_id',
     'companion.TaskEvent': 'task__property_id',
+    'companion.TeamFeedbackThread': 'property_id',
+    'companion.TeamFeedbackMessage': 'thread__property_id',
     'tenders.Tender': 'property_id',
     'tenders.TenderRequirement': 'tender__property_id',
     'tenders.BidDecision': 'tender__property_id',
@@ -104,6 +106,30 @@ PROPERTY_LOOKUPS = {
     'tenders.TenderOutcome': 'tender__property_id',
     'tenders.TenderAuditEvent': 'tender__property_id',
 }
+
+
+def is_property_manager_restricted(user, organization) -> bool:
+    """Return True if user is a property manager who should only see created/assigned properties."""
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, 'is_superuser', False):
+        return False
+    membership = organization.memberships.filter(user=user, status='active').first()
+    if not membership:
+        return False
+    if membership.is_organization_admin:
+        return False
+    return membership.roles.filter(slug='property-manager').exists()
+
+
+def get_accessible_property_ids(user, organization):
+    """Return Property IDs that this user has permission to view/manage."""
+    membership = organization.memberships.filter(user=user, status='active').first()
+    if not membership:
+        return Property.objects.none().values_list('id', flat=True)
+    return Property.objects.filter(organization=organization).filter(
+        Q(created_by=user) | Q(assigned_memberships=membership)
+    ).values_list('id', flat=True)
 
 
 def get_active_property(request, organization, *, required=False):
@@ -127,6 +153,10 @@ def get_active_property(request, organization, *, required=False):
     property_record = Property.objects.filter(pk=property_id, organization=organization).first()
     if property_record is None:
         raise PermissionDenied('The selected property is not available in this organization.')
+    if is_property_manager_restricted(request.user, organization):
+        accessible_ids = get_accessible_property_ids(request.user, organization)
+        if not accessible_ids.filter(pk=property_record.pk).exists():
+            raise PermissionDenied('You do not have permission to view or manage this property.')
     cache = getattr(request, '_active_property_cache', {})
     cache[cache_key] = property_record
     request._active_property_cache = cache
@@ -134,11 +164,70 @@ def get_active_property(request, organization, *, required=False):
 
 
 def scope_queryset_to_property(queryset, request, organization):
+    is_restricted = is_property_manager_restricted(request.user, organization)
     if request.headers.get('X-Property-Scope', '').lower() == 'portfolio':
-        return queryset
+        if not is_restricted:
+            return queryset
+        accessible_ids = get_accessible_property_ids(request.user, organization)
+        if queryset.model._meta.label == 'properties.Property':
+            return queryset.filter(Q(created_by=request.user) | Q(assigned_memberships__user=request.user)).distinct()
+        if queryset.model._meta.label == 'properties.Tenant':
+            return queryset.filter(
+                Q(property_id__in=accessible_ids) | Q(leases__unit__property_id__in=accessible_ids)
+            ).distinct()
+        if queryset.model._meta.label == 'facilities.Contractor':
+            return queryset.filter(
+                Q(assigned_properties__id__in=accessible_ids)
+                | Q(work_orders__property_id__in=accessible_ids)
+                | Q(contracts__property_id__in=accessible_ids)
+            ).distinct()
+        if queryset.model._meta.label == 'companion.TeamFeedbackThread':
+            return queryset.filter(
+                Q(property_id__in=accessible_ids)
+                | (Q(property__isnull=True) & (Q(created_by=request.user) | Q(assigned_to=request.user)))
+            ).distinct()
+        if queryset.model._meta.label == 'companion.TeamFeedbackMessage':
+            return queryset.filter(
+                Q(thread__property_id__in=accessible_ids)
+                | (Q(thread__property__isnull=True) & (Q(thread__created_by=request.user) | Q(thread__assigned_to=request.user)))
+            ).distinct()
+        lookup = PROPERTY_LOOKUPS.get(queryset.model._meta.label)
+        if not lookup:
+            return queryset
+        return queryset.filter(**{f'{lookup}__in': accessible_ids}).distinct()
+
     property_record = get_active_property(request, organization)
     if property_record is None:
-        return queryset
+        if not is_restricted:
+            return queryset
+        accessible_ids = get_accessible_property_ids(request.user, organization)
+        if queryset.model._meta.label == 'properties.Property':
+            return queryset.filter(Q(created_by=request.user) | Q(assigned_memberships__user=request.user)).distinct()
+        if queryset.model._meta.label == 'properties.Tenant':
+            return queryset.filter(
+                Q(property_id__in=accessible_ids) | Q(leases__unit__property_id__in=accessible_ids)
+            ).distinct()
+        if queryset.model._meta.label == 'facilities.Contractor':
+            return queryset.filter(
+                Q(assigned_properties__id__in=accessible_ids)
+                | Q(work_orders__property_id__in=accessible_ids)
+                | Q(contracts__property_id__in=accessible_ids)
+            ).distinct()
+        if queryset.model._meta.label == 'companion.TeamFeedbackThread':
+            return queryset.filter(
+                Q(property_id__in=accessible_ids)
+                | (Q(property__isnull=True) & (Q(created_by=request.user) | Q(assigned_to=request.user)))
+            ).distinct()
+        if queryset.model._meta.label == 'companion.TeamFeedbackMessage':
+            return queryset.filter(
+                Q(thread__property_id__in=accessible_ids)
+                | (Q(thread__property__isnull=True) & (Q(thread__created_by=request.user) | Q(thread__assigned_to=request.user)))
+            ).distinct()
+        lookup = PROPERTY_LOOKUPS.get(queryset.model._meta.label)
+        if not lookup:
+            return queryset
+        return queryset.filter(**{f'{lookup}__in': accessible_ids}).distinct()
+
     if queryset.model._meta.label == 'properties.Property':
         # Portfolio callers explicitly opt out above. A module request carrying
         # X-Property-ID must never leak aggregate data from sibling properties.

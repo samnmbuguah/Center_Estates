@@ -211,10 +211,17 @@ class PropertySerializer(serializers.ModelSerializer):
     code = serializers.CharField(read_only=True)
     buildings_count = serializers.IntegerField(read_only=True, default=0)
     units_count = serializers.IntegerField(read_only=True, default=0)
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True, default='')
+    created_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Property
         exclude = ('organization',)
+
+    def get_created_by_name(self, obj) -> str:
+        if not obj.created_by:
+            return ''
+        return obj.created_by.get_full_name() or obj.created_by.username
 
     def validate_country(self, value):
         if not value:

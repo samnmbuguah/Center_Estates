@@ -136,8 +136,8 @@ export function PropertiesView({
         <ListState
           loading={loading}
           empty={filtered.length === 0}
-          emptyTitle="No property selected"
-          emptyDesc="Choose a property from the selector at the top of the workspace."
+          emptyTitle="No Accessible Properties"
+          emptyDesc="No properties found in your scope. As a Property Manager, you have access to properties you create or those explicitly assigned to you by an organization administrator."
         >
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -160,9 +160,14 @@ export function PropertiesView({
                   <tr key={String(p.id)} onClick={() => onSelectRow(p)} style={{ cursor: "pointer" }}>
                     <td>
                       <strong style={{ fontSize: 13, color: "var(--text)" }}>{String(p.name ?? "—")}</strong>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)" }}>
-                        {String(p.code ?? "—")}
-                        {p.scheme_registration_number ? ` • ${p.scheme_registration_number}` : ""}
+                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span>{String(p.code ?? "—")}</span>
+                        {p.scheme_registration_number ? <span>• {p.scheme_registration_number}</span> : null}
+                        {p.created_by_username ? (
+                          <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "rgba(37, 99, 235, 0.08)", color: "#1d4ed8", fontWeight: 700 }}>
+                            @{p.created_by_username}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td>
@@ -197,7 +202,7 @@ export function PropertiesView({
                           style={{ fontWeight: 700, fontSize: 11, borderColor: "var(--primary, #2563eb)", color: "var(--primary, #2563eb)", display: "inline-flex", alignItems: "center", gap: 4 }}
                           onClick={(e) => { e.stopPropagation(); setSelectedDossier(p); }}
                         >
-                          <FileText size={12} /> Dossier & Audit
+                          <FileText size={12} /> Profile & Audit
                         </button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); router.push(`/property-onboarding?edit=${p.id}`); }}>Edit</button>
                         <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("units"); }}>Units</button>
@@ -214,7 +219,7 @@ export function PropertiesView({
         </ListState>
       </Panel>
 
-      {/* Property Dossier & Onboarding Completeness Audit Modal */}
+      {/* Property Profile & Onboarding Completeness Audit Modal */}
       {selectedDossier && (
         <PropertyDossierModal
           property={selectedDossier}

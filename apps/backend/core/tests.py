@@ -473,3 +473,208 @@ class CorsAndPreflightContractTests(TestCase):
         self.assertIn('ce_access', response.cookies)
         self.assertIn('ce_refresh', response.cookies)
         self.assertEqual(response.cookies['ce_access']['max-age'], 0)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
+class PropertyManagerScopingTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.org = Organization.objects.create(name='Scoping Test Org', slug='scoping-test-org')
+        from subscriptions.models import Subscription
+        Subscription.objects.create(organization=self.org, module=Module.PROPERTY, status=Subscription.Status.ACTIVE)
+        
+        # Permissions and PM role
+        perm_view, _ = Permission.objects.get_or_create(key='property.view', defaults={'label': 'View', 'module': Module.PROPERTY})
+        perm_ops, _ = Permission.objects.get_or_create(key='property.operations', defaults={'label': 'Ops', 'module': Module.PROPERTY})
+        self.pm_role = Role.objects.create(organization=self.org, name='Property Manager', slug='property-manager')
+        self.pm_role.permissions.add(perm_view, perm_ops)
+
+        # Admin user
+        self.admin_user = get_user_model().objects.create_user(username='admin-user', password='password')
+        self.admin_membership = Membership.objects.create(
+            user=self.admin_user, organization=self.org, is_organization_admin=True, is_default=True
+        )
+
+        # PM 1
+        self.pm1_user = get_user_model().objects.create_user(username='pm1-user', password='password')
+        self.pm1_membership = Membership.objects.create(
+            user=self.pm1_user, organization=self.org, is_organization_admin=False, is_default=True
+        )
+        self.pm1_membership.roles.add(self.pm_role)
+
+        # PM 2
+        self.pm2_user = get_user_model().objects.create_user(username='pm2-user', password='password')
+        self.pm2_membership = Membership.objects.create(
+            user=self.pm2_user, organization=self.org, is_organization_admin=False, is_default=True
+        )
+        self.pm2_membership.roles.add(self.pm_role)
+
+        # Properties created by PM 1 and PM 2
+        self.prop1 = Property.objects.create(
+            organization=self.org, code='PROP-0001', name='Lynx PM1', created_by=self.pm1_user
+        )
+        self.prop2 = Property.objects.create(
+            organization=self.org, code='PROP-0002', name='Eagle PM2', created_by=self.pm2_user
+        )
+
+    def test_admin_sees_all_properties(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(
+            '/api/v1/property/properties/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(response.status_code, 200)
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        property_ids = [str(p['id']) for p in results]
+        self.assertIn(str(self.prop1.id), property_ids)
+        self.assertIn(str(self.prop2.id), property_ids)
+
+    def test_pm_only_sees_created_properties_by_default(self):
+        self.client.force_authenticate(user=self.pm1_user)
+        response = self.client.get(
+            '/api/v1/property/properties/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(response.status_code, 200)
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        property_ids = [str(p['id']) for p in results]
+        self.assertIn(str(self.prop1.id), property_ids)
+        self.assertNotIn(str(self.prop2.id), property_ids)
+
+    def test_pm_cannot_access_unassigned_property_via_header(self):
+        self.client.force_authenticate(user=self.pm1_user)
+        response = self.client.get(
+            f'/api/v1/property/properties/{self.prop2.id}/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_ID=str(self.prop2.id),
+        )
+        # Should be forbidden or not found to access PM2's property
+        self.assertIn(response.status_code, [403, 404])
+
+    def test_admin_assigning_property_grants_access_to_pm(self):
+        # Admin assigns prop2 to pm1
+        self.pm1_membership.assigned_properties.add(self.prop2)
+
+        self.client.force_authenticate(user=self.pm1_user)
+        response = self.client.get(
+            '/api/v1/property/properties/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(response.status_code, 200)
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        property_ids = [str(p['id']) for p in results]
+        self.assertIn(str(self.prop1.id), property_ids)
+        self.assertIn(str(self.prop2.id), property_ids)
+
+    def test_pm_cannot_see_tickets_from_other_properties(self):
+        from companion.models import TeamFeedbackThread, TeamFeedbackMessage
+        # Thread for prop1 (PM1's property)
+        t1 = TeamFeedbackThread.objects.create(
+            organization=self.org, property=self.prop1, title='Prop1 AC Issue',
+            category=TeamFeedbackThread.FeedbackType.OPERATIONAL, issue_category='HVAC', created_by=self.pm1_user,
+        )
+        # Thread for prop2 (PM2's property)
+        t2 = TeamFeedbackThread.objects.create(
+            organization=self.org, property=self.prop2, title='Prop2 Broken Window',
+            category=TeamFeedbackThread.FeedbackType.OPERATIONAL, issue_category='Maintenance', created_by=self.pm2_user,
+        )
+
+        # PM1 calls /api/v1/companion/feedback/
+        self.client.force_authenticate(user=self.pm1_user)
+        resp = self.client.get(
+            '/api/v1/companion/feedback/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(resp.status_code, 200)
+        feedback_ids = [str(item['id']) for item in (resp.data if isinstance(resp.data, list) else resp.data.get('results', []))]
+        self.assertIn(str(t1.id), feedback_ids)
+        self.assertNotIn(str(t2.id), feedback_ids)
+
+        # PM1 calls /api/v1/tickets-feed/
+        resp_feed = self.client.get(
+            '/api/v1/tickets-feed/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(resp_feed.status_code, 200)
+        feed_ids = [str(item['id']) for item in resp_feed.data.get('results', [])]
+        self.assertIn(f'feedback:{t1.id}', feed_ids)
+        self.assertNotIn(f'feedback:{t2.id}', feed_ids)
+
+    def test_pm_cannot_see_developer_bug_reports(self):
+        from companion.models import TeamFeedbackThread
+        # Confidential developer bug report assigned to developer / admin
+        bug = TeamFeedbackThread.objects.create(
+            organization=self.org, property=None, title='Internal Django DB deadlock',
+            category=TeamFeedbackThread.FeedbackType.BUG, issue_category='System & Developer Bug',
+            created_by=self.admin_user, assigned_to=self.admin_user,
+        )
+
+        # PM1 must NOT see the bug report in companion feedback
+        self.client.force_authenticate(user=self.pm1_user)
+        resp = self.client.get(
+            '/api/v1/companion/feedback/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(resp.status_code, 200)
+        feedback_ids = [str(item['id']) for item in (resp.data if isinstance(resp.data, list) else resp.data.get('results', []))]
+        self.assertNotIn(str(bug.id), feedback_ids)
+
+        # PM1 must NOT see the bug report in tickets feed
+        resp_feed = self.client.get(
+            '/api/v1/tickets-feed/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(resp_feed.status_code, 200)
+        feed_ids = [str(item['id']) for item in resp_feed.data.get('results', [])]
+        self.assertNotIn(f'feedback:{bug.id}', feed_ids)
+
+        # Admin CAN see the bug report
+        self.client.force_authenticate(user=self.admin_user)
+        admin_resp = self.client.get(
+            '/api/v1/companion/feedback/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(admin_resp.status_code, 200)
+        admin_feedback_ids = [str(item['id']) for item in (admin_resp.data if isinstance(admin_resp.data, list) else admin_resp.data.get('results', []))]
+        self.assertIn(str(bug.id), admin_feedback_ids)
+
+    def test_reporter_can_see_their_own_submitted_bug_report(self):
+        from companion.models import TeamFeedbackThread
+        # PM1 reports a bug
+        pm1_bug = TeamFeedbackThread.objects.create(
+            organization=self.org, property=None, title='Button unresponsive on mobile',
+            category=TeamFeedbackThread.FeedbackType.BUG, issue_category='System & Developer Bug',
+            created_by=self.pm1_user, assigned_to=self.admin_user,
+        )
+
+        # PM1 CAN see their own bug report
+        self.client.force_authenticate(user=self.pm1_user)
+        resp1 = self.client.get(
+            '/api/v1/companion/feedback/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(resp1.status_code, 200)
+        pm1_ids = [str(item['id']) for item in (resp1.data if isinstance(resp1.data, list) else resp1.data.get('results', []))]
+        self.assertIn(str(pm1_bug.id), pm1_ids)
+
+        # PM2 must NOT see PM1's bug report
+        self.client.force_authenticate(user=self.pm2_user)
+        resp2 = self.client.get(
+            '/api/v1/companion/feedback/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.id),
+            HTTP_X_PROPERTY_SCOPE='portfolio',
+        )
+        self.assertEqual(resp2.status_code, 200)
+        pm2_ids = [str(item['id']) for item in (resp2.data if isinstance(resp2.data, list) else resp2.data.get('results', []))]
+        self.assertNotIn(str(pm1_bug.id), pm2_ids)
+
