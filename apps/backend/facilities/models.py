@@ -272,6 +272,10 @@ class WorkOrder(OrganizationOwnedModel):
     class Meta:
         ordering = ('-reported_at',)
         constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_work_order_number')]
+        indexes = [
+            models.Index(fields=('organization', 'status', 'priority'), name='wo_org_status_priority_idx'),
+            models.Index(fields=('organization', 'resolution_due_at'), name='wo_org_resolution_due_idx'),
+        ]
 
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:

@@ -405,13 +405,21 @@ export function PropertyOnboardingForm() {
       return match ? match[1] : "1";
     };
 
+    const isRes = values.property_type === "residential";
+    const defaultTypology = isRes ? "1 Bedroom" : "Commercial";
+    const defaultUse = isRes ? "Residential" : "Commercial";
+
+    if (columns.unit_type < 0) {
+      toast.info?.("Typology column was not detected in the file. Default typologies were assigned and can be reviewed in the preview below.");
+    }
+
     const imported: UnitDraft[] = rows
       .map(row => {
         const uNo = cell(row, columns.unit_no).trim();
         if (!uNo) return null;
-        const uType = (columns.unit_type >= 0 ? cell(row, columns.unit_type) : "") || "Commercial";
+        const uType = (columns.unit_type >= 0 ? cell(row, columns.unit_type) : "") || defaultTypology;
         const rawFloor = (columns.floor >= 0 ? cell(row, columns.floor) : "") || deriveFloor(uNo);
-        const uUse = (columns.use >= 0 ? cell(row, columns.use) : "") || "Commercial";
+        const uUse = (columns.use >= 0 ? cell(row, columns.use) : "") || defaultUse;
         const rawArea = (columns.area >= 0 ? cell(row, columns.area) : "") || "1000";
         return {
           unit_no: uNo,
@@ -702,7 +710,7 @@ export function PropertyOnboardingForm() {
     <Box sx={{ display: "flex", alignItems: { xs: "flex-start", sm: "center" }, justifyContent: "space-between", gap: 2, mb: 2, flexDirection: { xs: "column", sm: "row" } }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => router.push("/overview")}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800, fontSize: { xs: "1.25rem", md: "1.5rem" } }}>{editId ? `Edit Property: ${values.name || "Loading..."}` : "Property Onboarding"}</Typography><Typography color="text.secondary" variant="body2">{editId ? "Update property details." : "Fill in property details, then add buildings and units."}</Typography></Box></Box>
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: { xs: "stretch", sm: "flex-end" }, width: { xs: "100%", sm: "auto" } }}>
-        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-meters-template.csv", [["utility_type","unit_code","meter_number","meter_location","account_number","tariff","bill_cycle","supply_mode","status"],["water","A101","MTR-WTR-A101","Outside Door A101","WTR-001","200","monthly","postpaid","active"],["water","A102","MTR-WTR-A102","Outside Door A102","WTR-002","200","monthly","postpaid","active"],["electricity","A101","MTR-ELEC-A101","Basement Meter Board","ELEC-001","25","monthly","prepaid","active"]])}>Template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
+        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-meters-template.csv", [["utility_type","unit_code","meter_number","meter_location","account_number","tariff","bill_cycle","supply_mode","status"],["water","A-101","MTR-WTR-A101","Outside Door A-101","WTR-001","200","monthly","postpaid","active"],["water","A-102","MTR-WTR-A102","Outside Door A-102","WTR-002","200","monthly","postpaid","active"],["electricity","A-101","MTR-ELEC-A101","Basement Meter Board","ELEC-001","25","monthly","prepaid","active"],["water","B-201","MTR-WTR-B201","Outside Door B-201","WTR-003","200","monthly","postpaid","active"],["electricity","G-01","MTR-ELEC-G01","Main Commercial Board","ELEC-COMM-01","28","monthly","postpaid","active"]])}>Template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
 
         <Button fullWidth={false} variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()} sx={{ minWidth: { xs: "100%", sm: 120 } }}>{saving ? "Saving…" : "Save & Close"}</Button>
       </Box>
@@ -800,7 +808,14 @@ export function PropertyOnboardingForm() {
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
           <Typography variant="body2" color="text.secondary">Add units manually or import from CSV (max 500 rows). Outline unit boundaries on architectural floor plans.</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [["unit_no","unit_type","floor","use","area","rateable_area","building_number","service_charge_rate","description"],["G-01","Shop","Ground","Commercial","850","820","1","35","Ground floor retail unit"]])}>Download template</Button>
+            <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [
+              ["unit_no","unit_type","floor","use","area","rateable_area","building_number","service_charge_rate","description"],
+              ["A-101","Studio","1","Residential","350","350","1","25","Studio apartment with balcony"],
+              ["A-102","1Br","1","Residential","550","550","1","30","1 Bedroom standard apartment"],
+              ["B-201","2Br Std","2","Residential","850","850","1","35","2 Bedroom standard unit"],
+              ["B-202","2Br Ensuite","2","Residential","1050","1050","1","40","2 Bedroom all-ensuite master unit"],
+              ["G-01","Shop","Ground","Commercial","850","820","1","45","Ground floor retail unit"]
+            ])}>Download template</Button>
             <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
           </Box>
         </Box>
@@ -869,9 +884,11 @@ export function PropertyOnboardingForm() {
               startIcon={<Download size={15} />}
               onClick={() => downloadCsv("center-estates-utility-meters-template.csv", [
                 ["utility_type", "unit_code", "meter_number", "meter_location", "account_number", "tariff", "bill_cycle", "supply_mode", "status"],
-                ["water", "A101", "MTR-WTR-A101", "Outside Door A101", "WTR-001", "200", "monthly", "postpaid", "active"],
-                ["water", "A102", "MTR-WTR-A102", "Outside Door A102", "WTR-002", "200", "monthly", "postpaid", "active"],
-                ["electricity", "A101", "MTR-ELEC-A101", "Basement Meter Board", "ELEC-001", "25", "monthly", "prepaid", "active"],
+                ["water", "A-101", "MTR-WTR-A101", "Outside Door A-101", "WTR-001", "200", "monthly", "postpaid", "active"],
+                ["water", "A-102", "MTR-WTR-A102", "Outside Door A-102", "WTR-002", "200", "monthly", "postpaid", "active"],
+                ["electricity", "A-101", "MTR-ELEC-A101", "Basement Meter Board", "ELEC-001", "25", "monthly", "prepaid", "active"],
+                ["water", "B-201", "MTR-WTR-B201", "Outside Door B-201", "WTR-003", "200", "monthly", "postpaid", "active"],
+                ["electricity", "G-01", "MTR-ELEC-G01", "Main Commercial Board", "ELEC-COMM-01", "28", "monthly", "postpaid", "active"],
               ])}
             >
               Download template
@@ -1080,7 +1097,7 @@ export function PropertyOnboardingForm() {
       </Section>
 
 
-      <Section id="assets" title="Assets — property fixtures and equipment"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Register assets individually or import an asset register from CSV.</Typography><Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-asset-template.csv", [["asset_name","category","location","quantity","status"],["Passenger lift","Vertical transport","Block A","1","active"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload asset CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importAssets(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Asset name" value={assetDraft.name} onChange={e => setAssetDraft({ ...assetDraft, name: e.target.value })} /><TextField label="Category" value={assetDraft.category} onChange={e => setAssetDraft({ ...assetDraft, category: e.target.value })} /><TextField label="Location" value={assetDraft.location} onChange={e => setAssetDraft({ ...assetDraft, location: e.target.value })} /><TextField type="number" label="Quantity" value={assetDraft.quantity} onChange={e => setAssetDraft({ ...assetDraft, quantity: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!assetDraft.name.trim()} onClick={() => { setAssets(rows => [...rows, assetDraft]); setAssetDraft(blankAsset); }}>Add asset</Button></Grid><RowList rows={assets} columns={["Asset","Category","Location","Qty","Status"]} render={a => [a.name,a.category,a.location,a.quantity,a.status]} onRemove={i => setAssets(rows => rows.filter((_, index) => index !== i))} empty="No assets added yet." /></Section>
+      <Section id="assets" title="Assets — property fixtures and equipment"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Register assets individually or import an asset register from CSV.</Typography><Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-asset-template.csv", [["asset_name","category","location","quantity","status"],["Passenger lift","Vertical transport","Block A","1","active"],["Standby Generator 500kVA","Backup Power","Generator Room","1","active"],["Borehole Submersible Pump","Water Supply","Pump House","1","active"],["Fire Alarm Control Panel","Life Safety","Main Reception","1","active"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload asset CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importAssets(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Asset name" value={assetDraft.name} onChange={e => setAssetDraft({ ...assetDraft, name: e.target.value })} /><TextField label="Category" value={assetDraft.category} onChange={e => setAssetDraft({ ...assetDraft, category: e.target.value })} /><TextField label="Location" value={assetDraft.location} onChange={e => setAssetDraft({ ...assetDraft, location: e.target.value })} /><TextField type="number" label="Quantity" value={assetDraft.quantity} onChange={e => setAssetDraft({ ...assetDraft, quantity: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!assetDraft.name.trim()} onClick={() => { setAssets(rows => [...rows, assetDraft]); setAssetDraft(blankAsset); }}>Add asset</Button></Grid><RowList rows={assets} columns={["Asset","Category","Location","Qty","Status"]} render={a => [a.name,a.category,a.location,a.quantity,a.status]} onRemove={i => setAssets(rows => rows.filter((_, index) => index !== i))} empty="No assets added yet." /></Section>
 
       <Section id="contacts" title="Property contacts"><Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}><Typography variant="body2" color="text.secondary">Add contacts manually or import an existing directory.</Typography><Box sx={{ display: "flex", gap: 1 }}><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-contact-template.csv", [["name","role","email","phone"],["Jane Wanjiku","Caretaker","jane@example.com","+254700000000"]])}>Download template</Button><Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload contacts<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importContacts(event.target.files?.[0]); event.target.value = ""; }} /></Button></Box></Box><Grid columns={5}><TextField label="Name" value={contactDraft.name} onChange={e => setContactDraft({ ...contactDraft, name: e.target.value })} /><TextField label="Role" value={contactDraft.role} onChange={e => setContactDraft({ ...contactDraft, role: e.target.value })} /><TextField type="email" label="Email" value={contactDraft.email} onChange={e => setContactDraft({ ...contactDraft, email: e.target.value })} /><TextField label="Phone" value={contactDraft.phone} onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })} /><Button variant="outlined" startIcon={<Plus size={16} />} disabled={!contactDraft.name.trim()} onClick={() => { setContacts(rows => [...rows, contactDraft]); setContactDraft(blankContact); }}>Add contact</Button></Grid><RowList rows={contacts} columns={["Name","Role","Email","Phone"]} render={c => [c.name,c.role,c.email,c.phone]} onRemove={i => setContacts(rows => rows.filter((_, index) => index !== i))} empty="No contacts added." /></Section>
 

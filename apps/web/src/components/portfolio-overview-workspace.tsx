@@ -281,7 +281,7 @@ export function PortfolioOverviewWorkspace() {
               </span>
             </div>
             <p style={{ fontSize: 13, color: "#0f172a", fontWeight: 750, margin: "2px 0 0" }}>
-              Select any property to view live status, open technical dossier audit, or manage details.
+              Select any property to view live status, open technical property audit, or manage details.
             </p>
           </div>
 
@@ -413,7 +413,7 @@ export function PortfolioOverviewWorkspace() {
                           }}
                         >
                           <FileText size={13} />
-                          <span>Dossier & Audit</span>
+                          <span>Profile & Audit</span>
                         </button>
                         <Link
                           href={`/property-onboarding?edit=${prop.id}`}

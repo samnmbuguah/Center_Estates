@@ -1,6 +1,7 @@
 "use client";
 
-import { cloneElement, isValidElement, useId, type ReactNode, type CSSProperties } from "react";
+import { cloneElement, isValidElement, useId, useState, useEffect, type ReactNode, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import {
   Alert,
   Button,
@@ -222,57 +223,125 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
   );
 }
 
-export function DetailDrawer({ title, onClose, children, width = 460, centered = false }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number; centered?: boolean }) {
-  return (
-    <>
-      <div className="modal-overlay" style={{ background: "rgba(7, 16, 29, 0.4)", zIndex: 90 }} onClick={onClose} />
+export function DetailDrawer({ title, onClose, children, width = 540, centered = false }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number; centered?: boolean }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  if (!mounted || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="detail-drawer-portal-root"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1300,
+        pointerEvents: "auto",
+        display: "flex",
+        justifyContent: centered ? "center" : "flex-end",
+        alignItems: centered ? "center" : "stretch",
+      }}
+    >
+      <div
+        className="modal-overlay"
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.55)",
+          backdropFilter: "blur(3px)",
+          zIndex: 1301,
+        }}
+        onClick={onClose}
+      />
       <aside
         className="fc-detail-panel"
         style={
           centered
             ? {
-                // Centered modal dialogue: content-fit height (maxHeight caps
-                // tall content so the panel scrolls internally instead of over
-                // the page), centered in the viewport on both axes.
-                position: "fixed",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
+                position: "relative",
+                zIndex: 1302,
                 width: `min(${width}px, 94vw)`,
                 maxWidth: "94vw",
                 maxHeight: "88vh",
                 overflowY: "auto",
-                zIndex: 91,
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: 14,
-                boxShadow: "0 24px 64px rgba(7, 16, 29, 0.4)",
-                padding: 18,
+                background: "var(--surface, #ffffff)",
+                color: "var(--text-primary, #0f172a)",
+                border: "1px solid var(--border, #e2e8f0)",
+                borderRadius: 16,
+                boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.35)",
+                display: "flex",
+                flexDirection: "column",
                 animation: "slideUp 0.2s ease",
               }
             : {
-                position: "fixed",
-                top: 0,
-                right: 0,
-                bottom: 0,
+                position: "relative",
+                zIndex: 1302,
+                height: "100vh",
                 width: `min(${width}px, 92vw)`,
-                zIndex: 91,
-                background: "var(--surface)",
-                borderLeft: "1px solid var(--border)",
-                boxShadow: "-12px 0 40px rgba(0,0,0,0.25)",
-                overflowY: "auto",
-                padding: 18,
-                animation: "slideUp 0.2s ease",
+                maxHeight: "100vh",
+                background: "var(--surface, #ffffff)",
+                color: "var(--text-primary, #0f172a)",
+                borderLeft: "1px solid var(--border, #e2e8f0)",
+                boxShadow: "-16px 0 48px rgba(15, 23, 42, 0.25)",
+                display: "flex",
+                flexDirection: "column",
+                animation: "slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
               }
         }
       >
-        <div className="fc-detail-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
-          <strong style={{ fontSize: 15 }}>{title}</strong>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close">×</button>
+        <div
+          className="fc-detail-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--border, #e2e8f0)",
+            background: "var(--surface, #ffffff)",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }}>
+            {title}
+          </div>
+          <button
+            type="button"
+            className="btn ghost sm"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "var(--surface-2, #f1f5f9)",
+              border: "1px solid var(--border, #e2e8f0)",
+              borderRadius: 8,
+              width: 32,
+              height: 32,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "var(--text-secondary, #64748b)",
+              fontSize: 18,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            ×
+          </button>
         </div>
-        {children}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+          {children}
+        </div>
       </aside>
-    </>
+    </div>,
+    document.body
   );
 }
 

@@ -24,7 +24,8 @@ import {
 import { UnitBillingScheduleDrawer } from "../UnitBillingScheduleDrawer";
 import { UnitFloorPlanCanvas, type Point, type UnitLayout } from "../floorplan/UnitFloorPlanCanvas";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
-import { Upload } from "lucide-react";
+import { toast } from "@/lib/toast";
+import { Upload, Edit2, CheckSquare } from "lucide-react";
 
 type StoredFloorPlan = {
   id: string; building: string; floor: string; title: string; version: string;
@@ -46,7 +47,21 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const [planError, setPlanError] = useState("");
   const [browserPdfPreview, setBrowserPdfPreview] = useState("");
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
-  const units = rows as UnitRow[];
+  const [localUnits, setLocalUnits] = useState<UnitRow[]>((rows as UnitRow[]) || []);
+  const [filterTypology, setFilterTypology] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTypologyValue, setBulkTypologyValue] = useState<string>("Studio");
+  const [customTypologyInput, setCustomTypologyInput] = useState<string>("");
+  const [isBulkUpdating, setIsBulkUpdating] = useState<boolean>(false);
+  const [editingSingleUnit, setEditingSingleUnit] = useState<UnitRow | null>(null);
+  const [singleTypologyInput, setSingleTypologyInput] = useState<string>("");
+  const [isSingleUpdating, setIsSingleUpdating] = useState<boolean>(false);
+
+  useEffect(() => {
+    setLocalUnits((rows as UnitRow[]) || []);
+  }, [rows]);
+
+  const units = localUnits;
   const occupied = units.filter((u) => u.status === "occupied").length;
   const available = units.filter((u) => u.status === "available").length;
   const totalAreaSqft = units.reduce((s, u) => s + Number(u.area ?? 0), 0);
@@ -58,6 +73,35 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   }, {});
   const typologyTotal = Object.values(typologyCounts).reduce((s, c) => s + c, 0);
   const areaCount = units.filter((u) => u.area !== undefined && u.area !== null).length;
+
+  const displayUnits = useMemo(() => {
+    let list = units;
+    if (filterTypology) {
+      list = list.filter((u) => (String(u.unit_type ?? "").trim() || "—") === filterTypology);
+    }
+    return list;
+  }, [units, filterTypology]);
+
+  const allVisibleSelected = displayUnits.length > 0 && displayUnits.every((u) => selectedIds.has(String(u.id)));
+
+  const handleToggleSelectAll = () => {
+    if (allVisibleSelected) {
+      const next = new Set(selectedIds);
+      displayUnits.forEach((u) => next.delete(String(u.id)));
+      setSelectedIds(next);
+    } else {
+      const next = new Set(selectedIds);
+      displayUnits.forEach((u) => next.add(String(u.id)));
+      setSelectedIds(next);
+    }
+  };
+
+  const handleToggleSelectOne = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
 
   // Group units by floor for Stacking Plan & Floor Plan
   const floorGroups = useMemo(() => {
@@ -226,6 +270,81 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
       target.metadata = updatedMeta;
     } catch (e) {
       console.error("Failed to save unit polygon", e);
+    }
+  };
+
+  const handleBulkUpdateTypology = async () => {
+    const finalType = bulkTypologyValue === "Custom" ? customTypologyInput.trim() : bulkTypologyValue;
+    if (!finalType) {
+      toast.error("Please specify a typology.");
+      return;
+    }
+    if (selectedIds.size === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch("/property/units/bulk-update-typology/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({
+          unit_ids: Array.from(selectedIds),
+          unit_type: finalType,
+        }),
+      });
+      if (res.ok) {
+        setLocalUnits((prev) =>
+          prev.map((u) => (selectedIds.has(String(u.id)) ? { ...u, unit_type: finalType } : u))
+        );
+        toast.success(`Updated ${selectedIds.size} unit(s) to "${finalType}".`);
+        setSelectedIds(new Set());
+        setCustomTypologyInput("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.detail || "Failed to update unit typologies.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error updating typologies.");
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const openEditSingleUnit = (u: UnitRow) => {
+    setEditingSingleUnit(u);
+    setSingleTypologyInput(String(u.unit_type || ""));
+  };
+
+  const handleSaveSingleTypology = async () => {
+    if (!editingSingleUnit) return;
+    const finalType = singleTypologyInput.trim();
+    if (!finalType) {
+      toast.error("Please enter a typology.");
+      return;
+    }
+    setIsSingleUpdating(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/units/${editingSingleUnit.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ unit_type: finalType }),
+      });
+      if (res.ok) {
+        setLocalUnits((prev) =>
+          prev.map((u) => (u.id === editingSingleUnit.id ? { ...u, unit_type: finalType } : u))
+        );
+        toast.success(`Unit ${editingSingleUnit.code} updated to "${finalType}".`);
+        setEditingSingleUnit(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.detail || "Failed to update unit.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error saving unit.");
+    } finally {
+      setIsSingleUpdating(false);
     }
   };
 
@@ -416,17 +535,54 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
         </Panel>
       ) : view === "residential" ? (
         <Panel title="Unit Typology Breakdown">
+          <Box sx={{ px: 2, pt: 1.5, pb: 0.5, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+            <Typography variant="body2" sx={{ color: "var(--muted, #64748b)", fontSize: 13 }}>
+              Click any typology card below to filter the occupancy register:
+            </Typography>
+            {filterTypology && (
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setFilterTypology(null)}
+                sx={{ textTransform: "none", fontSize: 12, height: 28 }}
+              >
+                Clear Filter ({filterTypology})
+              </Button>
+            )}
+          </Box>
           {Object.keys(typologyCounts).length > 0 ? (
-            <div style={{ padding: "14px 18px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
-              {Object.entries(typologyCounts).map(([type, count]) => (
-                <div key={type} className="card" style={{ padding: 12, background: "var(--surface-2)" }}>
-                  <strong style={{ fontSize: 18 }}>{kN(count)}</strong>
-                  <div className="muted" style={{ fontSize: 11 }}>{type}</div>
-                </div>
-              ))}
+            <div style={{ padding: "10px 18px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(135px, 1fr))", gap: 10 }}>
+              {Object.entries(typologyCounts).map(([type, count]) => {
+                const isActive = filterTypology === type;
+                return (
+                  <div
+                    key={type}
+                    onClick={() => setFilterTypology(isActive ? null : type)}
+                    className="card"
+                    style={{
+                      padding: 12,
+                      background: isActive ? "rgba(37, 99, 235, 0.08)" : "var(--surface-2)",
+                      border: isActive ? "2px solid var(--primary, #2563eb)" : "1px solid var(--border)",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <strong style={{ fontSize: 18, color: isActive ? "var(--primary, #2563eb)" : "inherit" }}>{kN(count)}</strong>
+                      {isActive && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--primary, #2563eb)", background: "rgba(37, 99, 235, 0.12)", padding: "1px 5px", borderRadius: 4 }}>
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 4, fontWeight: isActive ? 600 : 400 }}>{type}</div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <EmptyState icon="🗂" title="No typology data" description="Unit type / typology (e.g. 1BD, 2BD, 3BD) will appear here once units are registered." />
+            <EmptyState icon="🗂" title="No typology data" description="Unit type / typology (e.g. Studio, 1Br, 2Br) will appear here once units are registered." />
           )}
         </Panel>
       ) : (
@@ -450,11 +606,83 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
 
       {view !== "stacking" && (
         <Panel title={view === "commercial" ? "Commercial Units" : "Residential Units"}>
-          <ListState loading={loading} empty={units.length === 0} emptyTitle="No units found" emptyDesc="Generate units from a property or register them individually.">
+          {selectedIds.size > 0 && (
+            <Box
+              sx={{
+                mx: 2,
+                mt: 1.5,
+                mb: 1,
+                p: 1.5,
+                borderRadius: "8px",
+                background: "var(--surface-2, #f8fafc)",
+                border: "1px solid var(--primary, #2563eb)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 1.5,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: "var(--primary, #2563eb)" }}>
+                  {selectedIds.size} {selectedIds.size === 1 ? "unit" : "units"} selected
+                </Typography>
+                <Button size="small" variant="text" onClick={() => setSelectedIds(new Set())} sx={{ textTransform: "none", fontSize: 12, color: "var(--muted)" }}>
+                  Deselect All
+                </Button>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600 }}>Bulk Change Typology:</Typography>
+                <Select
+                  size="small"
+                  value={bulkTypologyValue}
+                  onChange={(e) => setBulkTypologyValue(String(e.target.value))}
+                  sx={{ minWidth: 140, height: 32, fontSize: 13, background: "var(--surface)" }}
+                >
+                  <MenuItem value="Studio">Studio</MenuItem>
+                  <MenuItem value="1Br">1Br</MenuItem>
+                  <MenuItem value="2Br Std">2Br Std</MenuItem>
+                  <MenuItem value="2Br Ensuite">2Br Ensuite</MenuItem>
+                  <MenuItem value="3Br">3Br</MenuItem>
+                  <MenuItem value="Penthouse">Penthouse</MenuItem>
+                  <MenuItem value="Custom">Custom...</MenuItem>
+                </Select>
+                {bulkTypologyValue === "Custom" && (
+                  <TextField
+                    size="small"
+                    placeholder="Enter typology..."
+                    value={customTypologyInput}
+                    onChange={(e) => setCustomTypologyInput(e.target.value)}
+                    sx={{ width: 140, "& input": { py: 0.5, px: 1, fontSize: 13 } }}
+                  />
+                )}
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={isBulkUpdating}
+                  onClick={handleBulkUpdateTypology}
+                  sx={{ textTransform: "none", fontSize: 12, height: 32 }}
+                >
+                  {isBulkUpdating ? "Updating..." : "Apply Typology"}
+                </Button>
+              </Box>
+            </Box>
+          )}
+
+          <ListState loading={loading} empty={displayUnits.length === 0} emptyTitle="No units found" emptyDesc={filterTypology ? `No units match typology "${filterTypology}".` : "Generate units from a property or register them individually."}>
             <div className="table-scroll">
               <table className="fc-data-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 40, textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={handleToggleSelectAll}
+                        style={{ cursor: "pointer" }}
+                        title="Select/Deselect all visible units"
+                      />
+                    </th>
                     <th>Unit Code</th>
                     <th>Building</th>
                     <th>Floor</th>
@@ -474,11 +702,20 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                   </tr>
                 </thead>
                 <tbody>
-                  {units.map((u) => {
+                  {displayUnits.map((u) => {
                     const rent = (u.metadata as Record<string, unknown> | undefined)?.rent;
                     const area = u.area === undefined || u.area === null ? null : Number(u.area);
+                    const isSelected = selectedIds.has(String(u.id));
                     return (
-                      <tr key={String(u.id)} onClick={() => onSelectRow?.(u)}>
+                      <tr key={String(u.id)} onClick={() => onSelectRow?.(u)} style={{ background: isSelected ? "rgba(37, 99, 235, 0.04)" : undefined }}>
+                        <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectOne(String(u.id))}
+                            style={{ cursor: "pointer" }}
+                          />
+                        </td>
                         <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(u.code ?? "—")}</td>
                         <td style={{ fontSize: 12 }}>{String(u.building_name ?? "—")}</td>
                         <td className="mono" style={{ fontSize: 12 }}>{String(u.floor ?? "—")}</td>
@@ -504,7 +741,29 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                             <td className="mono">{area === null ? "—" : kN(area / 10.7639)}</td>
                           </>
                         ) : (
-                          <td style={{ fontSize: 12 }}>{String(u.unit_type ?? "—")}</td>
+                          <td style={{ fontSize: 12 }}>
+                            <span
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditSingleUnit(u);
+                              }}
+                              style={{
+                                cursor: "pointer",
+                                padding: "2px 8px",
+                                borderRadius: 4,
+                                background: "var(--surface-2)",
+                                border: "1px solid var(--border)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                fontWeight: 500,
+                              }}
+                              title="Click to edit unit typology"
+                            >
+                              {String(u.unit_type ?? "—")}
+                              <Edit2 size={11} style={{ opacity: 0.6 }} />
+                            </span>
+                          </td>
                         )}
                         <td><StatusPill value={String(u.status ?? "—")} /></td>
                         <td style={{ fontSize: 12 }}>{String((u.metadata as Record<string, unknown> | undefined)?.tenant ?? "—")} {rent !== undefined ? <span className="muted" style={{ fontSize: 11 }}>· {kM(rent)}/mo</span> : null}</td>
@@ -518,6 +777,51 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
           </ListState>
         </Panel>
       )}
+
+      {/* Single Unit Typology Edit Modal */}
+      {editingSingleUnit && (
+        <Modal
+          title={`Edit Typology for Unit ${editingSingleUnit.code}`}
+          onClose={() => setEditingSingleUnit(null)}
+          footer={
+            <>
+              <Button variant="outlined" onClick={() => setEditingSingleUnit(null)} sx={{ textTransform: "none" }}>
+                Cancel
+              </Button>
+              <Button variant="contained" disabled={isSingleUpdating} onClick={handleSaveSingleTypology} sx={{ textTransform: "none" }}>
+                {isSingleUpdating ? "Saving..." : "Save Typology"}
+              </Button>
+            </>
+          }
+        >
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, p: 1 }}>
+            <Typography variant="body2" sx={{ color: "var(--muted)" }}>
+              Select or type the typology for <strong>Unit {editingSingleUnit.code}</strong>:
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {["Studio", "1Br", "2Br Std", "2Br Ensuite", "3Br", "Penthouse"].map((t) => (
+                <Chip
+                  key={t}
+                  label={t}
+                  clickable
+                  color={singleTypologyInput === t ? "primary" : "default"}
+                  onClick={() => setSingleTypologyInput(t)}
+                  sx={{ fontWeight: 600 }}
+                />
+              ))}
+            </Box>
+            <TextField
+              fullWidth
+              size="small"
+              label="Typology Name"
+              value={singleTypologyInput}
+              onChange={(e) => setSingleTypologyInput(e.target.value)}
+              placeholder="e.g. Studio, 1Br, 2Br Std, 2Br Ensuite"
+            />
+          </Box>
+        </Modal>
+      )}
+
       {billingUnit && <UnitBillingScheduleDrawer unit={billingUnit} onClose={() => setBillingUnit(null)} />}
     </>
   );

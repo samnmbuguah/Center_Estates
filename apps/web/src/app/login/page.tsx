@@ -34,11 +34,6 @@ export default function LoginPage() {
     }
   };
 
-  const fillQuickLogin = (u: string) => {
-    setUsername(u);
-    setPassword("admin123");
-    setError("");
-  };
 
   return (
     <div className="login-root" style={{ display: "flex", minHeight: "100vh", background: "var(--login-page-bg)", fontFamily: "'DM Sans', Inter, system-ui, sans-serif", color: "var(--login-text)" }}>
@@ -132,30 +127,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Quick Identity Switcher for Demo / Testing */}
-          <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid var(--login-border)" }}>
-            <small style={{ color: "var(--login-muted)", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: 10 }}>
-              Quick Demo Personas (1-Click Fill)
-            </small>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[
-                { label: "Super Admin", user: "admin" },
-                { label: "Portfolio Manager", user: "role-portfolio-manager" },
-                { label: "Operations Staff", user: "role-operations-staff" },
-                { label: "Finance Officer", user: "role-finance-officer" },
-                { label: "Tenant Occupant", user: "role-facility-occupant" },
-              ].map((p) => (
-                <button
-                  key={p.user}
-                  type="button"
-                  onClick={() => fillQuickLogin(p.user)}
-                  style={{ background: "var(--login-input-bg)", border: "1px solid var(--login-border)", color: "var(--login-secondary)", padding: "6px 10px", borderRadius: 6, fontSize: "0.75rem", cursor: "pointer", textAlign: "left" }}
-                >
-                  👤 {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
+
         </Paper>
       </div>
     </div>

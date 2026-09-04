@@ -43,6 +43,12 @@ class AgentState(TypedDict, total=False):
     user_name: str
     user_role: str
     mode: str  # 'briefing', 'chat', 'autonomous_audit', 'action_execution'
+    # Property scope — mirrors the X-Property-ID the user has active in the app.
+    # None means portfolio-wide (all properties the user can access).
+    active_property_id: Optional[str]
+    active_property_name: Optional[str]
+    # Allowed modules based on user subscription, roles, and permissions
+    allowed_modules: Optional[List[str]]
     
     # Input
     input_query: str
@@ -69,5 +75,6 @@ class AgentState(TypedDict, total=False):
     
     # Final Output
     final_response: str
+    tools_executed: List[str]
     error: Optional[str]
     iteration_count: int

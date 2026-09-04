@@ -45,6 +45,7 @@ const SETTINGS_SUBITEMS = [
 ];
 
 const ADMIN_SUBITEMS = [
+  { id: "testing", label: "Testing & Release Hub", icon: "🧪", href: "/testing" },
   { id: "users", label: "Users & Staff Accounts", icon: "👥", href: "/administration?tab=users" },
   { id: "roles", label: "Roles & Permissions", icon: "🔐", href: "/administration?tab=roles" },
   { id: "mpesa", label: "M-Pesa & Payment Hub", icon: "💳", href: "/administration?tab=mpesa" },
@@ -72,7 +73,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   const [collapsed, setCollapsed] = useState(false);
 
   const [settingsExpanded, setSettingsExpanded] = useState(pathname.startsWith("/settings"));
-  const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/administration"));
+  const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/administration") || pathname === "/testing");
 
   // Hydrate collapsed state from localStorage
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
 
   useEffect(() => {
     if (pathname.startsWith("/settings")) setSettingsExpanded(true);
-    if (pathname.startsWith("/administration")) setAdminExpanded(true);
+    if (pathname.startsWith("/administration") || pathname === "/testing") setAdminExpanded(true);
   }, [pathname]);
 
   const activeModuleSlug = modules.find((m) => (
@@ -121,7 +122,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
     isAdministrator ||
     session?.roles?.some((r) => r.includes("finance") || r.includes("admin") || r.includes("manager"))
   );
-  const showAdministration = isAdministrator || canFinance;
+  const showAdministration = true;
   const activeOrganization = session?.organizations.find((organization) => organization.id === session.activeOrganizationId);
 
   const sidebarWidth = isMobile ? "min(85vw, 320px)" : collapsed ? 74 : 280;
@@ -528,28 +529,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             </Tooltip>
           ) : null}
 
-          {isAdministrator && !activeModuleSlug ? (
-            <Tooltip title={collapsed ? "Testing hub" : ""} placement="right" disableHoverListener={!collapsed}>
-              <Link
-                className={`nav-link ${pathname === "/testing" ? "active" : ""}`}
-                href="/testing"
-                onClick={onCloseMobile}
-                title={collapsed ? "" : "Testing hub"}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
-                  justifyContent: collapsed ? "center" : "flex-start", borderRadius: 6,
-                  background: pathname === "/testing" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                  color: pathname === "/testing" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
-                  fontWeight: pathname === "/testing" ? 700 : 500, textDecoration: "none",
-                  fontSize: isMobile ? 15 : 13, transition: "background 0.15s ease, color 0.15s ease",
-                }}
-              >
-                <ClipboardCheck size={isMobile ? 22 : 18} />
-                {!collapsed && <span>Testing hub</span>}
-              </Link>
-            </Tooltip>
-          ) : null}
+
 
           {/* Tenant Portal Link */}
           {!activeModuleSlug && (
@@ -769,8 +749,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                       marginBottom: 4,
                     }}
                   >
-                    {ADMIN_SUBITEMS.filter((item) => isAdministrator || ["feedback-qr", "mpesa", "tax", "smtp", "users", "audit"].includes(item.id)).map((item) => {
-                      const isItemActive = pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === (isAdministrator ? "users" : "feedback-qr")));
+                    {ADMIN_SUBITEMS.filter((item) => isAdministrator || ["testing", "feedback-qr", "mpesa", "tax", "smtp", "users", "audit"].includes(item.id)).map((item) => {
+                      const isItemActive = (pathname === "/testing" && item.id === "testing") || (pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === (isAdministrator ? "users" : "feedback-qr"))));
                       return (
                         <Link
                           key={item.id}

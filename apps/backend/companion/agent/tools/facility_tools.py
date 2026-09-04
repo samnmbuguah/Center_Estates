@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from django.utils import timezone
 from facilities.models import WorkOrder
 from companion.agent.state import AgentAction
@@ -7,19 +7,28 @@ from companion.agent.state import AgentAction
 logger = logging.getLogger(__name__)
 
 
-def inspect_facility_work_orders(organization_id: str) -> Dict[str, Any]:
+def inspect_facility_work_orders(
+    organization_id: str,
+    property_id: Optional[str] = None,
+    allowed_modules: Optional[List[str]] = None,
+) -> Dict[str, Any]:
     """
     Query open work orders, urgent maintenance tickets, and SLA breaches.
+    Scoped to property_id and user module permissions.
     """
+    if allowed_modules is not None and "facility" not in allowed_modules:
+        return {'open_work_orders': 0, 'urgent_count': 0, 'critical_orders': [], 'proposed_actions': []}
     try:
         open_orders = WorkOrder.objects.filter(
             organization_id=organization_id,
             status__in=['open', 'in_progress', 'assigned', 'on_hold'],
         ).select_related('property', 'asset', 'contractor', 'assigned_to')
 
+        if property_id:
+            open_orders = open_orders.filter(property_id=property_id)
+
         total_open = open_orders.count()
-        urgent_orders = open_orders.filter(priority='critical')
-        urgent_count = urgent_orders.count()
+        urgent_count = open_orders.filter(priority='critical').count()
 
         critical_items = []
         actions: List[Dict[str, Any]] = []
@@ -41,7 +50,6 @@ def inspect_facility_work_orders(organization_id: str) -> Dict[str, Any]:
                 'technician': technician,
             })
 
-            # Propose Actionable Dispatch / Escalation Intervention
             if wo.priority == 'critical' or not wo.assigned_to:
                 actions.append(AgentAction(
                     id=f"act_wo_{wo.id}",

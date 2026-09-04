@@ -32,6 +32,7 @@ class LLMGateway:
 
     def _init_client(self) -> Optional[ChatOpenAI]:
         try:
+            llm_timeout = min(max(int(os.getenv("AI_TIMEOUT_SECONDS", "8")), 3), 10)
             # 1. DeepSeek Provider
             if (self.provider == "deepseek" or (self.provider == "auto" and self.deepseek_key)) and self.deepseek_key:
                 logger.info("Initializing DeepSeek Agent Provider (deepseek-chat / deepseek-reasoner)")
@@ -40,7 +41,7 @@ class LLMGateway:
                     api_key=self.deepseek_key,
                     base_url="https://api.deepseek.com/v1",
                     temperature=0.3,
-                    timeout=30,
+                    timeout=llm_timeout,
                 )
 
             # 2. NVIDIA NIM Provider (DeepSeek R1 / Llama-3.3)
@@ -51,7 +52,7 @@ class LLMGateway:
                     api_key=self.nvidia_key,
                     base_url="https://integrate.api.nvidia.com/v1",
                     temperature=0.3,
-                    timeout=30,
+                    timeout=llm_timeout,
                 )
 
             # 3. OpenAI Provider
@@ -61,7 +62,7 @@ class LLMGateway:
                     model=self.model_name or "gpt-4o-mini",
                     api_key=self.openai_key,
                     temperature=0.3,
-                    timeout=30,
+                    timeout=llm_timeout,
                 )
 
             # 4. Local Ollama Provider
@@ -72,7 +73,7 @@ class LLMGateway:
                     api_key="ollama",
                     base_url=self.ollama_url,
                     temperature=0.3,
-                    timeout=45,
+                    timeout=llm_timeout,
                 )
 
             logger.info("No active cloud LLM API key detected; using Deterministic Rule-Based ERP Intelligence Engine.")

@@ -1388,20 +1388,61 @@ html {
   }
 }
 
-/* Print Styles */
+/* Print Styles & Document Isolation */
 @media print {
-  .no-print {
+  .no-print,
+  .screen-only,
+  nav,
+  aside,
+  header,
+  footer,
+  .sidebar,
+  .mobile-bottom-nav,
+  [data-radix-portal],
+  [role="dialog"]:not(.print-target) {
     display: none !important;
   }
   
-  body {
-    background: white;
-    color: black;
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  body > #__next {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body > #__next > *:not(.print-allow) {
+    /* Avoid app shell leaking into page flow */
+  }
+
+  #property-dossier-print-portal,
+  #property-dossier-print-report {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 999999 !important;
   }
   
   a {
-    color: black;
-    text-decoration: underline;
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 12mm 14mm 12mm;
   }
 }
 
@@ -4827,10 +4868,17 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 
 /* ---------- Animations ---------- */
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes scaleIn { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.ticket-row-hover:hover {
+  background: var(--surface-2, #f8fafc) !important;
+}
 
 .skeleton { background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
 
@@ -6162,4 +6210,37 @@ body,
   .inventory-actions button { flex: 1; }
   .inventory-summary { grid-template-columns: 1fr; }
   .inventory-panel-header { align-items: flex-start; gap: 12px; }
+}
+
+/* ---------- Print Media Queries for Institutional Testing Report ---------- */
+@media print {
+  .no-print,
+  aside,
+  nav,
+  header.app-header,
+  .app-sidebar,
+  button:not(.print-keep) {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .testing-hub-root {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .testing-row {
+    break-inside: avoid;
+    border: 1px solid #cbd5e1 !important;
+    margin-bottom: 8px !important;
+  }
 }

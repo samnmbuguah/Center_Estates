@@ -2845,7 +2845,7 @@ class FacilityAnalyticsViewSet(ViewSet):
         start = request.query_params.get('start', '')
         end = request.query_params.get('end', '')
 
-        # Executive Dossier routes directly to dedicated multi-section PDF generator
+        # Executive Report routes directly to dedicated multi-section PDF generator
         if export_type in ('landlord-report', 'executive_fm', 'executive') and export_format == 'pdf':
             return self.landlord_report(request)
 

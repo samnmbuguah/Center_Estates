@@ -151,6 +151,7 @@ export interface PropertyRow extends Row {
   is_sectional_title?: boolean; scheme_registration_number?: string;
   total_blocks?: number; total_units_count?: number;
   estate_manager_name?: string; management_commencement_date?: string;
+  created_by?: string; created_by_username?: string; created_by_name?: string;
 }
 
 export interface BuildingRow extends Row {

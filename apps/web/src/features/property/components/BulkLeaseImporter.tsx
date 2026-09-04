@@ -14,8 +14,9 @@ const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_re
 function downloadTemplate() {
   const csv = [
     headers,
-    ["TNT-0001", "G-01", "2026-09-01", "2027-08-31", "145000", "25000", "1", "10", "12"],
-    ["TNT-0002", "F1-02", "01/09/2026", "31/08/2027", "85000", "15000", "1", "10", "12"],
+    ["TNT-0001", "A-101", "2026-09-01", "2027-08-31", "25000", "0", "1", "0", "12"],
+    ["TNT-0002", "B-201", "01/09/2026", "31/08/2027", "50000", "0", "1", "0", "12"],
+    ["TNT-0003", "G-01", "2026-09-01", "2028-08-31", "85000", "15000", "1", "10", "12"],
   ]
     .map((row) => row.map((value) => `"${value}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));

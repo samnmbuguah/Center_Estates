@@ -6,12 +6,33 @@ import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { csvCell as get, csvColumn as col, normalizeCsvHeader as norm, parseCsv } from "@/lib/csv";
 
 type ParsedRow = {
-  name: string; tenant_type: string; email: string; phone: string;
-  tax_id: string; registration_number: string; unit_code: string;
-  area: string; lease_start: string; lease_term_months: string;
-  monthly_rent: string; rent_rate_per_sqft: string;
-  service_charge_rate_per_sqft: string; vat_rate: string;
+  unit_code: string;
+  name: string;
+  tenant_type: string;
+  address_1?: string;
+  address_2?: string;
+  city?: string;
+  phone: string;
+  email: string;
+  tax_id: string;
+  registration_number: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  rent_type?: string;
+  monthly_rent: string;
+  rent_rate_per_sqft: string;
+  lease_term_months: string;
+  lease_start: string;
+  service_charge_rate_per_sqft: string;
+  vat_rate: string;
   billing_day: string;
+  escalation_percent?: string;
+  escalation_interval_months?: string;
+  parking_bay?: string;
+  parking_monthly_fee?: string;
+  opening_balance_amount?: string;
+  area?: string;
 };
 
 type BulkResult = {
@@ -20,10 +41,34 @@ type BulkResult = {
   failed: { row: number; name: string; unit_code?: string; errors: Record<string, unknown> }[];
 };
 
+// Mirrored strictly from Tenant Application & Onboarding Card, with Unit Number as 1st column
 const TEMPLATE_HEADERS = [
-  "name","tenant_type","email","phone","tax_id","registration_number",
-  "unit_code","area","lease_start","lease_term_months","monthly_rent","rent_rate_per_sqft",
-  "service_charge_rate_per_sqft","vat_rate","billing_day",
+  "unit_code",
+  "name",
+  "tenant_type",
+  "address_1",
+  "address_2",
+  "city",
+  "phone",
+  "email",
+  "tax_id",
+  "registration_number",
+  "contact_name",
+  "contact_phone",
+  "contact_email",
+  "rent_type",
+  "monthly_rent",
+  "rent_rate_per_sqft",
+  "lease_term_months",
+  "lease_start",
+  "service_charge_rate_per_sqft",
+  "vat_rate",
+  "billing_day",
+  "escalation_percent",
+  "escalation_interval_months",
+  "parking_bay",
+  "parking_monthly_fee",
+  "opening_balance_amount",
 ];
 
 export function normalizeDateString(raw: string | number | null | undefined): string {
@@ -85,55 +130,101 @@ function csvToRows(text: string): ParsedRow[] {
   const all = parseCsv(text);
   if (all.length < 2) return [];
   const h = all[0].map(norm);
-  const cName = col(h,['name','tenant_name','company_name']);
-  const cType = col(h,['tenant_type','type']);
-  const cEmail = col(h,['email']);
-  const cPhone = col(h,['phone','mobile']);
-  const cTax = col(h,['tax_id','kra_pin','pin']);
-  const cReg = col(h,['registration_number','reg_no','registration']);
-  const cUnit = col(h,['unit_code','unit','unit_no']);
-  const cArea = col(h,['area','unit_area','sqft','square_feet','size']);
-  const cStart = col(h,['lease_start','start_date','starts_on']);
-  const cTerm = col(h,['lease_term_months','term_months','term']);
-  const cMonthlyRent = col(h,['monthly_rent','rent','fixed_rent','rent_amount']);
-  const cRent = col(h,['rent_rate_per_sqft','rent_rate','rent_per_sqft']);
-  const cSC = col(h,['service_charge_rate_per_sqft','sc_rate','service_charge_rate']);
-  const cVat = col(h,['vat_rate','vat']);
-  const cBill = col(h,['billing_day','bill_day']);
+  const cUnit = col(h, ['unit_code', 'unit', 'unit_no', 'unit_number', 'door_number', 'apartment_no', 'flat_number', 'assigned_unit']);
+  const cName = col(h, ['name', 'tenant_name', 'company_name', 'full_name', 'tenant', 'tenant_company_legal_name', 'legal_name']);
+  const cType = col(h, ['tenant_type', 'type', 'tenant_classification', 'classification']);
+  const cAddr1 = col(h, ['address_1', 'postal_address', 'street_address', 'address_line_1', 'postal_street_address_line_1', 'postal_address_line_1']);
+  const cAddr2 = col(h, ['address_2', 'suite_floor', 'suite_floor_address_line_2', 'address_line_2', 'suite', 'floor']);
+  const cCity = col(h, ['city', 'town', 'city_town']);
+  const cPhone = col(h, ['phone', 'mobile', 'phone_number', 'primary_phone_number', 'mobile_number', 'contact']);
+  const cEmail = col(h, ['email', 'email_address', 'billing_email', 'billing_email_address']);
+  const cTax = col(h, ['tax_id', 'kra_pin', 'pin', 'pin_number', 'kra_pin_tax_identifier', 'tax_identifier']);
+  const cReg = col(h, ['registration_number', 'reg_no', 'registration', 'id_number', 'national_id', 'id_no', 'national_id_number', 'registration_certificate_number', 'certificate_number']);
+  const cContactName = col(h, ['contact_name', 'authorized_contact_person', 'contact_person', 'representative']);
+  const cContactPhone = col(h, ['contact_phone', 'contact_person_phone', 'contact_mobile']);
+  const cContactEmail = col(h, ['contact_email', 'contact_person_email']);
+  const cRentType = col(h, ['rent_type', 'rent_pricing_structure', 'pricing_structure']);
+  const cArea = col(h, ['area', 'unit_area', 'sqft', 'square_feet', 'size']);
+  const cStart = col(h, ['lease_start', 'start_date', 'starts_on', 'commencement_date', 'lease_commencement']);
+  const cTerm = col(h, ['lease_term_months', 'term_months', 'term', 'lease_duration_months', 'lease_term']);
+  const cMonthlyRent = col(h, ['monthly_rent', 'rent', 'fixed_rent', 'rent_amount', 'monthly_rent_kes', 'fixed_monthly_rent_kes', 'fixed_monthly_rent']);
+  const cRentRate = col(h, ['rent_rate_per_sqft', 'rent_rate', 'rent_per_sqft', 'rate_per_sqft', 'rent_rate_sqft_kes']);
+  const cSC = col(h, ['service_charge_rate_per_sqft', 'sc_rate', 'service_charge_rate', 'service_charge']);
+  const cVat = col(h, ['vat_rate', 'vat', 'vat_percentage']);
+  const cBill = col(h, ['billing_day', 'bill_day', 'rent_due_day', 'due_day', 'invoice_due_day']);
+  const cEscPercent = col(h, ['escalation_percent', 'annual_rent_escalation', 'escalation', 'escalation_rate']);
+  const cEscInterval = col(h, ['escalation_interval_months', 'escalation_interval', 'interval_months']);
+  const cParkingBay = col(h, ['parking_bay', 'parking_space', 'parking_bay_code', 'bay_code']);
+  const cParkingFee = col(h, ['parking_monthly_fee', 'parking_fee', 'monthly_parking_fee']);
+  const cArrears = col(h, ['opening_balance_amount', 'opening_arrears_amount', 'opening_arrears', 'arrears']);
+
   return all.slice(1).map((row) => ({
-    name: get(row,cName), tenant_type: get(row,cType)||'company',
-    email: get(row,cEmail), phone: get(row,cPhone),
-    tax_id: get(row,cTax), registration_number: get(row,cReg),
-    unit_code: get(row,cUnit),
-    area: get(row,cArea),
-    lease_start: normalizeDateString(get(row,cStart)),
-    lease_term_months: get(row,cTerm)||'12',
-    monthly_rent: get(row,cMonthlyRent),
-    rent_rate_per_sqft: get(row,cRent),
-    service_charge_rate_per_sqft: get(row,cSC)||'0',
-    vat_rate: get(row,cVat)||'16',
-    billing_day: get(row,cBill)||'1',
-  })).filter((r) => r.name);
+    unit_code: get(row, cUnit),
+    name: get(row, cName),
+    tenant_type: get(row, cType) || 'individual',
+    address_1: get(row, cAddr1),
+    address_2: get(row, cAddr2),
+    city: get(row, cCity),
+    phone: get(row, cPhone),
+    email: get(row, cEmail),
+    tax_id: get(row, cTax),
+    registration_number: get(row, cReg),
+    contact_name: get(row, cContactName),
+    contact_phone: get(row, cContactPhone),
+    contact_email: get(row, cContactEmail),
+    rent_type: get(row, cRentType) || 'fixed',
+    area: get(row, cArea),
+    lease_start: normalizeDateString(get(row, cStart)),
+    lease_term_months: get(row, cTerm) || '12',
+    monthly_rent: get(row, cMonthlyRent),
+    rent_rate_per_sqft: get(row, cRentRate),
+    service_charge_rate_per_sqft: get(row, cSC) || '0',
+    vat_rate: get(row, cVat) || '0',
+    billing_day: get(row, cBill) || '1',
+    escalation_percent: get(row, cEscPercent) || '0',
+    escalation_interval_months: get(row, cEscInterval) || '12',
+    parking_bay: get(row, cParkingBay),
+    parking_monthly_fee: get(row, cParkingFee) || '0',
+    opening_balance_amount: get(row, cArrears) || '0',
+  })).filter((r) => r.name || r.unit_code);
 }
 
 function downloadTemplate() {
   const sample = [
     TEMPLATE_HEADERS,
     [
-      'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL1-UNIT-A', '2500', '2026-08-01', '24', '100000', '', '15', '16', '1',
+      'A-101', 'Grace Mwangi', 'individual', 'P.O. Box 45123', 'Ngong Road', 'Nairobi',
+      '+254722123456', 'grace.mwangi@example.com', 'A001234567Z', '28456789',
+      'Grace Mwangi', '+254722123456', 'grace.mwangi@example.com',
+      'fixed', '25000', '', '12', '2026-09-01', '0', '0', '1', '0', '12', 'P-101', '2500', '0',
     ],
     [
-      'Acme East Africa Ltd', 'company', 'accounts@acme.co.ke', '0712345678', 'P051234567X', 'CPR/2020/12345',
-      'FL2-UNIT-B', '3000', '01/08/2026', '12', '', '120', '35', '16', '1',
+      'A-102', 'Brian Kiprono', 'individual', 'P.O. Box 12890', 'Kilimani', 'Nairobi',
+      '+254733987654', 'brian.kiprono@example.com', 'A009876543W', '31234567',
+      'Brian Kiprono', '+254733987654', 'brian.kiprono@example.com',
+      'fixed', '35000', '', '12', '01/09/2026', '0', '0', '1', '0', '12', 'P-102', '2500', '0',
     ],
     [
-      'Kilima Tech Ventures', 'individual', 'info@kilimatech.co.ke', '0722000111', 'A009876543Z', 'BN-2023-887',
-      'FL3-SUITE-1', '1200', '2026-09-01', '12', '45000', '', '10', '16', '5',
+      'B-201', 'Faith Njeri Ndungu', 'individual', 'P.O. Box 78100', 'Kileleshwa', 'Nairobi',
+      '+254711555888', 'faith.njeri@example.com', 'A005556667K', '29876543',
+      'Faith Njeri Ndungu', '+254711555888', 'faith.njeri@example.com',
+      'fixed', '50000', '', '12', '2026-09-01', '0', '0', '1', '5', '12', 'P-201', '3000', '0',
+    ],
+    [
+      'B-202', 'Kevin Otieno & Linda Achieng', 'individual', 'P.O. Box 34500', 'Valley Arcade', 'Nairobi',
+      '+254700112233', 'otieno.family@example.com', 'A007778889P', '27654321',
+      'Kevin Otieno', '+254700112233', 'otieno.family@example.com',
+      'fixed', '65000', '', '24', '01/09/2026', '0', '0', '1', '5', '12', 'P-202', '3000', '0',
+    ],
+    [
+      'G-01', 'Savannah Retail Enterprises Ltd', 'company', 'P.O. Box 90210', 'Ground Floor Suite G-01', 'Nairobi',
+      '+254722000111', 'accounts@savannahretail.co.ke', 'P051234567X', 'CPR/2022/12345',
+      'James Mwangi', '+254722000112', 'jmwangi@savannahretail.co.ke',
+      'rate_per_sqft', '85000', '100', '24', '2026-09-01', '35', '16', '1', '7.5', '12', 'P-COMM-01', '5000', '0',
     ],
   ];
-  const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\r\n');
-  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a'); a.href = url; a.download = 'tenant-bulk-upload-template.csv'; a.click();
   URL.revokeObjectURL(url);
 }
@@ -180,10 +271,36 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
       const payload = {
         auto_create_units: true,
         rows: rows.map(r => ({
-          tenant: { name:r.name, tenant_type:r.tenant_type, email:r.email, phone:r.phone, tax_id:r.tax_id, registration_number:r.registration_number },
-          lease: { unit_code:r.unit_code, area:r.area, starts_on:r.lease_start, term_months:Number(r.lease_term_months)||12,
-            monthly_rent:r.monthly_rent || '', rent_rate_per_sqft:r.rent_rate_per_sqft, service_charge_rate_per_sqft:r.service_charge_rate_per_sqft,
-            vat_rate:r.vat_rate, billing_day:Number(r.billing_day)||1 },
+          tenant: {
+            name: r.name,
+            tenant_type: r.tenant_type,
+            email: r.email,
+            phone: r.phone,
+            tax_id: r.tax_id,
+            registration_number: r.registration_number,
+            billing_address: [r.address_1, r.address_2, r.city].filter(Boolean).join(", "),
+            contact_person: {
+              name: r.contact_name || "",
+              phone: r.contact_phone || "",
+              email: r.contact_email || "",
+            },
+          },
+          lease: {
+            unit_code: r.unit_code,
+            area: r.area,
+            starts_on: r.lease_start,
+            term_months: Number(r.lease_term_months) || 12,
+            monthly_rent: r.monthly_rent || '',
+            rent_rate_per_sqft: r.rent_rate_per_sqft,
+            service_charge_rate_per_sqft: r.service_charge_rate_per_sqft,
+            vat_rate: r.vat_rate,
+            billing_day: Number(r.billing_day) || 1,
+            escalation_percent: r.escalation_percent || '0',
+            escalation_interval_months: Number(r.escalation_interval_months) || 12,
+            parking_bay: r.parking_bay || '',
+            parking_monthly_fee: r.parking_monthly_fee || '0',
+            opening_balance_amount: r.opening_balance_amount || '0',
+          },
         }))
       };
       const res = await apiFetch('/property/tenants/bulk-onboard/', {
@@ -247,14 +364,14 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead><tr style={{background:'#f0fdf4',borderBottom:'1px solid #bbf7d0'}}>
-                {['Row','Code','Name','Lease Ref','Unit'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#166534'}}>{h}</th>)}
+                {['Row','Unit','Code','Name','Lease Ref'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#166534'}}>{h}</th>)}
               </tr></thead>
               <tbody>{result.succeeded.map(s=><tr key={s.row} style={{borderBottom:'1px solid #e7fde8'}}>
                 <td style={{padding:'6px 10px'}}>{s.row}</td>
+                <td style={{padding:'6px 10px',fontFamily:'monospace',fontWeight:800,color:'#166534'}}>{s.unit_code}</td>
                 <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{s.tenant_code}</td>
                 <td style={{padding:'6px 10px'}}>{s.tenant_name}</td>
                 <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{s.lease_reference}</td>
-                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{s.unit_code}</td>
               </tr>)}</tbody>
             </table>
           </div>
@@ -267,12 +384,12 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead><tr style={{background:'#fff7f7',borderBottom:'1px solid #fecaca'}}>
-                {['Row','Tenant Name','Unit','Error Details','Action'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#991b1b'}}>{h}</th>)}
+                {['Row','Unit','Tenant Name','Error Details','Action'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#991b1b'}}>{h}</th>)}
               </tr></thead>
               <tbody>{result.failed.map(f=><tr key={f.row} style={{borderBottom:'1px solid #fee2e2'}}>
                 <td style={{padding:'6px 10px',fontWeight:700}}>{f.row}</td>
+                <td style={{padding:'6px 10px',fontFamily:'monospace',fontWeight:800,color:'#991b1b'}}>{f.unit_code || '—'}</td>
                 <td style={{padding:'6px 10px',fontWeight:600}}>{f.name}</td>
-                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{f.unit_code || '—'}</td>
                 <td style={{padding:'6px 10px',color:'#dc2626'}}>
                   {typeof f.errors === 'object' ? Object.entries(f.errors).map(([k,v])=>`${k}: ${String(v)}`).join(' | ') : String(f.errors)}
                 </td>
@@ -300,30 +417,32 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
     <div style={{padding:24,display:'flex',flexDirection:'column',gap:18}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12}}>
         <div>
-          <h3 style={{margin:0,fontSize:16,fontWeight:800}}>Bulk Tenant Upload via CSV</h3>
-          <p style={{margin:'4px 0 0',fontSize:13,color:'var(--muted)'}}>Upload up to 500 tenants at once. Each row creates a tenant profile and a draft lease.</p>
+          <h3 style={{margin:0,fontSize:16,fontWeight:800}}>Bulk Tenant Upload via CSV / Excel</h3>
+          <p style={{margin:'4px 0 0',fontSize:13,color:'var(--muted)'}}>
+            Mirrors the <strong>Tenant Application &amp; Onboarding Card</strong>. Each row creates a legal tenant profile and signed draft lease.
+          </p>
         </div>
-        <button className="btn ghost sm" onClick={downloadTemplate} style={{display:'flex',alignItems:'center',gap:6,fontSize:12}}>
-          ⬇ Download CSV template
+        <button className="btn ghost sm" onClick={downloadTemplate} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:700}}>
+          ⬇ Download CSV template (Unit First)
         </button>
       </div>
       <div style={{background:'var(--surface-2,#f8fafc)',border:'1px solid var(--border)',borderRadius:8,padding:'12px 14px',fontSize:12,display:'flex',flexDirection:'column',gap:8}}>
         <div>
-          <strong>Required Columns:</strong> <span style={{color:'var(--muted)'}}>name, unit_code, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
+          <span style={{color:'var(--primary,#0284c7)',fontWeight:800}}>Column 1 (Required):</span> <code>unit_code</code> (e.g. <code>A-101</code>, <code>B-201</code>, <code>G-01</code>)
           <span style={{margin:'0 8px',color:'var(--border)'}}>|</span>
-          <strong>Optional:</strong> <span style={{color:'var(--muted)'}}>tenant_type, email, phone, tax_id, registration_number, lease_term_months, service_charge_rate_per_sqft, vat_rate, billing_day.</span>
+          <strong>Required Profile Fields:</strong> <span style={{color:'var(--muted)'}}>name, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
+        </div>
+        <div style={{fontSize:11,color:'var(--text-secondary)'}}>
+          <strong>Card Mirrored Fields:</strong> <code>address_1</code>, <code>address_2</code>, <code>city</code>, <code>phone</code>, <code>email</code>, <code>tax_id</code>, <code>registration_number</code>, <code>contact_name</code>, <code>contact_phone</code>, <code>contact_email</code>, <code>rent_type</code>, <code>vat_rate</code>, <code>escalation_percent</code>, <code>parking_bay</code>, <code>parking_monthly_fee</code>, <code>opening_balance_amount</code>.
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',color:'var(--text-primary)',background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)',borderRadius:6,padding:'6px 10px'}}>
           <span style={{color:'#15803d',fontWeight:800,fontSize:11}}>
-            📅 Supported Date Formats:
+            📅 Date Recognition:
           </span>
           <span style={{fontSize:11,color:'var(--text-secondary)'}}>
-            <strong>YYYY-MM-DD</strong> (e.g. <code>2026-08-01</code>) or <strong>DD/MM/YYYY</strong> (e.g. <code>01/08/2026</code>) or <strong>DD-MM-YYYY</strong> — both are automatically recognized and normalized.
+            Accepts both <strong>YYYY-MM-DD</strong> (e.g. <code>2026-09-01</code>) and <strong>DD/MM/YYYY</strong> (e.g. <code>01/09/2026</code>) automatically.
           </span>
         </div>
-      </div>
-      <div style={{background:'rgba(59, 130, 246, 0.08)',border:'1px solid rgba(59, 130, 246, 0.25)',borderRadius:8,padding:'10px 14px',fontSize:12,color:'var(--text-primary)'}}>
-        💡 <strong>Unit Code Matching:</strong> Each <code>unit_code</code> must match a registered unit in <strong>Property &rarr; Units</strong> (e.g. <code>GR-101</code>, <code>FL3-3A</code>, <code>FL5-5C</code>). If a unit is not yet registered or already has an active lease, the system will flag the exact row.
       </div>
       <div
         onDragOver={(e)=>{e.preventDefault();setDragging(true);}}
@@ -356,8 +475,8 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
       {rows.length > 0 && (() => {
         const validationIssues = rows.map((r, i) => {
           const issues: string[] = [];
-          if (!r.name) issues.push("Missing name");
-          if (!r.unit_code) issues.push("Missing unit code");
+          if (!r.unit_code) issues.push("Missing unit code (Column 1)");
+          if (!r.name) issues.push("Missing tenant name");
           if (!r.lease_start) {
             issues.push("Missing lease start date");
           } else if (!/^\d{4}-\d{2}-\d{2}$/.test(r.lease_start)) {
@@ -377,7 +496,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>Preview — {rows.length} tenant row{rows.length !== 1 ? 's' : ''} parsed</div>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Preview — {rows.length} tenant row{rows.length !== 1 ? 's' : ''} parsed (Mirrors Card)</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {multiUnitTenants.length > 0 && (
                   <span style={{ fontSize: 11, background: "#e0e7ff", color: "#4338ca", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
@@ -400,7 +519,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                   <tr style={{ background: 'var(--surface-sunken, var(--surface-2))', borderBottom: '2px solid var(--border)' }}>
-                    {['#', 'Validation', 'Tenant Name', 'Type', 'Email & Phone', 'KRA PIN / Reg', 'Unit Code', 'Lease Start', 'Term', 'Commercial Rent & Terms'].map(h => (
+                    {['#', 'Validation', 'Unit Number (Col 1)', 'Tenant Legal Name', 'Classification', 'Address & Contact', 'KRA PIN / Reg', 'Lease Term & Start', 'Rent & Charges', 'Parking & Arrears'].map(h => (
                       <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -421,25 +540,27 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '8px 12px', fontWeight: 700, color: "var(--text-primary)", maxWidth: 220, whiteSpace: "normal" }}>
+                        <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 900, color: "var(--primary)" }}>
+                          {r.unit_code || <span style={{ color: '#dc2626' }}>MISSING</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', fontWeight: 700, color: "var(--text-primary)", maxWidth: 200, whiteSpace: "normal" }}>
                           {r.name || <span style={{ color: '#dc2626', fontWeight: 800 }}>MISSING</span>}
                         </td>
                         <td style={{ padding: '8px 12px', textTransform: 'capitalize' }}>{r.tenant_type}</td>
-                        <td style={{ padding: '8px 12px', fontSize: 11, color: "var(--text-secondary)" }}>
-                          {r.email && <div>✉ {r.email}</div>}
+                        <td style={{ padding: '8px 12px', fontSize: 11, color: "var(--text-secondary)", maxWidth: 220 }}>
                           {r.phone && <div>📞 {r.phone}</div>}
-                          {!r.email && !r.phone && <span>—</span>}
+                          {r.email && <div>✉ {r.email}</div>}
+                          {r.city && <div style={{ color: "var(--muted)" }}>📍 {[r.address_1, r.city].filter(Boolean).join(", ")}</div>}
+                          {r.contact_name && <div style={{ fontSize: 10, color: "var(--primary)" }}>👤 {r.contact_name}</div>}
+                          {!r.phone && !r.email && <span>—</span>}
                         </td>
                         <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11 }}>
                           {r.tax_id || r.registration_number ? `${r.tax_id || ''} ${r.registration_number ? `(${r.registration_number})` : ''}` : '—'}
                         </td>
-                        <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 800, color: "var(--primary)" }}>
-                          {r.unit_code || <span style={{ color: '#dc2626' }}>MISSING</span>}
+                        <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11 }}>
+                          <div>{r.lease_start || <span style={{ color: '#dc2626' }}>MISSING</span>}</div>
+                          <div style={{ color: "var(--text-secondary)" }}>{r.lease_term_months} mo term</div>
                         </td>
-                        <td style={{ padding: '8px 12px', fontFamily: 'monospace' }}>
-                          {r.lease_start || <span style={{ color: '#dc2626' }}>MISSING</span>}
-                        </td>
-                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>{r.lease_term_months} mo</td>
                         <td style={{ padding: '8px 12px', fontSize: 11 }}>
                           <span style={{ fontFamily: 'monospace', fontWeight: 800, color: "var(--text-primary)" }}>
                             {r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: '#dc2626' }}>MISSING</span>}
@@ -447,7 +568,12 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                           {Number(r.service_charge_rate_per_sqft || 0) > 0 && (
                             <div style={{ color: "var(--text-secondary)", fontSize: 10 }}>SC: KES {r.service_charge_rate_per_sqft}/sqft</div>
                           )}
-                          <div style={{ color: "var(--muted)", fontSize: 10 }}>VAT: {r.vat_rate || "16"}%</div>
+                          <div style={{ color: "var(--muted)", fontSize: 10 }}>VAT: {r.vat_rate || "0"}%</div>
+                        </td>
+                        <td style={{ padding: '8px 12px', fontSize: 11 }}>
+                          {r.parking_bay && <div>🚗 {r.parking_bay} (KES {r.parking_monthly_fee || '0'})</div>}
+                          {Number(r.opening_balance_amount || 0) > 0 && <div style={{ color: '#b45309', fontWeight: 700 }}>Arrears: KES {Number(r.opening_balance_amount).toLocaleString()}</div>}
+                          {!r.parking_bay && !Number(r.opening_balance_amount || 0) && <span style={{ color: "var(--muted)" }}>—</span>}
                         </td>
                       </tr>
                     );

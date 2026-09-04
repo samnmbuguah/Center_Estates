@@ -494,43 +494,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                     <ListItemIcon><Bug size={18} color="#ef4444" /></ListItemIcon>
                     <ListItemText primary="Report System Bug" secondary="Direct to Developer (Samuel)" />
                   </MenuItem>
-                  {session?.canSwitchIdentity && activeIdentityGroups.length > 0 && (
-                    <>
-                      <Box sx={{ px: 2, py: 1 }}>
-                        <Typography variant="overline" sx={{ fontSize: 10, color: "text.secondary" }}>Switch Identity</Typography>
-                      </Box>
-                      {activeIdentityGroups.map((group) => (
-                        <Box key={group.label} sx={{ mb: 1 }}>
-                          <Typography variant="caption" sx={{ px: 2, fontSize: 10, color: "text.secondary", fontWeight: 700, textTransform: "uppercase" }}>
-                            {group.label}
-                          </Typography>
-                          {group.identities.map((identity) => (
-                            <MenuItem
-                              key={identity.username}
-                              onClick={() => onSwitchIdentity(identity.username)}
-                              disabled={switching}
-                              dense
-                            >
-                              <ListItemIcon>
-                                <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
-                                  {identity.username.slice(0, 2).toUpperCase()}
-                                </Avatar>
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={identity.label || identity.username}
-                              />
-                            </MenuItem>
-                          ))}
-                        </Box>
-                      ))}
-                      {switchError && (
-                        <Typography variant="caption" color="error" sx={{ px: 2, py: 1 }}>
-                          {switchError}
-                        </Typography>
-                      )}
-                      <Divider />
-                    </>
-                  )}
+
                   {session?.impersonating && (
                     <>
                       <MenuItem onClick={onReturnAdmin} disabled={switching}>

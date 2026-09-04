@@ -162,7 +162,10 @@ export function OwnersView({
   const downloadOwnerTemplate = () => {
     const rows = [
       ["unit_numbers", "name", "email", "phone", "pin_number", "id_or_registration_number", "settlement_bank_name", "settlement_bank_account", "settlement_bank_branch", "settlement_paybill_or_till", "engaged_for_unit_management", "engaged_for_letting", "is_management_company"],
-      ["A-101;A-102", "ABC Holdings Ltd", "accounts@abc.example", "+254700000000", "P012345678X", "C.12345", "NCBA Bank", "010123456789", "Westlands", "", "yes", "no", "no"],
+      ["A-101", "Dr. Peter Kamau Kariuki", "peter.kariuki@example.com", "+254722111222", "A001234567Z", "12345678", "Standard Chartered Bank", "0100123456700", "Chiromo", "", "yes", "yes", "no"],
+      ["B-201;B-202", "Eng. Mary Wambui Gitau", "mary.gitau@example.com", "+254733222333", "A009876543Y", "23456789", "", "", "", "247247", "yes", "no", "no"],
+      ["A-102", "ABC Holdings Ltd", "accounts@abcholdings.co.ke", "+254700000000", "P012345678X", "CPR/2020/12345", "NCBA Bank", "010123456789", "Westlands", "", "yes", "no", "no"],
+      ["", "Lynx Management Company Ltd", "info@lynxmanagement.co.ke", "+254711000999", "P051112223K", "CPR/2021/54321", "Co-operative Bank", "01129876543200", "Upper Hill", "400200", "yes", "no", "yes"],
     ];
     const csv = rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));

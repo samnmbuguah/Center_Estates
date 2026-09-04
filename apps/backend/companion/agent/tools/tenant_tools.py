@@ -1,6 +1,6 @@
 import logging
 from datetime import timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from django.utils import timezone
 from properties.models import Lease, Unit
 from companion.agent.state import AgentAction
@@ -8,30 +8,41 @@ from companion.agent.state import AgentAction
 logger = logging.getLogger(__name__)
 
 
-def inspect_leasing_and_occupancy(organization_id: str) -> Dict[str, Any]:
+def inspect_leasing_and_occupancy(
+    organization_id: str,
+    property_id: Optional[str] = None,
+    allowed_modules: Optional[List[str]] = None,
+) -> Dict[str, Any]:
     """
     Query expiring leases (30/60/90 days), vacant units, and upcoming renewals.
+    Scoped to property_id and user module permissions.
     """
+    if allowed_modules is not None and "property" not in allowed_modules:
+        return {'expiring_leases_count': 0, 'vacant_units_count': 0, 'expiring_leases': [], 'proposed_actions': []}
+
     today = timezone.now().date()
     sixty_days = today + timedelta(days=60)
     try:
-        expiring_leases = Lease.objects.filter(
+        lease_qs = Lease.objects.filter(
             organization_id=organization_id,
-            status__in=['active', 'pending'],
+            status__in=['active', 'expiring'],
             ends_on__gte=today,
             ends_on__lte=sixty_days,
         ).select_related('tenant', 'unit', 'unit__property')
 
-        expiring_count = expiring_leases.count()
-        vacant_units_count = Unit.objects.filter(
-            property__organization_id=organization_id,
-            status='vacant'
-        ).count()
+        unit_qs = Unit.objects.filter(property__organization_id=organization_id, status='vacant')
+
+        if property_id:
+            lease_qs = lease_qs.filter(unit__property_id=property_id)
+            unit_qs = unit_qs.filter(property_id=property_id)
+
+        expiring_count = lease_qs.count()
+        vacant_units_count = unit_qs.count()
 
         lease_items = []
         actions: List[Dict[str, Any]] = []
 
-        for lease in expiring_leases[:5]:
+        for lease in lease_qs[:5]:
             tenant_name = lease.tenant.name if lease.tenant else 'Unknown Tenant'
             unit_code = lease.unit.code if lease.unit else 'N/A'
             prop_name = lease.unit.property.name if lease.unit and lease.unit.property else 'N/A'
@@ -46,7 +57,6 @@ def inspect_leasing_and_occupancy(organization_id: str) -> Dict[str, Any]:
                 'end_date': lease.ends_on.isoformat() if lease.ends_on else None,
             })
 
-            # Propose Actionable Lease Renewal Notice Intervention
             actions.append(AgentAction(
                 id=f"act_lease_{lease.id}",
                 action_type="renew_lease",

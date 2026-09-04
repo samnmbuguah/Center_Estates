@@ -172,7 +172,7 @@ export function ReportsView({
       key: "executive_fm",
       name: "Executive FM Performance Report (Landlord Pack)",
       category: "Executive & Board",
-      badge: "Landlord Dossier",
+      badge: "Landlord Pack",
       description: "Holistic monthly facilities scorecard generated from live work orders, SLA results, maintenance compliance, budgets and statutory records.",
       icon: "📊",
       critical: true,
@@ -233,7 +233,7 @@ export function ReportsView({
       name: "Statutory Compliance & Mandatory Certificates Audit",
       category: "Statutory & Compliance",
       badge: "Regulatory Pack",
-      description: "Audit dossier of all mandatory building certificates (Fire Safety, DOSH Lifts, EPRA Electrical, OSHA, Building Insurance) with expiry dates.",
+      description: "Audit report of all mandatory building certificates (Fire Safety, DOSH Lifts, EPRA Electrical, OSHA, Building Insurance) with expiry dates.",
       icon: "🛡️",
       critical: true,
       exportType: "statutory",
@@ -404,7 +404,7 @@ export function ReportsView({
       {/* 1. TOP UNIFIED REPORT TOOLBAR */}
       <ReportToolbar
         title="Facilities Management Intelligence & Reports"
-        subtitle="Authoritative operational audit dossiers, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics."
+        subtitle="Authoritative operational audit reports, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics."
         exportFormat={exportFormat}
         onFormatChange={setExportFormat}
         onExport={() => void handleExport()}
@@ -546,7 +546,7 @@ export function ReportsView({
                 <Chip size="small" variant="outlined" label="ReportLab PDF Engine" />
               </Box>
               <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5 }}>
-                Executive Facilities Management Performance Dossier
+                Executive Facilities Management Performance Report
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 Consolidated audit report combining live work orders, technician SLA turnarounds, contractor 7-pillar scorecards, preventive maintenance compliance, statutory obligations, and energy indices.

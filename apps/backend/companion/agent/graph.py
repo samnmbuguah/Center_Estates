@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from langgraph.graph import StateGraph, START, END
 from django.utils import timezone
 
@@ -9,6 +9,7 @@ from .tools.finance_tools import inspect_arrears_and_collections
 from .tools.facility_tools import inspect_facility_work_orders
 from .tools.tenant_tools import inspect_leasing_and_occupancy
 from .tools.team_tools import inspect_team_and_hr
+from .tools.calendar_tools import get_upcoming_critical_dates, get_sales_pipeline, search_tenant_by_name
 from notifications.services import notify_user, send_email_notification
 from notifications.models import Notification
 
@@ -19,23 +20,44 @@ logger = logging.getLogger(__name__)
 
 def detect_and_ingest_node(state: AgentState) -> Dict[str, Any]:
     """
-    Phase 1: Ingest live ERP state across finance, facility, leasing, and team domains.
+    Phase 1: Ingest live ERP state across finance, facility, leasing, team,
+    calendar, and sales domains — scoped to the user's authorized property view.
     """
     org_id = state.get("organization_id", "")
     if not org_id:
         return {"error": "Missing organization context."}
 
-    fin_data = inspect_arrears_and_collections(org_id)
-    fac_data = inspect_facility_work_orders(org_id)
-    lease_data = inspect_leasing_and_occupancy(org_id)
-    team_data = inspect_team_and_hr(org_id)
+    # Honour the user's active property scope — exactly as the rest of the app does.
+    # None = portfolio-wide; a UUID = single property (user scoped to that property).
+    prop_id: Optional[str] = state.get("active_property_id") or None
+    allowed_modules: Optional[List[str]] = state.get("allowed_modules")
+
+    fin_data = inspect_arrears_and_collections(org_id, property_id=prop_id, allowed_modules=allowed_modules)
+    fac_data = inspect_facility_work_orders(org_id, property_id=prop_id, allowed_modules=allowed_modules)
+    lease_data = inspect_leasing_and_occupancy(org_id, property_id=prop_id, allowed_modules=allowed_modules)
+    team_data = inspect_team_and_hr(org_id, allowed_modules=allowed_modules)  # HR is org-wide; not property-scoped
+    calendar_data = get_upcoming_critical_dates(org_id, property_id=prop_id, allowed_modules=allowed_modules)
+    sales_data = get_sales_pipeline(org_id, property_id=prop_id, allowed_modules=allowed_modules)
+
+    # Optional tenant search if query contains a name
+    query = state.get("input_query", "")
+    tenant_search_data = {}
+    if query and len(query) > 2:
+        import re
+        name_match = re.search(r'(?:tenant|for|client)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', query)
+        if name_match:
+            tenant_search_data = search_tenant_by_name(org_id, name_match.group(1), property_id=prop_id, allowed_modules=allowed_modules)
 
     raw_findings = {
         "finance": fin_data,
         "facility": fac_data,
         "leasing": lease_data,
         "team": team_data,
+        "calendar": calendar_data,
+        "sales": sales_data,
     }
+    if tenant_search_data:
+        raw_findings["tenant_search"] = tenant_search_data
 
     return {
         "financial_data": fin_data,
@@ -99,7 +121,7 @@ def synthesize_and_explain_node(state: AgentState) -> Dict[str, Any]:
     llm_briefing = gateway.generate_chat(system_prompt, [{"role": "user", "content": user_prompt}])
 
     briefing_dict = {
-        "date": timezone.now().strftime("%A, %d %B %Y"),
+        "date": timezone.localtime(timezone.now()).strftime("%A, %d %B %Y"),
         "headline": f"Portfolio operating at {score}% health — {health_status}",
         "portfolio_health_score": score,
         "health_status": health_status,
@@ -158,27 +180,115 @@ def propose_interventions_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
-# ─── Node 4: Safe Execution of Approved Actions (Human-in-the-Loop) ────────────
+# ─── Node 4: LangGraph Chat Reasoning (Grounded Conversational AI) ─────────────
+
+def chat_and_respond_node(state: AgentState) -> Dict[str, Any]:
+    """
+    Phase 4 (Chat mode): Use live domain tool findings to produce a grounded,
+    conversational answer to the operator's query.
+    """
+    import json
+    gateway = LLMGateway()
+    raw_findings = state.get("raw_findings", {})
+    query = state.get("input_query", "")
+    user_name = state.get("user_name", "Operator")
+    conversation_history = state.get("conversation_history", [])
+    local_now = timezone.localtime(timezone.now())
+
+    # Compile grounded domain facts
+    fin = raw_findings.get("finance", {})
+    fac = raw_findings.get("facility", {})
+    lease = raw_findings.get("leasing", {})
+    calendar = raw_findings.get("calendar", {})
+    sales = raw_findings.get("sales", {})
+    tenant_search = raw_findings.get("tenant_search", {})
+    active_prop_name = state.get("active_property_name")
+    allowed_modules = state.get("allowed_modules")
+
+    scope_line = f"ACTIVE WORKSPACE SCOPE: {active_prop_name}" if active_prop_name else "ACTIVE WORKSPACE SCOPE: Entire Portfolio"
+
+    facts_parts = [
+        f"TODAY'S DATE: {local_now.strftime('%A, %d %B %Y, %I:%M %p %Z')}",
+        scope_line,
+    ]
+    if (allowed_modules is None or "property" in allowed_modules):
+        facts_parts.append(f"FINANCE: KES {fin.get('total_arrears', 0):,.0f} in arrears across {fin.get('overdue_count', 0)} overdue invoices.")
+        if fin.get("top_defaulters"):
+            facts_parts.append(f"TOP DEFAULTERS: {json.dumps(fin['top_defaulters'][:3], default=str)}")
+        if lease.get("expiring_leases_count"):
+            facts_parts.append(f"LEASING: {lease['expiring_leases_count']} leases expiring within 60 days.")
+        if lease.get("expiring_leases"):
+            facts_parts.append(f"EXPIRING LEASES DETAIL: {json.dumps(lease['expiring_leases'][:5], default=str)}")
+    if (allowed_modules is None or "facility" in allowed_modules) and fac.get("open_work_orders"):
+        facts_parts.append(f"FACILITY: {fac['open_work_orders']} open work orders, {fac.get('urgent_count', 0)} critical.")
+    if calendar.get("events"):
+        facts_parts.append(f"CALENDAR EVENTS (next 30d): {json.dumps(calendar['events'][:8], default=str)}")
+    if (allowed_modules is None or "sales" in allowed_modules) and sales.get("total_listings") is not None:
+        facts_parts.append(f"SALES PIPELINE: {sales.get('total_listings', 0)} total listings, by status: {sales.get('listings_by_status', {})}")
+    if tenant_search.get("results"):
+        facts_parts.append(f"TENANT SEARCH RESULTS: {json.dumps(tenant_search['results'], default=str)}")
+
+    grounded_facts = "\n".join(facts_parts)
+
+    system_prompt = (
+        f"You are Quartermaster, the autonomous AI Agent for Center Estates ERP.\n"
+        f"Active Operator: {user_name}\n\n"
+        f"LIVE GROUNDED SYSTEM DATA:\n{grounded_facts}\n\n"
+        "AGENT DIRECTIVES:\n"
+        "1. Ground every answer in the live system data above. Never invent figures, names, or records.\n"
+        "2. When asked about dates/calendar — use TODAY'S DATE stated above and derive correctly.\n"
+        "3. ROLE & SCOPE BOUNDARIES: You operate strictly within the authorized scope of the logged-in operator. All data provided is already scoped to what the operator is authorized to see based on roles and permissions. Never include disclaimers, contrasts, or 'Note:' remarks about workspace filters or portfolio differences. Answer directly and factually for the data authorized and visible to the operator.\n"
+        "4. Format responses with clean markdown: bullet points, **bold metrics**, concise paragraphs.\n"
+        "5. Tone: Professional, direct, proactive. If data is clear, be definitive — avoid hedging.\n"
+        "6. For action requests (send reminders, escalate tickets), describe the proposed action and parameters for user approval.\n"
+    )
+
+    messages = []
+    for msg in conversation_history[-8:]:
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": query})
+
+    response_text = gateway.generate_chat(system_prompt, messages)
+
+    tools_executed = []
+    if (allowed_modules is None or "property" in allowed_modules) and (fin or lease):
+        tools_executed.extend(["finance_data", "leasing_data"])
+    if (allowed_modules is None or "facility" in allowed_modules) and fac:
+        tools_executed.append("facility_data")
+    if calendar.get("events"):
+        tools_executed.append("calendar_events")
+    if (allowed_modules is None or "sales" in allowed_modules) and sales.get("total_listings") is not None:
+        tools_executed.append("sales_pipeline")
+    if tenant_search.get("results"):
+        tools_executed.append("tenant_search")
+
+    return {
+        "final_response": response_text,
+        "tools_executed": tools_executed,
+    }
+
+
+# ─── Node 5: Safe Execution of Approved Actions (Human-in-the-Loop) ────────────
 
 def execute_approved_actions_node(state: AgentState) -> Dict[str, Any]:
     """
-    Phase 4: Execute actions explicitly approved by the user with audit records.
+    Phase 5: Execute actions explicitly approved by the user with audit records.
     """
+    from django.utils import timezone as tz
+
     org_id = state.get("organization_id", "")
     approved_ids = set(state.get("approved_action_ids", []))
     proposed = state.get("proposed_actions", [])
-    results: List[Dict[str, Any]] = []
+    results = []
 
     for act in proposed:
         if act.get("id") in approved_ids or "all" in approved_ids:
             act_type = act.get("action_type")
             target_id = act.get("target_id")
             payload = act.get("payload", {})
-            title = act.get("title", "")
 
             try:
                 if act_type == "send_payment_reminder":
-                    # Send Email / Notification to tenant
                     tenant_email = payload.get("tenant_email")
                     amount = payload.get("amount", 0)
                     if tenant_email:
@@ -186,22 +296,29 @@ def execute_approved_actions_node(state: AgentState) -> Dict[str, Any]:
                             recipient_email=tenant_email,
                             recipient_name=act.get("target_name", "Valued Tenant"),
                             subject="[Center Estates] Rent Payment Reminder & M-Pesa Details",
-                            message=f"Dear Tenant, this is a friendly reminder that an outstanding rent balance of KES {amount:,.0f} is due for your unit. You may settle via M-Pesa Paybill.",
+                            message=(
+                                f"Dear {act.get('target_name', 'Tenant')}, this is a friendly reminder that an "
+                                f"outstanding rent balance of KES {amount:,.0f} is due for your unit. "
+                                "You may settle via M-Pesa Paybill. Contact your property manager for assistance."
+                            ),
                             action_url="/tenant-portal",
                             organization=None,
                         )
+                    # Audit entry
+                    _write_agent_audit(org_id, act_type, target_id, act.get("title", ""), state.get("user_id"))
                     results.append({"id": act.get("id"), "status": "executed", "detail": f"Dispatched payment reminder for {act.get('target_name')}."})
 
                 elif act_type == "dispatch_work_order":
-                    # Escalate work order priority
                     from facilities.models import WorkOrder
                     wo = WorkOrder.objects.filter(id=target_id).first()
                     if wo:
                         wo.priority = 'urgent'
-                        wo.save(update_fields=['priority'])
-                        results.append({"id": act.get("id"), "status": "executed", "detail": f"Escalated work order {wo.title} to urgent."})
+                        wo.save(update_fields=['priority', 'updated_at'])
+                        _write_agent_audit(org_id, act_type, target_id, act.get("title", ""), state.get("user_id"))
+                    results.append({"id": act.get("id"), "status": "executed", "detail": f"Escalated work order {wo.title if wo else target_id} to urgent."})
 
                 elif act_type == "renew_lease":
+                    _write_agent_audit(org_id, act_type, target_id, act.get("title", ""), state.get("user_id"))
                     results.append({"id": act.get("id"), "status": "executed", "detail": f"Prepared renewal notice for {act.get('target_name')}."})
 
                 elif act_type == "approve_leave":
@@ -210,7 +327,8 @@ def execute_approved_actions_node(state: AgentState) -> Dict[str, Any]:
                     if leave:
                         leave.status = StaffLeaveRequest.Status.APPROVED
                         leave.save(update_fields=['status'])
-                        results.append({"id": act.get("id"), "status": "executed", "detail": f"Approved leave request for {act.get('target_name')}."})
+                        _write_agent_audit(org_id, act_type, target_id, act.get("title", ""), state.get("user_id"))
+                    results.append({"id": act.get("id"), "status": "executed", "detail": f"Approved leave request for {act.get('target_name')}."})
 
             except Exception as exc:
                 logger.error("Execution of action %s failed: %s", act.get("id"), exc)
@@ -219,11 +337,29 @@ def execute_approved_actions_node(state: AgentState) -> Dict[str, Any]:
     return {"execution_results": results}
 
 
+def _write_agent_audit(org_id: str, action_type: str, target_id: str, title: str, user_id: str = None):
+    """Write an audit event for every agent-executed action."""
+    try:
+        from audit.models import AuditEvent
+        AuditEvent.objects.create(
+            organization_id=org_id,
+            actor_id=user_id,
+            action=f"AGENT_{action_type.upper()}",
+            target_id=target_id,
+            description=f"QM Agent executed: {title}",
+        )
+    except Exception as exc:
+        logger.warning("Failed to write agent audit event: %s", exc)
+
+
 # ─── Build State Graph ────────────────────────────────────────────────────────
 
 def build_agent_graph() -> StateGraph:
     """
-    Construct the cyclic LangGraph workflow for Center Estates Open Agent Orchestrator.
+    Construct the LangGraph workflow for Center Estates Quartermaster Agent.
+    Supports two modes:
+      - 'briefing' → ingest → synthesize → propose_interventions → [execute?]
+      - 'chat'     → ingest → chat_and_respond
     """
     workflow = StateGraph(AgentState)
 
@@ -231,13 +367,25 @@ def build_agent_graph() -> StateGraph:
     workflow.add_node("synthesize_and_explain", synthesize_and_explain_node)
     workflow.add_node("propose_interventions", propose_interventions_node)
     workflow.add_node("execute_approved_actions", execute_approved_actions_node)
+    workflow.add_node("chat_and_respond", chat_and_respond_node)
 
-    # Standard Flow
     workflow.add_edge(START, "detect_and_ingest")
-    workflow.add_edge("detect_and_ingest", "synthesize_and_explain")
+
+    # Route based on mode
+    def route_after_ingest(state: AgentState):
+        mode = state.get("mode", "chat")
+        if mode == "chat":
+            return "chat_and_respond"
+        return "synthesize_and_explain"
+
+    workflow.add_conditional_edges("detect_and_ingest", route_after_ingest, {
+        "chat_and_respond": "chat_and_respond",
+        "synthesize_and_explain": "synthesize_and_explain",
+    })
+
+    workflow.add_edge("chat_and_respond", END)
     workflow.add_edge("synthesize_and_explain", "propose_interventions")
-    
-    # Conditional edge based on mode
+
     def route_execution(state: AgentState):
         if state.get("mode") == "action_execution" and state.get("approved_action_ids"):
             return "execute_approved_actions"

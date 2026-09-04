@@ -1,15 +1,21 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from companion.models import StaffLeaveRequest, Task, TeamFeedbackThread
 from companion.agent.state import AgentAction
 
 logger = logging.getLogger(__name__)
 
 
-def inspect_team_and_hr(organization_id: str) -> Dict[str, Any]:
+def inspect_team_and_hr(
+    organization_id: str,
+    allowed_modules: Optional[List[str]] = None,
+) -> Dict[str, Any]:
     """
     Query pending staff leave requests, open team tasks, and feedback tickets.
+    Scoped to companion module permission.
     """
+    if allowed_modules is not None and "companion" not in allowed_modules:
+        return {'pending_leave_count': 0, 'open_tasks_count': 0, 'open_feedback_count': 0, 'pending_leaves': [], 'proposed_actions': []}
     try:
         pending_leaves = StaffLeaveRequest.objects.filter(
             organization_id=organization_id,

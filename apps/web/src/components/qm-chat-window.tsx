@@ -43,8 +43,19 @@ type QmResponse = {
   groundedAt?: string;
   suggestedActions?: QmAction[];
   conversationId?: string;
+  toolsExecuted?: string[];
 };
 type QmMessage = { id: string; role: "user" | "assistant"; text: string; response?: QmResponse };
+
+const TOOL_LABELS: Record<string, { label: string; icon: string }> = {
+  finance_data:    { label: "Rent & Arrears",    icon: "💰" },
+  facility_data:   { label: "Work Orders",       icon: "🔧" },
+  leasing_data:    { label: "Tenancy & Leases",  icon: "📋" },
+  team_data:       { label: "HR & Team",         icon: "👥" },
+  calendar_events: { label: "Calendar",          icon: "📅" },
+  sales_pipeline:  { label: "Sales Pipeline",    icon: "📈" },
+  tenant_search:   { label: "Tenant Search",     icon: "🔍" },
+};
 type StoredConversation = {
   id: string;
   title?: string;
@@ -446,6 +457,34 @@ export default function QmChatWindow({
                   </Typography>
                 )}
               </Paper>
+              {/* Tool execution badges — shows which live data sources QM queried */}
+              {message.role === "assistant" && message.response?.toolsExecuted?.length ? (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5, alignItems: "center" }}>
+                  <Typography variant="caption" sx={{ color: "text.disabled", fontSize: 10, mr: 0.25 }}>
+                    Grounded via:
+                  </Typography>
+                  {message.response.toolsExecuted.map((tool) => {
+                    const meta = TOOL_LABELS[tool] ?? { label: tool, icon: "📦" };
+                    return (
+                      <Tooltip key={tool} title={`Live data: ${meta.label}`} placement="top">
+                        <Chip
+                          size="small"
+                          label={`${meta.icon} ${meta.label}`}
+                          sx={{
+                            height: 18,
+                            fontSize: 10,
+                            fontWeight: 600,
+                            bgcolor: "rgba(13,148,136,0.08)",
+                            color: "#0d9488",
+                            border: "1px solid rgba(13,148,136,0.2)",
+                            "& .MuiChip-label": { px: 0.75 },
+                          }}
+                        />
+                      </Tooltip>
+                    );
+                  })}
+                </Box>
+              ) : null}
               {message.response?.suggestedActions?.length ? (
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.6 }}>
                   {message.response.suggestedActions.map((action) => (
