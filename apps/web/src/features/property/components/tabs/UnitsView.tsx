@@ -49,6 +49,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [localUnits, setLocalUnits] = useState<UnitRow[]>((rows as UnitRow[]) || []);
   const [filterTypology, setFilterTypology] = useState<string | null>(null);
+  const [filterOccupancy, setFilterOccupancy] = useState<"all" | "developer_tenanted" | "direct_landlord" | "owner_occupied" | "vacant">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTypologyValue, setBulkTypologyValue] = useState<string>("Studio");
   const [customTypologyInput, setCustomTypologyInput] = useState<string>("");
@@ -56,6 +57,16 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const [editingSingleUnit, setEditingSingleUnit] = useState<UnitRow | null>(null);
   const [singleTypologyInput, setSingleTypologyInput] = useState<string>("");
   const [isSingleUpdating, setIsSingleUpdating] = useState<boolean>(false);
+
+  // On-demand letting fee invoice state
+  const [lettingFeeModalOpen, setLettingFeeModalOpen] = useState(false);
+  const [lettingUnit, setLettingUnit] = useState<UnitRow | null>(null);
+  const [lettingFeeBasis, setLettingFeeBasis] = useState<"flat" | "one_month" | "half_month" | "percentage">("flat");
+  const [lettingFeeAmount, setLettingFeeAmount] = useState<string>("25000");
+  const [lettingFeeDate, setLettingFeeDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [lettingFeeOwner, setLettingFeeOwner] = useState<string>("");
+  const [lettingFeeSaving, setLettingFeeSaving] = useState(false);
+  const [lettingFeeSuccess, setLettingFeeSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalUnits((rows as UnitRow[]) || []);
@@ -74,13 +85,47 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const typologyTotal = Object.values(typologyCounts).reduce((s, c) => s + c, 0);
   const areaCount = units.filter((u) => u.area !== undefined && u.area !== null).length;
 
+  const isDevTenanted = (u: UnitRow) =>
+    u.status === "occupied" &&
+    (u.billing_isolation?.bill_rent === true ||
+      (Number(u.effective_rent || u.monthly_rent || 0) > 0 &&
+        u.billing_isolation?.rent_collection_mode !== "direct_landlord"));
+
+  const isDirectLandlord = (u: UnitRow) =>
+    u.status === "occupied" &&
+    (u.billing_isolation?.rent_collection_mode === "direct_landlord" ||
+      u.billing_isolation?.bill_rent === false ||
+      Number(u.effective_rent || u.monthly_rent || 0) === 0);
+
+  const isOwnerOccupied = (u: UnitRow) =>
+    u.status === "occupied" &&
+    Boolean(
+      u.owner_name &&
+        u.tenant_name &&
+        u.owner_name.toLowerCase().trim() === u.tenant_name.toLowerCase().trim()
+    );
+
+  const devTenanted = units.filter(isDevTenanted);
+  const directLandlord = units.filter(isDirectLandlord);
+  const ownerOccupied = units.filter(isOwnerOccupied);
+  const vacantUnits = units.filter((u) => u.status !== "occupied");
+
   const displayUnits = useMemo(() => {
     let list = units;
     if (filterTypology) {
       list = list.filter((u) => (String(u.unit_type ?? "").trim() || "—") === filterTypology);
     }
+    if (filterOccupancy === "developer_tenanted") {
+      list = list.filter(isDevTenanted);
+    } else if (filterOccupancy === "direct_landlord") {
+      list = list.filter(isDirectLandlord);
+    } else if (filterOccupancy === "owner_occupied") {
+      list = list.filter(isOwnerOccupied);
+    } else if (filterOccupancy === "vacant") {
+      list = list.filter((u) => u.status !== "occupied");
+    }
     return list;
-  }, [units, filterTypology]);
+  }, [units, filterTypology, filterOccupancy]);
 
   const allVisibleSelected = displayUnits.length > 0 && displayUnits.every((u) => selectedIds.has(String(u.id)));
 
@@ -348,6 +393,76 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     }
   };
 
+  const openLettingFeeModalForUnit = (u?: UnitRow) => {
+    if (u) {
+      setLettingUnit(u);
+      setLettingFeeOwner(u.owner_name || "");
+      const rent = Number(u.effective_rent || u.monthly_rent || 0);
+      if (rent > 0) {
+        setLettingFeeAmount(String(rent));
+        setLettingFeeBasis("one_month");
+      } else {
+        setLettingFeeAmount("25000");
+        setLettingFeeBasis("flat");
+      }
+    } else {
+      setLettingUnit(null);
+      setLettingFeeOwner("");
+      setLettingFeeAmount("25000");
+      setLettingFeeBasis("flat");
+    }
+    setLettingFeeSuccess(null);
+    setLettingFeeModalOpen(true);
+  };
+
+  const handleCreateLettingInvoice = async () => {
+    const feeVal = Number(lettingFeeAmount);
+    if (isNaN(feeVal) || feeVal <= 0) {
+      toast.error("Enter a valid letting fee amount.");
+      return;
+    }
+    setLettingFeeSaving(true);
+    setLettingFeeSuccess(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const payload: Record<string, any> = {
+        invoice_type: "Letting Fee",
+        charge_type: "letting_fee",
+        recipient_type: "owner",
+        amount: feeVal.toFixed(2),
+        subtotal: feeVal.toFixed(2),
+        tax_rate: "0",
+        issued_on: lettingFeeDate,
+        due_on: lettingFeeDate,
+        metadata: {
+          fee_basis: lettingFeeBasis,
+          landlord_name: lettingFeeOwner,
+          negotiated: true,
+        },
+      };
+      if (lettingUnit) {
+        payload.unit = lettingUnit.id;
+        if (lettingUnit.owner) payload.owner = lettingUnit.owner;
+      }
+      const res = await apiFetch("/property/invoices/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || (typeof err === "object" ? Object.values(err).flat().join(" ") : "Failed to issue invoice."));
+      }
+      const data = await res.json();
+      setLettingFeeSuccess(`Letting Fee Invoice ${data.number || "created"} generated for KES ${feeVal.toLocaleString()}!`);
+      toast.success("Letting fee invoice generated.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to issue invoice.");
+    } finally {
+      setLettingFeeSaving(false);
+    }
+  };
+
   return (
     <>
       <KpiStrip cols={4}>
@@ -362,13 +477,78 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
       </KpiStrip>
 
       <ViewToolbar title="Occupancy Register" subtitle="Lettable and non-lettable units at the selected property" search={search} onSearch={setSearch} placeholder="Search by unit code, type or building…">
-        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            className="btn sm"
+            style={{
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              fontWeight: 800,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              borderRadius: 6,
+              padding: "6px 14px",
+              cursor: "pointer",
+            }}
+            onClick={() => openLettingFeeModalForUnit()}
+          >
+            ⚡ Invoice Letting Fee
+          </button>
           <button type="button" className={`btn sm ${view === "residential" ? "primary" : "ghost"}`} data-testid="occupancy-residential-btn" onClick={() => setView("residential")}>Residential</button>
           <button type="button" className={`btn sm ${view === "commercial" ? "primary" : "ghost"}`} data-testid="occupancy-commercial-btn" onClick={() => setView("commercial")}>Commercial</button>
           <button type="button" className={`btn sm ${view === "stacking" ? "primary" : "ghost"}`} data-testid="occupancy-stacking-btn" onClick={() => setView("stacking")}>🏢 Stacking Plan</button>
           <button type="button" className={`btn sm ${view === "floorplan" ? "primary" : "ghost"}`} data-testid="occupancy-floorplan-btn" onClick={() => setView("floorplan")}>📐 Floor Plan Outline</button>
         </div>
       </ViewToolbar>
+
+      {/* Occupancy & Cashflow Quick-Filter Bar */}
+      <div style={{
+        margin: "0 0 16px 0",
+        padding: "10px 14px",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+      }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-secondary)", marginRight: 4 }}>
+          Occupancy Breakdown:
+        </span>
+        {[
+          { key: "all", label: `All Units (${units.length})`, bg: "#f1f5f9", activeBg: "#0f172a", activeColor: "#fff", color: "#334155" },
+          { key: "developer_tenanted", label: `🏢 Developer Rent (${devTenanted.length})`, bg: "#eff6ff", activeBg: "#2563eb", activeColor: "#fff", color: "#1d4ed8" },
+          { key: "direct_landlord", label: `🔑 Direct Landlord (${directLandlord.length})`, bg: "#faf5ff", activeBg: "#7c3aed", activeColor: "#fff", color: "#6d28d9" },
+          { key: "owner_occupied", label: `🏠 Owner Occupied (${ownerOccupied.length})`, bg: "#fffbeb", activeBg: "#d97706", activeColor: "#fff", color: "#b45309" },
+          { key: "vacant", label: `⚪ Vacant (${vacantUnits.length})`, bg: "#f8fafc", activeBg: "#475569", activeColor: "#fff", color: "#64748b" },
+        ].map((pill) => {
+          const isActive = filterOccupancy === pill.key;
+          return (
+            <button
+              key={pill.key}
+              type="button"
+              onClick={() => setFilterOccupancy(pill.key as any)}
+              style={{
+                padding: "5px 12px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: isActive ? 800 : 600,
+                background: isActive ? pill.activeBg : pill.bg,
+                color: isActive ? pill.activeColor : pill.color,
+                border: isActive ? `1.5px solid ${pill.activeBg}` : `1px solid var(--border)`,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              {pill.label}
+            </button>
+          );
+        })}
+      </div>
 
       {view === "floorplan" ? (
         <Panel title="Interactive Unit Drawing Outline & Floor Plan">
@@ -767,13 +947,47 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                         )}
                         <td><StatusPill value={String(u.status ?? "—")} /></td>
                         <td style={{ fontSize: 12 }}>
-                          <div>{String(u.tenant_name || (u.metadata as Record<string, unknown> | undefined)?.tenant || "—")}</div>
-                          {u.occupancy_state_display && <div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{u.occupancy_state_display}</div>}
+                          <div style={{ fontWeight: 600 }}>{String(u.tenant_name || (u.metadata as Record<string, unknown> | undefined)?.tenant || "—")}</div>
+                          {u.status !== "occupied" ? (
+                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#f1f5f9", color: "#64748b", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
+                              ⚪ Vacant
+                            </span>
+                          ) : isDevTenanted(u) ? (
+                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
+                              🏢 Developer Unit · Rent KES {Number(u.effective_rent || u.monthly_rent || 0).toLocaleString()}
+                            </span>
+                          ) : isDirectLandlord(u) ? (
+                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#faf5ff", color: "#7c3aed", border: "1px solid #e9d5ff", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
+                              🔑 Direct Landlord · KES 0 Mgmt
+                            </span>
+                          ) : isOwnerOccupied(u) ? (
+                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
+                              🏠 Owner Occupier · SC Only
+                            </span>
+                          ) : (
+                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#f0fdf4", color: "#16a34a", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
+                              👤 Active Tenancy
+                            </span>
+                          )}
                         </td>
                         <td>
-                          <button type="button" className="btn ghost sm" onClick={(event) => { event.stopPropagation(); setBillingUnit(u); }}>
-                            {u.billing_isolation?.bill_rent ? "Rent + utilities" : u.billing_isolation?.bill_utilities_to_tenant ? "Utilities only" : "Schedule"}
-                          </button>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <button type="button" className="btn ghost sm" onClick={(event) => { event.stopPropagation(); setBillingUnit(u); }}>
+                              {u.billing_isolation?.bill_rent ? "Rent + utilities" : u.billing_isolation?.bill_utilities_to_tenant ? "Utilities only" : "Schedule"}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn ghost sm"
+                              title="Issue ad-hoc letting fee invoice to landlord"
+                              style={{ color: "#2563eb", fontWeight: 700, fontSize: 11 }}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openLettingFeeModalForUnit(u);
+                              }}
+                            >
+                              ⚡ Letting
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -825,6 +1039,151 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
               onChange={(e) => setSingleTypologyInput(e.target.value)}
               placeholder="e.g. Studio, 1Br, 2Br Std, 2Br Ensuite"
             />
+          </Box>
+        </Modal>
+      )}
+
+      {/* On-Demand Agency Letting Fee Invoice Modal */}
+      {lettingFeeModalOpen && (
+        <Modal
+          title="Issue Agency Letting Fee Invoice"
+          onClose={() => setLettingFeeModalOpen(false)}
+          footer={
+            <>
+              <Button variant="outlined" onClick={() => setLettingFeeModalOpen(false)} sx={{ textTransform: "none" }}>
+                {lettingFeeSuccess ? "Close" : "Cancel"}
+              </Button>
+              {!lettingFeeSuccess && (
+                <Button
+                  variant="contained"
+                  disabled={lettingFeeSaving}
+                  onClick={handleCreateLettingInvoice}
+                  sx={{ textTransform: "none", background: "#2563eb", fontWeight: 700 }}
+                >
+                  {lettingFeeSaving ? "Generating Invoice..." : "⚡ Issue Letting Invoice"}
+                </Button>
+              )}
+            </>
+          }
+        >
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {/* Blue Ribbon Banner — Matching Staff Preview Mode Styling */}
+            <Box
+              sx={{
+                background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                color: "#ffffff",
+                p: 2,
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+              }}
+            >
+              <span style={{ fontSize: 24 }}>⚡</span>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "0.02em" }}>
+                  Staff Letting Action: Immediate Agency Invoicing
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.9, display: "block" }}>
+                  Billed directly to the Unit Owner/Landlord upon lease closing. Fees can be negotiated and issued any day.
+                </Typography>
+              </Box>
+            </Box>
+
+            {lettingFeeSuccess && (
+              <Alert severity="success" sx={{ fontWeight: 600 }}>
+                {lettingFeeSuccess}
+              </Alert>
+            )}
+
+            {!lettingFeeSuccess && (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+                  <TextField
+                    label="Unit"
+                    size="small"
+                    value={lettingUnit?.code || "Whole Building / Ad-Hoc"}
+                    disabled
+                    helperText={lettingUnit?.property_name || "Active Property"}
+                  />
+                  <TextField
+                    label="Landlord / Owner Name"
+                    size="small"
+                    value={lettingFeeOwner}
+                    onChange={(e) => setLettingFeeOwner(e.target.value)}
+                    placeholder="e.g. Dennis Osame"
+                    helperText="Party responsible for the letting commission"
+                  />
+                </Box>
+
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)" }}>
+                    Fee Calculation Basis:
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    {[
+                      { key: "flat", label: "Negotiated Flat Amount" },
+                      { key: "one_month", label: "1 Month Rent" },
+                      { key: "half_month", label: "50% of Month Rent" },
+                      { key: "percentage", label: "10% Agency Sourcing" },
+                    ].map((item) => {
+                      const isSel = lettingFeeBasis === item.key;
+                      return (
+                        <Chip
+                          key={item.key}
+                          label={item.label}
+                          clickable
+                          color={isSel ? "primary" : "default"}
+                          onClick={() => {
+                            setLettingFeeBasis(item.key as any);
+                            const rent = Number(lettingUnit?.effective_rent || lettingUnit?.monthly_rent || 40000);
+                            if (item.key === "one_month") setLettingFeeAmount(String(rent));
+                            else if (item.key === "half_month") setLettingFeeAmount(String(Math.round(rent * 0.5)));
+                            else if (item.key === "percentage") setLettingFeeAmount(String(Math.round(rent * 0.1)));
+                            else setLettingFeeAmount("25000");
+                          }}
+                          sx={{ fontWeight: isSel ? 700 : 500 }}
+                        />
+                      );
+                    })}
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+                  <TextField
+                    label="Letting Fee Amount (KES)"
+                    size="small"
+                    type="number"
+                    value={lettingFeeAmount}
+                    onChange={(e) => setLettingFeeAmount(e.target.value)}
+                    helperText="Final negotiated commission payable"
+                  />
+                  <TextField
+                    label="Invoice Issue Date"
+                    size="small"
+                    type="date"
+                    value={lettingFeeDate}
+                    onChange={(e) => setLettingFeeDate(e.target.value)}
+                    helperText="Date of tenancy closure / invoice"
+                    {...({ InputLabelProps: { shrink: true } } as any)}
+                  />
+                </Box>
+
+                <Box
+                  sx={{
+                    background: "var(--surface-2)",
+                    p: 1.5,
+                    borderRadius: "6px",
+                    border: "1px solid var(--border)",
+                    fontSize: 12,
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  💼 <strong>Collection Route:</strong> Payment is collected directly into the Estate Agency Commission Account. An immediate draft invoice reference will be allocated and ready for handover or remittance deduction.
+                </Box>
+              </Box>
+            )}
           </Box>
         </Modal>
       )}

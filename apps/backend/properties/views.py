@@ -3092,7 +3092,11 @@ class InvoiceViewSet(OrganizationModelViewSet):
     @transaction.atomic
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
-        validate_lease_billable(serializer.validated_data['lease'], timezone.localdate())
+        lease = serializer.validated_data.get('lease')
+        if lease:
+            validate_lease_billable(lease, timezone.localdate())
+        elif not serializer.validated_data.get('owner') and not serializer.validated_data.get('unit'):
+            raise ValidationError({'lease': 'Either a lease, unit, or owner recipient is required.'})
         amount = serializer.validated_data['amount']
         issued_on = serializer.validated_data.get('issued_on', timezone.localdate())
         serializer.save(organization=organization, number=next_invoice_number(organization, issued_on.year), balance=amount, status=Invoice.Status.DRAFT, prepared_by=self.request.user)
