@@ -171,6 +171,24 @@ export interface UnitRow extends Row {
   rental_commission_rate?: number | string;
   common_area_fee_amount?: number | string;
   letting_fee_amount?: number | string;
+  tenant_name?: string;
+  tenant_code?: string;
+  lease_reference?: string;
+  rent_collection_mode?: "estate_managed" | "direct_landlord" | "none" | string;
+  effective_rent?: number | string;
+  occupancy_state?: string;
+  occupancy_state_display?: string;
+  billing_isolation?: {
+    bill_rent?: boolean;
+    rent_amount?: string;
+    rent_collection_mode?: string;
+    rent_payer?: string;
+    rent_destination?: string;
+    bill_service_charge_to_tenant?: boolean;
+    service_charge_payer?: string;
+    bill_utilities_to_tenant?: boolean;
+    utilities_payer?: string;
+  };
 }
 
 export interface ProjectRow extends Row {

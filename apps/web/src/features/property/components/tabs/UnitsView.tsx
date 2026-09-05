@@ -494,7 +494,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                           const borderCol = isOcc ? "#16a34a" : isRes ? "#f59e0b" : "#3b82f6";
                           const bgCol = isOcc ? "rgba(22, 163, 74, 0.08)" : isRes ? "rgba(245, 158, 11, 0.08)" : "rgba(59, 130, 246, 0.08)";
                           const rawTenant = (u.metadata as Record<string, unknown> | undefined)?.tenant;
-                          const tenantName = rawTenant ? String(rawTenant) : null;
+                          const tenantName = u.tenant_name || (rawTenant ? String(rawTenant) : null);
                           return (
                             <div
                               key={String(u.id)}
@@ -766,8 +766,15 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                           </td>
                         )}
                         <td><StatusPill value={String(u.status ?? "—")} /></td>
-                        <td style={{ fontSize: 12 }}>{String((u.metadata as Record<string, unknown> | undefined)?.tenant ?? "—")} {rent !== undefined ? <span className="muted" style={{ fontSize: 11 }}>· {kM(rent)}/mo</span> : null}</td>
-                        <td><button type="button" className="btn ghost sm" onClick={(event) => { event.stopPropagation(); setBillingUnit(u); }}>Schedule</button></td>
+                        <td style={{ fontSize: 12 }}>
+                          <div>{String(u.tenant_name || (u.metadata as Record<string, unknown> | undefined)?.tenant || "—")}</div>
+                          {u.occupancy_state_display && <div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{u.occupancy_state_display}</div>}
+                        </td>
+                        <td>
+                          <button type="button" className="btn ghost sm" onClick={(event) => { event.stopPropagation(); setBillingUnit(u); }}>
+                            {u.billing_isolation?.bill_rent ? "Rent + utilities" : u.billing_isolation?.bill_utilities_to_tenant ? "Utilities only" : "Schedule"}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

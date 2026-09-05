@@ -407,8 +407,8 @@ class Lease(OrganizationOwnedModel):
             raise ValidationError('Lease tenant must belong to the same organization.')
         if self.renewed_from_id and self.renewed_from.organization_id != self.organization_id:
             raise ValidationError('Renewed lease must belong to the same organization.')
-        if self.monthly_rent <= 0:
-            raise ValidationError({'monthly_rent': 'Monthly rent must be greater than zero.'})
+        if self.monthly_rent < 0:
+            raise ValidationError({'monthly_rent': 'Monthly rent cannot be negative.'})
         if self.deposit < 0 or self.escalation_percent < 0:
             raise ValidationError('Deposit and escalation cannot be negative.')
         if self.escalation_percent and not 1 <= self.escalation_interval_months <= 120:

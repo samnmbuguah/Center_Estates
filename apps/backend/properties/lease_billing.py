@@ -28,6 +28,8 @@ def add_months(value: date, months: int) -> date:
 def generate_rent_schedule(lease):
     """Create missing monthly schedule rows from commencement to expiry."""
     service_charge = Decimal(str((lease.metadata or {}).get('monthly_service_charge_excl_vat', 0)))
+    if lease.monthly_rent <= 0 and service_charge <= 0:
+        return 0
     rows = []
     period_start = lease.starts_on
     while period_start < lease.ends_on:

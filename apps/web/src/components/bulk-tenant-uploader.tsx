@@ -20,6 +20,7 @@ type ParsedRow = {
   contact_phone?: string;
   contact_email?: string;
   rent_type?: string;
+  rent_collection_mode?: string;
   monthly_rent: string;
   rent_rate_per_sqft: string;
   lease_term_months: string;
@@ -34,6 +35,25 @@ type ParsedRow = {
   opening_balance_amount?: string;
   area?: string;
 };
+
+/** A zero rent explicitly represents a direct-to-landlord tenancy.  Do not
+ * infer that from an empty value: an area-rate tenancy has no monthly total
+ * until its selected unit is known. */
+function isDirectLandlordRow(row: ParsedRow) {
+  const rentType = (row.rent_type || "").trim().toLowerCase();
+  const collectionMode = (row.rent_collection_mode || "").trim().toLowerCase();
+  if (
+    rentType === "direct_landlord" ||
+    rentType === "landlord_managed" ||
+    collectionMode === "direct_landlord" ||
+    collectionMode === "landlord_direct"
+  ) {
+    return true;
+  }
+  return Boolean(String(row.monthly_rent ?? "").trim())
+    && Number(row.monthly_rent) === 0
+    && !String(row.rent_rate_per_sqft ?? "").trim();
+}
 
 type BulkResult = {
   total: number; succeeded_count: number; failed_count: number;
@@ -222,6 +242,12 @@ function downloadTemplate() {
       'James Mwangi', '+254722000112', 'jmwangi@savannahretail.co.ke',
       'rate_per_sqft', '85000', '100', '24', '2026-09-01', '35', '16', '1', '7.5', '12', 'P-COMM-01', '5000', '0',
     ],
+    [
+      'C-301', 'David Kamau (Sectional Landlord Unit)', 'individual', 'P.O. Box 55432', 'Kileleshwa', 'Nairobi',
+      '+254711223344', 'david.kamau@example.com', 'A003344556L', '34567890',
+      'David Kamau', '+254711223344', 'david.kamau@example.com',
+      'direct_landlord', '0', '', '12', '2026-09-01', '0', '0', '1', '0', '12', 'P-301', '0', '0',
+    ],
   ];
   const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\r\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -238,6 +264,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
   const [parseError, setParseError] = useState('');
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [autoActivate, setAutoActivate] = useState(true);
   const [result, setResult] = useState<BulkResult | null>(null);
   const [submitError, setSubmitError] = useState('');
 
@@ -270,38 +297,46 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
       await apiFetch('/auth/csrf/');
       const payload = {
         auto_create_units: true,
-        rows: rows.map(r => ({
-          tenant: {
-            name: r.name,
-            tenant_type: r.tenant_type,
-            email: r.email,
-            phone: r.phone,
-            tax_id: r.tax_id,
-            registration_number: r.registration_number,
-            billing_address: [r.address_1, r.address_2, r.city].filter(Boolean).join(", "),
-            contact_person: {
-              name: r.contact_name || "",
-              phone: r.contact_phone || "",
-              email: r.contact_email || "",
+        auto_activate: autoActivate,
+        rows: rows.map(r => {
+          const rentType = (r.rent_type || '').trim().toLowerCase();
+          const isDirect = isDirectLandlordRow(r);
+          return {
+            tenant: {
+              name: r.name,
+              tenant_type: r.tenant_type,
+              email: r.email,
+              phone: r.phone,
+              tax_id: r.tax_id,
+              registration_number: r.registration_number,
+              billing_address: [r.address_1, r.address_2, r.city].filter(Boolean).join(", "),
+              contact_person: {
+                name: r.contact_name || "",
+                phone: r.contact_phone || "",
+                email: r.contact_email || "",
+              },
             },
-          },
-          lease: {
-            unit_code: r.unit_code,
-            area: r.area,
-            starts_on: r.lease_start,
-            term_months: Number(r.lease_term_months) || 12,
-            monthly_rent: r.monthly_rent || '',
-            rent_rate_per_sqft: r.rent_rate_per_sqft,
-            service_charge_rate_per_sqft: r.service_charge_rate_per_sqft,
-            vat_rate: r.vat_rate,
-            billing_day: Number(r.billing_day) || 1,
-            escalation_percent: r.escalation_percent || '0',
-            escalation_interval_months: Number(r.escalation_interval_months) || 12,
-            parking_bay: r.parking_bay || '',
-            parking_monthly_fee: r.parking_monthly_fee || '0',
-            opening_balance_amount: r.opening_balance_amount || '0',
-          },
-        }))
+            lease: {
+              unit_code: r.unit_code,
+              area: r.area,
+              starts_on: r.lease_start,
+              term_months: Number(r.lease_term_months) || 12,
+              rent_type: isDirect ? 'direct_landlord' : (rentType || 'fixed'),
+              rent_collection_mode: isDirect ? 'direct_landlord' : 'estate_managed',
+              monthly_rent: isDirect ? '0' : (r.monthly_rent || ''),
+              status: autoActivate ? 'active' : 'draft',
+              rent_rate_per_sqft: isDirect ? '0' : r.rent_rate_per_sqft,
+              service_charge_rate_per_sqft: r.service_charge_rate_per_sqft,
+              vat_rate: r.vat_rate,
+              billing_day: Number(r.billing_day) || 1,
+              escalation_percent: r.escalation_percent || '0',
+              escalation_interval_months: Number(r.escalation_interval_months) || 12,
+              parking_bay: r.parking_bay || '',
+              parking_monthly_fee: r.parking_monthly_fee || '0',
+              opening_balance_amount: r.opening_balance_amount || '0',
+            },
+          };
+        })
       };
       const res = await apiFetch('/property/tenants/bulk-onboard/', {
         method:'POST',
@@ -443,6 +478,14 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
             Accepts both <strong>YYYY-MM-DD</strong> (e.g. <code>2026-09-01</code>) and <strong>DD/MM/YYYY</strong> (e.g. <code>01/09/2026</code>) automatically.
           </span>
         </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',color:'var(--text-primary)',background:'rgba(2,132,199,0.08)',border:'1px solid rgba(2,132,199,0.25)',borderRadius:6,padding:'6px 10px'}}>
+          <span style={{color:'#0284c7',fontWeight:800,fontSize:11}}>
+            🏢 Sectional &amp; Landlord-Owned Units:
+          </span>
+          <span style={{fontSize:11,color:'var(--text-secondary)'}}>
+            For tenant units where rent is paid directly to the unit owner/landlord, set <code>rent_type</code> to <code>direct_landlord</code> (or <code>monthly_rent</code> to <code>0</code>). Estate management will not bill rent, but utilities and meter readings are automatically billed to the occupant.
+          </span>
+        </div>
       </div>
       <div
         onDragOver={(e)=>{e.preventDefault();setDragging(true);}}
@@ -482,7 +525,8 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           } else if (!/^\d{4}-\d{2}-\d{2}$/.test(r.lease_start)) {
             issues.push("Invalid date format (use YYYY-MM-DD or DD/MM/YYYY)");
           }
-          if (!r.monthly_rent && !r.rent_rate_per_sqft) issues.push("Missing rent or rate");
+          const isDirect = isDirectLandlordRow(r);
+          if (!isDirect && !r.monthly_rent && !r.rent_rate_per_sqft) issues.push("Missing rent or rate");
           return { row: i + 1, issues };
         });
         const hasErrors = validationIssues.some(v => v.issues.length > 0);
@@ -492,12 +536,23 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
             return acc;
           }, {} as Record<string, number>)
         ).filter(([, count]) => count > 1);
+        const directLandlordCount = rows.filter((r) => {
+          const rentType = (r.rent_type || '').trim().toLowerCase();
+          return rentType === 'direct_landlord' || rentType === 'landlord_managed' || Number(r.monthly_rent || 0) === 0;
+        }).length;
+        const estateManagedCount = rows.length - directLandlordCount;
 
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 700 }}>Preview — {rows.length} tenant row{rows.length !== 1 ? 's' : ''} parsed (Mirrors Card)</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 11, background: "#e0f2fe", color: "#075985", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                  {directLandlordCount} utility-only / direct landlord
+                </span>
+                <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                  {estateManagedCount} estate-rent billed
+                </span>
                 {multiUnitTenants.length > 0 && (
                   <span style={{ fontSize: 11, background: "#e0e7ff", color: "#4338ca", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
                     🏢 {multiUnitTenants.length} Multi-Unit Tenant{multiUnitTenants.length > 1 ? "s" : ""} Detected
@@ -562,9 +617,24 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                           <div style={{ color: "var(--text-secondary)" }}>{r.lease_term_months} mo term</div>
                         </td>
                         <td style={{ padding: '8px 12px', fontSize: 11 }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 800, color: "var(--text-primary)" }}>
-                            {r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: '#dc2626' }}>MISSING</span>}
-                          </span>
+                          {(() => {
+                            const isDirect = isDirectLandlordRow(r);
+                            if (isDirect) {
+                              return (
+                                <div>
+                                  <span style={{ display: 'inline-block', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                                    Direct to Landlord
+                                  </span>
+                                  <div style={{ color: "var(--muted)", fontSize: 10, marginTop: 2 }}>KES 0 Rent to Mgmt</div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <span style={{ fontFamily: 'monospace', fontWeight: 800, color: "var(--text-primary)" }}>
+                                {r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: '#dc2626' }}>MISSING</span>}
+                              </span>
+                            );
+                          })()}
                           {Number(r.service_charge_rate_per_sqft || 0) > 0 && (
                             <div style={{ color: "var(--text-secondary)", fontSize: 10 }}>SC: KES {r.service_charge_rate_per_sqft}/sqft</div>
                           )}
@@ -580,6 +650,32 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'var(--surface-2, #f8fafc)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '10px 14px',
+              marginTop: 4,
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={autoActivate}
+                  onChange={(e) => setAutoActivate(e.target.checked)}
+                  style={{ width: 16, height: 16 }}
+                />
+                <span>
+                  <strong>Immediately activate leases &amp; mark units as Occupied</strong> (updates stacking plan &amp; occupancy metrics)
+                </span>
+              </label>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                {autoActivate ? "Units will become 'Occupied'" : "Leases will stay in 'Draft'"}
+              </span>
             </div>
           </div>
         );

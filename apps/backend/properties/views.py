@@ -5,6 +5,7 @@ import calendar
 import hashlib
 import hmac
 import json
+import logging
 import os
 from io import BytesIO, StringIO
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
@@ -867,6 +868,7 @@ class PropertyViewSet(OrganizationModelViewSet):
         existing_codes = Property.objects.filter(
             organization=organization, code__startswith='PROP-'
         ).values_list('code', flat=True)
+        numbers = [int(code.rsplit('-', 1)[-1]) for code in existing_codes if code.rsplit('-', 1)[-1].isdigit()]
         extra_kwargs = {
             'organization': organization,
             'code': f"PROP-{(max(numbers) + 1) if numbers else 1:04d}",
@@ -1667,7 +1669,17 @@ class UnitViewSet(OrganizationModelViewSet):
     search_fields = ('code', 'unit_type', 'property__name', 'owner__name')
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        from django.db.models import Prefetch
+        from properties.models import Lease
+        qs = super().get_queryset().prefetch_related(
+            Prefetch(
+                'leases',
+                queryset=Lease.objects.filter(
+                    status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+                ).select_related('tenant'),
+                to_attr='active_leases'
+            )
+        )
         owner_id = self.request.query_params.get('owner')
         if owner_id:
             qs = qs.filter(owner_id=owner_id)
@@ -1827,7 +1839,7 @@ class TenantViewSet(OrganizationModelViewSet):
 
         activated_leases = []
         for lease in draft_leases:
-            if lease.unit.status not in (Unit.Status.SOLD, Unit.Status.UNAVAILABLE):
+            if lease.unit.status != Unit.Status.UNAVAILABLE:
                 conflict = Lease.objects.for_organization(organization).filter(
                     unit=lease.unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
                 ).exclude(pk=lease.pk).exists()
@@ -1872,7 +1884,7 @@ class TenantViewSet(OrganizationModelViewSet):
             ).select_related('unit')
 
             for lease in draft_leases:
-                if lease.unit.status not in (Unit.Status.SOLD, Unit.Status.UNAVAILABLE):
+                if lease.unit.status != Unit.Status.UNAVAILABLE:
                     conflict = Lease.objects.for_organization(organization).filter(
                         unit=lease.unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
                     ).exclude(pk=lease.pk).exists()
@@ -1964,7 +1976,13 @@ class TenantViewSet(OrganizationModelViewSet):
             monthly_rent = direct_rent
 
         tenant_status = str(tenant_data.get('status', 'prospect')).lower()
-        if monthly_rent <= 0 and tenant_status not in ('prospect', 'pending', 'applicant') and rent_type != 'prospect':
+        r_type = str(rent_type or '').strip().lower()
+        if monthly_rent < 0:
+            raise ValidationError({'lease.monthly_rent': 'Monthly rent cannot be negative.'})
+        if monthly_rent == 0 or r_type in ('direct_landlord', 'landlord_managed', 'exempt', 'none'):
+            monthly_rent = Decimal('0.00')
+            rent_type = 'direct_landlord'
+        elif monthly_rent <= 0 and tenant_status not in ('prospect', 'pending', 'applicant') and r_type != 'prospect':
             raise ValidationError({'lease.monthly_rent': 'Monthly rent must be greater than zero.'})
         monthly_service = (area * service_rate).quantize(Decimal('0.01'))
         utilities = []
@@ -2011,6 +2029,16 @@ class TenantViewSet(OrganizationModelViewSet):
             'security_deposit': str(security_deposit), 'utilities_security_deposit': str(utility_deposit),
             'total_amount_payable': str(total_inc_vat + security_deposit + utility_deposit),
         }
+        rent_mode = 'direct_landlord' if rent_type == 'direct_landlord' or monthly_rent == 0 else 'estate_managed'
+        lease_meta = {
+            'application_number': application_number,
+            'term_months': term_months,
+            'rent_collection_mode': rent_mode,
+            'bill_rent': bool(monthly_rent > 0 and rent_mode == 'estate_managed'),
+            'bill_service_charge': bool(unit.service_charge_payer == Unit.PayerChoice.TENANT and monthly_service > 0),
+            'bill_utilities': True,
+            **calculations,
+        }
         lease = Lease.objects.create(
             organization=organization, reference=lease_reference, unit=unit, tenant=tenant,
             starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
@@ -2018,14 +2046,14 @@ class TenantViewSet(OrganizationModelViewSet):
             escalation_percent=escalation_percent,
             escalation_interval_months=escalation_interval,
             status=Lease.Status.DRAFT,
-            metadata={'application_number': application_number, 'term_months': term_months, **calculations},
+            metadata=lease_meta,
         )
 
         _inherit_unit_charge_profiles(lease)
         # Service charge is the canonical recurring billing source. Ensure a
         # BillingProfile exists so both single and bulk invoicing read from the
-        # same place — no more lease.metadata drift.
-        if monthly_service > 0:
+        # same place — only if the tenant is the designated service charge payer.
+        if monthly_service > 0 and unit.service_charge_payer == Unit.PayerChoice.TENANT:
             service_item, _ = BillingItem.objects.get_or_create(
                 organization=organization, code='SERVICE_CHARGE',
                 defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.AREA_RATE, 'income_category': 'service_charge'},
@@ -2319,7 +2347,18 @@ class TenantViewSet(OrganizationModelViewSet):
                     escalation_percent = _amount('escalation_percent', '0')
                     vat_rate = _amount('vat_rate', '16')
 
-                    if direct_rent > 0 and rent_rate == 0:
+                    r_type = str(lease_data.get('rent_type', '')).strip().lower()
+                    rent_mode = str(lease_data.get('rent_collection_mode', '')).strip().lower()
+                    if not rent_mode:
+                        if r_type in ('direct_landlord', 'landlord_managed', 'exempt', 'none') or (direct_rent == 0 and rent_rate == 0):
+                            rent_mode = 'direct_landlord'
+                        else:
+                            rent_mode = 'estate_managed'
+
+                    if rent_mode == 'direct_landlord':
+                        monthly_rent = Decimal('0.00')
+                        rent_rate = Decimal('0.00')
+                    elif direct_rent > 0 and rent_rate == 0:
                         monthly_rent = direct_rent
                         rent_rate = (monthly_rent / area).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if area > 0 else Decimal('0.00')
                     elif rent_rate > 0:
@@ -2414,6 +2453,10 @@ class TenantViewSet(OrganizationModelViewSet):
                         'application_number': application_number,
                         'term_months': term_months,
                         'source': 'bulk_import',
+                        'rent_collection_mode': rent_mode,
+                        'bill_rent': bool(monthly_rent > 0 and rent_mode == 'estate_managed'),
+                        'bill_service_charge': bool(unit.service_charge_payer == Unit.PayerChoice.TENANT and monthly_service > 0),
+                        'bill_utilities': True,
                         **calculations,
                     }
                     if lease_data.get('parking_bay'):
@@ -2425,16 +2468,27 @@ class TenantViewSet(OrganizationModelViewSet):
                         lease_meta['opening_balance'] = {
                             'amount': str(lease_data.get('opening_balance_amount', '0')),
                         }
+                    
+                    target_status = str(lease_data.get('status') or row.get('status') or '').strip().lower()
+                    auto_activate = request.data.get('auto_activate', True)
+                    is_active_initial = target_status in ('active', 'occupied') or (target_status != 'draft' and auto_activate)
                     lease = Lease.objects.create(
                         organization=organization, reference=lease_reference, unit=unit, tenant=tenant,
                         starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
                         deposit=security_deposit, billing_day=int(lease_data.get('billing_day', 1)),
                         escalation_percent=escalation_percent,
                         escalation_interval_months=int(lease_data.get('escalation_interval_months', 12)),
-                        status=Lease.Status.DRAFT,
+                        status=Lease.Status.ACTIVE if is_active_initial else Lease.Status.DRAFT,
                         metadata=lease_meta,
                     )
                     _inherit_unit_charge_profiles(lease)
+                    if is_active_initial:
+                        generate_rent_schedule(lease)
+                        unit.status = Unit.Status.OCCUPIED
+                        unit.save(update_fields=('status', 'updated_at'))
+                        if tenant.status == Tenant.Status.PROSPECT:
+                            tenant.status = Tenant.Status.ACTIVE
+                            tenant.save(update_fields=('status', 'updated_at'))
                     succeeded.append({
                         'row': index + 1,
                         'tenant_code': tenant_code,
@@ -2690,12 +2744,12 @@ class LeaseViewSet(OrganizationModelViewSet):
             elif starts_on and ends_on <= starts_on:
                 errors['ends_on'] = 'Expiry date must be after commencement date.'
             try:
-                monthly_rent = Decimal(str(row.get('monthly_rent') or '')).quantize(Decimal('0.01'))
-                if monthly_rent <= 0:
+                monthly_rent = Decimal(str(row.get('monthly_rent') or '0')).quantize(Decimal('0.01'))
+                if monthly_rent < 0:
                     raise ValueError
             except Exception:
                 monthly_rent = Decimal('0.00')
-                errors['monthly_rent'] = 'Enter an amount greater than zero.'
+                errors['monthly_rent'] = 'Enter an amount greater than or equal to zero.'
             try:
                 billing_day = int(row.get('billing_day') or 1)
                 if not 1 <= billing_day <= 28:
@@ -2898,7 +2952,7 @@ class LeaseViewSet(OrganizationModelViewSet):
         lease = Lease.objects.select_for_update().get(pk=self.get_object().pk)
         if lease.status != Lease.Status.DRAFT:
             raise ValidationError({'status': 'Only draft leases can be activated.'})
-        if lease.unit.status in (Unit.Status.SOLD, Unit.Status.UNAVAILABLE):
+        if lease.unit.status == Unit.Status.UNAVAILABLE:
             raise ValidationError({'unit': 'This unit is not available for occupation.'})
         conflict = Lease.objects.for_organization(lease.organization).filter(
             unit=lease.unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
@@ -2931,7 +2985,7 @@ class LeaseViewSet(OrganizationModelViewSet):
 
         activated_count = 0
         for lease in leases:
-            if lease.unit.status not in (Unit.Status.SOLD, Unit.Status.UNAVAILABLE):
+            if lease.unit.status != Unit.Status.UNAVAILABLE:
                 conflict = Lease.objects.for_organization(organization).filter(
                     unit=lease.unit, status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)
                 ).exclude(pk=lease.pk).exists()
@@ -4335,6 +4389,29 @@ class BillingRunViewSet(OrganizationModelViewSet):
             current_lease_ids.add(str(lease.id))
             issue_rows = []
             items = []
+            lease_meta = lease.metadata or {}
+            is_direct_landlord = (
+                lease.monthly_rent <= 0
+                or lease_meta.get('rent_collection_mode') == 'direct_landlord'
+                or lease_meta.get('bill_rent') is False
+            )
+            is_sc_exempt_for_tenant = (
+                lease_meta.get('bill_service_charge') is False
+                or (is_direct_landlord and lease.unit.service_charge_payer == Unit.PayerChoice.OWNER)
+                or bool(lease.unit.property and lease.unit.property.is_sectional_title and lease.unit.service_charge_payer == Unit.PayerChoice.OWNER and lease.unit.owner_id)
+            )
+            should_bill_sc = not is_sc_exempt_for_tenant
+            should_bill_owner_sc = (
+                lease.unit.service_charge_payer == Unit.PayerChoice.OWNER
+                and bool(lease.unit.owner_id)
+            )
+            if lease.unit.property and lease.unit.property.is_sectional_title and lease.unit.service_charge_payer == Unit.PayerChoice.OWNER and not lease.unit.owner_id:
+                issue_rows.append((
+                    'missing_service_charge_owner',
+                    'This unit is configured for owner-paid service charge but has no owner assigned.',
+                    None,
+                    BillingReadinessIssue.Severity.WARNING,
+                ))
             offer = dict((lease.metadata or {}).get('offer_letter') or {})
             if offer and offer.get('status') != 'accepted':
                 issue_rows.append((
@@ -4347,6 +4424,22 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 is_active=True, effective_from__lte=run.period_end,
             ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=run.period_start)).select_related('billing_item__tax_configuration')
             due_profiles = [profile for profile in profiles if self._profile_is_due(profile, run.period_start)]
+
+            # Unit charge rules are inherited into lease billing profiles.  Do
+            # not let an inherited RENT or SERVICE_CHARGE profile override the
+            # explicit onboarding route: a direct-landlord tenant receives no
+            # estate rent invoice, and owner-paid service charge never appears
+            # on a tenant invoice.  Utility and all other eligible profiles
+            # remain billable for every active occupant.
+            def _profile_is_billable_for_occupant(profile) -> bool:
+                code = str(profile.billing_item.code or '').strip().lower()
+                if code == 'rent':
+                    return not is_direct_landlord
+                if code in ('service_charge', 'sc'):
+                    return should_bill_sc
+                return True
+
+            due_profiles = [profile for profile in due_profiles if _profile_is_billable_for_occupant(profile)]
             if invoice_types is not None:
                 def _profile_matches(profile) -> bool:
                     code = str(profile.billing_item.code or "").strip().lower()
@@ -4361,6 +4454,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     return code in invoice_types
                 due_profiles = [p for p in due_profiles if _profile_matches(p)]
             for profile in due_profiles:
+                profile_code = str(profile.billing_item.code or '').strip().lower()
                 monthly_val = profile.amount
                 if profile.calculation == BillingItem.Calculation.AREA_RATE:
                     if not lease.unit.area:
@@ -4395,69 +4489,78 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': desc,
                     'quantity': str(line_qty), 'unit_rate': str(monthly_val), 'subtotal': str(line_subtotal),
                     'tax_code': tax.code if tax else '', 'tax_rate': str(tax_rate), 'tax_amount': str(tax_amount),
-                    'total': str(line_subtotal + tax_amount), 'source_type': 'billing_profile', 'source_id': str(profile.id)
+                    'total': str(line_subtotal + tax_amount), 'source_type': 'billing_profile', 'source_id': str(profile.id),
+                    # Service charge belongs to the registered unit owner when
+                    # the unit is configured owner-paid.  Rent and utilities
+                    # remain tenant obligations.
+                    'payer': 'owner' if profile_code in ('service_charge', 'sc') and should_bill_owner_sc else 'tenant',
                 })
 
             if (invoice_types is None or "rent" in invoice_types) and not any(item['code'].upper() == 'RENT' for item in items):
-                rent = lease.effective_rent(run.period_start)
-                if rent > 0:
-                    line_subtotal = (rent * qty).quantize(Decimal('0.01'))
-                    desc = f"Rent ({period_suffix})" if months_count > 1 else "Rent"
-                    items.insert(0, {
-                        'billing_item': None, 'code': 'RENT', 'description': desc,
-                        'quantity': str(qty), 'unit_rate': str(rent), 'subtotal': str(line_subtotal),
-                        'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                        'source_type': 'lease', 'source_id': str(lease.id)
-                    })
-                elif invoice_types is None or "rent" in invoice_types:
-                    issue_rows.append(('missing_rent', 'The lease has no effective rent for this period.', None))
-
-            allocation = ServiceChargeAllocation.objects.for_organization(run.organization).filter(
-                unit=lease.unit, service_charge__is_active=True, service_charge__starts_on__lte=run.period_end,
-            ).select_related('service_charge').order_by('-service_charge__starts_on').first()
-            if (invoice_types is None or "service_charge" in invoice_types) and allocation and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
-                monthly_sc = allocation.monthly_amount
-                line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
-                desc = f"{allocation.service_charge.name} ({period_suffix})" if months_count > 1 else allocation.service_charge.name
-                items.append({
-                    'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
-                    'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
-                    'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                    'source_type': 'service_charge_allocation', 'source_id': str(allocation.id)
-                })
-            if (invoice_types is None or "service_charge" in invoice_types) and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
-                meta = lease.metadata or {}
-                monthly_sc_meta = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
-                if monthly_sc_meta is not None:
-                    try:
-                        monthly_sc = Decimal(str(monthly_sc_meta))
-                    except Exception:
-                        monthly_sc = Decimal('0')
-                    if monthly_sc > 0:
-                        line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
-                        desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
-                        items.append({
-                            'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
-                            'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                if not is_direct_landlord:
+                    rent = lease.effective_rent(run.period_start)
+                    if rent > 0:
+                        line_subtotal = (rent * qty).quantize(Decimal('0.01'))
+                        desc = f"Rent ({period_suffix})" if months_count > 1 else "Rent"
+                        items.insert(0, {
+                            'billing_item': None, 'code': 'RENT', 'description': desc,
+                            'quantity': str(qty), 'unit_rate': str(rent), 'subtotal': str(line_subtotal),
                             'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                            'source_type': 'lease_metadata', 'source_id': str(lease.id)
+                            'source_type': 'lease', 'source_id': str(lease.id)
                         })
-                else:
-                    try:
-                        rate = Decimal(str(meta.get('service_charge_rate_per_sqft') or '0'))
-                        area = Decimal(str(lease.unit.area or '0')) if lease.unit and lease.unit.area else Decimal('0')
-                        if rate > 0 and area > 0:
-                            monthly_sc = (rate * area).quantize(Decimal('0.01'))
+                    elif invoice_types is None or "rent" in invoice_types:
+                        issue_rows.append(('missing_rent', 'The lease has no effective rent for this period.', None))
+
+            if should_bill_sc:
+                allocation = ServiceChargeAllocation.objects.for_organization(run.organization).filter(
+                    unit=lease.unit, service_charge__is_active=True, service_charge__starts_on__lte=run.period_end,
+                ).select_related('service_charge').order_by('-service_charge__starts_on').first()
+                if (invoice_types is None or "service_charge" in invoice_types) and allocation and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
+                    monthly_sc = allocation.monthly_amount
+                    line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
+                    desc = f"{allocation.service_charge.name} ({period_suffix})" if months_count > 1 else allocation.service_charge.name
+                    items.append({
+                        'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
+                        'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                        'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
+                        'source_type': 'service_charge_allocation', 'source_id': str(allocation.id),
+                        'payer': 'owner' if should_bill_owner_sc else 'tenant',
+                    })
+                if (invoice_types is None or "service_charge" in invoice_types) and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
+                    meta = lease.metadata or {}
+                    monthly_sc_meta = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
+                    if monthly_sc_meta is not None:
+                        try:
+                            monthly_sc = Decimal(str(monthly_sc_meta))
+                        except Exception:
+                            monthly_sc = Decimal('0')
+                        if monthly_sc > 0:
                             line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
                             desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
                             items.append({
                                 'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
                                 'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
                                 'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                                'source_type': 'lease_metadata', 'source_id': str(lease.id)
+                                'source_type': 'lease_metadata', 'source_id': str(lease.id),
+                                'payer': 'owner' if should_bill_owner_sc else 'tenant',
                             })
-                    except Exception:
-                        pass
+                    else:
+                        try:
+                            rate = Decimal(str(meta.get('service_charge_rate_per_sqft') or '0'))
+                            area = Decimal(str(lease.unit.area or '0')) if lease.unit and lease.unit.area else Decimal('0')
+                            if rate > 0 and area > 0:
+                                monthly_sc = (rate * area).quantize(Decimal('0.01'))
+                                line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
+                                desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
+                                items.append({
+                                    'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
+                                    'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                                    'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
+                                    'source_type': 'lease_metadata', 'source_id': str(lease.id),
+                                    'payer': 'owner' if should_bill_owner_sc else 'tenant',
+                                })
+                        except Exception:
+                            pass
 
             if not items:
                 continue
@@ -4694,10 +4797,14 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 unit_obj = candidate.lease.unit if candidate.lease else None
                 owner_obj = None
                 recipient_type = Invoice.RecipientType.TENANT
-                if unit_obj and unit_obj.property and unit_obj.property.is_sectional_title:
-                    if invoice_type == 'service_charge' and unit_obj.service_charge_payer == Unit.PayerChoice.OWNER:
-                        recipient_type = Invoice.RecipientType.OWNER
-                        owner_obj = unit_obj.owner
+                if item.get('payer') == 'owner':
+                    if not unit_obj or not unit_obj.owner_id:
+                        # Readiness should already flag this.  Keep generation
+                        # safe if ownership changed after the run was prepared.
+                        skipped_duplicate += 1
+                        continue
+                    recipient_type = Invoice.RecipientType.OWNER
+                    owner_obj = unit_obj.owner
 
                 collection_acct = None
                 if unit_obj and unit_obj.property:
@@ -4756,19 +4863,24 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 if all(it.get('billed') for it in candidate.billing_items):
                     candidate.status = BillingCandidate.Status.GENERATED
                 candidate.save(update_fields=('invoice', 'status', 'billing_items', 'updated_at'))
+                tenant_invoices = [
+                    invoice for invoice in candidate_invoices
+                    if invoice.recipient_type == Invoice.RecipientType.TENANT
+                ]
                 portal_access = TenantPortalAccess.objects.for_organization(run.organization).filter(
                     tenant=candidate.lease.tenant, is_active=True,
                 ).select_related('user').first()
-                if portal_access:
+                if portal_access and tenant_invoices:
+                    tenant_total = sum((invoice.amount for invoice in tenant_invoices), Decimal('0'))
                     Notification.objects.create(
                         organization=run.organization,
                         recipient=portal_access.user,
-                        title=f'{len(candidate_invoices)} new invoice(s) for {period_key}',
-                        message=f'Rent and recurring charges totalling KES {candidate.total:,.2f} are due on {candidate.due_date:%d %b %Y}. You may pay them together.',
+                        title=f'{len(tenant_invoices)} new invoice(s) for {period_key}',
+                        message=f'Your rent, utilities and other tenant charges total KES {tenant_total:,.2f} and are due on {candidate.due_date:%d %b %Y}. You may pay them together.',
                         level=Notification.Level.INFO,
                         action_url='/tenant-portal',
                         metadata={
-                            'invoice_ids': [str(row.id) for row in candidate_invoices],
+                            'invoice_ids': [str(row.id) for row in tenant_invoices],
                             'billing_run_id': str(run.id),
                             'billing_period': run.period_start.strftime('%Y-%m'),
                         },

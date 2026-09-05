@@ -293,6 +293,57 @@ class PropertyApiTests(TestCase):
         self.assertEqual(replayed.data['generated_count'], 0)
         self.assertEqual(Invoice.objects.filter(metadata__billing_run_id=str(created.data['id'])).count(), 1)
 
+    def test_direct_landlord_occupancy_is_utility_only_even_with_inherited_charge_rules(self):
+        """A sold-unit tenant remains occupied and utility-billable, not rent/SC billable."""
+        owner = Owner.objects.create(
+            organization=self.organization, code='OWN-DIRECT-1', name='Direct Rent Owner',
+        )
+        direct_unit = Unit.objects.create(
+            organization=self.organization, property=self.property, code='DIRECT-101', owner=owner,
+            status=Unit.Status.OCCUPIED, service_charge_payer=Unit.PayerChoice.OWNER,
+        )
+        direct_tenant = Tenant.objects.create(
+            organization=self.organization, code='TEN-DIRECT-1', name='Utility-only Occupant', status=Tenant.Status.ACTIVE,
+        )
+        direct_lease = Lease.objects.create(
+            organization=self.organization, reference='LEASE-DIRECT-1', unit=direct_unit, tenant=direct_tenant,
+            starts_on='2026-01-01', ends_on='2027-01-01', monthly_rent=Decimal('0.00'), status=Lease.Status.ACTIVE,
+            metadata={'rent_collection_mode': 'direct_landlord', 'bill_rent': False, 'bill_service_charge': False, 'bill_utilities': True},
+        )
+        rent = BillingItem.objects.create(
+            organization=self.organization, code='RENT', name='Rent', calculation=BillingItem.Calculation.FIXED,
+        )
+        service_charge = BillingItem.objects.create(
+            organization=self.organization, code='SERVICE_CHARGE', name='Service charge', calculation=BillingItem.Calculation.FIXED,
+        )
+        water = BillingItem.objects.create(
+            organization=self.organization, code='WATER', name='Water', calculation=BillingItem.Calculation.FIXED,
+        )
+        for item, amount in ((rent, '45000'), (service_charge, '5000'), (water, '1200')):
+            BillingProfile.objects.create(
+                organization=self.organization, lease=direct_lease, billing_item=item,
+                frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+                amount=Decimal(amount), effective_from='2026-01-01', billing_day=1,
+            )
+
+        run = BillingRun.objects.create(
+            organization=self.organization, property=self.property,
+            period_start=date(2026, 8, 1), period_end=date(2026, 8, 31), created_by=self.user,
+        )
+        prepared = self.client.post(f'/api/v1/property/billing-runs/{run.id}/prepare/', {}, format='json', **self.headers)
+        self.assertEqual(prepared.status_code, 200, prepared.data)
+        candidate = BillingCandidate.objects.get(billing_run=run, lease=direct_lease)
+        self.assertEqual(candidate.status, BillingCandidate.Status.READY)
+        self.assertEqual([item['code'] for item in candidate.billing_items], ['WATER'])
+        self.assertEqual(candidate.total, Decimal('1200.00'))
+
+        occupancy = self.client.get(f'/api/v1/property/units/{direct_unit.id}/', **self.headers)
+        self.assertEqual(occupancy.status_code, 200, occupancy.data)
+        self.assertEqual(occupancy.data['tenant_name'], 'Utility-only Occupant')
+        self.assertEqual(occupancy.data['occupancy_state'], 'sold_tenant_unmanaged')
+        self.assertFalse(occupancy.data['billing_isolation']['bill_rent'])
+        self.assertTrue(occupancy.data['billing_isolation']['bill_utilities_to_tenant'])
+
     def test_unit_charge_rules_are_inherited_and_charges_generate_separate_invoices(self):
         water = BillingItem.objects.create(
             organization=self.organization, code='WATER', name='Water consumption',
@@ -2826,6 +2877,7 @@ class LandlordInvoiceApiTests(TestCase):
         self.assertTrue(LandlordInvoice.objects.filter(id=invoice.id).exists())
 
 
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class BulkTemplateContractTests(TestCase):
     """Regression test suite ensuring all downloadable CSV templates parse and import without errors."""
 
@@ -2834,6 +2886,9 @@ class BulkTemplateContractTests(TestCase):
         self.user = get_user_model().objects.create_user(username='template_tester', password='password')
         Membership.objects.create(
             user=self.user, organization=self.organization, is_organization_admin=True, is_default=True,
+        )
+        Subscription.objects.create(
+            organization=self.organization, module=Module.PROPERTY, status=Subscription.Status.ACTIVE,
         )
         self.property = Property.objects.create(
             organization=self.organization, code='PROP-TPL-01', name='Lynx Residency', is_sectional_title=True,
@@ -2852,6 +2907,7 @@ class BulkTemplateContractTests(TestCase):
             'HTTP_X_ORGANIZATION_ID': str(self.organization.id),
             'HTTP_X_PROPERTY_ID': str(self.property.id),
         }
+        self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
     def test_tenant_template_sample_rows_bulk_onboard_succeeds_with_zero_failures(self):
@@ -2931,10 +2987,9 @@ class BulkTemplateContractTests(TestCase):
 
         self.assertEqual(res.status_code, 201, res.data)
         self.assertEqual(res.data['created_count'], 3)
-        self.assertEqual(res.data['failed_count'], 0)
+        self.assertEqual(res.data['error_count'], 0)
 
         # Confirm multi-unit ownership assignment
         mary = Owner.objects.get(organization=self.organization, pin_number='A009876543Y')
         self.assertEqual(mary.units.count(), 2)
         self.assertEqual(set(mary.units.values_list('code', flat=True)), {'B-201', 'B-202'})
-

@@ -293,9 +293,92 @@ class UnitSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
     owner_code = serializers.CharField(source='owner.code', read_only=True, default='')
     charge_rules = UnitChargeRuleSerializer(many=True, read_only=True)
+    tenant_name = serializers.SerializerMethodField()
+    tenant_code = serializers.SerializerMethodField()
+    lease_reference = serializers.SerializerMethodField()
+    rent_collection_mode = serializers.SerializerMethodField()
+    effective_rent = serializers.SerializerMethodField()
+    occupancy_state = serializers.SerializerMethodField()
+    occupancy_state_display = serializers.SerializerMethodField()
+    billing_isolation = serializers.SerializerMethodField()
+
     class Meta:
         model = Unit
         exclude = ('organization',)
+
+    def _get_active_lease(self, obj):
+        if hasattr(obj, 'active_leases'):
+            return obj.active_leases[0] if obj.active_leases else None
+        return obj.leases.filter(status__in=('active', 'expiring')).select_related('tenant').first()
+
+    def get_tenant_name(self, obj):
+        lease = self._get_active_lease(obj)
+        if lease and lease.tenant:
+            return lease.tenant.name
+        return ''
+
+    def get_tenant_code(self, obj):
+        lease = self._get_active_lease(obj)
+        if lease and lease.tenant:
+            return lease.tenant.code
+        return ''
+
+    def get_lease_reference(self, obj):
+        lease = self._get_active_lease(obj)
+        return lease.reference if lease else ''
+
+    def get_rent_collection_mode(self, obj):
+        lease = self._get_active_lease(obj)
+        if not lease:
+            return 'none'
+        meta = lease.metadata or {}
+        mode = meta.get('rent_collection_mode')
+        if not mode:
+            mode = 'estate_managed' if lease.monthly_rent > 0 else 'direct_landlord'
+        return mode
+
+    def get_effective_rent(self, obj):
+        lease = self._get_active_lease(obj)
+        return str(lease.monthly_rent) if lease else '0.00'
+
+    def get_occupancy_state(self, obj):
+        lease = self._get_active_lease(obj)
+        if not lease:
+            return 'sold_self_occupied' if obj.owner_id else 'available'
+        mode = self.get_rent_collection_mode(obj)
+        if mode == 'direct_landlord':
+            return 'sold_tenant_unmanaged'
+        elif obj.owner_id:
+            return 'sold_tenant_managed'
+        else:
+            return 'developer_tenanted'
+
+    def get_occupancy_state_display(self, obj):
+        state = self.get_occupancy_state(obj)
+        labels = {
+            'developer_tenanted': 'Developer-Held (Unsold, Tenanted)',
+            'sold_tenant_unmanaged': "Sold · Direct Landlord",
+            'sold_tenant_managed': "Sold · Estate Managed",
+            'sold_self_occupied': 'Sold · Self-Occupied',
+            'available': 'Vacant (Available)',
+        }
+        return labels.get(state, state.replace('_', ' ').title())
+
+    def get_billing_isolation(self, obj):
+        lease = self._get_active_lease(obj)
+        mode = self.get_rent_collection_mode(obj) if lease else 'none'
+        is_rent_billed = bool(lease and lease.monthly_rent > 0 and mode != 'direct_landlord')
+        return {
+            'bill_rent': is_rent_billed,
+            'rent_amount': str(lease.monthly_rent) if is_rent_billed else '0.00',
+            'rent_collection_mode': mode,
+            'rent_payer': 'tenant' if is_rent_billed else 'none',
+            'rent_destination': 'estate_account' if is_rent_billed else ('direct_to_landlord' if mode == 'direct_landlord' else 'none'),
+            'bill_service_charge_to_tenant': False,
+            'service_charge_payer': 'owner' if (obj.owner_id or mode == 'direct_landlord') else 'n/a_developer',
+            'bill_utilities_to_tenant': bool(lease),
+            'utilities_payer': 'tenant' if lease else 'none',
+        }
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -450,8 +533,12 @@ class LeaseSerializer(serializers.ModelSerializer):
         read_only_fields = ('status', 'renewed_from')
 
     def validate_monthly_rent(self, value):
-        if value <= 0:
-            raise serializers.ValidationError('Monthly rent must be greater than zero.')
+        # A zero-rent lease is a real occupancy state for a tenant whose rent
+        # is collected directly by their landlord.  Utilities can still be
+        # billed to that occupant, so rejecting it here made direct-landlord
+        # occupancy impossible through the normal API.
+        if value < 0:
+            raise serializers.ValidationError('Monthly rent cannot be negative.')
         return value
 
     def validate_escalation_interval_months(self, value):
