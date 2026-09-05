@@ -77,6 +77,7 @@ const TEMPLATE_HEADERS = [
   "contact_phone",
   "contact_email",
   "rent_type",
+  "rent_collection_mode",
   "monthly_rent",
   "rent_rate_per_sqft",
   "lease_term_months",
@@ -164,6 +165,7 @@ function csvToRows(text: string): ParsedRow[] {
   const cContactPhone = col(h, ['contact_phone', 'contact_person_phone', 'contact_mobile']);
   const cContactEmail = col(h, ['contact_email', 'contact_person_email']);
   const cRentType = col(h, ['rent_type', 'rent_pricing_structure', 'pricing_structure']);
+  const cRentCollectionMode = col(h, ['rent_collection_mode', 'rent_collection', 'rent_payee', 'rent_route']);
   const cArea = col(h, ['area', 'unit_area', 'sqft', 'square_feet', 'size']);
   const cStart = col(h, ['lease_start', 'start_date', 'starts_on', 'commencement_date', 'lease_commencement']);
   const cTerm = col(h, ['lease_term_months', 'term_months', 'term', 'lease_duration_months', 'lease_term']);
@@ -193,6 +195,7 @@ function csvToRows(text: string): ParsedRow[] {
     contact_phone: get(row, cContactPhone),
     contact_email: get(row, cContactEmail),
     rent_type: get(row, cRentType) || 'fixed',
+    rent_collection_mode: get(row, cRentCollectionMode),
     area: get(row, cArea),
     lease_start: normalizeDateString(get(row, cStart)),
     lease_term_months: get(row, cTerm) || '12',
@@ -216,37 +219,37 @@ function downloadTemplate() {
       'A-101', 'Grace Mwangi', 'individual', 'P.O. Box 45123', 'Ngong Road', 'Nairobi',
       '+254722123456', 'grace.mwangi@example.com', 'A001234567Z', '28456789',
       'Grace Mwangi', '+254722123456', 'grace.mwangi@example.com',
-      'fixed', '25000', '', '12', '2026-09-01', '0', '0', '1', '0', '12', 'P-101', '2500', '0',
+      'fixed', 'estate_managed', '25000', '', '12', '2026-09-01', '0', '0', '1', '0', '12', 'P-101', '2500', '0',
     ],
     [
       'A-102', 'Brian Kiprono', 'individual', 'P.O. Box 12890', 'Kilimani', 'Nairobi',
       '+254733987654', 'brian.kiprono@example.com', 'A009876543W', '31234567',
       'Brian Kiprono', '+254733987654', 'brian.kiprono@example.com',
-      'fixed', '35000', '', '12', '01/09/2026', '0', '0', '1', '0', '12', 'P-102', '2500', '0',
+      'fixed', 'estate_managed', '35000', '', '12', '01/09/2026', '0', '0', '1', '0', '12', 'P-102', '2500', '0',
     ],
     [
       'B-201', 'Faith Njeri Ndungu', 'individual', 'P.O. Box 78100', 'Kileleshwa', 'Nairobi',
       '+254711555888', 'faith.njeri@example.com', 'A005556667K', '29876543',
       'Faith Njeri Ndungu', '+254711555888', 'faith.njeri@example.com',
-      'fixed', '50000', '', '12', '2026-09-01', '0', '0', '1', '5', '12', 'P-201', '3000', '0',
+      'fixed', 'estate_managed', '50000', '', '12', '2026-09-01', '0', '0', '1', '5', '12', 'P-201', '3000', '0',
     ],
     [
       'B-202', 'Kevin Otieno & Linda Achieng', 'individual', 'P.O. Box 34500', 'Valley Arcade', 'Nairobi',
       '+254700112233', 'otieno.family@example.com', 'A007778889P', '27654321',
       'Kevin Otieno', '+254700112233', 'otieno.family@example.com',
-      'fixed', '65000', '', '24', '01/09/2026', '0', '0', '1', '5', '12', 'P-202', '3000', '0',
+      'fixed', 'estate_managed', '65000', '', '24', '01/09/2026', '0', '0', '1', '5', '12', 'P-202', '3000', '0',
     ],
     [
       'G-01', 'Savannah Retail Enterprises Ltd', 'company', 'P.O. Box 90210', 'Ground Floor Suite G-01', 'Nairobi',
       '+254722000111', 'accounts@savannahretail.co.ke', 'P051234567X', 'CPR/2022/12345',
       'James Mwangi', '+254722000112', 'jmwangi@savannahretail.co.ke',
-      'rate_per_sqft', '85000', '100', '24', '2026-09-01', '35', '16', '1', '7.5', '12', 'P-COMM-01', '5000', '0',
+      'rate_per_sqft', 'estate_managed', '85000', '100', '24', '2026-09-01', '35', '16', '1', '7.5', '12', 'P-COMM-01', '5000', '0',
     ],
     [
       'C-301', 'David Kamau (Sectional Landlord Unit)', 'individual', 'P.O. Box 55432', 'Kileleshwa', 'Nairobi',
       '+254711223344', 'david.kamau@example.com', 'A003344556L', '34567890',
       'David Kamau', '+254711223344', 'david.kamau@example.com',
-      'direct_landlord', '0', '', '12', '2026-09-01', '0', '0', '1', '0', '12', 'P-301', '0', '0',
+      'direct_landlord', 'direct_landlord', '0', '', '12', '2026-09-01', '0', '0', '1', '0', '12', 'P-301', '0', '0',
     ],
   ];
   const csv = sample.map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\r\n');
