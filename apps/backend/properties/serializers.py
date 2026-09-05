@@ -459,10 +459,42 @@ class TenantSerializer(serializers.ModelSerializer):
     unit = serializers.SerializerMethodField()
     units = serializers.SerializerMethodField()
     active_leases_count = serializers.SerializerMethodField()
+    lease_start = serializers.SerializerMethodField()
+    lease_end = serializers.SerializerMethodField()
+    lease_reference = serializers.SerializerMethodField()
+    monthly_rent = serializers.SerializerMethodField()
+    rent_collection_mode = serializers.SerializerMethodField()
 
     class Meta:
         model = Tenant
         exclude = ('organization',)
+
+    def _primary_lease(self, obj):
+        if not hasattr(obj, '_cached_primary_lease'):
+            leases = list(obj.leases.all())
+            active = [l for l in leases if l.status in (Lease.Status.ACTIVE, Lease.Status.EXPIRING)]
+            obj._cached_primary_lease = active[0] if active else (leases[0] if leases else None)
+        return obj._cached_primary_lease
+
+    def get_lease_start(self, obj):
+        l = self._primary_lease(obj)
+        return str(l.starts_on) if l and l.starts_on else None
+
+    def get_lease_end(self, obj):
+        l = self._primary_lease(obj)
+        return str(l.ends_on) if l and l.ends_on else None
+
+    def get_lease_reference(self, obj):
+        l = self._primary_lease(obj)
+        return l.reference if l else None
+
+    def get_monthly_rent(self, obj):
+        l = self._primary_lease(obj)
+        return str(l.monthly_rent) if l else None
+
+    def get_rent_collection_mode(self, obj):
+        l = self._primary_lease(obj)
+        return getattr(l, 'rent_collection_mode', 'estate_managed') if l else None
 
     def get_units(self, obj):
         leases = obj.leases.all().select_related('unit')
@@ -480,6 +512,7 @@ class TenantSerializer(serializers.ModelSerializer):
                 'starts_on': str(l.starts_on),
                 'ends_on': str(l.ends_on),
                 'monthly_rent': str(l.monthly_rent),
+                'rent_collection_mode': getattr(l, 'rent_collection_mode', 'estate_managed'),
             })
         return res
 

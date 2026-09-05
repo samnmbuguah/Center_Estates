@@ -5,7 +5,7 @@ import { Alert, Box } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { LoadingState, money } from "@/components/module-ui";
-import { BillingRun, BillingIssue, Candidate, InvoiceChargeType, candidateHasChargeType, invoiceChargeType } from "./billing/types";
+import { BillingRun, BillingIssue, Candidate, Invoice, InvoiceChargeType, candidateHasChargeType, invoiceChargeType } from "./billing/types";
 import { BillingHeader, BillingMode } from "./billing/BillingHeader";
 import { BillingActionBanner } from "./billing/BillingActionBanner";
 import { BillingChargeRollup } from "./billing/BillingChargeRollup";
@@ -13,8 +13,6 @@ import { BillingKpis } from "./billing/BillingKpis";
 import { CandidateTable } from "./billing/CandidateTable";
 import { CandidatePreviewDrawer } from "./billing/CandidatePreviewDrawer";
 import { OverrideDialog } from "./billing/OverrideDialog";
-
-type Invoice = { id: string; number: string; tenant_name: string; unit_code: string; amount: string; status: string; issued_on: string };
 
 export type BillingContext = {
   mode: string;
@@ -189,9 +187,30 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
     if (properties.length === 0) return [];
     const startMonthStr = period_start.slice(0, 7);
     return properties.map((p) => {
-      const rentRoll = Number(p.contracted_rent || p.expected_rent || (Number(p.units_count || 6) * 50000));
+      // Management fees are legally and contractually based on actual collections (receipted rent),
+      // not on uncollected hypothetical rent rolls.
+      const propertyInvoices = invoices.filter(
+        (inv) =>
+          (inv.property_id === p.id ||
+            inv.property_name?.toLowerCase() === p.name?.toLowerCase()) &&
+          inv.issued_on >= period_start &&
+          inv.issued_on <= period_end
+      );
+      const rentCollected = propertyInvoices
+        .filter(
+          (inv) =>
+            inv.invoice_type?.toLowerCase().includes("rent") ||
+            inv.charge_type === "rent"
+        )
+        .reduce((sum, inv) => {
+          const paid = Number(
+            inv.amount_paid ?? (Number(inv.amount || 0) - Number(inv.balance || 0))
+          );
+          return sum + (paid > 0 ? paid : 0);
+        }, 0);
+
       const mgmtRate = Number(p.management_fee_rate || 5.0); // Standard 5.0%
-      const commissionAmount = Math.round(rentRoll * (mgmtRate / 100));
+      const commissionAmount = Math.round(rentCollected * (mgmtRate / 100));
 
       const existingInv = invoices.find(
         (inv) =>
@@ -201,6 +220,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
           inv.issued_on >= period_start && inv.issued_on <= period_end
       );
       const isBilled = Boolean(existingInv);
+      const hasCollections = commissionAmount > 0;
 
       return {
         id: `landlord-${p.id}`,
@@ -212,7 +232,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         billing_items: [
           {
             code: "mgmt_fee",
-            description: `Management Commission (${mgmtRate.toFixed(2)}% of ${money.format(rentRoll)})`,
+            description: hasCollections
+              ? `Management Commission (${mgmtRate.toFixed(2)}% of ${money.format(rentCollected)} collected rent)`
+              : `Management Commission (${mgmtRate.toFixed(2)}% — KES 0 collected)`,
             amount: String(commissionAmount),
             total: String(commissionAmount),
             billed: isBilled,
@@ -220,8 +242,16 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
           },
         ],
         total: String(commissionAmount),
-        status: isBilled ? "generated" : "ready",
-        issue_summary: [],
+        status: isBilled ? "generated" : (hasCollections ? "ready" : "excluded"),
+        issue_summary: hasCollections
+          ? []
+          : [
+              {
+                code: "NO_COLLECTIONS",
+                message: "Awaiting rent collections. Management fee is charged only upon receipted funds.",
+                severity: "warning",
+              },
+            ],
       };
     });
   }, [properties, invoices, period_start, period_end]);
