@@ -4436,7 +4436,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 if code == 'rent':
                     return not is_direct_landlord
                 if code in ('service_charge', 'sc'):
-                    return should_bill_sc
+                    return should_bill_sc or should_bill_owner_sc
                 return True
 
             due_profiles = [profile for profile in due_profiles if _profile_is_billable_for_occupant(profile)]
@@ -4511,7 +4511,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     elif invoice_types is None or "rent" in invoice_types:
                         issue_rows.append(('missing_rent', 'The lease has no effective rent for this period.', None))
 
-            if should_bill_sc:
+            if should_bill_sc or should_bill_owner_sc:
                 allocation = ServiceChargeAllocation.objects.for_organization(run.organization).filter(
                     unit=lease.unit, service_charge__is_active=True, service_charge__starts_on__lte=run.period_end,
                 ).select_related('service_charge').order_by('-service_charge__starts_on').first()

@@ -334,8 +334,22 @@ class PropertyApiTests(TestCase):
         self.assertEqual(prepared.status_code, 200, prepared.data)
         candidate = BillingCandidate.objects.get(billing_run=run, lease=direct_lease)
         self.assertEqual(candidate.status, BillingCandidate.Status.READY)
-        self.assertEqual([item['code'] for item in candidate.billing_items], ['WATER'])
-        self.assertEqual(candidate.total, Decimal('1200.00'))
+        self.assertEqual([item['code'] for item in candidate.billing_items], ['SERVICE_CHARGE', 'WATER'])
+        self.assertEqual(candidate.billing_items[0]['payer'], 'owner')
+        self.assertEqual(candidate.billing_items[1]['payer'], 'tenant')
+        self.assertEqual(candidate.total, Decimal('6200.00'))
+
+        approved = self.client.post(f'/api/v1/property/billing-runs/{run.id}/approve/', {}, format='json', **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        generated = self.client.post(f'/api/v1/property/billing-runs/{run.id}/generate/', {
+            'candidate_ids': [str(candidate.id)],
+        }, format='json', **self.headers)
+        self.assertEqual(generated.status_code, 201, generated.data)
+        owner_invoice = Invoice.objects.get(lease=direct_lease, invoice_type='service_charge')
+        utility_invoice = Invoice.objects.get(lease=direct_lease, invoice_type='water')
+        self.assertEqual(owner_invoice.recipient_type, Invoice.RecipientType.OWNER)
+        self.assertEqual(owner_invoice.owner_id, owner.id)
+        self.assertEqual(utility_invoice.recipient_type, Invoice.RecipientType.TENANT)
 
         occupancy = self.client.get(f'/api/v1/property/units/{direct_unit.id}/', **self.headers)
         self.assertEqual(occupancy.status_code, 200, occupancy.data)
