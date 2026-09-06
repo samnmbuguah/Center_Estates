@@ -253,14 +253,14 @@ export function ReceiptsView({
         )}
 
         <button
-          className="btn ghost sm"
+          className="fc-toolbar-btn"
           onClick={exportSelectionCsv}
         >
           <Download size={13} style={{ marginRight: 4 }} />
           Export CSV
         </button>
         {canFinance && (
-          <button className="btn primary sm" onClick={() => onRecordReceipt()}>
+          <button className="fc-toolbar-btn primary" onClick={() => onRecordReceipt()}>
             + Record Receipt
           </button>
         )}
@@ -401,12 +401,12 @@ export function ReceiptsView({
                         {kM(r.amount)}
                       </td>
                       <td>
-                        <Badge tone={r.invoice ? "green" : "yellow"}>
+                        <StatusPill tone={r.invoice ? "green" : "yellow"}>
                           {r.invoice ? "Applied" : "Unapplied"}
-                        </Badge>
+                        </StatusPill>
                       </td>
                       <td>
-                        <button className="btn ghost sm" onClick={() => onDownloadPdf(r as ReceiptRow)}>
+                        <button className="fc-action-btn" onClick={() => onDownloadPdf(r as ReceiptRow)} title="Download PDF receipt">
                           PDF
                         </button>
                       </td>

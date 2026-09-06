@@ -200,24 +200,27 @@ export function WorkOrdersView({
                             )}
                             {permissions.canWork && String(row.status) === "assigned" && (
                               <button
+                                className="fc-action-btn success"
                                 onClick={(event) => { event.stopPropagation(); onTransition(row, "in_progress", "Technician started work"); }}
-                                style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, color: "#15803d", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                                title="Start work on this order"
                               >
                                 Start work
                               </button>
                             )}
                             {permissions.canWork && String(row.status) === "in_progress" && (
                               <button
+                                className="fc-action-btn success"
                                 onClick={(event) => { event.stopPropagation(); onTransition(row, "completed", "Work completed"); }}
-                                style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 6, color: "#166534", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                                title="Mark work order as completed"
                               >
                                 Complete
                               </button>
                             )}
                             {permissions.canApprove && String(row.status) === "completed" && !row.supervisor_verified && (
                               <button
+                                className="fc-action-btn success"
                                 onClick={(event) => { event.stopPropagation(); onVerify(row); }}
-                                style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, color: "#166534", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                                title="Supervisor verification"
                               >
                                 Verify
                               </button>

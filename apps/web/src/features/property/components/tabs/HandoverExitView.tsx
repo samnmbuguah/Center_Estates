@@ -123,8 +123,8 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
       {subTab === "handover" && (
         <>
           <ViewToolbar title="Move-in Handover" subtitle="Premises condition, keys, opening meter readings and dual sign-off" search={search} onSearch={setSearch} placeholder="Search tenant, unit or lease…">
-            <button className="btn ghost sm" onClick={() => setTab("leases")}>Leases →</button>
-            {canLease && <button className="btn primary sm" onClick={() => setCreateOpen(true)}>+ New Handover</button>}
+            <button className="fc-toolbar-btn" onClick={() => setTab("leases")}>Leases →</button>
+            {canLease && <button className="fc-toolbar-btn primary" onClick={() => setCreateOpen(true)}>+ New Handover</button>}
           </ViewToolbar>
 
           <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
@@ -147,7 +147,7 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
                   <tbody>
                     {hList.map((h) => (
                       <tr key={h.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #dc2626)" }}>{h.code}</span></td>
+                        <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #2563eb)" }}>{h.code}</span></td>
                         <td style={{ padding: "12px 14px" }}>
                           <div style={{ fontWeight: 700 }}>{h.tenant_name}</div>
                           <div style={{ fontSize: 11, color: "text.secondary" }}>Unit {h.unit_code || "—"}</div>
@@ -182,8 +182,8 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
       {subTab === "exit" && (
         <>
           <ViewToolbar title="Exit Clearance" subtitle="Utilities, inspection, balances, deposit reconciliation, approvals and gate pass" search={search} onSearch={setSearch} placeholder="Search tenant or lease…">
-            <button className="btn ghost sm" onClick={() => setTab("leases")}>Leases →</button>
-            {canLease && <button className="btn primary sm" onClick={() => setExitOpen(true)}>+ New Exit Clearance</button>}
+            <button className="fc-toolbar-btn" onClick={() => setTab("leases")}>Leases →</button>
+            {canLease && <button className="fc-toolbar-btn primary" onClick={() => setExitOpen(true)}>+ New Exit Clearance</button>}
           </ViewToolbar>
 
           <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>

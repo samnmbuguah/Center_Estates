@@ -52,7 +52,7 @@ export function ServiceChargesView({
         onSearch={setSearch}
         placeholder="Search schemes or cost centres…"
       >
-        <button className="btn primary sm" onClick={onAdd}>+ Set Up Charge</button>
+        <button className="fc-toolbar-btn primary" onClick={onAdd}>+ Set Up Charge</button>
       </ViewToolbar>
 
       {/* Visual Setup & Accounting Flow Stepper */}
@@ -169,25 +169,25 @@ export function ServiceChargesView({
                       </td>
                       <td><StatusPill value={charge.is_active !== false ? "Active" : "Inactive"} /></td>
                       <td style={{ textAlign: "right" }}>
-                        <div className="row" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 5, justifyContent: "flex-end", flexWrap: "wrap" }}>
                           <button
-                            className="btn primary sm"
-                            style={{ fontSize: 11, padding: "4px 8px" }}
+                            className="fc-action-btn primary"
                             onClick={() => onAllocate(charge)}
+                            title="Generate unit apportionments"
                           >
                             ⚡ Generate Allocations
                           </button>
                           <button
-                            className="btn ghost sm"
-                            style={{ fontSize: 11, padding: "4px 8px" }}
+                            className="fc-action-btn"
                             onClick={() => setSelectedScheme(charge)}
+                            title="View apportionment schedule"
                           >
                             📊 View Schedule
                           </button>
                           <button
-                            className="btn ghost sm"
-                            style={{ fontSize: 11, padding: "4px 8px" }}
+                            className="fc-action-btn"
                             onClick={() => onReconcile(charge)}
+                            title="Reconcile cost centre expenses"
                           >
                             🔄 Reconcile
                           </button>

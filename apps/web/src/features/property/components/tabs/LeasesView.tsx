@@ -300,28 +300,25 @@ export function LeasesView({
           )}
           <button
             type="button"
-            className="btn sm"
+            className="fc-toolbar-btn"
             style={{
               background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
               color: "#ffffff",
               border: "none",
               fontWeight: 700,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
               boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
             }}
             onClick={() => setShowAiOcrModal(true)}
           >
             <Sparkles size={14} /> AI Extract Lease
           </button>
-          <button className="btn primary sm" data-testid="property-add-lease-btn" onClick={handleAdd}>+ Add Lease</button>
-          <button className="btn ghost sm" onClick={() => setShowImport(true)}>Import leases</button>
+          <button className="fc-toolbar-btn primary" data-testid="property-add-lease-btn" onClick={handleAdd}>+ Add Lease</button>
+          <button className="fc-toolbar-btn" onClick={() => setShowImport(true)}>Import leases</button>
         </div>
       </div>
 
 
-      <Panel title="Lease Register" action={<button className="btn ghost sm" onClick={() => setTab("rent")}>Invoices →</button>}>
+      <Panel title="Lease Register" action={<button className="fc-toolbar-btn" onClick={() => setTab("rent")}>Invoices →</button>}>
         <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No leases found" emptyDesc="Add a single lease or bulk import a tenancy schedule to populate the register.">
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -375,18 +372,18 @@ export function LeasesView({
                       <td className="mono" style={{ color: Number(l.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{l.outstanding === undefined ? "—" : kM(l.outstanding)}</td>
                       <td className="mono" style={{ fontSize: 12 }}>{daysLeftLabel(l.ends_on)}</td>
                       <td>
-                        <div className="row" style={{ gap: 6 }}>
-                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); openEditModal(l); }}>Edit</button>
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                          <button className="fc-action-btn" onClick={(e) => { e.stopPropagation(); openEditModal(l); }} title="Edit lease details">Edit</button>
                           {l.status === "draft" && (
-                            <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "activate"); }}>Activate</button>
+                            <button className="fc-action-btn success" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "activate"); }} title="Activate draft lease">⚡ Activate</button>
                           )}
                           {(["active", "expiring"].includes(String(l.status))) && (
-                            <button className="btn primary sm" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "renew"); }}>Renew</button>
+                            <button className="fc-action-btn primary" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "renew"); }} title="Renew lease">Renew</button>
                           )}
                           {(["active", "expiring"].includes(String(l.status))) && (
-                            <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "terminate"); }}>Terminate</button>
+                            <button className="fc-action-btn danger" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "terminate"); }} title="Terminate lease">Terminate</button>
                           )}
-                          <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("rent"); }}>Invoices</button>
+                          <button className="fc-action-btn" onClick={(e) => { e.stopPropagation(); setTab("rent"); }} title="View tenant invoices">Invoices</button>
                         </div>
                       </td>
 

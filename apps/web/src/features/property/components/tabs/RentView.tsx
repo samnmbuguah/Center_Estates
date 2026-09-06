@@ -408,21 +408,21 @@ export function RentView({
           >
             <strong>{selectedIds.size} selected ({kM(selectedTotalAmount)})</strong>
             {draftSelected.length > 0 && canFinance && (
-              <button className="btn primary sm" onClick={() => handleBatchAction("submit-review")}>
+              <button className="fc-toolbar-btn primary" onClick={() => handleBatchAction("submit-review")}>
                 Submit ({draftSelected.length})
               </button>
             )}
             {reviewSelected.length > 0 && canApprove && (
-              <button className="btn primary sm" onClick={() => handleBatchAction("approve")}>
+              <button className="fc-toolbar-btn primary" onClick={() => handleBatchAction("approve")}>
                 Approve ({reviewSelected.length})
               </button>
             )}
             {approvedSelected.length > 0 && canApprove && (
-              <button className="btn primary sm" onClick={() => handleBatchAction("issue")}>
+              <button className="fc-toolbar-btn primary" onClick={() => handleBatchAction("issue")}>
                 Issue ({approvedSelected.length})
               </button>
             )}
-            <button className="btn ghost sm" onClick={() => setSelectedIds(new Set())}>Clear</button>
+            <button className="fc-toolbar-btn" onClick={() => setSelectedIds(new Set())}>Clear</button>
           </div>
         )}
       </div>
@@ -534,66 +534,71 @@ export function RentView({
                             </button>
                           )}
                           <button
-                            className="btn ghost sm"
+                            className="fc-action-btn"
                             onClick={(e) => {
                               e.stopPropagation();
                               onDownloadPdf(inv);
                             }}
+                            title="Download PDF invoice"
                           >
                             PDF
                           </button>
                           {bal > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && (
                             <button
-                              className="btn ghost sm"
+                              className="fc-action-btn"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onSendReminder(inv);
                               }}
+                              title="Send payment reminder"
                             >
                               Remind
                             </button>
                           )}
                           {inv.status === "draft" && canFinance && (
                             <button
-                              className="btn primary sm"
+                              className="fc-action-btn primary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "submit-review");
                               }}
+                              title="Submit draft invoice for approval"
                             >
                               Submit
                             </button>
                           )}
                           {inv.status === "review" && canApprove && (
                             <button
-                              className="btn primary sm"
+                              className="fc-action-btn success"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "approve");
                               }}
+                              title="Confirm and approve invoice"
                             >
                               Confirm
                             </button>
                           )}
                           {inv.status === "approved" && canApprove && (
                             <button
-                              className="btn primary sm"
+                              className="fc-action-btn primary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "issue");
                               }}
+                              title="Issue invoice to tenant"
                             >
                               Issue
                             </button>
                           )}
                           {["draft", "issued", "overdue"].includes(String(inv.status)) && (
                             <button
-                              className="btn ghost sm"
-                              style={{ color: "var(--danger)" }}
+                              className="fc-action-btn danger"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "void");
                               }}
+                              title="Void invoice"
                             >
                               Void
                             </button>
