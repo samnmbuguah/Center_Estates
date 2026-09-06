@@ -139,33 +139,31 @@ export function TenantsView({
         )}
         {prospects > 0 && selectedIds.length === 0 && canLease && (
           <button
-            className="btn ghost sm"
+            className="fc-toolbar-btn success"
             onClick={() => void handleActivateAllProspects()}
             disabled={activating}
-            style={{ color: "#16a34a", borderColor: "#86efac", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}
             title="Activate all pending prospect tenants and their draft leases"
           >
             ⚡ Activate All Prospects ({prospects})
           </button>
         )}
-        <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
+        <button className="fc-toolbar-btn" onClick={() => exportCsv(filtered, [
           { key: "name", label: "Name" }, { key: "code", label: "Code" }, { key: "tenant_type", label: "Type" },
           { key: "email", label: "Email" }, { key: "phone", label: "Phone" },
           { key: "unit", label: "Unit" }, { key: "status", label: "Status" },
           { key: "outstanding", label: "Outstanding" }, { key: "created_at", label: "Registered" },
         ], "tenants.csv")}>Export CSV</button>
-        <button className="btn ghost sm" onClick={() => onUploadDoc()}>Upload Document</button>
+        <button className="fc-toolbar-btn" onClick={() => onUploadDoc()}>Upload Document</button>
         {canLease && (
           <button
-            className="btn ghost sm"
+            className="fc-toolbar-btn"
             onClick={() => onBulkUpload()}
             title="Upload multiple tenants at once using a CSV file"
-            style={{ display: "flex", alignItems: "center", gap: 5 }}
           >
             ⬆ Upload Tenants (CSV)
           </button>
         )}
-        <button className="btn primary sm" onClick={() => onAdd()} style={{ fontWeight: 800 }}>+ Onboard Tenant</button>
+        <button className="fc-toolbar-btn primary" onClick={() => onAdd()}>+ Onboard Tenant</button>
       </ViewToolbar>
 
       <Panel title={`Tenants ${selectedIds.length ? `(${selectedIds.length} selected)` : ''}`}>
@@ -253,7 +251,7 @@ export function TenantsView({
                       </td>
                       <td>
                         {t.status === "prospect" ? (
-                          <Badge tone="yellow">Pending Activation</Badge>
+                          <StatusPill tone="yellow">Pending Activation</StatusPill>
                         ) : (
                           <StatusPill value={String(t.status ?? "—")} />
                         )}
@@ -265,58 +263,42 @@ export function TenantsView({
                         <div style={{ display: "flex", gap: 5, alignItems: "center", justifyContent: "flex-end", flexWrap: "nowrap" }}>
                           {t.status === "prospect" && canLease && (
                             <button
-                              className="fc-toolbar-btn primary"
+                              className="fc-action-btn success"
                               onClick={(e) => { e.stopPropagation(); void onActivate(t); }}
-                              style={{ background: "#16a34a", borderColor: "#15803d", color: "#fff", fontWeight: 700, padding: "4px 8px", fontSize: 11, borderRadius: 6 }}
                               title="Activate this tenant and all draft leases"
                             >
                               ⚡ Activate
                             </button>
                           )}
                           <button
-                            className="fc-toolbar-btn"
+                            className="fc-action-btn"
                             onClick={(e) => { e.stopPropagation(); onEdit(t); }}
-                            style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "5px 9px", fontSize: 11, fontWeight: 600, borderRadius: 6, color: "var(--text-primary)" }}
                             title="Edit tenant profile"
                           >
                             ✏️ Edit
                           </button>
                           <button
-                            className="fc-toolbar-btn"
+                            className="fc-action-btn portal"
                             data-testid="tenant-portal-btn"
                             onClick={(e) => {
                               e.stopPropagation();
                               window.open(`/tenant-portal?tenant=${t.id}`, "_blank", "noopener,noreferrer");
-                            }}
-                            style={{
-                              background: "rgba(37, 99, 235, 0.08)",
-                              border: "1px solid rgba(37, 99, 235, 0.25)",
-                              color: "#2563eb",
-                              padding: "5px 9px",
-                              fontSize: 11,
-                              fontWeight: 700,
-                              borderRadius: 6,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 3,
                             }}
                             title="Open tenant portal in a new tab (impersonate tenant view)"
                           >
                             🌐 Portal ↗
                           </button>
                           <button
-                            className="fc-toolbar-btn"
+                            className="fc-action-btn"
                             onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}
-                            style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "5px 9px", fontSize: 11, fontWeight: 600, borderRadius: 6, color: "var(--text-primary)" }}
                             title="Upload / view tenant documents"
                           >
                             📁 Docs
                           </button>
                           {canLease && (
                             <button
-                              className="fc-toolbar-btn"
+                              className="fc-action-btn danger"
                               onClick={(e) => { e.stopPropagation(); onDelete(t); }}
-                              style={{ background: "var(--surface)", border: "1px solid rgba(239, 68, 68, 0.25)", color: "#dc2626", padding: "5px 8px", fontSize: 11, fontWeight: 600, borderRadius: 6 }}
                               title="Delete duplicate or erroneous tenant"
                             >
                               🗑️

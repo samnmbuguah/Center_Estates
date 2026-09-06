@@ -4,6 +4,7 @@ from django.dispatch import receiver
 
 from core.models import OrganizationOwnedModel
 from .models import AuditEvent
+from .middleware import get_current_request, get_client_ip, get_client_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +26,26 @@ def auto_audit_post_save(sender, instance, created, **kwargs):
     entity_type = sender._meta.model_name
     entity_id = str(instance.pk)
 
+    request = get_current_request()
+    actor = getattr(request, 'user', None) if request and getattr(request.user, 'is_authenticated', False) else None
+    client_ip = get_client_ip(request) if request else ''
+    user_agent = get_client_user_agent(request) if request else ''
+
+    context = {'source': 'signal_auto_audit'}
+    if client_ip:
+        context['ip_address'] = client_ip
+    if user_agent:
+        context['user_agent'] = user_agent[:255]
+
     try:
         AuditEvent.objects.create(
             organization_id=org_id,
+            actor=actor,
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
             changes={'status': getattr(instance, 'status', '')} if hasattr(instance, 'status') else {},
-            context={'source': 'signal_auto_audit'},
+            context=context,
         )
     except Exception as exc:
         logger.warning('Failed to record auto audit event for %s %s: %s', entity_type, entity_id, exc)
@@ -50,13 +63,25 @@ def auto_audit_post_delete(sender, instance, **kwargs):
     entity_type = sender._meta.model_name
     entity_id = str(instance.pk)
 
+    request = get_current_request()
+    actor = getattr(request, 'user', None) if request and getattr(request.user, 'is_authenticated', False) else None
+    client_ip = get_client_ip(request) if request else ''
+    user_agent = get_client_user_agent(request) if request else ''
+
+    context = {'source': 'signal_auto_audit'}
+    if client_ip:
+        context['ip_address'] = client_ip
+    if user_agent:
+        context['user_agent'] = user_agent[:255]
+
     try:
         AuditEvent.objects.create(
             organization_id=org_id,
+            actor=actor,
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
-            context={'source': 'signal_auto_audit'},
+            context=context,
         )
     except Exception as exc:
         logger.warning('Failed to record auto audit deletion event for %s %s: %s', entity_type, entity_id, exc)

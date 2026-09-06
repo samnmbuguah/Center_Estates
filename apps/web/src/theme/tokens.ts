@@ -12,10 +12,12 @@
 
 // ─── BRAND COLORS ───
 export const brand = {
-  primary: '#dc2626',
-  primaryHover: '#b91c1c',
-  primaryLight: '#fee2e2',
-  primaryDark: '#991b1b',
+  primary: '#2563eb',
+  primaryHover: '#1d4ed8',
+  primaryLight: '#eff6ff',
+  primaryDark: '#1e40af',
+  danger: '#dc2626',
+  dangerHover: '#b91c1c',
 } as const;
 
 // ─── NEUTRAL SCALE (Slate) ───

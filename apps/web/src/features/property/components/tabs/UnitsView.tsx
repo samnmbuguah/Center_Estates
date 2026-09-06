@@ -1060,7 +1060,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
               {!lettingFeeSuccess && (
                 <Button
                   variant="contained"
-                  disabled={lettingFeeSaving}
+                  disabled={lettingFeeSaving || !lettingUnit || Number(lettingFeeAmount) <= 0}
                   onClick={handleCreateLettingInvoice}
                   sx={{ textTransform: "none", background: "#2563eb", fontWeight: 700 }}
                 >
@@ -1186,6 +1186,65 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                     helperText="Date of tenancy closure / invoice"
                     {...({ InputLabelProps: { shrink: true } } as any)}
                   />
+                </Box>
+
+                {/* Live Invoice Preview Breakdown Card */}
+                <Box
+                  sx={{
+                    background: "rgba(37, 99, 235, 0.04)",
+                    border: "1px solid rgba(37, 99, 235, 0.2)",
+                    borderRadius: "8px",
+                    p: 2,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1,
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#1e40af", display: "flex", alignItems: "center", gap: 1 }}>
+                    <span>🧾</span> Invoice Preview Breakdown
+                  </Typography>
+
+                  {lettingUnit ? (
+                    <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, fontSize: 13, pt: 0.5 }}>
+                      <div>
+                        <span style={{ color: "var(--text-secondary)" }}>Target Unit:</span>{" "}
+                        <strong>{lettingUnit.code}</strong>{" "}
+                        <span style={{ fontSize: 11, color: lettingUnit.tenant_name ? "#16a34a" : "#ca8a04" }}>
+                          ({lettingUnit.tenant_name ? `Leased: ${lettingUnit.tenant_name}` : "Vacant"})
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--text-secondary)" }}>Recipient (Owner):</span>{" "}
+                        <strong>{lettingFeeOwner || lettingUnit.owner_name || "Unassigned"}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--text-secondary)" }}>Calculation Basis:</span>{" "}
+                        <strong>
+                          {lettingFeeBasis === "one_month"
+                            ? "1 Month Rent"
+                            : lettingFeeBasis === "half_month"
+                            ? "50% Month Rent"
+                            : lettingFeeBasis === "percentage"
+                            ? "10% Agency Sourcing"
+                            : "Flat Negotiated"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--text-secondary)" }}>Effective Rent:</span>{" "}
+                        <strong>KES {Number(lettingUnit.effective_rent || lettingUnit.monthly_rent || 0).toLocaleString()}</strong>
+                      </div>
+                      <Box sx={{ gridColumn: "1 / -1", pt: 1, borderTop: "1px dashed rgba(37, 99, 235, 0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: 600, color: "#1e40af" }}>Total Amount to Invoice:</span>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: "#1e40af" }}>
+                          KES {Number(lettingFeeAmount || 0).toLocaleString()}
+                        </span>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" sx={{ color: "var(--text-secondary)", fontStyle: "italic", fontSize: 12 }}>
+                      Select a unit above to view the real-time invoice breakdown and enable invoicing.
+                    </Typography>
+                  )}
                 </Box>
 
                 <Box

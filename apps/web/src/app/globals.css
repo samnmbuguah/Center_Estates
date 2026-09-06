@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
   /* Light Theme Defaults - Ultra-Clean Pure Light Tokens */
@@ -16,12 +17,15 @@
   --border-color: #cbd5e1;
   --border-subtle: #e2e8f0;
   
-  --brand-primary: #dc2626;
-  --brand-primary-hover: #b91c1c;
-  --brand-primary-light: #fee2e2;
+  --brand-primary: #2563eb;
+  --brand-primary-hover: #1d4ed8;
+  --brand-primary-light: #eff6ff;
   
-  --brand-accent: #dc2626;
-  --brand-accent-deep: #b91c1c;
+  --brand-accent: #2563eb;
+  --brand-accent-deep: #1d4ed8;
+  
+  --brand-danger: #dc2626;
+  --brand-danger-hover: #b91c1c;
   
   --success: #16a34a;
   --success-bg: #dcfce7;
@@ -353,10 +357,10 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; min-height: 100vh; width: 100%; }
-body {
+body, button, input, select, textarea, table, th, td {
   background: var(--surface);
   color: var(--ink);
-  font-family: Inter, "Segoe UI", system-ui, Arial, Helvetica, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -3480,14 +3484,90 @@ a.profile-dropdown-item { text-decoration: none; }
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 .fc-toolbar-btn.primary {
-  background: var(--brand-primary, #dc2626);
-  border-color: var(--brand-primary, #dc2626);
+  background: var(--brand-primary, #2563eb);
+  border-color: var(--brand-primary, #2563eb);
   color: #ffffff;
 }
 .fc-toolbar-btn.primary:hover {
-  background: var(--brand-primary-hover, #b91c1c);
-  border-color: var(--brand-primary-hover, #b91c1c);
+  background: var(--brand-primary-hover, #1d4ed8);
+  border-color: var(--brand-primary-hover, #1d4ed8);
   color: #ffffff;
+}
+.fc-toolbar-btn.success {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #ffffff;
+}
+.fc-toolbar-btn.success:hover {
+  background: #15803d;
+  border-color: #166534;
+  color: #ffffff;
+}
+.fc-toolbar-btn.danger {
+  background: var(--brand-danger, #dc2626);
+  border-color: var(--brand-danger, #dc2626);
+  color: #ffffff;
+}
+.fc-toolbar-btn.danger:hover {
+  background: var(--brand-danger-hover, #b91c1c);
+  border-color: var(--brand-danger-hover, #b91c1c);
+  color: #ffffff;
+}
+
+/* Standardized Table Action Buttons */
+.fc-action-btn {
+  align-items: center;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px;
+  color: var(--text-primary, #0f172a);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+  height: 28px;
+  padding: 0 9px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.fc-action-btn:hover {
+  background: var(--surface-2, #f1f5f9);
+  border-color: var(--border-strong, #94a3b8);
+  color: #000000;
+}
+.fc-action-btn.portal {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: #2563eb;
+}
+.fc-action-btn.portal:hover {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+.fc-action-btn.success {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #ffffff;
+}
+.fc-action-btn.success:hover {
+  background: #15803d;
+  border-color: #166534;
+  color: #ffffff;
+}
+.fc-action-btn.danger {
+  background: transparent;
+  border-color: transparent;
+  color: #64748b;
+}
+.fc-action-btn.danger:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
 }
 
 /* Rich data table */
@@ -3979,7 +4059,7 @@ a.profile-dropdown-item { text-decoration: none; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -3994,7 +4074,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 img { max-width: 100%; height: auto; }
 svg { max-width: 100%; }
 
-h1, h2, h3 { font-family: "Bricolage Grotesque", sans-serif; letter-spacing: -0.02em; font-weight: 700; }
+h1, h2, h3 { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: -0.02em; font-weight: 700; }
 h2 { margin: 0 0 4px; font-size: 28px; }
 h3 { margin: 26px 0 12px; font-size: 18px; font-weight: 700; color: var(--text); }
 .mono { font-family: "IBM Plex Mono", monospace; }

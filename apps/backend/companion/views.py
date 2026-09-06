@@ -1296,7 +1296,7 @@ class TelemetryViewSet(ViewSet):
             note = ev.note
             mod = "companion"
             if "(Module: " in note:
-                mod = note.split("(Module: ")[-1].rstrip(")").lower()
+                mod = note.split("(Module: ")[-1].split(")")[0].strip().lower()
             if mod in page_counts:
                 page_counts[mod] += 1
             else:
@@ -1441,6 +1441,7 @@ class TelemetryViewSet(ViewSet):
                 return Response({'status': 'ok', 'accepted': 0}, status=status.HTTP_200_OK)
             if len(events) > 100:
                 raise ValidationError({'events': 'Submit no more than 100 telemetry events per batch.'})
+            client_ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR') or ''
             records = []
             for payload in events[:100]:
                 if not isinstance(payload, dict):
@@ -1450,13 +1451,14 @@ class TelemetryViewSet(ViewSet):
                 if not isinstance(properties, dict):
                     properties = {}
                 module = str(payload.get('module', 'dashboard'))[:40]
-                detail = str(properties.get('element', properties.get('path', '')))[:300]
+                detail = str(properties.get('element', properties.get('path', '')))[:260]
+                ip_tag = f" [IP: {client_ip}]" if client_ip else ""
                 records.append(TaskEvent(
                     organization=organization,
                     task=None,
                     actor=request.user if request.user.is_authenticated else None,
                     action=TaskEvent.Action.UPDATED,
-                    note=f"Telemetry [{event}]: {detail} (Module: {module})",
+                    note=f"Telemetry [{event}]{ip_tag}: {detail} (Module: {module})",
                 ))
             if records:
                 TaskEvent.objects.bulk_create(records)
