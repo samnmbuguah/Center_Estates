@@ -70,7 +70,7 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
     {busy && <LinearProgress />}
     <DialogContent>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Match existing tenants and units. Set base rent and optional recurring service charge; imported leases remain drafts for review.
+        Match existing tenants and units. All imported leases for property onboarding are registered as existing paper leases — digital offer letter signing is bypassed.
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>

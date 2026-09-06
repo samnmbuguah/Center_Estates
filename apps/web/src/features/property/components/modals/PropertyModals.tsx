@@ -480,6 +480,14 @@ export function PropertyModals(props: PropertyModalsProps) {
                   </select>
                 </Field>
               </div>
+              <div className="grid-1">
+                <Field label="Lease Onboarding Type">
+                  <select name="contract_type" defaultValue="paper_lease" style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13, background: "var(--surface)" }}>
+                    <option value="paper_lease">📄 Existing Paper Lease (Already signed offline — Onboarded property)</option>
+                    <option value="new_digital_signing">✍️ New Tenant (Issue digital offer letter for tenant portal signing)</option>
+                  </select>
+                </Field>
+              </div>
               <div className="grid-2">
                 <Field label="Start Date" required>
                   <input name="starts_on" type="date" required data-testid="lease-start-input" />

@@ -2705,6 +2705,29 @@ class LeaseViewSet(OrganizationModelViewSet):
         return Response({'lease': self.get_serializer(lease).data, 'offer_letter': self._offer_letter(lease)})
 
     @transaction.atomic
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        metadata = dict(serializer.validated_data.get('metadata') or {})
+        contract_type = self.request.data.get('contract_type') or metadata.get('contract_type') or 'paper_lease'
+        is_new_tenant = (
+            contract_type in ('new_tenant', 'digital', 'new_digital_signing')
+            or self.request.data.get('require_offer_letter') is True
+            or (serializer.validated_data.get('tenant') and getattr(serializer.validated_data['tenant'], 'status', None) == Tenant.Status.PROSPECT)
+        )
+        if is_new_tenant:
+            metadata['contract_type'] = 'digital'
+            metadata['require_offer_letter'] = True
+        else:
+            metadata['contract_type'] = 'paper_lease'
+            metadata['offer_signed_offline'] = True
+            metadata['require_offer_letter'] = False
+            metadata['is_ongoing'] = True
+        lease = serializer.save(organization=organization, metadata=metadata)
+        _inherit_unit_charge_profiles(lease)
+        if is_new_tenant:
+            self._issue_offer_letter(lease, self.request.user, require_acceptance=True)
+
+    @transaction.atomic
     @action(detail=False, methods=('post',), url_path='bulk-import')
     def bulk_import(self, request):
         """Preview or import leases for existing tenants and units without accepting deposits."""
@@ -2794,7 +2817,16 @@ class LeaseViewSet(OrganizationModelViewSet):
                     starts_on=starts_on, ends_on=ends_on, monthly_rent=monthly_rent,
                     deposit=_unit_deposit_amount(unit), billing_day=billing_day,
                     escalation_percent=escalation_percent, escalation_interval_months=escalation_interval,
-                    status=Lease.Status.DRAFT, metadata={'source': 'lease_import', 'imported_by': request.user.get_username(), 'service_charge': str(service_charge)},
+                    status=Lease.Status.DRAFT,
+                    metadata={
+                        'source': 'lease_import',
+                        'contract_type': 'paper_lease',
+                        'offer_signed_offline': True,
+                        'require_offer_letter': False,
+                        'is_ongoing': True,
+                        'imported_by': request.user.get_username(),
+                        'service_charge': str(service_charge),
+                    },
                 )
                 _inherit_unit_charge_profiles(lease)
                 if service_charge > 0:
@@ -2885,7 +2917,8 @@ class LeaseViewSet(OrganizationModelViewSet):
                     lease.tenant.status = Tenant.Status.ACTIVE
                     lease.tenant.save(update_fields=('status', 'updated_at'))
                 activate_lease_allocations(lease, request.user)
-                self._issue_offer_letter(lease, request.user)
+                if (lease.metadata or {}).get('require_offer_letter') is True or (lease.metadata or {}).get('contract_type') == 'digital':
+                    self._issue_offer_letter(lease, request.user, require_acceptance=True)
                 dirty = True
 
             if dirty:
@@ -2970,7 +3003,8 @@ class LeaseViewSet(OrganizationModelViewSet):
             lease.tenant.status = Tenant.Status.ACTIVE
             lease.tenant.save(update_fields=('status', 'updated_at'))
         activate_lease_allocations(lease, request.user)
-        self._issue_offer_letter(lease, request.user)
+        if (lease.metadata or {}).get('require_offer_letter') is True or (lease.metadata or {}).get('contract_type') == 'digital':
+            self._issue_offer_letter(lease, request.user, require_acceptance=True)
         return Response(self.get_serializer(lease).data)
 
     @transaction.atomic
@@ -3001,7 +3035,8 @@ class LeaseViewSet(OrganizationModelViewSet):
                         lease.tenant.status = Tenant.Status.ACTIVE
                         lease.tenant.save(update_fields=('status', 'updated_at'))
                     activate_lease_allocations(lease, request.user)
-                    self._issue_offer_letter(lease, request.user)
+                    if (lease.metadata or {}).get('require_offer_letter') is True or (lease.metadata or {}).get('contract_type') == 'digital':
+                        self._issue_offer_letter(lease, request.user, require_acceptance=True)
                     activated_count += 1
 
         return Response({
@@ -3068,7 +3103,8 @@ class LeaseViewSet(OrganizationModelViewSet):
         lease.status = Lease.Status.EXPIRED
         lease.save(update_fields=('status', 'updated_at'))
         generate_rent_schedule(renewed)
-        self._issue_offer_letter(renewed, request.user)
+        if (lease.metadata or {}).get('require_offer_letter') is True or (lease.metadata or {}).get('contract_type') == 'digital':
+            self._issue_offer_letter(renewed, request.user, require_acceptance=True)
         return Response(self.get_serializer(renewed).data, status=201)
 
     def perform_destroy(self, instance):

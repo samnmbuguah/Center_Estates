@@ -866,6 +866,7 @@ export function usePropertyLogic({
       escalation_interval_months: Number(raw.escalation_interval_months ?? 12),
       billing_day: Number(raw.billing_day ?? 1),
       status: "draft",
+      contract_type: String(raw.contract_type ?? "paper_lease"),
     };
     await apiFetch("/auth/csrf/");
     const res = await apiFetch("/property/leases/", {
