@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, isValidElement, useId, useState, useEffect, type ReactNode, type CSSProperties } from "react";
+import { cloneElement, isValidElement, useId, useEffect, type ReactNode, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
   Alert,
@@ -72,8 +72,8 @@ export function KpiCard({
   onClick?: () => void;
   link?: string;
 }) {
-  return (
-    <button className="fc-kpi-card" onClick={onClick} style={{ textAlign: "left", borderTop: borderColor ? `3px solid ${borderColor}` : undefined }}>
+  const content = (
+    <>
       <div className="fc-kpi-top">
         <span className="fc-kpi-icon" style={{ background: iconBg, color: iconColor }}>{icon}</span>
         <span className="fc-kpi-label">{label}</span>
@@ -81,8 +81,14 @@ export function KpiCard({
       <strong className="fc-kpi-value">{value}</strong>
       {sub ? <span className="fc-kpi-sub">{sub}</span> : null}
       {link ? <span className="fc-kpi-link">{link} →</span> : null}
-    </button>
+    </>
   );
+
+  if (onClick) {
+    return <button type="button" className="fc-kpi-card is-interactive" onClick={onClick} style={{ textAlign: "left", borderTop: borderColor ? `3px solid ${borderColor}` : undefined }}>{content}</button>;
+  }
+
+  return <article className="fc-kpi-card" style={{ textAlign: "left", borderTop: borderColor ? `3px solid ${borderColor}` : undefined }}>{content}</article>;
 }
 
 export function KpiStrip({ children, cols }: { children: ReactNode; cols?: number }) {
@@ -101,7 +107,7 @@ export function Panel({ title, badge, action, children, style }: { title?: React
               <span style={{ background: "var(--error-bg, #fee2e2)", borderRadius: 99, color: "var(--error, #c02727)", fontSize: 10, fontWeight: 800, padding: "2px 8px" }}>{badge}</span>
             )}
           </h2>
-          {action}
+          {action ? <div className="panel-actions">{action}</div> : null}
         </header>
       )}
       {children}
@@ -224,10 +230,7 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
 }
 
 export function DetailDrawer({ title, onClose, children, width = 540, centered = false }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number; centered?: boolean }) {
-  const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
-    setMounted(true);
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -235,7 +238,7 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  if (!mounted || typeof document === "undefined") return null;
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
@@ -573,5 +576,3 @@ export function DataTable<T>({
     </div>
   );
 }
-
-

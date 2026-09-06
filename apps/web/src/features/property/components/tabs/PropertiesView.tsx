@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
 import {
-  KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
-  Pagination, money, number,
+  KpiCard, KpiStrip, StatusPill, Badge, Panel, Pagination, money,
 } from "@/components/module-ui";
 import { ListState } from "../PropertyToolbar";
 import type {
@@ -14,11 +13,11 @@ import type {
 import {
   kM, kN, pct, occupancyTone,
 } from "../../utils/property.utils";
-import { Building2, DollarSign, Users, Layers, CheckCircle2, TrendingUp, Plus, FileText } from "lucide-react";
+import { Building2, DollarSign, Users, Layers, CheckCircle2, Plus, FileText, MoreHorizontal, Pencil, Home, UserRound, ReceiptText } from "lucide-react";
 import { PropertyDossierModal } from "../modals/PropertyDossierModal";
 
 export function PropertiesView({
-  rows, loading, search, setSearch, setTab, onAdd, onAddSectionalTitle, onSelectRow,
+  rows, loading, setTab, onAdd, onAddSectionalTitle, onSelectRow,
 }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   setTab: (t: PropertyTab) => void; onAdd: () => void; onAddSectionalTitle?: () => void; onSelectRow: (r: Row) => void;
@@ -26,6 +25,8 @@ export function PropertiesView({
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [selectedDossier, setSelectedDossier] = useState<PropertyRow | null>(null);
+  const [actionAnchor, setActionAnchor] = useState<HTMLElement | null>(null);
+  const [actionProperty, setActionProperty] = useState<PropertyRow | null>(null);
 
   const PAGE_SIZE = 20;
   const props = rows as PropertyRow[];
@@ -103,7 +104,7 @@ export function PropertiesView({
       <Panel
         title="Property Portfolio"
         action={
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="module-action-group">
             {onAddSectionalTitle && (
               <Button
                 variant="outlined"
@@ -195,19 +196,32 @@ export function PropertiesView({
                       {p.outstanding === undefined ? "—" : kM(p.outstanding)}
                     </td>
                     <td><StatusPill value={String(p.status ?? "active")} /></td>
-                    <td style={{ textAlign: "right" }}>
-                      <div className="row" style={{ gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        <button
-                          className="btn outline sm"
-                          style={{ fontWeight: 700, fontSize: 11, borderColor: "var(--primary, #2563eb)", color: "var(--primary, #2563eb)", display: "inline-flex", alignItems: "center", gap: 4 }}
+                    <td className="table-action-cell">
+                      <div className="table-primary-actions">
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FileText size={15} />}
                           onClick={(e) => { e.stopPropagation(); setSelectedDossier(p); }}
                         >
-                          <FileText size={12} /> Profile & Audit
-                        </button>
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); router.push(`/property-onboarding?edit=${p.id}`); }}>Edit</button>
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("units"); }}>Units</button>
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("tenants"); }}>Tenants</button>
-                        <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setTab("rent"); }}>Rent</button>
+                          View profile
+                        </Button>
+                        <Button
+                          variant="text"
+                          size="small"
+                          aria-label={`More actions for ${String(p.name ?? "property")}`}
+                          aria-controls={actionAnchor ? "property-row-actions" : undefined}
+                          aria-haspopup="menu"
+                          aria-expanded={actionAnchor ? "true" : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActionProperty(p);
+                            setActionAnchor(e.currentTarget);
+                          }}
+                          sx={{ minWidth: 36, px: 0.75 }}
+                        >
+                          <MoreHorizontal size={19} />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -218,6 +232,27 @@ export function PropertiesView({
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
+
+      <Menu
+        id="property-row-actions"
+        anchorEl={actionAnchor}
+        open={Boolean(actionAnchor)}
+        onClose={() => { setActionAnchor(null); setActionProperty(null); }}
+        slotProps={{ paper: { sx: { minWidth: 190, mt: 0.5 } } }}
+      >
+        <MenuItem onClick={() => { if (actionProperty) router.push(`/property-onboarding?edit=${actionProperty.id}`); setActionAnchor(null); }}>
+          <ListItemIcon><Pencil size={16} /></ListItemIcon><ListItemText>Edit property</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { setTab("units"); setActionAnchor(null); }}>
+          <ListItemIcon><Home size={16} /></ListItemIcon><ListItemText>View units</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { setTab("tenants"); setActionAnchor(null); }}>
+          <ListItemIcon><UserRound size={16} /></ListItemIcon><ListItemText>View tenants</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { setTab("rent"); setActionAnchor(null); }}>
+          <ListItemIcon><ReceiptText size={16} /></ListItemIcon><ListItemText>Billing & invoices</ListItemText>
+        </MenuItem>
+      </Menu>
 
       {/* Property Profile & Onboarding Completeness Audit Modal */}
       {selectedDossier && (
@@ -230,4 +265,3 @@ export function PropertiesView({
     </Box>
   );
 }
-
