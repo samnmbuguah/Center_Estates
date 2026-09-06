@@ -1,9 +1,9 @@
 "use client";
 
-import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
-import { Eye, Search, User } from "lucide-react";
+import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { Droplets, Eye, Gauge, Search, User } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
-import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType } from "./types";
+import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType, isMissingWaterReading } from "./types";
 
 export function CandidateTable({
   candidates,
@@ -25,6 +25,7 @@ export function CandidateTable({
   onSelect,
   onPreview,
   onOverride,
+  onRecordMeter,
   onNavigate,
 }: {
   candidates: Candidate[];
@@ -47,6 +48,7 @@ export function CandidateTable({
   onSelect: (id: string) => void;
   onPreview: (c: Candidate) => void;
   onOverride: (c: Candidate) => void;
+  onRecordMeter?: (c: Candidate) => void;
   onSingleInvoice: () => void;
   onNavigate: (tab: string) => void;
 }) {
@@ -145,20 +147,25 @@ export function CandidateTable({
               {candidates.map((c) => {
                 const isSelected = selected.includes(c.id);
                 const unbilledItems = (c.billing_items || []).filter((it: any) => !it.billed);
-                const isReady = c.status === "ready" || (unbilledItems.length > 0 && c.status !== "issue");
+                const isMissingWater = isMissingWaterReading(c);
+                const isReady = (c.status === "ready" || (unbilledItems.length > 0 && c.status !== "issue")) && !isMissingWater;
                 const unbilledTotal = unbilledItems.reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
                 const billedTotal = (c.billing_items || []).filter((it: any) => it.billed).reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
 
                 return (
-                  <tr key={c.id} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(59,130,246,0.04)" : "transparent" }}>
+                  <tr key={c.id} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(59,130,246,0.04)" : isMissingWater ? "rgba(245,158,11,0.02)" : "transparent" }}>
                     <td style={{ padding: "10px 12px" }}>
-                      <input
-                        type="checkbox"
-                        disabled={!isReady}
-                        checked={isSelected}
-                        onChange={() => onSelect(c.id)}
-                        style={{ cursor: isReady ? "pointer" : "default", width: 15, height: 15 }}
-                      />
+                      <Tooltip title={isMissingWater ? `Water meter reading required for ${c.unit_code} before billing rent or utilities` : !isReady ? "Candidate has unresolved issues" : "Select candidate for billing"}>
+                        <span>
+                          <input
+                            type="checkbox"
+                            disabled={!isReady}
+                            checked={isSelected}
+                            onChange={() => onSelect(c.id)}
+                            style={{ cursor: isReady ? "pointer" : "not-allowed", width: 15, height: 15 }}
+                          />
+                        </span>
+                      </Tooltip>
                     </td>
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -176,7 +183,7 @@ export function CandidateTable({
                       <div style={{ fontSize: 10.5, color: "var(--text-secondary)" }}>{c.property_name}</div>
                     </td>
                     <td style={{ padding: "10px 12px" }}>
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
                         {(() => {
                           const grouped = new Map<string, { code: string; rawCode: string; billedCount: number; totalCount: number; unbilledAmount: number }>();
                           for (const it of c.billing_items || []) {
@@ -219,6 +226,25 @@ export function CandidateTable({
                             );
                           });
                         })()}
+                        {isMissingWater && (
+                          <Tooltip title="Metered water is required for this tenancy. Reading must be recorded before generating the consolidated bill.">
+                            <Chip
+                              size="small"
+                              icon={<Droplets size={11} color="#d97706" />}
+                              label="WATER: Reading Req."
+                              variant="outlined"
+                              sx={{
+                                fontSize: 9.5,
+                                height: 20,
+                                fontWeight: 700,
+                                color: "#b45309",
+                                borderColor: "rgba(245, 158, 11, 0.4)",
+                                bgcolor: "rgba(245, 158, 11, 0.08)",
+                                "& .MuiChip-icon": { ml: 0.5 },
+                              }}
+                            />
+                          </Tooltip>
+                        )}
                       </div>
                     </td>
                     <td style={{ padding: "10px 12px" }}>
@@ -232,6 +258,11 @@ export function CandidateTable({
                               ({money.format(billedTotal)} billed ✓)
                             </div>
                           )}
+                          {isMissingWater && (
+                            <div style={{ fontSize: 9.5, color: "#b45309", fontWeight: 600, marginTop: 1 }}>
+                              + pending water consumption
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div style={{ fontWeight: 700, fontSize: 11.5, color: "var(--success)" }}>
@@ -240,15 +271,60 @@ export function CandidateTable({
                       )}
                     </td>
                     <td style={{ padding: "10px 12px" }}>
-                      <StatusPill tone={unbilledTotal === 0 ? "green" : statusToneMap[c.status] || "gray"}>
-                        {unbilledTotal === 0 ? "generated" : c.status}
-                      </StatusPill>
+                      {isMissingWater ? (
+                        <Tooltip title="Consolidated Billing Policy: Water meter reading for this period must be entered before generating rent or utility invoices.">
+                          <span>
+                            <Chip
+                              size="small"
+                              icon={<Droplets size={12} color="#b45309" />}
+                              label="Needs Water Reading"
+                              sx={{
+                                fontSize: 10.5,
+                                fontWeight: 700,
+                                height: 24,
+                                background: "rgba(245, 158, 11, 0.12)",
+                                color: "#b45309",
+                                border: "1px solid rgba(245, 158, 11, 0.3)",
+                                "& .MuiChip-icon": { ml: 0.8 },
+                              }}
+                            />
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <StatusPill tone={unbilledTotal === 0 ? "green" : statusToneMap[c.status] || "gray"}>
+                          {unbilledTotal === 0 ? "generated" : c.status}
+                        </StatusPill>
+                      )}
                     </td>
                     <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                        <Button variant="outlined" size="small" startIcon={<Eye size={14} />} onClick={() => onPreview(c)}>View details</Button>
-                        {c.status === "issue" && (
-                          <Button size="small" color="warning" onClick={() => onOverride(c)} sx={{ fontSize: 11, py: 0.25 }}>Override</Button>
+                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", alignItems: "center" }}>
+                        {isMissingWater && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<Gauge size={13} />}
+                            onClick={() => onRecordMeter?.(c)}
+                            sx={{
+                              fontSize: 11,
+                              py: 0.35,
+                              px: 1.2,
+                              fontWeight: 700,
+                              background: "linear-gradient(135deg, #0284c7 0%, #2563eb 100%)",
+                              color: "#fff",
+                              boxShadow: "0 2px 4px rgba(37,99,235,0.2)",
+                              "&:hover": { background: "#1d4ed8" },
+                            }}
+                          >
+                            Record Reading
+                          </Button>
+                        )}
+                        <Button variant="outlined" size="small" startIcon={<Eye size={14} />} onClick={() => onPreview(c)}>
+                          View details
+                        </Button>
+                        {c.status === "issue" && !isMissingWater && (
+                          <Button size="small" color="warning" onClick={() => onOverride(c)} sx={{ fontSize: 11, py: 0.25 }}>
+                            Override
+                          </Button>
                         )}
                       </div>
                     </td>

@@ -51,10 +51,16 @@ export const statusToneMap: Record<string, "green" | "red" | "yellow" | "blue" |
   issue: "red", overdue: "red", blocking: "red", review: "yellow", preparing: "yellow", warning: "yellow", excluded: "gray",
 };
 
+export function isMissingWaterReading(candidate: Candidate): boolean {
+  return (candidate.issue_summary || []).some(
+    (issue) => issue.code === "missing_water_reading" || ((issue.code || "").includes("water") && (issue.severity === "blocking" || issue.code.includes("missing")))
+  );
+}
+
 export function issueResolution(code: string): { label: string; href: string } | null {
   const c = (code || "").toLowerCase();
   if (c.includes("water") || c.includes("meter") || c.includes("reading") || c.includes("utility")) {
-    return { label: "Inspect & Capture Meter Readings", href: "/companion?tab=readings" };
+    return { label: "Log Meter Readings in Facility", href: "/facility?tab=meters" };
   }
   if (c.includes("lease") || c.includes("rent") || c.includes("charge_rule") || c.includes("escalation")) {
     return { label: "Configure Lease & Charges", href: "/property?tab=leases" };

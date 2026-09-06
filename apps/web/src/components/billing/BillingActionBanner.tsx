@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Box, Button, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
-import { FilePlus2, MoreHorizontal, RotateCcw, Send } from "lucide-react";
+import { Droplets, FilePlus2, MoreHorizontal, RotateCcw, Send } from "lucide-react";
 import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 
 export function BillingActionBanner({
   hasRun, isPreparing, isReview, formattedMonth, ready, selectedCount,
   chargeTypeFilter = "all", billingTarget = "tenant", blockingOpen, busy,
+  pendingWaterCount = 0, onLogMeters,
   canFinance, onInitialize, onRecheck, onGenerate, onSingleInvoice,
 }: {
   hasRun: boolean; isPreparing: boolean; isReview: boolean; isApproved: boolean;
@@ -15,6 +16,7 @@ export function BillingActionBanner({
   chargeTypeFilter?: InvoiceChargeType | "all"; billingTarget?: "tenant" | "landlord";
   typeCounts?: Record<string, number>; onChargeTypeFilter?: (t: InvoiceChargeType | "all") => void;
   blockingOpen: boolean; busy: string; canFinance: boolean; canApprove: boolean;
+  pendingWaterCount?: number; onLogMeters?: () => void;
   onInitialize: () => void; onRecheck: () => void; onApprove: () => void;
   onGenerate: () => void; onSingleInvoice: () => void;
 }) {
@@ -65,6 +67,36 @@ export function BillingActionBanner({
           <MenuItem onClick={() => { setMenuAnchor(null); onSingleInvoice(); }}><FilePlus2 size={16} /> Create one-off invoice</MenuItem>
         </Menu>
       </Box>
+
+      {pendingWaterCount > 0 && (
+        <Box
+          sx={{
+            mt: 1.5,
+            p: "8px 14px",
+            borderRadius: 1.5,
+            background: "rgba(245, 158, 11, 0.08)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1,
+            fontSize: 12,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "#b45309" }}>
+            <Droplets size={15} color="#d97706" />
+            <span>
+              <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Water meter readings must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
+            </span>
+          </Box>
+          {onLogMeters && (
+            <Button size="small" onClick={onLogMeters} sx={{ fontSize: 11, py: 0.2, fontWeight: 700, color: "#b45309", textTransform: "none" }}>
+              Log in Facility →
+            </Button>
+          )}
+        </Box>
+      )}
     </Paper>
   );
 }

@@ -650,6 +650,67 @@ class PropertyApiTests(TestCase):
         self.assertIn('LEASE-1', references)
         self.assertNotIn('LEASE-EXPIRED', references)
 
+    def test_water_meter_reading_required_before_billing_rent_consolidated(self):
+        water_item = BillingItem.objects.create(
+            organization=self.organization, code='WATER', name='Water consumption',
+            calculation=BillingItem.Calculation.METERED, income_category='utilities',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=water_item,
+            frequency=BillingProfile.Frequency.METERED, calculation=BillingItem.Calculation.METERED,
+            amount=Decimal('0'), effective_from='2026-01-01', billing_day=1,
+        )
+
+        # 1. Prepare run without meter reading: candidate is ISSUE with missing_water_reading
+        run_id, run_url, run_data = self._prepare_run('2026-08-01', '2026-08-31')
+        candidate_id = run_data['candidates'][0]['id']
+        self.assertEqual(run_data['candidates'][0]['status'], BillingCandidate.Status.ISSUE)
+
+        # Attempting to generate candidate is blocked
+        gen_resp = self.client.post(f'{run_url}generate/', {
+            'candidate_ids': [candidate_id]
+        }, format='json', **self.headers)
+        self.assertEqual(gen_resp.status_code, 400)
+        self.assertIn('water meter reading is required', str(gen_resp.data).lower())
+
+        # 2. Attempt to draft rent schedule directly: blocked with water_meter ValidationError
+        schedule = RentSchedule.objects.create(
+            organization=self.organization, lease=self.lease,
+            period_start=date(2026, 8, 1), period_end=date(2026, 8, 31),
+            due_on=date(2026, 8, 5), base_rent=Decimal('1000'),
+            escalation_amount=Decimal('0'), service_charge=Decimal('0'), total=Decimal('1000'),
+            status=RentSchedule.Status.UPCOMING,
+        )
+        schedule_resp = self.client.post(f'/api/v1/property/rent-schedules/{schedule.id}/generate-invoice/', {
+            'tax_rate': '0'
+        }, format='json', **self.headers)
+        self.assertEqual(schedule_resp.status_code, 400)
+        self.assertIn('water_meter', schedule_resp.data)
+
+        # 3. Create approved meter reading: candidate becomes READY and generates consolidated invoices
+        meter = UtilityMeter.objects.create(
+            organization=self.organization, property=self.property, property_unit=self.unit,
+            code='W-MTR-TEST', name='Unit Water Meter', utility_type=UtilityMeter.Utility.WATER,
+        )
+        MeterReading.objects.create(
+            organization=self.organization, meter=meter,
+            read_at=timezone.make_aware(datetime(2026, 8, 20, 9, 0)),
+            value=Decimal('150'), previous_value=Decimal('100'), consumption=Decimal('50'),
+            cost=Decimal('500'), status=MeterReading.Status.APPROVED,
+        )
+        # Re-prepare run
+        _, ready_url, ready_data = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertEqual(ready_data['candidates'][0]['status'], BillingCandidate.Status.READY)
+
+        # Generate invoices successfully
+        success_gen = self.client.post(f'{ready_url}generate/', {
+            'candidate_ids': [ready_data['candidates'][0]['id']]
+        }, format='json', **self.headers)
+        self.assertEqual(success_gen.status_code, 201)
+        invoice_types = {inv['invoice_type'] for inv in success_gen.data['invoices']}
+        self.assertIn('rent', invoice_types)
+        self.assertIn('water', invoice_types)
+
     @mock.patch.dict(os.environ, {'ECITIZEN_TEST_SECRET': 'client-supplied-signing-secret'})
     def test_tenant_payment_is_signed_idempotent_and_fully_reconciled(self):
         TenantPortalAccess.objects.create(

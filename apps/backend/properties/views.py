@@ -4444,12 +4444,13 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 return True
 
             due_profiles = [profile for profile in due_profiles if _profile_is_billable_for_occupant(profile)]
-            # Deduplicate profiles by billing_item_id to prevent duplicate charge line items
+            # Deduplicate identical profiles while preserving distinct effective periods (e.g. mid-month rate changes)
             seen_items = set()
             deduped_profiles = []
             for profile in due_profiles:
-                if profile.billing_item_id not in seen_items:
-                    seen_items.add(profile.billing_item_id)
+                p_key = (profile.billing_item_id, profile.effective_from, profile.effective_to)
+                if p_key not in seen_items:
+                    seen_items.add(p_key)
                     deduped_profiles.append(profile)
             due_profiles = deduped_profiles
             if invoice_types is not None:
@@ -4758,6 +4759,22 @@ class BillingRunViewSet(OrganizationModelViewSet):
         candidates = list(candidates)
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
+
+        # Enforce consolidated billing: Candidates requiring water readings cannot be billed until reading is approved
+        for cand in candidates:
+            water_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') == 'missing_water_reading']
+            if water_issues:
+                t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                raise ValidationError({
+                    'candidates': f"Cannot generate invoice for {t_name} ({u_code}): A valid water meter reading is required before billing rent and utilities."
+                })
+            if cand.status == BillingCandidate.Status.ISSUE:
+                t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                raise ValidationError({
+                    'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Resolve open billing issues before generating invoices."
+                })
 
         year = run.period_start.year
         raw_types = request.data.get('invoice_types')
@@ -5112,6 +5129,36 @@ class RentScheduleViewSet(OrganizationModelViewSet):
         validate_lease_billable(lease, today)
         if schedule.period_start < lease.starts_on or schedule.period_start >= lease.ends_on or schedule.period_end > lease.ends_on:
             raise ValidationError({'rent_schedule': 'The billing period falls outside the active lease term.'})
+
+        # Enforce consolidated billing: Unit with metered water requires approved water reading before rent invoice
+        from facilities.models import MeterReading, UtilityMeter
+        has_metered_water = (
+            BillingProfile.objects.filter(
+                organization=schedule.organization,
+                lease=lease,
+                is_active=True,
+                calculation=BillingItem.Calculation.METERED,
+            ).exists()
+            or UtilityMeter.objects.filter(
+                organization=schedule.organization,
+                property_unit=lease.unit,
+                utility_type=UtilityMeter.Utility.WATER,
+                is_active=True,
+            ).exists()
+        )
+        if has_metered_water:
+            water_reading_exists = MeterReading.objects.filter(
+                organization=schedule.organization,
+                meter__property_unit=lease.unit,
+                meter__utility_type=UtilityMeter.Utility.WATER,
+                read_at__date__range=(schedule.period_start, schedule.period_end),
+                status=MeterReading.Status.APPROVED,
+            ).exists()
+            if not water_reading_exists:
+                raise ValidationError({
+                    'water_meter': f'Unit {lease.unit.code} requires metered water billing. You cannot bill rent until the water meter reading for {schedule.period_start:%B %Y} is recorded and approved.'
+                })
+
         refresh_schedule_amount(schedule)
         tax_amount = (schedule.total * tax_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         invoice = Invoice.objects.create(

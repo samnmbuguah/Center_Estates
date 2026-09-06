@@ -5,7 +5,7 @@ import { Alert, Box } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { LoadingState, money } from "@/components/module-ui";
-import { BillingRun, BillingIssue, Candidate, Invoice, InvoiceChargeType, candidateHasChargeType, invoiceChargeType } from "./billing/types";
+import { BillingRun, BillingIssue, Candidate, Invoice, InvoiceChargeType, candidateHasChargeType, invoiceChargeType, isMissingWaterReading } from "./billing/types";
 import { BillingHeader, BillingMode } from "./billing/BillingHeader";
 import { BillingActionBanner } from "./billing/BillingActionBanner";
 import { BillingChargeRollup } from "./billing/BillingChargeRollup";
@@ -13,6 +13,7 @@ import { BillingKpis } from "./billing/BillingKpis";
 import { CandidateTable } from "./billing/CandidateTable";
 import { CandidatePreviewDrawer } from "./billing/CandidatePreviewDrawer";
 import { OverrideDialog } from "./billing/OverrideDialog";
+import { QuickRecordMeterModal } from "./billing/QuickRecordMeterModal";
 
 export type BillingContext = {
   mode: string;
@@ -48,6 +49,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
   const [chargeTypeFilter, setChargeTypeFilter] = useState<InvoiceChargeType | "all">("all");
   const [search, setSearch] = useState("");
   const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
+  const [recordMeterCandidate, setRecordMeterCandidate] = useState<Candidate | null>(null);
   const [overrideIssue, setOverrideIssue] = useState<BillingIssue | null>(null);
   const [overrideNotes, setOverrideNotes] = useState("");
 
@@ -471,6 +473,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         chargeTypeFilter={chargeTypeFilter}
         billingTarget={billingTarget}
         typeCounts={typeCounts}
+        pendingWaterCount={rawCandidates.filter((c) => isMissingWaterReading(c)).length}
+        onLogMeters={() => onNavigate("meters")}
         onChargeTypeFilter={(t: InvoiceChargeType | "all") => {
           setChargeTypeFilter(t);
           const matching = rawCandidates.filter((c) => isCandidateReady(c, t)).map((c) => c.id);
@@ -520,6 +524,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         onSelect={(id) => setSelected(curr => curr.includes(id) ? curr.filter(x => x !== id) : [...curr, id])}
         onPreview={setPreviewCandidate}
         onOverride={(c) => setOverrideIssue(c.issue_summary?.[0] ? { id: c.id, code: c.issue_summary[0].code, message: c.issue_summary[0].message, severity: c.issue_summary[0].severity, status: "open" } : null)}
+        onRecordMeter={setRecordMeterCandidate}
         onSingleInvoice={() => onSingleInvoice({ mode, period_start, period_end, months_count: (() => {
           const [sy, sm] = period_start.split("-").map(Number);
           const [ey, em] = period_end.split("-").map(Number);
@@ -537,7 +542,28 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
         onClose={() => { setOverrideIssue(null); setOverrideNotes(""); }}
       />
 
-      {previewCandidate && <CandidatePreviewDrawer candidate={previewCandidate} onClose={() => setPreviewCandidate(null)} />}
+      {previewCandidate && (
+        <CandidatePreviewDrawer
+          candidate={previewCandidate}
+          onClose={() => setPreviewCandidate(null)}
+          onRecordMeter={(c) => {
+            setPreviewCandidate(null);
+            setRecordMeterCandidate(c);
+          }}
+        />
+      )}
+
+      <QuickRecordMeterModal
+        candidate={recordMeterCandidate}
+        periodEnd={run?.period_end ?? period_end}
+        open={Boolean(recordMeterCandidate)}
+        onClose={() => setRecordMeterCandidate(null)}
+        onSuccess={async () => {
+          setNotice("Water meter reading recorded and approved! Refreshing billing queue…");
+          await mutate("prepare");
+          await load();
+        }}
+      />
     </Box>
   );
 }
