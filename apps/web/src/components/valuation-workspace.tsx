@@ -403,7 +403,7 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
   const typeMix = useMemo(() => mix.map((m, i) => ({ label: String(m.valuation_type ?? "—"), value: Number(m.count ?? 0), color: PALETTE[i % PALETTE.length] })), [mix]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div className="module-page-stack">
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
           Valuation Management Dashboard
@@ -413,48 +413,12 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
         </Typography>
       </Box>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#e0e7ff", color: "#4f46e5",
-            textAlign: "center"
-          }}>
-            <FileText size={24} style={{ marginBottom: 8 }} />
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(totalInstructions || Number(kpis.activeInstructions ?? 0))}</Typography>
-            <Typography variant="caption">Total Instructions</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
-            textAlign: "center"
-          }}>
-            <Settings size={24} style={{ marginBottom: 8 }} />
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(inProgress)}</Typography>
-            <Typography variant="caption">In Progress</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
-            textAlign: "center"
-          }}>
-            <CheckCircle size={24} style={{ marginBottom: 8 }} />
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(completed)}</Typography>
-            <Typography variant="caption">Completed</Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#fee2e2", color: "#b91c1c",
-            textAlign: "center"
-          }}>
-            <AlertTriangle size={24} style={{ marginBottom: 8 }} />
-            <Typography variant="h3" sx={{ fontWeight: 800 }}>{number.format(overdueCount)}</Typography>
-            <Typography variant="caption">Overdue</Typography>
-          </Box>
-        </Grid>
-      </Grid>
+      <KpiStrip cols={4}>
+        <KpiCard icon={<FileText size={18} />} label="Total Instructions" value={number.format(totalInstructions || Number(kpis.activeInstructions ?? 0))} sub="All valuation work" borderColor="var(--status-info-text)" />
+        <KpiCard icon={<Settings size={18} />} label="In Progress" value={number.format(inProgress)} sub="Active assignments" borderColor="var(--focus-ring)" />
+        <KpiCard icon={<CheckCircle size={18} />} label="Completed" value={number.format(completed)} sub="Closed instructions" borderColor="var(--status-success-text)" />
+        <KpiCard icon={<AlertTriangle size={18} />} label="Overdue" value={number.format(overdueCount)} sub="Requires attention" borderColor="var(--status-danger-text)" />
+      </KpiStrip>
 
       <KpiStrip cols={4}>
         <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft Reports" value={number.format(draftReports)} sub="Awaiting review" link="Review drafts" onClick={() => setTab("draft-reports")} />

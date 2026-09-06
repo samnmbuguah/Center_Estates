@@ -81,23 +81,10 @@ export function OverviewView({
     : "conic-gradient(#e2e8f0 0% 100%)";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+    <div className="module-page-stack">
           {/* ═══ EXECUTIVE HERO HEADER ════════════════════════════════════ */}
-      <div
-        style={{
-          background: "var(--surface, #ffffff)",
-          border: "1px solid var(--border, #e2e8f0)",
-          borderRadius: 14,
-          padding: "20px 24px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 16,
-          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div className="module-context-header prominent">
+        <div className="module-context-copy">
           <div
             style={{
               width: 48,
@@ -139,7 +126,7 @@ export function OverviewView({
         </div>
 
         {/* Quick Action Navigation Buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div className="module-action-group">
           <button
             type="button"
             className="btn ghost sm"

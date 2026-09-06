@@ -135,23 +135,10 @@ export function OverviewView({
   const fmScoreGrad = `conic-gradient(#22c55e 0% ${weightedIndex}%, var(--border) ${weightedIndex}% 100%)`;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="module-page-stack compact">
       {/* Top Perspective Switcher Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 12,
-          padding: "12px 18px",
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-lg, 12px)",
-          boxShadow: "var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="module-context-header">
+        <div className="module-context-copy">
           <div
             style={{
               width: 38,
@@ -180,36 +167,16 @@ export function OverviewView({
         </div>
 
         {/* Segmented Control */}
-        <div style={{ display: "flex", background: "var(--surface-sunken)", padding: 3, borderRadius: 8, border: "1px solid var(--border)" }}>
+        <div className="module-segmented-control">
           <button
+            className={`module-segment ${viewMode === "manager" ? "active" : ""}`}
             onClick={() => setViewMode("manager")}
-            style={{
-              border: 0,
-              padding: "6px 14px",
-              borderRadius: 6,
-              fontSize: "0.82rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              background: viewMode === "manager" ? "var(--surface)" : "transparent",
-              color: viewMode === "manager" ? "var(--text-primary)" : "var(--text-secondary)",
-              boxShadow: viewMode === "manager" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-            }}
           >
             Manager Command Centre
           </button>
           <button
+            className={`module-segment ${viewMode === "client" ? "active" : ""}`}
             onClick={() => setViewMode("client")}
-            style={{
-              border: 0,
-              padding: "6px 14px",
-              borderRadius: 6,
-              fontSize: "0.82rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              background: viewMode === "client" ? "var(--surface)" : "transparent",
-              color: viewMode === "client" ? "var(--text-primary)" : "var(--text-secondary)",
-              boxShadow: viewMode === "client" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-            }}
           >
             Client Executive View
           </button>
@@ -218,20 +185,7 @@ export function OverviewView({
           href="/caretaker-portal?preview=1"
           target="_blank"
           rel="noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            minHeight: 36,
-            padding: "0 12px",
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            color: "var(--text-primary)",
-            background: "var(--surface)",
-            textDecoration: "none",
-            fontSize: "0.82rem",
-            fontWeight: 800,
-          }}
+          className="module-secondary-action"
         >
           📱 Preview caretaker portal ↗
         </a>

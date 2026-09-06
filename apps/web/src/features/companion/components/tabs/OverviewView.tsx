@@ -30,16 +30,16 @@ export function OverviewView({
   const escalatedTasks = dash?.escalatedTasks ?? [];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div className="module-page-stack">
       {dash?.activeNudge && (
         <CompanionNudgeCard nudge={dash.activeNudge} />
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>
+      <div className="module-toolbar">
+        <div className="module-toolbar-copy">
           Personal workspace & team operational briefings
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="module-action-group">
           {canManageReminders && (
             <button className="btn ghost sm" onClick={onManageReminders}>📣 Manage team reminders</button>
           )}
@@ -47,21 +47,7 @@ export function OverviewView({
             href="/caretaker-portal?preview=1"
             target="_blank"
             rel="noreferrer"
-            style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            minHeight: 34,
-            padding: "0 14px",
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            color: "var(--text-primary)",
-            background: "var(--surface)",
-            textDecoration: "none",
-            fontSize: "0.82rem",
-            fontWeight: 800,
-            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-          }}
+            className="module-secondary-action"
           >
             📱 Preview caretaker portal ↗
           </a>
@@ -78,11 +64,11 @@ export function OverviewView({
         <KpiCard icon="✅" label="Completed" value={String(kpis.completed ?? 0)} sub="All time" onClick={() => onSelectTab("my-tasks")} />
       </KpiStrip>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div className="card" style={{ padding: 18 }}>
-            <div className="panel-title" style={{ padding: "0 0 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: 15 }}>My Tasks</h3>
+      <div className="module-split-layout module-split-layout-wide">
+        <div className="module-column-stack">
+          <div className="card module-content-card">
+            <div className="module-card-heading">
+              <h3>My Tasks</h3>
               <button className="btn ghost sm" onClick={() => onSelectTab("my-tasks")}>View all →</button>
             </div>
             {loading ? (
@@ -121,14 +107,14 @@ export function OverviewView({
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div className="card" style={{ padding: 18 }}>
-            <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>🚨 Escalated</h3>
+        <div className="module-column-stack">
+          <div className="card module-content-card">
+            <h3 className="module-card-title">🚨 Escalated</h3>
             {escalatedTasks.length === 0 ? (
               <div className="muted" style={{ fontSize: 13, padding: "12px 0" }}>No escalated tasks.</div>
             ) : (
               escalatedTasks.map((t: Row) => (
-                <div key={String(t.id)} style={{ borderBottom: "1px solid var(--border)", padding: "10px 0" }}>
+                <div key={String(t.id)} className="module-list-row">
                   <strong style={{ fontSize: 13 }}>{String(t.title)}</strong>
                   <div className="muted" style={{ fontSize: 11 }}>{String(t.assignee_name || t.assignee_username || "—")} · {fmtDate(t.due_at)}</div>
                 </div>
@@ -136,13 +122,13 @@ export function OverviewView({
             )}
           </div>
 
-          <div className="card" style={{ padding: 18 }}>
-            <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>⏰ Overdue</h3>
+          <div className="card module-content-card">
+            <h3 className="module-card-title">⏰ Overdue</h3>
             {overdueTasks.length === 0 ? (
               <div className="muted" style={{ fontSize: 13, padding: "12px 0" }}>Nothing overdue. 🎉</div>
             ) : (
               overdueTasks.map((t: Row) => (
-                <div key={String(t.id)} style={{ borderBottom: "1px solid var(--border)", padding: "10px 0" }}>
+                <div key={String(t.id)} className="module-list-row">
                   <strong style={{ fontSize: 13 }}>{String(t.title)}</strong>
                   <div className="muted" style={{ fontSize: 11 }}>Due {fmtDateTime(t.due_at)}</div>
                 </div>
