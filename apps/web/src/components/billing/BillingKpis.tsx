@@ -1,29 +1,39 @@
 "use client";
 
 import { Box, Paper, Typography } from "@mui/material";
+import { AlertTriangle, CircleCheckBig, ReceiptText } from "lucide-react";
 import { money } from "@/components/module-ui";
 
 export function BillingKpis({ totals, ready, issues, generatedCount, generatedAmount }: {
   totals: Record<string, string | number>; ready: number; issues: number;
   generatedCount: number; generatedAmount: number;
 }) {
+  const targetAmount = Number(totals.total_amount ?? 0);
+  const readyAmount = Number(totals.amount_ready ?? 0);
+  const issueAmount = Number(totals.amount_with_issues ?? 0);
+  const candidateCount = Number(totals.candidates ?? totals.total_candidates ?? 0);
+
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 1.25 }}>
-      {[
-        { label: "Target Revenue", value: money.format(Number(totals.total_amount ?? 0)), sub: `${totals.candidates ?? 0} units`, icon: "🎯", color: "#3b82f6" },
-        { label: "Ready to Bill", value: money.format(Number(totals.amount_ready ?? 0)), sub: `${ready} verified`, icon: "✨", color: "#22c55e" },
-        { label: "Exceptions", value: money.format(Number(totals.amount_with_issues ?? 0)), sub: `${issues} need action`, icon: "⚠️", color: issues > 0 ? "#ef4444" : "#94a3b8" },
-        { label: "Generated", value: money.format(generatedAmount), sub: `${generatedCount} issued`, icon: "📄", color: "#6366f1" },
-      ].map((kpi, i) => (
-        <Paper key={i} variant="outlined" sx={{ px: 1.5, py: 1, borderRadius: 2, borderLeft: "3px solid", borderLeftColor: kpi.color }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", fontSize: 10 }}>{kpi.label}</Typography>
-            <span style={{ fontSize: 13 }}>{kpi.icon}</span>
-          </Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2, my: 0.25, fontSize: 15 }}>{kpi.value}</Typography>
-          <Typography variant="caption" sx={{ color: "var(--text-secondary)", fontWeight: 600, fontSize: 10.5 }}>{kpi.sub}</Typography>
+    <>
+      <Box className="billing-kpi-grid">
+        <Paper className="billing-kpi billing-kpi-target" variant="outlined">
+          <span className="billing-kpi-icon"><ReceiptText size={20} /></span>
+          <div><Typography variant="overline">Expected this period</Typography><Typography className="billing-kpi-value">{money.format(targetAmount)}</Typography><Typography variant="body2">{candidateCount} billable account{candidateCount === 1 ? "" : "s"}</Typography></div>
         </Paper>
-      ))}
-    </Box>
+        <Paper className={`billing-kpi ${issues ? "billing-kpi-warning" : "billing-kpi-ready"}`} variant="outlined">
+          <span className="billing-kpi-icon">{issues ? <AlertTriangle size={20} /> : <CircleCheckBig size={20} />}</span>
+          <div><Typography variant="overline">Readiness</Typography><Typography className="billing-kpi-value">{ready} ready · {issues} exception{issues === 1 ? "" : "s"}</Typography><Typography variant="body2">{money.format(readyAmount)} ready · {money.format(issueAmount)} blocked</Typography></div>
+        </Paper>
+        <Paper className="billing-kpi billing-kpi-generated" variant="outlined">
+          <span className="billing-kpi-icon"><CircleCheckBig size={20} /></span>
+          <div><Typography variant="overline">Generated this period</Typography><Typography className="billing-kpi-value">{money.format(generatedAmount)}</Typography><Typography variant="body2">{generatedCount} invoice{generatedCount === 1 ? "" : "s"} issued</Typography></div>
+        </Paper>
+      </Box>
+      {generatedAmount > targetAmount && targetAmount > 0 && (
+        <Typography className="billing-reconciliation-note" variant="caption">
+          Generated includes invoices already issued earlier in this period; expected reflects the current billing queue.
+        </Typography>
+      )}
+    </>
   );
 }

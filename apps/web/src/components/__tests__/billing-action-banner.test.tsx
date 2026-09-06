@@ -28,8 +28,8 @@ describe("BillingActionBanner", () => {
       />,
     );
 
-    expect(screen.getByText("1. Scan & Prepare")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Refresh/i }));
+    expect(screen.getByText("Prepare")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Refresh readiness/i }));
     expect(onRecheck).toHaveBeenCalledTimes(1);
   });
 
@@ -59,9 +59,24 @@ describe("BillingActionBanner", () => {
       />,
     );
 
-    expect(screen.getByText("2. Candidates (3 ready)")).toBeInTheDocument();
+    expect(screen.getByText("Review (3 ready)")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Generate 3 Invoices/i }));
     expect(onGenerate).toHaveBeenCalledTimes(1);
   });
-});
 
+  it("keeps one-off invoicing available as a secondary action", () => {
+    const onSingleInvoice = jest.fn();
+    render(
+      <BillingActionBanner
+        hasRun isPreparing={false} isReview isApproved={false}
+        formattedMonth="July 2026" ready={1} issues={0} selectedCount={1}
+        blockingOpen={false} busy="" canFinance canApprove
+        onInitialize={jest.fn()} onRecheck={jest.fn()} onApprove={jest.fn()}
+        onGenerate={jest.fn()} onSingleInvoice={onSingleInvoice}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More billing actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Create one-off invoice/i }));
+    expect(onSingleInvoice).toHaveBeenCalledTimes(1);
+  });
+});

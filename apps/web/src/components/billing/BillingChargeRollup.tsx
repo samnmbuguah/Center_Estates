@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { Box, Paper, Typography, Chip, Stack } from "@mui/material";
-import { CheckCircle2, AlertCircle, Clock, ArrowRight } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, Droplets, ListChecks, ReceiptText } from "lucide-react";
 import { Candidate, InvoiceChargeType, invoiceChargeType } from "./types";
 import { money } from "@/components/module-ui";
 
 interface ChargeSummary {
   type: InvoiceChargeType | "management_fee";
   label: string;
-  icon: string;
+  icon: ReactNode;
   color: string;
   totalCount: number;
   billedCount: number;
@@ -51,7 +52,7 @@ export function BillingChargeRollup({
         {
           type: "management_fee",
           label: "Management Fees",
-          icon: "🏛️",
+          icon: <Building2 size={17} />,
           color: "#f59e0b",
           totalCount,
           billedCount,
@@ -63,11 +64,11 @@ export function BillingChargeRollup({
       ];
     }
 
-    const typeConfigs: Array<{ type: InvoiceChargeType; label: string; icon: string; color: string }> = [
-      { type: "rent", label: "Rent Roll", icon: "🏢", color: "#3b82f6" },
-      { type: "service_charge", label: "Service Charge", icon: "🪣", color: "#8b5cf6" },
-      { type: "utility", label: "Utilities (Water/Elec)", icon: "💧", color: "#06b6d4" },
-      { type: "other", label: "Other Charges", icon: "📋", color: "#64748b" },
+    const typeConfigs: Array<{ type: InvoiceChargeType; label: string; icon: ReactNode; color: string }> = [
+      { type: "rent", label: "Rent", icon: <Building2 size={17} />, color: "#3b82f6" },
+      { type: "service_charge", label: "Service charge", icon: <ReceiptText size={17} />, color: "#8b5cf6" },
+      { type: "utility", label: "Utilities", icon: <Droplets size={17} />, color: "#06b6d4" },
+      { type: "other", label: "Other charges", icon: <ListChecks size={17} />, color: "#64748b" },
     ];
 
     return typeConfigs.map((config) => {
@@ -110,7 +111,7 @@ export function BillingChargeRollup({
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
-          📊 Period Billing Completion & Status Breakdown
+          Charge completion
         </Typography>
         {activeFilter !== "all" && (
           <button
@@ -164,7 +165,7 @@ export function BillingChargeRollup({
               {/* Header */}
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
                 <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
-                  <span style={{ fontSize: 14 }}>{sum.icon}</span>
+                  <span className="billing-rollup-icon">{sum.icon}</span>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 12.5 }}>
                     {sum.label}
                   </Typography>

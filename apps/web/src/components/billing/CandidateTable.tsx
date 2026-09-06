@@ -1,9 +1,9 @@
 "use client";
 
 import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
-import { FilePlus2, Search, User, CheckCircle2 } from "lucide-react";
+import { Eye, Search, User } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
-import { Candidate, statusToneMap, InvoiceChargeType, CHARGE_TYPE_LABEL, invoiceChargeType } from "./types";
+import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType } from "./types";
 
 export function CandidateTable({
   candidates,
@@ -25,7 +25,6 @@ export function CandidateTable({
   onSelect,
   onPreview,
   onOverride,
-  onSingleInvoice,
   onNavigate,
 }: {
   candidates: Candidate[];
@@ -52,12 +51,12 @@ export function CandidateTable({
   onNavigate: (tab: string) => void;
 }) {
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 2.5, overflow: "hidden" }}>
+    <Paper className="billing-candidate-card" variant="outlined">
       {/* Header Toolbar */}
-      <Box sx={{ px: 2, py: 1.25, borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+      <Box className="billing-candidate-header">
         <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: 14 }}>
-            {billingTarget === "landlord" ? "🏛️ Landlord Fee Candidates" : "👤 Candidate Invoices"} — {formattedMonth}
+          <Typography variant="subtitle1">
+            {billingTarget === "landlord" ? "Landlord fee candidates" : "Candidate invoices"} — {formattedMonth}
           </Typography>
           <Typography variant="caption" sx={{ color: "var(--text-secondary)", fontSize: 11 }}>
             {billingTarget === "landlord"
@@ -65,46 +64,20 @@ export function CandidateTable({
               : "Automated charge detection: billed items are tracked, remaining unbilled items are ready for dispatch."}
           </Typography>
         </Box>
-        <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-          <Button size="small" variant="outlined" onClick={() => onNavigate("rent")} sx={{ fontSize: 11 }}>
-            Invoice Register →
-          </Button>
-          <Button size="small" variant="outlined" onClick={() => onNavigate("payments")} sx={{ fontSize: 11 }}>
-            Payments →
-          </Button>
-        </Stack>
+        <Button size="small" variant="text" onClick={() => onNavigate("rent")}>View invoice register</Button>
       </Box>
 
-      {/* Charge Type Filter Tabs */}
       {run && (
-        <Box sx={{ px: 2, py: 1, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", background: "var(--surface)" }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)", mr: 0.5, fontSize: 11 }}>
-            Filter Charge Type:
-          </Typography>
-          {([
-            { key: "all", label: "All Types" },
-            { key: "rent", label: `Rent${typeCounts.rent ? ` (${typeCounts.rent})` : ""}` },
-            { key: "service_charge", label: `Service Charge${typeCounts.service_charge ? ` (${typeCounts.service_charge})` : ""}` },
-            { key: "utility", label: `Utilities${typeCounts.utility ? ` (${typeCounts.utility})` : ""}` },
-          ] as const).map((t) => (
-            <Chip
-              key={t.key}
-              size="small"
-              label={t.label}
-              clickable
-              onClick={() => onChargeTypeFilter(t.key)}
-              color={chargeTypeFilter === t.key ? "primary" : "default"}
-              variant={chargeTypeFilter === t.key ? "filled" : "outlined"}
-              sx={{ fontWeight: chargeTypeFilter === t.key ? 700 : 500, fontSize: 11, height: 24 }}
-            />
-          ))}
-        </Box>
-      )}
-
-      {/* Search & Filter Strip */}
-      {run && (
-        <Box sx={{ px: 2, py: 1, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, background: "var(--bg-app)" }}>
-          <Stack direction="row" sx={{ gap: 1, alignItems: "center", flex: 1, minWidth: 240 }}>
+        <Box className="billing-filter-toolbar">
+          <Stack className="billing-charge-filters" direction="row">
+            {([
+              { key: "all", label: "All charges" },
+              { key: "rent", label: `Rent${typeCounts.rent ? ` (${typeCounts.rent})` : ""}` },
+              { key: "service_charge", label: `Service charge${typeCounts.service_charge ? ` (${typeCounts.service_charge})` : ""}` },
+              { key: "utility", label: `Utilities${typeCounts.utility ? ` (${typeCounts.utility})` : ""}` },
+            ] as const).map((item) => <Chip key={item.key} size="small" label={item.label} clickable onClick={() => onChargeTypeFilter(item.key)} color={chargeTypeFilter === item.key ? "primary" : "default"} variant={chargeTypeFilter === item.key ? "filled" : "outlined"} />)}
+          </Stack>
+          <Stack className="billing-search-controls" direction="row">
             <TextField
               size="small"
               placeholder="Search tenant, unit, lease…"
@@ -116,7 +89,7 @@ export function CandidateTable({
                   sx: { borderRadius: 1.5, background: "var(--surface)", fontSize: 12, height: 32 },
                 },
               }}
-              sx={{ flex: 1, maxWidth: 280 }}
+              sx={{ flex: 1, minWidth: 220 }}
             />
             <TextField
               select
@@ -156,7 +129,7 @@ export function CandidateTable({
         </Box>
       ) : (
         <Box sx={{ overflowX: "auto" }}>
-          <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <table className="fc-data-table billing-candidate-table">
             <thead>
               <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
                 <th style={{ padding: "8px 12px", width: 36 }}></th>
@@ -273,7 +246,7 @@ export function CandidateTable({
                     </td>
                     <td style={{ padding: "10px 12px", textAlign: "right" }}>
                       <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                        <Button size="small" onClick={() => onPreview(c)} sx={{ fontSize: 11, py: 0.25 }}>Preview</Button>
+                        <Button variant="outlined" size="small" startIcon={<Eye size={14} />} onClick={() => onPreview(c)}>View details</Button>
                         {c.status === "issue" && (
                           <Button size="small" color="warning" onClick={() => onOverride(c)} sx={{ fontSize: 11, py: 0.25 }}>Override</Button>
                         )}
