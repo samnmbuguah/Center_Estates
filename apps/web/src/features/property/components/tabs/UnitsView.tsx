@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, type ReactNode } from "react";
-import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -416,6 +416,10 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   };
 
   const handleCreateLettingInvoice = async () => {
+    if (!lettingUnit) {
+      toast.error("Please select a unit to invoice the letting fee.");
+      return;
+    }
     const feeVal = Number(lettingFeeAmount);
     if (isNaN(feeVal) || feeVal <= 0) {
       toast.error("Enter a valid letting fee amount.");
@@ -426,6 +430,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     try {
       await apiFetch("/auth/csrf/");
       const payload: Record<string, any> = {
+        unit: lettingUnit.id,
         invoice_type: "Letting Fee",
         charge_type: "letting_fee",
         recipient_type: "owner",
@@ -440,9 +445,8 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
           negotiated: true,
         },
       };
-      if (lettingUnit) {
-        payload.unit = lettingUnit.id;
-        if (lettingUnit.owner) payload.owner = lettingUnit.owner;
+      if (lettingUnit.owner) {
+        payload.owner = lettingUnit.owner;
       }
       const res = await apiFetch("/property/invoices/", {
         method: "POST",
@@ -1100,12 +1104,26 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
             {!lettingFeeSuccess && (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
                 <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
-                  <TextField
-                    label="Unit"
+                  <Autocomplete
                     size="small"
-                    value={lettingUnit?.code || "Whole Building / Ad-Hoc"}
-                    disabled
-                    helperText={lettingUnit?.property_name || "Active Property"}
+                    options={units}
+                    getOptionLabel={(u) => `${u.code} (${u.tenant_name || (u.owner_name ? `Owner: ${u.owner_name}` : "Vacant")})`}
+                    value={lettingUnit}
+                    onChange={(_, newVal) => {
+                      setLettingUnit(newVal);
+                      if (newVal?.owner_name) {
+                        setLettingFeeOwner(newVal.owner_name);
+                      }
+                      const rent = Number(newVal?.effective_rent || newVal?.monthly_rent || 0);
+                      if (rent > 0 && lettingFeeBasis !== "flat") {
+                        if (lettingFeeBasis === "one_month") setLettingFeeAmount(String(rent));
+                        else if (lettingFeeBasis === "half_month") setLettingFeeAmount(String(Math.round(rent * 0.5)));
+                        else if (lettingFeeBasis === "percentage") setLettingFeeAmount(String(Math.round(rent * 0.1)));
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField {...params} label="Unit" placeholder="Select unit..." helperText={lettingUnit ? lettingUnit.property_name || "Selected Unit" : "Select unit to bill letting fee"} />
+                    )}
                   />
                   <TextField
                     label="Landlord / Owner Name"
