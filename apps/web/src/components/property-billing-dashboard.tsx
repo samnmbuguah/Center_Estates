@@ -320,7 +320,15 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
       );
     }
 
-    if (!res.ok) { setError(await apiErrorMessage(res, `Billing ${action} failed.`)); }
+    if (!res.ok) {
+      if (res.status === 404 && action === "prepare") {
+        setRun(null);
+        setBusy("");
+        await mutate("create");
+        return;
+      }
+      setError(await apiErrorMessage(res, `Billing ${action} failed.`));
+    }
     else if (action === "generate") {
       const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       const g = Number(json.generated_count ?? 0);
