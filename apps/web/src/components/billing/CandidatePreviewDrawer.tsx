@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DetailDrawer, money } from "@/components/module-ui";
 import { useAuth } from "@/components/auth-provider";
 import { Candidate, issueResolution, isMissingWaterReading } from "./types";
+import { printInvoiceDraft } from "./invoice-draft-print";
 
 export function CandidatePreviewDrawer({
   candidate,
@@ -24,7 +25,15 @@ export function CandidatePreviewDrawer({
   const totalAmount = Number(candidate.total || 0);
 
   const handlePrint = () => {
-    window.print();
+    try {
+      printInvoiceDraft(candidate, {
+        name: orgName,
+        logoUrl: currentOrg?.logo_url,
+        primaryColor: currentOrg?.primary_color,
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "The printable draft could not be opened.");
+    }
   };
 
   return (
@@ -334,7 +343,7 @@ export function CandidatePreviewDrawer({
             style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}
           >
             <span>🖨️</span>
-            <span>Print Draft Slip</span>
+            <span>Open Printable Draft</span>
           </button>
           
           <button
