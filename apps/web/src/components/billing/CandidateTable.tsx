@@ -204,28 +204,48 @@ export function CandidateTable({
                     </td>
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {(c.billing_items || []).map((item: any, i: number) => {
-                          const t = invoiceChargeType(item.code);
-                          const isMatch = chargeTypeFilter === "all" || t === chargeTypeFilter || (chargeTypeFilter === "utility" && t === "utility");
-                          const isBilled = Boolean(item.billed);
-                          return (
-                            <Chip
-                              key={i}
-                              size="small"
-                              label={`${item.code.replace(/_/g, " ")}${isBilled ? " ✓" : ` · ${money.format(Number(item.total || item.amount || 0))}`}`}
-                              variant={isBilled ? "outlined" : isMatch ? "filled" : "outlined"}
-                              color={isBilled ? "success" : isMatch ? "primary" : "default"}
-                              sx={{
-                                fontSize: 9.5,
-                                height: 20,
-                                fontWeight: isMatch ? 700 : 500,
-                                opacity: isMatch ? 1 : 0.6,
-                                bgcolor: isBilled ? "rgba(34,197,94,0.08)" : undefined,
-                                borderColor: isBilled ? "rgba(34,197,94,0.4)" : undefined,
-                              }}
-                            />
-                          );
-                        })}
+                        {(() => {
+                          const grouped = new Map<string, { code: string; rawCode: string; billedCount: number; totalCount: number; unbilledAmount: number }>();
+                          for (const it of c.billing_items || []) {
+                            const rawCode = String(it.code || "charge");
+                            const displayCode = rawCode.replace(/_/g, " ").toUpperCase();
+                            const entry = grouped.get(displayCode) || { code: displayCode, rawCode, billedCount: 0, totalCount: 0, unbilledAmount: 0 };
+                            entry.totalCount += 1;
+                            if (it.billed) {
+                              entry.billedCount += 1;
+                            } else {
+                              entry.unbilledAmount += Number(it.total || it.amount || 0);
+                            }
+                            grouped.set(displayCode, entry);
+                          }
+
+                          return Array.from(grouped.values()).map((grp, i) => {
+                            const t = invoiceChargeType(grp.rawCode);
+                            const isMatch = chargeTypeFilter === "all" || t === chargeTypeFilter || (chargeTypeFilter === "utility" && t === "utility");
+                            const isAllBilled = grp.billedCount === grp.totalCount;
+                            const label = isAllBilled
+                              ? `${grp.code} ✓`
+                              : `${grp.code} · ${money.format(grp.unbilledAmount)}`;
+
+                            return (
+                              <Chip
+                                key={i}
+                                size="small"
+                                label={label}
+                                variant={isAllBilled ? "outlined" : isMatch ? "filled" : "outlined"}
+                                color={isAllBilled ? "success" : isMatch ? "primary" : "default"}
+                                sx={{
+                                  fontSize: 9.5,
+                                  height: 20,
+                                  fontWeight: isMatch ? 700 : 500,
+                                  opacity: isMatch ? 1 : 0.6,
+                                  bgcolor: isAllBilled ? "rgba(34,197,94,0.08)" : undefined,
+                                  borderColor: isAllBilled ? "rgba(34,197,94,0.4)" : undefined,
+                                }}
+                              />
+                            );
+                          });
+                        })()}
                       </div>
                     </td>
                     <td style={{ padding: "10px 12px" }}>

@@ -4444,6 +4444,14 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 return True
 
             due_profiles = [profile for profile in due_profiles if _profile_is_billable_for_occupant(profile)]
+            # Deduplicate profiles by billing_item_id to prevent duplicate charge line items
+            seen_items = set()
+            deduped_profiles = []
+            for profile in due_profiles:
+                if profile.billing_item_id not in seen_items:
+                    seen_items.add(profile.billing_item_id)
+                    deduped_profiles.append(profile)
+            due_profiles = deduped_profiles
             if invoice_types is not None:
                 def _profile_matches(profile) -> bool:
                     code = str(profile.billing_item.code or "").strip().lower()
