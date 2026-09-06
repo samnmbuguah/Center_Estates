@@ -2653,7 +2653,7 @@ class LeaseViewSet(OrganizationModelViewSet):
         }
 
     @staticmethod
-    def _issue_offer_letter(lease, user, *, reissue=False):
+    def _issue_offer_letter(lease, user, *, reissue=False, require_acceptance=False):
         """Create a versioned, auditable acceptance gate for a new tenancy."""
         metadata = dict(lease.metadata or {})
         existing = dict(metadata.get('offer_letter') or {})
@@ -2671,7 +2671,9 @@ class LeaseViewSet(OrganizationModelViewSet):
             ).hexdigest(),
         }
         metadata['offer_letter'] = offer
-        metadata['offer_required'] = True
+        if require_acceptance:
+            metadata['require_offer_letter'] = True
+            metadata['offer_required'] = True
         lease.metadata = metadata
         lease.save(update_fields=('metadata', 'updated_at'))
 
@@ -2699,7 +2701,7 @@ class LeaseViewSet(OrganizationModelViewSet):
             reissue = str(request.data.get('reissue', '')).lower() in ('1', 'true', 'yes')
             if current.get('status') == 'accepted' and not reissue:
                 raise ValidationError({'offer_letter': 'This offer has been accepted. Set reissue=true only when tenancy terms have changed.'})
-            self._issue_offer_letter(lease, request.user, reissue=bool(current))
+            self._issue_offer_letter(lease, request.user, reissue=bool(current), require_acceptance=True)
         return Response({'lease': self.get_serializer(lease).data, 'offer_letter': self._offer_letter(lease)})
 
     @transaction.atomic
@@ -4417,7 +4419,18 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     BillingReadinessIssue.Severity.WARNING,
                 ))
             offer = dict((lease.metadata or {}).get('offer_letter') or {})
-            if offer and offer.get('status') != 'accepted':
+            # Ongoing properties and existing tenancies with offline signed contracts do not gate billing.
+            # Only gate first invoice if digital offer letter acceptance is explicitly required for this lease or property.
+            require_offer = bool(
+                (lease.metadata or {}).get('require_offer_letter')
+                or (lease.unit.property and (lease.unit.property.metadata or {}).get('require_offer_letter'))
+            )
+            is_ongoing_lease = bool(
+                (lease.metadata or {}).get('is_ongoing')
+                or (lease.unit.property and (lease.unit.property.metadata or {}).get('is_ongoing'))
+                or (lease.metadata or {}).get('offer_signed_offline')
+            )
+            if require_offer and not is_ongoing_lease and offer and offer.get('status') != 'accepted':
                 issue_rows.append((
                     'offer_letter_pending',
                     'The tenant must accept the tenancy offer letter before the first invoice can be generated.',

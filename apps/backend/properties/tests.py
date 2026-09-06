@@ -1674,6 +1674,20 @@ class PropertyApiTests(TestCase):
         candidate.refresh_from_db()
         self.assertEqual(candidate.status, BillingCandidate.Status.READY)
 
+    def test_ongoing_property_bypasses_offer_letter_blocker(self):
+        # Ongoing properties or active tenancies without explicit require_offer_letter do not block billing
+        self.lease.metadata = {'offer_letter': {'status': 'issued'}}
+        self.lease.save()
+        run = BillingRun.objects.create(
+            organization=self.organization, property=self.property,
+            period_start=date(2026, 9, 1), period_end=date(2026, 9, 30), created_by=self.user,
+        )
+        prepared = self.client.post(f'/api/v1/property/billing-runs/{run.id}/prepare/', {}, format='json', **self.headers)
+        self.assertEqual(prepared.status_code, 200)
+        candidate = BillingCandidate.objects.get(billing_run=run, lease=self.lease)
+        self.assertFalse(any(issue['code'] == 'offer_letter_pending' for issue in candidate.issue_summary))
+        self.assertEqual(candidate.status, BillingCandidate.Status.READY)
+
     def test_lease_renewal_preserves_continuity_and_is_idempotent(self):
         renewed = self.client.post(f'/api/v1/property/leases/{self.lease.id}/renew/', {
             'reference': 'LEASE-1-R1', 'ends_on': '2028-01-01', 'monthly_rent': '1100.00',
