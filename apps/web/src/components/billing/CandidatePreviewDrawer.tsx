@@ -158,11 +158,11 @@ export function CandidatePreviewDrawer({
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10, letterSpacing: "0.06em", color: "var(--text-secondary, #64748b)", textTransform: "uppercase" }}>Invoice Ref</div>
+              <div style={{ fontSize: 11, letterSpacing: "0.06em", color: "var(--text-secondary, #475569)", textTransform: "uppercase", fontWeight: 700 }}>Invoice Ref</div>
               <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary, #0f172a)", fontFamily: "monospace", marginTop: 2 }}>
                 {candidate.invoice_number || `DRAFT-${candidate.unit_code}-${candidate.due_date?.slice(0, 7) || "AUTO"}`}
               </div>
-              <div style={{ fontSize: 11, color: "#dc2626", marginTop: 6, fontWeight: 600 }}>
+              <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6, fontWeight: 700 }}>
                 Payment Due: <strong>{candidate.due_date}</strong>
               </div>
             </div>
@@ -170,20 +170,24 @@ export function CandidatePreviewDrawer({
 
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16, fontSize: 12 }}>
             <div>
-              <div style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 700, letterSpacing: "0.05em" }}>Billed Tenant</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: "#ffffff", marginTop: 3 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-secondary, #475569)", fontWeight: 800, letterSpacing: "0.05em" }}>
+                Billed Tenant
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary, #0f172a)", marginTop: 3 }}>
                 {candidate.tenant_name}
               </div>
-              <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
-                Lease: <span style={{ color: "#cbd5e1", fontWeight: 600 }}>{candidate.lease_reference}</span>
+              <div style={{ color: "var(--text-secondary, #475569)", fontSize: 12, marginTop: 3 }}>
+                Lease: <span style={{ color: "var(--text-primary, #0f172a)", fontWeight: 700 }}>{candidate.lease_reference}</span>
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 700, letterSpacing: "0.05em" }}>Total Amount Due</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: "#60a5fa", marginTop: 2 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-secondary, #475569)", fontWeight: 800, letterSpacing: "0.05em" }}>
+                Total Amount Due
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: "var(--brand-primary, #1d4ed8)", marginTop: 2 }}>
                 {money.format(totalAmount)}
               </div>
-              <div style={{ color: "#94a3b8", fontSize: 11 }}>Currency: KES (Kenyan Shilling)</div>
+              <div style={{ color: "var(--text-secondary, #64748b)", fontSize: 11, fontWeight: 600, marginTop: 2 }}>Currency: KES (Kenyan Shilling)</div>
             </div>
           </div>
         </div>
@@ -200,21 +204,21 @@ export function CandidatePreviewDrawer({
               alignItems: "center",
             }}
           >
-            <strong style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-secondary)" }}>
+            <strong style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #334155)", fontWeight: 800 }}>
               Itemized Billing Breakdown
             </strong>
-            <span style={{ fontSize: 11, color: "var(--faint)", fontWeight: 600 }}>
+            <span style={{ fontSize: 12, color: "var(--text-secondary, #475569)", fontWeight: 700 }}>
               {candidate.billing_items.length} line {candidate.billing_items.length === 1 ? "item" : "items"}
             </span>
           </div>
 
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, textAlign: "left" }}>
             <thead>
-              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 11, textTransform: "uppercase" }}>
-                <th style={{ padding: "10px 16px", fontWeight: 700, width: "38px" }}>#</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700 }}>Description</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700, width: "130px" }}>Category</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", width: "140px" }}>Amount (KES)</th>
+              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", color: "var(--text-secondary, #334155)", fontSize: 11, textTransform: "uppercase" }}>
+                <th style={{ padding: "10px 16px", fontWeight: 800, width: "38px" }}>#</th>
+                <th style={{ padding: "10px 16px", fontWeight: 800 }}>Description</th>
+                <th style={{ padding: "10px 16px", fontWeight: 800, width: "130px" }}>Category</th>
+                <th style={{ padding: "10px 16px", fontWeight: 800, textAlign: "right", width: "140px" }}>Amount (KES)</th>
               </tr>
             </thead>
             <tbody>
@@ -229,12 +233,12 @@ export function CandidatePreviewDrawer({
                       background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)",
                     }}
                   >
-                    <td style={{ padding: "12px 16px", color: "var(--faint)", fontSize: 12 }}>{idx + 1}</td>
+                    <td style={{ padding: "12px 16px", color: "var(--text-secondary, #64748b)", fontSize: 12, fontWeight: 600 }}>{idx + 1}</td>
                     <td style={{ padding: "12px 16px" }}>
-                      <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                      <div style={{ fontWeight: 800, color: "var(--text-primary, #0f172a)" }}>
                         {item.description || item.code}
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--faint)" }}>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary, #475569)", marginTop: 2 }}>
                         Tenancy lease schedule charge
                       </div>
                     </td>
