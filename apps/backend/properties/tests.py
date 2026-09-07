@@ -1667,6 +1667,29 @@ class PropertyApiTests(TestCase):
         TenantPortalAccess.objects.filter(user=self.user).update(is_active=False)
         self.assertEqual(self.client.get('/api/v1/property/portal/', **self.headers).status_code, 403)
 
+    def test_tenant_portal_support_preview_only_returns_tenant_facing_notices(self):
+        portal_user = get_user_model().objects.create_user(username='tenant-notices', password='test')
+        Membership.objects.create(user=portal_user, organization=self.organization)
+        TenantPortalAccess.objects.create(
+            organization=self.organization, user=portal_user, tenant=self.tenant,
+        )
+        tenant_notice = Notification.objects.create(
+            organization=self.organization, recipient=portal_user,
+            title='Payment reminder', message='Your rent invoice is due.',
+            action_url='/tenant-portal?tab=notices',
+        )
+        Notification.objects.create(
+            organization=self.organization, recipient=self.user,
+            title='New Helpdesk Ticket TT-123', message='Internal staff dispatch message.',
+            action_url='/companion?tab=feedback',
+        )
+        response = self.client.get(
+            f'/api/v1/property/portal/?tenant={self.tenant.id}', **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual([row['id'] for row in response.data['notices']], [tenant_notice.id])
+        self.assertNotIn('Helpdesk', ' '.join(row['title'] for row in response.data['notices']))
+
     def test_offer_letter_acceptance_blocks_then_releases_first_billing(self):
         TenantPortalAccess.objects.create(
             organization=self.organization, user=self.user, tenant=self.tenant,

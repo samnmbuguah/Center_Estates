@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { Alert, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Rating, TextField, Typography } from "@mui/material";
-import { Bell, Building2, CreditCard, FileCheck2, FileText, Gauge, ReceiptText, UserRound, Wrench } from "lucide-react";
+import { Bell, Building2, CreditCard, FileCheck2, FileText, Gauge, Menu, ReceiptText, UserRound, Wrench, X } from "lucide-react";
 
 type Row = Record<string, string | number | boolean | null>;
 type Portal = {
@@ -110,6 +110,8 @@ export default function TenantPortalPage() {
     const requested = new URLSearchParams(window.location.search).get("tab") as Tab | null;
     return requested && Object.prototype.hasOwnProperty.call(labels, requested) ? requested : "overview";
   });
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<Row | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(false);
@@ -451,36 +453,129 @@ export default function TenantPortalPage() {
           </div>
         </div>
       )}
-      <section className="tenant-portal-hero">
-        <div>
-          <p className="eyebrow">Tenant self-service</p>
-          <h1>Good morning, {data.tenant.name}.</h1>
-          <p>
-            Invoices, receipts, lease information, documents and maintenance in
-            one secure account.
-          </p>
-          {lease && <div className="tenant-premises"><Building2 size={16} /> {lease.property_name} · {lease.unit_code} <Chip size="small" label={lease.status || "Active lease"} color="success" /></div>}
+      {/* Mobile Header Bar */}
+      <div className="tenant-mobile-header">
+        <div className="tenant-mobile-brand">
+          <span className="tenant-portal-badge">Portal</span>
+          <span className="tenant-mobile-unit">{lease ? `${lease.unit_code} · ${lease.property_name}` : data.tenant.name}</span>
         </div>
-        <Button variant="contained" color="error" startIcon={<Wrench size={17} />} onClick={() => { setRequestError(""); setModal(true); }}>
-          Report an issue
-        </Button>
-      </section>
-      <nav className="tenant-portal-tabs" aria-label="Tenant portal sections">
-        {(Object.keys(labels) as Tab[]).map((item) => (
-          <button
-            key={item}
-            className={tab === item ? "active" : ""}
-            onClick={() => selectTab(item)}
-            aria-current={tab === item ? "page" : undefined}
-            aria-label={labels[item]}
-          >
-            {tabIcons[item]}<span>{labels[item]}</span>
-            {item === "invoices" && data.invoices.filter((row) => Number(row.balance) > 0).length > 0 && <b>{data.invoices.filter((row) => Number(row.balance) > 0).length}</b>}
-            {item === "maintenance" && data.serviceRequests.filter((row) => !["resolved", "closed"].includes(String(row.status))).length > 0 && <b>{data.serviceRequests.filter((row) => !["resolved", "closed"].includes(String(row.status))).length}</b>}
-            {item === "notices" && data.notices.length > 0 && <b>{data.notices.length}</b>}
-          </button>
-        ))}
-      </nav>
+        <button
+          type="button"
+          className="tenant-mobile-menu-btn"
+          onClick={() => setMobileDrawerOpen(true)}
+          aria-label="Open portal navigation menu"
+        >
+          <Menu size={16} />
+          <span>Menu</span>
+        </button>
+      </div>
+
+      <div className="tenant-portal-layout">
+        {/* Vertical Sidebar Rail */}
+        <aside className={`tenant-portal-sidebar ${mobileDrawerOpen ? "open" : ""}`}>
+          <div className="tenant-sidebar-close-row">
+            <span className="tenant-portal-badge">Navigation</span>
+            <button
+              type="button"
+              className="tenant-sidebar-close-btn"
+              onClick={() => setMobileDrawerOpen(false)}
+              aria-label="Close menu"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="tenant-sidebar-profile">
+            <div className="tenant-sidebar-profile-top">
+              <div className="tenant-avatar-circle">
+                {data.tenant.name.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="tenant-sidebar-user-meta">
+                <strong className="tenant-sidebar-name">{data.tenant.name}</strong>
+                <span className="tenant-sidebar-code">{data.tenant.code}</span>
+              </div>
+            </div>
+            {lease && (
+              <div className="tenant-sidebar-premises">
+                <Building2 size={13} />
+                <span className="tenant-sidebar-unit">{lease.unit_code}</span>
+                <span className="tenant-sidebar-property">· {lease.property_name}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="tenant-sidebar-action">
+            <Button
+              fullWidth
+              variant="contained"
+              color="error"
+              startIcon={<Wrench size={16} />}
+              onClick={() => { setRequestError(""); setModal(true); setMobileDrawerOpen(false); }}
+              sx={{ fontWeight: 800, borderRadius: 2.5, textTransform: "none", py: 0.9 }}
+            >
+              Report an issue
+            </Button>
+          </div>
+
+          <nav className="tenant-sidebar-nav" aria-label="Tenant portal sections">
+            {(Object.keys(labels) as Tab[]).map((item) => {
+              if (item === "offer" && !data.offerLetter) return null;
+              const isActive = tab === item;
+              const unpaidCount = item === "invoices" ? data.invoices.filter((row) => Number(row.balance) > 0).length : 0;
+              const openTicketsCount = item === "maintenance" ? data.serviceRequests.filter((row) => !["resolved", "closed"].includes(String(row.status))).length : 0;
+              const noticeCount = item === "notices" ? data.notices.length : 0;
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  className={`tenant-sidebar-nav-item ${isActive ? "active" : ""}`}
+                  onClick={() => { selectTab(item); setMobileDrawerOpen(false); }}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <span className="tenant-nav-icon">{tabIcons[item]}</span>
+                  <span className="tenant-nav-label">{labels[item]}</span>
+                  {unpaidCount > 0 && <span className="tenant-nav-badge danger">{unpaidCount}</span>}
+                  {openTicketsCount > 0 && <span className="tenant-nav-badge warning">{openTicketsCount}</span>}
+                  {noticeCount > 0 && <span className="tenant-nav-badge info">{noticeCount}</span>}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="tenant-sidebar-footer">
+            <div className="tenant-support-card">
+              <strong>Estate Care & Office</strong>
+              <p>Have an inquiry about billing, leases, or utilities?</p>
+              <button
+                type="button"
+                className="tenant-support-link"
+                onClick={() => { selectTab("notices"); setMobileDrawerOpen(false); }}
+              >
+                View notices & updates →
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {mobileDrawerOpen && (
+          <div className="tenant-sidebar-backdrop" onClick={() => setMobileDrawerOpen(false)} />
+        )}
+
+        <main className="tenant-portal-main">
+          <section className="tenant-portal-hero">
+            <div>
+              <p className="eyebrow">Tenant self-service</p>
+              <h1>Good day, {data.tenant.name.split(" ")[0]}.</h1>
+              <p>
+                Invoices, receipts, lease information, documents and maintenance in
+                one secure account.
+              </p>
+              {lease && <div className="tenant-premises"><Building2 size={16} /> {lease.property_name} · {lease.unit_code} <Chip size="small" label={lease.status || "Active lease"} color="success" /></div>}
+            </div>
+            <Button variant="contained" color="error" startIcon={<Wrench size={17} />} onClick={() => { setRequestError(""); setModal(true); }}>
+              Report an issue
+            </Button>
+          </section>
       {error && <div className="form-error">{error}</div>}
       {requestSuccess && <Alert severity="success" onClose={() => setRequestSuccess("")} sx={{ mb: 2 }}>{requestSuccess}</Alert>}
       {pendingPayInvoices && (
@@ -761,18 +856,29 @@ export default function TenantPortalPage() {
           }
         >
           <PortalTable
-            headers={["Subject", "Priority", "Status", "Created", "Resolution confirmation"]}
+            headers={["Subject", "Priority", "Status", "Created", "Action"]}
             rows={data.serviceRequests.map((row) => [
-              String(row.subject),
+              <span
+                key={`${row.id}-subject`}
+                style={{ cursor: "pointer", fontWeight: 750, color: "var(--brand-primary, #1d4ed8)", textDecoration: "underline", textUnderlineOffset: 3 }}
+                onClick={() => setSelectedTicket(row)}
+                title="Click to view full ticket progress dossier"
+              >
+                {String(row.subject)}
+              </span>,
               <StatusPill key={`${row.id}-priority`} value={row.priority} />,
               <StatusPill key={`${row.id}-status`} value={row.status} />,
               friendlyDate(row.submitted_at || row.created_at),
-              String(row.status) === "resolved" ? (
-                <span key={String(row.id)} style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" onClick={() => { setConfirmationMode("confirm"); setConfirmationRequest(row); }}>Confirm & close</button>
-                  <button type="button" onClick={() => { setConfirmationMode("reopen"); setConfirmationRequest(row); }}>Reopen</button>
-                </span>
-              ) : String(row.status) === "closed" ? `Closed · ${row.satisfaction_score || "—"}/5` : "Awaiting maintenance",
+              <span key={String(row.id)} className="portal-action-group">
+                <button type="button" onClick={() => setSelectedTicket(row)}>
+                  View Details
+                </button>
+                {String(row.status) === "resolved" && (
+                  <button type="button" onClick={() => { setConfirmationMode("confirm"); setConfirmationRequest(row); }}>
+                    Confirm & close
+                  </button>
+                )}
+              </span>,
             ])}
           />
         </Panel>
@@ -910,6 +1016,152 @@ export default function TenantPortalPage() {
           </div>
         </Panel>
       )}
+        </main>
+      </div>
+
+      {/* Tenant Maintenance Ticket Dossier Modal */}
+      <Dialog
+        open={Boolean(selectedTicket)}
+        onClose={() => setSelectedTicket(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        {selectedTicket && (() => {
+          const status = String(selectedTicket.status || "new").toLowerCase();
+          const steps = [
+            { key: "new", label: "Reported" },
+            { key: "assigned", label: "Assigned" },
+            { key: "in_progress", label: "In Progress" },
+            { key: "resolved", label: "Resolved" },
+            { key: "closed", label: "Closed" },
+          ];
+          const stageIndex = (() => {
+            if (status === "closed") return 4;
+            if (status === "resolved") return 3;
+            if (status === "in_progress") return 2;
+            if (["assigned", "approved"].includes(status)) return 1;
+            return 0;
+          })();
+
+          return (
+            <>
+              <DialogTitle sx={{ pb: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div>
+                    <Typography variant="overline" color="primary.main" sx={{ fontWeight: 800, letterSpacing: 1.2 }}>
+                      {String(selectedTicket.reference || "Ticket")} · {String(selectedTicket.category || "Maintenance")}
+                    </Typography>
+                    <Typography variant="h6" component="div" sx={{ fontWeight: 800 }}>
+                      {String(selectedTicket.subject)}
+                    </Typography>
+                  </div>
+                  <StatusPill value={selectedTicket.status} />
+                </div>
+              </DialogTitle>
+              <DialogContent dividers sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {/* 5-stage Visual Stepper */}
+                <div className="tenant-ticket-stepper">
+                  {steps.map((step, idx) => {
+                    const isDone = idx < stageIndex || (status === "closed" && idx <= stageIndex);
+                    const isCurrent = idx === stageIndex && status !== "closed";
+                    return (
+                      <div key={step.key} className={`tenant-ticket-step ${isDone ? "done" : ""} ${isCurrent ? "current" : ""}`}>
+                        <div className="tenant-ticket-step-circle">
+                          {isDone ? "✓" : idx + 1}
+                        </div>
+                        <span className="tenant-ticket-step-label">{step.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Tenant Reported Narrative */}
+                <div className="tenant-ticket-narrative-card">
+                  <h4>Reported by You</h4>
+                  <p>{String(selectedTicket.description || selectedTicket.subject || "No detailed narrative provided.")}</p>
+                  <small style={{ display: "block", marginTop: 6, color: "var(--text-secondary)", fontSize: 11 }}>
+                    Submitted {friendlyDate(selectedTicket.submitted_at || selectedTicket.created_at)}
+                  </small>
+                </div>
+
+                {/* Management Update / Resolution Note */}
+                {selectedTicket.decision_notes ? (
+                  <div className="tenant-ticket-narrative-card" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                    <h4 style={{ color: "#166534" }}>Estate Maintenance Team Update</h4>
+                    <p style={{ color: "#15803d" }}>{String(selectedTicket.decision_notes)}</p>
+                    {selectedTicket.resolved_at && (
+                      <small style={{ display: "block", marginTop: 6, color: "#166534", fontSize: 11 }}>
+                        Resolved on {friendlyDate(selectedTicket.resolved_at)}
+                      </small>
+                    )}
+                  </div>
+                ) : status === "resolved" ? (
+                  <div className="tenant-ticket-narrative-card" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                    <h4 style={{ color: "#166534" }}>Work Completed</h4>
+                    <p style={{ color: "#15803d" }}>The technician has reported this task as resolved and ready for your sign-off.</p>
+                  </div>
+                ) : null}
+
+                {/* Action Prompts for Resolved / Closed Tickets */}
+                {status === "resolved" && (
+                  <Alert severity="success" sx={{ alignItems: "center" }}>
+                    <strong>Please confirm the completed work</strong>
+                    <p style={{ margin: "4px 0 10px", fontSize: 13 }}>
+                      If the issue is fully solved to your satisfaction, please rate the work and close the ticket. If anything remains unresolved, you can reopen it with instructions for the team.
+                    </p>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        size="small"
+                        onClick={() => {
+                          const t = selectedTicket;
+                          setSelectedTicket(null);
+                          setConfirmationMode("confirm");
+                          setConfirmationRequest(t);
+                        }}
+                      >
+                        Confirm & Close Ticket
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="warning"
+                        size="small"
+                        onClick={() => {
+                          const t = selectedTicket;
+                          setSelectedTicket(null);
+                          setConfirmationMode("reopen");
+                          setConfirmationRequest(t);
+                        }}
+                      >
+                        Reopen Issue
+                      </Button>
+                    </div>
+                  </Alert>
+                )}
+
+                {status === "closed" && (
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, textAlign: "center" }}>
+                    <span style={{ fontSize: 20 }}>✅</span>
+                    <strong style={{ display: "block", marginTop: 4, fontSize: 13, color: "var(--text-primary)" }}>
+                      Ticket Closed & Confirmed
+                    </strong>
+                    {selectedTicket.satisfaction_score && (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 4 }}>
+                        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Your rating:</span>
+                        <Rating size="small" value={Number(selectedTicket.satisfaction_score)} readOnly />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </DialogContent>
+              <DialogActions sx={{ px: 3, py: 1.5 }}>
+                <Button onClick={() => setSelectedTicket(null)}>Close</Button>
+              </DialogActions>
+            </>
+          );
+        })()}
+      </Dialog>
       <Dialog open={modal} onClose={requestBusy ? undefined : () => setModal(false)} fullWidth maxWidth="sm">
         <form onSubmit={submitRequest}>
         <DialogTitle sx={{ pb: 1 }}>

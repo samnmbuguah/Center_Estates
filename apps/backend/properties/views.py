@@ -6325,11 +6325,15 @@ class TenantPortalViewSet(ViewSet):
                 raise PermissionDenied('Tenant portal support view requires property leasing permission.')
             tenant = Tenant.objects.for_organization(organization).filter(pk=tenant_id).first()
             if tenant:
+                portal_access = TenantPortalAccess.objects.for_organization(organization).filter(
+                    tenant=tenant, is_active=True,
+                ).select_related('user').first()
                 class ScopedAccess:
-                    def __init__(self, org, t):
+                    def __init__(self, org, t, portal_user):
                         self.organization = org
                         self.tenant = t
-                return ScopedAccess(organization, tenant)
+                        self.user = portal_user
+                return ScopedAccess(organization, tenant, portal_access.user if portal_access else None)
             raise PermissionDenied('Specified tenant was not found in active organization.')
         access = TenantPortalAccess.objects.for_organization(organization).filter(
             user=self.request.user, is_active=True,
@@ -6446,11 +6450,14 @@ class TenantPortalViewSet(ViewSet):
                 tenant=tenant,
             ).values(
                 'id', 'reference', 'subject', 'category', 'priority', 'status',
-                'submitted_at', 'resolved_at', 'satisfaction_score',
+                'description', 'decision_notes', 'submitted_at', 'resolved_at', 'satisfaction_score',
             )[:12]),
+            # The portal is a tenant-facing surface, including while staff use support preview.
+            # Never expose the signed-in staff member's internal notification inbox here.
             'notices': list(Notification.objects.for_organization(tenant.organization).filter(
-                recipient=request.user,
-            ).values('id', 'title', 'message', 'level', 'created_at', 'read_at')[:12]),
+                recipient=access.user,
+                action_url__startswith='/tenant-portal',
+            ).values('id', 'title', 'message', 'level', 'created_at', 'read_at')[:12]) if access.user else [],
         }
 
     @action(detail=False, methods=('get',), url_path='offer-letter')
