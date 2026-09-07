@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from core.tenancy import get_active_organization
+from core.property_scope import get_active_property
 
 from .models import (
     BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
@@ -251,8 +252,17 @@ class OwnerSerializer(serializers.ModelSerializer):
         model = Owner
         exclude = ('organization',)
 
+    def _visible_units(self, obj):
+        units = obj.units.all().select_related('property')
+        request = self.context.get('request')
+        if request:
+            active_property = get_active_property(request, get_active_organization(request))
+            if active_property:
+                units = units.filter(property=active_property)
+        return units
+
     def get_units_count(self, obj):
-        return obj.units.count()
+        return self._visible_units(obj).count()
 
     def get_units_list(self, obj):
         return [
@@ -267,7 +277,7 @@ class OwnerSerializer(serializers.ModelSerializer):
                 'floor': u.floor or '',
                 'area': str(u.area) if u.area else None,
             }
-            for u in obj.units.all().select_related('property')
+            for u in self._visible_units(obj)
         ]
 
 

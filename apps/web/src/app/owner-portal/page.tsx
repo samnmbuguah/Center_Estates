@@ -81,6 +81,7 @@ export default function OwnerPortalPage() {
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
   const [units, setUnits] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [propertyChargeInvoices, setPropertyChargeInvoices] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [feeTypeFilter, setFeeTypeFilter] = useState<"all" | "management" | "letting">("all");
   const [downloadingInvId, setDownloadingInvId] = useState<string | null>(null);
@@ -139,6 +140,23 @@ export default function OwnerPortalPage() {
       setDownloadingInvId(null);
     }
   }
+
+  async function handleDownloadPropertyInvoicePdf(inv: any) {
+    if (!organizationId) return;
+    try {
+      const res = await apiFetch(`/property/invoices/${inv.id}/pdf/`, {}, organizationId);
+      if (!res.ok) throw new Error("The property invoice PDF could not be generated.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `Invoice-${inv.number || inv.id}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || "Failed to download the property invoice PDF.");
+    }
+  }
   const [remittanceLoading, setRemittanceLoading] = useState(false);
 
   // Load owners and identify target owner
@@ -187,9 +205,10 @@ export default function OwnerPortalPage() {
 
     async function loadOwnerDetails() {
       try {
-        const [sumRes, unitsRes] = await Promise.all([
+        const [sumRes, unitsRes, chargeRes] = await Promise.all([
           apiFetch(`/property/owners/${activeOwner?.id}/financial-summary/`, {}, organizationId),
           apiFetch(`/property/units/?owner=${activeOwner?.id}`, {}, organizationId),
+          apiFetch(`/property/invoices/?owner=${activeOwner?.id}`, {}, organizationId),
         ]);
 
         if (sumRes.ok) {
@@ -200,6 +219,10 @@ export default function OwnerPortalPage() {
           setUnits(Array.isArray(uData) ? uData : (uData.results || []));
         } else if (activeOwner?.units) {
           setUnits(activeOwner.units);
+        }
+        if (chargeRes.ok) {
+          const chargeData = await chargeRes.json();
+          setPropertyChargeInvoices(Array.isArray(chargeData) ? chargeData : (chargeData.results || []));
         }
       } catch {
         // Fallback gracefully
@@ -220,7 +243,12 @@ export default function OwnerPortalPage() {
         organizationId
       );
       if (res.ok) {
-        setRemittanceData(await res.json());
+        const data = await res.json();
+        setRemittanceData({
+          ...data,
+          ...(data.summary || {}),
+          unit_statements: data.units || data.unit_statements || [],
+        });
       }
     } catch {
       // Ignore
@@ -830,7 +858,7 @@ export default function OwnerPortalPage() {
                     Monthly Remittance & Commission Statement
                   </h3>
                   <p style={{ margin: "2px 0 0", fontSize: 13, color: "#334155", fontWeight: 500 }}>
-                    Official accounting statement for rental collections, management fees, and net payouts
+                    Consolidated statement of rent collections, service charge, management and letting fees, payments, and net payouts
                   </p>
                 </div>
 
@@ -913,6 +941,11 @@ export default function OwnerPortalPage() {
                         </div>
                       </div>
                     </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14, marginTop: 18, paddingTop: 18, borderTop: "1px solid #e2e8f0" }}>
+                      <div><div style={{ fontSize: 12, color: "#475569", fontWeight: 750, textTransform: "uppercase" }}>Management Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_management_fees_charged || 0))} / {cash.format(Number(remittanceData.total_management_fees_paid || 0))}</strong></div>
+                      <div><div style={{ fontSize: 12, color: "#475569", fontWeight: 750, textTransform: "uppercase" }}>Letting Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_letting_fees_charged || 0))} / {cash.format(Number(remittanceData.total_letting_fees_paid || 0))}</strong></div>
+                      <div><div style={{ fontSize: 12, color: "#475569", fontWeight: 750, textTransform: "uppercase" }}>Service Charge Deducted</div><strong>{cash.format(Number(remittanceData.total_service_charge_deducted || 0))}</strong></div>
+                    </div>
                   </div>
 
                   {/* Unit-by-Unit Statement Table */}
@@ -979,9 +1012,24 @@ export default function OwnerPortalPage() {
                     Commission & Fee Invoices
                   </h3>
                   <p style={{ margin: 0, fontSize: 13, color: "#334155", fontWeight: 500 }}>
-                    Official tax invoices generated for management fees, letting fees, and commission deductions
+                    Agency tax invoices plus service-charge and other property invoices billed to this owner
                   </p>
                 </div>
+
+                {propertyChargeInvoices.length > 0 && (
+                  <div style={{ marginBottom: 18, padding: 14, border: "1px solid #bfdbfe", borderRadius: 10, background: "#eff6ff" }}>
+                    <div style={{ fontWeight: 850, color: "#1e3a8a", marginBottom: 8 }}>Property & Service-Charge Invoices</div>
+                    {propertyChargeInvoices.map((inv: any) => (
+                      <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid #dbeafe" }}>
+                        <span><strong>{inv.number}</strong> · {(inv.invoice_type || inv.charge_type || "Property charge").replaceAll("_", " ")}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                          <span><strong>{cash.format(Number(inv.amount || 0))}</strong> · {inv.status}</span>
+                          <Button size="small" variant="outlined" onClick={() => void handleDownloadPropertyInvoicePdf(inv)} sx={{ textTransform: "none" }}>PDF</Button>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div style={{ display: "flex", gap: 6, background: "#f8fafc", padding: 4, borderRadius: 8, border: "1px solid #e2e8f0" }}>
                   <button

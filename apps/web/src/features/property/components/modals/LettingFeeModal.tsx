@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Alert,
   Autocomplete,
@@ -45,6 +45,25 @@ export function LettingFeeModal({
   const [applyVat, setApplyVat] = useState(true);
   const [saving, setSaving] = useState(false);
   const [createdInvoice, setCreatedInvoice] = useState<any | null>(null);
+  const [issueError, setIssueError] = useState("");
+
+  const eligibleUnits = useMemo(
+    () => propertyId
+      ? units.filter((unit) => String(unit.property_id || unit.property) === String(propertyId))
+      : units,
+    [propertyId, units]
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const nextUnit = initialUnit && (!propertyId || String(initialUnit.property_id || initialUnit.property) === String(propertyId))
+      ? initialUnit
+      : null;
+    setSelectedUnit(nextUnit);
+    setOwnerName(nextUnit?.owner_name || nextUnit?.landlord_name || "");
+    setCreatedInvoice(null);
+    setIssueError("");
+  }, [open, propertyId, initialUnit]);
 
   const effectiveRent = useMemo(() => {
     return Number(
@@ -89,6 +108,10 @@ export function LettingFeeModal({
     }
     if (numFee <= 0) {
       toast.error("Enter a valid letting fee amount.");
+      return;
+    }
+    if (!ownerName || !(selectedUnit.owner_id || selectedUnit.owner)) {
+      toast.error("Assign a landlord or owner to this unit before issuing a letting-fee invoice.");
       return;
     }
 
@@ -141,7 +164,18 @@ export function LettingFeeModal({
         throw new Error(err);
       }
 
-      const invData = await res.json();
+      const draftInvoice = await res.json();
+
+      const issueRes = await apiFetch(`/property/landlord-invoices/${draftInvoice.id}/send/`, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrf },
+      });
+      let invData = draftInvoice;
+      if (issueRes.ok) {
+        invData = await issueRes.json();
+      } else {
+        setIssueError(await apiErrorMessage(issueRes, "The invoice was saved as a draft but could not be issued."));
+      }
 
       // 2. Also register in general Invoices table
       try {
@@ -172,7 +206,9 @@ export function LettingFeeModal({
       }
 
       setCreatedInvoice(invData);
-      toast.success(`Letting fee invoice ${invData.number || ""} generated!`);
+      toast.success(issueRes.ok
+        ? `Letting fee invoice ${invData.number || ""} issued.`
+        : `Letting fee invoice ${invData.number || ""} saved as draft.`);
       if (onSuccess) {
         onSuccess(invData);
       }
@@ -276,8 +312,9 @@ export function LettingFeeModal({
         {createdInvoice ? (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, py: 1 }}>
             <Alert severity="success" sx={{ fontWeight: 600 }}>
-              Letting Fee Invoice <strong>{createdInvoice.number}</strong> generated successfully for KES {Number(createdInvoice.total_amount || totalPayable).toLocaleString()}!
+              Letting Fee Invoice <strong>{createdInvoice.number}</strong> {createdInvoice.status === "sent" ? "was issued" : "was saved as a draft"} for KES {Number(createdInvoice.total_amount || totalPayable).toLocaleString()}.
             </Alert>
+            {issueError && <Alert severity="warning">{issueError} Open Commission & Fee Invoices to retry issuing it.</Alert>}
             <Box
               sx={{
                 p: 2.5,
@@ -333,15 +370,9 @@ export function LettingFeeModal({
               >
                 <Autocomplete
                   size="small"
-                  options={units}
+                  options={eligibleUnits}
                   getOptionLabel={(u) =>
-                    `${u.code} (${
-                      u.tenant_name
-                        ? `Tenant: ${u.tenant_name}`
-                        : u.owner_name
-                        ? `Owner: ${u.owner_name}`
-                        : "Vacant"
-                    })`
+                    `${u.code}${u.owner_name ? ` — ${u.owner_name}` : " — owner not assigned"}`
                   }
                   value={selectedUnit}
                   onChange={(_, newVal) => handleUnitChange(newVal)}
@@ -362,8 +393,8 @@ export function LettingFeeModal({
                   label="Landlord / Owner Name"
                   size="small"
                   value={ownerName}
-                  onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="e.g. Farvision Investments Ltd"
+                  slotProps={{ input: { readOnly: true } }}
+                  placeholder="Assigned from unit ownership"
                   helperText="Recipient of the agency letting fee"
                 />
               </Box>

@@ -860,6 +860,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         open={lettingModalOpen}
         onClose={() => setLettingModalOpen(false)}
         units={units}
+        propertyId={properties[0]?.id}
         onSuccess={() => {
           setLandlordFeeType("letting");
           void load();

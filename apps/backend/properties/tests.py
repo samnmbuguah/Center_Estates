@@ -89,6 +89,36 @@ class PropertyApiTests(TestCase):
         self.client.force_authenticate(self.user)
         self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
 
+    def test_owner_register_and_unit_counts_follow_active_property(self):
+        current_owner = Owner.objects.create(
+            organization=self.organization, code='OWN-0101', name='Current Property Owner',
+        )
+        self.unit.owner = current_owner
+        self.unit.save(update_fields=('owner', 'updated_at'))
+        other_property = Property.objects.create(
+            organization=self.organization, code='OWN-002', name='Second Property', status=Property.Status.ACTIVE,
+        )
+        other_owner = Owner.objects.create(
+            organization=self.organization, code='OWN-0102', name='Other Property Owner',
+        )
+        Unit.objects.create(
+            organization=self.organization, property=other_property, owner=other_owner, code='101',
+        )
+        Unit.objects.create(
+            organization=self.organization, property=other_property, owner=current_owner, code='102',
+        )
+
+        response = self.client.get(
+            '/api/v1/property/owners/',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        rows = response.data if isinstance(response.data, list) else response.data['results']
+        self.assertEqual([row['name'] for row in rows], ['Current Property Owner'])
+        self.assertEqual(rows[0]['units_count'], 1)
+        self.assertEqual([unit['property_id'] for unit in rows[0]['units_list']], [str(self.property.id)])
+
     def test_list_is_scoped_to_active_organization(self):
         response = self.client.get('/api/v1/property/properties/', **self.headers)
         self.assertEqual(response.status_code, 200)
@@ -2927,6 +2957,13 @@ class SectionalTitleOnboardingAndBillingTests(TestCase):
         rent_inv.status = Invoice.Status.PAID
         rent_inv.balance = Decimal('0.00')
         rent_inv.save()
+        LandlordInvoice.objects.create(
+            organization=self.organization, property=prop, owner=owner,
+            number='LB-2026-000099', landlord_name=owner.name, fee_type='letting',
+            billing_period='2026-08', fee_amount=Decimal('10000.00'),
+            vat_amount=Decimal('1600.00'), total_amount=Decimal('11600.00'),
+            status=LandlordInvoice.Status.PAID,
+        )
 
         remit_res = self.client.get(
             f'/api/v1/property/owners/{owner.id}/remittance-statement/?month=8&year=2026',
@@ -2942,6 +2979,9 @@ class SectionalTitleOnboardingAndBillingTests(TestCase):
         self.assertLess(data['summary']['net_remittance_payable'], Decimal('45000.00'))
         self.assertEqual(data['settlement_route']['bank_name'], 'Stanbic Bank')
         self.assertIn('account_number', data['settlement_route'])
+        self.assertEqual(data['summary']['total_letting_fees_charged'], Decimal('11600.00'))
+        self.assertEqual(data['summary']['total_letting_fees_paid'], Decimal('11600.00'))
+        self.assertEqual(data['fee_invoices'][0]['number'], 'LB-2026-000099')
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)

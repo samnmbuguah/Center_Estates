@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   KpiCard, KpiStrip, StatusPill, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, money,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { csvCell, csvColumn, normalizeCsvHeader, parseCsv } from "@/lib/csv";
 import { exportCsv } from "../../utils/property.utils";
+import { usePropertyContext } from "@/lib/property-context";
 
 
 type OwnerImportRow = Record<string, any> & { row: number; errors?: Record<string, string> };
@@ -30,6 +31,7 @@ export function OwnersView({
   onSelectRow?: (r: Row) => void;
   canOperate?: boolean;
 }) {
+  const { activeProperty } = usePropertyContext();
   const [owners, setOwners] = useState<OwnerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -67,7 +69,7 @@ export function OwnersView({
     notes: "",
   });
 
-  const loadOwners = async () => {
+  const loadOwners = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -81,11 +83,16 @@ export function OwnersView({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadOwners();
-  }, []);
+    setSelectedOwner(null);
+    setFinancialSummary(null);
+    setOwnerInvoices([]);
+    setRemittanceOwner(null);
+    setRemittanceData(null);
+    void loadOwners();
+  }, [activeProperty?.id, loadOwners]);
 
   const handleSelectOwner = async (owner: OwnerRow) => {
     setSelectedOwner(owner);
@@ -991,4 +998,3 @@ export function OwnersView({
     </div>
   );
 }
-

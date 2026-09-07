@@ -350,7 +350,7 @@ def landlord_invoice_pdf(invoice: LandlordInvoice, generated_by="System", dispos
         ("Owner Account", owner_code or "—", "Due Date", invoice.due_on.strftime("%d %b %Y") if invoice.due_on else "—"),
         ("Landlord KRA PIN", owner_pin, "Billing Period", invoice.billing_period),
         ("Property", prop.name, "Fee Category", fee_label),
-        ("Premises / Units", units_display, "Invoice Status", invoice.status.upper()),
+        ("Premises / Units", units_display, "Invoice Status", "ISSUED" if invoice.status == "sent" else invoice.status.upper()),
     ], s))
 
     story.extend([Spacer(1, 5 * mm), Paragraph("Service & Fee Breakdown", s["Section"])])
@@ -445,18 +445,14 @@ def landlord_invoice_pdf(invoice: LandlordInvoice, generated_by="System", dispos
             Paragraph(settlement_bank, s["Small"]),
         ])
 
-    if is_letting:
-        note_text = ("This invoice constitutes a formal agency fee note for tenant placement and letting services rendered under the Property Management Agreement. "
-                     "Payment is due upon receipt and may be settled by direct bank transfer or deducted from the first tenant rent remittance.")
-    else:
+    if not is_letting:
         note_text = ("This document constitutes an official Invoice for property management services rendered in accordance with the Property Management Agreement. "
                      "Agency fees are deducted from gross tenant collections, and the net remittance is scheduled for disbursement to the landlord's designated account above.")
-
-    story.extend([
-        Spacer(1, 4 * mm),
-        Paragraph("Note", s["Section"]),
-        Paragraph(note_text, s["Tiny"]),
-    ])
+        story.extend([
+            Spacer(1, 4 * mm),
+            Paragraph("Note", s["Section"]),
+            Paragraph(note_text, s["Tiny"]),
+        ])
 
     return _doc_response(
         invoice.organization,
@@ -1175,4 +1171,3 @@ def service_charge_reconciliation_pdf(reconciliation, generated_by="System"):
         period=f"{reconciliation.period_start:%b %Y} – {reconciliation.period_end:%b %Y}",
         generated_by=generated_by,
     )
-

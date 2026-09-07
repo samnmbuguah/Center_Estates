@@ -1413,6 +1413,14 @@ class OwnerViewSet(OrganizationModelViewSet):
     serializer_class = OwnerSerializer
     search_fields = ('name', 'code', 'email', 'phone', 'pin_number', 'id_or_registration_number')
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        organization = get_active_organization(self.request)
+        active_property = get_active_property(self.request, organization)
+        if active_property:
+            queryset = queryset.filter(units__property=active_property).distinct()
+        return queryset
+
     def perform_create(self, serializer):
         organization = get_active_organization(self.request)
         existing_codes = Owner.objects.filter(
@@ -1433,6 +1441,7 @@ class OwnerViewSet(OrganizationModelViewSet):
         safe and does not duplicate an owner.
         """
         organization = get_active_organization(request)
+        active_property = get_active_property(request, organization)
         source_rows = request.data.get('rows') if isinstance(request.data.get('rows'), list) else []
         commit = str(request.data.get('mode', 'preview')).lower() == 'commit'
         if not source_rows:
@@ -1463,7 +1472,10 @@ class OwnerViewSet(OrganizationModelViewSet):
             )
 
             unit_codes = [code.strip() for code in raw_unit_str.replace(';', ',').split(',') if code.strip()]
-            units = list(Unit.objects.for_organization(organization).filter(code__in=unit_codes)) if unit_codes else []
+            unit_queryset = Unit.objects.for_organization(organization)
+            if active_property:
+                unit_queryset = unit_queryset.filter(property=active_property)
+            units = list(unit_queryset.filter(code__in=unit_codes)) if unit_codes else []
             found_codes = {unit.code.lower() for unit in units}
 
             missing_units = [code for code in unit_codes if code.lower() not in found_codes]
@@ -1517,6 +1529,9 @@ class OwnerViewSet(OrganizationModelViewSet):
     def financial_summary(self, request, pk=None):
         owner = self.get_object()
         units = owner.units.all()
+        active_property = get_active_property(request, get_active_organization(request))
+        if active_property:
+            units = units.filter(property=active_property)
         owner_invoices = Invoice.objects.filter(owner=owner)
         total_invoiced = owner_invoices.aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
         total_balance = owner_invoices.aggregate(s=Sum('balance'))['s'] or Decimal('0.00')
@@ -1550,6 +1565,21 @@ class OwnerViewSet(OrganizationModelViewSet):
         year = int(request.query_params.get('year') or now.year)
 
         units = owner.units.select_related('property', 'building').prefetch_related('leases__tenant').all()
+        active_property = get_active_property(request, get_active_organization(request))
+        if active_property:
+            units = units.filter(property=active_property)
+        fee_invoices = LandlordInvoice.objects.for_organization(owner.organization).filter(
+            Q(owner=owner) | Q(metadata__owner_id=str(owner.id)),
+            billing_period=f'{year}-{month:02d}',
+        )
+        if active_property:
+            fee_invoices = fee_invoices.filter(property=active_property)
+        management_fees = fee_invoices.filter(fee_type=LandlordInvoice.FeeType.MANAGEMENT)
+        letting_fees = fee_invoices.filter(fee_type=LandlordInvoice.FeeType.LETTING)
+        total_management_fees_charged = management_fees.aggregate(s=Sum('total_amount'))['s'] or Decimal('0.00')
+        total_letting_fees_charged = letting_fees.aggregate(s=Sum('total_amount'))['s'] or Decimal('0.00')
+        total_management_fees_paid = management_fees.filter(status=LandlordInvoice.Status.PAID).aggregate(s=Sum('total_amount'))['s'] or Decimal('0.00')
+        total_letting_fees_paid = letting_fees.filter(status=LandlordInvoice.Status.PAID).aggregate(s=Sum('total_amount'))['s'] or Decimal('0.00')
         unit_statements = []
         total_gross_collected = Decimal('0.00')
         total_commission_deducted = Decimal('0.00')
@@ -1628,6 +1658,10 @@ class OwnerViewSet(OrganizationModelViewSet):
                 'total_service_charge_deducted': total_service_charge_deducted,
                 'total_maintenance_deducted': total_maintenance_deducted,
                 'net_remittance_payable': net_remittance_payable,
+                'total_management_fees_charged': total_management_fees_charged,
+                'total_management_fees_paid': total_management_fees_paid,
+                'total_letting_fees_charged': total_letting_fees_charged,
+                'total_letting_fees_paid': total_letting_fees_paid,
             },
             'settlement_route': {
                 'bank_name': owner.settlement_bank_name or 'Not Configured',
@@ -1636,6 +1670,7 @@ class OwnerViewSet(OrganizationModelViewSet):
                 'paybill_or_till': owner.settlement_paybill_or_till or '—',
             },
             'units': unit_statements,
+            'fee_invoices': LandlordInvoiceSerializer(fee_invoices.order_by('-issued_on', '-created_at'), many=True).data,
         })
 
 
@@ -3122,6 +3157,16 @@ class InvoiceViewSet(OrganizationModelViewSet):
     queryset = Invoice.objects.select_related('lease__tenant')
     serializer_class = InvoiceSerializer
     search_fields = ('number', 'lease__tenant__name')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        owner_id = self.request.query_params.get('owner') or self.request.query_params.get('owner_id')
+        if owner_id:
+            queryset = queryset.filter(owner_id=owner_id)
+        charge_type = self.request.query_params.get('charge_type')
+        if charge_type:
+            queryset = queryset.filter(charge_type=charge_type)
+        return queryset
 
     @action(detail=True, methods=('get',), url_path='pdf')
     def pdf(self, request, pk=None):

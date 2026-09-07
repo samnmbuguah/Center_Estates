@@ -59,17 +59,24 @@ function LandlordInvoicePanel({ search }: { search: string }) {
       const res = await apiFetch(`/property/landlord-invoices/${inv.id}/send/`, {
         method: "POST", headers: { "X-CSRFToken": csrf },
       });
-      if (res.ok) { toast.success(`Invoice ${inv.number} sent.`); void load(); }
-      else { toast.error(await apiErrorMessage(res, "Could not send invoice.")); }
+      if (res.ok) { toast.success(`Invoice ${inv.number} issued.`); void load(); }
+      else { toast.error(await apiErrorMessage(res, "Could not issue invoice.")); }
     } catch { toast.error("Unable to reach the server."); }
   };
 
   const handleMarkPaid = async (inv: LandlordInvoice) => {
+    const paymentReference = window.prompt(`Enter the payment reference for ${inv.number}:`)?.trim();
+    if (!paymentReference) {
+      toast.error("A payment reference is required before an invoice can be marked as paid.");
+      return;
+    }
     try {
       await apiFetch("/auth/csrf/");
       const csrf = csrfFromCookie();
       const res = await apiFetch(`/property/landlord-invoices/${inv.id}/mark-paid/`, {
-        method: "POST", headers: { "X-CSRFToken": csrf },
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+        body: JSON.stringify({ payment_reference: paymentReference }),
       });
       if (res.ok) { toast.success(`Invoice ${inv.number} marked as paid.`); void load(); }
       else { toast.error(await apiErrorMessage(res, "Could not mark as paid.")); }
@@ -152,7 +159,7 @@ function LandlordInvoicePanel({ search }: { search: string }) {
                   <td className="mono" style={{ color: "#2563eb", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
                   <td style={{ fontSize: 12 }}>{inv.issued_on ? fmtDate(inv.issued_on) : "—"}</td>
                   <td>
-                    <StatusPill value={inv.status} />
+                    <StatusPill value={inv.status === "sent" ? "issued" : inv.status} />
                     {inv.payment_reference && (
                       <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{inv.payment_reference}</div>
                     )}
@@ -161,7 +168,7 @@ function LandlordInvoicePanel({ search }: { search: string }) {
                     <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
                       <Button size="small" variant="outlined" sx={{ fontSize: 10, py: 0.25 }} onClick={() => handleDownloadPdf(inv)}>PDF</Button>
                       {inv.status === "draft" && (
-                        <Button size="small" variant="outlined" sx={{ fontSize: 10, py: 0.25 }} onClick={() => void handleSend(inv)}>Send</Button>
+                        <Button size="small" variant="contained" sx={{ fontSize: 10, py: 0.25 }} onClick={() => void handleSend(inv)}>Issue</Button>
                       )}
                       {inv.status === "sent" && (
                         <Button size="small" variant="contained" color="success" sx={{ fontSize: 10, py: 0.25 }} onClick={() => void handleMarkPaid(inv)}>Mark Paid</Button>
