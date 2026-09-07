@@ -392,6 +392,17 @@ export function OwnersView({
                         >
                           <DollarSign size={13} style={{ marginRight: 3 }} /> Statement
                         </button>
+                        <button
+                          type="button"
+                          className="btn secondary sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`/owner-portal?owner=${o.id}`, "_blank", "noopener,noreferrer");
+                          }}
+                          title="Open Unit Owner Portal in a new tab"
+                        >
+                          🌐 Portal ↗
+                        </button>
                       </div>
                     </td>
 
@@ -446,14 +457,25 @@ export function OwnersView({
                 <div style={{ fontWeight: 600, fontSize: 13, color: "#a5b4fc", display: "flex", alignItems: "center", gap: 6 }}>
                   <DollarSign size={15} /> Landlord Ledger & Financial Summary
                 </div>
-                <button
-                  type="button"
-                  className="btn primary sm"
-                  onClick={() => selectedOwner && void fetchRemittanceStatement(selectedOwner)}
-                  style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
-                >
-                  <DollarSign size={12} style={{ marginRight: 2 }} /> Remittance Statement
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn primary sm"
+                    onClick={() => selectedOwner && void fetchRemittanceStatement(selectedOwner)}
+                    style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
+                  >
+                    <DollarSign size={12} style={{ marginRight: 2 }} /> Statement
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary sm"
+                    onClick={() => selectedOwner && window.open(`/owner-portal?owner=${selectedOwner.id}`, "_blank", "noopener,noreferrer")}
+                    style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
+                    title="Launch Unit Owner Self-Service Portal"
+                  >
+                    🌐 Owner Portal ↗
+                  </button>
+                </div>
               </div>
 
               {summaryLoading ? (

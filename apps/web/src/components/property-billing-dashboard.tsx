@@ -39,6 +39,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [allRuns, setAllRuns] = useState<BillingRun[]>([]);
   const [run, setRun] = useState<BillingRun | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [landlordInvoices, setLandlordInvoices] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,10 +120,11 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     if (showSkeleton) setLoading(true);
     setError("");
     try {
-      const [runRes, invRes, propRes] = await Promise.all([
+      const [runRes, invRes, propRes, llInvRes] = await Promise.all([
         apiFetch("/property/billing-runs/", {}, organizationId),
         apiFetch("/property/invoices/", {}, organizationId),
         apiFetch("/property/properties/", {}, organizationId),
+        apiFetch("/property/landlord-invoices/", {}, organizationId),
       ]);
       if (!runRes.ok || !invRes.ok) {
         setError(await apiErrorMessage(!runRes.ok ? runRes : invRes, "Billing data could not be loaded."));
@@ -136,6 +138,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       if (propRes.ok) {
         const propData = await propRes.json();
         setProperties(Array.isArray(propData) ? propData : propData.results ?? []);
+      }
+      if (llInvRes.ok) {
+        const llData = await llInvRes.json();
+        setLandlordInvoices(Array.isArray(llData) ? llData : llData.results ?? []);
       }
     } catch {
       setError("Failed to communicate with billing service.");
@@ -214,6 +220,12 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       const mgmtRate = Number(p.management_fee_rate || 5.0); // Standard 5.0%
       const commissionAmount = Math.round(rentCollected * (mgmtRate / 100));
 
+      const existingLandlordInv = landlordInvoices.find(
+        (inv) =>
+          (String(inv.property) === String(p.id) ||
+            inv.property_name?.toLowerCase() === p.name?.toLowerCase()) &&
+          inv.billing_period === startMonthStr
+      );
       const existingInv = invoices.find(
         (inv) =>
           (inv.tenant_name?.toLowerCase().includes((p.owner_name || p.name).toLowerCase()) ||
@@ -221,7 +233,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
            inv.tenant_name?.toLowerCase().includes("landlord")) &&
           inv.issued_on >= period_start && inv.issued_on <= period_end
       );
-      const isBilled = Boolean(existingInv);
+      const isBilled = Boolean(existingLandlordInv) || Boolean(existingInv);
+      const invoiceNumber = existingLandlordInv?.number || existingInv?.number;
       const hasCollections = commissionAmount > 0;
 
       return {
@@ -240,7 +253,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             amount: String(commissionAmount),
             total: String(commissionAmount),
             billed: isBilled,
-            invoice_number: existingInv?.number,
+            invoice_number: invoiceNumber,
           },
         ],
         total: String(commissionAmount),
@@ -256,7 +269,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             ],
       };
     });
-  }, [properties, invoices, period_start, period_end]);
+  }, [properties, invoices, landlordInvoices, period_start, period_end]);
 
   const prepareTypesBody = chargeTypeFilter !== "all"
     ? { invoice_types: chargeTypeFilter === "utility" ? ["water", "electricity", "utility"] : [chargeTypeFilter] }
@@ -270,24 +283,68 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     if (billingTarget === "landlord" && action === "generate") {
       try {
         const selectedCandidates = landlordCandidates.filter((c) => selected.includes(c.id) && c.status === "ready");
+        const startMonthStr = period_start.slice(0, 7);
+        let successCount = 0;
+        let lastErrorMsg = "";
+
         for (const cand of selectedCandidates) {
-          await apiFetch(
-            "/property/invoices/",
+          const propId = cand.id.replace("landlord-", "");
+          const prop = properties.find((p) => String(p.id) === String(propId));
+          if (!prop) continue;
+
+          const propertyInvoices = invoices.filter(
+            (inv) =>
+              (inv.property_id === prop.id ||
+                inv.property_name?.toLowerCase() === prop.name?.toLowerCase()) &&
+              inv.issued_on >= period_start &&
+              inv.issued_on <= period_end
+          );
+          const rentCollected = propertyInvoices
+            .filter(
+              (inv) =>
+                inv.invoice_type?.toLowerCase().includes("rent") ||
+                inv.charge_type === "rent"
+            )
+            .reduce((sum, inv) => {
+              const paid = Number(
+                inv.amount_paid ?? (Number(inv.amount || 0) - Number(inv.balance || 0))
+              );
+              return sum + (paid > 0 ? paid : 0);
+            }, 0);
+
+          const mgmtRate = Number(prop.management_fee_rate || 5.0);
+
+          const res = await apiFetch(
+            "/property/landlord-invoices/",
             {
               method: "POST",
               body: JSON.stringify({
-                recipient_name: cand.tenant_name,
-                property_name: cand.property_name,
-                invoice_type: "Management Fee",
-                amount: cand.total,
-                due_date: cand.due_date,
-                notes: `Property Management Commission for ${formattedPeriod}`,
+                property: prop.id,
+                landlord_name: cand.tenant_name,
+                billing_period: startMonthStr,
+                fee_type: "management",
+                gross_collections: rentCollected,
+                fee_rate: mgmtRate,
+                due_on: cand.due_date || period_end,
+                notes: `Property Management Commission for ${formattedPeriod}. Gross collected rent: KES ${rentCollected.toLocaleString()}.`,
               }),
             },
             organizationId
           );
+
+          if (!res.ok) {
+            lastErrorMsg = await apiErrorMessage(res, "Failed to generate landlord invoice.");
+          } else {
+            successCount++;
+          }
         }
-        setNotice(`Generated ${selectedCandidates.length} Landlord Management Invoice(s) for ${formattedPeriod}.`);
+
+        if (successCount > 0) {
+          setNotice(`Generated ${successCount} Landlord Management Invoice(s) for ${formattedPeriod}.`);
+        }
+        if (lastErrorMsg) {
+          setError(lastErrorMsg);
+        }
       } catch {
         setError("Failed to generate landlord invoices.");
       }

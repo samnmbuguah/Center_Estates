@@ -211,7 +211,15 @@ export function PropertyFeaturePage({
       case "financial-reports":
         return <PropertyFinancialReports />;
       case "owner-portal":
-        return <OverviewView dashboard={logic.dashboard} loading={logic.loading} setTab={logic.setTab} canOperate={logic.canOperate} canLease={logic.canLease} canFinance={logic.canFinance} />;
+        return (
+          <OwnersView
+            search={logic.search}
+            setSearch={logic.setSearch}
+            setTab={logic.setTab}
+            onSelectRow={logic.handleSelectRow}
+            canOperate={logic.canOperate}
+          />
+        );
       case "forecast":
         return <ForecastView dashboard={logic.dashboard} />;
       case "critical-dates":

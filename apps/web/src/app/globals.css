@@ -6117,13 +6117,13 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
   color: var(--muted);
 }
 
-/* Module navigation: one workflow level at a time, instead of one endless row. */
+/* Module navigation: modern two-level workflow strip */
 .module-nav-bar {
-  margin-bottom: 12px;
-  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 12px;
-  background: var(--bg-surface);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  background: var(--bg-surface, #ffffff);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
   overflow: hidden;
 }
 
@@ -6131,54 +6131,49 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 .module-nav-pages {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 
+/* First level: Workflow category sections */
 .module-nav-groups {
-  padding: 5px 7px;
-  background: var(--bg-app);
-  border-bottom: 1px solid var(--border-color);
+  padding: 6px 10px;
+  background: var(--surface-muted, #f8fafc);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
-.module-nav-pages { padding: 6px 7px; }
-
-.module-nav-groups button,
-.module-nav-pages button {
+.module-nav-groups button {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   flex: 0 0 auto;
-  border: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #64748b);
   background: transparent;
-  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
-  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+  user-select: none;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .module-nav-groups button:hover,
 .module-nav-groups button:focus-visible {
-  background: var(--bg-surface);
-  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary, #0f172a);
 }
 
 .module-nav-groups button:focus-visible,
 .module-nav-pages button:focus-visible,
 .module-property-switcher select:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--brand-primary) 30%, transparent);
+  outline: 2px solid var(--brand-primary, #2563eb);
   outline-offset: 2px;
-}
-
-.module-nav-groups button {
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: .03em;
-  text-transform: uppercase;
-  color: #000000;
 }
 
 .module-nav-groups button small {
@@ -6186,38 +6181,85 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 }
 
 .module-nav-groups button.active {
-  background: var(--bg-surface);
-  color: #000000;
-  font-weight: 900;
-  box-shadow: inset 0 -3px 0 var(--module-accent, var(--brand-primary)), 0 1px 4px rgba(15, 23, 42, .12);
+  background: var(--bg-surface, #ffffff);
+  color: var(--brand-primary, #2563eb);
+  font-weight: 700;
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* Second level: Sub-pages in active workflow */
+.module-nav-pages {
+  padding: 8px 12px;
+  background: var(--bg-surface, #ffffff);
 }
 
 .module-nav-pages button {
-  padding: 7px 12px;
-  border-radius: 7px;
-  font-size: 14px;
-  font-weight: 800;
-  color: #000000;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 13px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #475569);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.module-nav-pages button:hover { background: var(--bg-app); color: #000000; }
+.module-nav-pages button:hover {
+  background: var(--surface-muted, #f1f5f9);
+  color: var(--text-primary, #0f172a);
+}
+
 .module-nav-pages button.active {
-  background: color-mix(in srgb, var(--module-accent, var(--brand-primary)) 14%, var(--bg-surface));
-  color: #000000;
-  font-weight: 900;
-  box-shadow: inset 0 -2px 0 var(--module-accent, var(--brand-primary));
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+  border-color: #bfdbfe;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.06);
+}
+
+[data-theme="dark"] .module-nav-groups {
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .module-nav-groups button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .module-nav-groups button.active {
-  background: color-mix(in srgb, var(--module-accent, var(--brand-primary)) 18%, var(--bg-surface));
-  color: #ffffff;
-  box-shadow: inset 0 -3px 0 var(--module-accent, var(--brand-primary));
+  background: rgba(255, 255, 255, 0.1);
+  color: #60a5fa;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .module-nav-pages {
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .module-nav-pages button {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .module-nav-pages button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
 }
 
 [data-theme="dark"] .module-nav-pages button.active {
-  background: color-mix(in srgb, var(--module-accent, var(--brand-primary)) 20%, var(--bg-surface));
-  color: #ffffff;
-  box-shadow: inset 0 -2px 0 var(--module-accent, var(--brand-primary));
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .module-nav-mobile-select { display: none; }
@@ -6643,31 +6685,6 @@ body,
   color: var(--text-primary);
 }
 
-.module-nav-groups {
-  background: linear-gradient(112deg, #123b78 0%, #1d4ed8 58%, #2563eb 100%);
-  border-bottom-color: rgba(255, 255, 255, .18);
-}
-.module-nav-pages { background: var(--surface-raised); }
-.module-nav-groups button {
-  color: rgba(255, 255, 255, .84);
-}
-.module-nav-pages button,
-.module-nav-pages button.active {
-  color: var(--text-primary);
-}
-.module-nav-groups button:hover {
-  background: rgba(255, 255, 255, .12);
-  color: #ffffff;
-}
-.module-nav-groups button.active {
-  background: rgba(255, 255, 255, .96);
-  color: #102a56;
-  box-shadow: inset 0 -3px 0 var(--module-accent, #ef4444), 0 4px 12px rgba(15, 23, 42, .18);
-}
-.module-nav-pages button:hover {
-  background: var(--interactive-hover);
-  color: var(--text-primary);
-}
 
 .fc-kpi-label,
 .fc-kpi-value,
