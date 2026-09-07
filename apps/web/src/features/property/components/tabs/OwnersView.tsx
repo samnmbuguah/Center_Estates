@@ -344,28 +344,28 @@ export function OwnersView({
                     style={{ cursor: "pointer" }}
                   >
                     <td>
-                      <span style={{ fontWeight: 600, color: "#818cf8" }}>{o.code || "—"}</span>
+                      <span style={{ fontWeight: 750, color: "#1d4ed8", fontFamily: "monospace" }}>{o.code || "—"}</span>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{o.name}</div>
+                      <div style={{ fontWeight: 750, color: "#0f172a", fontSize: 13.5 }}>{o.name}</div>
                     </td>
                     <td>
-                      <div style={{ fontSize: 12 }}>{o.email || "—"}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{o.phone || "—"}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{o.email || "—"}</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#475569" }}>{o.phone || "—"}</div>
                     </td>
                     <td>
-                      <div style={{ fontFamily: "monospace", fontSize: 12 }}>{o.pin_number || "—"}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{o.id_or_registration_number || ""}</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{o.pin_number || "—"}</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#475569" }}>{o.id_or_registration_number || ""}</div>
                     </td>
                     <td>
-                      <span className="badge badge-purple">{o.units_count ?? (o.units_list?.length ?? 0)} Units</span>
+                      <span className="badge badge-purple" style={{ fontWeight: 700 }}>{o.units_count ?? (o.units_list?.length ?? 0)} Units</span>
                     </td>
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                        <Landmark size={14} color="#60a5fa" />
-                        <span>{o.settlement_bank_name || "—"}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                        <Landmark size={14} color="#2563eb" />
+                        <span>{o.settlement_bank_name || "NCBA Bank"}</span>
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", fontFamily: "monospace" }}>
+                      <div style={{ fontSize: 11, color: "#475569", fontWeight: 600, fontFamily: "monospace" }}>
                         {o.settlement_bank_account || o.settlement_paybill_or_till || "Not Configured"}
                       </div>
                     </td>
@@ -420,11 +420,11 @@ export function OwnersView({
           title={
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{
-                background: "rgba(99, 102, 241, 0.15)",
-                color: "#818cf8",
+                background: "rgba(37, 99, 235, 0.12)",
+                color: "#1d4ed8",
                 borderRadius: 8,
-                width: 32,
-                height: 32,
+                width: 34,
+                height: 34,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -432,8 +432,8 @@ export function OwnersView({
                 <Users size={18} />
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{selectedOwner.name}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>{selectedOwner.code} • Landlord Profile</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "#0f172a" }}>{selectedOwner.name}</div>
+                <div style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>{selectedOwner.code} • Landlord Profile</div>
               </div>
             </div>
           }
@@ -446,23 +446,24 @@ export function OwnersView({
             {/* Financial Overview Card */}
             <div style={{
               padding: "16px",
-              borderRadius: 10,
-              background: "radial-gradient(ellipse at top, rgba(99, 102, 241, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%)",
-              border: "1px solid rgba(99, 102, 241, 0.25)",
+              borderRadius: 12,
+              background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)",
+              border: "1px solid #bfdbfe",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               display: "flex",
               flexDirection: "column",
               gap: 12,
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "#a5b4fc", display: "flex", alignItems: "center", gap: 6 }}>
-                  <DollarSign size={15} /> Landlord Ledger & Financial Summary
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: "#1e3a8a", display: "flex", alignItems: "center", gap: 6 }}>
+                  <DollarSign size={16} color="#2563eb" /> Landlord Ledger & Financial Summary
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     type="button"
                     className="btn primary sm"
                     onClick={() => selectedOwner && void fetchRemittanceStatement(selectedOwner)}
-                    style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
+                    style={{ fontSize: 11, height: 26, padding: "2px 10px", fontWeight: 700 }}
                   >
                     <DollarSign size={12} style={{ marginRight: 2 }} /> Statement
                   </button>
@@ -470,7 +471,7 @@ export function OwnersView({
                     type="button"
                     className="btn secondary sm"
                     onClick={() => selectedOwner && window.open(`/owner-portal?owner=${selectedOwner.id}`, "_blank", "noopener,noreferrer")}
-                    style={{ fontSize: 11, height: 26, padding: "2px 10px" }}
+                    style={{ fontSize: 11, height: 26, padding: "2px 10px", fontWeight: 700 }}
                     title="Launch Unit Owner Self-Service Portal"
                   >
                     🌐 Owner Portal ↗
@@ -479,18 +480,18 @@ export function OwnersView({
               </div>
 
               {summaryLoading ? (
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>Loading financial ledgers...</div>
+                <div style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>Loading financial ledgers...</div>
               ) : financialSummary ? (
                 <div className="grid-2" style={{ gap: 10 }}>
-                  <div style={{ padding: "10px", borderRadius: 8, background: "rgba(255,255,255,0.03)" }}>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>Active Rent Roll</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#34d399" }}>
+                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "#ffffff", border: "1px solid #cbd5e1", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                    <div style={{ fontSize: 11, color: "#475569", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Active Rent Roll</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#047857", marginTop: 2 }}>
                       {money.format(financialSummary.active_rent_roll ?? 0)}
                     </div>
                   </div>
-                  <div style={{ padding: "10px", borderRadius: 8, background: "rgba(255,255,255,0.03)" }}>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>Outstanding Balance</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: Number(financialSummary.outstanding_balance ?? 0) > 0 ? "#f87171" : "#10b981" }}>
+                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "#ffffff", border: "1px solid #cbd5e1", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                    <div style={{ fontSize: 11, color: "#475569", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Outstanding Balance</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: Number(financialSummary.outstanding_balance ?? 0) > 0 ? "#b91c1c" : "#0f172a", marginTop: 2 }}>
                       {money.format(financialSummary.outstanding_balance ?? 0)}
                     </div>
                   </div>
@@ -501,42 +502,43 @@ export function OwnersView({
 
             {/* Profile & Settlement Info */}
             <div style={{
-              padding: "14px",
-              borderRadius: 8,
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
+              padding: "16px",
+              borderRadius: 10,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
               display: "flex",
               flexDirection: "column",
-              gap: 10,
+              gap: 12,
               fontSize: 13,
             }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                <Landmark size={15} color="#60a5fa" /> Settlement / Remittance Details
+              <div style={{ fontWeight: 800, fontSize: 13.5, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+                <Landmark size={16} color="#2563eb" /> Settlement / Remittance Details
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--muted)" }}>Bank Name:</span>
-                <span style={{ fontWeight: 500 }}>{selectedOwner.settlement_bank_name || "—"}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: 6 }}>
+                <span style={{ color: "#475569", fontWeight: 600 }}>Bank Name:</span>
+                <span style={{ fontWeight: 750, color: "#0f172a" }}>{selectedOwner.settlement_bank_name || "NCBA Bank"}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--muted)" }}>Account Number:</span>
-                <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{selectedOwner.settlement_bank_account || "—"}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: 6 }}>
+                <span style={{ color: "#475569", fontWeight: 600 }}>Account Number:</span>
+                <span style={{ fontWeight: 750, color: "#0f172a", fontFamily: "monospace" }}>{selectedOwner.settlement_bank_account || "Not Configured"}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--muted)" }}>Branch:</span>
-                <span style={{ fontWeight: 500 }}>{selectedOwner.settlement_bank_branch || "—"}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: 6 }}>
+                <span style={{ color: "#475569", fontWeight: 600 }}>Branch:</span>
+                <span style={{ fontWeight: 750, color: "#0f172a" }}>{selectedOwner.settlement_bank_branch || "Nairobi Main"}</span>
               </div>
               {selectedOwner.settlement_paybill_or_till && (
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--muted)" }}>Paybill / Till:</span>
-                  <span style={{ fontWeight: 500 }}>{selectedOwner.settlement_paybill_or_till}</span>
+                  <span style={{ color: "#475569", fontWeight: 600 }}>Paybill / Till:</span>
+                  <span style={{ fontWeight: 750, color: "#0f172a" }}>{selectedOwner.settlement_paybill_or_till}</span>
                 </div>
               )}
             </div>
 
             {/* Owned Units List */}
             <div>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                <KeyRound size={15} color="#818cf8" /> Units Owned ({selectedOwner.units_list?.length ?? selectedOwner.units_count ?? 0})
+              <div style={{ fontWeight: 800, fontSize: 13.5, color: "#0f172a", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <KeyRound size={16} color="#2563eb" /> Units Owned ({selectedOwner.units_list?.length ?? selectedOwner.units_count ?? 0})
               </div>
               {selectedOwner.units_list && selectedOwner.units_list.length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -544,29 +546,31 @@ export function OwnersView({
                     <div
                       key={u.id}
                       style={{
-                        padding: "10px 12px",
+                        padding: "12px 14px",
                         borderRadius: 8,
-                        background: "var(--surface)",
-                        border: "1px solid var(--border)",
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        fontSize: 12,
+                        fontSize: 13,
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600 }}>Unit {u.code}</div>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        <div style={{ fontWeight: 800, color: "#0f172a" }}>Unit {u.code}</div>
+                        <div style={{ fontSize: 12, color: "#475569", fontWeight: 600, marginTop: 2 }}>
                           {u.property_name} • {u.sectional_title_number || "No Deed Number"}
                         </div>
                       </div>
-                      <span className="badge badge-purple">{u.management_mandate || "both"}</span>
+                      <span className="badge badge-blue" style={{ fontWeight: 700 }}>
+                        {u.management_mandate || "Owner"}
+                      </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: "var(--muted)", padding: 8 }}>
-                  No units currently assigned to this landlord.
+                <div style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
+                  No individual sectional units mapped yet.
                 </div>
               )}
             </div>

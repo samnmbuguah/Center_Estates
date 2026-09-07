@@ -248,7 +248,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const activeModule = modules.find((module) => (
     pathname === `/${module.slug}` || pathname.startsWith(`/${module.slug}/`)
   ));
-  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal") || pathname.startsWith("/caretaker-portal");
+  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal") || pathname.startsWith("/caretaker-portal") || pathname.startsWith("/owner-portal");
   if (moduleWorkspaceActive && (!propertyContextReady || (properties.length > 0 && !activeProperty))) {
     return <BrandedLoader message="Bringing this property into focus" />;
   }
