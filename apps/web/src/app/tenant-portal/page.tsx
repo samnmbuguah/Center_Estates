@@ -3,7 +3,8 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Rating, TextField, Typography } from "@mui/material";
+import { Alert, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Rating, TextField, Typography } from "@mui/material";
+import { Bell, Building2, CreditCard, FileCheck2, FileText, Gauge, ReceiptText, UserRound, Wrench } from "lucide-react";
 
 type Row = Record<string, string | number | boolean | null>;
 type Portal = {
@@ -78,17 +79,37 @@ const labels: Record<Tab, string> = {
   notices: "Messages & notices",
   profile: "Profile & lease",
 };
+const tabIcons: Record<Tab, React.ReactNode> = {
+  overview: <Gauge size={17} />,
+  invoices: <ReceiptText size={17} />,
+  payments: <CreditCard size={17} />,
+  maintenance: <Wrench size={17} />,
+  documents: <FileText size={17} />,
+  offer: <FileCheck2 size={17} />,
+  notices: <Bell size={17} />,
+  profile: <UserRound size={17} />,
+};
 const cash = new Intl.NumberFormat("en-KE", {
   style: "currency",
   currency: "KES",
   maximumFractionDigits: 0,
 });
+const friendlyDate = (value: unknown) => {
+  if (!value) return "—";
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
+};
+const friendlyLabel = (value: unknown) => String(value || "Pending").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 export default function TenantPortalPage() {
   const { session } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
   const [data, setData] = useState<Portal | null>(null);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "overview";
+    const requested = new URLSearchParams(window.location.search).get("tab") as Tab | null;
+    return requested && Object.prototype.hasOwnProperty.call(labels, requested) ? requested : "overview";
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(false);
@@ -108,6 +129,15 @@ export default function TenantPortalPage() {
   const [offerConfirmed, setOfferConfirmed] = useState(false);
   const [offerBusy, setOfferBusy] = useState(false);
   const [offerError, setOfferError] = useState("");
+
+  const selectTab = useCallback((nextTab: Tab) => {
+    setTab(nextTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", nextTab);
+      window.history.replaceState({}, "", url);
+    }
+  }, []);
 
   const load = useCallback(async (selectedTenantId?: string) => {
     if (!organizationId) return;
@@ -192,7 +222,7 @@ export default function TenantPortalPage() {
       const created = await response.json().catch(() => ({}));
       setModal(false);
       setRequestSuccess(`Request ${created.reference || ""} was submitted successfully. The maintenance team can now track it.`);
-      setTab("maintenance");
+      selectTab("maintenance");
       await load();
     } catch {
       setRequestError("The maintenance request could not be submitted. Check your connection and try again.");
@@ -367,8 +397,8 @@ export default function TenantPortalPage() {
   }
   if (loading)
     return (
-      <div className="page-wrap">
-        <div className="data-loading">Loading your tenant account...</div>
+      <div className="page-wrap tenant-portal-page">
+        <div className="tenant-portal-loading"><CircularProgress size={34} /><strong>Preparing your account</strong><span>Bringing your lease, payments and requests together…</span></div>
       </div>
     );
   if (!data)
@@ -382,9 +412,9 @@ export default function TenantPortalPage() {
   const isPreviewMode = isImpersonating || previewTenants.length > 0;
 
   return (
-    <div className="page-wrap property-app">
+    <div className="page-wrap property-app tenant-portal-page">
       {isPreviewMode && (
-        <div style={{ background: "linear-gradient(90deg, #1e3a8a, #2563eb)", color: "#fff", padding: "12px 18px", borderRadius: 10, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.2)" }}>
+        <div className="tenant-preview-banner">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 22 }}>🛡️</span>
             <div>
@@ -421,7 +451,7 @@ export default function TenantPortalPage() {
           </div>
         </div>
       )}
-      <section className="property-heading">
+      <section className="tenant-portal-hero">
         <div>
           <p className="eyebrow">Tenant self-service</p>
           <h1>Good morning, {data.tenant.name}.</h1>
@@ -429,37 +459,44 @@ export default function TenantPortalPage() {
             Invoices, receipts, lease information, documents and maintenance in
             one secure account.
           </p>
+          {lease && <div className="tenant-premises"><Building2 size={16} /> {lease.property_name} · {lease.unit_code} <Chip size="small" label={lease.status || "Active lease"} color="success" /></div>}
         </div>
-        <button className="primary-action" onClick={() => { setRequestError(""); setModal(true); }}>
+        <Button variant="contained" color="error" startIcon={<Wrench size={17} />} onClick={() => { setRequestError(""); setModal(true); }}>
           Report an issue
-        </button>
+        </Button>
       </section>
-      <nav className="module-tabs" aria-label="Tenant portal sections">
+      <nav className="tenant-portal-tabs" aria-label="Tenant portal sections">
         {(Object.keys(labels) as Tab[]).map((item) => (
           <button
             key={item}
             className={tab === item ? "active" : ""}
-            onClick={() => setTab(item)}
+            onClick={() => selectTab(item)}
+            aria-current={tab === item ? "page" : undefined}
+            aria-label={labels[item]}
           >
-            {labels[item]}
+            {tabIcons[item]}<span>{labels[item]}</span>
+            {item === "invoices" && data.invoices.filter((row) => Number(row.balance) > 0).length > 0 && <b>{data.invoices.filter((row) => Number(row.balance) > 0).length}</b>}
+            {item === "maintenance" && data.serviceRequests.filter((row) => !["resolved", "closed"].includes(String(row.status))).length > 0 && <b>{data.serviceRequests.filter((row) => !["resolved", "closed"].includes(String(row.status))).length}</b>}
+            {item === "notices" && data.notices.length > 0 && <b>{data.notices.length}</b>}
           </button>
         ))}
       </nav>
       {error && <div className="form-error">{error}</div>}
       {requestSuccess && <Alert severity="success" onClose={() => setRequestSuccess("")} sx={{ mb: 2 }}>{requestSuccess}</Alert>}
       {pendingPayInvoices && (
-        <div style={{ background: "#eff6ff", color: "#1e40af", padding: "16px", borderRadius: 8, marginBottom: 16, border: "1px solid #bfdbfe" }}>
-          <strong style={{ display: "block", marginBottom: 8 }}>📲 Enter your M-Pesa phone number to pay {pendingPayInvoices.length} invoice{pendingPayInvoices.length === 1 ? "" : "s"}</strong>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <input
+        <Alert severity="info" className="tenant-payment-prompt">
+          <strong>Enter your M-Pesa phone number to pay {pendingPayInvoices.length} invoice{pendingPayInvoices.length === 1 ? "" : "s"}</strong>
+          <div className="tenant-payment-prompt-actions">
+            <TextField
+              size="small"
               type="tel"
-              placeholder="e.g. 0712 345 678"
+              label="M-Pesa phone number"
+              placeholder="0712 345 678"
               value={stkPhone}
               onChange={(e) => setStkPhone(e.target.value)}
-              style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #93c5fd", fontSize: 14, flex: 1, minWidth: 180 }}
             />
-            <button
-              className="primary-action"
+            <Button
+              variant="contained"
               disabled={!stkPhone.trim() || paymentBusy !== null}
               onClick={async () => {
                 const invoices = pendingPayInvoices;
@@ -469,10 +506,10 @@ export default function TenantPortalPage() {
               }}
             >
               {paymentBusy ? "Starting…" : "Send STK Push"}
-            </button>
-            <button onClick={() => setPendingPayInvoices(null)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Cancel</button>
+            </Button>
+            <Button color="inherit" onClick={() => setPendingPayInvoices(null)}>Cancel</Button>
           </div>
-        </div>
+        </Alert>
       )}
       {stkNotice && (
         <div style={{ background: "#dcfce7", color: "#15803d", padding: "12px 16px", borderRadius: 8, fontWeight: 600, marginBottom: 16, border: "1px solid #bbf7d0", display: "flex", alignItems: "center", gap: 8 }}>
@@ -490,14 +527,14 @@ export default function TenantPortalPage() {
                   ? `Next due ${data.invoices.find((row) => Number(row.balance) > 0)?.due_on}`
                   : "Account up to date"
               }
-              go={() => setTab("invoices")}
+              go={() => selectTab("invoices")}
             />
             {Number(data.walletCredit || 0) > 0 && (
               <Kpi
                 label="Available credit"
                 value={cash.format(Number(data.walletCredit))}
                 note="Applied automatically to your next invoice"
-                go={() => setTab("payments")}
+                go={() => selectTab("payments")}
               />
             )}
 
@@ -505,13 +542,13 @@ export default function TenantPortalPage() {
               label="Recent invoices"
               value={String(data.invoices.length)}
               note="Latest 12 billing records"
-              go={() => setTab("invoices")}
+              go={() => selectTab("invoices")}
             />
             <Kpi
               label="Payments"
               value={String(data.receipts.length)}
               note="Receipts available"
-              go={() => setTab("payments")}
+              go={() => selectTab("payments")}
             />
             <Kpi
               label="Maintenance"
@@ -521,20 +558,20 @@ export default function TenantPortalPage() {
                 ).length,
               )}
               note="Open requests"
-              go={() => setTab("maintenance")}
+              go={() => selectTab("maintenance")}
             />
             {data.offerLetter?.status === "issued" && (
               <Kpi
                 label="Action required"
                 value="Offer pending"
                 note="Accept tenancy terms to enable first billing"
-                go={() => setTab("offer")}
+                go={() => selectTab("offer")}
               />
             )}
           </section>
           <section className="dashboard-columns">
             <article className="data-panel">
-              <Title text="Current lease" go={() => setTab("profile")} />
+              <Title text="Current lease" go={() => selectTab("profile")} />
               {lease ? (
                 <div className="portal-lease">
                   <strong>
@@ -551,7 +588,7 @@ export default function TenantPortalPage() {
               )}
             </article>
             <article className="data-panel">
-              <Title text="Open maintenance tickets" go={() => setTab("maintenance")} />
+              <Title text="Open maintenance tickets" go={() => selectTab("maintenance")} />
               <PortalTable
                 headers={["Subject", "Priority", "Status", "Created"]}
                 rows={data.serviceRequests.slice(0, 5).map((row) => [
@@ -598,11 +635,11 @@ export default function TenantPortalPage() {
               ) : null,
               String(row.number),
               String(row.invoice_type || "charge").replaceAll("_", " "),
-              String(row.due_on),
+              friendlyDate(row.due_on),
               cash.format(Number(row.amount || row.total_amount || 0)),
               cash.format(Number(row.amount || row.total_amount || 0) - Number(row.balance || 0)),
               cash.format(Number(row.balance)),
-              String(row.status),
+              <StatusPill key={`${row.id}-status`} value={row.status} />,
               <span key={String(row.id)} className="portal-action-group">
                 <button
                   type="button"
@@ -647,7 +684,7 @@ export default function TenantPortalPage() {
             ]}
             rows={data.receipts.map((row) => [
               String(row.number ?? row.receipt_number ?? "—"),
-              String(row.received_on ?? row.payment_date ?? "—"),
+              friendlyDate(row.received_on ?? row.payment_date),
               String(row.payment_method ?? "—").replace(/_/g, " "),
               cash.format(Number(row.amount ?? row.amount_paid ?? 0)),
               String(row.external_reference || "—"),
@@ -666,7 +703,7 @@ export default function TenantPortalPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <h4 style={{ margin: "0 0 4px 0", fontSize: "1rem", fontWeight: 700 }}>Advance Credit & Wallet Ledger</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted, #64748b)" }}>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                     Overpayments retained and automatically applied toward newly issued invoices.
                   </p>
                 </div>
@@ -705,7 +742,7 @@ export default function TenantPortalPage() {
                   ])}
                 />
               ) : (
-                <p style={{ fontSize: "0.85rem", color: "#94a3b8", fontStyle: "italic", margin: "12px 0" }}>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontStyle: "italic", margin: "12px 0" }}>
                   No prior wallet entries recorded. Future overpayments will appear here automatically.
                 </p>
               )}
@@ -727,9 +764,9 @@ export default function TenantPortalPage() {
             headers={["Subject", "Priority", "Status", "Created", "Resolution confirmation"]}
             rows={data.serviceRequests.map((row) => [
               String(row.subject),
-              String(row.priority),
-              String(row.status),
-              String(row.submitted_at || "").slice(0, 16),
+              <StatusPill key={`${row.id}-priority`} value={row.priority} />,
+              <StatusPill key={`${row.id}-status`} value={row.status} />,
+              friendlyDate(row.submitted_at || row.created_at),
               String(row.status) === "resolved" ? (
                 <span key={String(row.id)} style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
                   <button type="button" onClick={() => { setConfirmationMode("confirm"); setConfirmationRequest(row); }}>Confirm & close</button>
@@ -754,7 +791,7 @@ export default function TenantPortalPage() {
               String(row.title),
               String(row.category),
               String(row.document_number || "-"),
-              String(row.expires_on || "-"),
+              friendlyDate(row.expires_on),
               row.file_url ? (
                 <a
                   key={String(row.id)}
@@ -807,6 +844,25 @@ export default function TenantPortalPage() {
               </div>
             </div>
           )}
+        </Panel>
+      )}
+      {tab === "notices" && (
+        <Panel title="Messages & notices">
+          <div className="tenant-notice-list">
+            {data.notices.length ? data.notices.map((notice) => (
+              <article className="tenant-notice-card" key={String(notice.id || `${notice.title}-${notice.created_at}`)}>
+                <div className="tenant-notice-icon"><Bell size={18} /></div>
+                <div>
+                  <div className="tenant-notice-meta">
+                    <StatusPill value={notice.category || notice.notice_type || "Notice"} />
+                    <time>{friendlyDate(notice.created_at || notice.sent_at || notice.date)}</time>
+                  </div>
+                  <h3>{String(notice.title || notice.subject || "Account notice")}</h3>
+                  <p>{String(notice.message || notice.body || notice.description || "Open this notice for more information.")}</p>
+                </div>
+              </article>
+            )) : <Empty title="You have no new notices" detail="Important property, billing and maintenance updates will appear here." />}
+          </div>
         </Panel>
       )}
       <Dialog open={Boolean(confirmationRequest)} onClose={() => !confirmationBusy && setConfirmationRequest(null)} fullWidth maxWidth="xs">
@@ -937,8 +993,12 @@ function Panel({
     </article>
   );
 }
-function Empty() {
-  return <div className="empty-state">No records are available.</div>;
+function Empty({ title = "Nothing to show yet", detail = "New records will appear here when they become available." }: { title?: string; detail?: string }) {
+  return <div className="tenant-empty-state"><FileText size={24} /><strong>{title}</strong><span>{detail}</span></div>;
+}
+function StatusPill({ value }: { value: unknown }) {
+  const normalized = String(value || "pending").toLowerCase().replaceAll(" ", "-");
+  return <span className={`tenant-status tenant-status-${normalized}`}>{friendlyLabel(value)}</span>;
 }
 function PortalTable({
   headers,
@@ -961,7 +1021,7 @@ function PortalTable({
           {rows.map((row, index) => (
             <tr key={index}>
               {row.map((cell, position) => (
-                <td key={position}>{cell}</td>
+                <td key={position} data-label={headers[position]}>{cell}</td>
               ))}
             </tr>
           ))}
