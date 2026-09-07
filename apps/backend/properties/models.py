@@ -880,11 +880,29 @@ class Receipt(OrganizationOwnedModel):
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     payment_method = models.CharField(max_length=40)
     external_reference = models.CharField(max_length=120, blank=True)
+    # Canonical, write-once claim used to prevent the same bank/M-Pesa
+    # transaction being receipted twice. Historical duplicates remain in the
+    # audit ledger, but only the earliest record claims their reference.
+    external_reference_key = models.CharField(max_length=120, blank=True, null=True, editable=False)
     received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='property_receipts')
 
     class Meta:
         ordering = ('-received_on',)
-        constraints = [models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_receipt_number')]
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'number'), name='unique_organization_receipt_number'),
+            models.UniqueConstraint(
+                fields=('organization', 'external_reference_key'),
+                condition=models.Q(external_reference_key__isnull=False),
+                name='unique_organization_receipt_external_ref',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            reference = (self.external_reference or '').strip().upper()
+            self.external_reference = (self.external_reference or '').strip()
+            self.external_reference_key = reference or None
+        super().save(*args, **kwargs)
 
     def clean(self):
         if self.tenant_id and self.tenant.organization_id != self.organization_id:

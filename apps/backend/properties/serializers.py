@@ -661,6 +661,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
             # Retained for historic report rows only. New receipts always use
             # the configured automatic allocation matrix.
             'paying_for': {'read_only': True},
+            'external_reference_key': {'read_only': True},
         }
 
     def validate_amount(self, value):
@@ -693,6 +694,24 @@ class ReceiptSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'owner': 'Select the landlord who made this payment.'})
         if tenant and owner:
             raise serializers.ValidationError({'payer_type': 'A receipt can have one payer only.'})
+        payment_method = str(attrs.get('payment_method', getattr(self.instance, 'payment_method', ''))).strip().lower()
+        external_reference = str(attrs.get('external_reference', getattr(self.instance, 'external_reference', ''))).strip()
+        if payment_method in {'mpesa', 'm-pesa', 'paybill', 'till'} and not external_reference:
+            raise serializers.ValidationError({
+                'external_reference': 'Enter the M-Pesa transaction code before posting this receipt.'
+            })
+        if external_reference:
+            organization = self.context.get('request') and get_active_organization(self.context['request'])
+            matches = Receipt.objects.filter(external_reference__iexact=external_reference.strip())
+            if organization:
+                matches = matches.filter(organization=organization)
+            if self.instance:
+                matches = matches.exclude(pk=self.instance.pk)
+            if matches.exists():
+                raise serializers.ValidationError({
+                    'external_reference': 'This payment reference has already been receipted. Open the receipt ledger to review the existing transaction.'
+                })
+            attrs['external_reference'] = external_reference
         attrs['payer_type'] = payer_type
         return attrs
 

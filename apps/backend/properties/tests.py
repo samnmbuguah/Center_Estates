@@ -148,6 +148,32 @@ class PropertyApiTests(TestCase):
         wallet = PayerWallet.objects.get(organization=self.organization, tenant=self.tenant)
         self.assertEqual(wallet.balance, Decimal('500.00'))
 
+    def test_receipt_rejects_duplicate_payment_reference_case_insensitively(self):
+        first = self.client.post('/api/v1/property/receipts/', {
+            'tenant': str(self.tenant.id), 'payer_type': 'tenant',
+            'received_on': '2026-08-01', 'amount': '500.00', 'payment_method': 'mpesa',
+            'external_reference': ' UI6L15UYKG ',
+        }, format='json', **self.headers)
+        self.assertEqual(first.status_code, 201, first.data)
+
+        duplicate = self.client.post('/api/v1/property/receipts/', {
+            'tenant': str(self.tenant.id), 'payer_type': 'tenant',
+            'received_on': '2026-08-02', 'amount': '500.00', 'payment_method': 'mpesa',
+            'external_reference': 'ui6l15uykg',
+        }, format='json', **self.headers)
+        self.assertEqual(duplicate.status_code, 400, duplicate.data)
+        self.assertIn('already been receipted', str(duplicate.data['external_reference'][0]))
+        self.assertEqual(Receipt.objects.filter(external_reference_key='UI6L15UYKG').count(), 1)
+
+    def test_mpesa_receipt_requires_transaction_code(self):
+        response = self.client.post('/api/v1/property/receipts/', {
+            'tenant': str(self.tenant.id), 'payer_type': 'tenant',
+            'received_on': '2026-08-01', 'amount': '500.00', 'payment_method': 'mpesa',
+            'external_reference': '',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn('M-Pesa transaction code', str(response.data['external_reference'][0]))
+
     def test_dashboard_uses_live_organization_data(self):
 
         response = self.client.get('/api/v1/property/dashboard/', **self.headers)

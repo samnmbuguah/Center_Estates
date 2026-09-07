@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
-import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import {
   PropertyTab, Row, ID, PropertyRow, BuildingRow, UnitRow, ProjectRow,
   TenantRow, TenantDocumentRow, LeaseRow, RentScheduleRow, InvoiceRow,
@@ -943,7 +943,7 @@ export function usePropertyLogic({
       setReceiptingSection("receipts");
       setTab("receipting");
     } else {
-      setError("Receipt recording failed.");
+      setError(await apiErrorMessage(res, "Receipt recording failed. Check the payment details and try again."));
     }
   }
 

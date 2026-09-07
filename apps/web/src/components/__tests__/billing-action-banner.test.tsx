@@ -86,13 +86,29 @@ describe("BillingActionBanner", () => {
       <BillingActionBanner
         hasRun isPreparing={false} isReview isApproved={false}
         formattedMonth="July 2026" ready={0} issues={0} selectedCount={0}
+        billingTarget="landlord"
         blockingOpen={false} busy="" canFinance canApprove
         onInitialize={jest.fn()} onRecheck={jest.fn()} onApprove={jest.fn()}
         onGenerate={jest.fn()} onSingleInvoice={jest.fn()}
         onLettingFeeInvoice={onLettingFeeInvoice}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Letting fee/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Issue letting-fee invoice/i }));
     expect(onLettingFeeInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps letting fees out of the tenant billing workflow", () => {
+    render(
+      <BillingActionBanner
+        hasRun isPreparing={false} isReview isApproved={false}
+        formattedMonth="July 2026" ready={0} issues={0} selectedCount={0}
+        billingTarget="tenant"
+        blockingOpen={false} busy="" canFinance canApprove
+        onInitialize={jest.fn()} onRecheck={jest.fn()} onApprove={jest.fn()}
+        onGenerate={jest.fn()} onSingleInvoice={jest.fn()}
+        onLettingFeeInvoice={jest.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /letting-fee invoice/i })).not.toBeInTheDocument();
   });
 });

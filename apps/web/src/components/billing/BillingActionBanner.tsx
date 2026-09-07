@@ -61,9 +61,9 @@ export function BillingActionBanner({
           disabled={!canFinance || selectedCount === 0 || Boolean(busy) || blockingOpen}
           onClick={onGenerate}
         >{generateLabel}</Button>
-        {onLettingFeeInvoice && canFinance && (
+        {onLettingFeeInvoice && canFinance && billingTarget === "landlord" && (
           <Button variant="outlined" startIcon={<HandCoins size={17} />} onClick={onLettingFeeInvoice}>
-            Letting fee
+            Issue letting-fee invoice
           </Button>
         )}
         <Tooltip title="More billing actions">

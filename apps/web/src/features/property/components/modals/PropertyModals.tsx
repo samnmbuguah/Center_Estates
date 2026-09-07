@@ -715,8 +715,9 @@ export function PropertyModals(props: PropertyModalsProps) {
                   This payment will be applied automatically across the selected payer&apos;s open invoices using the configured priority order. If the payment exceeds their outstanding balance, the remainder is saved as wallet credit.
                 </div>
               </div>
-              <Field label="External Reference">
-                <input name="external_reference" placeholder="Bank ref / M-Pesa code" />
+              <Field label="Payment reference">
+                <input name="external_reference" placeholder="Bank reference or M-Pesa transaction code" autoCapitalize="characters" />
+                <small className="muted">M-Pesa codes are required and can only be posted once.</small>
               </Field>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="btn ghost" onClick={() => setShowRecordReceipt(false)}>Cancel</button>
