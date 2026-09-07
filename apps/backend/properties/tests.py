@@ -3014,6 +3014,15 @@ class LandlordInvoiceApiTests(TestCase):
         self.assertEqual(response.status_code, 400, response.data)
         self.assertTrue(LandlordInvoice.objects.filter(id=invoice.id).exists())
 
+    def test_landlord_invoice_pdf_generation(self):
+        invoice = self.create_invoice(status='draft')
+        response = self.client.get(
+            f'/api/v1/property/landlord-invoices/{invoice.id}/pdf/', **self.headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'landlord-invoice-{invoice.number}.pdf', response['Content-Disposition'])
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class BulkTemplateContractTests(TestCase):

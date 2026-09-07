@@ -35,6 +35,7 @@ export function OwnersView({
   const [error, setError] = useState("");
   const [selectedOwner, setSelectedOwner] = useState<OwnerRow | null>(null);
   const [financialSummary, setFinancialSummary] = useState<Record<string, any> | null>(null);
+  const [ownerInvoices, setOwnerInvoices] = useState<any[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showAddOwnerModal, setShowAddOwnerModal] = useState(false);
   const [showBulkOwnerModal, setShowBulkOwnerModal] = useState(false);
@@ -90,10 +91,17 @@ export function OwnersView({
     setSelectedOwner(owner);
     setSummaryLoading(true);
     try {
-      const res = await apiFetch(`/property/owners/${owner.id}/financial-summary/`);
-      if (res.ok) {
-        const data = await res.json();
+      const [sumRes, invRes] = await Promise.all([
+        apiFetch(`/property/owners/${owner.id}/financial-summary/`),
+        apiFetch(`/property/landlord-invoices/?owner=${owner.id}`),
+      ]);
+      if (sumRes.ok) {
+        const data = await sumRes.json();
         setFinancialSummary(data);
+      }
+      if (invRes.ok) {
+        const iData = await invRes.json();
+        setOwnerInvoices(Array.isArray(iData) ? iData : (iData.results || []));
       }
     } catch {
       // Ignore
@@ -574,8 +582,64 @@ export function OwnersView({
                 </div>
               )}
             </div>
-          </div>
-        </DetailDrawer>
+
+            {/* Commission Invoices */}
+            <div style={{ marginTop: 12 }}>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: "#0f172a", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <FileText size={16} color="#2563eb" /> Commission & Fee Invoices ({ownerInvoices.length})
+                </div>
+                {ownerInvoices.length === 0 ? (
+                  <div style={{ padding: "14px", background: "#f8fafc", borderRadius: 8, border: "1px dashed #cbd5e1", fontSize: 12.5, color: "#64748b", textAlign: "center" }}>
+                    No commission or letting invoices generated yet for this owner.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {ownerInvoices.map((inv) => (
+                      <div
+                        key={inv.id}
+                        style={{
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          background: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontSize: 12.5,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 800, color: "#1d4ed8", fontFamily: "monospace" }}>{inv.number}</div>
+                          <div style={{ fontSize: 11.5, color: "#475569" }}>
+                            Period: <strong>{inv.billing_period}</strong> · Fee: <strong>{money.format(Number(inv.total_amount || 0))}</strong>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => window.open(`/api/v1/property/landlord-invoices/${inv.id}/pdf/`, "_blank")}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "1px solid #cbd5e1",
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            fontSize: 11.5,
+                            fontWeight: 750,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <FileText size={12} /> Tax Invoice
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DetailDrawer>
       )}
 
       {/* Add Owner Modal */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
-import { Droplets, Eye, Gauge, Search, User } from "lucide-react";
+import { Droplets, Eye, FileText, Gauge, Search, User } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
 import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType, isMissingWaterReading } from "./types";
 
@@ -123,11 +123,17 @@ export function CandidateTable({
         <EmptyState title="No Billing Run" description={`Click "Scan & Start ${formattedMonth}" above to initialize the billing queue.`} />
       ) : candidates.length === 0 ? (
         <Box sx={{ p: 3, textAlign: "center" }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 13 }}>No matching candidate invoices</Typography>
-          <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5, fontSize: 12 }}>
-            Try switching to &quot;All Types&quot; or re-scanning the queue.
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 13 }}>
+            {billingTarget === "landlord" ? "No billable landlord items" : "No matching candidate invoices"}
           </Typography>
-          <Button size="small" variant="outlined" sx={{ mt: 1.5, fontSize: 11 }} onClick={() => onChargeTypeFilter("all")}>Show all types</Button>
+          <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5, fontSize: 12 }}>
+            {billingTarget === "landlord"
+              ? "There are no ready landlord fee invoices for this period. Receipted rent collections will appear here automatically. Letting fee invoices are raised on-demand from the Units view."
+              : "Try switching to \"All Types\" or re-scanning the queue."}
+          </Typography>
+          {billingTarget !== "landlord" && (
+            <Button size="small" variant="outlined" sx={{ mt: 1.5, fontSize: 11 }} onClick={() => onChargeTypeFilter("all")}>Show all types</Button>
+          )}
         </Box>
       ) : (
         <Box sx={{ overflowX: "auto" }}>
@@ -321,6 +327,26 @@ export function CandidateTable({
                         <Button variant="outlined" size="small" startIcon={<Eye size={14} />} onClick={() => onPreview(c)}>
                           View details
                         </Button>
+                        {Boolean((c as any).metadata?.invoice_id || c.billing_items?.some((it) => it.invoice_number?.startsWith("LB-"))) && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="primary"
+                            startIcon={<FileText size={13} />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const invId = (c as any).metadata?.invoice_id;
+                              if (invId) {
+                                window.open(`/api/v1/property/landlord-invoices/${invId}/pdf/`, "_blank");
+                              } else {
+                                onPreview(c);
+                              }
+                            }}
+                            sx={{ fontSize: 11, fontWeight: 750, borderColor: "#2563eb", color: "#1d4ed8" }}
+                          >
+                            Tax Invoice
+                          </Button>
+                        )}
                         {c.status === "issue" && !isMissingWater && (
                           <Button size="small" color="warning" onClick={() => onOverride(c)} sx={{ fontSize: 11, py: 0.25 }}>
                             Override

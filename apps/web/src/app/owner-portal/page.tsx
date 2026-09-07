@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import {
@@ -82,6 +82,8 @@ export default function OwnerPortalPage() {
   const [units, setUnits] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [feeTypeFilter, setFeeTypeFilter] = useState<"all" | "management" | "letting">("all");
+  const [downloadingInvId, setDownloadingInvId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -93,6 +95,50 @@ export default function OwnerPortalPage() {
     year: now.getFullYear(),
   });
   const [remittanceData, setRemittanceData] = useState<any>(null);
+
+  // Scope invoices strictly to activeOwner account
+  const ownerInvoices = useMemo<any[]>(() => {
+    if (!activeOwner) return [];
+    return invoices.filter((inv: any) => {
+      const idMatch =
+        (inv.owner && String(inv.owner) === String(activeOwner.id)) ||
+        (inv.owner_id && String(inv.owner_id) === String(activeOwner.id)) ||
+        (inv.metadata?.owner_id && String(inv.metadata.owner_id) === String(activeOwner.id));
+      const nameMatch =
+        inv.landlord_name &&
+        activeOwner.name &&
+        inv.landlord_name.trim().toLowerCase() === activeOwner.name.trim().toLowerCase();
+      return idMatch || nameMatch;
+    });
+  }, [invoices, activeOwner]);
+
+  const filteredOwnerInvoices = useMemo<any[]>(() => {
+    if (feeTypeFilter === "all") return ownerInvoices;
+    return ownerInvoices.filter((inv: any) => (inv.fee_type || "management") === feeTypeFilter);
+  }, [ownerInvoices, feeTypeFilter]);
+
+  async function handleDownloadInvoicePdf(inv: any) {
+    if (!organizationId) return;
+    setDownloadingInvId(inv.id);
+    try {
+      const res = await apiFetch(`/property/landlord-invoices/${inv.id}/pdf/`, {}, organizationId);
+      if (!res.ok) {
+        alert("Failed to generate Tax Invoice PDF.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Tax-Invoice-${inv.number || inv.id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Failed to download invoice PDF.");
+    } finally {
+      setDownloadingInvId(null);
+    }
+  }
   const [remittanceLoading, setRemittanceLoading] = useState(false);
 
   // Load owners and identify target owner
@@ -927,16 +973,73 @@ export default function OwnerPortalPage() {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
-              <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "#0f172a" }}>
-                Commission Invoices & Payout Records
-              </h3>
-              <p style={{ margin: "0 0 18px", fontSize: 13, color: "#334155", fontWeight: 500 }}>
-                Formal invoices generated for management fees and commission deductions
-              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
+                <div>
+                  <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "#0f172a" }}>
+                    Commission & Fee Invoices
+                  </h3>
+                  <p style={{ margin: 0, fontSize: 13, color: "#334155", fontWeight: 500 }}>
+                    Official tax invoices generated for management fees, letting fees, and commission deductions
+                  </p>
+                </div>
 
-              {invoices.length === 0 ? (
+                <div style={{ display: "flex", gap: 6, background: "#f8fafc", padding: 4, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <button
+                    type="button"
+                    onClick={() => setFeeTypeFilter("all")}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 750,
+                      border: "none",
+                      cursor: "pointer",
+                      background: feeTypeFilter === "all" ? "#1d4ed8" : "transparent",
+                      color: feeTypeFilter === "all" ? "#ffffff" : "#475569",
+                    }}
+                  >
+                    All ({ownerInvoices.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeeTypeFilter("management")}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 750,
+                      border: "none",
+                      cursor: "pointer",
+                      background: feeTypeFilter === "management" ? "#1d4ed8" : "transparent",
+                      color: feeTypeFilter === "management" ? "#ffffff" : "#475569",
+                    }}
+                  >
+                    🏢 Management ({ownerInvoices.filter((i: any) => (i.fee_type || "management") === "management").length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeeTypeFilter("letting")}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 750,
+                      border: "none",
+                      cursor: "pointer",
+                      background: feeTypeFilter === "letting" ? "#7c3aed" : "transparent",
+                      color: feeTypeFilter === "letting" ? "#ffffff" : "#475569",
+                    }}
+                  >
+                    🔑 Letting ({ownerInvoices.filter((i: any) => i.fee_type === "letting").length})
+                  </button>
+                </div>
+              </div>
+
+              {filteredOwnerInvoices.length === 0 ? (
                 <div style={{ padding: "36px", textAlign: "center", color: "#475569", fontWeight: 600 }}>
-                  No management commission invoices generated yet for this property.
+                  {ownerInvoices.length === 0
+                    ? `No commission or letting invoices generated yet for ${activeOwner?.name}.`
+                    : `No ${feeTypeFilter} invoices found.`}
                 </div>
               ) : (
                 <div style={{ overflowX: "auto" }}>
@@ -944,51 +1047,98 @@ export default function OwnerPortalPage() {
                     <thead>
                       <tr style={{ borderBottom: "1px solid #e2e8f0", textAlign: "left", color: "#475569" }}>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Invoice #</th>
+                        <th style={{ padding: "10px 12px", fontWeight: 750 }}>Fee Category</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Billing Period</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Gross Collections</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Fee Rate</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Total Fee + VAT</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Net Payout</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Status</th>
+                        <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "center" }}>Document</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {invoices.map((inv) => (
-                        <tr key={inv.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px", fontWeight: 800, color: "#1d4ed8", fontFamily: "monospace" }}>
-                            {inv.number}
-                          </td>
-                          <td style={{ padding: "12px", color: "#0f172a", fontWeight: 700 }}>
-                            {inv.billing_period}
-                          </td>
-                          <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: 750 }}>
-                            {cash.format(Number(inv.gross_collections || 0))}
-                          </td>
-                          <td style={{ padding: "12px", color: "#475569", fontWeight: 700 }}>
-                            {inv.fee_rate}%
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "right", color: "#b91c1c", fontWeight: 800, fontFamily: "monospace" }}>
-                            {cash.format(Number(inv.total_amount || 0))}
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "right", color: "#047857", fontWeight: 850, fontFamily: "monospace" }}>
-                            {cash.format(Number(inv.net_payout || 0))}
-                          </td>
-                          <td style={{ padding: "12px" }}>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 800,
-                                padding: "3px 8px",
-                                borderRadius: 6,
-                                background: inv.status === "paid" ? "#ecfdf5" : "#eff6ff",
-                                color: inv.status === "paid" ? "#047857" : "#1d4ed8",
-                              }}
-                            >
-                              {inv.status || "Draft"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredOwnerInvoices.map((inv: any) => {
+                        const isLetting = inv.fee_type === "letting";
+                        return (
+                          <tr key={inv.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "12px", fontWeight: 800, color: "#1d4ed8", fontFamily: "monospace" }}>
+                              {inv.number}
+                            </td>
+                            <td style={{ padding: "12px" }}>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  padding: "3px 8px",
+                                  borderRadius: 6,
+                                  background: isLetting ? "#f3e8ff" : "#eff6ff",
+                                  color: isLetting ? "#7c3aed" : "#1d4ed8",
+                                  border: `1px solid ${isLetting ? "#e9d5ff" : "#dbeafe"}`,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                }}
+                              >
+                                {isLetting ? "🔑 Letting Fee" : "🏢 Management Fee"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px", color: "#0f172a", fontWeight: 700 }}>
+                              {inv.billing_period}
+                            </td>
+                            <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: 750 }}>
+                              {cash.format(Number(inv.gross_collections || 0))}
+                            </td>
+                            <td style={{ padding: "12px", color: "#475569", fontWeight: 700 }}>
+                              {isLetting ? "Fixed" : `${inv.fee_rate}%`}
+                            </td>
+                            <td style={{ padding: "12px", textAlign: "right", color: "#b91c1c", fontWeight: 800, fontFamily: "monospace" }}>
+                              {cash.format(Number(inv.total_amount || 0))}
+                            </td>
+                            <td style={{ padding: "12px", textAlign: "right", color: "#047857", fontWeight: 850, fontFamily: "monospace" }}>
+                              {cash.format(Number(inv.net_payout || 0))}
+                            </td>
+                            <td style={{ padding: "12px" }}>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  padding: "3px 8px",
+                                  borderRadius: 6,
+                                  background: inv.status === "paid" ? "#ecfdf5" : "#eff6ff",
+                                  color: inv.status === "paid" ? "#047857" : "#1d4ed8",
+                                }}
+                              >
+                                {inv.status || "Draft"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px", textAlign: "center" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadInvoicePdf(inv)}
+                                disabled={downloadingInvId === inv.id}
+                                style={{
+                                  padding: "5px 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #cbd5e1",
+                                  background: "#ffffff",
+                                  color: "#1d4ed8",
+                                  fontSize: 11.5,
+                                  fontWeight: 750,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                                }}
+                              >
+                                <span>📄</span>
+                                <span>{downloadingInvId === inv.id ? "Loading..." : "Tax Invoice"}</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -1572,6 +1572,7 @@ class LandlordInvoice(OrganizationOwnedModel):
 
     number = models.CharField(max_length=60)
     property = models.ForeignKey(Property, on_delete=models.PROTECT, related_name='landlord_invoices')
+    owner = models.ForeignKey(Owner, on_delete=models.SET_NULL, null=True, blank=True, related_name='landlord_invoices')
     landlord_name = models.CharField(max_length=200)
     landlord_pin = models.CharField(max_length=80, blank=True)
     fee_type = models.CharField(max_length=20, choices=FeeType.choices, default=FeeType.MANAGEMENT)
@@ -1599,5 +1600,7 @@ class LandlordInvoice(OrganizationOwnedModel):
     def clean(self):
         if self.property_id and self.property.organization_id != self.organization_id:
             raise ValidationError('Invoice property must belong to the same organization.')
+        if self.owner_id and self.owner.organization_id != self.organization_id:
+            raise ValidationError('Invoice owner must belong to the same organization.')
         if self.total_amount is not None and self.total_amount < 0:
             raise ValidationError({'total_amount': 'Total amount cannot be negative.'})

@@ -14,6 +14,7 @@ import { CandidateTable } from "./billing/CandidateTable";
 import { CandidatePreviewDrawer } from "./billing/CandidatePreviewDrawer";
 import { OverrideDialog } from "./billing/OverrideDialog";
 import { QuickRecordMeterModal } from "./billing/QuickRecordMeterModal";
+import { LettingFeeModal } from "@/features/property/components/modals/LettingFeeModal";
 
 export type BillingContext = {
   mode: string;
@@ -41,6 +42,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [landlordInvoices, setLandlordInvoices] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
+  const [owners, setOwners] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
+  const [landlordFeeType, setLandlordFeeType] = useState<"management" | "letting">("management");
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -53,6 +57,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [recordMeterCandidate, setRecordMeterCandidate] = useState<Candidate | null>(null);
   const [overrideIssue, setOverrideIssue] = useState<BillingIssue | null>(null);
   const [overrideNotes, setOverrideNotes] = useState("");
+  const [lettingModalOpen, setLettingModalOpen] = useState(false);
 
   const canFinance = can("property.finance");
   const canApprove = can("property.approve");
@@ -120,11 +125,13 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     if (showSkeleton) setLoading(true);
     setError("");
     try {
-      const [runRes, invRes, propRes, llInvRes] = await Promise.all([
+      const [runRes, invRes, propRes, llInvRes, ownersRes, unitsRes] = await Promise.all([
         apiFetch("/property/billing-runs/", {}, organizationId),
         apiFetch("/property/invoices/", {}, organizationId),
         apiFetch("/property/properties/", {}, organizationId),
         apiFetch("/property/landlord-invoices/", {}, organizationId),
+        apiFetch("/property/owners/", {}, organizationId),
+        apiFetch("/property/units/", {}, organizationId),
       ]);
       if (!runRes.ok || !invRes.ok) {
         setError(await apiErrorMessage(!runRes.ok ? runRes : invRes, "Billing data could not be loaded."));
@@ -142,6 +149,14 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       if (llInvRes.ok) {
         const llData = await llInvRes.json();
         setLandlordInvoices(Array.isArray(llData) ? llData : llData.results ?? []);
+      }
+      if (ownersRes.ok) {
+        const oData = await ownersRes.json();
+        setOwners(Array.isArray(oData) ? oData : oData.results ?? []);
+      }
+      if (unitsRes.ok) {
+        const uData = await unitsRes.json();
+        setUnits(Array.isArray(uData) ? uData : uData.results ?? []);
       }
     } catch {
       setError("Failed to communicate with billing service.");
@@ -194,82 +209,236 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const landlordCandidates = useMemo<Candidate[]>(() => {
     if (properties.length === 0) return [];
     const startMonthStr = period_start.slice(0, 7);
-    return properties.map((p) => {
-      // Management fees are legally and contractually based on actual collections (receipted rent),
-      // not on uncollected hypothetical rent rolls.
-      const propertyInvoices = invoices.filter(
-        (inv) =>
-          (inv.property_id === p.id ||
-            inv.property_name?.toLowerCase() === p.name?.toLowerCase()) &&
-          inv.issued_on >= period_start &&
-          inv.issued_on <= period_end
+    const candidatesList: Candidate[] = [];
+    const isLetting = landlordFeeType === "letting";
+
+    // Letting fees are issued on-demand (not auto-scanned). Only show what's already been invoiced.
+    if (isLetting) {
+      const lettingInvoices = landlordInvoices.filter(
+        (inv) => inv.fee_type === "letting" && inv.billing_period === startMonthStr
       );
-      const rentCollected = propertyInvoices
-        .filter(
-          (inv) =>
-            inv.invoice_type?.toLowerCase().includes("rent") ||
-            inv.charge_type === "rent"
-        )
-        .reduce((sum, inv) => {
-          const paid = Number(
-            inv.amount_paid ?? (Number(inv.amount || 0) - Number(inv.balance || 0))
+      for (const inv of lettingInvoices) {
+        const unitsDisplay = inv.metadata?.units_display || inv.metadata?.unit_codes?.join(", ") || "—";
+        const feeAmt = Number(inv.fee_amount || inv.total_amount || 0);
+        candidatesList.push({
+          id: `landlord-letting-${inv.id}`,
+          tenant_name: inv.landlord_name || "Landlord",
+          property_name: inv.property_name || "",
+          unit_code: unitsDisplay,
+          lease_reference: inv.number || `LETTING-FEE-${startMonthStr}`,
+          due_date: inv.due_on || period_end,
+          billing_items: [{ code: "letting_fee", description: `Letting Fee (${unitsDisplay})`, amount: String(feeAmt), total: String(feeAmt), billed: true, invoice_number: inv.number }],
+          total: String(feeAmt),
+          status: "generated",
+          issue_summary: [],
+          metadata: { property_id: inv.property, owner_id: inv.owner, rent_collected: 0, fee_rate: 0, unit_codes: inv.metadata?.unit_codes || [], units_display: unitsDisplay, invoice_id: inv.id, invoice_number: inv.number },
+        } as any);
+      }
+      return candidatesList;
+    }
+
+    for (const p of properties) {
+      // Find all units belonging to this property
+      const propertyUnits = units.filter(
+        (u) =>
+          String(u.property) === String(p.id) ||
+          String(u.property_id) === String(p.id) ||
+          u.property_name?.toLowerCase() === p.name?.toLowerCase()
+      );
+
+      // Check if property has individual sectional unit owners
+      const unitOwnerIds = new Set<string>();
+      propertyUnits.forEach((u) => {
+        const oId = u.owner_id || u.owner;
+        if (oId) unitOwnerIds.add(String(oId));
+      });
+
+      if (unitOwnerIds.size > 0) {
+        // Sectional Title / Multi-Owner Property: generate candidates per unit owner
+        for (const oId of unitOwnerIds) {
+          const ownerObj = owners.find((o) => String(o.id) === String(oId));
+          const ownerUnits = propertyUnits.filter(
+            (u) => String(u.owner_id || u.owner) === String(oId)
           );
-          return sum + (paid > 0 ? paid : 0);
-        }, 0);
+          const ownerName = ownerObj?.name || ownerUnits[0]?.owner_name || `Landlord (${ownerUnits[0]?.code || "Unit"})`;
+          const ownerCode = ownerObj?.code || ownerUnits[0]?.owner_code || "";
+          const unitCodes = ownerUnits.map((u) => u.code);
+          const unitIds = new Set(ownerUnits.map((u) => String(u.id)));
 
-      const mgmtRate = Number(p.management_fee_rate || 5.0); // Standard 5.0%
-      const commissionAmount = Math.round(rentCollected * (mgmtRate / 100));
+          // Find invoices specifically for this landlord's units during the period
+          const ownerInvoices = invoices.filter((inv) => {
+            const matchesUnit =
+              (inv.unit && unitIds.has(String(inv.unit))) ||
+              (inv.unit_id && unitIds.has(String(inv.unit_id))) ||
+              (inv.unit_code && unitCodes.includes(inv.unit_code));
+            const matchesOwner =
+              String(inv.owner_id) === String(oId) ||
+              String(inv.unit_owner_id) === String(oId) ||
+              inv.owner_name?.toLowerCase() === ownerName.toLowerCase() ||
+              inv.unit_owner_name?.toLowerCase() === ownerName.toLowerCase();
+            const dateMatch = inv.issued_on >= period_start && inv.issued_on <= period_end;
+            return (matchesUnit || matchesOwner) && dateMatch;
+          });
 
-      const existingLandlordInv = landlordInvoices.find(
-        (inv) =>
-          (String(inv.property) === String(p.id) ||
-            inv.property_name?.toLowerCase() === p.name?.toLowerCase()) &&
-          inv.billing_period === startMonthStr
-      );
-      const existingInv = invoices.find(
-        (inv) =>
-          (inv.tenant_name?.toLowerCase().includes((p.owner_name || p.name).toLowerCase()) ||
-           inv.number?.startsWith("LB-") ||
-           inv.tenant_name?.toLowerCase().includes("landlord")) &&
-          inv.issued_on >= period_start && inv.issued_on <= period_end
-      );
-      const isBilled = Boolean(existingLandlordInv) || Boolean(existingInv);
-      const invoiceNumber = existingLandlordInv?.number || existingInv?.number;
-      const hasCollections = commissionAmount > 0;
+          // Collections for management commission
+          const rentCollected = ownerInvoices
+            .filter(
+              (inv) =>
+                inv.invoice_type?.toLowerCase().includes("rent") ||
+                inv.charge_type === "rent"
+            )
+            .reduce((sum, inv) => {
+              const paid = Number(
+                inv.amount_paid ?? (Number(inv.amount || 0) - Number(inv.balance || 0))
+              );
+              return sum + (paid > 0 ? paid : 0);
+            }, 0);
 
-      return {
-        id: `landlord-${p.id}`,
-        tenant_name: p.owner_name || p.landlord_name || `${p.name} Property Owner`,
-        property_name: p.name,
-        unit_code: `${p.units_count || p.total_units || 'Whole'} Units`,
-        lease_reference: `MGMT-COMMISSION-${startMonthStr}`,
-        due_date: period_end,
-        billing_items: [
-          {
-            code: "mgmt_fee",
-            description: hasCollections
-              ? `Management Commission (${mgmtRate.toFixed(2)}% of ${money.format(rentCollected)} collected rent)`
-              : `Management Commission (${mgmtRate.toFixed(2)}% — KES 0 collected)`,
-            amount: String(commissionAmount),
-            total: String(commissionAmount),
-            billed: isBilled,
-            invoice_number: invoiceNumber,
-          },
-        ],
-        total: String(commissionAmount),
-        status: isBilled ? "generated" : (hasCollections ? "ready" : "excluded"),
-        issue_summary: hasCollections
-          ? []
-          : [
+          const mgmtRate = Number(
+            ownerUnits[0]?.rental_commission_rate || p.management_fee_rate || 5.0
+          );
+          const lettingFeeRate = ownerUnits.reduce((s, u) => s + Number(u.letting_fee_amount || 0), 0);
+
+          const billedAmount = Math.round(rentCollected * (mgmtRate / 100));
+
+          // Check if already billed (management commission only)
+          const existingLandlordInv = landlordInvoices.find(
+            (inv) =>
+              (String(inv.owner) === String(oId) ||
+                String(inv.owner_id) === String(oId) ||
+                inv.metadata?.owner_id === String(oId) ||
+                inv.landlord_name?.toLowerCase() === ownerName.toLowerCase()) &&
+              (String(inv.property) === String(p.id) ||
+                inv.property_name?.toLowerCase() === p.name?.toLowerCase()) &&
+              inv.billing_period === startMonthStr &&
+              (inv.fee_type === "management" || !inv.fee_type)
+          );
+
+          const isBilled = Boolean(existingLandlordInv);
+          const invoiceNumber = existingLandlordInv?.number;
+          const invoiceId = existingLandlordInv?.id;
+          const isReady = billedAmount > 0;
+
+          const unitCodesStr = unitCodes.length <= 3
+            ? unitCodes.join(", ")
+            : `${unitCodes.slice(0, 2).join(", ")} +${unitCodes.length - 2} more (${unitCodes.length} units)`;
+
+          candidatesList.push({
+            id: `landlord-${p.id}-${oId}`,
+            tenant_name: ownerName,
+            property_name: p.name,
+            unit_code: unitCodesStr,
+            lease_reference: `MGMT-COMMISSION-${startMonthStr}`,
+            due_date: period_end,
+            billing_items: [
               {
-                code: "NO_COLLECTIONS",
-                message: "Awaiting rent collections. Management fee is charged only upon receipted funds.",
-                severity: "warning",
+                code: "mgmt_fee",
+                description: billedAmount > 0
+                  ? `Management Commission (${mgmtRate.toFixed(2)}% of ${money.format(rentCollected)} collected rent from ${unitCodesStr})`
+                  : `Management Commission (${mgmtRate.toFixed(2)}% — KES 0 collected from ${unitCodesStr})`,
+                amount: String(billedAmount),
+                total: String(billedAmount),
+                billed: isBilled,
+                invoice_number: invoiceNumber,
               },
             ],
-      };
-    });
-  }, [properties, invoices, landlordInvoices, period_start, period_end]);
+            total: String(billedAmount),
+            status: isBilled ? "generated" : isReady ? "ready" : "excluded",
+            issue_summary: isReady
+              ? []
+              : [{ code: "NO_COLLECTIONS", message: `Awaiting rent collections for ${unitCodesStr}. Management fee is charged only upon receipted funds.`, severity: "warning" }],
+            metadata: {
+              property_id: p.id,
+              owner_id: oId,
+              owner_code: ownerCode,
+              rent_collected: rentCollected,
+              fee_rate: mgmtRate,
+              unit_codes: unitCodes,
+              units_display: unitCodesStr,
+              invoice_id: invoiceId,
+              invoice_number: invoiceNumber,
+            },
+          } as any);
+        }
+      } else {
+        // Single Owner Property (e.g. standalone building)
+        const propertyInvoices = invoices.filter(
+          (inv) =>
+            (inv.property_id === p.id ||
+              inv.property_name?.toLowerCase() === p.name?.toLowerCase()) &&
+            inv.issued_on >= period_start &&
+            inv.issued_on <= period_end
+        );
+        const rentCollected = propertyInvoices
+          .filter(
+            (inv) =>
+              inv.invoice_type?.toLowerCase().includes("rent") ||
+              inv.charge_type === "rent"
+          )
+          .reduce((sum, inv) => {
+            const paid = Number(
+              inv.amount_paid ?? (Number(inv.amount || 0) - Number(inv.balance || 0))
+            );
+            return sum + (paid > 0 ? paid : 0);
+          }, 0);
+
+        const mgmtRate = Number(p.management_fee_rate || 5.0);
+        const billedAmount = Math.round(rentCollected * (mgmtRate / 100));
+
+        const ownerName = p.owner_name || p.landlord_name || `${p.name} Property Owner`;
+        const existingLandlordInv = landlordInvoices.find(
+          (inv) =>
+            (String(inv.property) === String(p.id) ||
+              inv.property_name?.toLowerCase() === p.name?.toLowerCase()) &&
+            inv.billing_period === startMonthStr &&
+            (inv.fee_type === "management" || !inv.fee_type)
+        );
+
+        const isBilled = Boolean(existingLandlordInv);
+        const invoiceNumber = existingLandlordInv?.number;
+        const invoiceId = existingLandlordInv?.id;
+        const isReady = billedAmount > 0;
+
+        candidatesList.push({
+          id: `landlord-${p.id}`,
+          tenant_name: ownerName,
+          property_name: p.name,
+          unit_code: `${p.units_count || p.total_units || propertyUnits.length || "Whole"} Units`,
+          lease_reference: `MGMT-COMMISSION-${startMonthStr}`,
+          due_date: period_end,
+          billing_items: [
+            {
+              code: "mgmt_fee",
+              description: billedAmount > 0
+                ? `Management Commission (${mgmtRate.toFixed(2)}% of ${money.format(rentCollected)} collected rent)`
+                : `Management Commission (${mgmtRate.toFixed(2)}% — KES 0 collected)`,
+              amount: String(billedAmount),
+              total: String(billedAmount),
+              billed: isBilled,
+              invoice_number: invoiceNumber,
+            },
+          ],
+          total: String(billedAmount),
+          status: isBilled ? "generated" : isReady ? "ready" : "excluded",
+          issue_summary: isReady
+            ? []
+            : [{ code: "NO_COLLECTIONS", message: "Awaiting rent collections. Management fee is charged only upon receipted funds.", severity: "warning" }],
+          metadata: {
+            property_id: p.id,
+            owner_id: null,
+            rent_collected: rentCollected,
+            fee_rate: mgmtRate,
+            unit_codes: [],
+            units_display: `${p.units_count || p.total_units || propertyUnits.length || "Whole"} Units`,
+            invoice_id: invoiceId,
+            invoice_number: invoiceNumber,
+          },
+        } as any);
+      }
+    }
+
+    return candidatesList;
+  }, [properties, owners, units, invoices, landlordInvoices, period_start, period_end, landlordFeeType]);
 
   const prepareTypesBody = chargeTypeFilter !== "all"
     ? { invoice_types: chargeTypeFilter === "utility" ? ["water", "electricity", "utility"] : [chargeTypeFilter] }
@@ -288,45 +457,36 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         let lastErrorMsg = "";
 
         for (const cand of selectedCandidates) {
-          const propId = cand.id.replace("landlord-", "");
-          const prop = properties.find((p) => String(p.id) === String(propId));
-          if (!prop) continue;
-
-          const propertyInvoices = invoices.filter(
-            (inv) =>
-              (inv.property_id === prop.id ||
-                inv.property_name?.toLowerCase() === prop.name?.toLowerCase()) &&
-              inv.issued_on >= period_start &&
-              inv.issued_on <= period_end
-          );
-          const rentCollected = propertyInvoices
-            .filter(
-              (inv) =>
-                inv.invoice_type?.toLowerCase().includes("rent") ||
-                inv.charge_type === "rent"
-            )
-            .reduce((sum, inv) => {
-              const paid = Number(
-                inv.amount_paid ?? (Number(inv.amount || 0) - Number(inv.balance || 0))
-              );
-              return sum + (paid > 0 ? paid : 0);
-            }, 0);
-
-          const mgmtRate = Number(prop.management_fee_rate || 5.0);
+          const meta = (cand as any).metadata || {};
+          const propId = meta.property_id || cand.id.split("-")[1];
+          const ownerId = meta.owner_id || null;
+          const rentCollected = meta.rent_collected ?? 0;
+          const feeRate = meta.fee_rate ?? 5.0;
+          const isLetting = landlordFeeType === "letting";
+          const billedAmount = Number(cand.total || 0);
 
           const res = await apiFetch(
             "/property/landlord-invoices/",
             {
               method: "POST",
               body: JSON.stringify({
-                property: prop.id,
+                property: propId,
+                owner: ownerId,
                 landlord_name: cand.tenant_name,
                 billing_period: startMonthStr,
-                fee_type: "management",
-                gross_collections: rentCollected,
-                fee_rate: mgmtRate,
+                fee_type: landlordFeeType,
+                gross_collections: isLetting ? 0 : rentCollected,
+                fee_rate: isLetting ? 0 : feeRate,
                 due_on: cand.due_date || period_end,
-                notes: `Property Management Commission for ${formattedPeriod}. Gross collected rent: KES ${rentCollected.toLocaleString()}.`,
+                notes: isLetting
+                  ? `Tenant Placement & Letting Fee for ${cand.unit_code} (${cand.property_name}).`
+                  : `Property Management Commission for ${formattedPeriod}. Gross collected rent from ${cand.unit_code}: KES ${rentCollected.toLocaleString()}.`,
+                metadata: {
+                  owner_id: ownerId,
+                  owner_code: meta.owner_code,
+                  units: meta.unit_codes,
+                  units_display: cand.unit_code,
+                },
               }),
             },
             organizationId
@@ -340,7 +500,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         }
 
         if (successCount > 0) {
-          setNotice(`Generated ${successCount} Landlord Management Invoice(s) for ${formattedPeriod}.`);
+          const typeLabel = landlordFeeType === "letting" ? "Letting Fee" : "Management Commission";
+          setNotice(`Generated ${successCount} Landlord ${typeLabel} Invoice(s) for ${formattedPeriod}.`);
         }
         if (lastErrorMsg) {
           setError(lastErrorMsg);
@@ -465,6 +626,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       if (billingTarget === "tenant") {
         if (chargeTypeFilter !== "all" && !candidateHasChargeType(c, chargeTypeFilter)) return false;
       }
+      // In landlord mode, hide "excluded" candidates (0-amount / no collections) when filter is "all"
+      // — showing KES 0 rows is noise. Users can set statusFilter to see them explicitly.
+      if (billingTarget === "landlord" && statusFilter === "all" && c.status === "excluded") return false;
       if (statusFilter === "ready" && !isCandidateReady(c, chargeTypeFilter)) return false;
       if (statusFilter === "generated" && isCandidateReady(c, chargeTypeFilter)) return false;
       if (statusFilter !== "all" && statusFilter !== "ready" && statusFilter !== "generated" && c.status !== statusFilter) return false;
@@ -526,6 +690,67 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         }}
       />
 
+      {billingTarget === "landlord" && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            background: "#ffffff",
+            padding: "12px 18px",
+            borderRadius: 12,
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Landlord Invoicing Fee Mode:
+          </span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => { setLandlordFeeType("management"); setSelected([]); }}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                fontSize: 12.5,
+                fontWeight: 750,
+                border: "none",
+                cursor: "pointer",
+                background: landlordFeeType === "management" ? "#1d4ed8" : "#f1f5f9",
+                color: landlordFeeType === "management" ? "#ffffff" : "#475569",
+                transition: "all 0.15s ease",
+              }}
+            >
+              🏢 Management Commission (Collections)
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLandlordFeeType("letting"); setSelected([]); }}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                fontSize: 12.5,
+                fontWeight: 750,
+                border: "none",
+                cursor: "pointer",
+                background: landlordFeeType === "letting" ? "#7c3aed" : "#f1f5f9",
+                color: landlordFeeType === "letting" ? "#ffffff" : "#475569",
+                transition: "all 0.15s ease",
+              }}
+            >
+              🔑 Letting & Placement Fees
+            </button>
+          </div>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+            {landlordFeeType === "management"
+              ? "Calculated strictly per unit owner based on receipted tenant rent"
+              : "Billed on unit tenant placement agreements"}
+          </span>
+        </div>
+      )}
+
       <BillingActionBanner
         hasRun={billingTarget === "landlord" ? true : Boolean(run)}
         isPreparing={billingTarget === "landlord" ? false : run?.status === "preparing"}
@@ -558,7 +783,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           const [ey, em] = period_end.split("-").map(Number);
           return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
         })(), label: formattedPeriod })}
-        onLettingFeeInvoice={onLettingFeeInvoice}
+        onLettingFeeInvoice={() => setLettingModalOpen(true)}
       />
 
       <CandidateTable
@@ -628,6 +853,16 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           setNotice("Water meter reading recorded and approved! Refreshing billing queue…");
           await mutate("prepare");
           await load();
+        }}
+      />
+
+      <LettingFeeModal
+        open={lettingModalOpen}
+        onClose={() => setLettingModalOpen(false)}
+        units={units}
+        onSuccess={() => {
+          setLandlordFeeType("letting");
+          void load();
         }}
       />
     </Box>

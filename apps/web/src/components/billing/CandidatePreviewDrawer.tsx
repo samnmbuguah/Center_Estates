@@ -336,15 +336,30 @@ export function CandidatePreviewDrawer({
 
         {/* Footer Actions */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)", marginTop: 4 }}>
-          <button
-            type="button"
-            className="btn ghost sm"
-            onClick={handlePrint}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}
-          >
-            <span>🖨️</span>
-            <span>Open Printable Draft</span>
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              className="btn ghost sm"
+              onClick={handlePrint}
+              style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}
+            >
+              <span>🖨️</span>
+              <span>Open Printable Draft</span>
+            </button>
+            {Boolean((candidate as any).metadata?.invoice_id) && (
+              <button
+                type="button"
+                className="btn outline sm"
+                onClick={() => {
+                  window.open(`/api/v1/property/landlord-invoices/${(candidate as any).metadata.invoice_id}/pdf/`, "_blank");
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, color: "#1d4ed8", borderColor: "#2563eb" }}
+              >
+                <span>📄</span>
+                <span>Download Tax Invoice (PDF)</span>
+              </button>
+            )}
+          </div>
           
           <button
             type="button"

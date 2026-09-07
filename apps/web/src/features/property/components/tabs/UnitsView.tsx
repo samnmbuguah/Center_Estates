@@ -26,6 +26,7 @@ import { UnitFloorPlanCanvas, type Point, type UnitLayout } from "../floorplan/U
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { Upload, Edit2, CheckSquare } from "lucide-react";
+import { LettingFeeModal } from "../modals/LettingFeeModal";
 
 type StoredFloorPlan = {
   id: string; building: string; floor: string; title: string; version: string;
@@ -61,12 +62,6 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   // On-demand letting fee invoice state
   const [lettingFeeModalOpen, setLettingFeeModalOpen] = useState(false);
   const [lettingUnit, setLettingUnit] = useState<UnitRow | null>(null);
-  const [lettingFeeBasis, setLettingFeeBasis] = useState<"flat" | "one_month" | "half_month" | "percentage">("flat");
-  const [lettingFeeAmount, setLettingFeeAmount] = useState<string>("25000");
-  const [lettingFeeDate, setLettingFeeDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [lettingFeeOwner, setLettingFeeOwner] = useState<string>("");
-  const [lettingFeeSaving, setLettingFeeSaving] = useState(false);
-  const [lettingFeeSuccess, setLettingFeeSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalUnits((rows as UnitRow[]) || []);
@@ -394,84 +389,8 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   };
 
   const openLettingFeeModalForUnit = (u?: UnitRow) => {
-    if (u) {
-      setLettingUnit(u);
-      setLettingFeeOwner(u.owner_name || "");
-      const rent = Number(u.effective_rent || u.monthly_rent || 0);
-      if (rent > 0) {
-        setLettingFeeAmount(String(rent));
-        setLettingFeeBasis("one_month");
-      } else {
-        setLettingFeeAmount("25000");
-        setLettingFeeBasis("flat");
-      }
-    } else {
-      setLettingUnit(null);
-      setLettingFeeOwner("");
-      setLettingFeeAmount("25000");
-      setLettingFeeBasis("flat");
-    }
-    setLettingFeeSuccess(null);
+    setLettingUnit(u || null);
     setLettingFeeModalOpen(true);
-  };
-
-  useEffect(() => {
-    if (window.sessionStorage.getItem("ce:open-letting-fee") !== "1") return;
-    window.sessionStorage.removeItem("ce:open-letting-fee");
-    const task = window.setTimeout(() => openLettingFeeModalForUnit(), 0);
-    return () => window.clearTimeout(task);
-  }, []);
-
-  const handleCreateLettingInvoice = async () => {
-    if (!lettingUnit) {
-      toast.error("Please select a unit to invoice the letting fee.");
-      return;
-    }
-    const feeVal = Number(lettingFeeAmount);
-    if (isNaN(feeVal) || feeVal <= 0) {
-      toast.error("Enter a valid letting fee amount.");
-      return;
-    }
-    setLettingFeeSaving(true);
-    setLettingFeeSuccess(null);
-    try {
-      await apiFetch("/auth/csrf/");
-      const payload: Record<string, any> = {
-        unit: lettingUnit.id,
-        invoice_type: "Letting Fee",
-        charge_type: "letting_fee",
-        recipient_type: "owner",
-        amount: feeVal.toFixed(2),
-        subtotal: feeVal.toFixed(2),
-        tax_rate: "0",
-        issued_on: lettingFeeDate,
-        due_on: lettingFeeDate,
-        metadata: {
-          fee_basis: lettingFeeBasis,
-          landlord_name: lettingFeeOwner,
-          negotiated: true,
-        },
-      };
-      if (lettingUnit.owner) {
-        payload.owner = lettingUnit.owner;
-      }
-      const res = await apiFetch("/property/invoices/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || (typeof err === "object" ? Object.values(err).flat().join(" ") : "Failed to issue invoice."));
-      }
-      const data = await res.json();
-      setLettingFeeSuccess(`Letting Fee Invoice ${data.number || "created"} generated for KES ${feeVal.toLocaleString()}!`);
-      toast.success("Letting fee invoice generated.");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to issue invoice.");
-    } finally {
-      setLettingFeeSaving(false);
-    }
   };
 
   return (
@@ -1055,231 +974,12 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
       )}
 
       {/* On-Demand Agency Letting Fee Invoice Modal */}
-      {lettingFeeModalOpen && (
-        <Modal
-          title={<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}><span aria-hidden="true">⚡</span> Issue agency letting-fee invoice</Box>}
-          onClose={() => setLettingFeeModalOpen(false)}
-          wide
-          footer={
-            <>
-              <Button variant="outlined" onClick={() => setLettingFeeModalOpen(false)} sx={{ textTransform: "none" }}>
-                {lettingFeeSuccess ? "Close" : "Cancel"}
-              </Button>
-              {!lettingFeeSuccess && (
-                <Button
-                  variant="contained"
-                  disabled={lettingFeeSaving || !lettingUnit || Number(lettingFeeAmount) <= 0}
-                  onClick={handleCreateLettingInvoice}
-                  sx={{ textTransform: "none", background: "#2563eb", fontWeight: 700 }}
-                >
-                  {lettingFeeSaving ? "Generating Invoice..." : "⚡ Issue Letting Invoice"}
-                </Button>
-              )}
-            </>
-          }
-        >
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.25 }}>
-            {/* Blue Ribbon Banner — Matching Staff Preview Mode Styling */}
-            <Box
-              sx={{
-                background: "linear-gradient(112deg, #123b78 0%, #1d4ed8 58%, #2563eb 100%)",
-                color: "#ffffff",
-                p: { xs: 2, sm: 2.5 },
-                borderRadius: 2.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
-              }}
-            >
-              <span style={{ fontSize: 26 }} aria-hidden="true">⚡</span>
-              <Box>
-                <Typography variant="overline" sx={{ fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,.86)" }}>
-                  Agency income · one-off charge
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.25 }}>
-                  Bill the unit owner when a tenancy is successfully placed
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.92, display: "block", mt: 0.5 }}>
-                  Select the unit, confirm the agreed commission, then review the owner invoice before issuing it.
-                </Typography>
-              </Box>
-            </Box>
-
-            {lettingFeeSuccess && (
-              <Alert severity="success" sx={{ fontWeight: 600 }}>
-                {lettingFeeSuccess}
-              </Alert>
-            )}
-
-            {!lettingFeeSuccess && (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>1. Unit and invoice recipient</Typography>
-                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1.35fr 1fr" }, gap: 1.5 }}>
-                  <Autocomplete
-                    size="small"
-                    options={units}
-                    getOptionLabel={(u) => `${u.code} (${u.tenant_name || (u.owner_name ? `Owner: ${u.owner_name}` : "Vacant")})`}
-                    value={lettingUnit}
-                    onChange={(_, newVal) => {
-                      setLettingUnit(newVal);
-                      if (newVal?.owner_name) {
-                        setLettingFeeOwner(newVal.owner_name);
-                      }
-                      const rent = Number(newVal?.effective_rent || newVal?.monthly_rent || 0);
-                      if (rent > 0 && lettingFeeBasis !== "flat") {
-                        if (lettingFeeBasis === "one_month") setLettingFeeAmount(String(rent));
-                        else if (lettingFeeBasis === "half_month") setLettingFeeAmount(String(Math.round(rent * 0.5)));
-                        else if (lettingFeeBasis === "percentage") setLettingFeeAmount(String(Math.round(rent * 0.1)));
-                      }
-                    }}
-                    renderInput={(params) => (
-                      <TextField {...params} label="Unit" placeholder="Select unit..." helperText={lettingUnit ? lettingUnit.property_name || "Selected Unit" : "Select unit to bill letting fee"} />
-                    )}
-                  />
-                  <TextField
-                    label="Landlord / Owner Name"
-                    size="small"
-                    value={lettingFeeOwner}
-                    onChange={(e) => setLettingFeeOwner(e.target.value)}
-                    placeholder="e.g. Dennis Osame"
-                    helperText="Filled from the unit ownership record"
-                    slotProps={{ input: { readOnly: Boolean(lettingUnit?.owner_name) } }}
-                  />
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
-                    2. Fee calculation
-                  </Typography>
-                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                    {[
-                      { key: "flat", label: "Negotiated Flat Amount" },
-                      { key: "one_month", label: "1 Month Rent" },
-                      { key: "half_month", label: "50% of Month Rent" },
-                      { key: "percentage", label: "10% Agency Sourcing" },
-                    ].map((item) => {
-                      const isSel = lettingFeeBasis === item.key;
-                      return (
-                        <Chip
-                          key={item.key}
-                          label={item.label}
-                          clickable
-                          color={isSel ? "primary" : "default"}
-                          onClick={() => {
-                            setLettingFeeBasis(item.key as any);
-                            const rent = Number(lettingUnit?.effective_rent || lettingUnit?.monthly_rent || 40000);
-                            if (item.key === "one_month") setLettingFeeAmount(String(rent));
-                            else if (item.key === "half_month") setLettingFeeAmount(String(Math.round(rent * 0.5)));
-                            else if (item.key === "percentage") setLettingFeeAmount(String(Math.round(rent * 0.1)));
-                            else setLettingFeeAmount("25000");
-                          }}
-                          sx={{ fontWeight: isSel ? 700 : 500 }}
-                        />
-                      );
-                    })}
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
-                  <TextField
-                    label="Letting Fee Amount (KES)"
-                    size="small"
-                    type="number"
-                    value={lettingFeeAmount}
-                    onChange={(e) => setLettingFeeAmount(e.target.value)}
-                    helperText="Final negotiated commission payable"
-                  />
-                  <TextField
-                    label="Invoice Issue Date"
-                    size="small"
-                    type="date"
-                    value={lettingFeeDate}
-                    onChange={(e) => setLettingFeeDate(e.target.value)}
-                    helperText="Date of tenancy closure / invoice"
-                    {...({ InputLabelProps: { shrink: true } } as any)}
-                  />
-                </Box>
-
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: -1 }}>3. Review and issue</Typography>
-                {/* Live Invoice Preview Breakdown Card */}
-                <Box
-                  sx={{
-                    background: "rgba(37, 99, 235, 0.04)",
-                    border: "1px solid rgba(37, 99, 235, 0.2)",
-                    borderRadius: "8px",
-                    p: 2,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1,
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#1e40af", display: "flex", alignItems: "center", gap: 1 }}>
-                    <span>🧾</span> Invoice Preview Breakdown
-                  </Typography>
-
-                  {lettingUnit ? (
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1, fontSize: 13, pt: 0.5 }}>
-                      <div>
-                        <span style={{ color: "var(--text-secondary)" }}>Target Unit:</span>{" "}
-                        <strong>{lettingUnit.code}</strong>{" "}
-                        <span style={{ fontSize: 11, color: lettingUnit.tenant_name ? "#16a34a" : "#ca8a04" }}>
-                          ({lettingUnit.tenant_name ? `Leased: ${lettingUnit.tenant_name}` : "Vacant"})
-                        </span>
-                      </div>
-                      <div>
-                        <span style={{ color: "var(--text-secondary)" }}>Recipient (Owner):</span>{" "}
-                        <strong>{lettingFeeOwner || lettingUnit.owner_name || "Unassigned"}</strong>
-                      </div>
-                      <div>
-                        <span style={{ color: "var(--text-secondary)" }}>Calculation Basis:</span>{" "}
-                        <strong>
-                          {lettingFeeBasis === "one_month"
-                            ? "1 Month Rent"
-                            : lettingFeeBasis === "half_month"
-                            ? "50% Month Rent"
-                            : lettingFeeBasis === "percentage"
-                            ? "10% Agency Sourcing"
-                            : "Flat Negotiated"}
-                        </strong>
-                      </div>
-                      <div>
-                        <span style={{ color: "var(--text-secondary)" }}>Effective Rent:</span>{" "}
-                        <strong>KES {Number(lettingUnit.effective_rent || lettingUnit.monthly_rent || 0).toLocaleString()}</strong>
-                      </div>
-                      <Box sx={{ gridColumn: "1 / -1", pt: 1, borderTop: "1px dashed rgba(37, 99, 235, 0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: 600, color: "#1e40af" }}>Total Amount to Invoice:</span>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: "#1e40af" }}>
-                          KES {Number(lettingFeeAmount || 0).toLocaleString()}
-                        </span>
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: "var(--text-secondary)", fontStyle: "italic", fontSize: 12 }}>
-                      Select a unit above to view the real-time invoice breakdown and enable invoicing.
-                    </Typography>
-                  )}
-                </Box>
-
-                <Box
-                  sx={{
-                    background: "var(--surface-2)",
-                    p: 1.5,
-                    borderRadius: "6px",
-                    border: "1px solid var(--border)",
-                    fontSize: 12,
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  💼 <strong>Collection Route:</strong> Payment is collected directly into the Estate Agency Commission Account. An immediate draft invoice reference will be allocated and ready for handover or remittance deduction.
-                </Box>
-              </Box>
-            )}
-          </Box>
-        </Modal>
-      )}
+      <LettingFeeModal
+        open={lettingFeeModalOpen}
+        onClose={() => setLettingFeeModalOpen(false)}
+        units={units}
+        initialUnit={lettingUnit}
+      />
 
       {billingUnit && <UnitBillingScheduleDrawer unit={billingUnit} onClose={() => setBillingUnit(null)} />}
     </>

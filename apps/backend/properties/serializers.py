@@ -439,6 +439,8 @@ class ExitClearanceSerializer(serializers.ModelSerializer):
 
 class LandlordInvoiceSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
+    owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
+    owner_code = serializers.CharField(source='owner.code', read_only=True, default='')
 
     class Meta:
         model = LandlordInvoice
@@ -451,6 +453,9 @@ class LandlordInvoiceSerializer(serializers.ModelSerializer):
         prop = attrs.get('property')
         if prop and prop.organization_id != organization.id:
             raise serializers.ValidationError({'property': 'Property must belong to the active organization.'})
+        owner = attrs.get('owner')
+        if owner and owner.organization_id != organization.id:
+            raise serializers.ValidationError({'owner': 'Owner must belong to the active organization.'})
         return attrs
 
 
@@ -585,6 +590,9 @@ class InvoiceSerializer(serializers.ModelSerializer):
     tenant_id = serializers.SerializerMethodField()
     owner_name = serializers.CharField(source='owner.name', read_only=True, default='')
     owner_id = serializers.UUIDField(source='owner.id', read_only=True, default=None)
+    unit_owner_name = serializers.SerializerMethodField()
+    unit_owner_id = serializers.SerializerMethodField()
+    unit_id = serializers.SerializerMethodField()
     property_name = serializers.SerializerMethodField()
     unit_code = serializers.SerializerMethodField()
     collection_account_details = PropertyCollectionAccountSerializer(source='collection_account', read_only=True)
@@ -605,6 +613,29 @@ class InvoiceSerializer(serializers.ModelSerializer):
     def get_tenant_id(self, obj):
         if obj.lease and obj.lease.tenant:
             return str(obj.lease.tenant.id)
+        return None
+
+    def get_unit_id(self, obj):
+        if obj.unit_id:
+            return str(obj.unit_id)
+        if obj.lease and obj.lease.unit_id:
+            return str(obj.lease.unit_id)
+        return None
+
+    def get_unit_owner_name(self, obj):
+        if obj.owner:
+            return obj.owner.name
+        unit = obj.unit or (obj.lease.unit if obj.lease else None)
+        if unit and unit.owner:
+            return unit.owner.name
+        return ''
+
+    def get_unit_owner_id(self, obj):
+        if obj.owner_id:
+            return str(obj.owner_id)
+        unit = obj.unit or (obj.lease.unit if obj.lease else None)
+        if unit and unit.owner_id:
+            return str(unit.owner_id)
         return None
 
     def get_unit_code(self, obj):

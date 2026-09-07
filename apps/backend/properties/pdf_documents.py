@@ -23,7 +23,7 @@ from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
 
-from .models import CreditNote, Expense, Invoice, Lease, Receipt
+from .models import CreditNote, Expense, Invoice, LandlordInvoice, Lease, Receipt
 
 
 RED = colors.HexColor("#dc2626")
@@ -163,6 +163,7 @@ def _doc_response(
     period="As at date of generation",
     generated_by="CeEst",
     pagesize_override=None,
+    disposition="inline",
 ):
     buffer = BytesIO(); pagesize = pagesize_override or (landscape(A4) if wide else A4)
     brand = _branding(organization)
@@ -218,7 +219,7 @@ def _doc_response(
     doc.addPageTemplates(PageTemplate(id="document", frames=[Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="body")], onPage=decorate))
     doc.build(story)
     response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
     response["Cache-Control"] = "private, no-store"
     return response
 
@@ -305,7 +306,168 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
     story.extend([Spacer(1, 5 * mm), Paragraph("Payment details", s["Section"]), Paragraph(" · ".join(filter(None, [bank.get("bank_name"), bank.get("branch"), bank.get("account_name"), bank.get("account_number")] )) or "Use the payment instructions shown in the tenant portal.", s["Small"])])
     fiscal = metadata.get("fiscal", {})
     if fiscal: story.extend([Spacer(1, 3 * mm), Paragraph("Fiscal details", s["Section"]), Paragraph(" · ".join(f"{str(k).replace('_', ' ').title()}: {v}" for k, v in fiscal.items()), s["Tiny"])])
-    return _doc_response(invoice.organization, f"invoice-{invoice.number}.pdf", story, title="Tax Invoice", property_name=prop.name, period=f"Invoice date: {invoice.issued_on:%d %b %Y}", generated_by=generated_by)
+    return _doc_response(invoice.organization, f"invoice-{invoice.number}.pdf", story, title="Tax Invoice", property_name=prop.name, period=f"Invoice date: {invoice.issued_on:%d %b %Y}", generated_by=generated_by, disposition="inline")
+
+
+def landlord_invoice_pdf(invoice: LandlordInvoice, generated_by="System", disposition="inline"):
+    s = _styles()
+    prop = invoice.property
+    owner = invoice.owner
+    metadata = invoice.metadata or {}
+
+    is_letting = invoice.fee_type == LandlordInvoice.FeeType.LETTING
+    fee_label = "Tenant Placement & Letting Fee" if is_letting else "Property Management Commission"
+    doc_title = "INVOICE"
+    vat_pct = int(invoice.vat_rate) if invoice.vat_rate and int(invoice.vat_rate) > 0 else 0
+
+    story = [
+        Paragraph(f"Invoice no. <b>{invoice.number}</b>", s["Small"]),
+        Spacer(1, 1 * mm),
+        Paragraph(fee_label, s["Small"]),
+        Spacer(1, 4 * mm),
+    ]
+
+    owner_code = getattr(owner, "code", "") or metadata.get("owner_code", "")
+    owner_pin = invoice.landlord_pin or getattr(owner, "pin_number", "") or "—"
+    settlement_bank = ""
+    if owner:
+        bank_parts = list(filter(None, [
+            owner.settlement_bank_name,
+            f"A/C: {owner.settlement_bank_account}" if owner.settlement_bank_account else "",
+            f"Branch: {owner.settlement_bank_branch}" if owner.settlement_bank_branch else "",
+            f"Paybill/Till: {owner.settlement_paybill_or_till}" if owner.settlement_paybill_or_till else "",
+        ]))
+        settlement_bank = " · ".join(bank_parts)
+
+    units_display = metadata.get("units_display") or (
+        ", ".join(metadata.get("units", [])) if metadata.get("units") else (
+            f"{owner.units.count()} Units" if (owner and owner.units.exists()) else f"{prop.name} Unit(s)"
+        )
+    )
+
+    story.append(_info_table([
+        ("Landlord / Owner", invoice.landlord_name, "Invoice Date", invoice.issued_on.strftime("%d %b %Y") if invoice.issued_on else "—"),
+        ("Owner Account", owner_code or "—", "Due Date", invoice.due_on.strftime("%d %b %Y") if invoice.due_on else "—"),
+        ("Landlord KRA PIN", owner_pin, "Billing Period", invoice.billing_period),
+        ("Property", prop.name, "Fee Category", fee_label),
+        ("Premises / Units", units_display, "Invoice Status", invoice.status.upper()),
+    ], s))
+
+    story.extend([Spacer(1, 5 * mm), Paragraph("Service & Fee Breakdown", s["Section"])])
+
+    vat_header = f"VAT ({vat_pct}%)" if vat_pct > 0 else "VAT"
+    data = [["DESCRIPTION", "BASE / COLLECTIONS", "RATE", "NET FEE", vat_header, "TOTAL PAYABLE"]]
+    # Use notes as the primary description — it contains the actionable detail
+    if invoice.notes:
+        desc = invoice.notes
+        desc_sub = fee_label
+    else:
+        desc = fee_label
+        if invoice.fee_type == LandlordInvoice.FeeType.MANAGEMENT:
+            desc_sub = f"Commission on gross tenant collections for {invoice.billing_period}"
+        else:
+            desc_sub = f"Tenant onboarding & placement commission — {prop.name}"
+
+    full_desc = f"{desc}<br/><font color='#475569' size='7'>{desc_sub}</font>"
+
+    data.append([
+        Paragraph(full_desc, s["Small"]),
+        _money(invoice.gross_collections) if not is_letting else "N/A",
+        f"{invoice.fee_rate:g}%" if invoice.fee_rate else "Flat",
+        f"{invoice.fee_amount:,.2f}",
+        f"{invoice.vat_amount:,.2f}" if vat_pct > 0 else "Exempt",
+        f"{invoice.total_amount:,.2f}",
+    ])
+
+    table = Table(data, colWidths=[65 * mm, 30 * mm, 18 * mm, 24 * mm, 20 * mm, 26 * mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("GRID", (0, 0), (-1, -1), .35, LINE),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.extend([table, Spacer(1, 5 * mm)])
+
+    if is_letting:
+        # Letting fee: agency charges the landlord — no collections context
+        settlement_rows = [
+            ["Agency Letting / Placement Fee", _money(invoice.fee_amount)],
+        ]
+        if vat_pct > 0:
+            settlement_rows.append([f"Value Added Tax (VAT {vat_pct}%)", _money(invoice.vat_amount)])
+        settlement_rows.append(["TOTAL INVOICE PAYABLE", _money(invoice.total_amount)])
+    else:
+        settlement_rows = [
+            ["Gross Rent Collections Receipted", _money(invoice.gross_collections)],
+            ["Less Agency Fee (excl. VAT)", f"-{_money(invoice.fee_amount)}"],
+        ]
+        if vat_pct > 0:
+            settlement_rows.append([f"Less Value Added Tax (VAT {vat_pct}%)", f"-{_money(invoice.vat_amount)}"])
+        settlement_rows.append(["Total Management/Agency Invoiced", _money(invoice.total_amount)])
+        if invoice.deductions and Decimal(str(invoice.deductions)) > 0:
+            settlement_rows.append(["Less Maintenance & Withholding Deductions", f"-{_money(invoice.deductions)}"])
+        settlement_rows.append(["NET LANDLORD REMITTANCE PAYOUT", _money(invoice.net_payout)])
+
+    totals = Table(settlement_rows, colWidths=[70 * mm, 45 * mm], hAlign="RIGHT")
+    totals.setStyle(TableStyle([
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("LINEBELOW", (0, 0), (-1, -2), .3, LINE),
+        ("BACKGROUND", (0, -1), (-1, -1), GREEN),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(totals)
+
+    story.extend([
+        Spacer(1, 4 * mm),
+        Paragraph(f"<b>Amount in Words:</b> {amount_in_words(invoice.total_amount)}", s["Tiny"]),
+    ])
+
+    if not is_letting:
+        story.extend([
+            Spacer(1, 2 * mm),
+            Paragraph(f"<b>Net Remittance Payable to Landlord:</b> {_money(invoice.net_payout)} ({amount_in_words(invoice.net_payout)})", s["Tiny"]),
+        ])
+
+    if settlement_bank:
+        story.extend([
+            Spacer(1, 4 * mm),
+            Paragraph("Designated Payment Account", s["Section"]),
+            Paragraph(settlement_bank, s["Small"]),
+        ])
+
+    if is_letting:
+        note_text = ("This invoice constitutes a formal agency fee note for tenant placement and letting services rendered under the Property Management Agreement. "
+                     "Payment is due upon receipt and may be settled by direct bank transfer or deducted from the first tenant rent remittance.")
+    else:
+        note_text = ("This document constitutes an official Invoice for property management services rendered in accordance with the Property Management Agreement. "
+                     "Agency fees are deducted from gross tenant collections, and the net remittance is scheduled for disbursement to the landlord's designated account above.")
+
+    story.extend([
+        Spacer(1, 4 * mm),
+        Paragraph("Note", s["Section"]),
+        Paragraph(note_text, s["Tiny"]),
+    ])
+
+    return _doc_response(
+        invoice.organization,
+        f"landlord-invoice-{invoice.number}.pdf",
+        story,
+        title=doc_title,
+        property_name=prop.name,
+        period=f"Billing Period: {invoice.billing_period}",
+        generated_by=generated_by,
+        disposition=disposition,
+    )
 
 
 def receipt_pdf(receipt: Receipt, generated_by="System"):

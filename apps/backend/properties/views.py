@@ -130,7 +130,7 @@ def _allocate_payment_receipt(intent, receipt, user):
         invoice.save(update_fields=('balance', 'status', 'updated_at'))
     return [invoice for invoice, _amount in allocations]
 from .pdf_documents import (
-    arrears_aging_pdf, income_expenditure_pdf, invoice_pdf, receipt_pdf, service_charge_reconciliation_pdf,
+    arrears_aging_pdf, income_expenditure_pdf, invoice_pdf, landlord_invoice_pdf, receipt_pdf, service_charge_reconciliation_pdf,
     tabular_report_pdf, tenant_payment_status_pdf, tenant_payment_status_rows, tenant_statement_pdf,
 )
 
@@ -5395,9 +5395,20 @@ class CreditNoteViewSet(OrganizationModelViewSet):
 
 class LandlordInvoiceViewSet(OrganizationModelViewSet):
     write_permission = 'property.finance'
-    queryset = LandlordInvoice.objects.select_related('property')
+    queryset = LandlordInvoice.objects.select_related('property', 'owner')
     serializer_class = LandlordInvoiceSerializer
     search_fields = ('number', 'landlord_name', 'property__name', 'billing_period')
+    filterset_fields = ('property', 'owner', 'fee_type', 'status', 'billing_period')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        owner_id = self.request.query_params.get('owner') or self.request.query_params.get('owner_id')
+        if owner_id:
+            qs = qs.filter(Q(owner_id=owner_id) | Q(metadata__owner_id=str(owner_id)))
+        fee_type = self.request.query_params.get('fee_type')
+        if fee_type:
+            qs = qs.filter(fee_type=fee_type)
+        return qs
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
@@ -5406,12 +5417,28 @@ class LandlordInvoiceViewSet(OrganizationModelViewSet):
         fee_type = serializer.validated_data.get('fee_type', LandlordInvoice.FeeType.MANAGEMENT)
         gross = serializer.validated_data.get('gross_collections', 0)
         rate = serializer.validated_data.get('fee_rate', 0)
-        fee_amount = (gross * rate / 100).quantize(Decimal('0.01'))
+        
+        # If fee_amount is explicitly provided (such as for letting/placement fees), prioritize it
+        fee_amount = serializer.validated_data.get('fee_amount')
+        if fee_amount is None or fee_amount <= 0:
+            fee_amount = (gross * rate / 100).quantize(Decimal('0.01'))
+        else:
+            fee_amount = Decimal(str(fee_amount)).quantize(Decimal('0.01'))
+            
         vat_rate = serializer.validated_data.get('vat_rate', Decimal('16.00'))
         vat_amount = (fee_amount * vat_rate / 100).quantize(Decimal('0.01'))
         total = fee_amount + vat_amount
         deductions = serializer.validated_data.get('deductions', 0)
-        net_payout = gross - fee_amount - vat_amount - deductions
+        net_payout = (gross - fee_amount - vat_amount - deductions) if gross > 0 else Decimal('0.00')
+
+        # Resolve owner if provided or infer from name
+        owner = serializer.validated_data.get('owner')
+        if not owner:
+            owner_id = self.request.data.get('owner_id') or serializer.validated_data.get('metadata', {}).get('owner_id')
+            if owner_id:
+                owner = Owner.objects.filter(organization=organization, id=owner_id).first()
+            elif serializer.validated_data.get('landlord_name'):
+                owner = Owner.objects.filter(organization=organization, name__iexact=serializer.validated_data['landlord_name']).first()
 
         # Auto-generate number
         year = billing_period[:4] if billing_period else str(timezone.localdate().year)
@@ -5422,7 +5449,7 @@ class LandlordInvoiceViewSet(OrganizationModelViewSet):
         number = f'LB-{year}-{(max(numbers) + 1) if numbers else 1:06d}'
 
         serializer.save(
-            organization=organization, number=number,
+            organization=organization, number=number, owner=owner,
             fee_amount=fee_amount, vat_amount=vat_amount,
             total_amount=total, net_payout=net_payout,
             issued_on=timezone.localdate(),
@@ -5433,6 +5460,16 @@ class LandlordInvoiceViewSet(OrganizationModelViewSet):
         if instance.status != LandlordInvoice.Status.DRAFT:
             raise ValidationError({'status': 'Only draft invoices can be deleted.'})
         instance.delete()
+
+    @action(detail=True, methods=('get',), url_path='pdf')
+    def pdf(self, request, pk=None):
+        invoice = self.get_object()
+        disposition = 'inline' if request.query_params.get('view') == 'inline' else 'attachment'
+        return landlord_invoice_pdf(
+            invoice,
+            generated_by=request.user.get_full_name() or request.user.get_username(),
+            disposition=disposition,
+        )
 
     @transaction.atomic
     @action(detail=True, methods=('post',))

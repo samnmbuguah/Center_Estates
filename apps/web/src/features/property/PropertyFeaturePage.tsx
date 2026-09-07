@@ -114,10 +114,6 @@ export function PropertyFeaturePage({
             setBillingSection={logic.setBillingSection}
             onNavigateBilling={(t) => logic.setTab(t as PropertyTab)}
             onSingleInvoice={(ctx) => logic.openInvoiceComposer(ctx)}
-            onLettingFeeInvoice={() => {
-              window.sessionStorage.setItem("ce:open-letting-fee", "1");
-              logic.setTab("units");
-            }}
             rows={logic.rows}
             rentInvoices={logic.rentInvoices}
             creditNotes={logic.creditNotes}
